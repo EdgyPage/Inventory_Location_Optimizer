@@ -450,12 +450,17 @@ class ReorderMixin:
                 still.append([sku, qty, rem])
         self._lead_queue = still
 
-    def _drain_putaway(self) -> None:
-        """Place the stock queue into bins (retries prior-batch stragglers too)."""
-        if self._stock_queue:
-            self._stock()
+    def _drain_putaway(self, deadline: float | None = None) -> None:
+        """Place the stock queue into bins (retries prior-batch stragglers too).
 
-    def check_reorders(self) -> list[int]:
+        `deadline` is the day's whistle on the put crews' batch-local clocks; what the
+        whistle stops stays queued and is drained by the next batch, which is the put side
+        of "work that does not complete rolls over to the next shift".
+        """
+        if self._stock_queue:
+            self._stock(deadline=deadline)
+
+    def check_reorders(self, put_deadline: float | None = None) -> list[int]:
         """Order-Up-To replenishment through an explicit, deterministic lead queue.
 
         Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
@@ -472,6 +477,12 @@ class ReorderMixin:
         Inventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a
         SKU with an order already in flight is not reordered again.
 
+        `put_deadline` is the day's whistle for step 4 only, in seconds on the put crews'
+        batch-local clocks.  It reaches nothing above it on purpose: steps 0-3 are the
+        CALENDAR advancing — a lead time elapses whether or not anyone is at work, and a
+        trailer that arrives at four o'clock has still arrived.  What the day bounds is the
+        LABOUR, and the labour is step 4.
+
         THE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can
         drive them separately, but reordering them changes results: firing before the lead
         tick would decrement an order in the batch it was placed, and releasing before
@@ -482,5 +493,5 @@ class ReorderMixin:
         self._advance_lead_queue()
         triggered = self._fire_reorders()
         self._release_arrivals()
-        self._drain_putaway()
+        self._drain_putaway(put_deadline)
         return triggered

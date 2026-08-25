@@ -141,13 +141,53 @@ def test_every_phase_is_callable_on_a_fresh_manager():
 
 def test_the_phase_list_here_matches_the_composition():
     """A phase added to `check_reorders` and not to `PHASES` would leave every ordering
-    assertion above passing while checking a subset."""
+    assertion above passing while checking a subset.
+
+    Matched on `self.<name>(` rather than `self.<name>()`: a phase may take arguments —
+    `_drain_putaway` takes the day's whistle — and requiring the empty call would have made
+    the ratchet fail on a phase it was still checking.
+    """
     import inspect
     from Warehouse.inventory import inventory_reorder
     src = inspect.getsource(inventory_reorder.ReorderMixin.check_reorders)
-    called = [n for n in PHASES if f'self.{n}()' in src]
+    called = [n for n in PHASES if f'self.{n}(' in src]
     assert called == list(PHASES), f'composition calls {called}'
     # and nothing else that looks like a phase
     import re
-    every = re.findall(r'self\.(_?\w+)\(\)', src)
+    every = re.findall(r'self\.(_?\w+)\(', src)
     assert set(every) == set(PHASES), f'unexpected calls in the composition: {set(every) - set(PHASES)}'
+
+
+# ── the whistle reaches the labour and nothing above it ───────────────────────────
+
+def test_the_put_deadline_reaches_only_the_drain():
+    """`check_reorders` takes the day's whistle and hands it to step 4 alone.
+
+    The calendar above it must NOT see it: a lead time elapses whether or not anyone is at
+    work, and a trailer that arrives at four o'clock has still arrived. What the day bounds
+    is the LABOUR. If the deadline leaked into `_advance_lead_queue` or `_release_arrivals`,
+    a short day would stop time itself rather than stopping the crew.
+    """
+    mgr = _manager()
+    seen = {}
+    for name in PHASES:
+        def cap(*a, _n=name, **kw):
+            seen[_n] = (a, kw)
+        setattr(mgr, name, cap)
+
+    mgr.check_reorders(put_deadline=1234.5)
+
+    assert set(seen) == set(PHASES), 'a phase was not called'
+    assert seen['_drain_putaway'] == ((1234.5,), {})
+    for name in PHASES:
+        if name != '_drain_putaway':
+            assert seen[name] == ((), {}), f'{name} was handed the day\'s whistle'
+
+
+def test_the_default_deadline_is_none():
+    """Every caller that predates the day cut, and every run that does not ask for one."""
+    mgr = _manager()
+    got = []
+    mgr._drain_putaway = lambda d=None: got.append(d)
+    mgr.check_reorders()
+    assert got == [None]

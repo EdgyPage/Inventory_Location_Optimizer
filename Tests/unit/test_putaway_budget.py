@@ -185,11 +185,18 @@ def test_the_ranked_budget_is_spent_per_wave_not_per_unit():
 
 def test_a_ranked_drain_with_no_budget_still_reaches_the_per_unit_fallback():
     """The fallback is what keeps the ranked queue bounded; the budget arithmetic must not
-    have cut it off."""
+    have cut it off.
+
+    Whitespace-normalized before matching. The literal form broke the first time the call
+    grew an argument and wrapped across two lines — a formatting change reported as "the
+    ranked drain no longer hands its stragglers to the per-unit path", which is a false
+    alarm of exactly the kind that teaches people to edit the assertion rather than read it.
+    """
     import inspect
-    src = inspect.getsource(Inventory_Manager._stock_ranked)
-    assert '_stock_per_unit(None if budget is None else max(0, budget - placed), queue)' \
-        in src, 'the ranked drain no longer hands its stragglers to the per-unit path'
+    import re
+    src = re.sub(r'\s+', ' ', inspect.getsource(Inventory_Manager._stock_ranked))
+    assert '_stock_per_unit(None if budget is None else max(0, budget - placed),' in src, \
+        'the ranked drain no longer hands its stragglers to the per-unit path'
 
 
 # ── a repack must not consume budget ─────────────────────────────────────────────

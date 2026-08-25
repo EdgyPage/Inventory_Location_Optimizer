@@ -976,7 +976,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         return (self._sigma_freq.get(sku, 0.0)
                 * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
-    def _stock(self, budget: int | None = None) -> None:
+    def _stock(self, budget: int | None = None, deadline: float | None = None) -> None:
         """Dispatch the queued wave to the placement policy: a ranked wave if the
         policy carries a ``place_wave``, otherwise the per-unit path.  Single entry
         used by enqueue/enqueue_all (initial stock) and check_reorders (reorders).
@@ -989,6 +989,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         A budget is what a finite crew and a finite number of dock doors impose: the
         parameter exists so that constraint has somewhere to go without the drain being
         rewritten around it.
+
+        ``deadline`` is the WHISTLE, in seconds on the crews' batch-local clocks: a putter
+        already past it starts nothing new, and what is left rolls into the next call.  The
+        two constraints are independent and both are checked -- a budget is people, a
+        deadline is the clock, and a warehouse can run out of either first.  ``None`` is
+        every run that does not ask for a day cut.
 
         Runs the coupling guard first — even on an empty queue — so an armed/fn
         mismatch fails loudly before any placement: when travel costs are armed,
@@ -1028,11 +1034,16 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                     break
                 if not queue.items:
                     continue
+                # The whistle, checked before the queue is entered as well as inside
+                # the drain: a crew already out of day should not be handed a wave only to
+                # put it straight back.
+                if not queue.can_start(deadline):
+                    continue
                 before = self._placed_this_call
                 if self.placement.is_ranked:
-                    self._stock_ranked(budget, queue)
+                    self._stock_ranked(budget, queue, deadline)
                 else:
-                    self._stock_per_unit(budget, queue)
+                    self._stock_per_unit(budget, queue, deadline)
                 spent = self._placed_this_call - before
                 queue.placed += spent
                 if budget is not None:
@@ -1044,6 +1055,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 break
             if budget is not None and budget <= 0:
                 break
+            # Every crew is out of day: another pass would admit held items onto a floor
+            # nobody can work, inflating `admitted` for work that cannot start.
+            if not any(q.can_start(deadline) for q in self.put_queues):
+                break
             if self._placed_this_call == _before_pass:
                 break
             if _passes >= _MAX_REFILL_PASSES:
@@ -1053,8 +1068,26 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                     'cannot clear it, and this call is giving up rather than spinning',
                     _MAX_REFILL_PASSES, len(self._held))
                 break
+        # WHAT THE WHISTLE COST, counted once and outside the loop.  The three gates above
+        # each defer work without counting it, deliberately: any of them can fire on several
+        # refill passes, and a counter incremented inside the loop would report how many
+        # passes the drain happened to need rather than how much work the day boundary left
+        # standing -- the exact defect `blocked` was fixed for.
+        #
+        # Safe to compute afterwards because a clock only ever advances: a queue that could
+        # not start during the drain still cannot start now, so what remains on it is
+        # precisely what the whistle stopped.
+        #
+        # `_held` is NOT counted.  A held item was refused FLOOR SPACE and never reached a
+        # queue; that is `blocked`, a different problem with a different fix, and the two
+        # counters are worth having only while they stay disjoint.
+        if deadline is not None:
+            for queue in self.put_queues:
+                if queue.items and not queue.can_start(deadline):
+                    queue.cut += len(queue.items)
 
-    def _stock_per_unit(self, budget: int | None = None, queue=None) -> None:
+    def _stock_per_unit(self, budget: int | None = None, queue=None,
+                        deadline: float | None = None) -> None:
         """Place queued StorageUnit objects one at a time via placement.place_one.
 
         Used for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked
@@ -1068,6 +1101,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         ``budget`` caps PLACEMENTS, not pops: a repack splits one unit into several and
         pushes them back, and charging a budget for that would make the cap depend on how
         badly the warehouse is packed rather than on how much the crew can move.
+
+        ``deadline`` is the day's whistle on the crew's batch-local clock; see `_stock`.
+        Checked per unit rather than once, because each put advances the clock that decides
+        it -- a crew with ten minutes left takes as many units as fit in ten minutes.
         """
         queue = queue if queue is not None else self.put_queues.queues[0]
         waiting = queue.items          # NOT `q`: the repack loop below uses that for a
@@ -1078,6 +1115,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             if budget is not None and placed >= budget:
                 # Budget spent.  Everything still queued waits for the next call — the same
                 # deferral a unit gets when no bin fits it, so nothing new can be dropped.
+                pending.extend(waiting)
+                waiting.clear()
+                break
+            if not queue.can_start(deadline):
+                # The whistle.  Identical deferral to the budget above; only the reason
+                # differs.  NOT counted here -- `_stock` counts what is left once, after the
+                # drain, because this line can run on several refill passes.
                 pending.extend(waiting)
                 waiting.clear()
                 break
@@ -1394,7 +1438,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             return units                     # the answer, and the window cannot change it
         return _windowed(units, keys, k)
 
-    def _stock_ranked(self, budget: int | None = None, queue=None) -> None:
+    def _stock_ranked(self, budget: int | None = None, queue=None,
+                      deadline: float | None = None) -> None:
         """Ranked placement: sort units by pick-effort priority, then drain.
 
         Groups the queue by BinKey (handling, category, storage_size, unit_type)
@@ -1414,6 +1459,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         that assumed the rest landed too.  So the check happens BEFORE the wave is called:
         a group that cannot be afforded is requeued untouched, having never influenced an
         aisle balance.  A wave is the atom.
+
+        ``deadline`` is spent the same way and for the same reason: a wave the crew cannot
+        start before the whistle is requeued untouched rather than half-placed.  The clock
+        moves DURING a wave (every `_execute_placement` charges its queue), so a wave that
+        begins before the whistle can end after it -- that is the bounded overtime the gate
+        is defined to allow, and it is why the check is per group rather than per unit.
         """
         queue = queue if queue is not None else self.put_queues.queues[0]
         waiting = queue.items
@@ -1438,6 +1489,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             if budget is not None and placed >= budget:
                 # Cannot afford this wave: requeue it whole, WITHOUT scoring it, so no
                 # aisle balance moves for units that are not going to be placed.
+                waiting.extend(items)
+                continue
+            if not queue.can_start(deadline):
+                # The whistle, on the same terms as the budget above: the wave is requeued
+                # whole and unscored.  Counted by `_stock`, once, after the drain.
                 waiting.extend(items)
                 continue
             # `place_wave` takes and returns bare units, so the envelope is re-attached by
@@ -1494,6 +1550,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             # The stragglers this wave shed, on the SAME queue: a unit the group path could
             # not fit must not be re-routed, and its queue's tolerance does not apply here
             # because the per-unit path has no ordering to constrain.
-            self._stock_per_unit(None if budget is None else max(0, budget - placed), queue)
+            self._stock_per_unit(None if budget is None else max(0, budget - placed),
+                                 queue, deadline)
 
 

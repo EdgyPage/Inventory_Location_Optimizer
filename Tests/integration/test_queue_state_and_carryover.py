@@ -46,11 +46,11 @@ def _rows(path, sql, args=()):
 
 STATE = [
     {'batch_id': 0, 'queue': 'store_cart', 'depth': 3, 'oldest_age': 11, 'staging': None,
-     'admitted': 9, 'placed': 6, 'blocked': 0},
+     'admitted': 9, 'placed': 6, 'blocked': 0, 'cart_swaps': 2, 'cut': 0},
     {'batch_id': 0, 'queue': 'store_pallet', 'depth': 40, 'oldest_age': 2, 'staging': 40,
-     'admitted': 12, 'placed': 5, 'blocked': 7},
+     'admitted': 12, 'placed': 5, 'blocked': 7, 'cart_swaps': 0, 'cut': 40},
     {'batch_id': 1, 'queue': 'store_cart', 'depth': 0, 'oldest_age': None, 'staging': None,
-     'admitted': 4, 'placed': 7, 'blocked': 0},
+     'admitted': 4, 'placed': 7, 'blocked': 0, 'cart_swaps': 1, 'cut': 0},
 ]
 CARRY = [(0, 'unplaced', 101, 8), (0, 'held', 101, 14), (0, 'held', 102, 3),
          (1, 'unplaced', 103, 2)]

@@ -116,7 +116,7 @@ class PutQueueSpec:
 class PutQueue:
     """One spec plus the items waiting under it."""
 
-    __slots__ = ('spec', 'items', 'admitted', 'placed', 'blocked',
+    __slots__ = ('spec', 'items', 'admitted', 'placed', 'blocked', 'cut',
                  'clocks', 'speed', 'cost',
                  'cart_cap', 'cart_remaining', 'cart_swaps')
 
@@ -141,6 +141,11 @@ class PutQueue:
             spec.cart.capacity()) if spec.cart is not None else 0.0
         self.cart_remaining: float = self.cart_cap
         self.cart_swaps: int = 0
+        #: Items this queue still held when the day's whistle stopped it, this batch.  A
+        #: FLOW counter like `blocked`: it says what the boundary cost, where `depth` says
+        #: what is standing.  Both are needed -- a deep queue that the whistle never reached
+        #: and a shallow one it cut hard are different problems.
+        self.cut: int = 0
 
     def __len__(self):
         return len(self.items)
@@ -205,6 +210,24 @@ class PutQueue:
     def crew_size(self) -> int:
         return len(self.clocks) if self.clocks else 0
 
+    def can_start(self, deadline: float | None) -> bool:
+        """Is anyone on this crew free to BEGIN a put before `deadline`?
+
+        `deadline` is on the same batch-local clock the crew's clocks run on, which is what
+        lets the caller state a day boundary without knowing the batch epoch (see
+        `Inventory_Manager.drain_putaway_records` for why that epoch is not available here).
+
+        A START gate, not a completion gate: the put running when the whistle blows finishes,
+        because a putter does not set a pallet down halfway up an aisle. Overtime is bounded
+        by one put per worker.
+
+        True when untimed -- a queue with no crew has no clock to be past, and every run that
+        does not ask for a cut passes None here anyway.
+        """
+        if deadline is None or not self.clocks:
+            return True
+        return min(self.clocks) < deadline
+
     @property
     def finish(self) -> float:
         """When the last worker on this queue becomes free, on the batch-local clock."""
@@ -254,8 +277,8 @@ class PutQueue:
         out = {'queue': self.spec.name, 'depth': len(self.items),
                'oldest_age': self.oldest_age, 'staging': self.spec.staging,
                'admitted': self.admitted, 'placed': self.placed, 'blocked': self.blocked,
-               'cart_swaps': self.cart_swaps}
-        self.admitted = self.placed = self.blocked = self.cart_swaps = 0
+               'cart_swaps': self.cart_swaps, 'cut': self.cut}
+        self.admitted = self.placed = self.blocked = self.cart_swaps = self.cut = 0
         return out
 
 

@@ -804,11 +804,38 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     for i in range(start_i, n_batches):
         _t = time.perf_counter()
         bin_rec.begin_batch(i)
+        # THE RELEASE INSTANT, COMPUTED BEFORE ANY WORK IS DISPATCHED.  It used to be
+        # computed twice, two hundred lines below, once per branch -- which was correct for
+        # the pickers and useless to the put crews, because `check_reorders` drains put-away
+        # at the top of this loop and would have had to guess its own day.  Both old sites
+        # read the same `arm_clock` this one does (nothing between here and them touches it),
+        # so hoisting is byte-identical; it also stops the two branches from being able to
+        # disagree about when batch i started.
+        #
+        # `release_at` can only push the release LATER.  The model has no picker contention:
+        # a crew cannot begin batch i+1 while it is still working batch i, so it clamps to
+        # the instant the arm is actually free.  That clamp erases the fact that a slot was
+        # missed, so `missed_by` is recorded on the row.  Under the continuous default the
+        # clock is returned unchanged and `missed_by` is 0.0.
+        _late     = _release.missed_by(i, arm_clock)
+        arm_clock = _release.release_at(i, arm_clock)
+        # The whistle for the day this batch was released into.  None keeps every worker --
+        # picker and putter alike -- running to the end of its work, which is every run that
+        # does not ask for a cut.
+        _day_end = (_release.day.end_of(_release.day.index_of(arm_clock))
+                    if _cut_at_day_end else None)
+        # The put crews' clocks run from 0 within a batch and are offset onto the absolute
+        # axis afterwards (see `drain_putaway_records`), so their whistle has to be stated in
+        # the same relative terms: how much of the day is left when they pick this wave up.
+        # They pick it up when the wave is released OR when they finish the last one --
+        # whichever is later, which is exactly the `_put_base` the event rows use below.
+        _put_deadline = (None if _day_end is None
+                         else _day_end - max(arm_clock, put_clock))
         if reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.
             reloader.reload(mgr, freq_by_sku, opt_x, opt_y)
-        triggered      = mgr.check_reorders()
+        triggered      = mgr.check_reorders(put_deadline=_put_deadline)
         reorders_ckpt += len(triggered)
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
@@ -941,11 +968,10 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # Tests/unit/test_arm_clock.py stands.
             skipped += 1
             # A skipped batch is RELEASED like any other -- that is the whole point of a
-            # schedule.  Its makespan is zero, so under the continuous default the clock
-            # does not move and the stall stands; under a paced schedule the slot advances
-            # it, which is what makes an empty batch cost a day-slot instead of nothing.
-            _late     = _release.missed_by(i, arm_clock)
-            arm_clock = _release.release_at(i, arm_clock)
+            # schedule, and the release happened at the top of the loop.  Its makespan is
+            # zero, so under the continuous default the clock does not move and the stall
+            # stands; under a paced schedule the slot advances it, which is what makes an
+            # empty batch cost a day-slot instead of nothing.
             _bs, _we_skip, put_clock = close_skipped_batch(
                 batch_id=i, mgr=mgr, arm_clock=arm_clock, put_clock=put_clock,
                 k_pickers=k_pickers, run_id=run_id,
@@ -968,18 +994,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # from it and is UNCHANGED -- which is what the offset-invariance work in
         # extract_batch_stats bought.
         #
-        # THE SCHEDULE DECIDES, not the previous batch's makespan -- but it can only ever
-        # push the release LATER.  The model has no picker contention: a crew cannot begin
-        # batch i+1 while it is still working batch i, so `release_at` clamps to the instant
-        # the arm is actually free.  That clamp erases the fact that a slot was missed, so
-        # `missed_by` is recorded on the row.  Under the continuous default `release_at`
-        # returns `arm_clock` unchanged and `missed_by` is 0.0.
-        _late     = _release.missed_by(i, arm_clock)
-        arm_clock = _release.release_at(i, arm_clock)
-        # The whistle for the day this batch was released into.  None keeps every picker
-        # running to the end of its work, which is every run that does not ask for a cut.
-        _day_end = (_release.day.end_of(_release.day.index_of(arm_clock))
-                    if _cut_at_day_end else None)
+        # `arm_clock`, `_late` and `_day_end` were all fixed at the top of the loop, by the
+        # schedule rather than by the previous batch's makespan.
         sim             = DeferredPickSimulation(tasks, pick_cfg, manager=mgr,
                                                  start_times=[arm_clock] * k_pickers,
                                                  day_end=_day_end)

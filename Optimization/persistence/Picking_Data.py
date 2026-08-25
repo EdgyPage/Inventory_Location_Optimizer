@@ -547,6 +547,22 @@ _CREATE_PUT_QUEUE_STATE = """
                                        -- the same units, and counting them would report
                                        -- how many refill passes the drain needed rather
                                        -- than how often the floor turned work away.
+        cart_swaps INTEGER NOT NULL,   -- full carts exchanged for empty ones (a FLOW).  The
+                                       -- put side of the picker's cart swap, and the same
+                                       -- next-fit decides both -- in a store it is the same
+                                       -- cart.  0 on any queue with no cart configured,
+                                       -- which includes the forklift/pallet stream: a
+                                       -- forklift carries one pallet, so "how much fits"
+                                       -- never arises.
+        cut        INTEGER NOT NULL,   -- items the DAY'S WHISTLE left standing (a FLOW).
+                                       -- Distinct from `depth`, which is a level: a deep
+                                       -- queue the whistle never reached and a shallow one
+                                       -- it stopped hard are different problems, and only
+                                       -- this column separates them.  Not a `carryover`
+                                       -- reason, because that table snapshots the queue's
+                                       -- whole standing contents every batch -- a level, so
+                                       -- the cut would have to be derived there as a
+                                       -- residual of itself.
         PRIMARY KEY (run_id, batch_id, queue)
     ) WITHOUT ROWID
 """
@@ -852,7 +868,12 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #   c33feeed3975  batch_stats gained the working day and the missed slot, before
     #                 task_stats separated realized from planned.  A short window
     #                 (2026-08-25) -- no published run used it.
-    known_ids=('c33feeed3975',
+    #   0ab75b4fabc2  task_stats separated realized from planned, before put_queue_state
+    #                 recorded the cart swaps and the day's cut.  A short window
+    #                 (2026-08-25) -- no published run used it.
+    known_ids=('8af17e7d417e',
+              '0ab75b4fabc2',
+              'c33feeed3975',
               'f43d8b5931a4',
               '8114cc4332eb',
               '96b8e37f158d',
@@ -1546,10 +1567,12 @@ def _insert_reorder_queue(con: sqlite3.Connection, run_id: int, records: list) -
 def _insert_put_queue_state(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
         'INSERT OR REPLACE INTO put_queue_state '
-        '(run_id,batch_id,queue,depth,oldest_age,staging,admitted,placed,blocked) '
-        'VALUES (?,?,?,?,?,?,?,?,?)',
+        '(run_id,batch_id,queue,depth,oldest_age,staging,admitted,placed,blocked,'
+        'cart_swaps,cut) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
         [(run_id, int(r['batch_id']), str(r['queue']), int(r['depth']), r['oldest_age'],
-          r['staging'], int(r['admitted']), int(r['placed']), int(r['blocked']))
+          r['staging'], int(r['admitted']), int(r['placed']), int(r['blocked']),
+          int(r['cart_swaps']), int(r['cut']))
          for r in records],
     )
 
