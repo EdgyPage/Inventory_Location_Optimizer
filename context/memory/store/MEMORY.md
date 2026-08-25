@@ -41,3 +41,6 @@
 - [coverage_e2e swallows worker logs](coverage-e2e-swallows-worker-logs.md) — the harness queues worker logs and never drains them; a silent conservation ledger through it proves nothing
 - [Placement pools + the audit point](placement-pools-and-the-audit-point.md) — ranked functions no longer choose put-away order; a033aff is the LAST byte-identical commit, everything after re-derives published claims
 - [K-oldest bounds lookahead, not staleness](k-oldest-bounds-lookahead-not-staleness.md) — the head unit can be overtaken indefinitely; a deadline rule is the rejected alternative (FIFO costs the LPT arms ~11-13%)
+- [Working-day plan corrections](working-day-clock-plan-corrections.md) — the approved 4-commit plan does not compose (nothing turns the cut on; the carry is defined twice); corrected 7-step sequence in docs/design/WORKING_DAY_CLOCK.md
+- [Empty-batch clock stall is a contract](empty-batch-clock-stall-is-a-contract.md) — not a deadlock and not a bug; a test asserts it by source index, and the put-away drain leaks on the same guard
+- [Lockstep tests compare aggregates only](lockstep-tests-compare-aggregates-only.md) — all three could pass on differently-shaped event streams; and the travel identity needs the handling term (5 terms, not 3)
