@@ -138,10 +138,11 @@ def test_plan_strategy_start_all_branches(monkeypatch, tmp_path):
                         lambda rd, key: ckpt['v'])
     s = SimpleNamespace(key='uni', run_type='comparison')
 
-    def plan(gran, prev_id, is_resume):
+    def plan(gran, prev_id, is_resume, roll_over=False):
         calls.clear()
         return rs._plan_strategy_start(str(tmp_path), s, 100, 'uni.db', {}, {},
-                                       gran, prev_id, 0, is_resume, _LOG)
+                                       gran, prev_id, 0, is_resume, _LOG,
+                                       roll_over=roll_over)
 
     # fresh run → create, start 0
     ckpt['v'] = 0
@@ -155,3 +156,46 @@ def test_plan_strategy_start_all_branches(monkeypatch, tmp_path):
     # resume, done arm (ckpt >= n_batches) → keep run_id, start n_batches (no-op loop)
     ckpt['v'] = 100
     assert plan('strategy', 7, True) == (7, 100) and ('reset', 'uni') not in calls
+
+
+def test_batch_resume_is_refused_while_the_carry_is_on(monkeypatch, tmp_path):
+    """Batch-level resume LOSES DEMAND once unpicked work rolls over, and that is a
+    different failure from the one its warning describes.
+
+    `_pending` — the units a day cut or a stock clamp rolled into the next batch — lives in
+    the worker's locals and is in no checkpoint. Resuming at batch N discards everything the
+    pre-crash run carried, and the resumed stream never asks for it again, so the run reports
+    throughput it did not earn. "Not bit-identical" reads as a rounding difference; this is a
+    conservation break, so it raises.
+
+    The three cases that must still work are asserted alongside, because a refusal that also
+    breaks the default path is worse than the silence it replaces.
+    """
+    import pytest
+    calls, ckpt = [], {'v': 30}
+    monkeypatch.setattr('Optimization.simdriver.workunits.init_run_db', lambda p: None)
+    monkeypatch.setattr('Optimization.simdriver.workunits.create_run',
+                        lambda p, rt, params, identity=None: 999)
+    monkeypatch.setattr('Optimization.simdriver.workunits.reset_strategy_db',
+                        lambda rd, db, key: calls.append(('reset', key)))
+    monkeypatch.setattr('Optimization.simdriver.workunits.load_worker_checkpoint',
+                        lambda rd, key: ckpt['v'])
+    s = SimpleNamespace(key='uni', run_type='comparison')
+
+    def plan(gran, prev_id, is_resume, roll_over):
+        return rs._plan_strategy_start(str(tmp_path), s, 100, 'uni.db', {}, {},
+                                       gran, prev_id, 0, is_resume, _LOG,
+                                       roll_over=roll_over)
+
+    with pytest.raises(RuntimeError, match='batch-level resume'):
+        plan('batch', 7, True, roll_over=True)
+
+    # ...and the default is untouched: strategy granularity replays from batch 0, where a
+    # carry that never happened cannot be lost.
+    assert plan('strategy', 7, True, roll_over=True) == (999, 0)
+    # a DONE arm never resumes into anything, carry or no carry
+    ckpt['v'] = 100
+    assert plan('batch', 7, True, roll_over=True) == (7, 100)
+    # and a fresh run has no checkpoint to refuse
+    ckpt['v'] = 0
+    assert plan('batch', None, False, roll_over=True) == (999, 0)

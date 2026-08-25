@@ -29,7 +29,8 @@ from Warehouse.layout.Storage_Primitive import StoreCart
 
 
 def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity,
-                         granularity, prev_id, prev_start, is_resume, log):
+                         granularity, prev_id, prev_start, is_resume, log,
+                         roll_over: bool = False):
     """Decide (run_id, start_batch) for one strategy, honoring resume granularity.
 
     - Fresh run / a strategy new on resume → init DB + create_run, start 0.
@@ -37,7 +38,18 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
     - Resumed PARTIAL arm (0 < ckpt < n_batches):
         strategy granularity → reset the arm's DB + fresh run_id, start 0 (bit-identical to an
                                uncrashed run — no un-replayed physical state);
-        batch granularity    → reuse run_id, start = ckpt (fast, but NOT bit-identical — warn).
+        batch granularity    → reuse run_id, start = ckpt (fast, but NOT bit-identical — warn),
+                               and REFUSED outright when the carry is on (see below).
+
+    THE CARRY MAKES BATCH-LEVEL RESUME LOSE DEMAND, not just precision.  `_pending` -- the
+    units a day cut or a stock clamp rolled into the next batch -- lives in the worker's
+    locals and is in no checkpoint.  Resuming at batch N therefore discards everything the
+    pre-crash run had carried, and the resumed stream never asks for it again.  That is not
+    the "un-replayed physical state" the warning describes: a resumed run would report BETTER
+    throughput than it earned, because the work it failed to do stopped being counted, which
+    is precisely the error `items_demanded` exists to make impossible.  So with rollover on
+    it raises instead of warning.  Strategy granularity -- the default -- is unaffected: it
+    replays from batch 0, and a carry that never happened cannot be lost.
     """
     if not is_resume or prev_id is None:
         init_run_db(db_path)
@@ -51,6 +63,13 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
             log.info(f'  [{s.key}] strategy-level reset -> batch 0 (bit-identical)')
             return create_run(db_path, s.run_type, run_params,
                               identity={**identity, 'strategy_key': s.key}), 0
+        if roll_over:
+            raise RuntimeError(
+                f'[{s.key}] batch-level resume @ {ckpt} is refused while unpicked demand '
+                f'rolls over: the carry lives in the worker and is in no checkpoint, so '
+                f'resuming here would DROP every unit the pre-crash run carried and report '
+                f'throughput it did not earn. Re-run with --resume-granularity strategy '
+                f'(the default), which replays the arm from batch 0.')
         log.warning(f'  [{s.key}] batch-level resume @ {ckpt}: NOT bit-identical to an uncrashed '
                     f'run (un-replayed physical state). Use --resume-granularity strategy for '
                     f'exact cross-arm comparability.')
@@ -270,7 +289,8 @@ def _prepare_channel_run(
         run_ids[s.key], starts[s.key] = _plan_strategy_start(
             ch_run_dir, s, n_batches, ch_db_path[s.key], ch_run_params, _identity,
             resume_granularity, prev_ids.get(s.key), prev_starts.get(s.key, 0),
-            resume is not None, log)
+            resume is not None, log,
+            roll_over=bool(work_day_spec().get('roll_over_unpicked')))
     if resume:
         log.info(f'  Resuming [{ch.name}]  '
                  + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))

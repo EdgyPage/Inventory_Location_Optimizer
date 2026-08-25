@@ -319,3 +319,63 @@ def test_the_working_day_is_recorded_and_restored():
     for k in _DAY_KEYS:
         assert f"spec.get('{k}')" in ana_src, (
             f're-analysis does not restore {k} from the run spec')
+
+
+# ── the day survives a resume because it never lives anywhere a resume can lose it ──
+
+def test_the_runner_reads_the_day_only_from_its_arguments():
+    """The worker body must take the working day from `args` and from nothing else.
+
+    This is what makes a resumed arm finish on the clock it started on. A worker is SPAWNED,
+    not forked: it re-imports `sim_config` and gets pristine module defaults, so any day
+    value read from the module rather than the payload would silently revert — the arm would
+    resume onto an eight-hour default while its run spec recorded something else, and the
+    two halves of the run would disagree with nothing raising.
+
+    Scanned on the AST with docstrings stripped, because the function's own prose names
+    `work_day_spec` while explaining why it does not call it — and a plain text search
+    matched that sentence.
+    """
+    import ast
+
+    from Optimization.simdriver import strategy_runner
+
+    tree = ast.parse(inspect.getsource(strategy_runner))
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == '_run_strategy_worker_impl')
+    for node in ast.walk(fn):                      # strip every docstring and comment
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
+            if (node.body and isinstance(node.body[0], ast.Expr)
+                    and isinstance(node.body[0].value, ast.Constant)
+                    and isinstance(node.body[0].value.value, str)):
+                node.body.pop(0)
+    body = ast.unparse(fn)
+
+    for name in ('work_day_spec', 'CONFIG', 'settings.WORK_DAY_SECONDS'):
+        assert name not in body, (
+            f'run_strategy reads {name} directly; a spawned worker would get the module '
+            f'default instead of the run\'s day')
+    assert "args.get('work_day')" in body, 'the day no longer comes from the payload'
+
+
+def test_batch_level_resume_is_refused_while_demand_rolls_over():
+    """The one resume path the working day genuinely breaks.
+
+    Strategy granularity — the default — replays a partial arm from batch 0, so every piece
+    of day-clock state (the clock, the pending demand, the held items, the queue depths, the
+    arrival stamp counter) is rebuilt from nothing and there is nothing to carry. Batch
+    granularity is different in kind once rollover is on: `_pending` lives in the worker's
+    locals and is in no checkpoint, so resuming at batch N DROPS every unit the pre-crash run
+    carried and the resumed stream never asks for them again.
+
+    Demand that disappears is not the "not bit-identical" the existing warning describes — a
+    resumed run would report throughput it did not earn. The behaviour is asserted in
+    Tests/integration/test_crash_recovery.py; this pins that the refusal exists at all, next
+    to the seams it belongs with.
+    """
+    from Optimization.simdriver import workunits
+    src = inspect.getsource(workunits._plan_strategy_start)
+    assert 'roll_over' in src, 'the planner cannot see whether demand rolls over'
+    assert 'raise RuntimeError' in src, (
+        'batch-level resume only WARNS while the carry is on, so a resumed run silently '
+        'loses the demand the crash left behind')
