@@ -292,3 +292,49 @@ def test_the_refill_cap_logs_rather_than_raising():
         'the refill cap calls log.error(); without a module logger it would raise NameError '
         'precisely when it is meant to report a problem')
     assert im._MAX_REFILL_PASSES > 0
+
+
+def test_blocked_counts_arrivals_turned_away_and_not_refill_retries():
+    """`blocked` must mean one thing.
+
+    The refill loop retries held items many times per call. Counting every failed retry put
+    the loop's pass count into a warehouse metric — measured at 392 / 195 / 47 spurious
+    refusals for staging 4 / 8 / 32, a component that moves with the implementation and not
+    with the floor. A retry is the same work still waiting; it was counted when it arrived.
+    """
+    a = _mgr([PutQueueSpec('all', accepts=ANY, staging=1)], n_skus=120)
+    mgr = a.mgr
+    mgr.put_queues.queues[0].items.clear()
+    mgr._held.clear()
+    q = mgr.put_queues.queues[0]
+    q.drain_counters()
+
+    for _ in range(5):                       # 1 admitted, 4 turned away on arrival
+        mgr._admit(_u(), 'intake')
+    assert q.blocked == 4 and q.admitted == 1
+
+    # Retrying against a still-full queue must not move the counter.
+    for _ in range(3):
+        mgr._admit_held()
+    assert q.blocked == 4, f'a retry was counted as a new refusal: blocked={q.blocked}'
+    assert mgr.held_depth == 4, 'the retries should all still be held'
+
+
+def test_blocked_falls_as_the_floor_grows():
+    """The direction that makes the metric readable: more floor space, fewer arrivals turned
+    away. With retries mixed in this was not even monotonic."""
+    seen = {}
+    for staging in (4, 8, 32):
+        a = _mgr([PutQueueSpec('all', accepts=ANY, staging=staging)])
+        mgr = a.mgr
+        total = [0]
+        orig = mgr.queue_state_rows
+
+        def cap(batch_id, _o=orig, _t=total):
+            rows = _o(batch_id)
+            _t[0] += sum(r['blocked'] for r in rows)
+            return rows
+        mgr.queue_state_rows = cap
+        cs.run_meso(a, n_batches=6, seed=42)
+        seen[staging] = total[0] + sum(x.blocked for x in mgr.put_queues)
+    assert seen[4] > seen[8] > seen[32] > 0, f'not monotonic in floor space: {seen}'

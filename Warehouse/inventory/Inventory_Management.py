@@ -1262,7 +1262,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         admitted = 0
         for item in self._held:
             q = self.put_queues.route(item.unit)
-            if q.name in blocked or not q.admit(item):
+            # arrival=False: this item was counted as blocked when it first arrived, and
+            # counting each retry again would report the refill loop's pass count.
+            if q.name in blocked or not q.admit(item, arrival=False):
                 blocked.add(q.name)
                 still.append(item)
                 continue

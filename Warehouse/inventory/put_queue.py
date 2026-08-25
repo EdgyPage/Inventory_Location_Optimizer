@@ -141,16 +141,24 @@ class PutQueue:
         """
         return self.items[0].age if self.items else None
 
-    def admit(self, item: PutawayItem) -> bool:
+    def admit(self, item: PutawayItem, arrival: bool = True) -> bool:
         """Take one item if there is room. False means the producer must hold it.
 
         Refusing rather than dropping is the whole point: the backpressure has to reach
         whatever is upstream, because "inbound packs faster than put-away absorbs" is the
         condition being modelled, and a silent drop would make it look like it never
         happened.
+
+        `arrival=False` for a RETRY of something already held.  Only genuine arrivals count
+        toward `blocked`, because a retry is the same work still waiting and was counted
+        when it first arrived.  Counting both made one number mean two things, and the
+        second was about the drain's refill loop rather than about the warehouse -- measured
+        at 392 / 195 / 47 spurious refusals for staging 4 / 8 / 32, which moves with how
+        many passes the loop happened to need.
         """
         if not self.has_room:
-            self.blocked += 1
+            if arrival:
+                self.blocked += 1
             return False
         self.items.append(item)
         self.admitted += 1

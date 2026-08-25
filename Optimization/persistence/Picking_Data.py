@@ -512,9 +512,13 @@ _CREATE_PUT_QUEUE_STATE = """
         staging    INTEGER,            -- the configured limit; NULL = unbounded
         admitted   INTEGER NOT NULL,   -- entered during the batch (a FLOW)
         placed     INTEGER NOT NULL,   -- left for a bin during the batch (a FLOW)
-        blocked    INTEGER NOT NULL,   -- REFUSED during the batch (a FLOW).  The only trace
-                                       -- a refusal leaves anywhere: without it the
-                                       -- backpressure is real and invisible.
+        blocked    INTEGER NOT NULL,   -- ARRIVALS refused during the batch (a FLOW).  The
+                                       -- only trace a refusal leaves anywhere: without it
+                                       -- the backpressure is real and invisible.  Retries
+                                       -- of already-held work are NOT counted -- they are
+                                       -- the same units, and counting them would report
+                                       -- how many refill passes the drain needed rather
+                                       -- than how often the floor turned work away.
         PRIMARY KEY (run_id, batch_id, queue)
     ) WITHOUT ROWID
 """
