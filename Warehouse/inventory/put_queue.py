@@ -105,7 +105,8 @@ class PutQueueSpec:
 class PutQueue:
     """One spec plus the items waiting under it."""
 
-    __slots__ = ('spec', 'items', 'admitted', 'placed', 'blocked')
+    __slots__ = ('spec', 'items', 'admitted', 'placed', 'blocked',
+                 'clocks', 'speed', 'cost')
 
     def __init__(self, spec: PutQueueSpec):
         self.spec = spec
@@ -116,6 +117,12 @@ class PutQueue:
         self.admitted = 0
         self.placed = 0
         self.blocked = 0
+        # Timing, bound by Inventory_Manager.enable_putaway_timing. None = off, which is
+        # every manager that never enabled it. ONE CLOCK PER WORKER: a single serial clock
+        # made a crew of N take exactly as long as a crew of one.
+        self.clocks: list | None = None
+        self.speed = None
+        self.cost = None
 
     def __len__(self):
         return len(self.items)
@@ -163,6 +170,44 @@ class PutQueue:
         self.items.append(item)
         self.admitted += 1
         return True
+
+    # ── the crew ──────────────────────────────────────────────────────────────
+    @property
+    def timed(self) -> bool:
+        return self.clocks is not None
+
+    def bind_crew(self, speed, cost, size: int) -> None:
+        """Give this queue its own crew. Idempotent per (speed, cost, size)."""
+        if size < 1:
+            raise ValueError(f'{self.name}: a put crew of {size} does no work; size >= 1')
+        self.speed, self.cost = speed, cost
+        self.clocks = [0.0] * size
+
+    @property
+    def crew_size(self) -> int:
+        return len(self.clocks) if self.clocks else 0
+
+    @property
+    def finish(self) -> float:
+        """When the last worker on this queue becomes free, on the batch-local clock."""
+        return max(self.clocks) if self.clocks else 0.0
+
+    def charge(self, dur: float):
+        """Book `dur` to whoever is free earliest; return (start, worker index).
+
+        Greedy list scheduling.  Ties break to the lowest index, so a crew of one is
+        exactly a serial clock.
+        """
+        w = min(range(len(self.clocks)), key=lambda i: (self.clocks[i], i))
+        t0 = self.clocks[w]
+        self.clocks[w] = t0 + dur
+        return t0, w
+
+    def reset_clocks(self) -> None:
+        """Restart every worker at 0 -- the drain does this per batch, and the runner adds
+        the batch epoch back on when it writes the rows."""
+        if self.clocks is not None:
+            self.clocks = [0.0] * len(self.clocks)
 
     def drain_counters(self) -> dict:
         """Hand over this batch's counters and reset. Depth and oldest age are read at the

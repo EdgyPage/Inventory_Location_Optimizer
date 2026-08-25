@@ -91,13 +91,17 @@ def test_the_defaults_mirror_the_pick_models():
 def _mgr():
     """A manager with the timing seam bound, without building a warehouse."""
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
+    from Warehouse.inventory.put_queue import single_queue
     m = Inventory_Manager.__new__(Inventory_Manager)
     m._put_speed = None
+    m._put_size = 1
     m._put_cost = None
     m._put_clock = 0.0
-    m._put_clocks = [0.0]
     m._put_seconds = 0.0
     m._put_records = []
+    # The clocks live on the QUEUE now -- a crew belongs to a stream. One default queue
+    # taking everything, which is what an unconfigured manager has.
+    m._put_queues = single_queue()
     return m
 
 
@@ -144,8 +148,12 @@ def test_a_record_carries_where_the_unit_came_from():
     m = _mgr()
     m.enable_putaway_timing(FOOT)
     m._cost_putaway(_unit(sku=42, qty=5), _bin(aisle=3), 'reslot')
-    (t0, dur, sku, qty, aisle, x, y, source, worker), = m.drain_putaway_records()
+    (t0, dur, sku, qty, aisle, x, y, source, worker,
+     queue), = m.drain_putaway_records()
     assert (sku, qty, aisle, source, worker) == (42, 5, 3, 'reslot', 0)
+    # The stream that did the work. Each queue has its own crew, so a worker index
+    # means nothing without knowing whose roster it indexes into.
+    assert queue == 'all'
     assert dur > 0 and t0 == 0.0 and (x, y) == (100.0, 48.0)
 
 
@@ -239,14 +247,16 @@ def test_the_labor_total_still_accumulates_across_batches():
 
 # ── a crew of N works like N people ───────────────────────────────────────────────
 
-def _crew_mgr(size, speed=MACHINE):
+def _crew_mgr(size, speed=MACHINE, queues=None):
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
+    from Warehouse.inventory.put_queue import single_queue
     m = Inventory_Manager.__new__(Inventory_Manager)
     m._put_speed = m._put_cost = None
+    m._put_size = 1
     m._put_clock = 0.0
-    m._put_clocks = [0.0]
     m._put_seconds = 0.0
     m._put_records = []
+    m._put_queues = queues if queues is not None else single_queue()
     m.enable_putaway_timing(speed, size=size)
     return m
 
@@ -317,3 +327,108 @@ def test_the_drain_restarts_every_workers_clock():
 def test_a_crew_of_zero_is_rejected():
     with pytest.raises(ValueError, match='does no work'):
         _crew_mgr(0)
+
+
+# ── a crew per STREAM ─────────────────────────────────────────────────────────────
+#
+# `PutQueueSpec.crew` carried a crew from the day the queues landed and nothing consumed it:
+# one `_put_clocks` list on the manager served every stream at one speed. That is wrong in
+# both directions — a forklift crew and a cart crew are not the same people, so they must not
+# queue behind each other, and they do not move at the same speed.
+
+def _split_queues(cart_crew=None, pallet_crew=None):
+    from Warehouse.inventory.put_queue import PutQueueSet, PutQueueSpec, PALLET, SINGLETON
+    return PutQueueSet([
+        PutQueueSpec('store_cart', accepts=(SINGLETON,), crew=cart_crew),
+        PutQueueSpec('store_pallet', accepts=(PALLET,), crew=pallet_crew),
+    ])
+
+
+def _cat_unit(cat, sku=1, qty=2):
+    u = _unit(sku=sku, qty=qty)
+    u.unit_category = cat
+    return u
+
+
+def test_two_streams_do_not_queue_behind_each_other():
+    """The property a single manager-level clock destroyed. Two crews working in parallel
+    each start their first put at t=0; serialised, the second would start after the first."""
+    m = _crew_mgr(1, queues=_split_queues())
+    m._cost_putaway(_cat_unit('singleton'), _bin(), 'reorder')
+    m._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
+    starts = {r[9]: r[0] for r in m.drain_putaway_records()}
+    assert starts == {'store_cart': 0.0, 'store_pallet': 0.0}, (
+        f'the streams serialised onto one clock: {starts}')
+
+
+def test_a_stream_serialises_against_itself():
+    """Independent between streams, serial within one — otherwise a crew of one would do two
+    things at once, which is the bug the per-worker clocks were introduced to fix."""
+    m = _crew_mgr(1, queues=_split_queues())
+    m._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
+    m._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
+    recs = [r for r in m.drain_putaway_records() if r[9] == 'store_pallet']
+    assert len(recs) == 2
+    assert recs[1][0] == pytest.approx(recs[0][0] + recs[0][1]), 'the second put overlapped'
+
+
+def test_a_queue_uses_its_own_crews_speed():
+    """"its own separate speed representation", which is the whole point of a per-stream
+    crew. A forklift and a walker do not reach the same bin in the same time."""
+    fast = types.SimpleNamespace(speed=MACHINE, size=1)
+    slow = types.SimpleNamespace(speed=SpeedProfile(0.5, 0.5), size=1)
+    m = _crew_mgr(1, queues=_split_queues(cart_crew=fast, pallet_crew=slow))
+    m._cost_putaway(_cat_unit('singleton'), _bin(), 'reorder')
+    m._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
+    dur = {r[9]: r[1] for r in m.drain_putaway_records()}
+    assert dur['store_pallet'] > dur['store_cart'], (
+        f'the slow crew was charged the fast crew\'s speed: {dur}')
+
+
+def test_a_queue_without_a_crew_inherits_the_default():
+    """So a manager that never configured per-stream crews is unchanged."""
+    m = _crew_mgr(1, queues=_split_queues())          # neither spec names a crew
+    for q in m.put_queues:
+        assert q.speed is MACHINE and q.crew_size == 1
+
+
+def test_a_bigger_crew_on_one_stream_does_not_speed_up_the_other():
+    m = _crew_mgr(1, queues=_split_queues(
+        cart_crew=types.SimpleNamespace(speed=MACHINE, size=4)))
+    assert m.put_queues['store_cart'].crew_size == 4
+    assert m.put_queues['store_pallet'].crew_size == 1
+    for _ in range(4):
+        m._cost_putaway(_cat_unit('singleton'), _bin(), 'reorder')
+        m._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
+    recs = m.drain_putaway_records()
+    cart = sorted(r[0] for r in recs if r[9] == 'store_cart')
+    pallet = sorted(r[0] for r in recs if r[9] == 'store_pallet')
+    assert cart == [0.0, 0.0, 0.0, 0.0], f'a crew of four serialised: {cart}'
+    assert len(set(pallet)) == 4, f'a crew of one did four things at once: {pallet}'
+
+
+def test_the_put_clock_is_the_slowest_stream_not_the_sum():
+    """The crews work in parallel, so the arm waits for the slowest of them."""
+    m = _crew_mgr(1, queues=_split_queues())
+    m._cost_putaway(_cat_unit('singleton'), _bin(), 'reorder')
+    m._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
+    recs = m.drain_putaway_records()
+    finishes = [r[0] + r[1] for r in recs]
+    assert m._put_seconds == pytest.approx(sum(r[1] for r in recs))
+    # _put_clock is read before the drain resets it, so re-charge to observe it.
+    m2 = _crew_mgr(1, queues=_split_queues())
+    m2._cost_putaway(_cat_unit('singleton'), _bin(), 'reorder')
+    m2._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
+    assert m2._put_clock == pytest.approx(max(finishes))
+    assert m2._put_clock < m2._put_seconds, 'the streams were summed rather than overlapped'
+
+
+def test_swapping_the_queue_set_keeps_timing_bound():
+    """`enable_putaway_timing` then swapping in split streams is the normal order. A setter
+    that did not re-bind would silently turn timing off and every put would cost zero."""
+    m = _crew_mgr(1)
+    assert m.put_queues.queues[0].timed
+    m.put_queues = _split_queues()
+    assert all(q.timed for q in m.put_queues), 'the swap dropped the crews'
+    m._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
+    assert m.putaway_seconds > 0.0

@@ -68,8 +68,14 @@ def put_rows(records, batch_id, batch_start, crew, *,
     """Merged-stream rows for one batch's put-away.
 
     `records` are `Inventory_Manager.drain_putaway_records()` tuples
-    `(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker)`, whose `t_start`
-    runs on that WORKER's own clock from 0 within this batch (the drain restarts them all).
+    `(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker, queue)`, whose
+    `t_start` runs on that WORKER's own clock from 0 within this batch (the drain restarts
+    them all).
+
+    ONE QUEUE PER CALL.  Each put-away stream has its own crew, so its worker indices mean
+    something only against that crew's roster -- worker 0 of the cart crew and worker 0 of
+    the forklift crew are different people.  Handing this function a mixed list would
+    silently attribute one stream's work to the other's actors, so it refuses.
 
     TWO ORIGINS, and they are not the same instant:
 
@@ -102,8 +108,13 @@ def put_rows(records, batch_id, batch_start, crew, *,
     if not workers:
         raise ValueError('a put crew of zero workers cannot have put anything away')
     rows = []
+    _queues = {r[9] for r in records}
+    if len(_queues) > 1:
+        raise ValueError(
+            f'put_rows got records from {sorted(_queues)}; each queue has its own crew, so '
+            f'group by queue and call once per stream')
     for seq, rec in enumerate(records, start=first_seq):
-        t_start, dur, sku, qty, aisle_id, _x, _y, source, widx = rec
+        t_start, dur, sku, qty, aisle_id, _x, _y, source, widx, _queue = rec
         if not 0 <= widx < len(workers):
             raise ValueError(
                 f'put record names worker {widx}, but the crew has {len(workers)}; the '

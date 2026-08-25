@@ -42,8 +42,10 @@ EVENTS = [
 ]
 # (t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker) -- one crew of one,
 # so both records name worker 0.
-RECORDS = [(0.0, 4.0, 7, 5, 1, 10.0, 20.0, 'reorder', 0),
-           (4.0, 3.0, 9, 2, 2, 30.0, 0.0, 'intake', 0)]
+# (t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker, queue) -- one crew of
+# one on the default queue, so both records name worker 0 of 'all'.
+RECORDS = [(0.0, 4.0, 7, 5, 1, 10.0, 20.0, 'reorder', 0, 'all'),
+           (4.0, 3.0, 9, 2, 2, 30.0, 0.0, 'intake', 0, 'all')]
 START = 100.0
 
 

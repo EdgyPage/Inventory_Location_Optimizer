@@ -546,6 +546,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     _put_crew = _Crew(role=_Role.PUT, mode=_Mode.of(_pc['mode']),
                       speed=_SpeedProfile(_pc['x_speed'], _pc['y_speed']), size=_pc['size'])
     _put_workers = _put_crew.workers(_pick_crew.next_uid(0))
+    # Worker rosters BY QUEUE.  One entry today: the manager's default queue is named 'all'
+    # and takes everything, so this is the single crew under its own name.  A split
+    # configuration adds entries here, and each stream needs its own uid block -- which is
+    # why the roster is a dict rather than a second bare list.
+    _put_crews = {q.name: _put_workers for q in mgr.put_queues}
     # Put-away now costs seconds.  ADDITIVE: it moves no pick result (same items, same
     # order, same instants); it records durations and rows.  See enable_putaway_timing.
     mgr.enable_putaway_timing(_put_crew.speed, size=_put_crew.size)
@@ -895,9 +900,18 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # The crew picks this wave's queue up when the wave is released OR when it
             # finishes the last one, whichever is later.
             _put_base = max(bs.batch_start_time, put_clock)
-            we.extend(_work_events.put_rows(
-                _put_recs, batch_id=i, batch_start=bs.batch_start_time,
-                crew=_put_workers, shift_seconds=_shift_seconds, crew_start=_put_base))
+            # ONE CALL PER STREAM.  Each queue has its own crew, so a worker index means
+            # something only against that crew's roster -- worker 0 of the cart crew and
+            # worker 0 of the forklift crew are different people.  With the default single
+            # queue this is one group and one call, exactly as before.
+            _by_queue: dict = {}
+            for _r in _put_recs:
+                _by_queue.setdefault(_r[9], []).append(_r)
+            for _qname, _qrecs in _by_queue.items():
+                we.extend(_work_events.put_rows(
+                    _qrecs, batch_id=i, batch_start=bs.batch_start_time,
+                    crew=_put_crews.get(_qname, _put_workers),
+                    shift_seconds=_shift_seconds, crew_start=_put_base))
             if _put_recs:
                 # max(end), not the LAST record's: with several workers the list
                 # interleaves them, so the last appended is not the latest finishing.

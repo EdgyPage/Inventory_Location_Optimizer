@@ -89,7 +89,7 @@ def db(tmp_path_factory):
         # Records are batch-relative from 0 (the drain restarts the manager's clock).
         recs, t = [], 0.0
         for j, d in enumerate(put_durs):
-            recs.append((t, d, 50 + j, 4, 1, 10.0, 20.0, 'reorder', 0))
+            recs.append((t, d, 50 + j, 4, 1, 10.0, 20.0, 'reorder', 0, 'all'))
             t += d
         base = max(bs.batch_start_time, put_clock)
         we.extend(put_rows(recs, batch_id=i, batch_start=bs.batch_start_time,

@@ -178,7 +178,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # full ordering freedom -- byte-identically the manager as it behaved before queues
         # existed.  Swap in `store_and_fulfillment()` (or any PutQueueSet) to split the
         # streams; see Warehouse/inventory/put_queue.py.
-        self.put_queues: PutQueueSet = single_queue()
+        self._put_queues: PutQueueSet = single_queue()
         # Placements made so far in this _stock() call, so the queue loop can charge the
         # shared budget without each drain having to return a count through paths that
         # already have three exits.
@@ -283,8 +283,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # life of the project, so nothing downstream expects the field to exist.
         self._put_speed = None                       # SpeedProfile | None
         self._put_cost = None                        # PutawayCost | None
-        self._put_clock: float = 0.0                 # the crew's FINISH = max(_put_clocks)
-        self._put_clocks: list[float] = [0.0]        # one per worker; sized by the binder
+        self._put_clock: float = 0.0                 # slowest stream's FINISH across queues
+        self._put_size: int = 1                      # default crew size; per-queue crews win
         self._put_seconds: float = 0.0               # total put-away labor this run
         self._put_records: list = []                 # (t_start, dur, sku, qty, aisle, x, y, source)
 
@@ -879,12 +879,18 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         if size < 1:
             raise ValueError(f'a put crew of {size} does no work; size must be >= 1')
         self._put_speed = speed
+        self._put_size = size
         self._put_cost = cost if cost is not None else PutawayCost()
-        # ONE CLOCK PER WORKER.  A single serial clock made a crew of N take exactly as
-        # long as a crew of one, while `work_events.put_rows` round-robined the records
-        # across N workers -- so the rows claimed N people were working and the instants
-        # said otherwise.
-        self._put_clocks = [0.0] * size
+        # ONE CLOCK PER WORKER, AND ONE SET OF WORKERS PER QUEUE.  A single serial clock
+        # made a crew of N take exactly as long as a crew of one, while
+        # `work_events.put_rows` round-robined the records across N workers -- so the rows
+        # claimed N people were working and the instants said otherwise.  A single set of
+        # clocks across QUEUES has the mirror problem: a forklift crew and a cart crew are
+        # not the same people and do not queue behind each other.
+        #
+        # `speed`/`size` here are the DEFAULT, used by any queue whose spec names no crew
+        # of its own -- so a manager with the single default queue is unchanged.
+        self._bind_put_crews()
 
     @property
     def putaway_seconds(self) -> float:
@@ -913,30 +919,36 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         manager never holds a run's worth of rows.
         """
         recs, self._put_records = self._put_records, []
-        self._put_clocks = [0.0] * len(self._put_clocks)
+        for q in self._put_queues:
+            q.reset_clocks()
         self._put_clock = 0.0
         return recs
 
-    def _cost_putaway(self, unit: StorageUnit, bin_: Aisle.Bin, source) -> None:
-        """Charge one placement to the put crew's clock and record it.
+    def _cost_putaway(self, unit: StorageUnit, bin_: Aisle.Bin, source,
+                      queue=None) -> None:
+        """Charge one placement to ITS QUEUE's crew and record it.
 
         Called from `_execute_placement` only, which the bin-mutation allowlist already
         names as the single put-away commit point -- so this adds no new bin writer.
+
+        `queue` is the stream the unit came off.  None means the caller does not know,
+        which happens on a direct `_execute_placement` from a test or a diagnostic; the
+        unit is then routed the same way admission routed it, so the charge still lands on
+        the crew that would really have done the work.
         """
         from Warehouse.operations.putaway import put_cost
+        q = queue if queue is not None else self._put_queues.route(unit)
         order = unit.order
         dur = put_cost(bin_.x_phys, bin_.y_phys, order.weight, order.volume(),
-                       unit.quantity, self._put_speed, self._put_cost)
-        # Greedy list scheduling: the next put goes to whoever is free earliest.  Ties break
-        # to the lowest worker index, so a crew of one is exactly the old serial clock.
-        w = min(range(len(self._put_clocks)), key=lambda i: (self._put_clocks[i], i))
-        t0 = self._put_clocks[w]
-        self._put_clocks[w] = t0 + dur
-        self._put_clock = max(self._put_clocks)   # the crew's finish, for the caller
+                       unit.quantity, q.speed, q.cost)
+        t0, w = q.charge(dur)
+        # The put side's finish across EVERY stream: the crews work in parallel, so the
+        # arm waits for the slowest, not for their sum.
+        self._put_clock = max(x.finish for x in self._put_queues)
         self._put_seconds += dur
         self._put_records.append(
             (t0, dur, order.sku, unit.quantity, bin_.location[0],
-             bin_.x_phys, bin_.y_phys, source or 'intake', w))
+             bin_.x_phys, bin_.y_phys, source or 'intake', w, q.name))
 
     def _sigma_delta(self, sku: int, bin_: Aisle.Bin) -> float:
         """f_s · D(bin) increment for the incremental Σ f·D tracker.
@@ -1147,6 +1159,34 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         queue.items = pending
         self._placed_this_call += placed
 
+
+    @property
+    def put_queues(self) -> PutQueueSet:
+        """The put-away streams.  Assigning a new set re-binds the crews, so a manager that
+        already had timing enabled keeps it -- swapping in `store_and_fulfillment()` after
+        `enable_putaway_timing` is the normal order and must not silently turn timing off."""
+        return self._put_queues
+
+    @put_queues.setter
+    def put_queues(self, queues: PutQueueSet) -> None:
+        self._put_queues = queues
+        if self._put_speed is not None:
+            self._bind_put_crews()
+
+    def _bind_put_crews(self) -> None:
+        """Give every queue a crew: its own `spec.crew` if it has one, else the manager's
+        default from `enable_putaway_timing`.
+
+        A crew per STREAM, because that is what a crew is: a forklift crew's clock has
+        nothing to do with a cart crew's, and two streams working in parallel must not
+        serialise onto one clock -- which is exactly what a single manager-level
+        `_put_clocks` did.
+        """
+        for q in self._put_queues:
+            crew = q.spec.crew
+            speed = getattr(crew, 'speed', None) or self._put_speed
+            size = getattr(crew, 'size', None) or self._put_size
+            q.bind_crew(speed, self._put_cost, size)
 
     @property
     def _stock_queue(self):
