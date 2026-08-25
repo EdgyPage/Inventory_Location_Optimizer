@@ -572,8 +572,26 @@ class _Pool:
     #: hard-code which arms maximise, which is exactly the knowledge that rots.
     prefers_low = True
 
+    def sort_key(self, unit):
+        """The precedence this policy would like, HIGHER FIRST -- or None for no opinion.
+
+        Stated as a key rather than as a sorted list because the drain's K-oldest window
+        asks "which of these K next" once per placement, and re-deriving a key inside every
+        window would mean N*K affinity slices.  Every key here is a pure function of the
+        unit and of state frozen at pool-open, never of what the pool has already placed, so
+        computing it once per unit is safe as well as fast.
+        """
+        return None
+
     def order(self, units):
-        return units
+        """The full precedence, best first.  A REQUEST -- the drain decides what to grant.
+
+        Stable, so units the key cannot separate keep their queue order: a tie was not an
+        opinion, and the older unit should not lose to a younger one for no reason.
+        """
+        if not units or self.sort_key(units[0]) is None:
+            return units                    # no opinion: queue order stands
+        return sorted(units, key=self.sort_key, reverse=True)
 
     def take(self, unit):                                   # pragma: no cover - interface
         raise NotImplementedError
@@ -855,7 +873,7 @@ class _CoDemandPool(_Pool):
 
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs',
                  '_beta', '_compact', '_x_pace', '_all_idx', '_by_aisle', '_D_of',
-                 '_s2i', '_last_sku', '_key_cache', '_cached_row')
+                 '_s2i', '_last_sku', '_key_cache', '_cached_row', '_co_by_sku')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -884,6 +902,7 @@ class _CoDemandPool(_Pool):
         self._last_sku = None
         self._key_cache: dict = {}
         self._cached_row = None
+        self._co_by_sku: dict = {}      # sort-key memo; all_idx is frozen, so reuse is bit-safe
 
     def __len__(self):
         return sum(len(lst) for lst in self._by_aisle.values())
@@ -892,21 +911,17 @@ class _CoDemandPool(_Pool):
     def prefers_low(self):
         return self._compact           # expansion maximises the distance instead
 
-    def order(self, units):
-        """Pick-effort priority with the co-occurrence term, descending -- the same key
-        `_ranked_assign_impl` uses. `all_idx` is frozen for the whole sort, so a SKU's co
-        term is one value and the memo below is bit-safe."""
-        aff, fbi, beta, all_idx = self._aff, self._fbi, self._beta, self._all_idx
-        co_by_sku: dict = {}
-        def priority(unit):
-            c = unit.order
-            co = co_by_sku.get(c.sku)
-            if co is None:
-                # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
-                co = beta * _demand_weighted_delta_lift(aff, c.sku, all_idx, fbi)
-                co_by_sku[c.sku] = co
-            return c.demand.relative_frequency * c.labor_cost + co
-        return sorted(units, key=priority, reverse=True)
+    def sort_key(self, unit):
+        """Pick-effort priority with the co-occurrence term. `all_idx` is frozen for the
+        life of the pool, so a SKU's co term is one value and the memo is bit-safe."""
+        c = unit.order
+        co = self._co_by_sku.get(c.sku)
+        if co is None:
+            # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
+            co = self._beta * _demand_weighted_delta_lift(
+                self._aff, c.sku, self._all_idx, self._fbi)
+            self._co_by_sku[c.sku] = co
+        return c.demand.relative_frequency * c.labor_cost + co
 
     def take(self, unit):
         """(bin, score) for one unit; (None, None) when no aisle has a bin left.
@@ -1124,11 +1139,10 @@ class _RankedAssignPool(_Pool):
     def prefers_low(self):
         return self._minimize          # tmax maximises D on purpose
 
-    def order(self, units):
-        """Descending pick-effort priority: the highest-effort unit claims the extremal-D
-        bin first.  A policy may supply its own per-unit score instead."""
-        return sorted(units, key=(self._order_key or self._pick_effort_priority),
-                      reverse=True)
+    def sort_key(self, unit):
+        """Pick-effort priority: the highest-effort unit claims the extremal-D bin first.
+        A policy may supply its own per-unit score instead."""
+        return (self._order_key or self._pick_effort_priority)(unit)
 
     # ── one placement ─────────────────────────────────────────────────────────────
     def take(self, unit):
@@ -1592,11 +1606,11 @@ class _TravelBalancedPool(_Pool):
     def __len__(self):
         return sum(len(dq) for g in self._by_aisle.values() for dq in g.values())
 
-    def order(self, units):
+    def sort_key(self, unit):
         """Longest-processing-time first: the highest expected-labor unit is placed while
         the most aisles are still cheap.  A FIFO window degrades LPT to arbitrary-order
         greedy; the balance mechanics below are untouched by that."""
-        return sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
+        return unit.order.expected_labor
 
     # ── the scoring expressions, verbatim ─────────────────────────────────────────
     def _cart_cost(self, v_raw):
@@ -2059,9 +2073,9 @@ class _MinLaborPool(_Pool):
     def prefers_low(self):
         return not self._maximize      # rank_maxlabor is a worst-case control
 
-    def order(self, units):
+    def sort_key(self, unit):
         """Costliest SKUs claim the best (or, for maxlabor, the worst) slots first."""
-        return sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
+        return unit.order.expected_labor
 
     def _better(self, a, b):                 # is a a better (more extreme) score than b?
         return a > b if self._maximize else a < b
@@ -2596,14 +2610,11 @@ def build_cluster_map_placement(mgr, affinity, wp,
         def __len__(self):
             return sum(len(lst) for lst in self._by_aisle.values())
 
-        def order(self, units):
-            all_idx = self._all_idx
-            def priority(unit):
-                c = unit.order
-                co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx,
-                                                        freq_by_idx)
-                return c.demand.relative_frequency * c.labor_cost + co
-            return sorted(units, key=priority, reverse=True)
+        def sort_key(self, unit):
+            c = unit.order
+            co = beta * _demand_weighted_delta_lift(affinity, c.sku, self._all_idx,
+                                                    freq_by_idx)
+            return c.demand.relative_frequency * c.labor_cost + co
 
         def take(self, unit):
             """(bin, score) for one unit.

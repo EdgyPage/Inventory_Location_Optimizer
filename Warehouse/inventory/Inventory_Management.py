@@ -1,4 +1,5 @@
 import bisect
+import heapq
 from collections import defaultdict, deque
 from typing import Any
 
@@ -46,6 +47,12 @@ def _apportion(m: int, weights: list, n: int) -> list:
     return [1 + add[j] for j in range(n)]
 
 
+#: Default put-away tolerance: unbounded, i.e. the assignment policy's requested order is
+#: granted in full.  This is the pre-Phase-2 behaviour and stays the default so that turning
+#: the window on is always an explicit act.  See Inventory_Manager._serve_order.
+DEFAULT_PUTAWAY_WINDOW: int | None = None
+
+
 def _ranked_by_score(taken: list, prefers_low: bool) -> list:
     """Attach each placement's 0-based rank within its group, best first.
 
@@ -82,6 +89,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # build() swaps in its own (FIFO/cohesion = per-unit; trip/rank = ranked wave
         # + per-unit straggler fallback).  _stock() dispatches on placement.is_ranked.
         self.placement: Placement = Placement('uniform_fifo', assignment_fn)
+        # How far past the head of the put-away queue the policy is allowed to reach.
+        # None = the whole queue, which is what every ranked policy silently assumed before
+        # the pool inversion.  See _serve_order.
+        self.putaway_window: int | None = DEFAULT_PUTAWAY_WINDOW
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
@@ -986,6 +997,20 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
     def _serve_order(self, pool, units: list) -> list:
         """WHO is served first, out of one BinKey group.  The drain's decision.
 
+        `putaway_window` is the tolerance, in units:
+
+          None  the policy's whole request is granted -- pre-Phase-2 behaviour, and still
+                the default, so nothing moves until a caller asks for a window.
+          1     strict FIFO.  The policy chooses the BIN and has no say in the order.
+          K     the policy may pick its favourite from the K OLDEST units still waiting.
+                Serve it, slide the window forward by one, repeat.
+
+        A window of K >= len(units) is exactly `pool.order(units)`, including the
+        tie-breaking: `order` is a stable sort so equal keys keep queue order, and the heap
+        below breaks ties on arrival index for the same reason.  That equivalence is
+        asserted in Tests/unit/test_putaway_window.py rather than assumed, because it is
+        what makes "K = infinity reproduces today" a fact instead of a hope.
+
         This method is the whole point of Phase 1.  Until the pool inversion, an assignment
         function returned `[(unit, bin)] in priority order` and the drain iterated it, so
         every ranked policy was choosing the ORDER as well as the bin -- 14 of the 17
@@ -1001,7 +1026,33 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         `units` arrives in queue order (the group's insertion order into `_stock_queue`), so
         the FIFO answer is already in hand and needs no extra bookkeeping to recover.
         """
-        return pool.order(units)
+        k = self.putaway_window
+        if k is None:
+            return pool.order(units)
+        if k < 1:
+            raise ValueError(f'putaway_window must be >= 1 or None, got {k!r}')
+        n = len(units)
+        if k >= n or n < 2:
+            return pool.order(units)         # the window admits everything: a plain sort
+
+        keys = [pool.sort_key(u) for u in units]
+        if keys[0] is None:                  # no precedence at all: queue order already is
+            return units                     # the answer, and the window cannot change it
+
+        # Negate for a min-heap so the policy's HIGHEST key pops first, and carry the
+        # arrival index so a tie goes to the older unit -- the same rule the stable sort in
+        # `order` applies, and the one a FIFO queue should apply anyway.
+        heap = [(-keys[i], i) for i in range(k)]
+        heapq.heapify(heap)
+        nxt = k
+        out = []
+        while heap:
+            _neg, i = heapq.heappop(heap)
+            out.append(units[i])
+            if nxt < n:                      # the window slides by exactly one placement
+                heapq.heappush(heap, (-keys[nxt], nxt))
+                nxt += 1
+        return out
 
     def _stock_ranked(self, budget: int | None = None) -> None:
         """Ranked placement: sort units by pick-effort priority, then drain.
