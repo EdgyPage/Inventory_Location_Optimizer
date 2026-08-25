@@ -46,6 +46,10 @@ def _per_run_rows(strategies, df_b, df_t, title):
                 makespan=float(r['duration']),
                 completion_rate=float(r['completion_rate']),
                 queue_depth=int(r.get('queue_depth', 0)),
+                recv_depth=int(r.get('recv_depth', 0)),
+                recv_unloaded=int(r.get('recv_unloaded', 0)),
+                recv_cut=int(r.get('recv_cut', 0)),
+                recv_seconds=float(r.get('recv_seconds', 0.0)),
                 lead_queue_depth=int(r.get('lead_queue_depth', 0)),
                 in_transit_qty=int(r.get('in_transit_qty', 0)),
                 sigma_fd=float(r['sigma_fd']),
@@ -59,6 +63,8 @@ def _per_run_rows(strategies, df_b, df_t, title):
         tot_prod = float(prod.sum())
         tot_items = float(bb['total_items'].sum())
         qd = bb['queue_depth'] if 'queue_depth' in bb else pd.Series(0.0, index=bb.index)
+        rd = bb['recv_depth'] if 'recv_depth' in bb else pd.Series(0.0, index=bb.index)
+        rs_ = bb['recv_seconds'] if 'recv_seconds' in bb else pd.Series(0.0, index=bb.index)
         it = bb['in_transit_qty'] if 'in_transit_qty' in bb else pd.Series(0.0, index=bb.index)
         summ.append(dict(
             strategy=k, label=s['label'], color=s.get('color', '#888888'),
@@ -66,6 +72,11 @@ def _per_run_rows(strategies, df_b, df_t, title):
             production_time_per_item=(tot_prod / tot_items if tot_items else float('nan')),
             mean_completion_rate=float(bb['completion_rate'].mean()),
             mean_queue_depth=float(qd.mean()), max_queue_depth=float(qd.max()),
+            # The dock. 0 on every run with no receiving crew, which is what such a run
+            # means -- not a gap. `mean_recv_depth` and `mean_queue_depth` are the two
+            # disjoint halves of the unbinned backlog and are meant to be summed.
+            mean_recv_depth=float(rd.mean()), max_recv_depth=float(rd.max()),
+            total_recv_seconds=float(rs_.sum()),
             mean_in_transit=float(it.mean()),
             # Put-away VOLUME per batch.  Added because the published exposure argument —
             # how much a restock trip may lengthen before it cancels the pick saving —

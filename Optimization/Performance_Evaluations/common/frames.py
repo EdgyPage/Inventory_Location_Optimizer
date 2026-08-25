@@ -37,6 +37,14 @@ def _bdf(stats):
         'reload_moves'          : s.reload_moves,
         'reorder_placements'    : s.reorder_placements,
         'queue_depth'           : getattr(s, 'queue_depth', 0),
+        # The receiving dock, guarded exactly like `queue_depth` above so a pre-dock vintage
+        # reads 0 rather than raising.  `recv_depth` is the DISJOINT other half of the
+        # unbinned backlog -- a unit is on the dock or past it, never both -- so a reader
+        # after the whole backlog sums the two.
+        'recv_depth'            : getattr(s, 'recv_depth', 0),
+        'recv_unloaded'         : getattr(s, 'recv_unloaded', 0),
+        'recv_cut'              : getattr(s, 'recv_cut', 0),
+        'recv_seconds'          : getattr(s, 'recv_seconds', 0.0),
         'lead_queue_depth'      : getattr(s, 'lead_queue_depth', 0),
         'in_transit_qty'        : getattr(s, 'in_transit_qty', 0),
         # upstream Tukey outlier flag, carried through so downstream tables can filter

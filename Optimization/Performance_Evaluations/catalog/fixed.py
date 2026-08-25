@@ -47,7 +47,10 @@ _ABSENT = (
      'takes no safety-stock parameter, so there is no value to hold fixed. Varying it '
      'means changing the builder signature, not the run spec.'),
     ('breaks_and_shifts',
-     'The model has no shift structure: no breaks, lunches or shift changes.'),
+     'Breaks, lunches and shift changes WITHIN a working day are not modeled: a crew works '
+     'continuously from the moment its day opens until its whistle. The day itself is '
+     'modeled — a working-day length, a release cadence, and a receiving crew with hours of '
+     'its own — so what is absent is the structure inside a shift, not the shift.'),
     ('inter_aisle_travel',
      'Walking between aisles is not modeled, for either scheduler.'),
     ('aisle_congestion',
