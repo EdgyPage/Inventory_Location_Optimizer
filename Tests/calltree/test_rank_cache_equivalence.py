@@ -315,9 +315,54 @@ def _end_state(assets) -> str:
     return hashlib.sha256(repr(sorted(rows)).encode()).hexdigest()
 
 
+class _WaveAsPool:
+    """Drive a whole-wave impl through the POOL interface.
+
+    The arms run pools now (`_MinLaborPool`, `_CoDemandPool`, ...), so monkeypatching
+    `af._ranked_minlabor_impl` no longer reaches the code under test — it silently patches a
+    function nobody calls, and the equivalence gate below compares the pool against itself.
+    `test_minlabor_unrefreshed_cache_is_detectable` is what caught that: it asserts the
+    deliberately-broken variant DIVERGES, and it started failing the moment the patch went
+    inert. That canary is the only reason this file did not quietly stop testing anything.
+
+    This adapter keeps the frozen oracles usable without rewriting them against the new
+    shape. `order` runs the whole impl — including its own sort — and remembers the answers;
+    `take` serves them back by unit identity. Legitimate because the impl mutates aisle state
+    during its own loop and `_execute_placement` (which the drain interleaves) touches none
+    of the dicts these policies maintain.
+    """
+
+    __slots__ = ('_impl', '_cands', '_a', '_kw', '_answers')
+
+    def __init__(self, impl, cands, *a, **kw):
+        self._impl, self._cands, self._a, self._kw = impl, cands, a, kw
+        self._answers = None
+
+    def order(self, units):
+        res = self._impl(list(units), lambda _u: list(self._cands), *self._a, **self._kw)
+        self._answers = {id(u): b for u, b in res}
+        return [u for u, _b in res]
+
+    def take(self, unit):
+        assert self._answers is not None, '_WaveAsPool.order must run before take'
+        return self._answers.pop(id(unit)), None
+
+
+def _wave_pool_fn(impl):
+    """A drop-in for a `_build_*_pool_fn`, backed by a frozen wave impl."""
+    def build(*a, **kw):
+        def open_pool(candidates, rep=None):
+            return _WaveAsPool(impl, candidates, *a, **kw)
+        return open_pool
+    return build
+
+
+_PATCHED = ('_ranked_minlabor_impl', '_cluster_map_choose_aisle', '_co_demand_ranked_impl',
+            '_build_minlabor_pool_fn', '_build_co_demand_pool_fn')
+
+
 def _run_arm(strategy, patch=None):
-    saved = (af._ranked_minlabor_impl, af._cluster_map_choose_aisle,
-             af._co_demand_ranked_impl)
+    saved = {n: getattr(af, n) for n in _PATCHED}
     try:
         if patch is not None:
             patch()
@@ -325,8 +370,8 @@ def _run_arm(strategy, patch=None):
         res = cs.run_meso(assets, n_batches=N_BATCHES)
         return (res.placements, res.picks, res.reorders, _end_state(assets))
     finally:
-        (af._ranked_minlabor_impl, af._cluster_map_choose_aisle,
-         af._co_demand_ranked_impl) = saved
+        for n, v in saved.items():
+            setattr(af, n, v)
 
 
 # ── the gates ──────────────────────────────────────────────────────────────────────────
@@ -454,7 +499,7 @@ def _oracle_co_demand_ranked_impl(units, candidates_fn, affinity, wp,
 def test_co_demand_cache_matches_frozen_oracle():
     new = _run_arm('uni_comp_norsl')
     def _patch():
-        af._co_demand_ranked_impl = _oracle_co_demand_ranked_impl
+        af._build_co_demand_pool_fn = _wave_pool_fn(_oracle_co_demand_ranked_impl)
     oracle = _run_arm('uni_comp_norsl', _patch)
     assert new == oracle, (
         f'co-demand SKU-run cache diverged from the frozen oracle: {new[:3]} vs {oracle[:3]}')
@@ -463,7 +508,7 @@ def test_co_demand_cache_matches_frozen_oracle():
 def test_minlabor_cache_matches_frozen_oracle():
     new = _run_arm('uni_rank_minlabor_norsl')
     def _patch():
-        af._ranked_minlabor_impl = _oracle_ranked_minlabor_impl
+        af._build_minlabor_pool_fn = _wave_pool_fn(_oracle_ranked_minlabor_impl)
     oracle = _run_arm('uni_rank_minlabor_norsl', _patch)
     assert new == oracle, (
         f'minlabor SKU-run cache diverged from the frozen oracle: {new[:3]} vs {oracle[:3]}')
@@ -471,10 +516,10 @@ def test_minlabor_cache_matches_frozen_oracle():
 
 def test_minlabor_unrefreshed_cache_is_detectable():
     def _patch():
-        af._ranked_minlabor_impl = _unrefreshed_ranked_minlabor_impl
+        af._build_minlabor_pool_fn = _wave_pool_fn(_unrefreshed_ranked_minlabor_impl)
     stale = _run_arm('uni_rank_minlabor_norsl', _patch)
     def _opatch():
-        af._ranked_minlabor_impl = _oracle_ranked_minlabor_impl
+        af._build_minlabor_pool_fn = _wave_pool_fn(_oracle_ranked_minlabor_impl)
     oracle = _run_arm('uni_rank_minlabor_norsl', _opatch)
     assert stale != oracle, (
         'the never-refreshed bc cache no longer diverges at this scale — '

@@ -1785,6 +1785,9 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
                           maximize=False):
     """Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.
 
+    SUPERSEDED by `_MinLaborPool`, which is what `rank_minlabor` and `rank_maxlabor` run;
+    kept as the frozen oracle the port is tested against.
+
     Models the objective E[task labor] = Σ_s f_s·[ M(y_s)·(intercept + q_s·v_s) + D ] and
     places each unit in the (aisle, bin) that minimises its MARGINAL contribution:
 
@@ -1968,6 +1971,222 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     return result
 
 
+class _MinLaborPool(_Pool):
+    """`_ranked_minlabor_impl` as a pool -- `rank_minlabor`, and `rank_maxlabor` with
+    `maximize=True` (one function, both arms, every extremum flipped).
+
+    Unlike `_TravelBalancedPool` there is NO per-aisle running load: this policy MINIMISES
+    total labor rather than BALANCING it.  Its path dependence flows entirely through the
+    deques (pool state) and through two manager dicts that `take` commits to --
+    `aisle_idx_sets`, which the affinity reward reads, and `aisle_member_pos`, whose appended
+    columns the partner centroid sums in placement order.  That second one is the quieter of
+    the two and worth naming: `cx` is not a tie-break, it is the term that picks the bin.
+
+    THE DELTA SUM IS INLINED ON PURPOSE (`for ci, w in row_items: if ci in ais`).  It looks
+    like a candidate for `_delta_lift_from_row`, and unifying them would be a bug:
+    `_delta_lift_from_row` switches which side it iterates on `len(row) <= len(member_set)`,
+    so its summation ORDER flips as an aisle fills.  That flip is the one-ulp drift b91cf38
+    was written to fix, pinned by Tests/calltree/test_rank_cache_equivalence.py.  This loop
+    iterates CSR column order unconditionally and must keep doing so.
+
+    The SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) refreshes the last winner
+    LAZILY -- on the next unit rather than eagerly after the pop -- because a unit that finds
+    no bin leaves nothing stale to repair.  `_last_winner` is cleared every call and re-set
+    only after a successful drop.
+    """
+
+    __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs', '_lam',
+                 '_maximize', '_intercept', '_x_pace', '_D_of', '_by_aisle_brkt',
+                 '_s2i', '_matrix', '_rep', '_drop', '_last_sku', '_last_winner',
+                 '_bc_by_aid', '_row_items', '_max_reward')
+
+    def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
+                 aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
+                 qty_by_sku, lam, maximize=False):
+        self._aff, self._ass, self._ais = affinity, aisle_sku_sets, aisle_idx_sets
+        self._ads, self._amp = aisle_demand_sum, aisle_member_pos
+        self._fbi, self._fbs, self._qbs = freq_by_idx, freq_by_sku, qty_by_sku
+        self._lam, self._maximize = lam, maximize
+        self._s2i, self._matrix = affinity._sku_to_idx, affinity._matrix
+
+        speed = SpeedProfile(wp.x_speed, wp.y_speed)
+        x_pace, y_pace = speed.x_pace, speed.y_pace
+        self._x_pace = x_pace
+        self._intercept = wp.pick_intercept
+        brackets = getattr(wp, 'height_brackets', ())
+
+        # minimise -> near (min-D) deque head; maximise -> far (max-D) deque tail.
+        self._rep  = (lambda dq: dq[-1]) if maximize else (lambda dq: dq[0])
+        self._drop = (lambda dq: dq.pop()) if maximize else (lambda dq: dq.popleft())
+
+        D_of = _D_map(cands, x_pace, y_pace)
+        M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
+        by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
+        for b in cands:
+            by_aisle_brkt.setdefault(b.location[0], {}).setdefault(
+                M_of[id(b)], []).append(b)
+        for groups in by_aisle_brkt.values():
+            for m, lst in list(groups.items()):
+                lst.sort(key=lambda bb: D_of[id(bb)])
+                groups[m] = deque(lst)
+        self._D_of, self._by_aisle_brkt = D_of, by_aisle_brkt
+
+        self._last_sku = None
+        self._last_winner = None
+        self._bc_by_aid: dict = {}
+        self._row_items: list = []
+        self._max_reward = 0.0
+
+    def __len__(self):
+        return sum(len(dq) for g in self._by_aisle_brkt.values() for dq in g.values())
+
+    def order(self, units):
+        """Costliest SKUs claim the best (or, for maxlabor, the worst) slots first."""
+        return sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
+
+    def _better(self, a, b):                 # is a a better (more extreme) score than b?
+        return a > b if self._maximize else a < b
+
+    def _aisle_best_cost(self, aid, var):
+        """Extremal (min, or max if maximize) over the aisle's bracket ends of the
+        per-pick labor + travel:  M*(intercept + var) + D  (height scales the whole pick)."""
+        best = None
+        intercept, D_of, rep = self._intercept, self._D_of, self._rep
+        for m, dq in self._by_aisle_brkt[aid].items():
+            if not dq:
+                continue
+            cost = per_pick(m, intercept, var) + D_of[id(rep(dq))]
+            if best is None or self._better(cost, best):
+                best = cost
+        return best
+
+    def take(self, unit):
+        """(bin, score) for one unit; (None, None) when nothing is placeable.
+
+        `score` is the AISLE decision score, `fq*bc - lam*delta` -- the marginal labor of
+        the aisle's best bracket end minus the affinity reward, which is the objective the
+        argmin actually compared.  It is deliberately not `cbest`: the bin is chosen in a
+        second pass that adds a centroid term, and that term is a tie-shaping device rather
+        than labor, so persisting it would put a different quantity in the same column.
+        """
+        by_aisle_brkt, lam = self._by_aisle_brkt, self._lam
+        maximize = self._maximize
+        c = unit.order
+        sku = c.sku
+        var = c.handle_var
+        fq = self._fbs.get(sku, 0.0) * self._qbs.get(sku, 0.0)
+
+        if sku != self._last_sku:
+            # Slice the SKU's affinity row ONCE per run (not once per unit/aisle):
+            # partners as (partner_idx, f_p*(lift-1)) pairs, all non-negative
+            # (association above independence, mirroring _demand_weighted_delta_lift).
+            # max_reward bounds lam*delta over any aisle (all partners present),
+            # enabling the early-termination prune below.
+            row_items = []
+            si = self._s2i.get(sku)
+            matrix = self._matrix
+            if si is not None and matrix is not None:
+                st = int(matrix.indptr[si]); e = int(matrix.indptr[si + 1])
+                for ci, d in zip(matrix.indices[st:e], matrix.data[st:e]):
+                    w = (float(d) - 1.0) * self._fbi.get(int(ci), 0.0)
+                    if w:
+                        row_items.append((int(ci), w))
+            self._row_items = row_items
+            self._max_reward = lam * sum(w for _, w in row_items)
+
+            # Cheap per-aisle bin cost (O(brackets)); sort so the affinity prune can fire.
+            bc_by_aid = {}
+            for aid in by_aisle_brkt:
+                bc = self._aisle_best_cost(aid, var)
+                if bc is not None:
+                    bc_by_aid[aid] = bc
+            self._bc_by_aid = bc_by_aid
+            self._last_sku = sku
+        elif self._last_winner is not None:
+            # Same SKU as the previous unit: only the winner aisle's deque changed.
+            bc = self._aisle_best_cost(self._last_winner, var)
+            if bc is None:
+                self._bc_by_aid.pop(self._last_winner, None)
+            else:
+                self._bc_by_aid[self._last_winner] = bc
+        self._last_winner = None                # set again only on a successful pop
+
+        bc_by_aid, row_items = self._bc_by_aid, self._row_items
+        max_reward = self._max_reward
+        if not bc_by_aid:
+            return None, None
+        # minimise: ascending fq*bc, prune once base - max_reward >= best (reward can't save
+        # it).  maximise: descending fq*bc, prune once base <= best (reward only lowers it).
+        order = sorted(bc_by_aid, key=lambda a: fq * bc_by_aid[a], reverse=maximize)
+
+        best_aid = None
+        best_score = None
+        for aid in order:
+            base = fq * bc_by_aid[aid]
+            if best_score is not None:
+                if maximize:
+                    if base <= best_score:
+                        break
+                elif base - max_reward >= best_score:
+                    break
+            if row_items:
+                ais = self._ais[aid]
+                delta = 0.0
+                for ci, w in row_items:
+                    if ci in ais:
+                        delta += w
+            else:
+                delta = 0.0
+            score = base - lam * delta
+            if best_score is None or self._better(score, best_score):
+                best_score, best_aid = score, aid
+        if best_aid is None:
+            return None, None
+
+        # Final bin in the winning aisle: extremal bracket end (golden-zone min-D / worst
+        # max-D per height band), with the centroid term pulling toward (min) or away from
+        # (max) partners.
+        _mass, cx = _demand_weighted_partner_centroid(
+            self._aff, sku, self._amp[best_aid], self._fbi)
+        chosen = chosen_m = None
+        cbest = None
+        intercept, D_of, x_pace = self._intercept, self._D_of, self._x_pace
+        for m, dq in by_aisle_brkt[best_aid].items():
+            if not dq:
+                continue
+            b = self._rep(dq)
+            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            if cx is not None:
+                cost += x_pace * abs(b.x_phys - cx)
+            if cbest is None or self._better(cost, cbest):
+                cbest, chosen, chosen_m = cost, b, m
+        if chosen is None:
+            return None, None
+        self._drop(by_aisle_brkt[best_aid][chosen_m])
+        self._last_winner = best_aid            # the one aisle whose cached bc is now stale
+
+        if sku not in self._ass[best_aid]:
+            self._ass[best_aid].add(sku)
+            self._ads[best_aid] += fq
+        idx = self._s2i.get(sku)
+        if idx is not None:
+            self._ais[best_aid].add(idx)
+            self._amp[best_aid][idx].append(chosen.x_phys)
+        return chosen, best_score
+
+
+def _build_minlabor_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+                            aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam,
+                            maximize=False):
+    def open_pool(candidates, rep=None):
+        return _MinLaborPool(
+            candidates, affinity,
+            _wp_for(wp, rep) if rep is not None else wp,   # per-regime cost, mixed warehouse
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+            freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=maximize)
+    return open_pool
+
+
 def build_ranked_minlabor_fn(
     affinity,
     wp,
@@ -1991,6 +2210,17 @@ def build_ranked_minlabor_fn(
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam=beta)
     return ranked_assign
+
+
+def build_ranked_minlabor_pool_fn(
+    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+    freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
+):
+    """Pool twin of build_ranked_minlabor_fn — same signature."""
+    _require_affinity(affinity, 'rank_minlabor')
+    return _build_minlabor_pool_fn(
+        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+        freq_by_idx, freq_by_sku, qty_by_sku, lam=beta, maximize=False)
 
 
 def build_ranked_maxlabor_fn(
@@ -2017,6 +2247,17 @@ def build_ranked_maxlabor_fn(
             aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam=beta,
             maximize=True)
     return ranked_assign
+
+
+def build_ranked_maxlabor_pool_fn(
+    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+    freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
+):
+    """Pool twin of build_ranked_maxlabor_fn — same signature."""
+    _require_affinity(affinity, 'rank_maxlabor')
+    return _build_minlabor_pool_fn(
+        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+        freq_by_idx, freq_by_sku, qty_by_sku, lam=beta, maximize=True)
 
 
 def build_optmap_fn(mgr, capped=False):
