@@ -983,6 +983,26 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._stock_queue = pending
 
 
+    def _serve_order(self, pool, units: list) -> list:
+        """WHO is served first, out of one BinKey group.  The drain's decision.
+
+        This method is the whole point of Phase 1.  Until the pool inversion, an assignment
+        function returned `[(unit, bin)] in priority order` and the drain iterated it, so
+        every ranked policy was choosing the ORDER as well as the bin -- 14 of the 17
+        restock rules, none of them asked to.  Put-away is supposed to be FIFO with a little
+        tolerance; instead the queue was freely re-sorted by whatever score maximised the
+        assignment function.
+
+        The pool split that in two.  `pool.order(units)` is now a REQUEST: the policy states
+        the precedence it would like and this method decides what to grant.  Today it grants
+        all of it, which is why everything is still byte-identical -- the seam is real but
+        not yet load-bearing.  A finite K-oldest window lands here, and only here.
+
+        `units` arrives in queue order (the group's insertion order into `_stock_queue`), so
+        the FIFO answer is already in hand and needs no extra bookkeeping to recover.
+        """
+        return pool.order(units)
+
     def _stock_ranked(self, budget: int | None = None) -> None:
         """Ranked placement: sort units by pick-effort priority, then drain.
 
@@ -1033,24 +1053,23 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             units   = [it.unit for it in items]
             by_unit = {id(it.unit): it for it in items}
             if self.placement.is_pooled:
-                # POOLED: the DRAIN owns the order and the pool owns the choice.  One
-                # snapshot per group, exactly as the wave took -- the candidate set never
-                # depended on the order, because every unit in a group shares a BinKey.
-                # Queue order here, which is what the pooled policies already served in.
+                # POOLED: the DRAIN owns the order, the pool owns the choice.  One snapshot
+                # per group, exactly as the wave took -- the candidate set never depended on
+                # the order, because every unit in a group shares a BinKey.
                 pool = self.placement.open_pool(self._candidates(units[0]), units[0])
                 taken = []
-                # `pool.order` is what the policy WOULD LIKE. Honoured in full while the
-                # window is unbounded; a finite K-oldest window will narrow what it is
-                # allowed to reorder, which is the point of asking rather than obeying.
-                for unit in pool.order(units):
+                for unit in self._serve_order(pool, units):
                     bin_, score = pool.take(unit)
                     taken.append((unit, bin_, score))
                 assignments = _ranked_by_score(taken, pool.prefers_low)
             else:
-                # Ranked assignments — high pick-effort units claim the best bins first.
-                # A wave has no score to report: it returns bins, and there is no
-                # "score this bin for this unit" step to call afterwards. That absence is
-                # the whole reason the pool returns one.
+                # LEGACY.  No shipped restock rule reaches here any more: 14 are pooled and
+                # the other 3 (fifo, cmax, cmin) have no group path at all.  Kept because
+                # `place_wave` is still how the frozen oracles are driven in the equivalence
+                # suites, and deleting it would delete the thing the ports are checked
+                # against.  A wave has no score to report -- it returns bins, and there is
+                # no "score this bin for this unit" step to call afterwards, which is the
+                # whole reason a pool returns one.
                 assignments = [(u, b, None, None) for u, b in
                                self.placement.place_wave(units, self._candidates)]  # type: ignore[misc]
             for unit, bin_, score, rank in assignments:
