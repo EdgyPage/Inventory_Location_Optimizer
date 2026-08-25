@@ -33,7 +33,7 @@
 - [A grant is not an output](a-grant-is-not-an-output.md) — the [access] summary reports INPUTS; read the [render] run summary line to learn whether anything was actually written
 - [By-initial aggregate needs 3 profiles](by-initial-aggregate-needs-three-profiles.md) — a two-inventory sweep legitimately renders no cross-profile by-initial suite; the per-leaf one still works
 - [Figure views are derived](figure-views-are-derived.md) — since 2026-08-23 shape+quantities decide the view set; delta_travel_vs_baseline.png was a percent and is now percent_travel_per_arm.png
-- [Put-away seams for inbound](putaway-seams-for-inbound.md) — the nine seams built 2026-08-24 for a trailer/dock feature, and the four things still missing when it starts
+- [Put-away seams for inbound](putaway-seams-for-inbound.md) — the seams built for a trailer/dock feature (incl. the 2026-08-25 arrival seam, inbound.receive + inbound_split), and what is still missing
 - [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — FIXED 2026-08-24; correcting a pre-fix number goes OPPOSITE ways: durations x1000, rates /1000
 - [Case-only rename deletes its own page](case-only-rename-deletes-its-own-page.md) — an UPPER→lower symbol rename makes render_html --build delete the page it just wrote; run --build twice
 - [One clock, one speed, one config](one-clock-one-speed-one-config.md) — the 2026-08-24 refactor: absolute clock, role x mode actors, timed put-away, derived CONFIG; and what stays provisional
@@ -44,3 +44,6 @@
 - [Working-day plan corrections](working-day-clock-plan-corrections.md) — the approved 4-commit plan does not compose (nothing turns the cut on; the carry is defined twice); corrected 7-step sequence in docs/design/WORKING_DAY_CLOCK.md
 - [Empty-batch clock stall is a contract](empty-batch-clock-stall-is-a-contract.md) — not a deadlock and not a bug; a test asserts it by source index, and the put-away drain leaks on the same guard
 - [Lockstep tests compare aggregates only](lockstep-tests-compare-aggregates-only.md) — all three could pass on differently-shaped event streams; and the travel identity needs the handling term (5 terms, not 3)
+- [stock_plan overrides packing](stock-plan-overrides-packing.md) — 200/200 planned orders bypass the pallet/singleton rule, so tier mix is a generation-time knob; it is also why splitting a delivery can produce FEWER units
+- [Empty-bin preference is structural](empty-bin-preference-is-structural.md) — put-away already never adds to an occupied bin (measured 0 across 4 arms), so a scoring term for it would fake a tunable
+- [A config knob has five seams](config-knob-has-five-seams.md) — settings.py names four; the fifth is workunits._shared, and skipping it silently reverts the knob to its default in every spawned worker
