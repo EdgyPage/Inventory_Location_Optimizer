@@ -1,6 +1,6 @@
 # The working-day clock — what the first plan got wrong, and the sequence that replaces it
 
-**Status:** in progress — steps 1 and 2 of §5 are done, the rest is not.
+**Status:** COMPLETE. Every step of §5 has landed, including 6b — receiving as its own crew — which was listed as deferred until the decision it needed arrived on 2026-08-25.
 
 Written before any of it was built, because a read-only survey found that the approved
 four-commit plan cannot be executed as written: two of its commits collide on an API that
@@ -186,12 +186,13 @@ Each step is independently verifiable, and no step leaves a producer without a c
 | 6 | Put-away rollover: the whistle is a START gate on the put crews, and `put_queue_state.cut` says what it left standing. | Cut OFF: byte-identical (1027/1164 digests; the rest are the two new columns and the two timestamp tables). | **done** `90cd7a8` |
 | 7 | Resume: batch granularity REFUSES while the carry is on, because `_pending` is in no checkpoint and resuming would drop demand. Strategy granularity — the default — replays from batch 0 and needed nothing. | Default path untouched. | **done** `d410ac0` |
 | 8 | Analysis: `throughput_elapsed`, measured against the elapsed day rather than the batch makespan. | Identical to `throughput` under the continuous default, bit for bit. | **done** |
-| 6b | Inbound HOURS — does the receiving dock have a day of its own? | n/a | **deferred: out of the approved plan's scope** |
+| 6b | Inbound HOURS — the receiving dock as a fourth crew with its own day. | Cut OFF: byte-identical (1,095/1,164 digests). | **done** `33911b3..71edd16` |
 
-**The sequence is complete.** 6b is listed so the question is not lost, not because it is
-owed: the approved plan's own "Deliberately not in scope" section defers inbound, trailers,
-docks and a sorter, and 6b is that feature. It needs a decision before it needs code, and §8
-states the decision.
+**The sequence is complete, and 6b came back.** It was listed as deferred — the approved
+plan's own "Deliberately not in scope" section defers inbound, trailers, docks and a sorter —
+because it needed a decision before it needed code. The decision came (2026-08-25: *"inbound
+will be its own crew"*), so it was built. §8 records what it turned on and what it still does
+not model.
 
 **Step 7 shrank to one guard, and the reason is worth keeping.** The step listed five pieces
 of state to carry across a resume (day clock, pending demand, held items, queue depths, the
@@ -311,7 +312,7 @@ One accounting trap, recorded because the first measurement produced a scary and
 scheduled work includes the previous batch's carry, so the sum double-counts every carried
 unit. The invariant is per batch — `picked_i + carried_i == scheduled_i` — and it holds.
 
-## 8. The open question step 6b needs answered
+## 8. Step 6b, answered and built: receiving is its own crew
 
 Put-away and picking now share one whistle, because they share one crew's day. Inbound does
 not obviously share it, and the model currently has no opinion:
@@ -323,17 +324,68 @@ not obviously share it, and the model currently has no opinion:
   the model has no unload step at all: `_release_to_stock` packs the arrival and `_admit` puts
   it on a queue, both free.
 
-So the honest state is that inbound *rollover* exists (a full floor holds the item, the next
-drain retries it, `blocked` counts the refusal) while inbound *hours* do not. Adding them
-means deciding one thing first: **is the receiving dock a fourth crew with its own
-`PutQueueSpec`-shaped hours, or is unloading part of the put crews' day?**
+**The answer, 2026-08-25: a fourth crew with hours of its own.** The alternative — unloading
+inside the put crews' day — would have said that a warehouse which cannot put away also
+cannot receive, which is what a shared-crew site looks like and false for a site with a
+dedicated receiving team. Built over nine commits, `33911b3..71edd16`.
 
-The first is more faithful and costs a fourth actor space plus a fourth clock in every
-snapshot. The second is free and says that a warehouse which cannot put away also cannot
-receive — which is what a shared-crew site looks like, and false for a site with a dedicated
-receiving team. `Warehouse/operations/inbound.py` deliberately holds no clock so that either
-answer can be built on it, and `LoadPlan` already carries what an unload step would need to
-cost itself (`unit_count`, `packed_qty`, `tier_mix`).
+### What it turned on
 
-Not a coin-flip: it changes what a short day *means*, and every published throughput figure
-under a paced schedule depends on it. It is the user's call.
+`Warehouse/inventory/dock.py` holds the merchandise; `Warehouse/operations/unload.py` costs
+it; `_receive` is the sixth of seven phases in `check_reorders`, between the calendar and the
+put-away drain. The design decision everything else follows from is **where the dock
+intercepts**: inside `_admit`, after the arrival stamp and before the put queue.
+
+`_release_to_stock` credits `_queued_qty` AFTER its admit loop, so the credit survives the
+divert and `position = on_hand + queued + deferred` is unchanged — the reorder ledger needed
+**zero edits** at either of its two sites. Intercepting one level up, which is the obvious
+place, would drop merchandise out of `_deferred_qty` without adding it to `_queued_qty`, and
+the SKU would re-order every batch for as long as the dock was backed up, with nothing
+raising. Intercepting after the stamp also inherits the arrival age for free, which is the
+rule `_admit`'s own docstring had reserved for this feature.
+
+### The whistle is separate from the pickers'
+
+`--recv-day-seconds` is deliberately NOT gated on `--cut-at-day-end`. That flag changes which
+units are *picked* in which batch, so coupling them would make receiving rollover observable
+only in a configuration that also perturbs picking. Decoupled,
+`--recv-crew-size 2 --recv-day-seconds 14400` is a clean arm: real rollover, zero change to
+pick or put-away timing.
+
+The receive deadline is measured against its own day and its own carry. Reusing the put
+crew's is arithmetically well-formed and wrong — it is that crew's remaining day, already
+shrunk by that crew's backlog — and the only symptom would be a `recv_cut` that reads like a
+legitimately short day.
+
+### Measured
+
+| configuration | result |
+|---|---|
+| no flags | 1,095 of 1,164 table digests unchanged; the rest are the two timestamp tables. Structural: no crew, no dock, no clock is constructed |
+| `--recv-crew-size 2 --recv-day-seconds 3600` | 2,346 receive events against 2,346 `recv_unloaded`, 2,431.483 s on both surfaces, three roles, zero `actor_uid` overlaps |
+| `--recv-crew-size 1 --recv-day-seconds 0.5` | the whistle biting: one unload per batch (each ~1.015 s), 3,162 cut, dock growing 26 → 67 |
+
+The third row is the honest answer to "is the receiving carry bounded": it is not, and should
+not be. A day too short for the arrival rate leaves work behind every batch — the same shape
+the pick carry has, for the same reason.
+
+### What is still not modelled, and which way it is wrong
+
+**Arrivals are quantized to BATCHES.** `LEAD_TIME_UNIT` is still `'batches'`, so every trailer
+in a batch lands at the batch epoch and the crew has no sub-batch arrival times to schedule
+against. The direction is knowable: a real day's arrivals spread out, so the modelled crew
+faces its whole day at once and its makespan reads LONG. **Sizing a receiving crew off this
+model would over-staff it.** Fixing it means converting lead time to seconds, which moves
+every restock result on every arm and is a publishable change of its own.
+
+**A put row can carry a smaller `t_abs` than the receive row of the same unit**, bounded by
+one batch's receive makespan — the two streams are simulated independently and merged, which
+is what `work_events` already declares. Widening `_put_base` would over-correct.
+
+**The dock has no floor limit.** It exerts backpressure on nothing and nothing exerts
+backpressure on it; the only bound on receiving is the crew's hours. A refusal would need
+somewhere for the merchandise to go, and the only candidate (`_held`) is retried inside
+`_stock`, which would put trailer goods away for free.
+
+All three are recorded in `dock.py`'s own docstring, where someone reading the code will
+find them.
