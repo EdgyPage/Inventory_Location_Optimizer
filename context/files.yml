@@ -523,6 +523,10 @@ files:
       - {name: "KEYFRAME_INTERVAL", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "SAMPLER", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "SHIFT_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "WORK_DAY_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "RELEASES_PER_DAY", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "CUT_AT_DAY_END", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "ROLL_OVER_UNPICKED", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "FF_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICK_MODE", file: "Optimization/config/settings.py", kind: "const"}
@@ -557,6 +561,7 @@ files:
       - {name: "k_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "work_day_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "ff_fill", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -967,6 +972,7 @@ files:
       - {name: "save_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "load_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "reset_strategy_db", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
+      - {name: "close_skipped_batch", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/supervisor.py":
     purpose: "Crash-recovery pool driver + finalize gate \u2014 flat ProcessPoolExecutor lifetime, isolate per-unit failures, rebuild+resubmit on BrokenProcessPool up to max_retries, finalize a group only when every arm succeeded."
@@ -1923,6 +1929,21 @@ files:
       - {name: "test_supervise_rebuilds_pool_and_resubmits", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_supervise_quarantines_persistent_failure", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_plan_strategy_start_all_branches", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_batch_resume_is_refused_while_the_carry_is_on", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_day_cut_rollover.py":
+    purpose: "the cut, end to end, across batches."
+    layer: "tests"
+    key_symbols:
+      - {name: "N_BATCHES", file: "Tests/integration/test_day_cut_rollover.py", kind: "const"}
+      - {name: "test_every_batch_conserves_its_scheduled_work", file: "Tests/integration/test_day_cut_rollover.py", kind: "function"}
+      - {name: "test_a_short_day_picks_less_and_cuts_more_than_a_long_one", file: "Tests/integration/test_day_cut_rollover.py", kind: "function"}
+      - {name: "test_a_backlog_that_cannot_clear_stays_visible", file: "Tests/integration/test_day_cut_rollover.py", kind: "function"}
+      - {name: "test_the_shared_batch_is_never_mutated", file: "Tests/integration/test_day_cut_rollover.py", kind: "function"}
+      - {name: "test_the_rollover_gate_is_a_true_no_op_when_off", file: "Tests/integration/test_day_cut_rollover.py", kind: "function"}
+      - {name: "test_rolling_over_recovers_work_that_would_otherwise_evaporate", file: "Tests/integration/test_day_cut_rollover.py", kind: "function"}
+      - {name: "test_every_cause_is_counted_separately", file: "Tests/integration/test_day_cut_rollover.py", kind: "function"}
+      - {name: "test_no_cut_still_carries_the_unplaceable_half", file: "Tests/integration/test_day_cut_rollover.py", kind: "function"}
     notes: ""
   "Tests/integration/test_log_reconstruction.py":
     purpose: "the acceptance test: the VIEWER is exact at every batch."
@@ -2039,6 +2060,44 @@ files:
       - {name: "test_every_staging_limit_places_the_same_work", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
       - {name: "test_the_refill_loop_terminates_when_nothing_can_be_placed", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
       - {name: "test_the_refill_cap_logs_rather_than_raising", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_blocked_counts_arrivals_turned_away_and_not_refill_retries", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_blocked_falls_as_the_floor_grows", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_putaway_carts.py":
+    purpose: "how a reorder becomes put-away work, and who carries it."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_default_packing_is_full_pallets_then_one_remainder", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_a_stock_plan_OVERRIDES_the_pallets_then_remainder_rule", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_the_split_is_overwhelmingly_pallets_at_current_planner_settings", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_pallets_go_to_the_forklift_and_the_remainder_to_a_cart", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_a_put_cart_holds_exactly_what_the_pick_cart_holds", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_no_cart_means_no_limit", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_a_load_that_overflows_swaps_the_cart", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_the_put_cart_uses_the_pickers_own_next_fit", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_a_swap_costs_the_putter_time", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_a_cart_big_enough_never_swaps", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_the_swap_count_is_reported_per_batch", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_no_placement_ever_lands_in_an_occupied_bin", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+      - {name: "test_an_occupied_bin_is_not_a_candidate", file: "Tests/integration/test_putaway_carts.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_putaway_day_cut.py":
+    purpose: "the whistle stops put-away too, and the stop is counted."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_deadline_places_exactly_what_it_placed_before", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_an_untimed_queue_ignores_the_deadline", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_a_zero_deadline_places_nothing_and_drops_nothing", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_what_the_whistle_stops_is_placed_the_next_day", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_a_put_may_run_past_the_whistle", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_can_start_reads_the_earliest_free_worker", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_a_bigger_crew_gets_more_done_before_the_same_whistle", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_cut_equals_what_is_standing_on_a_stopped_queue", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_held_items_are_blocked_not_cut", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_the_counter_drains_with_its_siblings", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_depth_and_cut_are_different_questions", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_a_budget_and_a_deadline_bind_separately", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_the_deadline_does_not_leak_into_the_budgets_accounting", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
     notes: ""
   "Tests/integration/test_queue_state_and_carryover.py":
     purpose: "the queue's own state, and what it failed to place."
@@ -2057,6 +2116,8 @@ files:
       - {name: "test_carryover_rows_separate_unplaced_from_held", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
       - {name: "test_queue_contents_reports_held_items_too", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
       - {name: "test_queue_state_rows_drain_the_counters_exactly_once", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_batch_stats_round_trips_the_working_day_and_the_missed_slot", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_the_working_day_columns_default_to_zero", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
     notes: ""
   "Tests/integration/test_run_layout.py":
     purpose: "Locks the run_layout.json descriptor \u2014 write/read round-trip, descriptor-driven cells() with no DBs on disk, and write_run_layout keys == the JSON Schema properties."
@@ -2348,7 +2409,13 @@ files:
       - {name: "test_a_batch_scores_the_same_wherever_it_sits_on_the_axis", file: "Tests/unit/test_arm_clock.py", kind: "function"}
       - {name: "test_the_makespan_is_the_slowest_picker_not_the_absolute_end", file: "Tests/unit/test_arm_clock.py", kind: "function"}
       - {name: "test_the_runner_carries_one_uniform_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
-      - {name: "test_a_skipped_batch_cannot_advance_the_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_a_skipped_batch_still_does_not_advance_the_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_a_skipped_batch_writes_a_zero_duration_row_at_the_arm_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_a_skipped_batch_drains_its_put_records", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_the_drained_records_are_stamped_against_THIS_batch", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_the_put_crew_carries_across_a_skipped_batch", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_a_run_without_put_timing_is_unaffected", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_a_zero_duration_batch_reports_nan_throughput_not_zero", file: "Tests/unit/test_arm_clock.py", kind: "function"}
     notes: ""
   "Tests/unit/test_assignment_and_labor.py":
     purpose: "test_assignment_and_labor.py"
@@ -2626,6 +2693,27 @@ files:
       - {name: "test_an_exhausted_pool_reports_nothing", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
       - {name: "test_a_stale_winner_key_would_send_the_next_unit_to_the_wrong_aisle", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_day_cut.py":
+    purpose: "stopping a picker at the whistle, and carrying what it did not reach."
+    layer: "tests"
+    key_symbols:
+      - {name: "BOTH", file: "Tests/unit/test_day_cut.py", kind: "const"}
+      - {name: "test_no_day_end_means_no_cut", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_picked_plus_carried_equals_planned", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_an_immediate_cut_carries_everything_and_picks_nothing", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_a_day_longer_than_the_work_carries_nothing", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_a_shorter_day_never_carries_less", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_both_loops_cut_identically", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_a_cut_task_emits_cut_and_not_task_end", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_a_cut_task_is_partially_done_not_untouched", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_the_cut_never_lands_mid_pick", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_the_decomposition_still_reconciles_across_a_cut", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_a_cut_charges_no_travel_toward_a_bin_it_never_reached", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_carry_residue_is_the_plan_and_is_not_re_clamped_at_cut_time", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_carry_residue_skips_a_bin_with_no_stock", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_carry_residue_accumulates_into_a_shared_dict", file: "Tests/unit/test_day_cut.py", kind: "function"}
+      - {name: "test_a_task_the_picker_never_started_carries_whole", file: "Tests/unit/test_day_cut.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_equilibrium_reorder.py":
     purpose: "test_equilibrium_reorder.py"
     layer: "tests"
@@ -2694,6 +2782,23 @@ files:
       - {name: "test_every_ff_sku_fits_a_fulfillment_bin", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
       - {name: "test_mixed_plan_fraction_regime_and_weights", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
       - {name: "test_zero_fraction_gives_no_fulfillment", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_inbound_load_plan.py":
+    purpose: "packing is a property of the ARRIVAL, not of the order."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_pallet_whole_becomes_two_singletons_when_split", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_the_split_is_what_changed_it_not_the_quantity", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_splitting_never_helps_an_unplanned_order", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_splitting_a_PLANNED_order_can_remove_units", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_an_unsplit_delivery_compares_against_itself", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_a_split_moves_the_same_merchandise", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_zero_and_empty_deliveries_are_dropped_not_counted", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_inbound_split_reshapes_a_real_reorder_arrival", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_the_trackers_count_the_split_packing", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_no_split_policy_reproduces_the_packer_exactly", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_a_policy_returning_none_is_the_same_as_no_policy", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_the_packer_itself_is_untouched", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
     notes: ""
   "Tests/unit/test_index_equivalence.py":
     purpose: "Regression tests for the aisle_index fast path and its coupling guard."
@@ -2842,6 +2947,21 @@ files:
       - {name: "test_every_registered_config_converts", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
       - {name: "test_the_field_set_is_derived_from_the_dataclass", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
       - {name: "test_no_module_builds_a_pickconfig_from_a_config_dict_on_its_own", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_pick_stream_lockstep.py":
+    purpose: "the two picker loops emit the SAME EVENTS, not just the"
+    layer: "tests"
+    key_symbols:
+      - {name: "FIELDS", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "const"}
+      - {name: "FIXTURES", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "const"}
+      - {name: "test_the_two_loops_emit_identical_streams", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "function"}
+      - {name: "test_both_lane_models_stay_in_lockstep", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "function"}
+      - {name: "test_the_start_time_carry_stays_in_lockstep", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "function"}
+      - {name: "test_randomized_workloads_stay_in_lockstep", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "function"}
+      - {name: "test_the_fixtures_exercise_every_field_being_compared", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "function"}
+      - {name: "test_both_travel_axes_and_the_cart_are_all_nonzero_somewhere", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "function"}
+      - {name: "test_the_comparison_reports_the_first_divergence_by_name", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "function"}
+      - {name: "test_the_existing_guards_cannot_see_a_reshaped_stream", file: "Tests/unit/test_pick_stream_lockstep.py", kind: "function"}
     notes: ""
   "Tests/unit/test_picker_clock_carry.py":
     purpose: "a picker's clock does not have to restart at every batch."
@@ -3019,6 +3139,13 @@ files:
       - {name: "test_no_worker_is_in_two_places_at_once", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
       - {name: "test_the_drain_restarts_every_workers_clock", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
       - {name: "test_a_crew_of_zero_is_rejected", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_two_streams_do_not_queue_behind_each_other", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_stream_serialises_against_itself", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_queue_uses_its_own_crews_speed", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_queue_without_a_crew_inherits_the_default", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_bigger_crew_on_one_stream_does_not_speed_up_the_other", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_put_clock_is_the_slowest_stream_not_the_sum", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_swapping_the_queue_set_keeps_timing_bound", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
     notes: ""
   "Tests/unit/test_putaway_window.py":
     purpose: "FIFO with exactly K units of tolerance."
@@ -3126,6 +3253,8 @@ files:
       - {name: "test_draining_putaway_does_not_advance_the_calendar_or_order_anything", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
       - {name: "test_every_phase_is_callable_on_a_fresh_manager", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
       - {name: "test_the_phase_list_here_matches_the_composition", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_put_deadline_reaches_only_the_drain", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_default_deadline_is_none", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
     notes: ""
   "Tests/unit/test_reorder_queue.py":
     purpose: "test_reorder_queue.py"
@@ -3214,6 +3343,13 @@ files:
       - {name: "test_the_pool_is_constructed_with_the_pinned_value", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_structural_bin_floor_is_configuration_not_catalogue", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_run_simulation_warns_before_any_build", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_working_day_is_in_config", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_working_day_has_cli_flags", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_working_day_reaches_the_worker_payload", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_day_length_falls_back_to_the_shift_length", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_working_day_is_recorded_and_restored", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_runner_reads_the_day_only_from_its_arguments", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_batch_level_resume_is_refused_while_demand_rolls_over", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
     notes: ""
   "Tests/unit/test_scheduler.py":
     purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"
@@ -3345,6 +3481,35 @@ files:
       - {name: "test_real_manager_matches_the_canonical_expectation", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
       - {name: "test_manager_and_fallback_branches_agree", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_task_realized.py":
+    purpose: "a task reports what it DID, not only what it was planned to do."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_fully_stocked_task_realizes_its_plan", file: "Tests/unit/test_task_realized.py", kind: "function"}
+      - {name: "test_a_short_bin_makes_realized_fall_below_planned", file: "Tests/unit/test_task_realized.py", kind: "function"}
+      - {name: "test_an_empty_bin_is_planned_but_not_realized", file: "Tests/unit/test_task_realized.py", kind: "function"}
+      - {name: "test_realized_items_are_per_task_not_per_session", file: "Tests/unit/test_task_realized.py", kind: "function"}
+      - {name: "test_both_loops_report_the_same_realized_numbers", file: "Tests/unit/test_task_realized.py", kind: "function"}
+      - {name: "test_realized_never_exceeds_planned", file: "Tests/unit/test_task_realized.py", kind: "function"}
+      - {name: "test_the_columns_round_trip", file: "Tests/unit/test_task_realized.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_thr_elapsed.py":
+    purpose: "throughput against the DAY, not against the makespan."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_continuous_schedule_makes_the_two_throughputs_identical", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_the_metric_is_not_vacuous_on_the_default", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_slack_in_the_schedule_lowers_what_the_day_produced", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_a_schedule_the_crew_cannot_keep_up_with_has_no_slack", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_fewer_fuller_waves_raise_the_day_and_leave_the_working_rate_alone", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_a_legacy_db_with_no_absolute_clock_falls_back_to_the_makespan", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_a_non_monotonic_epoch_does_not_produce_a_negative_rate", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_the_last_batch_measures_against_its_own_makespan", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_row_order_does_not_change_the_answer", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_a_zero_duration_batch_is_unmeasured_rather_than_zero", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_an_empty_frame_still_carries_the_columns", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+      - {name: "test_the_metric_is_registered_and_reads_only_the_guaranteed_surface", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_timeline.py":
     purpose: "what the simulation's clock counts in, and where batches sit on it."
     layer: "tests"
@@ -3458,6 +3623,34 @@ files:
       - {name: "test_requeue_bin_frees_the_bin_without_losing_the_inventory_position", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_capacity_reloaders_respect_their_budget_and_lower_sigma_fd", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_incremental_sigma_fd_tracks_the_full_recompute_through_every_mutation", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_work_day.py":
+    purpose: "the working day and the release schedule, as arithmetic."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_default_day_is_the_shift_length", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_a_day_that_never_ends_is_refused", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_days_are_back_to_back", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_the_boundary_belongs_to_the_day_that_is_opening", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_remaining_at_a_boundary_is_a_whole_day", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_remaining_is_never_zero_or_negative", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_an_instant_before_the_origin_is_a_negative_day", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_an_origin_shifts_every_boundary", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_fits_is_remaining_without_the_arithmetic", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_a_day_is_a_value", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_the_default_schedule_is_the_current_runner", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_a_schedule_with_no_releases_per_day_is_refused", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_a_paced_day_is_cut_into_equal_slots", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_an_empty_batch_still_consumes_its_slot", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_a_schedule_never_starts_work_before_the_arm_is_free", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_a_missed_slot_is_reported_rather_than_hidden", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_slots_run_across_day_boundaries", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_one_release_a_day_is_a_release_at_each_day_start", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_an_origin_carries_into_the_schedule", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_a_negative_batch_index_raises", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_an_overrun_pushes_the_release_later_and_records_the_miss", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_the_runner_reads_the_schedule_from_its_args", file: "Tests/unit/test_work_day.py", kind: "function"}
+      - {name: "test_the_default_configuration_is_continuous", file: "Tests/unit/test_work_day.py", kind: "function"}
     notes: ""
   "Tests/unit/test_work_events.py":
     purpose: "two streams, one axis, and the reconciliation that keeps them there."
@@ -3779,6 +3972,8 @@ files:
       - {name: "shift_offset", file: "Warehouse/kernel/timeline.py", kind: "function"}
       - {name: "batch_epoch", file: "Warehouse/kernel/timeline.py", kind: "function"}
       - {name: "epochs", file: "Warehouse/kernel/timeline.py", kind: "function"}
+      - {name: "WorkDay", file: "Warehouse/kernel/timeline.py", kind: "class"}
+      - {name: "ReleaseSchedule", file: "Warehouse/kernel/timeline.py", kind: "class"}
     notes: ""
   "Warehouse/layout/Aisle_Dimensions.py":
     purpose: "physical dimension helpers for warehouse aisle layout."
@@ -3823,6 +4018,18 @@ files:
       - {name: "Warehouse", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
       - {name: "Warehouse_Builder", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
     notes: ""
+  "Warehouse/operations/inbound.py":
+    purpose: "what arrived, how it packed, and what a single delivery would have produced."
+    layer: "wh_operations"
+    key_symbols:
+      - {name: "PALLET", file: "Warehouse/operations/inbound.py", kind: "const"}
+      - {name: "SINGLETON", file: "Warehouse/operations/inbound.py", kind: "const"}
+      - {name: "FULFILLMENT", file: "Warehouse/operations/inbound.py", kind: "const"}
+      - {name: "LoadPlan", file: "Warehouse/operations/inbound.py", kind: "class"}
+      - {name: "receive", file: "Warehouse/operations/inbound.py", kind: "function"}
+      - {name: "receive_all", file: "Warehouse/operations/inbound.py", kind: "function"}
+      - {name: "shipment_penalty", file: "Warehouse/operations/inbound.py", kind: "function"}
+    notes: ""
   "Warehouse/operations/putaway.py":
     purpose: "what a put-away COSTS, in the same seconds the pick clock counts."
     layer: "wh_operations"
@@ -3858,6 +4065,7 @@ files:
       - {name: "PickerProgress", file: "Warehouse/picking/Pick.py", kind: "class"}
       - {name: "count_cart_swaps", file: "Warehouse/picking/Pick.py", kind: "function"}
       - {name: "assign_tasks", file: "Warehouse/picking/Pick.py", kind: "function"}
+      - {name: "carry_residue", file: "Warehouse/picking/Pick.py", kind: "function"}
       - {name: "PickSimulation", file: "Warehouse/picking/Pick.py", kind: "class"}
     notes: ""
   "Warehouse/picking/Workload_Builder.py":

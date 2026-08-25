@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>carry_residue · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_picking_Pick_py__carry_residue" data-id="Warehouse/picking/Pick.py::carry_residue">
+<nav class="crumbs"><a href="../layers.html">wh_picking</a> <span class="sep">›</span> <a href="../files/nWarehouse_picking_Pick_py.html"><code>Warehouse/picking/Pick.py</code></a> <span class="sep">›</span> <span class="here"><code>carry_residue</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>carry_residue</code></h1>
+<p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_Pick_py.html"><code>Warehouse/picking/Pick.py</code></a></p>
+
+<pre class="sig"><code>def carry_residue(task, start: int, into: dict) -&gt; dict</code></pre>
+<section class="doc">Fold a task&#x27;s UNDONE planned work into `into`, as `{sku: qty}`.
+
+THE ONE DEFINITION OF THE CARRY, imported by both picker loops so they cannot drift.
+A day-cut carry is the PLANNED quantity at every bin the picker did not reach --
+`task.planned[k]` for k &gt;= start -- and deliberately not a residual computed later as
+&quot;demand minus picked&quot;.  Two definitions of one number is how a carry becomes either dead
+code or a double count, and the consumer must read this rather than re-deriving it.
+
+The plan, not what the bins now hold: the next batch re-derives its own bins, and
+clamping here would forgive demand a restock is about to satisfy.
+
+A bin whose storage is gone contributes nothing -- that quantity was never pickable from
+there, and it is the live-stock clamp&#x27;s business (`unpicked_unavailable`) rather than the
+cut&#x27;s (`unpicked_daycut`).  Keeping the two causes apart is the whole point of the
+`carryover.reason` column.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_picking_Pick_py__PickSimulation__simulate_picker.html"><code>_simulate_picker</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li><li><a href="nWarehouse_picking_fast_pick_py___simulate_picker_deferred.html"><code>_simulate_picker_deferred</code></a> <span class="dim">Warehouse/picking/fast_pick.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Pick_py__carry_residue">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Pick.py#:~:text=def%20carry_residue">Source ↗</a></p>
+</article>
+</main>
+</body></html>

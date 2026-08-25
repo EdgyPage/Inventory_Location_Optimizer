@@ -23,10 +23,13 @@ whistle and no task is split at a boundary — a task that spans one is recorded
 under the shift it STARTED in, because that is where the actor picked it up.
 
 This is what &quot;work carries over&quot; means in a model whose scheduling atom is a whole
-task: the second shift picks up mid-aisle exactly where the first left off.  Making a
-boundary dispatch-affecting — deferring a task that would cross it — is a different
-model, and the seam for it already exists (`_stock(budget=)` defers a whole wave and
-never truncates one; `allocation.partition` re-partitions whatever is left).
+task: the second shift picks up mid-aisle exactly where the first left off.
+
+A DISPATCH-AFFECTING boundary is a different model, and it is `WorkDay` below, not this.
+Do not reach for `_stock(budget=)` as its seam even though an earlier version of this
+docstring pointed there: it defers a whole WAVE and never truncates one, which is the
+wrong granularity for a cut that has to stop a picker mid-task — and it has no
+production caller, so it is an untested path as well.
 
 Raises on a non-positive shift, which would otherwise divide by zero or label every
 instant shift 0 with no warning.</section>

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>check_reorders</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def check_reorders(self) -&gt; list[int]</code></pre>
+<pre class="sig"><code>def check_reorders(self, put_deadline: float | None=None) -&gt; list[int]</code></pre>
 <section class="doc">Order-Up-To replenishment through an explicit, deterministic lead queue.
 
 Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
@@ -30,6 +30,12 @@ lead 0.  Per call (one completed batch), in this order and no other:
 
 Inventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a
 SKU with an order already in flight is not reordered again.
+
+`put_deadline` is the day&#x27;s whistle for step 4 only, in seconds on the put crews&#x27;
+batch-local clocks.  It reaches nothing above it on purpose: steps 0-3 are the
+CALENDAR advancing — a lead time elapses whether or not anyone is at work, and a
+trailer that arrives at four o&#x27;clock has still arrived.  What the day bounds is the
+LABOUR, and the labour is step 4.
 
 THE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can
 drive them separately, but reordering them changes results: firing before the lead

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_stock</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
 
-<pre class="sig"><code>def _stock(self, budget: int | None=None) -&gt; None</code></pre>
+<pre class="sig"><code>def _stock(self, budget: int | None=None, deadline: float | None=None) -&gt; None</code></pre>
 <section class="doc">Dispatch the queued wave to the placement policy: a ranked wave if the
 policy carries a ``place_wave``, otherwise the per-unit path.  Single entry
 used by enqueue/enqueue_all (initial stock) and check_reorders (reorders).
@@ -27,6 +27,12 @@ everything, exactly as before.
 A budget is what a finite crew and a finite number of dock doors impose: the
 parameter exists so that constraint has somewhere to go without the drain being
 rewritten around it.
+
+``deadline`` is the WHISTLE, in seconds on the crews&#x27; batch-local clocks: a putter
+already past it starts nothing new, and what is left rolls into the next call.  The
+two constraints are independent and both are checked -- a budget is people, a
+deadline is the clock, and a warehouse can run out of either first.  ``None`` is
+every run that does not ask for a day cut.
 
 Runs the coupling guard first — even on an empty queue — so an armed/fn
 mismatch fails loudly before any placement: when travel costs are armed,

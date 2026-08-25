@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.operations.inbound · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_operations_inbound_py" data-id="Warehouse/operations/inbound.py">
+<nav class="crumbs"><a href="../layers.html">wh_operations</a> <span class="sep">›</span> <span class="here"><code>Warehouse/operations/inbound.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.operations.inbound</code></h1>
+<p class="meta">layer <span class="chip">wh_operations</span> · file <a href="../files/nWarehouse_operations_inbound_py.html"><code>Warehouse/operations/inbound.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.operations.inbound</code></pre>
+<section class="doc">inbound — what arrived, how it packed, and what a single delivery would have produced.
+
+# ── why packing belongs to the ARRIVAL, not to the order ──────────────────────────
+
+`viable_storage_units(order, quantity)` has always taken a quantity, so the packing has
+always been a function of how much shows up at once. Nothing named that, so nothing could
+ask the interesting question: *an order that would be palletized if it came in all at once,
+but arrives split across two trailers and lands as two singleton packs instead.*
+
+That is not hypothetical. Measured over the first twelve orders of a planned 200-SKU
+catalogue, splitting each delivery in half changed the packing for **five of them**:
+
+    sku  52   eq   8    whole  3 pallets    split in two  4 pallets
+    sku 178   eq  14    whole  5 pallets    split in two  6 pallets
+    sku  21   eq 137    whole 34 pallets + 26 singletons  split  40 pallets + 0 singletons
+    sku  51   eq   3    whole  2 pallets    split in two  3 pallets
+    sku  77   eq  44    whole 27 pallets    split in two 24 pallets
+
+**Both directions occur, and they have different causes.** Default packing — fill pallets,
+route the remainder to a singleton — is monotone: splitting it can only produce the same
+units or more. The negative cases come from `stock_plan`, which overrides the packer with a
+run-length list of `(is_singleton, per, count)` slots filled from the front. A whole arrival
+that runs off the end of the pallet slots spills into the plan&#x27;s singleton tail; each half of
+the same arrival stops before that tail and stays on pallets. So on a **planned** SKU — which
+is most of a generated catalogue — &quot;splitting is worse&quot; is not a safe assumption, and the
+number has to be looked at rather than signed in advance.
+
+# ── what this module adds, and what it deliberately does not ──────────────────────
+
+It adds a NAME and a RECORD. `receive()` calls `viable_storage_units` unchanged and wraps the
+result in a `LoadPlan` that knows what it received, what it packed into, and — on demand —
+what the same order would have packed into arriving whole. Nothing about the packing
+behaviour moves.
+
+It does NOT model trailers, docks, or how a shipment gets split. That is the caller&#x27;s
+business: `receive_all()` takes the split as a list of quantities and says nothing about
+where the list came from. The point of the seam is that a trailer model can be written
+against it without touching the packer.
+
+# ── the counterfactual is lazy ────────────────────────────────────────────────────
+
+`unsplit()` re-packs at the whole quantity, which costs as much as the packing itself. It is
+a method rather than a field so the ordinary receive path pays nothing for a comparison
+nobody asked for.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_layout_Storage_Primitive_py.html"><code>Warehouse.layout.Storage_Primitive</code></a> <span class="dim">Warehouse/layout/Storage_Primitive.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse.inventory.inventory_reorder</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(16)</span></h2><ul><li><a href="nWarehouse_operations_inbound_py__FULFILLMENT.html"><code>FULFILLMENT</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan.html"><code>LoadPlan</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__PALLET.html"><code>PALLET</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__SINGLETON.html"><code>SINGLETON</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan___repr__.html"><code>__repr__</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan_packed_qty.html"><code>packed_qty</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__receive.html"><code>receive</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__receive_all.html"><code>receive_all</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__shipment_penalty.html"><code>shipment_penalty</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan_sku.html"><code>sku</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan_split_penalty.html"><code>split_penalty</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan_tier_mix.html"><code>tier_mix</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan_unit_count.html"><code>unit_count</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan_unsplit.html"><code>unsplit</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__LoadPlan_was_split.html"><code>was_split</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_inbound_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/inbound.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

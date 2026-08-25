@@ -14,8 +14,12 @@
 <h1><span class="kind kind-function">function</span> <code>_drain_putaway</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 
-<pre class="sig"><code>def _drain_putaway(self) -&gt; None</code></pre>
-<section class="doc">Place the stock queue into bins (retries prior-batch stragglers too).</section>
+<pre class="sig"><code>def _drain_putaway(self, deadline: float | None=None) -&gt; None</code></pre>
+<section class="doc">Place the stock queue into bins (retries prior-batch stragglers too).
+
+`deadline` is the day&#x27;s whistle on the put crews&#x27; batch-local clocks; what the
+whistle stops stays queued and is drained by the next batch, which is the put side
+of &quot;work that does not complete rolls over to the next shift&quot;.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__drain_putaway">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_drain_putaway">Source ↗</a></p>
 </article>

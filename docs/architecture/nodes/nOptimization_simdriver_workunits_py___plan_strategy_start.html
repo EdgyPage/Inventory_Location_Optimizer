@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_plan_strategy_start</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity, granularity, prev_id, prev_start, is_resume, log)</code></pre>
+<pre class="sig"><code>def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity, granularity, prev_id, prev_start, is_resume, log, roll_over: bool=False)</code></pre>
 <section class="doc">Decide (run_id, start_batch) for one strategy, honoring resume granularity.
 
 - Fresh run / a strategy new on resume → init DB + create_run, start 0.
@@ -22,7 +22,18 @@
 - Resumed PARTIAL arm (0 &lt; ckpt &lt; n_batches):
     strategy granularity → reset the arm&#x27;s DB + fresh run_id, start 0 (bit-identical to an
                            uncrashed run — no un-replayed physical state);
-    batch granularity    → reuse run_id, start = ckpt (fast, but NOT bit-identical — warn).</section>
+    batch granularity    → reuse run_id, start = ckpt (fast, but NOT bit-identical — warn),
+                           and REFUSED outright when the carry is on (see below).
+
+THE CARRY MAKES BATCH-LEVEL RESUME LOSE DEMAND, not just precision.  `_pending` -- the
+units a day cut or a stock clamp rolled into the next batch -- lives in the worker&#x27;s
+locals and is in no checkpoint.  Resuming at batch N therefore discards everything the
+pre-crash run had carried, and the resumed stream never asks for it again.  That is not
+the &quot;un-replayed physical state&quot; the warning describes: a resumed run would report BETTER
+throughput than it earned, because the work it failed to do stopped being counted, which
+is precisely the error `items_demanded` exists to make impossible.  So with rollover on
+it raises instead of warning.  Strategy granularity -- the default -- is unaffected: it
+replays from batch 0, and a carry that never happened cannot be lost.</section>
 <section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__create_run.html"><code>create_run</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__init_run_db.html"><code>init_run_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py__load_worker_checkpoint.html"><code>load_worker_checkpoint</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py__reset_strategy_db.html"><code>reset_strategy_db</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___plan_strategy_start">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_plan_strategy_start">Source ↗</a></p>
 </article>

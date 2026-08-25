@@ -14,13 +14,20 @@
 <h1><span class="kind kind-function">function</span> <code>admit</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_put_queue_py.html"><code>Warehouse/inventory/put_queue.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def admit(self, item: PutawayItem) -&gt; bool</code></pre>
+<pre class="sig"><code>def admit(self, item: PutawayItem, arrival: bool=True) -&gt; bool</code></pre>
 <section class="doc">Take one item if there is room. False means the producer must hold it.
 
 Refusing rather than dropping is the whole point: the backpressure has to reach
 whatever is upstream, because &quot;inbound packs faster than put-away absorbs&quot; is the
 condition being modelled, and a silent drop would make it look like it never
-happened.</section>
+happened.
+
+`arrival=False` for a RETRY of something already held.  Only genuine arrivals count
+toward `blocked`, because a retry is the same work still waiting and was counted
+when it first arrived.  Counting both made one number mean two things, and the
+second was about the drain&#x27;s refill loop rather than about the warehouse -- measured
+at 392 / 195 / 47 spurious refusals for staging 4 / 8 / 32, which moves with how
+many passes the loop happened to need.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_put_queue_py__PutQueue_admit">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/put_queue.py#:~:text=def%20admit">Source ↗</a></p>
 </article>

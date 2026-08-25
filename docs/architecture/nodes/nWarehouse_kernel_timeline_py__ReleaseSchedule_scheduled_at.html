@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scheduled_at · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_kernel_timeline_py__ReleaseSchedule_scheduled_at" data-id="Warehouse/kernel/timeline.py::ReleaseSchedule.scheduled_at">
+<nav class="crumbs"><a href="../layers.html">wh_kernel</a> <span class="sep">›</span> <a href="../files/nWarehouse_kernel_timeline_py.html"><code>Warehouse/kernel/timeline.py</code></a> <span class="sep">›</span> <a href="nWarehouse_kernel_timeline_py__ReleaseSchedule.html"><code>ReleaseSchedule</code></a> <span class="sep">›</span> <span class="here"><code>scheduled_at</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>scheduled_at</code></h1>
+<p class="meta">layer <span class="chip">wh_kernel</span> · file <a href="../files/nWarehouse_kernel_timeline_py.html"><code>Warehouse/kernel/timeline.py</code></a></p>
+
+<pre class="sig"><code>def scheduled_at(self, index: int) -&gt; float</code></pre>
+<section class="doc">Where the schedule WANTED batch `index`, ignoring whether the arm was free.
+
+`release_at` clamps to the ready instant; the difference between the two is the only
+record that a slot was missed, so it needs its own accessor.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__ReleaseSchedule_missed_by.html"><code>missed_by</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_kernel_timeline_py__ReleaseSchedule_scheduled_at">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/kernel/timeline.py#:~:text=def%20scheduled_at">Source ↗</a></p>
+</article>
+</main>
+</body></html>

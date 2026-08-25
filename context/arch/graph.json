@@ -991,6 +991,11 @@
       "src": "Optimization/Performance_Evaluations/common/chartkit.py::to_time"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_elapsed",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/frames.py::_bdf"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/artifact_map.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/common/io.py"
@@ -4746,6 +4751,11 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
+      "dst": "Optimization/config/settings.py::CUT_AT_DAY_END",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
       "dst": "Optimization/config/settings.py::FF_BATCH_MEAN",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
@@ -4787,6 +4797,16 @@
     },
     {
       "dst": "Optimization/config/settings.py::N_BATCHES",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::RELEASES_PER_DAY",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::ROLL_OVER_UNPICKED",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -4842,6 +4862,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::WORKERS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::WORK_DAY_SECONDS",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -4904,6 +4929,11 @@
       "dst": "Optimization/config/settings.py::PUT_MACHINE_Y",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::put_crew_spec"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::shift_seconds",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py::work_day_spec"
     },
     {
       "dst": "Optimization/config/strategies.py::Strategy",
@@ -8951,6 +8981,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::close_skipped_batch",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::save_worker_checkpoint",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -9056,6 +9091,16 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Warehouse/kernel/timeline.py::ReleaseSchedule",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::WorkDay",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -9084,6 +9129,21 @@
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_lift_state",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._arm_aisle_state"
+    },
+    {
+      "dst": "Optimization/metrics/Simulation_Analytics.py::extract_batch_stats",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::close_skipped_batch"
+    },
+    {
+      "dst": "Optimization/metrics/work_events.py::put_rows",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::close_skipped_batch"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_putaway_records",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::close_skipped_batch"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::keyframe_db_path",
@@ -9312,6 +9372,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::shift_seconds",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::work_day_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
@@ -12616,6 +12681,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._bind_put_crews",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing"
+    },
+    {
       "dst": "Warehouse/operations/putaway.py::PutawayCost",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing"
@@ -12674,6 +12744,11 @@
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_travel_costs"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._bind_put_crews",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_queues"
     },
     {
       "dst": "Warehouse/catalog/Order.py",
@@ -13051,6 +13126,11 @@
       "src": "Warehouse/inventory/inventory_reorder.py"
     },
     {
+      "dst": "Warehouse/operations/inbound.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/inventory_reorder.py"
+    },
+    {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._notify_pick",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._apply_picks_batch"
@@ -13071,7 +13151,12 @@
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_arrivals"
     },
     {
-      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
+      "dst": "Warehouse/operations/inbound.py::receive",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock"
+    },
+    {
+      "dst": "Warehouse/operations/inbound.py::receive_all",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock"
     },
@@ -13151,6 +13236,16 @@
       "src": "Warehouse/inventory/put_queue.py"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/put_queue.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::cart_step",
+      "kind": "calls",
+      "src": "Warehouse/inventory/put_queue.py::PutQueue.load"
+    },
+    {
       "dst": "Warehouse/inventory/put_queue.py::PutQueue",
       "kind": "calls",
       "src": "Warehouse/inventory/put_queue.py::PutQueueSet.__init__"
@@ -13199,6 +13294,31 @@
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Warehouse/kernel/cost_model.py::travel_cost"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::WorkDay",
+      "kind": "calls",
+      "src": "Warehouse/kernel/timeline.py::ReleaseSchedule.__init__"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::ReleaseSchedule.scheduled_at",
+      "kind": "calls",
+      "src": "Warehouse/kernel/timeline.py::ReleaseSchedule.missed_by"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::WorkDay.remaining",
+      "kind": "calls",
+      "src": "Warehouse/kernel/timeline.py::WorkDay.fits"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::WorkDay.end_of",
+      "kind": "calls",
+      "src": "Warehouse/kernel/timeline.py::WorkDay.remaining"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::WorkDay.index_of",
+      "kind": "calls",
+      "src": "Warehouse/kernel/timeline.py::WorkDay.remaining"
     },
     {
       "dst": "Warehouse/layout/Storage_Primitive.py",
@@ -13371,6 +13491,41 @@
       "src": "Warehouse/operations/__init__.py"
     },
     {
+      "dst": "Warehouse/layout/Storage_Primitive.py",
+      "kind": "imports",
+      "src": "Warehouse/operations/inbound.py"
+    },
+    {
+      "dst": "Warehouse/operations/inbound.py::LoadPlan.unsplit",
+      "kind": "calls",
+      "src": "Warehouse/operations/inbound.py::LoadPlan.split_penalty"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
+      "kind": "calls",
+      "src": "Warehouse/operations/inbound.py::LoadPlan.unsplit"
+    },
+    {
+      "dst": "Warehouse/operations/inbound.py::LoadPlan",
+      "kind": "calls",
+      "src": "Warehouse/operations/inbound.py::LoadPlan.unsplit"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
+      "kind": "calls",
+      "src": "Warehouse/operations/inbound.py::receive"
+    },
+    {
+      "dst": "Warehouse/operations/inbound.py::LoadPlan",
+      "kind": "calls",
+      "src": "Warehouse/operations/inbound.py::receive"
+    },
+    {
+      "dst": "Warehouse/operations/inbound.py::receive",
+      "kind": "calls",
+      "src": "Warehouse/operations/inbound.py::receive_all"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/operations/putaway.py"
@@ -13467,6 +13622,11 @@
     },
     {
       "dst": "Warehouse/picking/Pick.py::_pick_time",
+      "kind": "calls",
+      "src": "Warehouse/picking/Pick.py::PickSimulation._simulate_picker"
+    },
+    {
+      "dst": "Warehouse/picking/Pick.py::carry_residue",
       "kind": "calls",
       "src": "Warehouse/picking/Pick.py::PickSimulation._simulate_picker"
     },
@@ -13682,6 +13842,11 @@
     },
     {
       "dst": "Warehouse/picking/Pick.py::_pick_time",
+      "kind": "calls",
+      "src": "Warehouse/picking/fast_pick.py::_simulate_picker_deferred"
+    },
+    {
+      "dst": "Warehouse/picking/Pick.py::carry_residue",
       "kind": "calls",
       "src": "Warehouse/picking/fast_pick.py::_simulate_picker_deferred"
     },
@@ -16325,6 +16490,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/frames.py",
       "name": "_bdf",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/frames.py",
+      "id": "Optimization/Performance_Evaluations/common/frames.py::_elapsed",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/frames.py",
+      "name": "_elapsed",
       "public": false
     },
     {
@@ -19937,6 +20110,14 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::CUT_AT_DAY_END",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "CUT_AT_DAY_END",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::FF_BATCH_MEAN",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -20057,6 +20238,22 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::RELEASES_PER_DAY",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "RELEASES_PER_DAY",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::ROLL_OVER_UNPICKED",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "ROLL_OVER_UNPICKED",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::SAMPLER",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -20141,6 +20338,14 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "WORKERS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::WORK_DAY_SECONDS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "WORK_DAY_SECONDS",
       "public": true
     },
     {
@@ -20405,6 +20610,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "store_restocks",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::work_day_spec",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "work_day_spec",
       "public": true
     },
     {
@@ -25033,6 +25246,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::close_skipped_batch",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "close_skipped_batch",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -29313,6 +29534,14 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._bind_put_crews",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_bind_put_crews",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_abc_bands",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -29589,6 +29818,22 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "lead_queue_depth",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_queues",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "put_queues",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_queues",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "put_queues",
       "public": true
     },
     {
@@ -30417,6 +30662,14 @@
     },
     {
       "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.drain_inbound",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "drain_inbound",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
       "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
@@ -30577,6 +30830,46 @@
     },
     {
       "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.bind_crew",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "bind_crew",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.can_start",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "can_start",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.carted",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "carted",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.charge",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "charge",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.crew_size",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "crew_size",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
       "id": "Warehouse/inventory/put_queue.py::PutQueue.drain_counters",
       "kind": "function",
       "module": "Warehouse/inventory/put_queue.py",
@@ -30585,10 +30878,26 @@
     },
     {
       "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.finish",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "finish",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
       "id": "Warehouse/inventory/put_queue.py::PutQueue.has_room",
       "kind": "function",
       "module": "Warehouse/inventory/put_queue.py",
       "name": "has_room",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.load",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "load",
       "public": true
     },
     {
@@ -30605,6 +30914,22 @@
       "kind": "function",
       "module": "Warehouse/inventory/put_queue.py",
       "name": "oldest_age",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.reset_clocks",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "reset_clocks",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.timed",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "timed",
       "public": true
     },
     {
@@ -30913,6 +31238,78 @@
     },
     {
       "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule",
+      "kind": "class",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "ReleaseSchedule",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule.__init__",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule.__repr__",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule.cadence",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "cadence",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule.day_of",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "day_of",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule.is_continuous",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "is_continuous",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule.missed_by",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "missed_by",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule.release_at",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "release_at",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::ReleaseSchedule.scheduled_at",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "scheduled_at",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
       "id": "Warehouse/kernel/timeline.py::SECONDS_PER_HOUR",
       "kind": "const",
       "module": "Warehouse/kernel/timeline.py",
@@ -30925,6 +31322,86 @@
       "kind": "const",
       "module": "Warehouse/kernel/timeline.py",
       "name": "TIME_UNIT",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay",
+      "kind": "class",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "WorkDay",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.__eq__",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "__eq__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.__hash__",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "__hash__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.__init__",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.__repr__",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.end_of",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "end_of",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.fits",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "fits",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.index_of",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "index_of",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.remaining",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "remaining",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::WorkDay.start_of",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "start_of",
       "public": true
     },
     {
@@ -31544,6 +32021,142 @@
       "public": false
     },
     {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py",
+      "kind": "module",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "Warehouse.operations.inbound",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::FULFILLMENT",
+      "kind": "const",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "FULFILLMENT",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan",
+      "kind": "class",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "LoadPlan",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.__init__",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.__repr__",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.packed_qty",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "packed_qty",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.sku",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "sku",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.split_penalty",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "split_penalty",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.tier_mix",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "tier_mix",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.unit_count",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "unit_count",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.unsplit",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "unsplit",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::LoadPlan.was_split",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "was_split",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::PALLET",
+      "kind": "const",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "PALLET",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::SINGLETON",
+      "kind": "const",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "SINGLETON",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::receive",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "receive",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::receive_all",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "receive_all",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/inbound.py",
+      "id": "Warehouse/operations/inbound.py::shipment_penalty",
+      "kind": "function",
+      "module": "Warehouse/operations/inbound.py",
+      "name": "shipment_penalty",
+      "public": true
+    },
+    {
       "file": "Warehouse/operations/putaway.py",
       "id": "Warehouse/operations/putaway.py",
       "kind": "module",
@@ -31854,6 +32467,14 @@
       "module": "Warehouse/picking/Pick.py",
       "name": "_est",
       "public": false
+    },
+    {
+      "file": "Warehouse/picking/Pick.py",
+      "id": "Warehouse/picking/Pick.py::carry_residue",
+      "kind": "function",
+      "module": "Warehouse/picking/Pick.py",
+      "name": "carry_residue",
+      "public": true
     },
     {
       "file": "Warehouse/picking/Pick.py",

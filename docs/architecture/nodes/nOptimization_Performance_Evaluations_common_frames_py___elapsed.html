@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_elapsed · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_frames_py___elapsed" data-id="Optimization/Performance_Evaluations/common/frames.py::_elapsed">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a> <span class="sep">›</span> <span class="here"><code>_elapsed</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_elapsed</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a></p>
+
+<pre class="sig"><code>def _elapsed(df)</code></pre>
+<section class="doc">Add `elapsed` and `thr_elapsed`: throughput against the DAY, not the makespan.
+
+`duration` is the batch MAKESPAN -- first picker starting to last finishing.  Under the
+continuous default that is also the whole elapsed time, because the next batch is
+released the instant this one ends, so &quot;how fast did the crew work&quot; and &quot;how much did
+the day produce&quot; have one answer and nothing had to tell them apart.
+
+A PACED schedule separates them.  `ReleaseSchedule` releases batch i at its slot, and a
+crew that finishes early waits.  That gap is real elapsed time in which nothing was
+picked, and `duration` does not contain it -- so a paced run&#x27;s `thr_batch` is the rate
+the crew worked AT while being read as the rate the day DELIVERED.  `thr_elapsed` is the
+second number, named so the two cannot be confused.
+
+Both are legitimate and a scheduling change moves them in OPPOSITE directions: fewer,
+fuller waves raise what the day produces while leaving the working rate alone.  So this
+is an addition, never a replacement.
+
+Byte-identical under the default: the runner sets `arm_clock = batch_start_time +
+duration` and then `release_at`, which returns the clock unchanged with no cadence
+configured -- so consecutive epochs differ by exactly `duration` and `thr_elapsed ==
+thr_batch` to the last bit.
+
+The LAST batch has no successor to measure against and falls back to its own makespan:
+there is no gap after the final wave, because nothing was waiting for it.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_frames_py___bdf.html"><code>_bdf</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_frames_py___elapsed">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/frames.py#:~:text=def%20_elapsed">Source ↗</a></p>
+</article>
+</main>
+</body></html>

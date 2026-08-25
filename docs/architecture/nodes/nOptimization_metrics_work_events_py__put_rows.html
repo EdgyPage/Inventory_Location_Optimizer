@@ -18,8 +18,14 @@
 <section class="doc">Merged-stream rows for one batch&#x27;s put-away.
 
 `records` are `Inventory_Manager.drain_putaway_records()` tuples
-`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker)`, whose `t_start`
-runs on that WORKER&#x27;s own clock from 0 within this batch (the drain restarts them all).
+`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker, queue)`, whose
+`t_start` runs on that WORKER&#x27;s own clock from 0 within this batch (the drain restarts
+them all).
+
+ONE QUEUE PER CALL.  Each put-away stream has its own crew, so its worker indices mean
+something only against that crew&#x27;s roster -- worker 0 of the cart crew and worker 0 of
+the forklift crew are different people.  Handing this function a mixed list would
+silently attribute one stream&#x27;s work to the other&#x27;s actors, so it refuses.
 
 TWO ORIGINS, and they are not the same instant:
 
@@ -45,7 +51,7 @@ position in the list. This used to round-robin on `seq % len(workers)` while the
 durations came from a single serial clock — so a crew of two reported two people each
 doing every other put, at instants that said one person did all of them. The event type
 is `put` and `qty` is positive.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py__close_skipped_batch.html"><code>close_skipped_batch</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__put_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20put_rows">Source ↗</a></p>
 </article>
 </main>
