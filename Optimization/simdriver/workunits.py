@@ -13,7 +13,8 @@ from Optimization.persistence.Picking_Data import create_run, init_run_db, sim_s
 from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
-    CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, _CART_TYPES,
+    CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, work_day_spec,
+    _CART_TYPES,
     _build_pick_cfg, _checkpoint_every,
     _config_name,
 )
@@ -305,6 +306,10 @@ def _prepare_channel_run(
         # picklable; Mode.of() parses it back.
         pick_mode           = str(ch.picker.mode),
         shift_seconds       = shift_seconds(),
+        # The WORKING DAY, carried for the same reason as the crews below: a spawned worker
+        # re-imports sim_config and would get pristine defaults, so a day configured on the
+        # command line would be accepted and silently ignored.
+        work_day            = work_day_spec(),
         # The put crew, carried the same way and for the same reason.  Its speed comes
         # from its MODE, not from the pick config: a crew labelled `foot` costed at the
         # store's machine speed would write rows whose mode and duration disagree.

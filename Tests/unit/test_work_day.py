@@ -233,8 +233,12 @@ def test_the_runner_reads_the_schedule_from_its_args():
             node.body = node.body[1:]
     body = _ast.unparse(tree)
     assert '_ReleaseSchedule(' in body, 'the runner no longer builds a schedule'
-    assert "args.get('releases_per_day')" in body, (
+    # The day arrives as ONE payload record, `work_day` — see sim_config.work_day_spec.
+    assert "args.get('work_day')" in body, (
+        'the runner no longer reads the working day from its payload')
+    assert "_wd.get('releases_per_day')" in body, (
         'the release cadence is not configurable, so the schedule can never be turned on')
+    assert "_wd.get('cut_at_day_end')" in body, 'the cut can never be turned on'
     assert '_release.release_at(' in body, 'the runner does not ask the schedule'
     assert '_release.missed_by(' in body, 'a missed slot is not recorded anywhere'
 

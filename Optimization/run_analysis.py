@@ -310,6 +310,12 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     # Batch-sampler era: a pre-field run_spec predates v2's adoption, so its absence
     # means that run's batches were drawn with v1 — never this checkout's default.
     g['sampler'] = spec.get('sampler') or 'v1'
+    # The working day.  A pre-field run_spec predates the working day entirely, so its
+    # absence means the continuous default -- never this checkout's setting, which is the
+    # same reasoning as the sampler above.
+    g['work_day_seconds'] = spec.get('work_day_seconds')
+    g['releases_per_day'] = spec.get('releases_per_day')
+    g['cut_at_day_end']   = bool(spec.get('cut_at_day_end'))
     if spec.get('max_skus') is not None:
         g['max_skus'] = spec['max_skus']
     for ch, key in (('store', 'store_fill'), ('fulfillment', 'ff_fill')):

@@ -128,6 +128,10 @@ def _apply_run_spec(args, spec, explicit):
               'store_fill', 'ff_fill', 'checkpoint_frac',
               # Batch-sampler era: a resume MUST regenerate the same batch sequence.
               'sampler',
+              # The working day decides when batches are released and when pickers stop, so
+              # a resume that forgot it would finish the arm on a different clock than it
+              # started on.
+              'work_day_seconds', 'releases_per_day', 'cut_at_day_end',
               # ...and the seeds it is drawn from, plus the world it is drawn against.
               'seed_world', 'seed_batches'):
         if f not in spec:
@@ -231,6 +235,20 @@ def main():
                              'this plus its own offset, so both streams move together.')
     # Defaulted FROM CONFIG (the --keyframe-interval precedent) so the assignment below is
     # unconditional and sim_config's era value stays the single source of truth.
+    parser.add_argument(
+        '--work-day-seconds', type=float, default=CONFIG['global']['work_day_seconds'],
+        help='Working-day length in seconds (default: the shift length). Only matters '
+             'alongside --releases-per-day or --cut-at-day-end.')
+    parser.add_argument(
+        '--releases-per-day', type=int, default=CONFIG['global']['releases_per_day'],
+        help='Batches released per working day. Omit for the continuous default, where a '
+             'batch starts when the previous one finished. With a value, an EMPTY batch '
+             'still consumes its slot.')
+    parser.add_argument(
+        '--cut-at-day-end', action='store_true',
+        default=CONFIG['global']['cut_at_day_end'],
+        help='Stop pickers at the end of the working day and roll the work they did not '
+             'reach into the next batch. Changes which units are picked in which batch.')
     parser.add_argument('--sampler', choices=('v1', 'v2'),
                         default=CONFIG['global']['sampler'],
                         help='Batch-sampler VERSION — a results era, not a tuning knob. '
@@ -327,6 +345,9 @@ def main():
     g['workers']           = args.workers or 1
     g['keyframe_interval'] = args.keyframe_interval
     g['sampler']           = args.sampler
+    g['work_day_seconds']  = args.work_day_seconds
+    g['releases_per_day']  = args.releases_per_day
+    g['cut_at_day_end']    = bool(args.cut_at_day_end)
     if args.checkpoint_frac is not None:
         g['checkpoint_frac'] = args.checkpoint_frac
     # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
@@ -437,6 +458,12 @@ def main():
             'ff_fill'      : CONFIG['channels']['fulfillment']['fill'],
             'checkpoint_frac': g['checkpoint_frac'],
             'sampler'      : g['sampler'],
+            # The working day: two runs with different days are otherwise
+            # indistinguishable after the fact, and a resume would finish an arm on a
+            # different clock than it started on.
+            'work_day_seconds': g['work_day_seconds'],
+            'releases_per_day': g['releases_per_day'],
+            'cut_at_day_end'  : g['cut_at_day_end'],
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,

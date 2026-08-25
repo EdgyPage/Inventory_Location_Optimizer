@@ -180,6 +180,12 @@ CONFIG = {
         # dispatches against it -- work does not pause at the whistle and no task is split
         # at a boundary.  See Warehouse.kernel.timeline.shift_index.
         'shift_seconds'   : _s.SHIFT_SECONDS,
+        # The WORKING DAY, which unlike shift_seconds above actually dispatches: it decides
+        # when a batch is released and when a picker is stopped.  Defaults reproduce the
+        # pre-working-day runner exactly.  See Warehouse.kernel.timeline.WorkDay.
+        'work_day_seconds': _s.WORK_DAY_SECONDS,
+        'releases_per_day': _s.RELEASES_PER_DAY,
+        'cut_at_day_end'  : _s.CUT_AT_DAY_END,
     },
     'channels': {
         'store': {
@@ -287,6 +293,25 @@ def shift_seconds() -> float:
     boundary -- see `Warehouse.kernel.timeline.shift_index`.
     """
     return float(CONFIG['global'].get('shift_seconds') or _DEFAULT_SHIFT_SECONDS)
+
+
+def work_day_spec() -> dict:
+    """The working day as a picklable record: `{seconds, releases_per_day, cut_at_day_end}`.
+
+    Read at call time and handed to the worker in its payload rather than re-imported there:
+    a spawned worker re-imports this module and would get pristine defaults, so a day
+    configured on the command line would be accepted and then silently ignored.
+
+    ONE accessor and ONE payload key for three values, because three of each is how two of
+    them end up disagreeing.  `seconds` falls back to the shift length so a run that asks for
+    a cut without naming a day gets the eight hours it already reports against.
+    """
+    g = CONFIG['global']
+    return {
+        'seconds': float(g.get('work_day_seconds') or shift_seconds()),
+        'releases_per_day': g.get('releases_per_day'),
+        'cut_at_day_end': bool(g.get('cut_at_day_end')),
+    }
 
 
 def put_crew_spec() -> dict:

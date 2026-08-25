@@ -75,6 +75,24 @@ SAMPLER = 'v2'
 
 SHIFT_SECONDS = DEFAULT_SHIFT_SECONDS      # 8 hours, in the sim's own unit
 
+# ── the working day ──────────────────────────────────────────────────────────────
+# A SCHEDULER, and the opposite of SHIFT_SECONDS above in every way that matters: this one
+# dispatches.  Kept as three separate settings because they answer three questions and a run
+# can want any one without the others.
+#
+# The defaults reproduce the pre-working-day runner exactly, which is the property that lets
+# every one of these ship without re-deriving the archive.
+
+WORK_DAY_SECONDS = None    # day length; None = SHIFT_SECONDS.  --work-day-seconds
+RELEASES_PER_DAY = None    # batches released per day; None = CONTINUOUS, i.e. batch i starts
+                           # when batch i-1 finished, which is what the runner already did.
+                           # An integer cuts the day into that many slots, and an EMPTY batch
+                           # then consumes one -- which a clock driven by makespans cannot
+                           # express.  --releases-per-day
+CUT_AT_DAY_END = False     # stop pickers at the whistle and roll their unreached work into
+                           # the next batch.  Changes WHICH units are picked in WHICH batch,
+                           # so it can never be a silent default.  --cut-at-day-end
+
 # ── crews ────────────────────────────────────────────────────────────────────────
 # Imported from simconfig.constants rather than restated: the self-registering pick-config
 # modules need these too and importing sim_config from them would cycle.

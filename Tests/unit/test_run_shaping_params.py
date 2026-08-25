@@ -229,3 +229,88 @@ def test_run_simulation_warns_before_any_build():
     src = inspect.getsource(rs)
     assert 'structural_bin_floor(' in src
     assert 'BELOW the store structural floor' in src
+
+
+# ── 5. the working day reaches the worker, the spec, and a resume ─────────────────
+#
+# A FIFTH defect of the same family as #4 above, caught while adding the working day.
+# `settings.py` names four places a new setting must reach — declared, in CONFIG, a CLI flag,
+# recorded in the run spec, restored on resume and re-analysis. There is a fifth it does not
+# name: `workunits._shared`, the picklable payload a spawned worker actually receives. A
+# worker re-imports sim_config and gets pristine defaults, so a setting missing from the
+# payload is accepted on the command line and silently ignored in the run.
+
+_DAY_KEYS = ('work_day_seconds', 'releases_per_day', 'cut_at_day_end')
+
+
+def test_the_working_day_is_in_config():
+    from Optimization.config.sim_config import CONFIG
+    for k in _DAY_KEYS:
+        assert k in CONFIG['global'], k
+    # Defaults reproduce the pre-working-day runner, which is what lets it ship unreleased.
+    assert CONFIG['global']['releases_per_day'] is None
+    assert CONFIG['global']['cut_at_day_end'] is False
+
+
+def test_the_working_day_has_cli_flags():
+    import inspect
+
+    from Optimization import run_simulation
+    src = inspect.getsource(run_simulation)
+    for flag in ('--work-day-seconds', '--releases-per-day', '--cut-at-day-end'):
+        assert flag in src, f'{flag} has no CLI, so it is reachable only by editing config'
+
+
+def test_the_working_day_reaches_the_worker_payload():
+    """THE fifth seam. Without this the flags parse, the spec records them, and the run
+    ignores them — which is defect 4 above, repeating."""
+    import inspect
+
+    from Optimization.config.sim_config import CONFIG, work_day_spec
+    from Optimization.simdriver import workunits
+
+    src = inspect.getsource(workunits)
+    assert 'work_day            = work_day_spec()' in src, (
+        'the worker payload does not carry the working day')
+
+    before = {k: CONFIG['global'][k] for k in _DAY_KEYS}
+    try:
+        CONFIG['global'].update(work_day_seconds=3600.0, releases_per_day=4,
+                                cut_at_day_end=True)
+        spec = work_day_spec()
+        assert spec == {'seconds': 3600.0, 'releases_per_day': 4, 'cut_at_day_end': True}
+    finally:
+        CONFIG['global'].update(before)
+    # Read at CALL time, not import time — the whole reason this is an accessor.
+    assert work_day_spec()['releases_per_day'] is None
+
+
+def test_the_day_length_falls_back_to_the_shift_length():
+    """A run that asks for a cut without naming a day gets the eight hours it already
+    reports against, rather than a second length nobody set."""
+    from Optimization.config.sim_config import CONFIG, shift_seconds, work_day_spec
+    before = CONFIG['global']['work_day_seconds']
+    try:
+        CONFIG['global']['work_day_seconds'] = None
+        assert work_day_spec()['seconds'] == shift_seconds()
+    finally:
+        CONFIG['global']['work_day_seconds'] = before
+
+
+def test_the_working_day_is_recorded_and_restored():
+    """Two runs with different days are otherwise indistinguishable after the fact, and a
+    resume would finish an arm on a different clock than it started on."""
+    import inspect
+
+    from Optimization import run_analysis, run_simulation
+    sim_src = inspect.getsource(run_simulation)
+    for k in _DAY_KEYS:
+        assert f"'{k}'" in sim_src, f'{k} is never written to the run spec'
+    # Restored on resume...
+    assert "'work_day_seconds', 'releases_per_day', 'cut_at_day_end'," in sim_src, (
+        'a resume does not restore the working day')
+    # ...and on a standalone re-analysis.
+    ana_src = inspect.getsource(run_analysis)
+    for k in _DAY_KEYS:
+        assert f"spec.get('{k}')" in ana_src, (
+            f're-analysis does not restore {k} from the run spec')

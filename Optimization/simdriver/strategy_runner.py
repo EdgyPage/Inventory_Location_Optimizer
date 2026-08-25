@@ -407,13 +407,17 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     #
     # The day length is the shift length: one number, so a reporting frame and a dispatch
     # boundary cannot drift apart by default.  A run that wants them different says so.
+    # The working day arrives as ONE record in the worker payload (sim_config.work_day_spec)
+    # rather than as three loose keys: a worker re-imports sim_config and would otherwise get
+    # pristine defaults for any of them that went missing.
+    _wd = args.get('work_day') or {}
     _release = _ReleaseSchedule(
-        _WorkDay(length=args.get('work_day_seconds') or _shift_seconds),
-        per_day=args.get('releases_per_day'))
+        _WorkDay(length=_wd.get('seconds') or _shift_seconds),
+        per_day=_wd.get('releases_per_day'))
     # STOP PICKERS AT THE WHISTLE.  Off by default: turning it on changes which units get
     # picked in which batch, so it can never be a silent default.  With it on, work a picker
     # did not reach rolls into the next batch's demand rather than evaporating.
-    _cut_at_day_end = bool(args.get('cut_at_day_end'))
+    _cut_at_day_end = bool(_wd.get('cut_at_day_end'))
     # {sku: qty} a previous batch's cut could not pick.  Added to the next batch's demand.
     _pending: dict = {}
     warehouse_cfg = args['warehouse_cfg']
