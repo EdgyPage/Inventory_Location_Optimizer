@@ -725,7 +725,10 @@ def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx):
 def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
                            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
                            freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool):
-    """Ranked co-demand placement.  Units are placed in the same pick-effort order as
+    """Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`
+    and `expn` actually run; kept as the frozen oracle the port is tested against.
+
+    Units are placed in the same pick-effort order as
     _ranked_assign_impl and membership is committed incrementally, but the BIN choice is
     position-aware: the aisle is scored by demand-weighted lift to its members (MAX for
     compact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)
@@ -733,7 +736,6 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
     appends (x_phys, idx) to aisle_member_pos so later units in the wave see it.
     """
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
-    pi, pwt, pv = wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef
     all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
 
     _co_by_sku: dict = {}                     # sort-key memo: all_idx is frozen during the sort,
@@ -821,6 +823,151 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
     return result
 
 
+class _CoDemandPool(_Pool):
+    """`_co_demand_ranked_impl` as a pool -- compaction (`comp`) and expansion (`expn`).
+
+    This is the first ported policy that scores a unit against what has ALREADY been placed,
+    which is the case a pool has to get right to be worth anything.  It turns out to be the
+    natural shape: every affinity read in the per-placement body is against LIVE manager
+    state (`aisle_idx_sets`, `aisle_member_pos`) that `take` itself mutates.  That is pool
+    state by definition.  Exactly one thing was a whole-set snapshot -- `all_idx` -- and it
+    is read only by the sort key.
+
+    `all_idx` is therefore computed here, in `__init__`, at the instant the old code took it,
+    and is deliberately frozen for the group even though placements mutate `aisle_idx_sets`
+    underneath it.  It is derived from the AISLES, not from the units, so a drain that
+    narrows or reorders the unit set does not invalidate it; when the sort finally goes, it
+    goes with it, because nothing else reads it.
+
+    The SKU-run cache (`key_cache`) carries the same guarantee and the same caveat as
+    `_TravelBalancedPool`'s: the guard is a value comparison on the SKU, so losing
+    adjacency costs hit rate and not correctness.  The winner refresh after every placement
+    is load-bearing and is NOT a redundant recompute -- see the ulp note on
+    `_ClusterMapPool`, which is where that lesson was paid for.
+    """
+
+    __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs',
+                 '_beta', '_compact', '_x_pace', '_all_idx', '_by_aisle', '_D_of',
+                 '_s2i', '_last_sku', '_key_cache', '_cached_row')
+
+    def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
+                 aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
+                 qty_by_sku, beta, compact: bool):
+        self._aff, self._ass, self._ais = affinity, aisle_sku_sets, aisle_idx_sets
+        self._ads, self._amp = aisle_demand_sum, aisle_member_pos
+        self._fbi, self._fbs, self._qbs = freq_by_idx, freq_by_sku, qty_by_sku
+        self._beta, self._compact = beta, compact
+        self._s2i = affinity._sku_to_idx
+
+        speed = SpeedProfile(wp.x_speed, wp.y_speed)
+        x_pace, y_pace = speed.x_pace, speed.y_pace
+        self._x_pace = x_pace
+        # Every SKU index placed anywhere. Aisle-derived, so the unit set cannot change it;
+        # frozen for the group, so later units rank against the pre-group union.
+        self._all_idx = (set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set())
+
+        self._D_of = _D_map(cands, x_pace, y_pace)
+        by_aisle: dict[int, list] = {}
+        for b in cands:
+            by_aisle.setdefault(b.location[0], []).append(b)
+        for lst in by_aisle.values():
+            lst.sort(key=lambda b: b.x_phys)          # ascending column
+        self._by_aisle = by_aisle
+
+        self._last_sku = None
+        self._key_cache: dict = {}
+        self._cached_row = None
+
+    def __len__(self):
+        return sum(len(lst) for lst in self._by_aisle.values())
+
+    def order(self, units):
+        """Pick-effort priority with the co-occurrence term, descending -- the same key
+        `_ranked_assign_impl` uses. `all_idx` is frozen for the whole sort, so a SKU's co
+        term is one value and the memo below is bit-safe."""
+        aff, fbi, beta, all_idx = self._aff, self._fbi, self._beta, self._all_idx
+        co_by_sku: dict = {}
+        def priority(unit):
+            c = unit.order
+            co = co_by_sku.get(c.sku)
+            if co is None:
+                # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
+                co = beta * _demand_weighted_delta_lift(aff, c.sku, all_idx, fbi)
+                co_by_sku[c.sku] = co
+            return c.demand.relative_frequency * c.labor_cost + co
+        return sorted(units, key=priority, reverse=True)
+
+    def take(self, unit):
+        """(bin, score) for one unit; (None, None) when no aisle has a bin left.
+
+        `score` is the compaction objective in seconds -- `x_pace * |x(bin) - cx|`, the
+        distance from the partners' demand-weighted column centroid that the bin choice
+        minimises (compact) or maximises (expand).  None before this SKU has any partner
+        placed, because there is then no centroid and the bin was taken by the cold-start
+        rule instead.  The AISLE was chosen on lift, which is a different quantity and not
+        a property of the bin.
+        """
+        by_aisle, compact = self._by_aisle, self._compact
+        live = [aid for aid, lst in by_aisle.items() if lst]
+        if not live:
+            return None, None
+        sku = unit.order.sku
+        f_s = self._fbs.get(sku, 0.0)
+        q_s = self._qbs.get(sku, 0.0)
+
+        if sku != self._last_sku:
+            self._cached_row = _affinity_row(self._aff, sku)   # CSR slice: once per run
+            # aisle: most (compact) / least (expand) lift to members; tie-break toward
+            # the front (compact) / back (expand) bay by the aisle's lowest-D rep.
+            key_cache = {}
+            for aid in live:
+                mass = _delta_lift_from_row(self._cached_row, self._ais[aid], self._fbi)
+                d0   = self._D_of[id(by_aisle[aid][0])]
+                key_cache[aid] = (mass, -d0) if compact else (mass, d0)
+            self._key_cache = key_cache
+            self._last_sku = sku
+        row = self._cached_row
+        key_cache = self._key_cache
+        best_aid = (max if compact else min)(live, key=key_cache.__getitem__)
+
+        lst = by_aisle[best_aid]
+        _mass, cx = _demand_weighted_partner_centroid(
+            self._aff, sku, self._amp[best_aid], self._fbi)
+        if cx is not None:                        # bin nearest / farthest the partner column
+            j = (min if compact else max)(range(len(lst)),
+                                          key=lambda k: abs(lst[k].x_phys - cx))
+        else:                                     # no partners yet: front / back
+            j = 0 if compact else len(lst) - 1
+        chosen = lst.pop(j)
+        score = None if cx is None else self._x_pace * abs(chosen.x_phys - cx)
+
+        if sku not in self._ass[best_aid]:
+            self._ass[best_aid].add(sku)
+            self._ads[best_aid] += f_s * q_s
+        idx = self._s2i.get(sku)
+        if idx is not None:
+            self._ais[best_aid].add(idx)
+            self._amp[best_aid][idx].append(chosen.x_phys)
+        # winner refresh: exactly what the next same-SKU unit's fresh recompute would see
+        if lst:
+            mass = _delta_lift_from_row(row, self._ais[best_aid], self._fbi)
+            d0   = self._D_of[id(lst[0])]
+            key_cache[best_aid] = (mass, -d0) if compact else (mass, d0)
+        else:
+            key_cache.pop(best_aid, None)         # aisle exhausted: leaves `live` next unit
+        return chosen, score
+
+
+def _build_co_demand_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+                             aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
+                             beta, compact):
+    def open_pool(candidates, rep=None):
+        return _CoDemandPool(candidates, affinity, wp, aisle_sku_sets, aisle_idx_sets,
+                             aisle_demand_sum, aisle_member_pos, freq_by_idx,
+                             freq_by_sku, qty_by_sku, beta, compact)
+    return open_pool
+
+
 def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
                                aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
                                compact, name):
@@ -880,13 +1027,11 @@ def build_co_demand_placement(compact, affinity, wp,
         affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
         freq_by_idx, freq_by_sku, qty_by_sku, compact, name)
 
-    def place_wave(units, candidates_fn):
-        return _co_demand_ranked_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-            freq_by_idx, freq_by_sku, qty_by_sku, beta, compact=compact)
-    place_wave.name = name
-    return Placement(name, place_one, place_wave)
+    open_pool = _build_co_demand_pool_fn(
+        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+        freq_by_idx, freq_by_sku, qty_by_sku, beta, compact)
+    open_pool.name = name
+    return Placement(name, place_one, open_pool=open_pool)
 
 
 class _RankedAssignPool(_Pool):

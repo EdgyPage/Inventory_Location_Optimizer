@@ -219,7 +219,7 @@ def test_compaction_and_expansion_pick_opposite_columns_around_the_partner():
 
     ss, ii, dd, mp = _co_demand_fixture(10.0, idx)
     compact = A.build_co_demand_placement(True, aff, wp, ss, ii, dd, mp, fbi, fbs, qbs)
-    assert compact.place_wave is not None, 'co-demand placement must be ranked (place_wave set)'
+    assert compact.is_ranked, 'co-demand placement must place a whole group at once'
     assert compact.name == 'compaction', compact.name
     b = compact.place_one(_unit(1), _co_demand_candidates())
     assert abs(b.x_phys - 10.0) < _TOL, f'compaction placed at x={b.x_phys}, partner is at x=10.0'
@@ -229,6 +229,39 @@ def test_compaction_and_expansion_pick_opposite_columns_around_the_partner():
     assert expand.name == 'expansion', expand.name
     be = expand.place_one(_unit(1), _co_demand_candidates())
     assert abs(be.x_phys - 0.0) < _TOL, f'expansion placed at x={be.x_phys}, partner is at x=10.0'
+
+
+def test_the_co_demand_pool_agrees_with_its_per_unit_twin():
+    """The group path and the straggler path are one policy and must not disagree about
+    the bin. They are separate code (`_CoDemandPool.take` vs `_build_co_demand_place_one`),
+    and the straggler path is what runs whenever a group's snapshot is exhausted — so a
+    divergence here would show up as a placement that depends on queue depth."""
+    wp = _wp(pick_intercept=1.0, pick_weight_coef=0.0, pick_volume_coef=0.0)
+    aff, idx = _aff([1, 2], [(1, 2, 5.0)])
+    fbi, fbs, qbs = {idx[2]: 1.0}, {1: 1.0, 2: 1.0}, {1: 1.0, 2: 1.0}
+    for compact, want_x in ((True, 10.0), (False, 0.0)):
+        ss, ii, dd, mp = _co_demand_fixture(10.0, idx)
+        pl = A.build_co_demand_placement(compact, aff, wp, ss, ii, dd, mp, fbi, fbs, qbs)
+        assert pl.is_pooled
+        pool = pl.open_pool(_co_demand_candidates(), _unit(1))
+        got, score = pool.take(_unit(1))
+        assert abs(got.x_phys - want_x) < _TOL, (compact, got.x_phys)
+        # The score is the compaction objective: distance from the partner column, paced.
+        assert score is not None and score >= 0.0
+        assert abs(score - A.sec_per_inch(wp.x_speed) * abs(want_x - 10.0)) < _TOL
+
+
+def test_the_co_demand_pool_reports_no_score_before_a_partner_lands():
+    """With nothing placed, there is no centroid, so the bin came from the cold-start rule
+    (front for compact, back for expand) and there is no distance to report. A pool that
+    returned 0.0 here would read downstream as a perfect placement."""
+    wp = _wp(pick_intercept=1.0, pick_weight_coef=0.0, pick_volume_coef=0.0)
+    aff, idx = _aff([1, 2], [(1, 2, 5.0)])
+    ss, ii, dd, mp = _co_demand_state(10.0)          # NO partner seated
+    pl = A.build_co_demand_placement(True, aff, wp, ss, ii, dd, mp,
+                                     {idx[2]: 1.0}, {1: 1.0}, {1: 1.0})
+    b, score = pl.open_pool(_co_demand_candidates(), _unit(1)).take(_unit(1))
+    assert b is not None and score is None
 
 
 # ── never silently degrade ───────────────────────────────────────────────────
