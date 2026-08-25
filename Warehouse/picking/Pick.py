@@ -343,6 +343,35 @@ def assign_tasks(sorted_tasks: list, cfg: PickConfig) -> list:
                      cost_of=_est, order_key=lambda t: t.aisle_id)
 
 
+def carry_residue(task, start: int, into: dict) -> dict:
+    """Fold a task's UNDONE planned work into `into`, as `{sku: qty}`.
+
+    THE ONE DEFINITION OF THE CARRY, imported by both picker loops so they cannot drift.
+    A day-cut carry is the PLANNED quantity at every bin the picker did not reach --
+    `task.planned[k]` for k >= start -- and deliberately not a residual computed later as
+    "demand minus picked".  Two definitions of one number is how a carry becomes either dead
+    code or a double count, and the consumer must read this rather than re-deriving it.
+
+    The plan, not what the bins now hold: the next batch re-derives its own bins, and
+    clamping here would forgive demand a restock is about to satisfy.
+
+    A bin whose storage is gone contributes nothing -- that quantity was never pickable from
+    there, and it is the live-stock clamp's business (`unpicked_unavailable`) rather than the
+    cut's (`unpicked_daycut`).  Keeping the two causes apart is the whole point of the
+    `carryover.reason` column.
+    """
+    planned, path = task.planned, task.path
+    for k in range(start, len(path)):
+        q = planned[k]
+        if not q:
+            continue
+        st = path[k].storage
+        if st is None:
+            continue
+        into[st.order.sku] = into.get(st.order.sku, 0) + q
+    return into
+
+
 class PickSimulation(_ProgressAPIMixin):
     """Simulate multiple pickers processing a set of Tasks in aisle order.
 
@@ -356,26 +385,42 @@ class PickSimulation(_ProgressAPIMixin):
         config : PickConfig,
         manager: Inventory_Manager | None = None,
         start_times: list[float] | None = None,
+        day_end: float | None = None,
     ) -> None:
         # start_times[p] = picker p's clock when this batch begins (see _start_at).
         # None => every picker starts at 0.0, which is the pre-clock model exactly.
         self._start_times = start_times
+        # The absolute instant the working day closes.  None => no cut, which is every
+        # caller that does not schedule against a day.
+        self._day_end = day_end
         sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
         self._picker_tasks: list[list[Task]] = assign_tasks(sorted_tasks, config)
         self._config  = config
         self._manager = manager
         self._events: list[PickEvent] | None = None
+        #: {sku: qty} the day cut stopped this batch from picking.  Empty without a cut.
+        self.carried: dict[int, int] = {}
 
     def run(self) -> list[PickEvent]:
         """Simulate all pickers and return all events sorted by time."""
         all_events: list[PickEvent] = []
         all_picks: list[tuple[int, int]] = []
         all_empties: list = []
+        # One residue dict per picker, merged in picker order -- the same shape fast_pick's
+        # thread pool is forced into, so the two cannot merge differently.
+        per_picker: list[dict] = []
         for picker_id, tasks in enumerate(self._picker_tasks):
+            res: dict = {}
+            per_picker.append(res)
             all_events.extend(
                 self._simulate_picker(picker_id, tasks, all_picks, all_empties,
-                                      self._start_at(picker_id))
+                                      self._start_at(picker_id),
+                                      day_end=self._day_end, residue=res)
             )
+        self.carried = {}
+        for res in per_picker:
+            for sku, q in res.items():
+                self.carried[sku] = self.carried.get(sku, 0) + q
         all_events.sort()
         self._events = all_events
         if self._manager is not None:
@@ -385,7 +430,8 @@ class PickSimulation(_ProgressAPIMixin):
     def _simulate_picker(
         self, picker_id: int, tasks: list[Task],
         picks: list[tuple[int, int]], empties: list['Aisle.Bin'],
-        t0: float = 0.0,
+        t0: float = 0.0, day_end: float | None = None,
+        residue: dict | None = None,
     ) -> list[PickEvent]:
         cfg = self._config
         events: list[PickEvent] = []
@@ -399,10 +445,13 @@ class PickSimulation(_ProgressAPIMixin):
         carts_used: int = 1
         session_items: int = 0   # cumulative items picked across all tasks
         has_manager: bool = self._manager is not None
+        if residue is None:
+            residue = {}
+        cut_task: int | None = None
         # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
         x_pace, y_pace = cfg.speed.paces
 
-        for task in tasks:
+        for _ti, task in enumerate(tasks):
             total_bins  = len(task.path)
             total_items = sum(task.items.values())
             bins_done   = 0
@@ -417,6 +466,7 @@ class PickSimulation(_ProgressAPIMixin):
             # are flushed onto the next emitted event, so no second is lost.
             first_pick_seen = False
             acc_px = acc_py = acc_npx = acc_npy = 0.0
+            cut_at: int | None = None
 
             events.append(PickEvent(
                 time=time, picker_id=picker_id, event_type='task_start',
@@ -426,6 +476,14 @@ class PickSimulation(_ProgressAPIMixin):
             ))
 
             for _bi, bin_ in enumerate(task.path):
+                # ── the day-end cut ──────────────────────────────────────────
+                # BETWEEN bins is the only instant a picker can be stopped at: a pick is
+                # atomic in this model and so is the walk to it, so there is nothing to
+                # halve.  Checked before the travel, so the seconds spent walking toward a
+                # bin the picker will not reach are never charged.
+                if day_end is not None and time >= day_end:
+                    cut_at = _bi
+                    break
                 # ── travel (physical distances in inches; pace = s/inch from ft/s) ───
                 # Split per axis for the decomposition; `time` still advances by the identical
                 # sum (seg_x + seg_y) so total task duration is byte-for-byte unchanged.
@@ -507,6 +565,23 @@ class PickSimulation(_ProgressAPIMixin):
                         # mutation, so the two sims report bin-empty times identically.
                         empties.append((bin_, time))
 
+            if cut_at is not None:
+                carry_residue(task, cut_at, residue)
+                # `cut`, NOT `task_end`: the task did not end, it was stopped, and emitting
+                # task_end would make a truncated task indistinguishable from a complete one
+                # to every consumer that counts them.  It carries the pending travel so the
+                # decomposition still reconciles with the elapsed time.
+                events.append(PickEvent(
+                    time=time, picker_id=picker_id, event_type='cut',
+                    aisle_id=task.aisle_id,
+                    bins_completed=bins_done, total_bins=total_bins,
+                    items_picked=session_items, total_items=total_items,
+                    pick_travel_x=acc_px, pick_travel_y=acc_py,
+                    non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
+                ))
+                cut_task = _ti
+                break
+
             # One-way lane EXIT: the picker must traverse to the aisle far end (aisle_width) to
             # leave, then descend to the ground, so aisle DEPTH (not within-aisle span) drives
             # x-travel.  Charged to non_pick.  Two-way (default) has no exit segment.
@@ -528,6 +603,12 @@ class PickSimulation(_ProgressAPIMixin):
                 pick_travel_x=acc_px, pick_travel_y=acc_py,
                 non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
             ))
+
+        if cut_task is not None:
+            # Everything this picker never started carries whole.  A task the day ended
+            # before is not a partial task; it is untouched work.
+            for later in tasks[cut_task + 1:]:
+                carry_residue(later, 0, residue)
 
         events.append(PickEvent(
             time=time, picker_id=picker_id, event_type='done',

@@ -264,9 +264,22 @@ def test_one_bin_per_sku_per_aisle_is_correct():
 
 
 def test_the_runner_records_what_the_batch_asked_for():
+    """`items_demanded` is the EFFECTIVE demand, not the sampled demand.
+
+    It used to read `sum(batch.items.values())`. Once a day cut can roll unpicked work into
+    the next batch, that is only half of what the batch was asked for — and reporting the
+    half would make the carry look like over-picking against a demand that never included
+    it. `_eff_batch` is the sampled batch plus any carry, or the batch itself when there is
+    none.
+    """
     import inspect
 
     import Optimization.simdriver.strategy_runner as sr
     src = inspect.getsource(sr)
-    assert 'bs.items_demanded     = sum(batch.items.values())' in src
+    assert 'bs.items_demanded     = sum(_eff_batch.items.values())' in src, (
+        'items_demanded no longer reports the effective demand')
     assert 'from_batch_with_shortfall' in src, 'the runner measures the shortfall'
+    # And the shared batch is never mutated to build it — every arm of the family reads the
+    # same pickle, so a rebind is the only legal way to add to it.
+    assert '_eff_batch = _copy.copy(batch)' in src, (
+        'the effective batch is built by mutating the shared one')

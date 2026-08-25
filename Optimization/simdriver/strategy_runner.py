@@ -32,6 +32,7 @@ import os
 import pickle
 import random
 import sys
+import copy as _copy
 import time
 
 from Warehouse.layout.Aisle_Storage import Aisle
@@ -409,6 +410,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     _release = _ReleaseSchedule(
         _WorkDay(length=args.get('work_day_seconds') or _shift_seconds),
         per_day=args.get('releases_per_day'))
+    # STOP PICKERS AT THE WHISTLE.  Off by default: turning it on changes which units get
+    # picked in which batch, so it can never be a silent default.  With it on, work a picker
+    # did not reach rolls into the next batch's demand rather than evaporating.
+    _cut_at_day_end = bool(args.get('cut_at_day_end'))
+    # {sku: qty} a previous batch's cut could not pick.  Added to the next batch's demand.
+    _pending: dict = {}
     warehouse_cfg = args['warehouse_cfg']
     pick_cfg      = args['pick_cfg']
     wp            = args['wp']
@@ -839,8 +846,19 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # `_shortfall` is demand no bin could satisfy -- recorded here, consumed by
         # nothing yet.  It is the pre-simulation half of what will become the carry;
         # the day-boundary half is not knowable until after the sim runs.
+        # EFFECTIVE demand.  `batches[i]` is a SHARED pickle across every arm of the
+        # family and must never be mutated -- a shallow copy rebinds `items` only, so the
+        # original dict is untouched and the other arms still see the baseline.
+        if _pending:
+            _eff_items = dict(batch.items)
+            for _sku, _q in _pending.items():
+                _eff_items[_sku] = _eff_items.get(_sku, 0) + _q
+            _eff_batch = _copy.copy(batch)
+            _eff_batch.items = _eff_items
+        else:
+            _eff_batch = batch
         tasks, _shortfall = Task.from_batch_with_shortfall(
-            batch, warehouse, manager=mgr, cart=pick_cfg.cart)
+            _eff_batch, warehouse, manager=mgr, cart=pick_cfg.cart)
         _now = time.perf_counter(); _dt = _now - _t; t_task_ckpt += _dt; t_build_ckpt += _dt; _t = _now
 
         # One fused pass over the occupied bins (bin qtys before picks): the occupancy
@@ -952,8 +970,13 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # returns `arm_clock` unchanged and `missed_by` is 0.0.
         _late     = _release.missed_by(i, arm_clock)
         arm_clock = _release.release_at(i, arm_clock)
+        # The whistle for the day this batch was released into.  None keeps every picker
+        # running to the end of its work, which is every run that does not ask for a cut.
+        _day_end = (_release.day.end_of(_release.day.index_of(arm_clock))
+                    if _cut_at_day_end else None)
         sim             = DeferredPickSimulation(tasks, pick_cfg, manager=mgr,
-                                                 start_times=[arm_clock] * k_pickers)
+                                                 start_times=[arm_clock] * k_pickers,
+                                                 day_end=_day_end)
         events          = sim.run()
         p1_sum_ckpt    += sim.phase1_time
         p2_sum_ckpt    += sim.phase2_time
@@ -974,9 +997,18 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # at all, described the leak rather than a decision.
         arm_clock             = bs.batch_start_time + bs.duration
         # What this batch ASKED for, against `total_items` = what it got.
-        bs.items_demanded     = sum(batch.items.values())
+        # What this batch ASKED for -- the sampled demand PLUS anything a previous cut
+        # rolled into it.  Reporting only the sampled half would make the carry look like
+        # over-picking against a demand that never included it.
+        bs.items_demanded     = sum(_eff_batch.items.values())
         bs.work_day           = _release.day_of(i)
         bs.released_late      = _late
+        # THE CARRY, from the sim that produced it -- not re-derived here as a residual.
+        # Two definitions of one number is how a carry becomes either dead code or a double
+        # count; `Pick.carry_residue` is the definition and this reads it.
+        _pending = dict(sim.carried)
+        for _sku, _q in _pending.items():
+            cov.append((i, 'unpicked_daycut', _sku, _q))
         # ── demand ledger ────────────────────────────────────────────────────
         # A pick can never exceed the demand that asked for it.  Same discipline as the
         # conservation ledger below: LOGGED, never raised, and only on the first break, so

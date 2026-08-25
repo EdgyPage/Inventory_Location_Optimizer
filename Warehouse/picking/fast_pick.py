@@ -27,7 +27,9 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from Warehouse.picking.Pick import PickConfig, PickEvent, PickerProgress, _pick_time, _ProgressAPIMixin, assign_tasks
+from Warehouse.picking.Pick import (
+    PickConfig, PickEvent, PickerProgress, _pick_time, _ProgressAPIMixin,
+    assign_tasks, carry_residue)
 from Warehouse.layout.Storage_Primitive import StoreCart
 from Warehouse.picking.Workload_Builder import Task
 from Warehouse.kernel.cost_model import aisle_exit_cost, cart_step
@@ -59,7 +61,8 @@ def _simulate_picker_deferred(
     cfg:       PickConfig,
     bin_snap:  dict[int, int],   # id(bin_) -> qty at Phase-1 start; never written by threads
     t0:        float = 0.0,      # this picker's clock at the START of this batch
-) -> tuple[list[PickEvent], list[_PickMutation]]:
+    day_end:   float | None = None,  # absolute instant the working day closes
+) -> tuple[list[PickEvent], list[_PickMutation], dict]:
     """Phase 1 worker -- read-only picker simulation.
 
     Uses bin_snap so no bin_.storage.quantity reads/writes happen on the
@@ -68,6 +71,10 @@ def _simulate_picker_deferred(
     """
     events:    list[PickEvent]     = []
     mutations: list[_PickMutation] = []
+    # Work the day cut stopped this picker from doing, {sku: qty}.  Returned rather than
+    # written into a shared dict: Phase 1 runs these in a thread pool.
+    residue:   dict                = {}
+    cut_task:  int | None          = None
 
     # A picker's clock CARRIES.  t0 is where this picker finished the previous batch, so
     # its events land on the run's absolute axis instead of restarting at zero every batch.
@@ -84,7 +91,7 @@ def _simulate_picker_deferred(
     # within one picker's session is handled correctly.
     local_qty: dict[int, int] = {}
 
-    for task in tasks:
+    for _ti, task in enumerate(tasks):
         total_bins  = len(task.path)
         total_items = sum(task.items.values())
         bins_done   = 0
@@ -98,6 +105,7 @@ def _simulate_picker_deferred(
         # stop: before = aisle ENTRY (non_pick), after = INTER-PICK (pick).
         first_pick_seen = False
         acc_px = acc_py = acc_npx = acc_npy = 0.0
+        cut_at: int | None = None
 
         events.append(PickEvent(
             time=t, picker_id=picker_id, event_type='task_start',
@@ -107,6 +115,12 @@ def _simulate_picker_deferred(
         ))
 
         for _bi, bin_ in enumerate(task.path):
+            # The day-end cut (lockstep with Pick.py): BETWEEN bins is the only instant a
+            # picker can be stopped at, and the check precedes the travel so seconds spent
+            # walking toward a bin the picker will not reach are never charged.
+            if day_end is not None and t >= day_end:
+                cut_at = _bi
+                break
             seg_x = abs(bin_.x_phys - x) * x_pace
             seg_y = abs(bin_.y_phys - y) * y_pace
             t += seg_x + seg_y
@@ -173,6 +187,21 @@ def _simulate_picker_deferred(
             mutations.append(_PickMutation(bin_ref=bin_, sku=order.sku, qty=qty,
                                            time=t))
 
+        if cut_at is not None:
+            carry_residue(task, cut_at, residue)
+            # `cut`, not `task_end` -- lockstep with Pick.py, and for the same reason: a
+            # truncated task must not be indistinguishable from a complete one.
+            events.append(PickEvent(
+                time=t, picker_id=picker_id, event_type='cut',
+                aisle_id=task.aisle_id,
+                bins_completed=bins_done, total_bins=total_bins,
+                items_picked=session_items, total_items=total_items,
+                pick_travel_x=acc_px, pick_travel_y=acc_py,
+                non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
+            ))
+            cut_task = _ti
+            break
+
         # One-way lane EXIT (lockstep with Pick.py): traverse to the aisle far end + descend.
         if cfg.one_way and task.path:
             L = getattr(getattr(task.path[0], 'aisle', None), 'aisle_width', None)
@@ -191,11 +220,15 @@ def _simulate_picker_deferred(
             non_pick_travel_x=acc_npx, non_pick_travel_y=acc_npy,
         ))
 
+    if cut_task is not None:
+        for later in tasks[cut_task + 1:]:
+            carry_residue(later, 0, residue)
+
     events.append(PickEvent(
         time=t, picker_id=picker_id, event_type='done',
         items_picked=session_items, total_items=session_items,
     ))
-    return events, mutations
+    return events, mutations, residue
 
 
 class DeferredPickSimulation(_ProgressAPIMixin):
@@ -212,15 +245,20 @@ class DeferredPickSimulation(_ProgressAPIMixin):
         config : PickConfig,
         manager: Inventory_Manager | None = None,
         start_times: list[float] | None = None,
+        day_end: float | None = None,
     ) -> None:
         # start_times[p] = picker p's clock when this batch begins (see _start_at).
         # None => every picker starts at 0.0, which is the pre-clock model exactly.
         self._start_times = start_times
+        # The absolute instant the working day closes.  None => no cut.
+        self._day_end = day_end
         sorted_tasks = sorted(tasks, key=lambda t: t.aisle_id)
         self._picker_tasks: list[list[Task]] = assign_tasks(sorted_tasks, config)   # shared with Pick
         self._config   = config
         self._manager  = manager
         self._events: list[PickEvent] | None = None
+        #: {sku: qty} the day cut stopped this batch from picking.  Empty without a cut.
+        self.carried: dict[int, int] = {}
         self.phase1_time = 0.0
         self.phase2_time = 0.0
 
@@ -242,22 +280,30 @@ class DeferredPickSimulation(_ProgressAPIMixin):
                     if bid not in bin_snap and bin_.storage is not None:
                         bin_snap[bid] = bin_.storage.quantity
 
-        results: list[tuple[list[PickEvent], list[_PickMutation]]] = [None] * n  # type: ignore
+        results: list[tuple[list[PickEvent], list[_PickMutation], dict]] = [None] * n  # type: ignore
         with ThreadPoolExecutor(max_workers=n) as pool:
             futs = {
                 pool.submit(_simulate_picker_deferred, pid, tasks, cfg, bin_snap,
-                            self._start_at(pid)): pid
+                            self._start_at(pid), self._day_end): pid
                 for pid, tasks in enumerate(self._picker_tasks)
             }
             for fut in futs:
                 results[futs[fut]] = fut.result()
+
+        # Merged in PICKER order, not completion order -- `results` is indexed by pid, so
+        # the thread pool's scheduling cannot reach the answer.  Same order Pick.py merges
+        # in, which is what keeps the two carries identical.
+        self.carried = {}
+        for _, _m, res in results:
+            for sku, q in res.items():
+                self.carried[sku] = self.carried.get(sku, 0) + q
 
         self.phase1_time = _time.perf_counter() - t0
 
         # ── Phase 2: apply mutations sequentially ─────────────────────────────
         t0  = _time.perf_counter()
         mgr = self._manager
-        for _, mutations in results:
+        for _, mutations, _res in results:
             for mut in mutations:
                 bin_ = mut.bin_ref
                 if bin_.storage is None:
@@ -277,7 +323,7 @@ class DeferredPickSimulation(_ProgressAPIMixin):
 
         # ── collect and sort events ────────────────────────────────────────────
         all_events: list[PickEvent] = []
-        for evts, _ in results:
+        for evts, _m, _res in results:
             all_events.extend(evts)
         all_events.sort()
         self._events = all_events
