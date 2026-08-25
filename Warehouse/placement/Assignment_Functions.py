@@ -1185,6 +1185,11 @@ def build_ranked_popularity_pool_fn(
         aisle_selector=_selector, order_key=_score_expected_popularity)
 
 
+#: Sentinel for "no SKU run open yet" — a fresh object so it can never equal
+#: a real SKU, whatever the catalogue numbers them.
+_NO_RUN_SKU = object()
+
+
 def _travel_balanced_impl(units, candidates_fn, affinity, wp,
                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
                           aisle_pick_load_sum, sku_pick_load_product,
@@ -1288,8 +1293,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     # (and every float, computed by the verbatim expressions above) is byte-identical to
     # the per-unit rescan this replaces; only redundant recomputation is skipped.  Guarded
     # by Tests/unit/test_travel_balanced_equivalence.py's frozen-oracle suite.
-    _NO_SKU = object()
-    run_sku = _NO_SKU
+    run_sku = _NO_RUN_SKU
     var = fq = m_s = 0.0
     ab_cache: dict = {}
     score_cache: dict = {}
@@ -1350,6 +1354,202 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     return result
 
 
+class _TravelBalancedPool(_Pool):
+    """`_travel_balanced_impl` as a pool -- Rank_labor, and Rank_cartlabor with `cart`.
+
+    Everything this policy remembers between placements is either candidate-derived (the
+    per-(aisle, bracket) min-D deques, `D_of`, `M_of`) or a RUNNING TOTAL seeded once from
+    manager state (`load`, `vol_load`).  Nothing is an aggregate over the unit set.  So the
+    split is clean: the whole prologue is `__init__`, the LPT sort is `order`, and one
+    placement is `take`.
+
+    THE SKU-RUN CACHE comes across unchanged, and its validity argument is worth restating
+    because it is the thing a reorder threatens.  `ab_cache`/`score_cache` are rebuilt when
+    `sku != run_sku` and refreshed for the WINNER after every placement; a non-winning
+    aisle's inputs are provably frozen inside a run (`fq`/`var`/`m_s` are per-SKU constants,
+    and `load`/`vol_load`/`aisle_sku_sets`/the deque heads move for the winner only).  The
+    guard is a value comparison on the SKU, so a drain that stops clustering same-SKU units
+    does not make the cache WRONG -- it makes it never hit.  That is the correct failure
+    mode, and it is why no `assume_clustered` flag is needed here.
+
+    What would break it: turning the cache into a persistent `{sku: ...}` dict to win the
+    hit rate back under FIFO.  Between two units of one SKU, OTHER SKUs commit and grow
+    other aisles' state, so a keyed cache would serve stale scores.  Don't.
+    """
+
+    __slots__ = ('_ass', '_ais', '_ads', '_apl', '_splp', '_fbs', '_qbs', '_s2i',
+                 '_intercept', '_by_aisle', '_D_of', '_load', '_vol_load',
+                 '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
+                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_score_cache')
+
+    def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
+                 aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
+                 freq_by_sku, qty_by_sku, cart=None):
+        self._ass, self._ais, self._ads = aisle_sku_sets, aisle_idx_sets, aisle_demand_sum
+        self._apl, self._splp = aisle_pick_load_sum, sku_pick_load_product
+        self._fbs, self._qbs = freq_by_sku, qty_by_sku
+        self._s2i = affinity._sku_to_idx
+        speed = SpeedProfile(wp.x_speed, wp.y_speed)
+        x_pace, y_pace = speed.x_pace, speed.y_pace
+        self._intercept = wp.pick_intercept
+        brackets = getattr(wp, 'height_brackets', ())
+
+        # ── optional cart-swap term ──────────────────────────────────────────────
+        # Expected picked volume in an aisle per task ~ (k/sum f)*sum f*q*vol; comparing that
+        # to the cart capacity is equivalent to comparing the RAW mass V_raw = sum f*q*vol
+        # against cap_raw = cap*sum f/k.  Expected cart cost = coef*max(0, V_raw/cap_raw - 1).
+        self._cart_on = cart is not None
+        self._avs = self._svp = None
+        self._cart_coef = self._cap_raw = 0.0
+        if self._cart_on:
+            aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq = cart
+            self._avs, self._svp = aisle_vol_sum, sku_vol_product
+            self._cart_coef = wp.cart_swap_coef
+            self._cap_raw = wp.cart_capacity * total_freq / max(expected_batch_skus, 1e-9)
+
+        D_of = _D_map(cands, x_pace, y_pace)
+        M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
+        # per aisle: {height_mult: deque of bins (that bracket) sorted by D ascending}
+        by_aisle: dict[int, dict] = {}
+        for b in cands:
+            by_aisle.setdefault(b.location[0], {}).setdefault(M_of[id(b)], []).append(b)
+        for groups in by_aisle.values():
+            for m, lst in list(groups.items()):
+                lst.sort(key=lambda bb: D_of[id(bb)])
+                groups[m] = deque(lst)
+        self._D_of, self._by_aisle = D_of, by_aisle
+        # running per-aisle total (handling+travel) labor, seeded from the maintained sum
+        self._load = {aid: float(aisle_pick_load_sum.get(aid, 0.0)) for aid in by_aisle}
+        # running per-aisle expected picked-volume mass (raw f*q*vol), seeded likewise
+        self._vol_load = ({aid: float(self._avs.get(aid, 0.0)) for aid in by_aisle}
+                          if self._cart_on else None)
+
+        self._run_sku = _NO_RUN_SKU
+        self._var = self._fq = self._m_s = 0.0
+        self._ab_cache: dict = {}
+        self._score_cache: dict = {}
+
+    def __len__(self):
+        return sum(len(dq) for g in self._by_aisle.values() for dq in g.values())
+
+    def order(self, units):
+        """Longest-processing-time first: the highest expected-labor unit is placed while
+        the most aisles are still cheap.  A FIFO window degrades LPT to arbitrary-order
+        greedy; the balance mechanics below are untouched by that."""
+        return sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
+
+    # ── the scoring expressions, verbatim ─────────────────────────────────────────
+    def _cart_cost(self, v_raw):
+        """Expected cart-swap cost for an aisle holding raw volume mass v_raw."""
+        return self._cart_coef * max(0.0, v_raw / self._cap_raw - 1.0)
+
+    def _aisle_best(self, aid, var):
+        """(cost, mult, bin) of the cheapest available bin in the aisle for this var.
+        Height scales the whole at-location pick: cost = m*(intercept+var) + D."""
+        best = None
+        intercept, D_of = self._intercept, self._D_of
+        for m, dq in self._by_aisle[aid].items():
+            if not dq:
+                continue
+            b = dq[0]
+            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            if best is None or cost < best[0]:
+                best = (cost, m, b)
+        return best
+
+    def _score_of(self, aid, ab, sku, fq, m_s):
+        """The per-(unit, aisle) score -- the ORIGINAL expressions verbatim.
+
+        balance TOTAL expected aisle labor = handling+travel + expected cart swaps,
+        so an aisle nearing a full cart is penalised and further volume disperses.
+        The SKU's volume mass counts ONCE per aisle (a second bin of a SKU already
+        here adds no new expected picked volume), mirroring aisle_pick_load_sum."""
+        score = self._load[aid] + fq * ab[0]
+        if self._cart_on:
+            add = 0.0 if sku in self._ass[aid] else m_s
+            score += self._cart_cost(self._vol_load[aid] + add)
+        return score
+
+    # ── one placement ─────────────────────────────────────────────────────────────
+    def take(self, unit):
+        """(bin, score) for one unit; (None, None) when no aisle has a bin left.
+
+        `score` is the MARGINAL expected labor this placement adds, `fq * cost` -- the
+        quantity the running balance is updated with, so reporting it is free.  The aisle
+        total `best_score` would be the wrong number to persist: it carries every prior
+        placement in that aisle and is not comparable across aisles, waves or arms.
+        """
+        by_aisle = self._by_aisle
+        c = unit.order
+        sku = c.sku
+        if sku != self._run_sku:                 # run boundary: rebuild both caches
+            self._run_sku = sku
+            self._var = var = c.handle_var
+            self._fq = fq = self._fbs.get(sku, 0.0) * self._qbs.get(sku, 0.0)
+            self._m_s = m_s = self._svp.get(sku, 0.0) if self._cart_on else 0.0
+            self._ab_cache.clear()
+            self._score_cache.clear()
+            for aid in by_aisle:
+                ab = self._aisle_best(aid, var)
+                self._ab_cache[aid] = ab
+                if ab is not None:
+                    self._score_cache[aid] = self._score_of(aid, ab, sku, fq, m_s)
+        else:
+            var, fq, m_s = self._var, self._fq, self._m_s
+
+        best_aid = best_choice = None
+        best_score = None
+        for aid in by_aisle:                     # original order => original tie-breaks
+            ab = self._ab_cache[aid]
+            if ab is None:
+                continue
+            score = self._score_cache[aid]
+            if best_score is None or score < best_score:
+                best_score, best_aid, best_choice = score, aid, ab
+        if best_aid is None:
+            return None, None
+        cost, m, chosen = best_choice
+        marginal = fq * cost
+        self._load[best_aid] += marginal
+
+        # commit manager aisle state (travel-blind sums; mirrors _RankedAssignPool)
+        if sku not in self._ass[best_aid]:
+            self._ass[best_aid].add(sku)
+            idx = self._s2i.get(sku)
+            if idx is not None:
+                self._ais[best_aid].add(idx)
+            self._ads[best_aid] += fq
+            self._apl[best_aid] += self._splp.get(sku, 0.0)
+            if self._cart_on:                 # SKU-once, in lockstep with pick_load_sum
+                self._vol_load[best_aid] += m_s
+                self._avs[best_aid] += m_s
+
+        by_aisle[best_aid][m].popleft()
+        # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
+        # refresh its cache entries; an exhausted aisle goes None and is skipped exactly
+        # like the original `continue`.
+        ab = self._aisle_best(best_aid, var)
+        self._ab_cache[best_aid] = ab
+        if ab is not None:
+            self._score_cache[best_aid] = self._score_of(best_aid, ab, sku, fq, m_s)
+        else:
+            self._score_cache.pop(best_aid, None)
+        return chosen, marginal
+
+
+def _build_travel_balanced_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets,
+                                   aisle_demand_sum, aisle_pick_load_sum,
+                                   sku_pick_load_product, freq_by_sku, qty_by_sku,
+                                   cart=None):
+    def open_pool(candidates, rep=None):
+        return _TravelBalancedPool(
+            candidates, affinity,
+            _wp_for(wp, rep) if rep is not None else wp,   # per-regime cost, mixed warehouse
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum,
+            sku_pick_load_product, freq_by_sku, qty_by_sku, cart=cart)
+    return open_pool
+
+
 def build_ranked_labor_fn(
     affinity,
     wp,
@@ -1372,6 +1572,17 @@ def build_ranked_labor_fn(
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku)
     return ranked_assign
+
+
+def build_ranked_labor_pool_fn(
+    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+    aisle_pick_load_sum, sku_pick_load_product, freq_by_idx, freq_by_sku,
+    qty_by_sku, beta: float = 1.0,
+):
+    """Pool twin of build_ranked_labor_fn — same signature."""
+    return _build_travel_balanced_pool_fn(
+        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+        aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku)
 
 
 def build_ranked_cartlabor_fn(
@@ -1404,6 +1615,23 @@ def build_ranked_cartlabor_fn(
             aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku,
             cart=(aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq))
     return ranked_assign
+
+
+def build_ranked_cartlabor_pool_fn(
+    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+    aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product,
+    expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
+):
+    """Pool twin of build_ranked_cartlabor_fn — same signature.
+
+    `total_freq` is summed HERE, once when the policy is built, exactly as the wave builder
+    does it: a per-pool sum over the same dict would be the same value today but would make
+    a dict-order change silently repricing every cart penalty."""
+    total_freq = sum(freq_by_sku.values())
+    return _build_travel_balanced_pool_fn(
+        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+        aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku,
+        cart=(aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq))
 
 
 def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,

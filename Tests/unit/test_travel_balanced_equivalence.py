@@ -201,16 +201,36 @@ def _rand_wave(rng: random.Random, n_skus, units_per_sku, n_aisles, bins_per_ais
     return units, bins, freq, qty, plp, vol
 
 
+def _pool_as_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets,
+                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
+                  freq_by_sku, qty_by_sku, cart=None):
+    """`_TravelBalancedPool` driven with the impl's own signature, so the harness below
+    compares three things instead of two.
+
+    The pool is served through `pool.order(units)` — the LPT sort the impl does internally.
+    That is deliberate and it is the whole claim: driven in the SAME order, the pool makes
+    bit-identical decisions. A drain that later declines that order gets a different (and
+    intentionally different) answer, which is not what this file is for."""
+    from Warehouse.placement.Assignment_Functions import _TravelBalancedPool
+    if not units:
+        return []
+    pool = _TravelBalancedPool(
+        list(candidates_fn(units[0])), affinity, wp, aisle_sku_sets, aisle_idx_sets,
+        aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
+        freq_by_sku, qty_by_sku, cart=cart)
+    return [(u, pool.take(u)[0]) for u in pool.order(units)]
+
+
 def _run_both(units, bins, freq, qty, plp, vol=None, cart_on=False, waves=1,
               vanish_bins_after_wave=True):
-    """Run oracle and production on deep-copied state; return both surfaces."""
+    """Run the oracle, the production impl and the POOL on deep-copied state."""
     import copy
 
     aids = sorted({b.location[0] for b in bins})
     aff = _Affinity([u.order.sku for u in units])
     wp = _wp()
     outs = []
-    for impl in (_oracle_travel_balanced_impl, _travel_balanced_impl):
+    for impl in (_oracle_travel_balanced_impl, _travel_balanced_impl, _pool_as_impl):
         st = _mk_state(aids)
         avs = {a: 0.0 for a in aids}
         remaining_bins = list(bins)
@@ -236,7 +256,13 @@ def _run_both(units, bins, freq, qty, plp, vol=None, cart_on=False, waves=1,
     return outs
 
 
-def _assert_equal(a, b):
+def _assert_equal(*outs):
+    a = outs[0]
+    for b in outs[1:]:
+        _assert_pair(a, b)
+
+
+def _assert_pair(a, b):
     assert a['seq'] == b['seq'], 'placement sequences diverged'
     assert a['sku_sets'] == b['sku_sets']
     assert a['idx_sets'] == b['idx_sets']
@@ -255,10 +281,10 @@ def test_random_waves_equivalent(seed, cart_on):
     units, bins, freq, qty, plp, vol = _rand_wave(
         rng, n_skus=rng.randint(5, 30), units_per_sku=4,
         n_aisles=rng.randint(2, 8), bins_per_aisle=rng.randint(3, 12))
-    a, b = _run_both(units, bins, freq, qty, plp, vol, cart_on=cart_on)
+    a, b, c = _run_both(units, bins, freq, qty, plp, vol, cart_on=cart_on)
     # non-vacuity: something actually got placed
     assert any(x[1] is not None for x in a['seq'][0])
-    _assert_equal(a, b)
+    _assert_equal(a, b, c)
 
 
 @pytest.mark.parametrize('cart_on', (False, True), ids=('rank_labor', 'rank_cartlabor'))
@@ -272,10 +298,10 @@ def test_crafted_exact_ties(cart_on):
         b.x_phys, b.y_phys = 100.0, 90.0
     for s in freq:
         freq[s], qty[s], plp[s], vol[s] = 0.5, 2.0, 1.0, 1000.0
-    a, b = _run_both(units, bins, freq, qty, plp, vol, cart_on=cart_on)
+    a, b, c = _run_both(units, bins, freq, qty, plp, vol, cart_on=cart_on)
     placed = sum(1 for x in a['seq'][0] if x[1] is not None)
     assert placed > 0
-    _assert_equal(a, b)
+    _assert_equal(a, b, c)
 
 
 def test_exhaustion_and_spill():
@@ -283,11 +309,11 @@ def test_exhaustion_and_spill():
     rng = random.Random(5)
     units, bins, freq, qty, plp, vol = _rand_wave(
         rng, n_skus=12, units_per_sku=6, n_aisles=2, bins_per_aisle=2)
-    a, b = _run_both(units, bins, freq, qty, plp, vol)
+    a, b, c = _run_both(units, bins, freq, qty, plp, vol)
     spilled = sum(1 for x in a['seq'][0] if x[1] is None)
     placed = sum(1 for x in a['seq'][0] if x[1] is not None)
     assert spilled > 0 and placed > 0, 'fixture must exercise BOTH outcomes'
-    _assert_equal(a, b)
+    _assert_equal(a, b, c)
 
 
 def test_empty_candidates():
@@ -304,8 +330,17 @@ def test_empty_candidates():
                                st_b['aisle_sku_sets'], st_b['aisle_idx_sets'],
                                st_b['aisle_demand_sum'], st_b['aisle_pick_load_sum'],
                                plp, freq, qty)
-    assert [(id(u), b) for u, b in ra] == [(id(u), b) for u, b in rb]
+    st_c = _mk_state([1])
+    rc = _pool_as_impl(list(units), lambda _u: [], aff, wp,
+                       st_c['aisle_sku_sets'], st_c['aisle_idx_sets'],
+                       st_c['aisle_demand_sum'], st_c['aisle_pick_load_sum'],
+                       plp, freq, qty)
+    key = lambda r: [(id(u), b) for u, b in r]           # noqa: E731
+    assert key(ra) == key(rb) == key(rc)
     assert all(b is None for _u, b in ra) and len(ra) == len(units)
+    # The impl short-circuits on an empty candidate list; the pool arrives at the same
+    # answer through its ordinary path (no aisle has a bin, so every take is (None, None)).
+    assert len(rc) == len(units)
 
 
 def test_two_order_objects_one_sku():
@@ -319,9 +354,9 @@ def test_two_order_objects_one_sku():
     qty = {7: 3.0, 8: 2.0}
     plp = {7: 1.1, 8: 0.9}
     vol = {7: 800.0, 8: 1200.0}
-    a, b = _run_both(units, bins, freq, qty, plp, vol, cart_on=True)
+    a, b, c = _run_both(units, bins, freq, qty, plp, vol, cart_on=True)
     assert sum(1 for x in a['seq'][0] if x[1] is not None) == 4
-    _assert_equal(a, b)
+    _assert_equal(a, b, c)
 
 
 @pytest.mark.parametrize('cart_on', (False, True), ids=('rank_labor', 'rank_cartlabor'))
@@ -332,6 +367,6 @@ def test_two_consecutive_waves_shared_state(cart_on):
     rng = random.Random(99)
     units, bins, freq, qty, plp, vol = _rand_wave(
         rng, n_skus=14, units_per_sku=3, n_aisles=5, bins_per_aisle=8)
-    a, b = _run_both(units, bins, freq, qty, plp, vol, cart_on=cart_on, waves=2)
+    a, b, c = _run_both(units, bins, freq, qty, plp, vol, cart_on=cart_on, waves=2)
     assert any(x[1] is not None for x in a['seq'][1]), 'wave 2 must place something'
-    _assert_equal(a, b)
+    _assert_equal(a, b, c)

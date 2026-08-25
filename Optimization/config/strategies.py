@@ -25,8 +25,8 @@ from Warehouse.placement.Assignment_Functions import (
     build_uniform_aisle_trip_min_assignment_fn,
     build_ranked_uniform_pool_fn,
     build_ranked_popularity_pool_fn,
-    build_ranked_labor_fn,
-    build_ranked_cartlabor_fn,
+    build_ranked_labor_pool_fn,
+    build_ranked_cartlabor_pool_fn,
     build_ranked_minlabor_fn,
     build_ranked_maxlabor_fn,
     build_optmap_fn,
@@ -117,7 +117,7 @@ def _build_rank_labor(mgr, ctx: StrategyContext) -> None:
     mgr.placement = Placement(
         'ranked_labor',
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
-        build_ranked_labor_fn(
+        open_pool=build_ranked_labor_pool_fn(
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
@@ -133,7 +133,7 @@ def _build_rank_cartlabor(mgr, ctx: StrategyContext) -> None:
     mgr.placement = Placement(
         'ranked_cartlabor',
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
-        build_ranked_cartlabor_fn(
+        open_pool=build_ranked_cartlabor_pool_fn(
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
