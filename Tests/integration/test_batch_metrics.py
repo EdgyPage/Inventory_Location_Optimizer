@@ -12,6 +12,7 @@ import math
 import sqlite3
 import types
 
+from Warehouse.picking.Workload_Builder import _rederive_plan
 from Warehouse.picking.Pick import PickConfig, PickSimulation
 from Warehouse.layout.Storage_Primitive import FulfillmentCart
 from Optimization.metrics.Simulation_Analytics import (extract_batch_stats, extract_task_stats,
@@ -39,7 +40,10 @@ def _task(aid, npicks, vol=15000, qty=3):
         items[sku] = qty
     # x_traversed/y_traversed/carts_required feed the analytical W in extract_task_stats; they are
     # irrelevant to the per-task DURATION this test compares, but must exist so the call doesn't raise.
+    # `planned` is the per-BIN quantity both sims and the makespan predictor spend, derived
+    # rather than restated so this stub stays honest if a SKU ever gets a second bin here.
     return types.SimpleNamespace(aisle_id=aid, path=path, items=items,
+                                 planned=_rederive_plan(path, items),
                                  x_traversed=0.0, y_traversed=0.0, carts_required=1)
 
 

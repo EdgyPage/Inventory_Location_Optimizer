@@ -186,28 +186,23 @@ def test_the_column_is_not_in_the_guaranteed_surface():
 
 # ── what the column exposed on its first real run ─────────────────────────────────
 
-def test_a_sku_in_two_bins_of_one_aisle_is_OVER_picked():
-    """A PRE-EXISTING defect, pinned the day the demand column made it visible.
+def test_a_sku_in_two_bins_of_one_aisle_is_picked_once():
+    """The defect the demand column exposed, now fixed and pinned the other way round.
 
-    `Task.from_batch` plans per BIN — it decides to take 5 from the first bin and 3 from
-    the second — but records only the per-AISLE total on `task.items`. Both picker loops
-    then read `task.items[sku]` once **per bin** with no running remainder
-    (`Pick.py:441`, `fast_pick.py:126`), so a SKU occupying several bins in one aisle is
-    picked once per bin.
+    `Task.from_batch` plans per BIN -- take 5 from this one, 3 from that one -- but used to
+    record only the per-AISLE total on `task.items`. Both picker loops then read
+    `task.items[sku]` once **per bin** with no running remainder, so a SKU occupying
+    several bins in one aisle was picked once per bin. Measured on the e2e harness:
+    **6.7% more units picked than demanded**, across all 272 batch_stats rows, on the
+    numerator of every throughput figure.
 
-    Measured on the e2e harness: **6.7% more units picked than demanded**, across all 272
-    batch_stats rows. Every throughput figure divides by `total_items`, so every one of
-    them is inflated by about that much.
+    The two sims did not even agree on the size of the error. With demand 8 over two bins
+    of 5, `PickSimulation` took **16** -- it did not cap at bin stock at all, so it reported
+    picking more than existed while `max(0, ...)` silently clamped the depletion -- and
+    `DeferredPickSimulation` took **10**. `Pick.py` half-documented this as a cross-picker
+    contention divergence; it is not, and this test runs ONE picker.
 
-    The two sims do not even agree on the size of the error: with demand 8 over two bins
-    of 5, `PickSimulation` picks 16 (it does not cap at bin stock at all, so it picks more
-    than physically exists) and `DeferredPickSimulation` picks 10 (capped at the snapshot,
-    so it drains both bins). `Pick.py:278-281` half-documents this as a contention
-    divergence; it is not — it happens with one picker and no contention whatsoever.
-
-    NOT FIXED HERE. The fix is for `Task` to carry the per-bin plan it already computes,
-    and it moves every arm's numbers, so it is the user's call and its own commit. This
-    test fails the day someone makes it right, which is the day this note should go.
+    `Task.planned` now carries the per-bin plan `from_batch` always computed.
     """
     import types
 
@@ -220,15 +215,33 @@ def test_a_sku_in_two_bins_of_one_aisle_is_OVER_picked():
         return Task.from_batch(_batch({1: 8}), wh, manager=_Mgr(singleton={1: bins}))
 
     task = build()[0]
-    assert task.items == {1: 8}, 'the per-aisle total, not the per-bin plan'
-    assert len(task.path) == 2, 'two bins to be visited'
+    assert task.items == {1: 8}, 'the per-aisle total is unchanged'
+    assert task.planned == [5, 3], 'the per-bin plan: drain the first, top up from the second'
+    assert sum(task.planned) == 8, 'the plan totals the demand'
 
     def picked(sim_cls):
         evs = sim_cls(build(), PickConfig(num_pickers=1)).run()
         return sum(e.quantity or 0 for e in evs if e.event_type == 'pick')
 
-    assert picked(PickSimulation) == 16, 'reference sim: 8 from each bin, uncapped'
-    assert picked(DeferredPickSimulation) == 10, 'deferred sim: capped at bin stock'
+    assert picked(PickSimulation) == 8
+    assert picked(DeferredPickSimulation) == 8
+    assert picked(PickSimulation) == picked(DeferredPickSimulation), 'and they agree'
+
+
+def test_a_pick_can_never_exceed_what_the_bin_holds():
+    """The other half of the old defect: the reference sim reported picking 8 from a bin
+    holding 5 while `max(0, ...)` clamped the depletion, so its event stream contradicted
+    its own bin state."""
+    import types
+
+    from Warehouse.picking.Pick import PickConfig, PickSimulation
+
+    bins = [_bin(1, 0, 0, 1, 3)]
+    wh = types.SimpleNamespace(bins=bins)
+    tasks = Task.from_batch(_batch({1: 9}), wh, manager=_Mgr(singleton={1: bins}))
+    evs = PickSimulation(tasks, PickConfig(num_pickers=1)).run()
+    picked = sum(e.quantity or 0 for e in evs if e.event_type == 'pick')
+    assert picked == 3, 'a bin with 3 cannot yield 9'
 
 
 def test_one_bin_per_sku_per_aisle_is_correct():

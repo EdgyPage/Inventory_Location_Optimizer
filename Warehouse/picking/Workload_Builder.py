@@ -286,6 +286,28 @@ _bin_location = operator.attrgetter('location')
 from Warehouse.inventory.inventory_common import _SortedBins  # noqa: E402
 
 
+def _rederive_plan(path: list, items: dict[int, int]) -> list[int]:
+    """Per-bin quantities for a `Task` built without an explicit plan.
+
+    The same greedy `from_batch` uses -- walk the path, take what the bin has up to the
+    SKU's remaining demand -- so a hand-built Task behaves like a real one.  It can pick a
+    DIFFERENT distribution than `from_batch` would when the path order differs from the
+    drain order, which is exactly why the real caller passes its plan instead.
+    """
+    remaining = dict(items)
+    out: list[int] = []
+    for b in path:
+        st = getattr(b, 'storage', None)
+        if st is None:
+            out.append(0)
+            continue
+        sku = st.order.sku
+        take = min(remaining.get(sku, 0), st.quantity)
+        remaining[sku] = remaining.get(sku, 0) - take
+        out.append(take)
+    return out
+
+
 class Task:
     """Single-aisle ordered pick sequence derived from a Batch."""
 
@@ -295,10 +317,26 @@ class Task:
         path: list[Aisle.Bin],
         items: dict[int, int],
         cart: type[StorageCart] = StoreCart,
+        bin_qty: dict[int, int] | None = None,
     ) -> None:
         self.aisle_id: int          = aisle_id
         self.path: list[Aisle.Bin]  = path         # bins in visit order
         self.items: dict[int, int]  = items         # sku -> quantity for this aisle
+        # PER-BIN plan, aligned to `path`.  `items` is the per-AISLE total for a SKU, and
+        # reading it once per bin is how a SKU in several bins of one aisle came to be
+        # picked once PER BIN -- measured at 6.7% more units picked than demanded, with the
+        # two sims disagreeing (demand 8 over two bins of 5: PickSimulation took 16 and did
+        # not even cap at bin stock; fast_pick took 10).  `from_batch` always knew the right
+        # answer; it just did not pass it on.
+        #
+        # `bin_qty` is keyed by id(bin) because the caller builds it before
+        # `_plan_aisle_path` reorders the bins, and the reorder can differ from the drain
+        # order (both agree on bayX, but the within-column bayY direction depends on entry
+        # distance).  Re-deriving here would therefore distribute a SKU's units across a
+        # DIFFERENT set of bins than the drain chose.
+        self.planned: list[int] = (
+            [bin_qty.get(id(b), 0) for b in path] if bin_qty is not None
+            else _rederive_plan(path, items))
         x_trav = 0.0
         y_trav = 0.0
         for i in range(len(path) - 1):
@@ -310,11 +348,13 @@ class Task:
         # still hold stock.  The sim depletes these bins (storage→None) during run(), so
         # computing them later (in extract_task_stats) would drop emptied bins and zero out
         # the analytical workload W.  Captured here so W reflects the real picks at all heights.
+        # The analytical mirror of the pick loop, and it had the SAME per-bin overcount:
+        # `items[sku]` here is the aisle total.  W is compared against realised labor by
+        # the equivalence suites, so both had to move together or the comparison breaks.
         self.pick_lines: list[tuple[int, int, int, float]] = [
-            (b.storage.order.weight, b.storage.order.volume(),
-             items[b.storage.order.sku], b.y_phys)
-            for b in path
-            if b.storage is not None and b.storage.order.sku in items
+            (b.storage.order.weight, b.storage.order.volume(), q, b.y_phys)
+            for b, q in zip(path, self.planned)
+            if b.storage is not None and q > 0
         ]
         # Build volume lookup from path bins.  A SKU in items may have no bin
         # in this path when all its bins are pending reclaim (emptied last batch).
@@ -463,11 +503,13 @@ class Task:
             sku = bin_.storage.order.sku  # type: ignore[union-attr]
             aisle_items[aisle_id][sku] = aisle_items[aisle_id].get(sku, 0) + take
 
+        plan_by_bin = {id(b): take for b, take in bin_pick.items()}
         tasks = []
         for aisle_id, bins in aisle_bins.items():
             path = _plan_aisle_path(bins)
             if path:   # guard: skip tasks with empty paths (all bins emptied mid-build)
-                tasks.append(Task(aisle_id, path, aisle_items[aisle_id], cart=cart))
+                tasks.append(Task(aisle_id, path, aisle_items[aisle_id], cart=cart,
+                                  bin_qty=plan_by_bin))
         return tasks
 
 

@@ -282,13 +282,16 @@ def _task_static(task: Task, cfg: PickConfig, x_pace: float, y_pace: float) -> t
     x = y = 0.0
     t = 0.0
     volumes: list = []
-    for bin_ in task.path:
+    for _bi, bin_ in enumerate(task.path):
         t += abs(bin_.x_phys - x) * x_pace + abs(bin_.y_phys - y) * y_pace
         x, y = bin_.x_phys, bin_.y_phys
         if bin_.storage is None:
             continue
         order = bin_.storage.order
-        qty = task.items.get(order.sku, 0)
+        # The same per-bin plan the sims spend, so predicted == realized.  Reading the
+        # per-aisle `task.items[sku]` here made the LPT scheduler balance a load no sim
+        # would ever produce, on exactly the aisles where a SKU sits in several bins.
+        qty = task.planned[_bi]
         if qty == 0:
             continue
         t += _pick_time(cfg, order.weight, order.volume(), qty, bin_.y_phys)
@@ -422,7 +425,7 @@ class PickSimulation(_ProgressAPIMixin):
                 items_picked=session_items, total_items=total_items,
             ))
 
-            for bin_ in task.path:
+            for _bi, bin_ in enumerate(task.path):
                 # ── travel (physical distances in inches; pace = s/inch from ft/s) ───
                 # Split per axis for the decomposition; `time` still advances by the identical
                 # sum (seg_x + seg_y) so total task duration is byte-for-byte unchanged.
@@ -438,7 +441,11 @@ class PickSimulation(_ProgressAPIMixin):
                 if bin_.storage is None:
                     continue
                 order  = bin_.storage.order
-                qty     = task.items.get(order.sku, 0)
+                # The PLAN for this bin, capped at what the bin actually holds.  This read
+                # `task.items[sku]` -- the aisle total -- with NO cap, so it reported
+                # picking more units than existed while `max(0, ...)` silently clamped the
+                # depletion: the event stream contradicted its own bin state.
+                qty     = min(task.planned[_bi], bin_.storage.quantity)
                 if qty == 0:
                     continue
 

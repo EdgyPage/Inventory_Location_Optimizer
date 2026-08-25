@@ -10,6 +10,7 @@ Guards the properties the LPT scheduler rests on:
 """
 import types
 
+from Warehouse.picking.Workload_Builder import _rederive_plan
 from Warehouse.picking.Pick import (PickConfig, PickSimulation, assign_tasks,
                             _task_static, count_cart_swaps)
 from Warehouse.picking.fast_pick import DeferredPickSimulation
@@ -34,7 +35,11 @@ def _task(aid, npicks, vol=15000, qty=3):
         sku = aid * 100 + i
         path.append(_bin(aid, 100 + i * 40, 30, _order(sku, vol), qty))
         items[sku] = qty
-    return types.SimpleNamespace(aisle_id=aid, path=path, items=items)
+    # `planned` is the per-BIN quantity both sims and the makespan predictor spend.
+    # Derived rather than restated so this stub stays honest if a SKU ever gets a second
+    # bin here -- which is the exact case that used to be picked once per bin.
+    return types.SimpleNamespace(aisle_id=aid, path=path, items=items,
+                                 planned=_rederive_plan(path, items))
 
 
 def _tasks(heavy_aisles):

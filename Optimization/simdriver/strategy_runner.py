@@ -609,6 +609,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
+    demand_breaks  = 0   # batches that picked MORE than was demanded (see the ledger)
     # This arm's absolute clock: where the NEXT batch begins.  Batches are sequential
     # waves -- batch i+1's work is released when batch i completes -- so the whole crew
     # starts a batch together, at `arm_clock`, and the axis is the running sum of the batch
@@ -843,6 +844,22 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         arm_clock             = bs.batch_start_time + bs.duration
         # What this batch ASKED for, against `total_items` = what it got.
         bs.items_demanded     = sum(batch.items.values())
+        # ── demand ledger ────────────────────────────────────────────────────
+        # A pick can never exceed the demand that asked for it.  Same discipline as the
+        # conservation ledger below: LOGGED, never raised, and only on the first break, so
+        # a broken run names the batch that broke it instead of emitting ~100 identical
+        # lines.  Had this existed it would have caught the per-bin over-pick immediately
+        # -- both picker loops read the per-AISLE `task.items[sku]` once per bin, so a SKU
+        # in several bins of one aisle was picked once per bin, inflating every throughput
+        # figure by ~6.7% for as long as the model has existed.
+        if bs.total_items > bs.items_demanded:
+            demand_breaks += 1
+            if demand_breaks == 1:
+                log.error(
+                    f'  DEMAND BROKEN at batch {i}: picked {bs.total_items:,} against '
+                    f'{bs.items_demanded:,} demanded (+{bs.total_items - bs.items_demanded:,}). '
+                    f'A pick exceeded the demand that asked for it — check Task.planned '
+                    f'against the per-bin drain in Task.from_batch.')
         bs.queue_depth        = mgr.queue_depth
         bs.lead_queue_depth   = mgr.lead_queue_depth
         bs.in_transit_qty     = mgr.in_transit_qty

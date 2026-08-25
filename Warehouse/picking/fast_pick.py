@@ -106,7 +106,7 @@ def _simulate_picker_deferred(
             items_picked=session_items, total_items=total_items,
         ))
 
-        for bin_ in task.path:
+        for _bi, bin_ in enumerate(task.path):
             seg_x = abs(bin_.x_phys - x) * x_pace
             seg_y = abs(bin_.y_phys - y) * y_pace
             t += seg_x + seg_y
@@ -124,7 +124,10 @@ def _simulate_picker_deferred(
             # built from bins where storage is not None, and Phase 1 never
             # writes bin_.storage = None (that only happens in Phase 2).
             order = bin_.storage.order
-            qty    = min(task.items.get(order.sku, 0), snap_qty)
+            # The PLAN for this bin, not the aisle total for this SKU.  Reading
+            # `task.items[sku]` here picked a SKU once per bin it occupies in the aisle.
+            # Still capped at the snapshot: another picker may have taken stock since.
+            qty    = min(task.planned[_bi], snap_qty)
             if qty == 0:
                 continue
             local_qty[bid] = snap_qty - qty

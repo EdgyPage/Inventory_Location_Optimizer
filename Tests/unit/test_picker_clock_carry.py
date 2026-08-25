@@ -41,20 +41,28 @@ def _bin(x, y, sku, qty=5):
 
 @pytest.fixture
 def tasks_2_aisles():
-    """Two aisles of unequal work, so round-robin gives each picker one and the two
-    pickers finish at different times."""
-    return [Task(1, [_bin(50, 0, 1), _bin(150, 0, 2)], {1: 1, 2: 1}),
-            Task(2, [_bin(30, 12, 3)], {3: 2})]
+    """A FACTORY, not a fixed list: two aisles of unequal work, rebuilt on every call.
+
+    Each test runs several simulations, and a simulation DEPLETES the bins it picks from.
+    Sharing one set of bins meant the second, third and fourth run saw a progressively
+    emptier warehouse. That was invisible while the picker loops read `task.items[sku]`
+    and ignored bin stock entirely; once a pick is capped at what the bin holds, the runs
+    diverge — which is the bug this fixture was accidentally relying on.
+    """
+    def build():
+        return [Task(1, [_bin(50, 0, 1), _bin(150, 0, 2)], {1: 1, 2: 1}),
+                Task(2, [_bin(30, 12, 3)], {3: 2})]
+    return build
 
 
 def _cfg(n=2, scheduler='round_robin'):
     return PickConfig(num_pickers=n, x_speed=3.0, y_speed=2.0, scheduler=scheduler)
 
 
-def _both(tasks, cfg, start_times=None):
-    """The same batch through both sims; returns (reference_events, deferred_events)."""
-    a = PickSimulation(tasks, cfg, start_times=start_times).run()
-    b = DeferredPickSimulation(tasks, cfg, start_times=start_times).run()
+def _both(build, cfg, start_times=None):
+    """The same batch through both sims, each on its OWN fresh bins."""
+    a = PickSimulation(build(), cfg, start_times=start_times).run()
+    b = DeferredPickSimulation(build(), cfg, start_times=start_times).run()
     return a, b
 
 
