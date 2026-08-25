@@ -329,21 +329,37 @@ def extract_task_stats(
     duration         : task_end.time - task_start.time for this aisle
     W              : analytical workload via aisle_workload()
     lift_sum         : sum_lift for SKUs present in this task
-    num_bins_visited : bins with at least one pick (task.items membership)
-    total_items      : sum of quantities across this aisle's SKUs
+    num_bins_visited : bins on the task path -- the PLANNED visit count
+    total_items      : sum of quantities across this aisle's SKUs -- the PLAN
+    items_realized   : items actually picked in this aisle
+    bins_realized    : bins actually picked from
+
+    The last two are read off the event stream rather than off the task, because the task
+    only ever knows the plan.  They diverge from it whenever the live-stock clamp bites --
+    both loops take `min(task.planned[i], what the bin holds)` -- and a truncated task would
+    otherwise report a full workload against partial time.
     """
     aisle_start:  dict[int, float] = {}
     aisle_end:    dict[int, float] = {}
     aisle_picker: dict[int, int]   = {}
+    # `items_picked` on an event is the picker's SESSION total, so a task's realized items
+    # are the difference between its terminating and starting events.  `bins_completed` is
+    # already per-task and is read directly.
+    aisle_items0: dict[int, int]   = {}
+    aisle_items1: dict[int, int]   = {}
+    aisle_bins:   dict[int, int]   = {}
 
     for e in events:
         if e.event_type == 'task_start' and e.aisle_id is not None:
             aisle_start[e.aisle_id]  = e.time
             aisle_picker[e.aisle_id] = e.picker_id
+            aisle_items0[e.aisle_id] = e.items_picked
         elif (e.event_type == 'task_end'
               and e.aisle_id is not None
               and e.aisle_id in aisle_start):
             aisle_end[e.aisle_id] = e.time
+            aisle_items1[e.aisle_id] = e.items_picked
+            aisle_bins[e.aisle_id] = e.bins_completed
 
     task_by_aisle = {t.aisle_id: t for t in tasks}
     result: list[TaskStats] = []
@@ -381,6 +397,9 @@ def extract_task_stats(
             # its length is the planned visit count, unaffected by post-pick state.
             num_bins_visited = len(task.path),
             total_items      = sum(task.items.values()),
+            items_realized   = (aisle_items1.get(aisle_id, 0)
+                                - aisle_items0.get(aisle_id, 0)),
+            bins_realized    = aisle_bins.get(aisle_id, 0),
             is_outlier       = False,
         ))
 

@@ -88,9 +88,16 @@ class TaskStats:
     duration: float         # task_end_time − task_start_time
     W: float              # analytical aisle workload baseline
     lift_sum: float         # sum_lift for this aisle's SKUs
-    num_bins_visited: int   # bins in the task path (planned visit count)
-    total_items: int        # items picked in this aisle
+    num_bins_visited: int   # bins in the task path (PLANNED visit count)
+    total_items: int        # items the task was PLANNED to pick in this aisle
     is_outlier: bool = False
+    # What actually happened, against the two planned fields above.  They differ whenever
+    # the live-stock clamp bites -- both picker loops take
+    # `min(task.planned[i], what the bin actually holds)` -- and they differ a lot when a
+    # day cut stops the task part-way.  Without these a truncated task reports its full
+    # planned workload against partial time and reads as artificially efficient.
+    items_realized: int = 0
+    bins_realized: int = 0
 
 
 @dataclass
@@ -298,8 +305,15 @@ _CREATE_TASK_STATS = """
         duration         REAL    NOT NULL,
         W              REAL    NOT NULL,
         lift_sum         REAL    NOT NULL,
-        num_bins_visited INTEGER NOT NULL,
-        total_items      INTEGER NOT NULL,
+        num_bins_visited INTEGER NOT NULL,   -- PLANNED bins on the path
+        total_items      INTEGER NOT NULL,   -- PLANNED items for this aisle
+        -- What the task actually did.  `total_items`/`num_bins_visited` above are the PLAN,
+        -- and the two diverge whenever the live-stock clamp bites or a day cut stops the
+        -- task part-way.  Reporting only the plan makes a truncated task look efficient:
+        -- full workload, partial time.  0 on a pre-column vintage, where the plan was the
+        -- only number recorded.
+        items_realized   INTEGER NOT NULL DEFAULT 0,
+        bins_realized    INTEGER NOT NULL DEFAULT 0,
         is_outlier       INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -835,7 +849,11 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #   f43d8b5931a4  the put-away queue state and carryover tables, before batch_stats
     #                 carried a working day.  A short window (2026-08-24 .. 2026-08-25)
     #                 -- no published run used it.
-    known_ids=('f43d8b5931a4',
+    #   c33feeed3975  batch_stats gained the working day and the missed slot, before
+    #                 task_stats separated realized from planned.  A short window
+    #                 (2026-08-25) -- no published run used it.
+    known_ids=('c33feeed3975',
+              'f43d8b5931a4',
               '8114cc4332eb',
               '96b8e37f158d',
               '1a594605a10e',
@@ -1678,13 +1696,15 @@ def _insert_task_stats(con: sqlite3.Connection, run_id: int, records: list) -> N
     con.executemany(
         'INSERT INTO task_stats '
         '(run_id,batch_id,aisle_id,picker_id,task_start_time,task_end_time,'
-        'duration,W,lift_sum,num_bins_visited,total_items,is_outlier) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        'duration,W,lift_sum,num_bins_visited,total_items,'
+        'items_realized,bins_realized,is_outlier) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
             (run_id, r.batch_id, r.aisle_id, r.picker_id,
              r.task_start_time, r.task_end_time, r.duration,
              r.W, r.lift_sum, r.num_bins_visited,
-             r.total_items, int(r.is_outlier))
+             r.total_items, getattr(r, 'items_realized', 0),
+             getattr(r, 'bins_realized', 0), int(r.is_outlier))
             for r in records
         ],
     )
