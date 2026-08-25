@@ -93,6 +93,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # None = the whole queue, which is what every ranked policy silently assumed before
         # the pool inversion.  See _serve_order.
         self.putaway_window: int | None = DEFAULT_PUTAWAY_WINDOW
+        # Monotonic arrival stamp for put-away items. Never reset: it orders the queue
+        # across batches, and restarting it would make a fresh arrival look older than
+        # something that has been waiting since batch 0.
+        self._putaway_seq: int = 0
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
@@ -267,7 +271,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         """
         qty = quantity if quantity is not None else _equilibrium_qty(order)
         for unit in viable_storage_units(order, qty):
-            self._stock_queue.append(PutawayItem(unit, 'intake'))
+            self._admit(unit, 'intake')
         # Count intake units as on-order so a reorder fired before they all reach
         # a bin does not over-order (they decrement back as they place).
         self._queued_qty[order.sku] = self._queued_qty.get(order.sku, 0) + qty
@@ -287,7 +291,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         for order in orders:
             qty = quantity if quantity is not None else _equilibrium_qty(order)
             for unit in viable_storage_units(order, qty):
-                self._stock_queue.append(PutawayItem(unit, 'intake'))
+                self._admit(unit, 'intake')
             # Count intake units as on-order so a reorder fired before they all
             # reach a bin does not over-order (decremented back as they place).
             self._queued_qty[order.sku] = self._queued_qty.get(order.sku, 0) + qty
@@ -993,6 +997,18 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                     pending.append(item)
         self._stock_queue = pending
 
+
+    def _admit(self, unit: StorageUnit, source: str) -> 'PutawayItem':
+        """Put one unit on the put-away queue, stamped with its arrival age.
+
+        The single admission point.  Every producer -- intake, reorder arrivals, reloader
+        evictions, and inbound when it exists -- goes through here, so a new producer cannot
+        forget to stamp and quietly enter the queue as age -1.
+        """
+        item = PutawayItem(unit, source, self._putaway_seq)
+        self._putaway_seq += 1
+        self._stock_queue.append(item)
+        return item
 
     def _serve_order(self, pool, units: list) -> list:
         """WHO is served first, out of one BinKey group.  The drain's decision.

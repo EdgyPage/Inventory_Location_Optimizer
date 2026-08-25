@@ -27,6 +27,7 @@ Run:  python -m pytest Tests/unit/test_putaway_provenance.py -q
 """
 from __future__ import annotations
 
+import ast
 import inspect
 import re
 
@@ -48,20 +49,40 @@ class _Unit:
 
 # ── 1. every enqueue site names a source ─────────────────────────────────────────
 
-def test_no_enqueue_site_pushes_a_bare_unit():
+def test_only_admit_puts_a_new_unit_on_the_queue():
     """Source-scanned rather than path-exercised: the risk is a NEW site added later, and
-    a behavioural test only covers the paths someone remembered to write."""
+    a behavioural test only covers the paths someone remembered to write.
+
+    Tightened when put-away items gained an arrival age. A source is no longer the only
+    thing a producer can forget: an unstamped item enters at age -1 and, once anything
+    orders by age, sorts wherever -1 happens to fall. `_admit` is the single admission point
+    that stamps both, so the question is no longer "does this line mention PutawayItem" but
+    "is this line inside `_admit`". The exceptions are RE-entries rather than admissions —
+    the two rescues push `respawn(...)`, which inherits the parent's stamp, and the ranked
+    drain requeues items it already popped, either whole (`items`) or one at a time through
+    `by_unit[...]` when a straggler finds no bin.
+    """
+    src_im = inspect.getsource(im)
+    admit_lines = set()
+    for node in ast.walk(ast.parse(src_im)):
+        if isinstance(node, ast.FunctionDef) and node.name == '_admit':
+            admit_lines = set(range(node.lineno, (node.end_lineno or node.lineno) + 1))
+    assert admit_lines, '_admit is gone — this ratchet no longer guards anything'
+
+    pattern = re.compile(r'self\._stock_queue\.(append(left)?|extend)\(')
     bare = []
-    for mod in (im, ir):
-        for lineno, line in enumerate(inspect.getsource(mod).splitlines(), 1):
+    for mod, src in ((im, src_im), (ir, inspect.getsource(ir))):
+        for lineno, line in enumerate(src.splitlines(), 1):
             stripped = line.strip()
-            if not re.match(r'self\._stock_queue\.append(left)?\(', stripped):
+            if not pattern.match(stripped):
                 continue
-            if 'PutawayItem(' in stripped or 'respawn(' in stripped or 'by_unit[' in stripped:
-                continue
+            if mod is im and lineno in admit_lines:
+                continue                                    # the admission point itself
+            if any(t in stripped for t in ('respawn(', 'items', 'by_unit[')):
+                continue                                    # re-entry, already stamped
             bare.append(f'{mod.__name__}:{lineno}  {stripped}')
-    assert not bare, ('a unit is entering the put-away queue with no declared origin:\n'
-                      + '\n'.join(bare))
+    assert not bare, ('a unit is entering the put-away queue outside _admit, so it carries '
+                      'no declared origin and no arrival stamp:\n' + '\n'.join(bare))
 
 
 def test_the_three_sources_are_all_used():

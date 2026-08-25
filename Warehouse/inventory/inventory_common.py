@@ -76,25 +76,46 @@ class PutawayItem:
     knows rather than one the recorder infers, and it is the field a trailer id will
     occupy when inbound loads become a source of their own.
 
+    `age` is a monotonic arrival stamp, and it exists because "FIFO" stopped being a
+    property of the deque the moment the drain got a K-oldest window.  Queue POSITION used
+    to be the only record of how long something had waited, which is fine while nothing ever
+    re-enters — and three things do: the repack rescue, the singleton rescue, and a group
+    requeued whole when the put-away budget runs out.  A stamp survives all three and can be
+    asserted; a position cannot even be inspected after the fact.
+
+    It is also what the queue-state snapshots report as `oldest_age`, and the field a
+    trailer's arrival time will map onto when inbound becomes a producer.
+
     Frozen because a queued item's origin must not be editable in flight; `respawn` is the
     one legal derivation, used by the repack and singleton rescues, which split one unit
-    into several without changing where any of them came from.
+    into several without changing where any of them came from — or how old any of them is.
     """
-    __slots__ = ('unit', 'source')
+    __slots__ = ('unit', 'source', 'age')
 
-    def __init__(self, unit: StorageUnit, source: str = 'intake') -> None:
+    def __init__(self, unit: StorageUnit, source: str = 'intake',
+                 age: int = -1) -> None:
         if source not in PUTAWAY_SOURCES:
             raise ValueError(f'unknown put-away source {source!r} '
                              f'(known: {PUTAWAY_SOURCES})')
         object.__setattr__(self, 'unit', unit)
         object.__setattr__(self, 'source', source)
+        # -1 = unstamped. The manager stamps on admission; a hand-built item in a test does
+        # not have to, and an unstamped item must never silently sort as the oldest thing in
+        # the warehouse, so the drain treats -1 as "ask the queue position" rather than 0.
+        object.__setattr__(self, 'age', age)
 
     def __setattr__(self, *_a):
         raise AttributeError('PutawayItem is immutable; use respawn() to derive one')
 
     def respawn(self, unit: StorageUnit) -> 'PutawayItem':
-        """A unit split out of this one during a rescue, keeping the origin."""
-        return PutawayItem(unit, self.source)
+        """A unit split out of this one during a rescue, keeping the origin AND the age.
+
+        A repack does not make a unit newer.  The pallet that arrived first and had to be
+        broken into three should still be put away before a pallet that arrived after it;
+        inheriting the stamp is what says so, and it is what keeps the rescue paths from
+        becoming a way to jump the queue.
+        """
+        return PutawayItem(unit, self.source, self.age)
 
     def __repr__(self) -> str:
         return f'PutawayItem({self.unit!r}, {self.source!r})'
