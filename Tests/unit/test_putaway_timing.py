@@ -95,6 +95,7 @@ def _mgr():
     m._put_speed = None
     m._put_cost = None
     m._put_clock = 0.0
+    m._put_clocks = [0.0]
     m._put_seconds = 0.0
     m._put_records = []
     return m
@@ -143,8 +144,8 @@ def test_a_record_carries_where_the_unit_came_from():
     m = _mgr()
     m.enable_putaway_timing(FOOT)
     m._cost_putaway(_unit(sku=42, qty=5), _bin(aisle=3), 'reslot')
-    (t0, dur, sku, qty, aisle, x, y, source), = m.drain_putaway_records()
-    assert (sku, qty, aisle, source) == (42, 5, 3, 'reslot')
+    (t0, dur, sku, qty, aisle, x, y, source, worker), = m.drain_putaway_records()
+    assert (sku, qty, aisle, source, worker) == (42, 5, 3, 'reslot', 0)
     assert dur > 0 and t0 == 0.0 and (x, y) == (100.0, 48.0)
 
 
@@ -234,3 +235,85 @@ def test_the_labor_total_still_accumulates_across_batches():
     m.drain_putaway_records()
     m._cost_putaway(_unit(), _bin(), 'reorder')
     assert m.putaway_seconds == pytest.approx(2 * one)
+
+
+# ── a crew of N works like N people ───────────────────────────────────────────────
+
+def _crew_mgr(size, speed=MACHINE):
+    from Warehouse.inventory.Inventory_Management import Inventory_Manager
+    m = Inventory_Manager.__new__(Inventory_Manager)
+    m._put_speed = m._put_cost = None
+    m._put_clock = 0.0
+    m._put_clocks = [0.0]
+    m._put_seconds = 0.0
+    m._put_records = []
+    m.enable_putaway_timing(speed, size=size)
+    return m
+
+
+def test_a_crew_of_one_is_exactly_the_old_serial_clock():
+    """The default, and the reason this change is byte-identical for today's runs."""
+    m = _crew_mgr(1)
+    for _ in range(4):
+        m._cost_putaway(_unit(), _bin(), 'reorder')
+    recs = m.drain_putaway_records()
+    assert [r[8] for r in recs] == [0, 0, 0, 0], 'every put is worker 0'
+    for prev, nxt in zip(recs, recs[1:]):
+        assert nxt[0] == pytest.approx(prev[0] + prev[1]), 'strictly back to back'
+
+
+def test_two_putters_halve_the_makespan():
+    """The defect: one serial clock meant a crew of two took exactly as long as a crew of
+    one, while `put_rows` round-robined the rows across both — so the record claimed two
+    people were working and the instants said otherwise."""
+    def makespan(size):
+        m = _crew_mgr(size)
+        for _ in range(6):
+            m._cost_putaway(_unit(), _bin(), 'reorder')
+        recs = m.drain_putaway_records()
+        return max(r[0] + r[1] for r in recs), m.putaway_seconds
+
+    one_span, one_labor = makespan(1)
+    two_span, two_labor = makespan(2)
+    assert two_labor == pytest.approx(one_labor), 'the same work: LABOR is unchanged'
+    assert two_span == pytest.approx(one_span / 2), 'two people: the MAKESPAN halves'
+
+
+def test_each_worker_runs_its_own_gapless_clock():
+    m = _crew_mgr(3)
+    for _ in range(9):
+        m._cost_putaway(_unit(), _bin(), 'reorder')
+    recs = m.drain_putaway_records()
+    assert {r[8] for r in recs} == {0, 1, 2}, 'all three worked'
+    for w in (0, 1, 2):
+        own = [r for r in recs if r[8] == w]
+        assert own[0][0] == 0.0
+        for prev, nxt in zip(own, own[1:]):
+            assert nxt[0] == pytest.approx(prev[0] + prev[1])
+
+
+def test_no_worker_is_in_two_places_at_once():
+    """The same invariant the DB-level reconciliation checks, at the source."""
+    m = _crew_mgr(2)
+    for i in range(8):
+        m._cost_putaway(_unit(qty=1 + i % 3), _bin(x=10.0 * i), 'reorder')
+    recs = m.drain_putaway_records()
+    for w in (0, 1):
+        own = sorted((r[0], r[1]) for r in recs if r[8] == w)
+        for (t0, d0), (t1, _d1) in zip(own, own[1:]):
+            assert t1 >= t0 + d0 - 1e-9
+
+
+def test_the_drain_restarts_every_workers_clock():
+    m = _crew_mgr(2)
+    for _ in range(4):
+        m._cost_putaway(_unit(), _bin(), 'reorder')
+    m.drain_putaway_records()
+    for _ in range(2):
+        m._cost_putaway(_unit(), _bin(), 'reorder')
+    assert all(r[0] == 0.0 for r in m.drain_putaway_records()), 'both start the batch at 0'
+
+
+def test_a_crew_of_zero_is_rejected():
+    with pytest.raises(ValueError, match='does no work'):
+        _crew_mgr(0)

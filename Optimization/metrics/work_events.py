@@ -68,8 +68,8 @@ def put_rows(records, batch_id, batch_start, crew, *,
     """Merged-stream rows for one batch's put-away.
 
     `records` are `Inventory_Manager.drain_putaway_records()` tuples
-    `(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on
-    the put crew's own clock from 0 within this batch (the drain restarts it).
+    `(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker)`, whose `t_start`
+    runs on that WORKER's own clock from 0 within this batch (the drain restarts them all).
 
     TWO ORIGINS, and they are not the same instant:
 
@@ -89,9 +89,12 @@ def put_rows(records, batch_id, batch_start, crew, *,
     batches at the same instant — measured on a store arm before this carry existed, 16-33
     rows per DB overlapped.
 
-    The records are laid out over the crew's workers round-robin; with a crew of one —
-    today's default — every row is that worker's. The event type is `put` and `qty` is
-    positive.
+    Each record names the WORKER that did it. The manager gives every put to whichever of
+    its crew is free earliest, so the worker is a scheduling outcome, not a function of
+    position in the list. This used to round-robin on `seq % len(workers)` while the
+    durations came from a single serial clock — so a crew of two reported two people each
+    doing every other put, at instants that said one person did all of them. The event type
+    is `put` and `qty` is positive.
     """
     if crew_start is None:
         crew_start = batch_start
@@ -100,8 +103,12 @@ def put_rows(records, batch_id, batch_start, crew, *,
         raise ValueError('a put crew of zero workers cannot have put anything away')
     rows = []
     for seq, rec in enumerate(records, start=first_seq):
-        t_start, dur, sku, qty, aisle_id, _x, _y, source = rec
-        w = workers[seq % len(workers)]
+        t_start, dur, sku, qty, aisle_id, _x, _y, source, widx = rec
+        if not 0 <= widx < len(workers):
+            raise ValueError(
+                f'put record names worker {widx}, but the crew has {len(workers)}; the '
+                f'manager was bound with a different size than the crew reporting it')
+        w = workers[widx]
         t_abs = crew_start + t_start
         rows.append((batch_id, seq, t_abs, t_abs - batch_start,
                      shift_index(t_abs, shift_seconds), w.uid, w.local_id,

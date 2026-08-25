@@ -157,7 +157,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # life of the project, so nothing downstream expects the field to exist.
         self._put_speed = None                       # SpeedProfile | None
         self._put_cost = None                        # PutawayCost | None
-        self._put_clock: float = 0.0                 # this crew's running clock (seconds)
+        self._put_clock: float = 0.0                 # the crew's FINISH = max(_put_clocks)
+        self._put_clocks: list[float] = [0.0]        # one per worker; sized by the binder
         self._put_seconds: float = 0.0               # total put-away labor this run
         self._put_records: list = []                 # (t_start, dur, sku, qty, aisle, x, y, source)
 
@@ -715,7 +716,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         if self._put_speed is not None:
             self._cost_putaway(unit, bin_, source)
 
-    def enable_putaway_timing(self, speed, cost=None) -> None:
+    def enable_putaway_timing(self, speed, cost=None, size: int = 1) -> None:
         """Bind a put crew's travel speed + cost model, so every placement costs seconds.
 
         Follows `enable_sigma_fd`'s precedent: a binder the harness calls, so the domain
@@ -728,8 +729,15 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         and a row.  Contention is the inbound feature, not this seam.
         """
         from Warehouse.operations.putaway import PutawayCost
+        if size < 1:
+            raise ValueError(f'a put crew of {size} does no work; size must be >= 1')
         self._put_speed = speed
         self._put_cost = cost if cost is not None else PutawayCost()
+        # ONE CLOCK PER WORKER.  A single serial clock made a crew of N take exactly as
+        # long as a crew of one, while `work_events.put_rows` round-robined the records
+        # across N workers -- so the rows claimed N people were working and the instants
+        # said otherwise.
+        self._put_clocks = [0.0] * size
 
     @property
     def putaway_seconds(self) -> float:
@@ -758,6 +766,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         manager never holds a run's worth of rows.
         """
         recs, self._put_records = self._put_records, []
+        self._put_clocks = [0.0] * len(self._put_clocks)
         self._put_clock = 0.0
         return recs
 
@@ -771,12 +780,16 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         order = unit.order
         dur = put_cost(bin_.x_phys, bin_.y_phys, order.weight, order.volume(),
                        unit.quantity, self._put_speed, self._put_cost)
-        t0 = self._put_clock
-        self._put_clock += dur
+        # Greedy list scheduling: the next put goes to whoever is free earliest.  Ties break
+        # to the lowest worker index, so a crew of one is exactly the old serial clock.
+        w = min(range(len(self._put_clocks)), key=lambda i: (self._put_clocks[i], i))
+        t0 = self._put_clocks[w]
+        self._put_clocks[w] = t0 + dur
+        self._put_clock = max(self._put_clocks)   # the crew's finish, for the caller
         self._put_seconds += dur
         self._put_records.append(
             (t0, dur, order.sku, unit.quantity, bin_.location[0],
-             bin_.x_phys, bin_.y_phys, source or 'intake'))
+             bin_.x_phys, bin_.y_phys, source or 'intake', w))
 
     def _sigma_delta(self, sku: int, bin_: Aisle.Bin) -> float:
         """f_s · D(bin) increment for the incremental Σ f·D tracker.

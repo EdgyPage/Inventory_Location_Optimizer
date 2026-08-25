@@ -548,7 +548,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     _put_workers = _put_crew.workers(_pick_crew.next_uid(0))
     # Put-away now costs seconds.  ADDITIVE: it moves no pick result (same items, same
     # order, same instants); it records durations and rows.  See enable_putaway_timing.
-    mgr.enable_putaway_timing(_put_crew.speed)
+    mgr.enable_putaway_timing(_put_crew.speed, size=_put_crew.size)
 
     # ── static per-run scores (saved once, before the loop) ────────────────────
     # Geometry/config-fixed scores the assignment functions compute: the viewer reads
@@ -893,7 +893,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 _put_recs, batch_id=i, batch_start=bs.batch_start_time,
                 crew=_put_workers, shift_seconds=_shift_seconds, crew_start=_put_base))
             if _put_recs:
-                put_clock = _put_base + _put_recs[-1][0] + _put_recs[-1][1]
+                # max(end), not the LAST record's: with several workers the list
+                # interleaves them, so the last appended is not the latest finishing.
+                # Grouped `(_put_base + t0) + dur` deliberately -- float addition is
+                # not associative, and `_put_base + (t0 + dur)` moved 28 rows by one
+                # ulp across two arms.  Same value for one worker, exactly.
+                put_clock = max((_put_base + r[0]) + r[1] for r in _put_recs)
         pk.extend(picks_b)
         pm.extend(am)
         last_dur        = bs.duration
