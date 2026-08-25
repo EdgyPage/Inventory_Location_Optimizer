@@ -104,6 +104,26 @@ def test_the_runner_carries_one_uniform_clock():
     assert 'arm_clock             = bs.batch_start_time + bs.duration' in src
 
 
+@pytest.mark.parametrize('t0', [0.0, 1234.5, 98_765.25])
+def test_the_reported_start_is_the_epoch_the_pickers_were_handed(t0):
+    """`bs.batch_start_time == arm_clock`, exactly. Two consumers depend on it agreeing.
+
+    The runner computes the put crews' whistle at the TOP of the batch loop, from
+    `max(arm_clock, put_clock)` — it has to, because `check_reorders` drains put-away there
+    and `bs` does not exist yet. The put EVENT ROWS are offset afterwards by
+    `max(bs.batch_start_time, put_clock)`. The two bases are the same instant only while this
+    identity holds; if it drifted, the put crews would be cut at one instant and stamped
+    against another, and nothing would raise — the rows would simply be wrong by the offset.
+
+    It holds because every picker is handed `arm_clock` as its `t0` and `batch_start_time` is
+    the minimum event time, so some picker's first event lands exactly on it. That is an
+    argument, not a guarantee, which is why it is pinned. `==` rather than `approx`: the
+    value is carried, never recomputed, so any difference at all is a real divergence.
+    """
+    bs = extract_batch_stats(_batch(t0, [10.0, 6.0]), batch_id=0, k_pickers=2)
+    assert bs.batch_start_time == t0
+
+
 def test_a_skipped_batch_still_does_not_advance_the_clock():
     """Half of the old contract, and it is unchanged: the skip guard fires before the sim,
     so an empty batch moves no clock. Deliberate — there is no principled duration for a
