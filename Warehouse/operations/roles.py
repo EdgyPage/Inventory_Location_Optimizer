@@ -49,9 +49,25 @@ class _Named(str, Enum):
 
 
 class Role(_Named):
-    """What the actor is doing with inventory: taking it out, or putting it away."""
+    """What the actor is doing with inventory: taking it out, putting it away, or
+    bringing it in.
+
+    THE VALUE IS THE DB COLUMN.  `work_events.role` is free TEXT with no CHECK, written as
+    `str(w.role)`, and nothing calls `Role.of` on the way in -- so a typo persists silently
+    and every `WHERE role='receive'` returns nothing while the row count still reconciles.
+    That is why these are an Enum at all.
+
+    One consequence of the SPELLING, recorded because it is invisible and easy to
+    "improve": the merged event stream's declared order breaks ties on `role` as a STRING,
+    and the batch epoch is a real tie in every run.  `'pick' < 'put' < 'receive'`, so a
+    receive sorts LAST at a shared instant.  Renaming it to `'dock'` or `'inbound'` would
+    silently move it FIRST, ahead of every pick -- and no test would notice, because Python's
+    `sorted` and SQLite's BINARY collation agree under any name.  The order is arbitrary and
+    must stay uninteresting; do not rename one of these to get a sort you like.
+    """
     PICK = 'pick'
     PUT = 'put'
+    RECEIVE = 'receive'
 
 
 class Mode(_Named):

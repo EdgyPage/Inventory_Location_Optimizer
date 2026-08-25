@@ -221,7 +221,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # from the full queue on every check_reorders call.
         self._queued_sku_counts: dict[int, int] = {}
         # Product-quantity on-order trackers (parallel to the unit-count dicts):
-        # _queued_qty   = items reordered and queued (in the stock queue) but not yet binned,
+        # _queued_qty   = items reordered and ADMITTED UPSTREAM OF A BIN but not yet binned --
+        #                 standing on the dock or waiting in a put queue.  Both, deliberately:
+        #                 the credit is added by `_release_to_stock` after its admit loop and
+        #                 removed by `_execute_placement` when the unit reaches a bin, so it
+        #                 spans everything in between and a unit the receiving crew has not
+        #                 got to yet is still on order.  That is what lets the dock intercept
+        #                 inside `_admit` without touching this ledger at all.
         # _deferred_qty = items reordered and in-transit in the LEAD queue (lead time not elapsed).
         # Reorder thresholds use inventory position = on_hand + queued + deferred
         # so a SKU already reordered (but unbinned / in-transit) is not reordered again.
@@ -245,6 +251,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # every arrival comes whole, which is every run today.  Trailers, docks and load
         # planning live in the CALLER -- this only asks how the shipment showed up.
         self.inbound_split = None
+        # THE RECEIVING DOCK.  None = no receiving crew, which is every run that does not ask
+        # for one: nothing is constructed, so the no-op is structural rather than a flag test.
+        # Bound by `enable_receiving`, the `enable_putaway_timing` precedent -- a binder the
+        # harness calls, so the domain never reaches into CONFIG for it.
+        self._dock = None
+        #: Receiving labour, in seconds. Deliberately NOT folded into `_put_seconds`: that
+        #: figure has been published, and widening what it counts would move it silently.
+        self._recv_seconds: float = 0.0
         # Seed for the reorder-quantity noise.  check_reorders draws qty from a per-reorder
         # random.Random((_seed, sku, _batch_num)) so the quantity is a pure function of the
         # seed (reproducible, off the global stream) rather than global call order.  The
@@ -898,6 +912,55 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # of its own -- so a manager with the single default queue is unchanged.
         self._bind_put_crews()
 
+    def enable_receiving(self, spec, cost=None) -> None:
+        """Give the warehouse a receiving crew, and a dock for it to work.
+
+        Follows `enable_putaway_timing`'s precedent: a binder the harness calls, so the domain
+        never reaches into CONFIG for its own configuration.  There is deliberately no
+        `disable_receiving` -- the off state is "this was never called", which is what makes
+        the feature's no-op structural rather than a flag nobody can see.
+
+        NOT ADDITIVE, unlike put-away timing, and that is the point.  A receiving crew changes
+        WHEN merchandise reaches a put queue, so it changes which units are binned in which
+        batch.  It does not change the pick simulation, the packing, or which bin a given unit
+        lands in once it is offered.
+        """
+        from Warehouse.inventory.dock import Dock
+        from Warehouse.operations.unload import UnloadCost
+        self._dock = Dock(spec, cost if cost is not None else UnloadCost())
+
+    @property
+    def dock_depth(self) -> int:
+        """Storage units standing on the dock. 0 when there is no receiving crew.
+
+        DISJOINT from `queue_depth`, which counts the put queues and `_held`: an item is in
+        one place or the other, never both. A reader wanting the whole unbinned backlog sums
+        them, which is why both are reported rather than one merged number.
+        """
+        return self._dock.depth if self._dock is not None else 0
+
+    @property
+    def receiving_seconds(self) -> float:
+        """Total receiving labor recorded so far, in seconds. 0.0 when there is no crew."""
+        return self._recv_seconds
+
+    def drain_receiving_records(self) -> list:
+        """This batch's unload records, and restart the crew's clock. `[]` when no crew.
+
+        A drain is a batch boundary -- see `Dock.drain_records` and, for what happens when
+        the reset is missed, `drain_putaway_records`.
+        """
+        return self._dock.drain_records() if self._dock is not None else []
+
+    def receiving_snapshot(self) -> tuple:
+        """`(depth, unloaded, cut, seconds)` for this batch, resetting the three flows.
+
+        `(0, 0, 0, 0.0)` when there is no receiving crew, so the caller writes the same row
+        shape either way and a no-dock run records four honest zeros rather than a NULL that
+        every consumer then has to special-case.
+        """
+        return self._dock.snapshot() if self._dock is not None else (0, 0, 0, 0.0)
+
     @property
     def putaway_seconds(self) -> float:
         """Total put-away labor recorded so far, in seconds.  0.0 when timing is off."""
@@ -1290,6 +1353,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             k = ('held', u.order.sku, u.unit_category, u.storage_size,
                  self.put_queues.route(u).name)
             agg[k] = agg.get(k, 0) + u.quantity
+        # A fourth `kind`, and a ROW rather than a column: `reorder_queue` already carries a
+        # kind discriminator, so the dock's contents cost no schema change.  Guarded, so a
+        # run with no receiving crew emits exactly the rows it emitted before.
+        if self._dock is not None:
+            for it in self._dock.items:
+                u = it.unit
+                k = ('dock', u.order.sku, u.unit_category, u.storage_size, self._dock.name)
+                agg[k] = agg.get(k, 0) + u.quantity
         return [(*k, v) for k, v in agg.items()]
 
     def carryover_rows(self, batch_id: int) -> list[tuple]:
@@ -1340,7 +1411,29 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         """
         item = PutawayItem(unit, source, self._putaway_seq)
         self._putaway_seq += 1
-        if not self.put_queues.route(unit).admit(item):
+        # THE DOCK INTERCEPTS HERE, after the stamp and before the queue.  After the stamp,
+        # so a pallet that waits three batches on the dock is three batches old when it
+        # finally gets floor space -- the inversion the paragraph above forbids.  And here
+        # rather than one level up in `_release_to_stock`, because that function credits
+        # `_queued_qty` AFTER its admit loop: intercepting inside `_admit` leaves the credit
+        # in place, so `position = on_hand + queued + deferred` is unchanged and the reorder
+        # ledger needs no edit.  Diverting upstream would drop the merchandise out of
+        # `_deferred_qty` without adding it to `_queued_qty`, and the SKU would re-order
+        # every batch for as long as the dock was backed up, with nothing raising.
+        if self._dock is not None and self._dock.takes(source):
+            self._dock.arrive(item)
+            return item
+        return self._queue(item)
+
+    def _queue(self, item: 'PutawayItem') -> 'PutawayItem':
+        """Route one STAMPED item to its put queue, holding it if the queue is full.
+
+        Split out of `_admit` so the receiving crew has somewhere to hand an item it has
+        already taken off a trailer.  `_admit` stamps and decides WHERE work enters; this
+        decides which put queue takes it.  A dock unload calls this directly -- the item was
+        stamped on arrival and must not be re-stamped.
+        """
+        if not self.put_queues.route(item.unit).admit(item):
             self._held.append(item)
             return None
         return item

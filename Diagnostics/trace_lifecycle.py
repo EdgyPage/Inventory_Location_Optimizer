@@ -127,9 +127,12 @@ def _install_hooks(mgr: Inventory_Manager, tr: Tracer) -> None:
     mgr._reclaim_empty_bins = _reclaim_empty_bins
 
     orig_chk = mgr.check_reorders
-    def check_reorders():
+    # `*a, **kw`, not a bare signature: this rebinds a method that takes the two crews'
+    # whistles, and a zero-parameter closure would raise the moment a real caller passed one
+    # -- only under the tracer, which is not in the routine suite.
+    def check_reorders(*a, **kw):
         t = time.perf_counter()
-        r = orig_chk()
+        r = orig_chk(*a, **kw)
         f = tr.fn['check_reorders']; f[0] += 1; f[1] += time.perf_counter() - t
         return r
     mgr.check_reorders = check_reorders

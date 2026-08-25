@@ -1,8 +1,10 @@
-"""test_reorder_phases.py — `check_reorders` is six phases, and the ORDER is the behaviour.
+"""test_reorder_phases.py — `check_reorders` is seven phases, and the ORDER is the behaviour.
 
 `check_reorders` used to be six unrelated jobs inline: advance the batch calendar, reclaim
 the bins the picks emptied, tick the lead queue, fire reorders, release arrivals, drain the
-put-away queue.  There was no way to reclaim bins without also ordering, or to place the
+put-away queue.  Receiving is the seventh, added when inbound got a crew of its own; it sits
+between the arrivals and the put drain, because it is LABOUR and the put drain must see what
+it unloaded.  There was no way to reclaim bins without also ordering, or to place the
 stock queue without also advancing the calendar — which is exactly what a second work stream
 (inbound put-away against the same clock) has to be able to do.
 
@@ -31,7 +33,7 @@ from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, W
 
 #: the canonical sequence, in the order `check_reorders` must run them
 PHASES = ('_tick_batch', 'reclaim_emptied_bins', '_advance_lead_queue',
-          '_fire_reorders', '_release_arrivals', '_drain_putaway')
+          '_fire_reorders', '_release_arrivals', '_receive', '_drain_putaway')
 
 
 def _manager(seed: int = 0) -> Inventory_Manager:
@@ -160,13 +162,26 @@ def test_the_phase_list_here_matches_the_composition():
 
 # ── the whistle reaches the labour and nothing above it ───────────────────────────
 
-def test_the_put_deadline_reaches_only_the_drain():
-    """`check_reorders` takes the day's whistle and hands it to step 4 alone.
+#: Two sentinels, deliberately different. One shared value would let a crossed wire pass.
+_PUT_WHISTLE = 1234.5
+_RECV_WHISTLE = 6789.0
 
-    The calendar above it must NOT see it: a lead time elapses whether or not anyone is at
-    work, and a trailer that arrives at four o'clock has still arrived. What the day bounds
-    is the LABOUR. If the deadline leaked into `_advance_lead_queue` or `_release_arrivals`,
-    a short day would stop time itself rather than stopping the crew.
+
+def test_each_labour_phase_gets_its_own_whistle_and_the_calendar_gets_none():
+    """Two crews, two days, and neither reaches the calendar.
+
+    The invariant is NOT "exactly one phase takes a deadline" — an earlier version of this
+    test said that, and it was a statement about how many labour phases happened to exist.
+    The real rule, in its own words then and now: **the day bounds the LABOUR, not the
+    CALENDAR.** A lead time elapses whether or not anyone is at work, and a trailer that
+    arrives at four o'clock has still arrived. If a whistle leaked into `_advance_lead_queue`
+    or `_release_arrivals`, a short day would stop time itself rather than stopping a crew.
+
+    Two DISTINCT sentinels are what make this stronger than the test it replaces. Handing
+    receiving the put crew's remaining day is arithmetically well-formed and wrong by an
+    unrelated crew's overrun, and it surfaces only as a cut count that reads like a
+    legitimately short day. With one shared value that wire would pass; with two it fails
+    here, which is the first place in the codebase that could see it.
     """
     mgr = _manager()
     seen = {}
@@ -175,19 +190,47 @@ def test_the_put_deadline_reaches_only_the_drain():
             seen[_n] = (a, kw)
         setattr(mgr, name, cap)
 
-    mgr.check_reorders(put_deadline=1234.5)
+    mgr.check_reorders(put_deadline=_PUT_WHISTLE, recv_deadline=_RECV_WHISTLE)
 
     assert set(seen) == set(PHASES), 'a phase was not called'
-    assert seen['_drain_putaway'] == ((1234.5,), {})
+    assert seen['_drain_putaway'] == ((_PUT_WHISTLE,), {}), (
+        'the put drain did not get the put crew\'s whistle')
+    # `_receive` also takes this batch's arrivals, so its whistle is the LAST positional.
+    assert seen['_receive'][0][-1] == _RECV_WHISTLE, (
+        f"receiving got {seen['_receive'][0][-1]!r}, not its own whistle — if that is the "
+        f"put crew's value, the two crews are sharing a day and receiving is being cut by "
+        f"put-away's backlog")
+
     for name in PHASES:
-        if name != '_drain_putaway':
-            assert seen[name] == ((), {}), f'{name} was handed the day\'s whistle'
+        if name in ('_drain_putaway', '_receive'):
+            continue
+        assert seen[name] == ((), {}), (
+            f'{name} is CALENDAR and was handed a whistle; a short day would stop time '
+            f'rather than stopping a crew')
 
 
-def test_the_default_deadline_is_none():
+def test_the_two_whistles_are_not_the_same_sentinel():
+    """Non-vacuity for the test above: if these ever became equal, a crossed wire would pass
+    it silently and the strengthening would be undone without anything failing."""
+    assert _PUT_WHISTLE != _RECV_WHISTLE
+
+
+def test_both_deadlines_default_to_none():
     """Every caller that predates the day cut, and every run that does not ask for one."""
     mgr = _manager()
-    got = []
-    mgr._drain_putaway = lambda d=None: got.append(d)
+    got: dict = {}
+    mgr._drain_putaway = lambda d=None: got.setdefault('put', d)
+    mgr._receive = lambda a=(), d=None: got.setdefault('recv', d)
     mgr.check_reorders()
-    assert got == [None]
+    assert got == {'put': None, 'recv': None}
+
+
+def test_receiving_is_handed_this_batch_arrivals():
+    """`_release_arrivals` returns the batch's LoadPlans and `_receive` is their consumer.
+    Without this the return value is decorative and the phase counts no deliveries."""
+    mgr = _manager()
+    mgr._release_arrivals = lambda: ['plan-a', 'plan-b']
+    got = []
+    mgr._receive = lambda arrivals=(), deadline=None: got.append(list(arrivals))
+    mgr.check_reorders()
+    assert got == [['plan-a', 'plan-b']]

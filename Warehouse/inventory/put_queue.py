@@ -11,8 +11,17 @@ on and re-sort them.
 
 Writing three classes would encode today's three streams as the shape of the code. The axes
 above are the real content, so they are a SPEC and the queue is one object configured by it.
-A fourth stream is a row. Inbound, when it arrives, is a producer into an existing queue
-rather than a new mechanism.
+A fourth put-away stream is a row.
+
+Inbound turned out to be half of that. It IS a producer into an existing queue -- receiving
+merchandise enters through `_admit` exactly like every other source, unchanged. But the
+receiving CREW is not a member of this set, and could not be: `Inventory_Manager._stock`
+drains every queue here into the placement pool, so a dock among them would have its trailers
+binned on batch 1; `_cost_putaway` folds `max(x.finish for x in self._put_queues)` into
+`_put_clock`, which offsets every put row on the absolute axis; and a fourth member flips
+`len(self.put_queues) == 1`, swapping `_stock_queue` for `_MultiQueueView`, whose setter
+raises. So `Warehouse/inventory/dock.py` stands alone and shares the one part that genuinely
+is the same -- the crew's clock, via `Warehouse.kernel.crew_clock`.
 
 # ── the axes ──────────────────────────────────────────────────────────────────────
 

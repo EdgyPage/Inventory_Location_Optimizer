@@ -32,9 +32,28 @@ MACHINE = SpeedProfile(3.0, 2.0)
 
 # ── roles and modes ───────────────────────────────────────────────────────────────
 
-def test_the_four_combinations_exist():
-    assert {r.value for r in Role} == {'pick', 'put'}
+def test_the_member_sets_are_exactly_these():
+    """Pinned as SETS, because these values are DB column content: `work_events.role` is free
+    TEXT with no CHECK and nothing calls `Role.of` on the way in, so a typo persists and every
+    `WHERE role='receive'` returns nothing while the row count still reconciles.
+
+    `receive` joined 2026-08-25 with the receiving crew. Mode stayed at two: without a travel
+    term there is nothing for a speed to scale, so the model cannot say whether a forklift
+    crew unloads faster than a hand crew — only crew SIZE changes a receiving makespan. See
+    `Warehouse/operations/unload.py`.
+    """
+    assert {r.value for r in Role} == {'pick', 'put', 'receive'}
     assert {m.value for m in Mode} == {'foot', 'machine'}
+
+
+def test_the_role_spelling_decides_a_tie_and_must_stay_boring():
+    """The merged event stream breaks ties on `role` as a STRING, and the batch epoch is a
+    real tie in every run. `'pick' < 'put' < 'receive'` puts a receive LAST at a shared
+    instant; renaming it `'dock'` or `'inbound'` would silently move it FIRST, ahead of every
+    pick. No existing test would notice — Python's `sorted` and SQLite's BINARY collation
+    agree under any name — so the consequence is pinned here rather than left to be
+    rediscovered."""
+    assert sorted(r.value for r in Role) == ['pick', 'put', 'receive']
 
 
 def test_a_member_renders_as_its_bare_value():

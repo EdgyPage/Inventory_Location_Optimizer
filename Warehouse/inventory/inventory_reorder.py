@@ -14,6 +14,7 @@ import random
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units
 from Warehouse.operations import inbound as _inbound
+from Warehouse.operations.unload import unload_cost as _unload_cost
 from Warehouse.inventory.inventory_common import (
     PutawayItem, is_forward_pick, _equilibrium_qty)
 
@@ -452,6 +453,53 @@ class ReorderMixin:
         self._lead_queue = still
         return plans
 
+    def _receive(self, arrivals=(), deadline: float | None = None) -> None:
+        """Unload what is standing on the dock, until the crew runs out of day.
+
+        Returns immediately when there is no receiving crew, which is every run that does not
+        ask for one -- the dock is not constructed at all, so this is one `is None` test and
+        not a flag.
+
+        WHERE THIS SITS IS THE DESIGN. Above it, steps 0-3 are the CALENDAR: a lead time
+        elapses whether or not anyone is at work, and a trailer that arrives at four o'clock
+        has still arrived. Below it, `_drain_putaway` is the put crew's labour. Receiving is
+        labour too, and it must run BEFORE the put drain, or a unit unloaded at nine in the
+        morning would wait a whole batch for a bin -- a latency that would be an artifact of
+        where the hook sits rather than anything about a warehouse.
+
+        THE WHISTLE IS A START GATE, exactly as put-away's is: a receiver already past
+        `deadline` begins nothing new, and the unload in progress when it blows finishes. So
+        overtime is bounded by one unload per worker, which is what someone carrying a pallet
+        off a tail lift actually does. `deadline` is a REMAINDER on the crew's batch-local
+        clock, not an instant -- see `crew_clock.can_start`.
+
+        What the whistle stops stays on the dock and is the first thing tomorrow's crew
+        touches: the deque is in arrival order, so the rollover is FIFO and no unit can be
+        overtaken by merchandise that arrived after it.
+        """
+        dock = self._dock
+        if dock is None:
+            return
+        dock.note_arrivals(arrivals)
+        while dock.items and dock.can_start(deadline):
+            item = dock.items.popleft()
+            unit = item.unit
+            order = unit.order
+            dur = _unload_cost(order.weight, order.volume(), unit.quantity, dock.cost)
+            t0, w = dock.charge(dur)
+            dock.records.append((t0, dur, order.sku, unit.quantity, w))
+            dock.unloaded += 1
+            self._recv_seconds += dur
+            # The item was stamped on ARRIVAL and must not be re-stamped, so this goes to
+            # `_queue` rather than back through `_admit` -- which would also divert it
+            # straight back onto the dock and spin forever.
+            self._queue(item)
+        # WHAT THE WHISTLE COST, counted once and after the loop. Same discipline as the put
+        # side: a counter incremented inside a loop that can run many times reports how many
+        # passes were needed rather than how much work the boundary left standing.
+        if deadline is not None and dock.items:
+            dock.cut += len(dock.items)
+
     def _drain_putaway(self, deadline: float | None = None) -> None:
         """Place the stock queue into bins (retries prior-batch stragglers too).
 
@@ -462,7 +510,8 @@ class ReorderMixin:
         if self._stock_queue:
             self._stock(deadline=deadline)
 
-    def check_reorders(self, put_deadline: float | None = None) -> list[int]:
+    def check_reorders(self, put_deadline: float | None = None,
+                       recv_deadline: float | None = None) -> list[int]:
         """Order-Up-To replenishment through an explicit, deterministic lead queue.
 
         Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
@@ -474,16 +523,23 @@ class ReorderMixin:
              centred on the equilibrium fill (supply_cv set at generation).
           3. Release every arrived order (remaining_lead ≤ 0) into the stock queue — this
              catches both decremented-to-0 olds AND fresh lead-0 newcomers (same batch).
-          4. Place the stock queue into bins via _stock().
+          4. Unload the dock, if there is a receiving crew, until its day runs out.
+          5. Place the stock queue into bins via _stock().
 
         Inventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a
         SKU with an order already in flight is not reordered again.
 
-        `put_deadline` is the day's whistle for step 4 only, in seconds on the put crews'
-        batch-local clocks.  It reaches nothing above it on purpose: steps 0-3 are the
-        CALENDAR advancing — a lead time elapses whether or not anyone is at work, and a
-        trailer that arrives at four o'clock has still arrived.  What the day bounds is the
-        LABOUR, and the labour is step 4.
+        `put_deadline` and `recv_deadline` are the two crews' whistles, each in seconds on
+        its OWN batch-local clock, and each reaching exactly one phase.  They are separate
+        parameters rather than one shared day because the crews are separate: handing
+        receiving the put crew's remaining day would be arithmetically well-formed and wrong
+        by an unrelated crew's overrun, and a cut count of zero reads as "the boundary cost
+        nothing".
+
+        Neither reaches anything above step 4 on purpose: steps 0-3 are the CALENDAR
+        advancing — a lead time elapses whether or not anyone is at work, and a trailer that
+        arrives at four o'clock has still arrived.  What a day bounds is the LABOUR, and the
+        labour is steps 4 and 5.
 
         THE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can
         drive them separately, but reordering them changes results: firing before the lead
@@ -494,6 +550,7 @@ class ReorderMixin:
         self.reclaim_emptied_bins()
         self._advance_lead_queue()
         triggered = self._fire_reorders()
-        self._release_arrivals()
+        arrivals = self._release_arrivals()
+        self._receive(arrivals, recv_deadline)
         self._drain_putaway(put_deadline)
         return triggered
