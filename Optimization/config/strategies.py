@@ -20,11 +20,11 @@ from typing import Any, Callable
 from Warehouse.placement.Assignment_Functions import (
     build_trip_minimizing_assignment_fn,
     build_trip_maximizing_assignment_fn,
-    build_ranked_minimizing_assignment_fn,
-    build_ranked_maximizing_assignment_fn,
+    build_ranked_minimizing_pool_fn,
+    build_ranked_maximizing_pool_fn,
     build_uniform_aisle_trip_min_assignment_fn,
-    build_ranked_uniform_assignment_fn,
-    build_ranked_popularity_fn,
+    build_ranked_uniform_pool_fn,
+    build_ranked_popularity_pool_fn,
     build_ranked_labor_fn,
     build_ranked_cartlabor_fn,
     build_ranked_minlabor_fn,
@@ -91,7 +91,7 @@ def _build_uniform_trip_min_ranked(mgr, ctx: StrategyContext) -> None:
     mgr.placement = Placement(
         'ranked_uniform',
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
-        build_ranked_uniform_assignment_fn(
+        open_pool=build_ranked_uniform_pool_fn(
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta))
@@ -103,7 +103,7 @@ def _build_rank_popularity(mgr, ctx: StrategyContext) -> None:
     mgr.placement = Placement(
         'ranked_popularity',
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
-        build_ranked_popularity_fn(
+        open_pool=build_ranked_popularity_pool_fn(
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
@@ -223,7 +223,7 @@ def _build_trip_min(mgr, ctx: StrategyContext) -> None:
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
-        build_ranked_minimizing_assignment_fn(
+        open_pool=build_ranked_minimizing_pool_fn(
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta))
@@ -236,7 +236,7 @@ def _build_trip_max(mgr, ctx: StrategyContext) -> None:
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
-        build_ranked_maximizing_assignment_fn(
+        open_pool=build_ranked_maximizing_pool_fn(
             ctx.affinity, ctx.wp,
             mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta))

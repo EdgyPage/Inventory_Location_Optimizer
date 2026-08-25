@@ -33,8 +33,18 @@ RankedAssignmentFn = Callable[
 # A POOL is a policy's candidate bins for ONE BinKey group, opened once per wave and
 # consumed one unit at a time:
 #
-#     pool = placement.open_pool(candidates)
-#     bin_, score = pool.take(unit)          # consumes the bin; None when exhausted
+#     pool = placement.open_pool(candidates, rep)   # rep: ANY unit of the group
+#     for unit in pool.order(units):                # the order the POLICY would like
+#         bin_, score = pool.take(unit)             # consumes the bin; None when exhausted
+#
+# `rep` resolves the things that are constant across a BinKey group but need a unit to name
+# -- per-regime cost, today.  Any unit of the group gives the same answer, because regime is
+# itself a BinKey component; passing one is how the pool says so out loud.
+#
+# `order` is a REQUEST, not an instruction.  A policy that has an opinion about which unit
+# should be served first states it there and the drain decides whether to honour it; that is
+# the whole difference from `place_wave`, which returned the order as a fait accompli.  The
+# default is queue order.
 #
 # It is the inversion of `place_wave`.  A wave RETURNS the order it wants, which is how the
 # assignment functions came to decide placement ORDER as well as the bin; a pool answers one

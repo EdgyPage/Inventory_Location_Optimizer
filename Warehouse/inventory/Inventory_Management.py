@@ -1007,9 +1007,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 # snapshot per group, exactly as the wave took -- the candidate set never
                 # depended on the order, because every unit in a group shares a BinKey.
                 # Queue order here, which is what the pooled policies already served in.
-                pool = self.placement.open_pool(self._candidates(units[0]))
+                pool = self.placement.open_pool(self._candidates(units[0]), units[0])
                 assignments = []
-                for unit in units:
+                # `pool.order` is what the policy WOULD LIKE. Honoured in full while the
+                # window is unbounded; a finite K-oldest window will narrow what it is
+                # allowed to reorder, which is the point of asking rather than obeying.
+                for unit in pool.order(units):
                     bin_, _score = pool.take(unit)
                     assignments.append((unit, bin_))
             else:

@@ -15,7 +15,8 @@ from collections import deque
 from typing import Any
 
 from Warehouse.catalog.Affinity_Store import AffinityStore
-from Warehouse.kernel.cost_model import height_multiplier, per_pick, sec_per_inch
+from Warehouse.kernel.cost_model import (
+    SpeedProfile, height_multiplier, per_pick, sec_per_inch)
 from Warehouse.inventory.Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey, tier_ranks_for,
     AssignmentFn, RankedAssignmentFn, LoadParams, Placement, _wp_for,
@@ -555,6 +556,22 @@ def build_uniform_aisle_trip_min_assignment_fn(wp, rng: random.Random | None = N
 
 # ── ranked assignment functions ────────────────────────────────────────────────
 
+class _Pool:
+    """Base for the placement pools: `take` is required, `order` defaults to queue order.
+
+    A policy overrides `order` only if it has a genuine opinion about precedence.  The
+    drain is free to ignore it -- see the PoolFn note in inventory_common.
+    """
+
+    __slots__ = ()
+
+    def order(self, units):
+        return units
+
+    def take(self, unit):                                   # pragma: no cover - interface
+        raise NotImplementedError
+
+
 def _ranked_assign_impl(
     units        : list,
     candidates_fn,
@@ -570,10 +587,11 @@ def _ranked_assign_impl(
     minimize     : bool,
     aisle_selector = None,
     order_key      = None,
-    aisle_extra_sum     = None,
-    sku_extra_product   = None,
 ) -> list:
     """Shared core for ranked-minimizing and ranked-maximizing assignment.
+
+    SUPERSEDED by `_RankedAssignPool`, which is what the four arms actually run.  Kept as
+    the frozen oracle the port is tested against, and as the straggler-path reference.
 
     Priority formula (pick-effort x frequency + co-occurrence):
       priority = f_i x (pick_intercept + pick_weight_coef x log(weight)
@@ -590,10 +608,6 @@ def _ranked_assign_impl(
     wp      = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
     x_pace  = sec_per_inch(wp.x_speed)   # ft/s -> s/inch
     y_pace  = sec_per_inch(wp.y_speed)
-    pi      = wp.pick_intercept
-    pw      = wp.pick_weight_coef
-    pv      = wp.pick_volume_coef
-
     # Fix 1: the co-occurrence term ranks each SKU against ALL currently-placed
     # SKU indices.  That union is identical for every unit in the wave (placement
     # is deferred to the caller, so aisle_idx_sets is static here), so build it
@@ -652,10 +666,6 @@ def _ranked_assign_impl(
             if idx is not None:
                 aisle_idx_sets[best_aid].add(idx)
             aisle_demand_sum[best_aid] += f_s * q_s
-            # Cost-weighted twin (Rank_labor): keep _aisle_pick_load_sum live within
-            # the wave so later units see the running labor balance.
-            if aisle_extra_sum is not None:
-                aisle_extra_sum[best_aid] += sku_extra_product.get(sku, 0.0)
 
         # Advance the chosen aisle's head; drop it when exhausted.
         dq = by_aisle[best_aid]
@@ -879,6 +889,143 @@ def build_co_demand_placement(compact, affinity, wp,
     return Placement(name, place_one, place_wave)
 
 
+class _RankedAssignPool(_Pool):
+    """`_ranked_assign_impl`, split along its real seam.
+
+    The old function did three separable things in one pass: snapshot the group's candidates
+    (candidate-derived), decide precedence (unit-derived), and hand out bins (per unit).
+    Only the middle one ever needed the whole unit set, and only the middle one is what the
+    drain is taking back.  So:
+
+      * `__init__` -- the candidate snapshot: `_D_map`, the per-aisle deques sorted
+        extremal-D-first, and the two head dicts.  Plus `all_idx`, the union of every placed
+        SKU index, snapshotted at exactly the instant the old code took it: before the sort,
+        before any placement in this group.  It is deliberately frozen for the whole group
+        even though placements below mutate `aisle_idx_sets`.
+      * `order`  -- the descending pick-effort priority.  This is now a request.
+      * `take`   -- one aisle choice, one head pop, one commit.
+
+    `head_bin`/`head_D` key order is load-bearing in three places and is preserved exactly:
+    `min`/`max` keep the FIRST extremal, so a D tie resolves to whichever aisle appeared
+    first in the candidate list; `rank_popularity`'s selector has the same tie behaviour; and
+    `rank_random` indexes into `list(head_bin.keys())`.  Insertion order is first-appearance
+    in `cands`, refreshed in place on a pop and deleted on exhaustion, so a key never moves
+    and never comes back.
+
+    Two dead parameters did not survive the port: `pick_intercept`/`pick_weight_coef`/
+    `pick_volume_coef` were unpacked and never read (the priority uses the precomputed
+    `c.labor_cost` instead), and `aisle_extra_sum`/`sku_extra_product` had no caller anywhere
+    in the repo.
+    """
+
+    __slots__ = ('_aff', '_ass', '_ais', '_ads', '_fbi', '_fbs', '_qbs', '_beta',
+                 '_minimize', '_selector', '_order_key', '_all_idx',
+                 '_by_aisle', '_D_of', '_head_bin', '_head_D')
+
+    def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
+                 aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta,
+                 minimize, aisle_selector=None, order_key=None):
+        self._aff, self._ass, self._ais = affinity, aisle_sku_sets, aisle_idx_sets
+        self._ads, self._fbi = aisle_demand_sum, freq_by_idx
+        self._fbs, self._qbs, self._beta = freq_by_sku, qty_by_sku, beta
+        self._minimize, self._selector, self._order_key = minimize, aisle_selector, order_key
+
+        # The co-occurrence term ranks each SKU against ALL currently-placed SKU indices.
+        # That union is identical for every unit in the group, so build it ONCE -- not once
+        # per unit inside the sort key (which was O(U*sigma) per wave).  Only the default
+        # pick-effort ordering's co-occurrence term needs it.
+        self._all_idx = (set().union(*aisle_idx_sets.values())
+                         if (order_key is None and aisle_idx_sets) else set())
+
+        # The named pair, not two hand conversions — new code crosses the ft/s -> s/inch
+        # boundary through the profile (see cost_model.SpeedProfile).
+        speed  = SpeedProfile(wp.x_speed, wp.y_speed)
+        x_pace, y_pace = speed.x_pace, speed.y_pace
+        D_of = _D_map(cands, x_pace, y_pace)
+        by_aisle: dict[int, deque] = {}
+        for b in cands:
+            by_aisle.setdefault(b.location[0], []).append(b)
+        for aid, lst in by_aisle.items():
+            lst.sort(key=lambda bb: D_of[id(bb)], reverse=not minimize)   # head = extremal-D
+            by_aisle[aid] = deque(lst)
+        self._D_of, self._by_aisle = D_of, by_aisle
+        self._head_bin = {aid: dq[0]           for aid, dq in by_aisle.items() if dq}
+        self._head_D   = {aid: D_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
+
+    def __len__(self):
+        return sum(len(dq) for dq in self._by_aisle.values())
+
+    # ── the precedence this policy would like ─────────────────────────────────────
+    def _pick_effort_priority(self, unit) -> float:
+        c = unit.order
+        # c.labor_cost is the precomputed per-pick effort (pi + pw*ln w + pv*ln v),
+        # so this avoids re-taking logs per unit per wave.
+        co_occur = self._beta * _demand_weighted_delta_lift(
+            self._aff, c.sku, self._all_idx, self._fbi)
+        return c.demand.relative_frequency * c.labor_cost + co_occur
+
+    def order(self, units):
+        """Descending pick-effort priority: the highest-effort unit claims the extremal-D
+        bin first.  A policy may supply its own per-unit score instead."""
+        return sorted(units, key=(self._order_key or self._pick_effort_priority),
+                      reverse=True)
+
+    # ── one placement ─────────────────────────────────────────────────────────────
+    def take(self, unit):
+        """(bin, score) for one unit; (None, None) when every aisle is drained.
+
+        `score` is the chosen bin's travel cost D -- the float the aisle argmin compared,
+        so reporting it is one dict read and no arithmetic.
+        """
+        head_D, head_bin = self._head_D, self._head_bin
+        if not head_D:
+            return None, None
+        if self._selector is not None:
+            best_aid = self._selector(head_D, head_bin)
+        else:
+            best_aid = (min if self._minimize else max)(head_D, key=head_D.__getitem__)
+        chosen = head_bin[best_aid]
+        score  = head_D[best_aid]
+
+        sku = unit.order.sku
+        f_s = self._fbs.get(sku, 0.0)
+        q_s = self._qbs.get(sku, 0.0)
+        if sku not in self._ass[best_aid]:
+            self._ass[best_aid].add(sku)
+            idx = self._aff._sku_to_idx.get(sku)
+            if idx is not None:
+                self._ais[best_aid].add(idx)
+            self._ads[best_aid] += f_s * q_s
+
+        # Advance the chosen aisle's head; drop it when exhausted.
+        dq = self._by_aisle[best_aid]
+        dq.popleft()
+        if dq:
+            head_bin[best_aid] = dq[0]
+            head_D[best_aid]   = self._D_of[id(dq[0])]
+        else:
+            del head_bin[best_aid]
+            del head_D[best_aid]
+        return chosen, score
+
+
+def _build_ranked_assign_pool_fn(
+    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+    freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
+    aisle_selector=None, order_key=None,
+):
+    """`open_pool` shared by the four ranked-assign arms (tmin / tmax / rank_random /
+    rank_popularity).  Mirrors `_ranked_assign_impl`'s parameter list exactly."""
+    def open_pool(candidates, rep=None):
+        return _RankedAssignPool(
+            candidates, affinity,
+            _wp_for(wp, rep) if rep is not None else wp,   # per-regime cost, mixed warehouse
+            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
+            aisle_selector=aisle_selector, order_key=order_key)
+    return open_pool
+
+
 def build_ranked_minimizing_assignment_fn(
     affinity,
     wp,
@@ -904,6 +1051,11 @@ def build_ranked_minimizing_assignment_fn(
     return ranked_assign
 
 
+def build_ranked_minimizing_pool_fn(*a, **kw):
+    """Pool twin of build_ranked_minimizing_assignment_fn — same signature."""
+    return _build_ranked_assign_pool_fn(*a, minimize=True, **kw)
+
+
 def build_ranked_maximizing_assignment_fn(
     affinity,
     wp,
@@ -926,6 +1078,11 @@ def build_ranked_maximizing_assignment_fn(
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=False,
         )
     return ranked_assign
+
+
+def build_ranked_maximizing_pool_fn(*a, **kw):
+    """Pool twin of build_ranked_maximizing_assignment_fn — same signature."""
+    return _build_ranked_assign_pool_fn(*a, minimize=False, **kw)
 
 
 def build_ranked_uniform_assignment_fn(
@@ -958,6 +1115,18 @@ def build_ranked_uniform_assignment_fn(
             aisle_selector=lambda bw, bb: _rng.choice(list(bb.keys())),
         )
     return ranked_assign
+
+
+def build_ranked_uniform_pool_fn(*a, rng=None, **kw):
+    """Pool twin of build_ranked_uniform_assignment_fn — same signature.
+
+    One RNG draw per unit that finds a live aisle, in the order the drain serves them, so
+    the stream re-pairs with different units the moment the order changes.  That is a real
+    consequence of the reorder, not a defect of the port."""
+    _rng = rng or random
+    return _build_ranked_assign_pool_fn(
+        *a, minimize=True,
+        aisle_selector=lambda bw, bb: _rng.choice(list(bb.keys())), **kw)
 
 
 # ── per-policy enqueue order-scores (decoupled queue ordering, sorted DESC) ────
@@ -997,6 +1166,23 @@ def build_ranked_popularity_fn(
             aisle_selector=_selector, order_key=_score_expected_popularity,
         )
     return ranked_assign
+
+
+def build_ranked_popularity_pool_fn(
+    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+    freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
+):
+    """Pool twin of build_ranked_popularity_fn — same signature.
+
+    Its selector reads the LIVE `aisle_demand_sum`, which `take` itself increments, so the
+    aisle choice depends on what this pool has already placed.  That is pool state and ports
+    as-is; what it means is that this arm's result moves when the service order moves."""
+    def _selector(head_D, head_bin):
+        return min(head_D, key=lambda aid: (aisle_demand_sum.get(aid, 0.0), head_D[aid]))
+    return _build_ranked_assign_pool_fn(
+        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+        freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
+        aisle_selector=_selector, order_key=_score_expected_popularity)
 
 
 def _travel_balanced_impl(units, candidates_fn, affinity, wp,
@@ -1497,7 +1683,7 @@ def build_optmap_fn(mgr, capped=False):
     return place_one
 
 
-class _OptMapPool:
+class _OptMapPool(_Pool):
     """The optmap objective as a POOL: one `_PrefPool` over the group's candidates, one
     `take` per unit, and the order left entirely to the caller.
 
@@ -1508,6 +1694,8 @@ class _OptMapPool:
     """
 
     __slots__ = ('_pool', '_target', '_pref', '_capped')
+    # order(): inherited. optmap has no precedence opinion — it never had one, which is
+    # exactly why it was the honest first port.
 
     def __init__(self, bins, target, bin_pref, capped: bool):
         self._pool   = _PrefPool(bins, bin_pref)
@@ -1541,7 +1729,7 @@ class _OptMapPool:
 
 def build_optmap_pool_fn(mgr, capped=False):
     """`open_pool` for the optimal-map policies -- the pool twin of build_optmap_wave_fn."""
-    def open_pool(candidates):
+    def open_pool(candidates, rep=None):
         return _OptMapPool(candidates, mgr._map_target, mgr._bin_pref, capped)
     open_pool.name = 'optmap_rank' if capped else 'optmap'
     return open_pool
