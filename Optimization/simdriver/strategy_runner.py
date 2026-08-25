@@ -418,6 +418,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # picked in which batch, so it can never be a silent default.  With it on, work a picker
     # did not reach rolls into the next batch's demand rather than evaporating.
     _cut_at_day_end = bool(_wd.get('cut_at_day_end'))
+    # Whether unpicked demand joins the next batch.  Independent of the cut: two of the three
+    # causes below happen with no day boundary in sight.
+    _roll_over = bool(_wd.get('roll_over_unpicked'))
     # {sku: qty} a previous batch's cut could not pick.  Added to the next batch's demand.
     _pending: dict = {}
     warehouse_cfg = args['warehouse_cfg']
@@ -847,9 +850,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                     else Batch(batch_cfg, inventory, affinity=affinity,
                                rng=random.Random(seed_batches + i)))
         _now = time.perf_counter(); _dt = _now - _t; t_sample_ckpt += _dt; t_build_ckpt += _dt; _t = _now
-        # `_shortfall` is demand no bin could satisfy -- recorded here, consumed by
-        # nothing yet.  It is the pre-simulation half of what will become the carry;
-        # the day-boundary half is not knowable until after the sim runs.
+        # `_shortfall` is demand NO BIN could satisfy -- the pre-simulation cause, and the
+        # only one knowable before the sim runs.  It rolls over with the other two below.
         # EFFECTIVE demand.  `batches[i]` is a SHARED pickle across every arm of the
         # family and must never be mutated -- a shallow copy rebinds `items` only, so the
         # original dict is untouched and the other arms still see the baseline.
@@ -1007,12 +1009,31 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         bs.items_demanded     = sum(_eff_batch.items.values())
         bs.work_day           = _release.day_of(i)
         bs.released_late      = _late
-        # THE CARRY, from the sim that produced it -- not re-derived here as a residual.
-        # Two definitions of one number is how a carry becomes either dead code or a double
-        # count; `Pick.carry_residue` is the definition and this reads it.
-        _pending = dict(sim.carried)
-        for _sku, _q in _pending.items():
-            cov.append((i, 'unpicked_daycut', _sku, _q))
+        # THE CARRY: everything this batch was asked for and did not pick, by CAUSE.  Each
+        # number comes from the place that knows it -- none is re-derived as a residual,
+        # because two ways to compute one quantity is how they drift without anything
+        # saying so.
+        #
+        #   unpicked_daycut       the picker never reached the bin      (Pick.carry_residue)
+        #   unpicked_unavailable  reached it; the bin held less         (the loops' clamp)
+        #   unplaced              no bin held the SKU at all            (from_batch's shortfall)
+        #
+        # Rolling all three means demand does not evaporate.  It is deliberately UNCAPPED: a
+        # SKU nothing restocks accumulates, which is what a warehouse that cannot serve its
+        # demand actually looks like, and capping it would hide exactly that.
+        # RECORDED ALWAYS, ROLLED OVER ONLY ON REQUEST.  The `carryover` rows are pure
+        # observation and cost nothing; feeding them back into the next batch is the
+        # behaviour change, and it is the one that ends comparability with the archive.
+        _carry_now: dict = {}
+        for _reason, _src in (('unpicked_daycut', sim.carried),
+                              ('unpicked_unavailable', sim.unmet),
+                              ('unplaced', _shortfall or {})):
+            for _sku, _q in _src.items():
+                if not _q:
+                    continue
+                _carry_now[_sku] = _carry_now.get(_sku, 0) + _q
+                cov.append((i, _reason, _sku, _q))
+        _pending = _carry_now if _roll_over else {}
         # ── demand ledger ────────────────────────────────────────────────────
         # A pick can never exceed the demand that asked for it.  Same discipline as the
         # conservation ledger below: LOGGED, never raised, and only on the first break, so

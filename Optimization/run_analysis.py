@@ -316,6 +316,7 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     g['work_day_seconds'] = spec.get('work_day_seconds')
     g['releases_per_day'] = spec.get('releases_per_day')
     g['cut_at_day_end']   = bool(spec.get('cut_at_day_end'))
+    g['roll_over_unpicked'] = bool(spec.get('roll_over_unpicked'))
     if spec.get('max_skus') is not None:
         g['max_skus'] = spec['max_skus']
     for ch, key in (('store', 'store_fill'), ('fulfillment', 'ff_fill')):

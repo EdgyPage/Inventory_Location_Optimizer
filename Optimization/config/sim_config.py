@@ -186,6 +186,7 @@ CONFIG = {
         'work_day_seconds': _s.WORK_DAY_SECONDS,
         'releases_per_day': _s.RELEASES_PER_DAY,
         'cut_at_day_end'  : _s.CUT_AT_DAY_END,
+        'roll_over_unpicked': _s.ROLL_OVER_UNPICKED,
     },
     'channels': {
         'store': {
@@ -311,6 +312,7 @@ def work_day_spec() -> dict:
         'seconds': float(g.get('work_day_seconds') or shift_seconds()),
         'releases_per_day': g.get('releases_per_day'),
         'cut_at_day_end': bool(g.get('cut_at_day_end')),
+        'roll_over_unpicked': bool(g.get('roll_over_unpicked')),
     }
 
 

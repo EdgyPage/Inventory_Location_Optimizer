@@ -92,6 +92,12 @@ RELEASES_PER_DAY = None    # batches released per day; None = CONTINUOUS, i.e. b
 CUT_AT_DAY_END = False     # stop pickers at the whistle and roll their unreached work into
                            # the next batch.  Changes WHICH units are picked in WHICH batch,
                            # so it can never be a silent default.  --cut-at-day-end
+ROLL_OVER_UNPICKED = False # demand a batch did not pick joins the NEXT batch's demand,
+                           # whatever the cause: the day cut, a bin that held less than the
+                           # plan, or no bin holding the SKU at all.  The largest behaviour
+                           # change in this family -- it ends comparability with the whole
+                           # archive and makes later batches bigger, so it is opt-in even
+                           # though it is the modelling we want.  --roll-over-unpicked
 
 # ── crews ────────────────────────────────────────────────────────────────────────
 # Imported from simconfig.constants rather than restated: the self-registering pick-config

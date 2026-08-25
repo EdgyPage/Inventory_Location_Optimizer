@@ -134,3 +134,97 @@ def test_the_shared_batch_is_never_mutated():
         eff.items[sku] += 100
     assert base.items == before, 'the shared batch was mutated'
     assert eff.items != before
+
+
+# ── all three causes roll over, and the gate is a true no-op ──────────────────────
+#
+# "items that are not picked in a batch do not rollover to the next batch. this is a major
+# behavior change... items that are not picked on a specific batch must be rolled over."
+#
+# Three causes, each counted where it is known and none derived as a residual:
+#
+#   unpicked_daycut       the picker never reached the bin       (Pick.carry_residue)
+#   unpicked_unavailable  reached it; the bin held less          (the loops' clamp)
+#   unplaced              no bin held the SKU at all             (from_batch's shortfall)
+
+def _run_causes(roll, day=None, n_batches=6):
+    """Returns (picked, {reason: units}, final pending)."""
+    a = cs.build_assets(n_skus=250, bins_per_aisle=30, strategy='uni_rank_labor_norsl',
+                        seed=42, coverage=2.0, safety=0.4)
+    mgr, wh = a.mgr, a.warehouse
+    rel = ReleaseSchedule(WorkDay(length=day)) if day else None
+    arm, picked = 0.0, 0
+    pending: dict = {}
+    tally = {'unpicked_daycut': 0, 'unpicked_unavailable': 0, 'unplaced': 0}
+    for i in range(n_batches):
+        mgr.check_reorders()
+        base = Batch(a.batch_cfg, a.inventory, affinity=None, rng=random.Random(1000 + i))
+        if pending:
+            eff = copy.copy(base)
+            eff.items = dict(base.items)
+            for sku, q in pending.items():
+                eff.items[sku] = eff.items.get(sku, 0) + q
+        else:
+            eff = base
+        tasks, short = Task.from_batch_with_shortfall(eff, wh, manager=mgr,
+                                                      cart=a.pick_cfg.cart)
+        if not tasks:
+            continue
+        de = rel.day.end_of(rel.day.index_of(arm)) if rel else None
+        sim = DeferredPickSimulation(tasks, a.pick_cfg, manager=mgr,
+                                     start_times=[arm] * a.pick_cfg.num_pickers,
+                                     day_end=de)
+        evs = sim.run()
+        picked += sum(e.quantity or 0 for e in evs if e.event_type == 'pick')
+        now: dict = {}
+        for reason, src in (('unpicked_daycut', sim.carried),
+                            ('unpicked_unavailable', sim.unmet),
+                            ('unplaced', short or {})):
+            for sku, q in src.items():
+                if q:
+                    now[sku] = now.get(sku, 0) + q
+                    tally[reason] += q
+        pending = now if roll else {}
+        arm = max(e.time for e in evs)
+    return picked, tally, sum(pending.values())
+
+
+def test_the_rollover_gate_is_a_true_no_op_when_off():
+    """Nothing feeds back, so the arm runs exactly as it did before this machinery existed.
+    The carryover rows are still written — observation is free, and it is the feedback that
+    is the behaviour change."""
+    _p, tally, pending = _run_causes(roll=False, day=2_000.0)
+    assert pending == 0, 'demand fed back with the gate off'
+    assert sum(tally.values()) > 0, 'nothing was carried at all; the case is untested'
+
+
+def test_rolling_over_recovers_work_that_would_otherwise_evaporate():
+    """The requirement, measured. At a 2,000 s day the cut leaves a lot behind; with the
+    rollover on, later batches pick it up instead of it vanishing."""
+    off, _t1, _p1 = _run_causes(roll=False, day=2_000.0)
+    on, _t2, _p2 = _run_causes(roll=True, day=2_000.0)
+    assert on > off, f'rolling over picked no more than discarding: {on} vs {off}'
+
+
+def test_every_cause_is_counted_separately():
+    """`carryover.reason` exists so "ran out of day" and "ran out of stock" are different
+    problems with different fixes. Merging them into one number would make either one
+    invisible behind the other."""
+    _p, tally, _pend = _run_causes(roll=False, day=2_000.0)
+    assert tally['unpicked_daycut'] > 0, 'a 2,000 s day should cut'
+    assert tally['unplaced'] > 0, 'this catalogue should have unplaceable demand'
+    # `unpicked_unavailable` is REAL MACHINERY WITH NO OCCURRENCES in this workload: the
+    # live-stock clamp never bites here, which is the same fact `items_realized` reports
+    # when it equals `total_items` on all 1,700 task rows of the coverage sweep. Asserted as
+    # zero rather than quietly ignored, so the day it becomes non-zero is a visible change.
+    assert tally['unpicked_unavailable'] == 0, (
+        f"the live-stock clamp now bites ({tally['unpicked_unavailable']} units) — that is "
+        f"new, and worth understanding before this assertion is relaxed")
+
+
+def test_no_cut_still_carries_the_unplaceable_half():
+    """Two of the three causes have nothing to do with the day. A run with no cut at all
+    still has demand no bin could satisfy, and that is exactly what used to evaporate."""
+    _p, tally, _pend = _run_causes(roll=False, day=None)
+    assert tally['unpicked_daycut'] == 0, 'no cut, so nothing should be cut'
+    assert tally['unplaced'] > 0

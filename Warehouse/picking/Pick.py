@@ -400,6 +400,9 @@ class PickSimulation(_ProgressAPIMixin):
         self._events: list[PickEvent] | None = None
         #: {sku: qty} the day cut stopped this batch from picking.  Empty without a cut.
         self.carried: dict[int, int] = {}
+        #: {sku: qty} the pickers REACHED but could not fill -- the bin held less than the
+        #: plan.  Independent of the cut: this happens whenever stock moves mid-batch.
+        self.unmet: dict[int, int] = {}
 
     def run(self) -> list[PickEvent]:
         """Simulate all pickers and return all events sorted by time."""
@@ -408,19 +411,22 @@ class PickSimulation(_ProgressAPIMixin):
         all_empties: list = []
         # One residue dict per picker, merged in picker order -- the same shape fast_pick's
         # thread pool is forced into, so the two cannot merge differently.
-        per_picker: list[dict] = []
+        per_picker: list[tuple[dict, dict]] = []
         for picker_id, tasks in enumerate(self._picker_tasks):
             res: dict = {}
-            per_picker.append(res)
+            unm: dict = {}
+            per_picker.append((res, unm))
             all_events.extend(
                 self._simulate_picker(picker_id, tasks, all_picks, all_empties,
                                       self._start_at(picker_id),
-                                      day_end=self._day_end, residue=res)
+                                      day_end=self._day_end, residue=res, unmet=unm)
             )
-        self.carried = {}
-        for res in per_picker:
+        self.carried, self.unmet = {}, {}
+        for res, unm in per_picker:
             for sku, q in res.items():
                 self.carried[sku] = self.carried.get(sku, 0) + q
+            for sku, q in unm.items():
+                self.unmet[sku] = self.unmet.get(sku, 0) + q
         all_events.sort()
         self._events = all_events
         if self._manager is not None:
@@ -431,7 +437,7 @@ class PickSimulation(_ProgressAPIMixin):
         self, picker_id: int, tasks: list[Task],
         picks: list[tuple[int, int]], empties: list['Aisle.Bin'],
         t0: float = 0.0, day_end: float | None = None,
-        residue: dict | None = None,
+        residue: dict | None = None, unmet: dict | None = None,
     ) -> list[PickEvent]:
         cfg = self._config
         events: list[PickEvent] = []
@@ -447,6 +453,12 @@ class PickSimulation(_ProgressAPIMixin):
         has_manager: bool = self._manager is not None
         if residue is None:
             residue = {}
+        # Demand the picker REACHED and could not fill, because the bin held less than the
+        # plan.  A different cause from the cut -- `unpicked_unavailable` against
+        # `unpicked_daycut` -- and counted here beside the clamp rather than derived later
+        # as a residual, which would be a second definition of one number.
+        if unmet is None:
+            unmet = {}
         cut_task: int | None = None
         # x_speed/y_speed are ft/s; positions are inches → convert to per-inch pace once.
         x_pace, y_pace = cfg.speed.paces
@@ -504,6 +516,9 @@ class PickSimulation(_ProgressAPIMixin):
                 # picking more units than existed while `max(0, ...)` silently clamped the
                 # depletion: the event stream contradicted its own bin state.
                 qty     = min(task.planned[_bi], bin_.storage.quantity)
+                if qty < task.planned[_bi]:
+                    unmet[order.sku] = (unmet.get(order.sku, 0)
+                                        + task.planned[_bi] - qty)
                 if qty == 0:
                     continue
 

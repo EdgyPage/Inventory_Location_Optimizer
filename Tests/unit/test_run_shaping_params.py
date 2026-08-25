@@ -240,7 +240,8 @@ def test_run_simulation_warns_before_any_build():
 # worker re-imports sim_config and gets pristine defaults, so a setting missing from the
 # payload is accepted on the command line and silently ignored in the run.
 
-_DAY_KEYS = ('work_day_seconds', 'releases_per_day', 'cut_at_day_end')
+_DAY_KEYS = ('work_day_seconds', 'releases_per_day', 'cut_at_day_end',
+             'roll_over_unpicked')
 
 
 def test_the_working_day_is_in_config():
@@ -250,6 +251,9 @@ def test_the_working_day_is_in_config():
     # Defaults reproduce the pre-working-day runner, which is what lets it ship unreleased.
     assert CONFIG['global']['releases_per_day'] is None
     assert CONFIG['global']['cut_at_day_end'] is False
+    # The largest behaviour change in the family, and therefore the one most obviously
+    # off by default: it ends comparability with the whole archive.
+    assert CONFIG['global']['roll_over_unpicked'] is False
 
 
 def test_the_working_day_has_cli_flags():
@@ -257,7 +261,8 @@ def test_the_working_day_has_cli_flags():
 
     from Optimization import run_simulation
     src = inspect.getsource(run_simulation)
-    for flag in ('--work-day-seconds', '--releases-per-day', '--cut-at-day-end'):
+    for flag in ('--work-day-seconds', '--releases-per-day', '--cut-at-day-end',
+                 '--roll-over-unpicked'):
         assert flag in src, f'{flag} has no CLI, so it is reachable only by editing config'
 
 
@@ -276,9 +281,9 @@ def test_the_working_day_reaches_the_worker_payload():
     before = {k: CONFIG['global'][k] for k in _DAY_KEYS}
     try:
         CONFIG['global'].update(work_day_seconds=3600.0, releases_per_day=4,
-                                cut_at_day_end=True)
-        spec = work_day_spec()
-        assert spec == {'seconds': 3600.0, 'releases_per_day': 4, 'cut_at_day_end': True}
+                                cut_at_day_end=True, roll_over_unpicked=True)
+        assert work_day_spec() == {'seconds': 3600.0, 'releases_per_day': 4,
+                                   'cut_at_day_end': True, 'roll_over_unpicked': True}
     finally:
         CONFIG['global'].update(before)
     # Read at CALL time, not import time — the whole reason this is an accessor.

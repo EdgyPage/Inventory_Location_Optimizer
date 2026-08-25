@@ -62,7 +62,7 @@ def _simulate_picker_deferred(
     bin_snap:  dict[int, int],   # id(bin_) -> qty at Phase-1 start; never written by threads
     t0:        float = 0.0,      # this picker's clock at the START of this batch
     day_end:   float | None = None,  # absolute instant the working day closes
-) -> tuple[list[PickEvent], list[_PickMutation], dict]:
+) -> tuple[list[PickEvent], list[_PickMutation], dict, dict]:
     """Phase 1 worker -- read-only picker simulation.
 
     Uses bin_snap so no bin_.storage.quantity reads/writes happen on the
@@ -74,6 +74,10 @@ def _simulate_picker_deferred(
     # Work the day cut stopped this picker from doing, {sku: qty}.  Returned rather than
     # written into a shared dict: Phase 1 runs these in a thread pool.
     residue:   dict                = {}
+    # Demand this picker REACHED and could not fill -- the bin held less than the plan.
+    # A different cause from the cut (`unpicked_unavailable` against `unpicked_daycut`),
+    # counted here beside the clamp rather than derived later as a residual.
+    unmet:     dict                = {}
     cut_task:  int | None          = None
 
     # A picker's clock CARRIES.  t0 is where this picker finished the previous batch, so
@@ -142,6 +146,8 @@ def _simulate_picker_deferred(
             # `task.items[sku]` here picked a SKU once per bin it occupies in the aisle.
             # Still capped at the snapshot: another picker may have taken stock since.
             qty    = min(task.planned[_bi], snap_qty)
+            if qty < task.planned[_bi]:
+                unmet[order.sku] = unmet.get(order.sku, 0) + task.planned[_bi] - qty
             if qty == 0:
                 continue
             local_qty[bid] = snap_qty - qty
@@ -228,7 +234,7 @@ def _simulate_picker_deferred(
         time=t, picker_id=picker_id, event_type='done',
         items_picked=session_items, total_items=session_items,
     ))
-    return events, mutations, residue
+    return events, mutations, residue, unmet
 
 
 class DeferredPickSimulation(_ProgressAPIMixin):
@@ -259,6 +265,9 @@ class DeferredPickSimulation(_ProgressAPIMixin):
         self._events: list[PickEvent] | None = None
         #: {sku: qty} the day cut stopped this batch from picking.  Empty without a cut.
         self.carried: dict[int, int] = {}
+        #: {sku: qty} the pickers REACHED but could not fill -- the bin held less than the
+        #: plan.  Independent of the cut: this happens whenever stock moves mid-batch.
+        self.unmet: dict[int, int] = {}
         self.phase1_time = 0.0
         self.phase2_time = 0.0
 
@@ -280,7 +289,7 @@ class DeferredPickSimulation(_ProgressAPIMixin):
                     if bid not in bin_snap and bin_.storage is not None:
                         bin_snap[bid] = bin_.storage.quantity
 
-        results: list[tuple[list[PickEvent], list[_PickMutation], dict]] = [None] * n  # type: ignore
+        results: list[tuple[list[PickEvent], list[_PickMutation], dict, dict]] = [None] * n  # type: ignore
         with ThreadPoolExecutor(max_workers=n) as pool:
             futs = {
                 pool.submit(_simulate_picker_deferred, pid, tasks, cfg, bin_snap,
@@ -293,17 +302,19 @@ class DeferredPickSimulation(_ProgressAPIMixin):
         # Merged in PICKER order, not completion order -- `results` is indexed by pid, so
         # the thread pool's scheduling cannot reach the answer.  Same order Pick.py merges
         # in, which is what keeps the two carries identical.
-        self.carried = {}
-        for _, _m, res in results:
+        self.carried, self.unmet = {}, {}
+        for _, _m, res, unm in results:
             for sku, q in res.items():
                 self.carried[sku] = self.carried.get(sku, 0) + q
+            for sku, q in unm.items():
+                self.unmet[sku] = self.unmet.get(sku, 0) + q
 
         self.phase1_time = _time.perf_counter() - t0
 
         # ── Phase 2: apply mutations sequentially ─────────────────────────────
         t0  = _time.perf_counter()
         mgr = self._manager
-        for _, mutations, _res in results:
+        for _, mutations, _res, _unm in results:
             for mut in mutations:
                 bin_ = mut.bin_ref
                 if bin_.storage is None:
@@ -323,7 +334,7 @@ class DeferredPickSimulation(_ProgressAPIMixin):
 
         # ── collect and sort events ────────────────────────────────────────────
         all_events: list[PickEvent] = []
-        for evts, _m, _res in results:
+        for evts, _m, _res, _unm in results:
             all_events.extend(evts)
         all_events.sort()
         self._events = all_events

@@ -132,6 +132,7 @@ def _apply_run_spec(args, spec, explicit):
               # a resume that forgot it would finish the arm on a different clock than it
               # started on.
               'work_day_seconds', 'releases_per_day', 'cut_at_day_end',
+              'roll_over_unpicked',
               # ...and the seeds it is drawn from, plus the world it is drawn against.
               'seed_world', 'seed_batches'):
         if f not in spec:
@@ -249,6 +250,11 @@ def main():
         default=CONFIG['global']['cut_at_day_end'],
         help='Stop pickers at the end of the working day and roll the work they did not '
              'reach into the next batch. Changes which units are picked in which batch.')
+    parser.add_argument(
+        '--roll-over-unpicked', action='store_true',
+        default=CONFIG['global']['roll_over_unpicked'],
+        help='Demand a batch did not pick joins the next batch, whatever the cause. The '
+             'largest behaviour change here: it ends comparability with the archive.')
     parser.add_argument('--sampler', choices=('v1', 'v2'),
                         default=CONFIG['global']['sampler'],
                         help='Batch-sampler VERSION — a results era, not a tuning knob. '
@@ -348,6 +354,7 @@ def main():
     g['work_day_seconds']  = args.work_day_seconds
     g['releases_per_day']  = args.releases_per_day
     g['cut_at_day_end']    = bool(args.cut_at_day_end)
+    g['roll_over_unpicked'] = bool(args.roll_over_unpicked)
     if args.checkpoint_frac is not None:
         g['checkpoint_frac'] = args.checkpoint_frac
     # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
@@ -464,6 +471,7 @@ def main():
             'work_day_seconds': g['work_day_seconds'],
             'releases_per_day': g['releases_per_day'],
             'cut_at_day_end'  : g['cut_at_day_end'],
+            'roll_over_unpicked': g['roll_over_unpicked'],
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
