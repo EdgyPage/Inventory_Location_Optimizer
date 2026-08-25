@@ -1,7 +1,9 @@
 # The working-day clock — what the first plan got wrong, and the sequence that replaces it
 
-**Status:** NOT implemented. This is a design record written before any of it was built, because
-a read-only survey found that the approved four-commit plan cannot be executed as written. Two
+**Status:** in progress — steps 1 and 2 of §5 are done, the rest is not. Written before any of
+it was built, because a read-only survey found that the approved four-commit plan cannot be
+executed as written. Kept current as steps land; where a step shipped differently from the
+plan, the difference and its reason are recorded rather than the table being quietly edited. Two
 commits collide on an API that neither ships, one commit's entire output is consumed by nobody,
 and no commit anywhere turns the feature on.
 
@@ -164,15 +166,29 @@ would be wrong the day it shipped.
 
 Each step is independently verifiable, and no step leaves a producer without a consumer.
 
-| # | Commit | Byte-identical? |
-|---|---|---|
-| 1 | Clock stall + put-away drain leak. Runner only. Reverses a stated decision and rewrites its test. | **No** — an empty batch now advances the axis. Only arms with an empty batch move. |
-| 2 | `WorkDay` + `ReleaseSchedule` as pure kernel values, fully tested, **not wired**. | Yes — nothing imports them. |
-| 3 | Wire the schedule to the release instant. Say what a picker overrunning its release does. | Default schedule reproduces step 1. |
-| 4 | The day cut in both loops **and** the call site that passes `day_end`, in ONE commit. | No, by design. |
-| 5 | `PendingDemand`, consuming the cut's carry — ONE definition — plus unpicked-demand rollover. | No, by design. |
-| 6 | Put-away and inbound rollover. | No. |
-| 7 | Resume: day clock, pending demand, held items, queue depths, the arrival stamp counter. | Resume-at-N equals a straight run. |
+| # | Commit | Byte-identical? | Status |
+|---|---|---|---|
+| 1 | A skipped batch closes its own books: drains its put-away records, writes a zero-duration row, and `thr_batch` goes NaN rather than 0.0. | Yes, but **vacuously** — no arm in the sweep skips a batch, so the changed path never runs. Five behavioural sabotages are the evidence instead. | **done** `6d48907` |
+| 2 | `WorkDay` + `ReleaseSchedule` as pure kernel values, fully tested, **not wired**. | Yes — nothing imports them, and a ratchet enforces it. | **done** `3c19dc0` |
+| 3 | Wire the schedule to the release instant; record which day a batch is in and whether its slot was missed. | Default (continuous) reproduces step 2. | next |
+| 4 | The day cut in both loops **and** the call site that passes `day_end`, in ONE commit. | No, by design. | |
+| 5 | `PendingDemand`, consuming the cut's carry — ONE definition — plus unpicked-demand rollover. | No, by design. | |
+| 6 | Put-away and inbound rollover. | No. | |
+| 7 | Resume: day clock, pending demand, held items, queue depths, the arrival stamp counter. | Resume-at-N equals a straight run. | |
+
+**Step 1 shipped narrower than this table first said, and the reason is worth keeping.** It was
+planned as "clock stall + drain leak, reverses a stated decision". It did not touch the clock:
+there is no principled duration for an empty batch until a schedule exists to say what a
+day-slot costs, so advancing it in step 1 would have meant inventing a number. The contract
+test still asserts the skip precedes the advance, and step 3 is where that is reversed. What
+step 1 could fix without inventing anything — the leaked put records, the missing row, and a
+zero-duration batch reporting zero throughput instead of NaN — it fixed.
+
+**Flaw 3c above (release and cut cannot both be on) resolves itself, and not by choice.** The
+model has no picker contention: a batch cannot begin while the crew is still working the
+previous one. So `release_at` clamps to the ready instant, the schedule is simply *missed*, and
+`missed_by` records by how much. The cut makes overruns less likely, not more, so the two
+compose. Step 3 states this where the wiring happens.
 
 Two naming constraints carry through all of it:
 
