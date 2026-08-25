@@ -263,6 +263,9 @@ python -m Optimization.run_simulation --resume <run_dir>                 # zero 
 | `--no-analyze` | — | skip the automatic in-process analysis |
 | `--no-preflight` | — | skip the run-tree schema check |
 | `--all-profiles` | — | run every profile pair, not just the newest |
+| `--recv-crew-size` | (CONFIG: 0) | receivers on the inbound dock. 0 = no receiving crew: merchandise reaches a put queue the instant its lead time elapses, as it always did. Above 0, arrivals land on a dock and this many people unload it. Crew SIZE is the only lever — an unload has no travel term, so there is no speed or mode to sweep |
+| `--recv-day-seconds` | — | the receiving crew's own working day. Omit for no whistle. Independent of `--cut-at-day-end`, which is about PICKERS |
+| `--recv-day-origin` | 0.0 | when the receiving day opens on the absolute axis — a dock that starts before the pickers |
 
 **The output tree.** Two levels are conditional, and both have caused real bugs:
 

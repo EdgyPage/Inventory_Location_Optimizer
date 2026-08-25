@@ -10,6 +10,9 @@ other four modules are the mixins it is composed from, plus their shared leaf he
 | `inventory_reorder.py` | churn counters, the reload primitive, pick notifications |
 | `inventory_optimal.py` | the optimal layout, Σf·D objective, full-labor floor and optimal map |
 | `inventory_common.py` | leaf types/constants shared by the above |
+| `put_queue.py` | one configurable put-away queue, instantiated N times (spec + queue + set) |
+| `put_policy.py` | which waiting item a queue works next — the `PUT_POLICIES` registry |
+| `dock.py` | the RECEIVING dock: a crew with its own hours, and what is standing on the floor |
 
 `inventory_optimal` and `inventory_reorder` have **fan-in 1** — only the manager imports them. This
 package simply makes an existing composition visible.

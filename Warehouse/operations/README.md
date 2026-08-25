@@ -10,8 +10,14 @@ instead of reimplementing it.
   anything else that answers *who is doing this*.
 - **Pools of actors.** `Crew`, and the allocation of unique ids across pools.
 - **The work each role does, as a named operation.** `putaway.put_cost` (what a put costs);
-  `inbound.receive` (what an arrival packs into).
+  `inbound.receive` (what an arrival packs into); `unload.unload_cost` (what taking one
+  storage unit off a trailer costs).
 - Later: a put crew's own profile, once put-away consumes simulated time.
+
+Roles are `pick`, `put` and `receive`. The value is the DB column, and one consequence of the
+SPELLING is invisible: the merged event stream breaks ties on `role` as a string and the batch
+epoch is a real tie in every run, so `'pick' < 'put' < 'receive'` puts a receive LAST at a
+shared instant. Renaming it would silently move it. See `roles.py`.
 
 ## What does NOT belong here
 

@@ -46,4 +46,5 @@
 - [Lockstep tests compare aggregates only](lockstep-tests-compare-aggregates-only.md) — all three could pass on differently-shaped event streams; and the travel identity needs the handling term (5 terms, not 3)
 - [stock_plan overrides packing](stock-plan-overrides-packing.md) — 200/200 planned orders bypass the pallet/singleton rule, so tier mix is a generation-time knob; it is also why splitting a delivery can produce FEWER units
 - [Empty-bin preference is structural](empty-bin-preference-is-structural.md) — put-away already never adds to an occupied bin (measured 0 across 4 arms), so a scoring term for it would fake a tunable
+- [Receiving is its own crew](receiving-is-its-own-crew.md) — the dock intercepts inside _admit (so the reorder ledger needed zero edits); arrivals are still batch-quantized, so the makespan reads long and crew SIZING is not answerable
 - [A config knob has five seams](config-knob-has-five-seams.md) — settings.py names four; the fifth is workunits._shared, and skipping it silently reverts the knob to its default in every spawned worker
