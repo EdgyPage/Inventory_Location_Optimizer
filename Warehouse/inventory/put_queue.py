@@ -32,6 +32,9 @@ rather than a new mechanism.
             objective expresses. The two compose.
 `crew`      who does the work — role, mode and speeds. Carried here so a queue's throughput
             is a property of the queue and not a global.
+`cart`      the vehicle, and its VOLUME limit. Same capacity as the channel's picking cart:
+            a store putter and a store picker push the same cart. A load is bounded by
+            volume, not by item count — `staging` bounds the floor, this bounds the trip.
 
 # ── what is deliberately NOT here ─────────────────────────────────────────────────
 
@@ -50,6 +53,7 @@ from dataclasses import dataclass, field
 
 from Warehouse.inventory.inventory_common import PutawayItem
 from Warehouse.inventory.put_policy import PUT_POLICIES
+from Warehouse.kernel.cost_model import cart_step
 
 #: Unit categories, as `binkey_of(unit)[3]` reports them.
 PALLET = 'pallet'
@@ -81,6 +85,13 @@ class PutQueueSpec:
     policy: str | None = None
     #: The crew that works this queue. None = the manager's single put crew, i.e. today.
     crew: object | None = field(default=None, compare=False)
+    #: The cart this queue's putters push -- a `StorageCart` subclass, whose `capacity()` is
+    #: the volume a load may hold.  None = unbounded, i.e. no cart model, which is every
+    #: queue that has not asked for one.
+    cart: object | None = field(default=None, compare=False)
+    #: Seconds to swap a full cart for an empty one.  Mirrors `PickConfig.cart_swap_coef`,
+    #: and means the same thing on this side: the trip back to the dock.
+    swap_coef: float = 0.0
 
     def __post_init__(self):
         if not self.name:
@@ -106,7 +117,8 @@ class PutQueue:
     """One spec plus the items waiting under it."""
 
     __slots__ = ('spec', 'items', 'admitted', 'placed', 'blocked',
-                 'clocks', 'speed', 'cost')
+                 'clocks', 'speed', 'cost',
+                 'cart_cap', 'cart_remaining', 'cart_swaps')
 
     def __init__(self, spec: PutQueueSpec):
         self.spec = spec
@@ -123,6 +135,12 @@ class PutQueue:
         self.clocks: list | None = None
         self.speed = None
         self.cost = None
+        # Cart state, one per QUEUE rather than per worker: a stream's putters share a cart
+        # pool, and the next-fit below is the same primitive the pickers use.
+        self.cart_cap: float = float(
+            spec.cart.capacity()) if spec.cart is not None else 0.0
+        self.cart_remaining: float = self.cart_cap
+        self.cart_swaps: int = 0
 
     def __len__(self):
         return len(self.items)
@@ -203,6 +221,27 @@ class PutQueue:
         self.clocks[w] = t0 + dur
         return t0, w
 
+    @property
+    def carted(self) -> bool:
+        """Does this queue model a cart at all?  False = unbounded loads, i.e. today."""
+        return self.cart_cap > 0.0
+
+    def load(self, volume: float) -> bool:
+        """Put `volume` on the cart; True when that needed a SWAP first.
+
+        `cost_model.cart_step`, which is the same next-fit the two picker loops and the LPT
+        makespan predictor share.  Reusing it is the point: a second cart model would be a
+        second set of numbers to reconcile, and a putter and a picker pushing the same
+        physical cart must agree about when it is full.
+        """
+        if not self.carted:
+            return False
+        swapped, self.cart_remaining = cart_step(
+            float(volume), self.cart_remaining, self.cart_cap)
+        if swapped:
+            self.cart_swaps += 1
+        return swapped
+
     def reset_clocks(self) -> None:
         """Restart every worker at 0 -- the drain does this per batch, and the runner adds
         the batch epoch back on when it writes the rows."""
@@ -214,8 +253,9 @@ class PutQueue:
         moment of the snapshot and are NOT reset — they are levels, not flows."""
         out = {'queue': self.spec.name, 'depth': len(self.items),
                'oldest_age': self.oldest_age, 'staging': self.spec.staging,
-               'admitted': self.admitted, 'placed': self.placed, 'blocked': self.blocked}
-        self.admitted = self.placed = self.blocked = 0
+               'admitted': self.admitted, 'placed': self.placed, 'blocked': self.blocked,
+               'cart_swaps': self.cart_swaps}
+        self.admitted = self.placed = self.blocked = self.cart_swaps = 0
         return out
 
 
@@ -281,7 +321,9 @@ def single_queue() -> PutQueueSet:
 def store_and_fulfillment(cart_crew=None, pallet_crew=None, ff_crew=None,
                           pallet_staging: int | None = None,
                           cart_staging: int | None = None,
-                          ff_staging: int | None = None) -> PutQueueSet:
+                          ff_staging: int | None = None,
+                          store_cart=None, ff_cart=None,
+                          swap_coef: float = 0.0) -> PutQueueSet:
     """The three-stream default: singletons into carts, pallets onto a forklift,
     fulfillment on its own.
 
@@ -295,9 +337,12 @@ def store_and_fulfillment(cart_crew=None, pallet_crew=None, ff_crew=None,
     """
     return PutQueueSet([
         PutQueueSpec('store_cart', accepts=(SINGLETON,), crew=cart_crew,
-                     staging=cart_staging),
+                     staging=cart_staging, cart=store_cart, swap_coef=swap_coef),
+        # No cart on the pallet queue: a forklift carries one pallet, so the "how much fits"
+        # question the cart answers does not arise.  `k_cap=1` is the constraint that DOES
+        # bind here -- with no floor to lay pallets out on there is nothing to re-sort.
         PutQueueSpec('store_pallet', accepts=(PALLET,), crew=pallet_crew, k_cap=1,
                      staging=pallet_staging),
         PutQueueSpec('fulfillment', accepts=(FULFILLMENT,), crew=ff_crew,
-                     staging=ff_staging),
+                     staging=ff_staging, cart=ff_cart, swap_coef=swap_coef),
     ])

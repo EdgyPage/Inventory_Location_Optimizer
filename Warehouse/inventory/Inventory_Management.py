@@ -941,6 +941,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         order = unit.order
         dur = put_cost(bin_.x_phys, bin_.y_phys, order.weight, order.volume(),
                        unit.quantity, q.speed, q.cost)
+        # THE CART.  A load is bounded by volume, and a unit that does not fit means the
+        # putter has emptied this cart and goes back for another -- the same next-fit, the
+        # same swap cost and the same meaning as a picker's, because in a store it is the
+        # same cart.  Charged BEFORE the put, so the swap precedes the work it enables:
+        # identical ordering to both picker loops, where advancing the clock first makes the
+        # gap carry the swap seconds.
+        if q.load(order.volume() * unit.quantity):
+            dur += q.spec.swap_coef
         t0, w = q.charge(dur)
         # The put side's finish across EVERY stream: the crews work in parallel, so the
         # arm waits for the slowest, not for their sum.

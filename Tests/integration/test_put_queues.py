@@ -153,9 +153,10 @@ def test_a_snapshot_reports_levels_and_flows_and_resets_only_the_flows():
     q.placed = 2
     snap = q.drain_counters()
     assert snap == {'queue': 'q', 'depth': 3, 'oldest_age': 5, 'staging': 3,
-                    'admitted': 3, 'placed': 2, 'blocked': 1}
+                    'admitted': 3, 'placed': 2, 'blocked': 1, 'cart_swaps': 0}
     again = q.drain_counters()
     assert again['admitted'] == again['placed'] == again['blocked'] == 0
+    assert again['cart_swaps'] == 0
     assert again['depth'] == 3 and again['oldest_age'] == 5
 
 
