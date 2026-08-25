@@ -37,3 +37,7 @@
 - [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — FIXED 2026-08-24; correcting a pre-fix number goes OPPOSITE ways: durations x1000, rates /1000
 - [Case-only rename deletes its own page](case-only-rename-deletes-its-own-page.md) — an UPPER→lower symbol rename makes render_html --build delete the page it just wrote; run --build twice
 - [One clock, one speed, one config](one-clock-one-speed-one-config.md) — the 2026-08-24 refactor: absolute clock, role x mode actors, timed put-away, derived CONFIG; and what stays provisional
+- [Pickers over-picked until `planned`](pickers-over-picked-until-planned.md) — every bin on a path took the whole aisle demand, so pre-0b0d7d7 absolute pick/throughput numbers read high (items -9.2%, duration -11.3%)
+- [coverage_e2e swallows worker logs](coverage-e2e-swallows-worker-logs.md) — the harness queues worker logs and never drains them; a silent conservation ledger through it proves nothing
+- [Placement pools + the audit point](placement-pools-and-the-audit-point.md) — ranked functions no longer choose put-away order; a033aff is the LAST byte-identical commit, everything after re-derives published claims
+- [K-oldest bounds lookahead, not staleness](k-oldest-bounds-lookahead-not-staleness.md) — the head unit can be overtaken indefinitely; a deadline rule is the rejected alternative (FIFO costs the LPT arms ~11-13%)
