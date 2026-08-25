@@ -16,8 +16,13 @@ def _bdf(stats):
         'total_items'           : s.total_items,
         # throughput / batch makespan (metric d) — kept as `completion_rate` for the many existing
         # consumers, and mirrored as `thr_batch` for the four-metric vocabulary.
-        'completion_rate'       : s.total_items / s.duration if s.duration > 0 else 0.0,
-        'thr_batch'             : s.total_items / s.duration if s.duration > 0 else 0.0,
+        # NaN, not 0.0, when there is no makespan to divide by — the same rule `thr_task`
+        # below already applies, and for the same reason: a batch that did no work is
+        # UNMEASURED, and counting it as zero throughput drags every mean toward zero. This
+        # was 0.0 while no batch could have a zero duration; a skipped batch now writes a
+        # row, so the distinction became reachable.
+        'completion_rate'       : s.total_items / s.duration if s.duration > 0 else np.nan,
+        'thr_batch'             : s.total_items / s.duration if s.duration > 0 else np.nan,
         # task makespan (metric a) = Σ task time = total labor; throughput / task makespan (metric c).
         # Both NaN (not 0) when task_makespan is unavailable (legacy DBs) so they are excluded from
         # summaries/stats, not counted as zero labor / zero throughput.

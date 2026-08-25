@@ -248,6 +248,68 @@ def _cleanup_checkpoints(run_dir: str) -> None:
 
 # ── strategy worker ───────────────────────────────────────────────────────────
 
+def close_skipped_batch(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id,
+                        demanded, sigma_fd, reload_moves, reorder_placements,
+                        skus_reordered, units_ordered, put_workers, put_crews,
+                        shift_seconds):
+    """Everything a batch that produced no tasks still owes.
+
+    Returns `(batch_stats_row, work_event_rows, put_clock)`.
+
+    A batch with no tasks still HAPPENED.  `check_reorders` runs above the skip guard and may
+    have put hundreds of units away -- measured at 66-426 records per batch from batch 1 on.
+    Two things used to ride on the bare `skipped += 1; continue`:
+
+      * those put records were never drained, so they carried into the NEXT batch's drain and
+        were stamped against the next batch's epoch;
+      * no `batch_stats` row was written, which is why the absolute axis could not be
+        recovered downstream by a cumsum.  The runner's comment described that as the design;
+        it was the leak.
+
+    The row is zero-duration and zero-items, and `arm_clock` is deliberately NOT advanced:
+    there is no principled duration for an empty batch until a release schedule exists to say
+    what a day-slot costs.  So the skip still precedes the advance.
+
+    A MODULE-LEVEL FUNCTION, not an inline branch, because inline it was reachable only by a
+    full sweep -- and no arm in the coverage sweep ever skips a batch, so it had no coverage
+    at all.  Source-scanning it instead does not work: `if False:` and a commented-out call
+    both still contain the strings a scan looks for, and two sabotages proved it.
+    """
+    bs = extract_batch_stats([], batch_id=batch_id, k_pickers=k_pickers, run_id=run_id)
+    bs.batch_start_time    = arm_clock
+    bs.duration            = 0.0
+    bs.sigma_fd            = sigma_fd
+    bs.reload_moves        = reload_moves
+    bs.reorder_placements  = reorder_placements
+    bs.skus_reordered      = skus_reordered
+    bs.units_ordered       = units_ordered
+    bs.items_demanded      = demanded
+    bs.queue_depth         = mgr.queue_depth
+    bs.lead_queue_depth    = mgr.lead_queue_depth
+
+    rows: list = []
+    if put_workers is None:
+        return bs, rows, put_clock
+
+    recs = mgr.drain_putaway_records()
+    if not recs:
+        return bs, rows, put_clock
+    # The crew picks this batch's queue up when the batch is released OR when it finishes the
+    # last one, whichever is later -- the same rule the non-skipped path uses.
+    base = max(arm_clock, put_clock)
+    by_queue: dict = {}
+    for r in recs:
+        by_queue.setdefault(r[9], []).append(r)
+    for qname, qrecs in by_queue.items():
+        rows.extend(_work_events.put_rows(
+            qrecs, batch_id=batch_id, batch_start=arm_clock,
+            crew=put_crews.get(qname, put_workers),
+            shift_seconds=shift_seconds, crew_start=base))
+    # Grouped `(base + t0) + dur` deliberately: float addition is not associative, and the
+    # non-skipped path groups it the same way.
+    return bs, rows, max((base + r[0]) + r[1] for r in recs)
+
+
 def _run_strategy_worker(args: dict) -> dict:
     """Simulate one assignment strategy in its own process.
 
@@ -825,7 +887,33 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         _now = time.perf_counter(); t_inv_ckpt += _now - _t; _t = _now
 
         if not tasks:
+            # A batch that produced no tasks still HAPPENED: `check_reorders` ran above and
+            # may have put hundreds of units away (measured at 66-426 records per batch from
+            # batch 1 on).  Closing the books here rather than falling straight through fixes
+            # two things that used to ride on this `continue`:
+            #
+            #   * those put records were never drained, so they carried into the NEXT batch's
+            #     drain and were stamped against the next batch's epoch;
+            #   * no `batch_stats` row was written, which is why the absolute axis could not
+            #     be recovered downstream by a cumsum -- the runner said so and then left it.
+            #
+            # The row is zero-duration and zero-items.  `arm_clock` is deliberately NOT
+            # advanced: there is no principled duration for an empty batch until a release
+            # schedule exists, so the skip still precedes the advance and the contract in
+            # Tests/unit/test_arm_clock.py stands.
             skipped += 1
+            _bs, _we_skip, put_clock = close_skipped_batch(
+                batch_id=i, mgr=mgr, arm_clock=arm_clock, put_clock=put_clock,
+                k_pickers=k_pickers, run_id=run_id,
+                demanded=sum(batch.items.values()), sigma_fd=batch_sigma,
+                reload_moves=batch_rm, reorder_placements=batch_rp,
+                skus_reordered=len(triggered), units_ordered=batch_uo,
+                put_workers=_put_workers, put_crews=_put_crews,
+                shift_seconds=_shift_seconds)
+            pb.append(_bs)
+            we.extend(_we_skip)
+            pqs.extend(mgr.queue_state_rows(i))
+            cov.extend(mgr.carryover_rows(i))
             continue
 
         # The clock CARRIES.  Every picker starts this batch at the arm's current instant,
@@ -849,9 +937,10 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # Put-away honesty: standing backlog + in-transit pipeline after this batch's
         # reorder/restock pass (a strategy that defers placement carries a high queue).
         # Next wave begins when this one completes: arm_clock += this batch's makespan.
-        # A SKIPPED (empty) batch never reaches here and so does not advance it -- which is
-        # also why the epoch cannot be recovered downstream by a cumsum over batch_stats
-        # rows: a skipped batch writes no row at all.
+        # A SKIPPED (empty) batch never reaches here and so does not advance it.  It DOES
+        # now write a zero-duration row above, so the epoch IS recoverable downstream by a
+        # cumsum -- the older half of this comment, which said a skipped batch writes no row
+        # at all, described the leak rather than a decision.
         arm_clock             = bs.batch_start_time + bs.duration
         # What this batch ASKED for, against `total_items` = what it got.
         bs.items_demanded     = sum(batch.items.values())
