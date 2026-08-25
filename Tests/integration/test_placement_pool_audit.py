@@ -133,16 +133,17 @@ def test_a_pool_consumes_its_snapshot_and_never_reissues_a_bin(built):
 
 
 def test_the_drain_asks_the_pool_rather_than_obeying_it(built):
-    """`_serve_order` is the single place the serve order is decided. It grants the whole
-    request today — that is what keeps this commit byte-identical — but it is a call the
-    DRAIN makes, and a policy cannot bypass it."""
+    """`_serve_order` is the single place the serve order is decided. With no window it
+    grants the whole request, but it is a call the DRAIN makes and a policy cannot bypass
+    it. The tolerance is now an explicit argument — required, because a default of None
+    means "unbounded" and a caller that forgot it would silently get the old behaviour."""
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
     a = built['uni_rank_labor_norsl']
     unit = _any_unit(a)
     cands = list(a.mgr._candidates(unit))[:20]
     pool = a.mgr.placement.open_pool(list(cands), unit)
     units = [unit] * 3
-    assert Inventory_Manager._serve_order(a.mgr, pool, units) == pool.order(units)
+    assert Inventory_Manager._serve_order(a.mgr, pool, units, None) == pool.order(units)
 
     class _Contrary:
         prefers_low = True
@@ -154,5 +155,5 @@ def test_the_drain_asks_the_pool_rather_than_obeying_it(built):
             return None, None
 
     # The drain routes THROUGH the method, so overriding it overrides the policy.
-    got = Inventory_Manager._serve_order(a.mgr, _Contrary(), [1, 2, 3])
+    got = Inventory_Manager._serve_order(a.mgr, _Contrary(), [1, 2, 3], None)
     assert got == [3, 2, 1], 'the drain is not consulting the pool at all'

@@ -125,9 +125,14 @@ def test_respawn_carries_the_origin_to_a_split_unit():
 
 def test_both_rescues_respawn_rather_than_pushing_a_bare_unit():
     """The two `appendleft` sites inside `_stock_per_unit`. If either pushed a raw unit the
-    queue would hold two shapes and the next `popleft` would fail on `.unit`."""
+    queue would hold two shapes and the next `popleft` would fail on `.unit`.
+
+    The drain works on whichever `PutQueue` it was handed rather than on `self._stock_queue`,
+    so the pattern matches the local deque. Anchored on `appendleft` alone, which is the
+    thing only a rescue does — the ordinary paths append or pop.
+    """
     src = inspect.getsource(im.Inventory_Manager._stock_per_unit)
-    pushes = re.findall(r'self\._stock_queue\.appendleft\((.+?)\)', src)
+    pushes = re.findall(r'\.appendleft\((.+?)\)', src)
     assert len(pushes) == 2, f'expected the two rescues, found {pushes}'
     assert all(p.startswith('item.respawn(') for p in pushes), pushes
 

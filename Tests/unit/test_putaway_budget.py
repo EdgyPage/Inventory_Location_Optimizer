@@ -188,7 +188,8 @@ def test_a_ranked_drain_with_no_budget_still_reaches_the_per_unit_fallback():
     have cut it off."""
     import inspect
     src = inspect.getsource(Inventory_Manager._stock_ranked)
-    assert '_stock_per_unit(None if budget is None else max(0, budget - placed))' in src
+    assert '_stock_per_unit(None if budget is None else max(0, budget - placed), queue)' \
+        in src, 'the ranked drain no longer hands its stragglers to the per-unit path'
 
 
 # ── a repack must not consume budget ─────────────────────────────────────────────

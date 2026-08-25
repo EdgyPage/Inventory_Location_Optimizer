@@ -16,6 +16,8 @@ from Warehouse.kernel.regime import FULFILLMENT, regime_of
 
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
+from Warehouse.inventory.put_queue import (
+    PutQueueSet, single_queue, store_and_fulfillment)
 from Warehouse.inventory.inventory_common import (
     PutawayItem,
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
@@ -45,6 +47,39 @@ def _apportion(m: int, weights: list, n: int) -> list:
     for i in range(extra - sum(add)):
         add[order[i % n]] += 1
     return [1 + add[j] for j in range(n)]
+
+
+class _MultiQueueView:
+    """A read-only, age-ordered view across split put-away streams.
+
+    `_stock_queue` was a single deque that three external consumers iterate and measure
+    (`Diagnostics/bucket_fill.py`, the runner's queue-depth ledger, and the conservation
+    check).  Once the streams split there is no one deque to return, and returning a merged
+    COPY would let a caller mutate it and lose the write in silence.  This is iterable and
+    sizeable and nothing else, so the mutation fails at the attribute rather than at the
+    consequence.
+
+    Merged by arrival age, so a consumer asking "what is waiting, oldest first" gets the
+    same answer it always did rather than one queue's contents followed by another's.
+    """
+
+    __slots__ = ('_qs',)
+
+    def __init__(self, queues):
+        self._qs = queues
+
+    def __iter__(self):
+        return iter(sorted((it for q in self._qs for it in q.items),
+                           key=lambda it: it.age))
+
+    def __len__(self):
+        return self._qs.depth
+
+    def __bool__(self):
+        return self._qs.depth > 0
+
+    def __repr__(self):
+        return f'<put-away: {self._qs.depth} waiting across {len(self._qs)} queues>'
 
 
 #: Default put-away tolerance: unbounded, i.e. the assignment policy's requested order is
@@ -97,6 +132,15 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # across batches, and restarting it would make a fresh arrival look older than
         # something that has been waiting since batch 0.
         self._putaway_seq: int = 0
+        # The put-away queues.  Default: ONE queue that takes everything with the policy's
+        # full ordering freedom -- byte-identically the manager as it behaved before queues
+        # existed.  Swap in `store_and_fulfillment()` (or any PutQueueSet) to split the
+        # streams; see Warehouse/inventory/put_queue.py.
+        self.put_queues: PutQueueSet = single_queue()
+        # Placements made so far in this _stock() call, so the queue loop can charge the
+        # shared budget without each drain having to return a count through paths that
+        # already have three exits.
+        self._placed_this_call: int = 0
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
@@ -873,14 +917,26 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 f'placement.uses_aisle_index={self.placement.uses_aisle_index} '
                 f'(policy {self.placement.name!r}).  init_travel_costs() and an '
                 'index-consuming placement must be armed together or not at all.')
-        if not self._stock_queue:
-            return
-        if self.placement.is_ranked:
-            self._stock_ranked(budget)
-        else:
-            self._stock_per_unit(budget)
+        # One queue at a time, in spec order.  A shared budget spends down across them:
+        # it models a finite crew-hour allowance for the call, and splitting it per queue
+        # would make the cap depend on how the streams happen to be configured.
+        self._placed_this_call = 0
+        for queue in self.put_queues:
+            if budget is not None and budget <= 0:
+                break
+            if not queue.items:
+                continue
+            before = self._placed_this_call
+            if self.placement.is_ranked:
+                self._stock_ranked(budget, queue)
+            else:
+                self._stock_per_unit(budget, queue)
+            spent = self._placed_this_call - before
+            queue.placed += spent
+            if budget is not None:
+                budget -= spent
 
-    def _stock_per_unit(self, budget: int | None = None) -> None:
+    def _stock_per_unit(self, budget: int | None = None, queue=None) -> None:
         """Place queued StorageUnit objects one at a time via placement.place_one.
 
         Used for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked
@@ -895,16 +951,19 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         pushes them back, and charging a budget for that would make the cap depend on how
         badly the warehouse is packed rather than on how much the crew can move.
         """
+        queue = queue if queue is not None else self.put_queues.queues[0]
+        waiting = queue.items          # NOT `q`: the repack loop below uses that for a
+                                       # quantity, and shadowing it cost a debug cycle
         pending: deque[PutawayItem] = deque()
         placed = 0
-        while self._stock_queue:
+        while waiting:
             if budget is not None and placed >= budget:
                 # Budget spent.  Everything still queued waits for the next call — the same
                 # deferral a unit gets when no bin fits it, so nothing new can be dropped.
-                pending.extend(self._stock_queue)
-                self._stock_queue.clear()
+                pending.extend(waiting)
+                waiting.clear()
                 break
-            item   = self._stock_queue.popleft()
+            item   = waiting.popleft()
             unit   = item.unit
             order = unit.order
             sku    = order.sku
@@ -967,7 +1026,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
                         for u in reversed(new_units):
-                            self._stock_queue.appendleft(item.respawn(u))
+                            waiting.appendleft(item.respawn(u))
                         repacked = True
                         break
 
@@ -989,14 +1048,40 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
                         for u in reversed(new_units):
-                            self._stock_queue.appendleft(item.respawn(u))
+                            waiting.appendleft(item.respawn(u))
                         repacked = True
 
                 # ── no bin available — hold in queue, retry next batch ────────
                 if not repacked:
                     pending.append(item)
-        self._stock_queue = pending
+        queue.items = pending
+        self._placed_this_call += placed
 
+
+    @property
+    def _stock_queue(self):
+        """The put-away queue.
+
+        A live deque while there is ONE queue -- which is the default, and why every
+        existing consumer, mutation site and test keeps working unchanged.  With the streams
+        split there is no single deque to hand back, so this returns a read-only view and
+        any code that tried to mutate it would fail loudly rather than mutate a copy.
+        Internal drain code takes a `PutQueue` explicitly and never reaches for this.
+        """
+        if len(self.put_queues) == 1:
+            return self.put_queues.queues[0].items
+        return _MultiQueueView(self.put_queues)
+
+    @_stock_queue.setter
+    def _stock_queue(self, value):
+        # `_stock_per_unit` rebuilds the queue wholesale from its `pending` deque. Legal
+        # only in the single-queue case; with the streams split the drain assigns to the
+        # PutQueue it was handed instead.
+        if len(self.put_queues) != 1:
+            raise RuntimeError(
+                'cannot replace _stock_queue wholesale while the put-away streams are '
+                'split — assign to the individual PutQueue.items instead')
+        self.put_queues.queues[0].items = value if isinstance(value, deque) else deque(value)
 
     def _admit(self, unit: StorageUnit, source: str) -> 'PutawayItem':
         """Put one unit on the put-away queue, stamped with its arrival age.
@@ -1004,13 +1089,30 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         The single admission point.  Every producer -- intake, reorder arrivals, reloader
         evictions, and inbound when it exists -- goes through here, so a new producer cannot
         forget to stamp and quietly enter the queue as age -1.
+
+        Returns None when the target queue is at its staging limit and REFUSED the item.
+        The caller must hold it: a refusal is backpressure, and dropping it would make
+        "inbound packs faster than put-away absorbs" look like it never happened.  With the
+        default unbounded queue there is no refusal and the return is never None.
         """
         item = PutawayItem(unit, source, self._putaway_seq)
+        queue = self.put_queues.route(unit)
+        if not queue.admit(item):
+            return None
         self._putaway_seq += 1
-        self._stock_queue.append(item)
         return item
 
-    def _serve_order(self, pool, units: list) -> list:
+    def _window_for(self, queue) -> int | None:
+        """The ordering tolerance for one queue: its own `k_cap`, or the manager's default.
+
+        A spec's None means INHERIT rather than "unbounded", so the manager-wide
+        `putaway_window` still governs every queue that has no reason to differ, and the
+        default single queue behaves exactly as it did before queues existed.
+        """
+        k = queue.spec.k_cap if queue is not None else None
+        return self.putaway_window if k is None else k
+
+    def _serve_order(self, pool, units: list, k: int | None) -> list:
         """WHO is served first, out of one BinKey group.  The drain's decision.
 
         `putaway_window` is the tolerance, in units:
@@ -1042,7 +1144,6 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         `units` arrives in queue order (the group's insertion order into `_stock_queue`), so
         the FIFO answer is already in hand and needs no extra bookkeeping to recover.
         """
-        k = self.putaway_window
         if k is None:
             return pool.order(units)
         if k < 1:
@@ -1070,7 +1171,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 nxt += 1
         return out
 
-    def _stock_ranked(self, budget: int | None = None) -> None:
+    def _stock_ranked(self, budget: int | None = None, queue=None) -> None:
         """Ranked placement: sort units by pick-effort priority, then drain.
 
         Groups the queue by BinKey (handling, category, storage_size, unit_type)
@@ -1091,14 +1192,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         a group that cannot be afforded is requeued untouched, having never influenced an
         aisle balance.  A wave is the atom.
         """
-        if not self._stock_queue:
+        queue = queue if queue is not None else self.put_queues.queues[0]
+        waiting = queue.items
+        if not waiting:
             return
+        window = self._window_for(queue)
 
         # Snapshot queue and group by BinKey (or (BinKey, velocity band) when zoning is on, so
         # each sub-wave is a single band and the once-per-wave candidate fetch is band-correct).
         groups: dict[tuple, list[PutawayItem]] = defaultdict(list)
-        while self._stock_queue:
-            item = self._stock_queue.popleft()
+        while waiting:
+            item = waiting.popleft()
             groups[self._group_key(item.unit)].append(item)
 
         # With zoning ON, process band sub-groups HOTTEST-FIRST (band 0 before 1 …) so hot items
@@ -1111,7 +1215,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             if budget is not None and placed >= budget:
                 # Cannot afford this wave: requeue it whole, WITHOUT scoring it, so no
                 # aisle balance moves for units that are not going to be placed.
-                self._stock_queue.extend(items)
+                waiting.extend(items)
                 continue
             # `place_wave` takes and returns bare units, so the envelope is re-attached by
             # object identity.  Safe HERE and nowhere else: every unit in `by_unit` is alive
@@ -1125,7 +1229,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 # the order, because every unit in a group shares a BinKey.
                 pool = self.placement.open_pool(self._candidates(units[0]), units[0])
                 taken = []
-                for unit in self._serve_order(pool, units):
+                for unit in self._serve_order(pool, units, window):
                     bin_, score = pool.take(unit)
                     taken.append((unit, bin_, score))
                 assignments = _ranked_by_score(taken, pool.prefers_low)
@@ -1155,9 +1259,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                     # in the tier and spilling up to larger tiers — plus the
                     # smaller-tier/singleton rescues.  This is the same path that keeps
                     # FIFO's queue at zero; without it the ranked queue grows unbounded.
-                    self._stock_queue.append(by_unit[id(unit)])
+                    waiting.append(by_unit[id(unit)])
 
-        if self._stock_queue:
-            self._stock_per_unit(None if budget is None else max(0, budget - placed))
+        self._placed_this_call += placed
+        if waiting:
+            # The stragglers this wave shed, on the SAME queue: a unit the group path could
+            # not fit must not be re-routed, and its queue's tolerance does not apply here
+            # because the per-unit path has no ordering to constrain.
+            self._stock_per_unit(None if budget is None else max(0, budget - placed), queue)
 
 

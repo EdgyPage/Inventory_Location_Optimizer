@@ -62,13 +62,19 @@ class _MutePool(_Pool):
 
 
 class _Drain:
-    """`_serve_order` unbound from the rest of the manager — it reads one attribute."""
+    """`_serve_order` unbound from the rest of the manager.
+
+    The window is a parameter rather than an attribute read: with several queues the drain
+    resolves a different tolerance per queue (`_window_for`), so the ordering step has to be
+    told which one applies. It is REQUIRED — a default of None would mean "unbounded", and a
+    caller that forgot it would silently get the pre-window behaviour.
+    """
 
     def __init__(self, window):
         self.putaway_window = window
 
     def order(self, pool, units):
-        return Inventory_Manager._serve_order(self, pool, units)
+        return Inventory_Manager._serve_order(self, pool, units, self.putaway_window)
 
 
 def _units(n):
@@ -236,3 +242,19 @@ def test_the_manager_defaults_to_an_unbounded_window():
     far was run with the policy's order granted in full."""
     from Warehouse.inventory.Inventory_Management import DEFAULT_PUTAWAY_WINDOW
     assert DEFAULT_PUTAWAY_WINDOW is None
+
+
+def test_a_queues_own_k_cap_overrides_the_manager_default():
+    """`_window_for` resolves the tolerance per queue. A spec's None means INHERIT, not
+    unbounded, so the manager-wide knob still governs every queue with no reason to differ
+    — and the pallet queue's `k_cap=1` wins over it."""
+    from Warehouse.inventory.put_queue import PutQueue, PutQueueSpec
+
+    mgr = _Drain(12)
+    inherit = PutQueue(PutQueueSpec('cart', accepts=('singleton',)))
+    strict = PutQueue(PutQueueSpec('pallet', accepts=('pallet',), k_cap=1))
+    assert Inventory_Manager._window_for(mgr, inherit) == 12
+    assert Inventory_Manager._window_for(mgr, strict) == 1
+    mgr.putaway_window = None
+    assert Inventory_Manager._window_for(mgr, inherit) is None
+    assert Inventory_Manager._window_for(mgr, strict) == 1
