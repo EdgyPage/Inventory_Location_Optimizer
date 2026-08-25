@@ -53,6 +53,7 @@ from dataclasses import dataclass, field
 
 from Warehouse.inventory.inventory_common import PutawayItem
 from Warehouse.inventory.put_policy import PUT_POLICIES
+from Warehouse.kernel import crew_clock
 from Warehouse.kernel.cost_model import cart_step
 
 #: Unit categories, as `binkey_of(unit)[3]` reports them.
@@ -199,50 +200,34 @@ class PutQueue:
     def timed(self) -> bool:
         return self.clocks is not None
 
+    # ── the crew's clock ──────────────────────────────────────────────────────
+    # Five delegations to `Warehouse.kernel.crew_clock`, which owns the rules and the
+    # paragraphs that explain them.  A put queue and a receiving dock need the identical
+    # five, and two copies of `min(clocks) < deadline` will drift -- one of them says `<=`
+    # some day and the number it produces is plausible forever.  The kernel imports nothing,
+    # so both packages reach it without inverting anything.
     def bind_crew(self, speed, cost, size: int) -> None:
         """Give this queue its own crew. Idempotent per (speed, cost, size)."""
-        if size < 1:
-            raise ValueError(f'{self.name}: a put crew of {size} does no work; size >= 1')
         self.speed, self.cost = speed, cost
-        self.clocks = [0.0] * size
+        self.clocks = crew_clock.new_clocks(size, self.name)
 
     @property
     def crew_size(self) -> int:
-        return len(self.clocks) if self.clocks else 0
+        return crew_clock.size_of(self.clocks)
 
     def can_start(self, deadline: float | None) -> bool:
-        """Is anyone on this crew free to BEGIN a put before `deadline`?
-
-        `deadline` is on the same batch-local clock the crew's clocks run on, which is what
-        lets the caller state a day boundary without knowing the batch epoch (see
-        `Inventory_Manager.drain_putaway_records` for why that epoch is not available here).
-
-        A START gate, not a completion gate: the put running when the whistle blows finishes,
-        because a putter does not set a pallet down halfway up an aisle. Overtime is bounded
-        by one put per worker.
-
-        True when untimed -- a queue with no crew has no clock to be past, and every run that
-        does not ask for a cut passes None here anyway.
-        """
-        if deadline is None or not self.clocks:
-            return True
-        return min(self.clocks) < deadline
+        """Is anyone on this crew free to BEGIN a put before `deadline`?  A START gate --
+        see `crew_clock.can_start` for why, and for what `deadline` is measured against."""
+        return crew_clock.can_start(self.clocks, deadline)
 
     @property
     def finish(self) -> float:
         """When the last worker on this queue becomes free, on the batch-local clock."""
-        return max(self.clocks) if self.clocks else 0.0
+        return crew_clock.finish(self.clocks)
 
     def charge(self, dur: float):
-        """Book `dur` to whoever is free earliest; return (start, worker index).
-
-        Greedy list scheduling.  Ties break to the lowest index, so a crew of one is
-        exactly a serial clock.
-        """
-        w = min(range(len(self.clocks)), key=lambda i: (self.clocks[i], i))
-        t0 = self.clocks[w]
-        self.clocks[w] = t0 + dur
-        return t0, w
+        """Book `dur` to whoever is free earliest; return (start, worker index)."""
+        return crew_clock.charge(self.clocks, dur)
 
     @property
     def carted(self) -> bool:
@@ -268,8 +253,7 @@ class PutQueue:
     def reset_clocks(self) -> None:
         """Restart every worker at 0 -- the drain does this per batch, and the runner adds
         the batch epoch back on when it writes the rows."""
-        if self.clocks is not None:
-            self.clocks = [0.0] * len(self.clocks)
+        crew_clock.reset(self.clocks)
 
     def drain_counters(self) -> dict:
         """Hand over this batch's counters and reset. Depth and oldest age are read at the
