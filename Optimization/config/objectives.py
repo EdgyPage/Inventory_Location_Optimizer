@@ -111,7 +111,7 @@ _ENTRIES = [
     # ── ranked (effort / labor) ─────────────────────────────────────────────────
     Objective(
         rule='rank_random', label='Rank_random', family='ranked', sense='none',
-        stage='ranked_wave', symbol='build_ranked_uniform_assignment_fn', module=_AF,
+        stage='ranked_wave', symbol='build_ranked_uniform_pool_fn', module=_AF,
         builder=f'_build_uniform_trip_min_ranked@{_STRAT}',
         latex='',
         notes='Rank by pick-effort priority, then place each unit in a uniform-random '
@@ -121,7 +121,7 @@ _ENTRIES = [
     ),
     Objective(
         rule='rank_popularity', label='Rank_popularity', family='ranked', sense='min',
-        stage='ranked_wave', symbol='build_ranked_popularity_fn', module=_AF,
+        stage='ranked_wave', symbol='build_ranked_popularity_pool_fn', module=_AF,
         builder=f'_build_rank_popularity@{_STRAT}',
         latex=r'$\arg\min_{a}\ \sum_{s \in a} f_s\,q_s$',
         notes='Rank by expected popularity ($f\\cdot q$), place each into the aisle with '
@@ -130,7 +130,7 @@ _ENTRIES = [
     ),
     Objective(
         rule='rank_labor', label='Rank_labor', family='ranked', sense='min',
-        stage='ranked_wave', symbol='build_ranked_labor_fn', module=_AF,
+        stage='ranked_wave', symbol='build_ranked_labor_pool_fn', module=_AF,
         builder=f'_build_rank_labor@{_STRAT}',
         latex=r'$\arg\min_{(a,\,b)}\ \bigl(L_a + f_s\,q_s\,\ell(b)\bigr),'
               r'\qquad L_a = \sum_{s\in a} f_s\,q_s\,\ell(b_s)$',
@@ -140,7 +140,7 @@ _ENTRIES = [
     ),
     Objective(
         rule='rank_cartlabor', label='Rank_cartlabor', family='ranked', sense='min',
-        stage='ranked_wave', symbol='build_ranked_cartlabor_fn', module=_AF,
+        stage='ranked_wave', symbol='build_ranked_cartlabor_pool_fn', module=_AF,
         builder=f'_build_rank_cartlabor@{_STRAT}',
         latex=r'$C_a = c_{\text{swap}} \cdot \max\!\left(0,\ \frac{V_a}{\hat{V}} - 1\right),'
               r'\qquad \arg\min_{(a,\,b)}\ \bigl(L_a + C_a + f_s\,q_s\,\ell(b)\bigr)$',
@@ -154,7 +154,7 @@ _ENTRIES = [
     ),
     Objective(
         rule='rank_minlabor', label='Rank_minlabor', family='ranked', sense='min',
-        stage='ranked_wave', symbol='build_ranked_minlabor_fn', module=_AF,
+        stage='ranked_wave', symbol='build_ranked_minlabor_pool_fn', module=_AF,
         builder=f'_build_rank_minlabor@{_STRAT}',
         latex=r'$\arg\min_{(a,\,b)}\ \Bigl[\,f_s\bigl(M(y_b)(t_0 + h) + D_b\bigr)'
               r'\;-\; \lambda\!\!\sum_{p\,\in\,\text{aisle}}\!\!'
@@ -165,7 +165,7 @@ _ENTRIES = [
     ),
     Objective(
         rule='rank_maxlabor', label='Rank_maxlabor', family='ranked', sense='max',
-        stage='ranked_wave', symbol='build_ranked_maxlabor_fn', module=_AF,
+        stage='ranked_wave', symbol='build_ranked_maxlabor_pool_fn', module=_AF,
         builder=f'_build_rank_maxlabor@{_STRAT}', control=True,
         latex=r'$\arg\max_{(a,\,b)}\ \Bigl[\,f_s\bigl(M(y_b)(t_0 + h) + D_b\bigr)'
               r'\;-\; \lambda\!\!\sum_{p\,\in\,\text{aisle}}\!\!'
@@ -226,14 +226,14 @@ _ENTRIES = [
     # ── travel bracket ──────────────────────────────────────────────────────────
     Objective(
         rule='tmin', label='TripMin', family='travel', sense='min', stage='ranked_wave',
-        symbol='build_ranked_minimizing_assignment_fn', module=_AF,
+        symbol='build_ranked_minimizing_pool_fn', module=_AF,
         builder=f'_build_trip_min@{_STRAT}',
         latex=r'$\arg\min_{b}\ \bigl(f_s\,D_b - \beta\,\text{co-occur}\bigr)$',
         notes='Hot SKUs to low-$D$ (front) bins, so there is less within-aisle walking.',
     ),
     Objective(
         rule='tmax', label='TripMax', family='travel', sense='max', stage='ranked_wave',
-        symbol='build_ranked_maximizing_assignment_fn', module=_AF,
+        symbol='build_ranked_maximizing_pool_fn', module=_AF,
         builder=f'_build_trip_max@{_STRAT}', control=True,
         latex=r'$\arg\max_{b}\ \bigl(f_s\,D_b - \beta\,\text{co-occur}\bigr)$',
         notes='Hot items to the back. Worst-case travel control; brackets `tmin`.',
