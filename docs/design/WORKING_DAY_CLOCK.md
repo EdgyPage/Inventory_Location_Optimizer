@@ -181,11 +181,30 @@ Each step is independently verifiable, and no step leaves a producer without a c
 | 3b | The **event-by-event** lockstep test, written against UNCHANGED loops and passing on them. | n/a — a test only. Passes today across both schedulers, both lane models, 1 and 3 pickers, four start-time epochs, five fixtures and twelve randomized workloads. | **done** `c68770e` |
 | 4a | Realized items and bins on `TaskStats`, so a truncated task cannot report a full workload against partial time. | Only `task_stats`' two new columns move. | **done** `de1ee6e` |
 | 4b | The day cut in both loops, the call site that passes `day_end`, and the carry re-picked next batch — one commit, so no half is dead. Includes the end-to-end run. | Cut OFF: byte-identical. Cut ON: different by design. | **done** `4e6b3c6` |
-| 4c | The day length and release cadence in the run params, so two runs with different days are distinguishable. | Adds run metadata only. | **next** |
-| 5 | Rollover for the OTHER cause — the live-stock clamp, `unpicked_unavailable` — merged with the cut's carry under one reason column. | No, by design. | |
-| 6 | Put-away and inbound rollover. | No. | |
+| 4c | The day length and release cadence in the run params, so two runs with different days are distinguishable. | Adds run metadata only. | **done** `81884b8` |
+| 5 | Rollover for the OTHER cause — the live-stock clamp, `unpicked_unavailable` — merged with the cut's carry under one reason column. | Recorded always, rolled over only on request; the recording half is byte-identical. | **done** `6783e4a` |
+| 6 | Put-away rollover: the whistle is a START gate on the put crews, and `put_queue_state.cut` says what it left standing. | Cut OFF: byte-identical (1027/1164 digests; the rest are the two new columns and the two timestamp tables). | **done** `90cd7a8` |
+| 6b | Inbound rollover — an arrival the day cannot absorb. | Mostly ALREADY TRUE; see below. | **next** |
 | 7 | Resume: day clock, pending demand, held items, queue depths, the arrival stamp counter. | Resume-at-N equals a straight run. | |
 | 8 | Analysis: widen the time axis so a schedule with gaps does not corrupt published throughput. | No — it corrects figures that are currently wrong under a paced schedule. | |
+
+**Step 6 split, because half of what it named was already built.** "Put-away and inbound
+rollover" was one row on the assumption that inbound needed the same machinery. It does not:
+an arrival a full floor cannot take is already `_held` and already retried by the next
+drain's `_admit_held`, with `blocked` counting the refusals — that *is* rollover, built with
+the staging limit in step 13. What was genuinely missing on the inbound side was a *name* for
+the arrival, so that a shipment split across trailers packs per delivery rather than as one
+lump; that landed separately as `Warehouse/operations/inbound.py` (`c380a31`). Step 6b is now
+only the question the day clock actually raises: whether the receiving dock has hours of its
+own, distinct from the put crews'. It needs a decision before it needs code — see §7.
+
+**The put cut is a START gate, and that asymmetry with the pick cut is deliberate.** A pick
+path is long and divisible, so it truncates mid-bin. A put is one unit into one bin. A
+completion gate ("refuse anything that would end late") needs the duration, which is known
+only after the bin is chosen — so it would mean choosing a placement and then un-choosing it,
+past `_execute_placement`, which is the single bin-mutation commit point precisely so that no
+path does that. Overtime is bounded by one put per worker, which is what the physical thing
+does.
 
 **Step 3b is a precondition, not a nicety, and it has to come first for a reason that is easy
 to get backwards.** It is now done, and it earned its place: pooling one loop's
@@ -264,3 +283,30 @@ One accounting trap, recorded because the first measurement produced a scary and
 "LOST 345": summing SCHEDULED work across batches is not a conservation quantity. A batch's
 scheduled work includes the previous batch's carry, so the sum double-counts every carried
 unit. The invariant is per batch — `picked_i + carried_i == scheduled_i` — and it holds.
+
+## 8. The open question step 6b needs answered
+
+Put-away and picking now share one whistle, because they share one crew's day. Inbound does
+not obviously share it, and the model currently has no opinion:
+
+- **A lead time is a CALENDAR quantity.** `check_reorders` advances it in steps 0–3, above the
+  deadline, deliberately — a trailer in transit does not stop moving because the warehouse
+  went home, and an order that arrives at four o'clock has arrived.
+- **But receiving is LABOUR.** Someone unloads the trailer, and that someone has a day. Today
+  the model has no unload step at all: `_release_to_stock` packs the arrival and `_admit` puts
+  it on a queue, both free.
+
+So the honest state is that inbound *rollover* exists (a full floor holds the item, the next
+drain retries it, `blocked` counts the refusal) while inbound *hours* do not. Adding them
+means deciding one thing first: **is the receiving dock a fourth crew with its own
+`PutQueueSpec`-shaped hours, or is unloading part of the put crews' day?**
+
+The first is more faithful and costs a fourth actor space plus a fourth clock in every
+snapshot. The second is free and says that a warehouse which cannot put away also cannot
+receive — which is what a shared-crew site looks like, and false for a site with a dedicated
+receiving team. `Warehouse/operations/inbound.py` deliberately holds no clock so that either
+answer can be built on it, and `LoadPlan` already carries what an unload step would need to
+cost itself (`unit_count`, `packed_qty`, `tier_mix`).
+
+Not a coin-flip: it changes what a short day *means*, and every published throughput figure
+under a paced schedule depends on it. It is the user's call.
