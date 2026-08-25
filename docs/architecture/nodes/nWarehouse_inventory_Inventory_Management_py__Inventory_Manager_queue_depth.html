@@ -16,7 +16,12 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@property
 def queue_depth(self) -&gt; int</code></pre>
-<section class="doc empty">No docstring.</section>
+<section class="doc">Units waiting for a bin, INCLUDING those a full queue is holding upstream.
+
+Held items are waiting just as much as queued ones -- the only difference is that
+the floor has no room for them yet.  Reporting only the queued half would make a
+staging limit look like the backlog had vanished, which is the opposite of what a
+backpressure model is for.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_queue_depth">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20queue_depth">Source ↗</a></p>
 </article>

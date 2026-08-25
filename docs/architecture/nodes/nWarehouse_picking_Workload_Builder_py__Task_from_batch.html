@@ -15,8 +15,12 @@
 <p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse/picking/Workload_Builder.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>@staticmethod
-def from_batch(batch: Batch, warehouse: Warehouse, manager=None, cart: type[StorageCart]=StoreCart) -&gt; list[Task]</code></pre>
+def from_batch(batch: Batch, warehouse: Warehouse, manager=None, cart: type[StorageCart]=StoreCart, _shortfall: dict[int, int] | None=None) -&gt; list[Task]</code></pre>
 <section class="doc">Decompose a Batch into one Task per aisle.
+
+`_shortfall`, when given, accumulates `{sku: units_short}` for demand no bin could
+satisfy.  Underscored because callers should reach for `from_batch_with_shortfall`
+rather than pass their own dict; it exists so one drain serves both entry points.
 
 For each SKU in the batch, singleton bins are drained before pallet bins
 so that forward-pick locations are always preferred over reserve locations.
@@ -35,7 +39,7 @@ produce different `batch_stats`.  Iterating in `location` order — the canonica
 (aisle_id, bayX, bayY) spatial key persisted everywhere — makes the selection a
 pure function of warehouse state.  Cost is O(k log k) on k bins of ONE SKU; see
 `Tests/unit/test_task_bin_selection_determinism.py`.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_picking_Workload_Builder_py__Task.html"><code>Task</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li><li><a href="nWarehouse_picking_Workload_Builder_py___plan_aisle_path.html"><code>_plan_aisle_path</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__runtime_view.html"><code>runtime_view</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_picking_Workload_Builder_py__Task.html"><code>Task</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li><li><a href="nWarehouse_picking_Workload_Builder_py___plan_aisle_path.html"><code>_plan_aisle_path</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__runtime_view.html"><code>runtime_view</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nWarehouse_picking_Workload_Builder_py__Task_from_batch_with_shortfall.html"><code>from_batch_with_shortfall</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Workload_Builder_py__Task_from_batch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Workload_Builder.py#:~:text=def%20from_batch">Source ↗</a></p>
 </article>
 </main>

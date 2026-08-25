@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_sku_batched · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_put_policy_py___sku_batched" data-id="Warehouse/inventory/put_policy.py::_sku_batched">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_put_policy_py.html"><code>Warehouse/inventory/put_policy.py</code></a> <span class="sep">›</span> <span class="here"><code>_sku_batched</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_sku_batched</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_put_policy_py.html"><code>Warehouse/inventory/put_policy.py</code></a></p>
+
+<pre class="sig"><code>def _sku_batched(item) -&gt; float</code></pre>
+<section class="doc">Finish one SKU before starting the next, oldest SKU first.
+
+A real floor practice — one trip, one item, many bins — and it happens to restore the
+SKU-run caches that a FIFO window otherwise destroys, because those caches key on
+`sku != last_sku` and only ever hit on adjacent same-SKU units. That is a side effect
+worth knowing about and NOT the reason to choose this policy: the caches stay correct
+either way, they just stop paying.
+
+The key is two-level: the negated age of the SKU&#x27;s OLDEST waiting item, then the
+negated age of this item.  The second level is load-bearing -- with only the first, every
+unit of a SKU ties and their order falls back to whatever order the caller listed them
+in, which is arrival order in the drain and arbitrary anywhere else.  Requires the
+batch-scoped table below; the drain builds it once per queue per batch.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_put_policy_py.html"><code>Warehouse.inventory.put_policy</code></a> <span class="dim">Warehouse/inventory/put_policy.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_put_policy_py___sku_batched">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/put_policy.py#:~:text=def%20_sku_batched">Source ↗</a></p>
+</article>
+</main>
+</body></html>

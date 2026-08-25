@@ -17,6 +17,9 @@
 <pre class="sig"><code>def _ranked_minlabor_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)</code></pre>
 <section class="doc">Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.
 
+SUPERSEDED by `_MinLaborPool`, which is what `rank_minlabor` and `rank_maxlabor` run;
+kept as the frozen oracle the port is tested against.
+
 Models the objective E[task labor] = Σ_s f_s·[ M(y_s)·(intercept + q_s·v_s) + D ] and
 places each unit in the (aisle, bin) that minimises its MARGINAL contribution:
 

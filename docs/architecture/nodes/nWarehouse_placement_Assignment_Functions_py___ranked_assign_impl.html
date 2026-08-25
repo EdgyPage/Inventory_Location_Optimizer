@@ -14,8 +14,11 @@
 <h1><span class="kind kind-function">function</span> <code>_ranked_assign_impl</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _ranked_assign_impl(units: list, candidates_fn, affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float, minimize: bool, aisle_selector=None, order_key=None, aisle_extra_sum=None, sku_extra_product=None) -&gt; list</code></pre>
+<pre class="sig"><code>def _ranked_assign_impl(units: list, candidates_fn, affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float, minimize: bool, aisle_selector=None, order_key=None) -&gt; list</code></pre>
 <section class="doc">Shared core for ranked-minimizing and ranked-maximizing assignment.
+
+SUPERSEDED by `_RankedAssignPool`, which is what the four arms actually run.  Kept as
+the frozen oracle the port is tested against, and as the straggler-path reference.
 
 Priority formula (pick-effort x frequency + co-occurrence):
   priority = f_i x (pick_intercept + pick_weight_coef x log(weight)

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>build_ranked_cartlabor_pool_fn · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py__build_ranked_cartlabor_pool_fn" data-id="Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>build_ranked_cartlabor_pool_fn</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>build_ranked_cartlabor_pool_fn</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def build_ranked_cartlabor_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product, expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)</code></pre>
+<section class="doc">Pool twin of build_ranked_cartlabor_fn — same signature.
+
+`total_freq` is summed HERE, once when the policy is built, exactly as the wave builder
+does it: a per-pool sum over the same dict would be the same value today but would make
+a dict-order change silently repricing every cart penalty.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___build_travel_balanced_pool_fn.html"><code>_build_travel_balanced_pool_fn</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_strategies_py___build_rank_cartlabor.html"><code>_build_rank_cartlabor</code></a> <span class="dim">Optimization/config/strategies.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py__build_ranked_cartlabor_pool_fn">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20build_ranked_cartlabor_pool_fn">Source ↗</a></p>
+</article>
+</main>
+</body></html>

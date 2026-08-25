@@ -16,7 +16,14 @@
 
 <pre class="sig"><code>def _cluster_map_pick_bin(lst, pref, target, cx, x_pace, capped)</code></pre>
 <section class="doc">Choose the cluster&#x27;s bin within one aisle: anchor at the favored map location and
-compact toward the partner centroid; honour the prime-spot cap when capped.</section>
+compact toward the partner centroid; honour the prime-spot cap when capped.
+
+Returns `(bin, cost)`.  The cost is RETURNED rather than recomputed by the caller, and
+that is deliberate: `_CLUSTER_MAP_W_CENT * x_pace * abs(...)` re-associated as
+`(W * x_pace) * abs(...)` is a different float, so a caller reconstructing the number
+would eventually persist something that is not what decided.  `None` on the capped
+least-prime fallback, which is chosen by max-pref and not by this cost at all --
+reporting the cost of a bin that was picked on a different rule would be a lie.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_cluster_map_placement__place.html"><code>_place</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___cluster_map_pick_bin">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_cluster_map_pick_bin">Source ↗</a></p>
 </article>

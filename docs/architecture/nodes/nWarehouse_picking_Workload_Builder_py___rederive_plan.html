@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_rederive_plan · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_picking_Workload_Builder_py___rederive_plan" data-id="Warehouse/picking/Workload_Builder.py::_rederive_plan">
+<nav class="crumbs"><a href="../layers.html">wh_picking</a> <span class="sep">›</span> <a href="../files/nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse/picking/Workload_Builder.py</code></a> <span class="sep">›</span> <span class="here"><code>_rederive_plan</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_rederive_plan</code></h1>
+<p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse/picking/Workload_Builder.py</code></a></p>
+
+<pre class="sig"><code>def _rederive_plan(path: list, items: dict[int, int]) -&gt; list[int]</code></pre>
+<section class="doc">Per-bin quantities for a `Task` built without an explicit plan.
+
+The same greedy `from_batch` uses -- walk the path, take what the bin has up to the
+SKU&#x27;s remaining demand -- so a hand-built Task behaves like a real one.  It can pick a
+DIFFERENT distribution than `from_batch` would when the path order differs from the
+drain order, which is exactly why the real caller passes its plan instead.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Workload_Builder_py__Task___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Workload_Builder_py___rederive_plan">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Workload_Builder.py#:~:text=def%20_rederive_plan">Source ↗</a></p>
+</article>
+</main>
+</body></html>

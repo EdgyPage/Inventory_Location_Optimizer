@@ -5051,7 +5051,7 @@
       "src": "Optimization/config/strategies.py::_build_map"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_optmap_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_map"
     },
@@ -5066,7 +5066,7 @@
       "src": "Optimization/config/strategies.py::_build_map_rank"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_optmap_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_map_rank"
     },
@@ -5086,7 +5086,7 @@
       "src": "Optimization/config/strategies.py::_build_rank_cartlabor"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_rank_cartlabor"
     },
@@ -5101,7 +5101,7 @@
       "src": "Optimization/config/strategies.py::_build_rank_labor"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_rank_labor"
     },
@@ -5116,7 +5116,7 @@
       "src": "Optimization/config/strategies.py::_build_rank_maxlabor"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_rank_maxlabor"
     },
@@ -5131,7 +5131,7 @@
       "src": "Optimization/config/strategies.py::_build_rank_minlabor"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_rank_minlabor"
     },
@@ -5146,7 +5146,7 @@
       "src": "Optimization/config/strategies.py::_build_rank_popularity"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_rank_popularity"
     },
@@ -5156,7 +5156,7 @@
       "src": "Optimization/config/strategies.py::_build_rank_popularity"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_assignment_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_trip_max"
     },
@@ -5166,7 +5166,7 @@
       "src": "Optimization/config/strategies.py::_build_trip_max"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_assignment_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_trip_min"
     },
@@ -5176,7 +5176,7 @@
       "src": "Optimization/config/strategies.py::_build_trip_min"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_assignment_fn",
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_pool_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_uniform_trip_min_ranked"
     },
@@ -5676,6 +5676,16 @@
       "src": "Optimization/persistence/Picking_Data.py::save_bin_scores"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_carryover",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_carryover"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_carryover"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
@@ -5696,12 +5706,22 @@
       "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_carryover",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::_insert_picker_events",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_insert_picks",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_put_queue_state",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
     },
@@ -5744,6 +5764,16 @@
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_picks"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_put_queue_state",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_put_queue_state"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::save_put_queue_state"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_insert_reorder_queue",
@@ -8941,6 +8971,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.carryover_rows",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -8967,6 +9002,16 @@
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_travel_costs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_contents",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_state_rows",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -9021,7 +9066,7 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
-      "dst": "Warehouse/picking/Workload_Builder.py::Task.from_batch",
+      "dst": "Warehouse/picking/Workload_Builder.py::Task.from_batch_with_shortfall",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -12276,6 +12321,16 @@
       "src": "Warehouse/inventory/Inventory_Management.py"
     },
     {
+      "dst": "Warehouse/inventory/put_policy.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/Inventory_Management.py"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/Inventory_Management.py"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/inventory/Inventory_Management.py"
@@ -12314,6 +12369,16 @@
       "dst": "Warehouse/inventory/inventory_common.py::Placement",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.__init__"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py::single_queue",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.__init__"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::PutawayItem",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit",
@@ -12376,6 +12441,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement"
     },
     {
+      "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement"
@@ -12404,6 +12474,16 @@
       "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._key"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::_windowed",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit_held",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit",
@@ -12461,6 +12541,16 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::_MultiQueueView",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_queue"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
@@ -12471,18 +12561,28 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_wave",
-      "kind": "dispatch",
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._window_for",
+      "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement.place_wave",
-      "kind": "dispatch",
+      "dst": "Warehouse/inventory/Inventory_Management.py::_ranked_by_score",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/inventory/put_policy.py::key_for",
+      "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
     {
@@ -12521,12 +12621,12 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock",
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue"
     },
     {
-      "dst": "Warehouse/inventory/inventory_common.py::PutawayItem",
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue"
     },
@@ -12541,12 +12641,12 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock",
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue_all"
     },
     {
-      "dst": "Warehouse/inventory/inventory_common.py::PutawayItem",
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue_all"
     },
@@ -12559,6 +12659,11 @@
       "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue_all"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_lift_state"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
@@ -12599,6 +12704,11 @@
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_common.py::_wp_for"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_common.py::is_forward_pick"
     },
     {
       "dst": "Warehouse/catalog/Order.py",
@@ -12951,14 +13061,14 @@
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._fire_reorders"
     },
     {
+      "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._reclaim_empty_bins"
+    },
+    {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_arrivals"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_common.py::PutawayItem",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock"
     },
     {
       "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
@@ -13001,7 +13111,7 @@
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.reclaim_emptied_bins"
     },
     {
-      "dst": "Warehouse/inventory/inventory_common.py::PutawayItem",
+      "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.requeue_bin"
     },
@@ -13009,6 +13119,61 @@
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drop_sku_from_aisle",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.requeue_bin"
+    },
+    {
+      "dst": "Warehouse/inventory/put_policy.py::_fifo",
+      "kind": "ref",
+      "src": "Warehouse/inventory/put_policy.py"
+    },
+    {
+      "dst": "Warehouse/inventory/put_policy.py::_largest_first",
+      "kind": "ref",
+      "src": "Warehouse/inventory/put_policy.py"
+    },
+    {
+      "dst": "Warehouse/inventory/put_policy.py::_lifo",
+      "kind": "ref",
+      "src": "Warehouse/inventory/put_policy.py"
+    },
+    {
+      "dst": "Warehouse/inventory/put_policy.py::_sku_batched",
+      "kind": "ref",
+      "src": "Warehouse/inventory/put_policy.py"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/put_queue.py"
+    },
+    {
+      "dst": "Warehouse/inventory/put_policy.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/put_queue.py"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py::PutQueue",
+      "kind": "calls",
+      "src": "Warehouse/inventory/put_queue.py::PutQueueSet.__init__"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py::PutQueueSet",
+      "kind": "calls",
+      "src": "Warehouse/inventory/put_queue.py::single_queue"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py::PutQueueSpec",
+      "kind": "calls",
+      "src": "Warehouse/inventory/put_queue.py::single_queue"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py::PutQueueSet",
+      "kind": "calls",
+      "src": "Warehouse/inventory/put_queue.py::store_and_fulfillment"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py::PutQueueSpec",
+      "kind": "calls",
+      "src": "Warehouse/inventory/put_queue.py::store_and_fulfillment"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
@@ -13401,6 +13566,11 @@
       "src": "Warehouse/picking/Workload_Builder.py"
     },
     {
+      "dst": "Warehouse/picking/Workload_Builder.py::_rederive_plan",
+      "kind": "calls",
+      "src": "Warehouse/picking/Workload_Builder.py::Task.__init__"
+    },
+    {
       "dst": "Warehouse/picking/Workload_Builder.py::Task",
       "kind": "calls",
       "src": "Warehouse/picking/Workload_Builder.py::Task.from_batch"
@@ -13409,6 +13579,11 @@
       "dst": "Warehouse/picking/Workload_Builder.py::_plan_aisle_path",
       "kind": "calls",
       "src": "Warehouse/picking/Workload_Builder.py::Task.from_batch"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::Task.from_batch",
+      "kind": "calls",
+      "src": "Warehouse/picking/Workload_Builder.py::Task.from_batch_with_shortfall"
     },
     {
       "dst": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample",
@@ -13561,6 +13736,91 @@
       "src": "Warehouse/placement/Assignment_Functions.py::RANKED_BUILDERS"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.sort_key"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_affinity_row",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.take"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._aisle_best_cost"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._better",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._aisle_best_cost"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._aisle_best_cost",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._better",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_PrefPool",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_OptMapPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_Pool.sort_key",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_Pool.order"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_PrefPool._find_nxt",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_PrefPool.take_closest"
@@ -13609,6 +13869,56 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_PrefPool._take",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_PrefPool.take_min"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._pick_effort_priority"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._cart_cost",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._score_of"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._score_of",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
@@ -13676,6 +13986,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_place_one.assign.aisle_key"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn.open_pool"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_aisle_extremal_bins",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn.assign"
@@ -13684,6 +13999,21 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_aisle_index_for_unit",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn.assign"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn.open_pool"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn.open_pool"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn.open_pool"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_closest_abs",
@@ -13821,6 +14151,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.sort_key"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_affinity_row",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._place"
@@ -13851,11 +14186,6 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._place"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_wave.priority"
-    },
-    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_travel_or_cohesion",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_maximizing_assignment_fn"
@@ -13871,6 +14201,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_require_affinity",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement"
@@ -13879,11 +14214,6 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_require_demand",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement.place_wave"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn",
@@ -13896,6 +14226,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_load_minimizing_assignment_fn"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_OptMapPool",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_optmap_pool_fn.open_pool"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_PrefPool",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn.place_wave"
@@ -13906,14 +14241,29 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_fn.ranked_assign"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_fn.ranked_assign"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_pool_fn"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_assignment_fn.ranked_assign"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_pool_fn"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_require_affinity",
@@ -13926,9 +14276,24 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_fn.ranked_assign"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_pool_fn"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_require_affinity",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_pool_fn"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_assignment_fn.ranked_assign"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_pool_fn"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_require_affinity",
@@ -13941,6 +14306,16 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_fn.ranked_assign"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_pool_fn"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_require_affinity",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_pool_fn"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_fn.ranked_assign"
@@ -13951,9 +14326,24 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_fn.ranked_assign"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_score_expected_popularity",
+      "kind": "ref",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_assignment_fn.ranked_assign"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_pool_fn"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_travel_or_cohesion",
@@ -21275,6 +21665,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_CARRYOVER",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_CARRYOVER",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_CREATE_PICKER_EVENTS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -21319,6 +21717,14 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_CREATE_PICKS_SKU_IDX",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_CREATE_PUT_QUEUE_STATE",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_CREATE_PUT_QUEUE_STATE",
       "public": false
     },
     {
@@ -21531,6 +21937,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_carryover",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_carryover",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_insert_picker_events",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -21543,6 +21957,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_insert_picks",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_insert_put_queue_state",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_insert_put_queue_state",
       "public": false
     },
     {
@@ -21803,6 +22225,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::save_carryover",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "save_carryover",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -21823,6 +22253,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_picks",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::save_put_queue_state",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "save_put_queue_state",
       "public": true
     },
     {
@@ -28843,6 +29281,22 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_admit",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit_held",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_admit_held",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -28939,6 +29393,14 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_serve_order",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._sigma_delta",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -28971,10 +29433,34 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_queue",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_stock_queue",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_queue",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_stock_queue",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "_stock_ranked",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._window_for",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_window_for",
       "public": false
     },
     {
@@ -28999,6 +29485,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "available",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.carryover_rows",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "carryover_rows",
       "public": true
     },
     {
@@ -29051,6 +29545,14 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.held_depth",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "held_depth",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.in_transit_qty",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -29099,10 +29601,26 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_contents",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "queue_contents",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_depth",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "queue_depth",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_state_rows",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "queue_state_rows",
       "public": true
     },
     {
@@ -29131,11 +29649,91 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_MAX_REFILL_PASSES",
+      "kind": "const",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_MAX_REFILL_PASSES",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_MultiQueueView",
+      "kind": "class",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_MultiQueueView",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__bool__",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "__bool__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__iter__",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__len__",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__repr__",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::_apportion",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "_apportion",
       "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_ranked_by_score",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_ranked_by_score",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::_windowed",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_windowed",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::log",
+      "kind": "const",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "log",
+      "public": true
     },
     {
       "file": "Warehouse/inventory/__init__.py",
@@ -29167,6 +29765,14 @@
       "kind": "const",
       "module": "Warehouse/inventory/inventory_common.py",
       "name": "BinKey",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_common.py",
+      "id": "Warehouse/inventory/inventory_common.py::FORWARD_PICK_FAMILY",
+      "kind": "const",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "name": "FORWARD_PICK_FAMILY",
       "public": true
     },
     {
@@ -29203,10 +29809,26 @@
     },
     {
       "file": "Warehouse/inventory/inventory_common.py",
+      "id": "Warehouse/inventory/inventory_common.py::Placement.is_pooled",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "name": "is_pooled",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_common.py",
       "id": "Warehouse/inventory/inventory_common.py::Placement.is_ranked",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_common.py",
       "name": "is_ranked",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_common.py",
+      "id": "Warehouse/inventory/inventory_common.py::PoolFn",
+      "kind": "const",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "name": "PoolFn",
       "public": true
     },
     {
@@ -29383,6 +30005,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/inventory_common.py",
       "name": "binkey_of",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_common.py",
+      "id": "Warehouse/inventory/inventory_common.py::is_forward_pick",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "name": "is_forward_pick",
       "public": true
     },
     {
@@ -29807,6 +30437,294 @@
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
       "name": "requeue_bin",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_policy.py",
+      "id": "Warehouse/inventory/put_policy.py",
+      "kind": "module",
+      "module": "Warehouse/inventory/put_policy.py",
+      "name": "Warehouse.inventory.put_policy",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_policy.py",
+      "id": "Warehouse/inventory/put_policy.py::INHERIT",
+      "kind": "const",
+      "module": "Warehouse/inventory/put_policy.py",
+      "name": "INHERIT",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_policy.py",
+      "id": "Warehouse/inventory/put_policy.py::_SET_SCOPED",
+      "kind": "const",
+      "module": "Warehouse/inventory/put_policy.py",
+      "name": "_SET_SCOPED",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_policy.py",
+      "id": "Warehouse/inventory/put_policy.py::_fifo",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_policy.py",
+      "name": "_fifo",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_policy.py",
+      "id": "Warehouse/inventory/put_policy.py::_largest_first",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_policy.py",
+      "name": "_largest_first",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_policy.py",
+      "id": "Warehouse/inventory/put_policy.py::_lifo",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_policy.py",
+      "name": "_lifo",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_policy.py",
+      "id": "Warehouse/inventory/put_policy.py::_sku_batched",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_policy.py",
+      "name": "_sku_batched",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_policy.py",
+      "id": "Warehouse/inventory/put_policy.py::key_for",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_policy.py",
+      "name": "key_for",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py",
+      "kind": "module",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "Warehouse.inventory.put_queue",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::ANY",
+      "kind": "const",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "ANY",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::FULFILLMENT",
+      "kind": "const",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "FULFILLMENT",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PALLET",
+      "kind": "const",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "PALLET",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue",
+      "kind": "class",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "PutQueue",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.__init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.__len__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.__repr__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.admit",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "admit",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.drain_counters",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "drain_counters",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.has_room",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "has_room",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.name",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "name",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueue.oldest_age",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "oldest_age",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet",
+      "kind": "class",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "PutQueueSet",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet.__getitem__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet.__init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet.__iter__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet.__len__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet.depth",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "depth",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet.is_single",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "is_single",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet.route",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "route",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSet.snapshot",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "snapshot",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSpec",
+      "kind": "class",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "PutQueueSpec",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSpec.__post_init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::PutQueueSpec.takes",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "takes",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::SINGLETON",
+      "kind": "const",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "SINGLETON",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::single_queue",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "single_queue",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_queue.py",
+      "id": "Warehouse/inventory/put_queue.py::store_and_fulfillment",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_queue.py",
+      "name": "store_and_fulfillment",
       "public": true
     },
     {
@@ -31003,6 +31921,14 @@
     },
     {
       "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::Task.from_batch_with_shortfall",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "from_batch_with_shortfall",
+      "public": true
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
       "id": "Warehouse/picking/Workload_Builder.py::_Fenwick",
       "kind": "class",
       "module": "Warehouse/picking/Workload_Builder.py",
@@ -31087,6 +32013,14 @@
       "kind": "function",
       "module": "Warehouse/picking/Workload_Builder.py",
       "name": "_plan_aisle_path",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_rederive_plan",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "_rederive_plan",
       "public": false
     },
     {
@@ -31187,11 +32121,195 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_CoDemandPool",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.prefers_low",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "prefers_low",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.sort_key",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "sort_key",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.take",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "take",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_D_map",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_D_map",
       "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_MinLaborPool",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._aisle_best_cost",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_aisle_best_cost",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._better",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_better",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.prefers_low",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "prefers_low",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.sort_key",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "sort_key",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "take",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_NO_RUN_SKU",
+      "kind": "const",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_NO_RUN_SKU",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_OptMapPool",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_OptMapPool",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_OptMapPool.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_OptMapPool.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_OptMapPool.take",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "take",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_Pool",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_Pool",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_Pool.order",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "order",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_Pool.sort_key",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "sort_key",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_Pool.take",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "take",
+      "public": true
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
@@ -31271,6 +32389,126 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "take_min",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_RankedAssignPool",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._pick_effort_priority",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_pick_effort_priority",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.prefers_low",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "prefers_low",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.sort_key",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "sort_key",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.take",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "take",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_TravelBalancedPool",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_aisle_best",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._cart_cost",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_cart_cost",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._score_of",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_score_of",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.sort_key",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "sort_key",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "take",
       "public": true
     },
     {
@@ -31355,6 +32593,22 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_build_co_demand_pool_fn",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn.open_pool",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "open_pool",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -31375,6 +32629,54 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "assign",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_build_minlabor_pool_fn",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn.open_pool",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "open_pool",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_build_ranked_assign_pool_fn",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn.open_pool",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "open_pool",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_build_travel_balanced_pool_fn",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn.open_pool",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "open_pool",
       "public": true
     },
     {
@@ -31603,6 +32905,46 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_ClusterMapPool",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.sort_key",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "sort_key",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.take",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "take",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._group",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -31619,26 +32961,18 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.open_pool",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "open_pool",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_one",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "place_one",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_wave",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "place_wave",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_wave.priority",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "priority",
       "public": true
     },
     {
@@ -31663,14 +32997,6 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "build_co_demand_placement",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement.place_wave",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "place_wave",
       "public": true
     },
     {
@@ -31707,6 +33033,22 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_optmap_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_optmap_pool_fn",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_optmap_pool_fn.open_pool",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "open_pool",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -31739,6 +33081,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_ranked_cartlabor_pool_fn",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_fn",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -31751,6 +33101,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "ranked_assign",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_ranked_labor_pool_fn",
       "public": true
     },
     {
@@ -31771,6 +33129,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_ranked_maximizing_pool_fn",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_fn",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -31783,6 +33149,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "ranked_assign",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_ranked_maxlabor_pool_fn",
       "public": true
     },
     {
@@ -31803,6 +33177,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_ranked_minimizing_pool_fn",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_fn",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -31815,6 +33197,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "ranked_assign",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_ranked_minlabor_pool_fn",
       "public": true
     },
     {
@@ -31843,6 +33233,22 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_ranked_popularity_pool_fn",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn._selector",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_selector",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_assignment_fn",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -31855,6 +33261,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "ranked_assign",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_ranked_uniform_pool_fn",
       "public": true
     },
     {

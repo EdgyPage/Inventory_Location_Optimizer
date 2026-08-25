@@ -699,6 +699,8 @@ files:
       - {name: "save_batch_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_batch_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_reorder_queue", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_put_queue_state", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_carryover", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_reorder_queue", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_bin_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -1949,6 +1951,32 @@ files:
       - {name: "test_without_the_log_a_non_keyframe_batch_is_wrong_AND_says_so", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
       - {name: "test_without_the_log_a_keyframe_batch_is_still_exact", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
     notes: ""
+  "Tests/integration/test_placement_pool_audit.py":
+    purpose: "every shipped restock rule, classified."
+    layer: "tests"
+    key_symbols:
+      - {name: "POOLED", file: "Tests/integration/test_placement_pool_audit.py", kind: "const"}
+      - {name: "PER_UNIT", file: "Tests/integration/test_placement_pool_audit.py", kind: "const"}
+      - {name: "MAXIMISERS", file: "Tests/integration/test_placement_pool_audit.py", kind: "const"}
+      - {name: "ARMS", file: "Tests/integration/test_placement_pool_audit.py", kind: "const"}
+      - {name: "built", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
+      - {name: "test_no_shipped_rule_still_returns_its_own_order", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
+      - {name: "test_the_classification_is_exactly_as_audited", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
+      - {name: "test_every_pool_declares_its_direction", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
+      - {name: "test_a_pool_consumes_its_snapshot_and_never_reissues_a_bin", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
+      - {name: "test_the_drain_asks_the_pool_rather_than_obeying_it", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_placement_scores_persist.py":
+    purpose: "a pooled arm's placement rows persist the score, rank, and policy that chose them."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_pooled_arm_writes_a_score_and_a_policy", file: "Tests/integration/test_placement_scores_persist.py", kind: "function"}
+      - {name: "test_a_null_score_is_null_and_not_zero", file: "Tests/integration/test_placement_scores_persist.py", kind: "function"}
+      - {name: "test_rank_zero_is_the_best_choice_in_the_policys_own_direction", file: "Tests/integration/test_placement_scores_persist.py", kind: "function"}
+      - {name: "test_the_ranker_leaves_unscored_placements_unranked", file: "Tests/integration/test_placement_scores_persist.py", kind: "function"}
+      - {name: "test_the_ranker_gives_ties_the_same_rank", file: "Tests/integration/test_placement_scores_persist.py", kind: "function"}
+      - {name: "test_a_non_scoring_arm_writes_no_scores", file: "Tests/integration/test_placement_scores_persist.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_profile_tree_golden.py":
     purpose: "ProfileTree vs the legacy walk, pinned on synthetic catalogues."
     layer: "tests"
@@ -1963,6 +1991,72 @@ files:
       - {name: "test_latest_is_none_on_an_empty_root", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
       - {name: "test_path_renders_the_contract_templates_exactly", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
       - {name: "test_path_with_a_missing_required_part_fails_loudly", file: "Tests/integration/test_profile_tree_golden.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_put_queues.py":
+    purpose: "one queue object, configured N times."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_default_is_one_queue_that_takes_everything", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_a_fresh_manager_has_the_default_queue_set", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_stock_queue_is_still_the_live_deque_under_one_queue", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_the_three_stream_default_routes_by_category", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_a_category_no_queue_accepts_raises_rather_than_vanishing", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_first_match_wins_so_spec_order_is_precedence", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_an_incoherent_spec_is_refused", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_duplicate_queue_names_are_refused", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_a_queue_set_needs_at_least_one_queue", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_a_full_queue_refuses_and_counts_the_refusal", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_an_unbounded_queue_never_refuses", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_room_reappears_as_the_queue_drains", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_a_snapshot_reports_levels_and_flows_and_resets_only_the_flows", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_oldest_age_is_none_on_an_empty_queue", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_a_split_manager_places_everything_it_is_given", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_the_pallet_queue_is_strict_fifo_by_construction", file: "Tests/integration/test_put_queues.py", kind: "function"}
+      - {name: "test_the_multi_queue_view_is_age_ordered_and_read_only", file: "Tests/integration/test_put_queues.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_putaway_age.py":
+    purpose: "a put-away item's arrival stamp, and what it proves about FIFO."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_respawn_inherits_the_parents_age", file: "Tests/integration/test_putaway_age.py", kind: "function"}
+      - {name: "test_an_unstamped_item_is_minus_one_and_not_zero", file: "Tests/integration/test_putaway_age.py", kind: "function"}
+      - {name: "test_the_stamp_is_monotonic_across_batches", file: "Tests/integration/test_putaway_age.py", kind: "function"}
+      - {name: "test_the_queue_is_age_ordered_whenever_the_drain_reads_it", file: "Tests/integration/test_putaway_age.py", kind: "function"}
+      - {name: "test_the_rescues_do_not_invert_priority", file: "Tests/integration/test_putaway_age.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_putaway_backpressure.py":
+    purpose: "a full queue refuses; nothing is lost, nothing jumps."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_tight_staging_limit_holds_units_rather_than_dropping_them", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_queue_depth_counts_what_is_held", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_an_unbounded_queue_holds_nothing", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_a_held_item_keeps_its_arrival_stamp", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_retry_stops_at_the_first_blocked_item_rather_than_scanning_past_it", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_two_queues_block_independently", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_the_refusal_is_counted", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_a_staging_limit_does_not_throttle_throughput", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_every_staging_limit_places_the_same_work", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_the_refill_loop_terminates_when_nothing_can_be_placed", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+      - {name: "test_the_refill_cap_logs_rather_than_raising", file: "Tests/integration/test_putaway_backpressure.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_queue_state_and_carryover.py":
+    purpose: "the queue's own state, and what it failed to place."
+    layer: "tests"
+    key_symbols:
+      - {name: "db", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "STATE", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "const"}
+      - {name: "CARRY", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "const"}
+      - {name: "test_queue_state_round_trips", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_carryover_round_trips_with_its_reason", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_a_zero_blocked_count_is_recorded_rather_than_omitted", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_the_bundle_inserts_both_new_surfaces", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_a_caller_that_omits_them_writes_no_rows", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_re_saving_a_batch_replaces_rather_than_duplicates", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_carryover_is_keyed_by_batch_reason_and_sku", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_carryover_rows_separate_unplaced_from_held", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_queue_contents_reports_held_items_too", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
+      - {name: "test_queue_state_rows_drain_the_counters_exactly_once", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
     notes: ""
   "Tests/integration/test_run_layout.py":
     purpose: "Locks the run_layout.json descriptor \u2014 write/read round-trip, descriptor-driven cells() with no DBs on disk, and write_run_layout keys == the JSON Schema properties."
@@ -2286,6 +2380,8 @@ files:
       - {name: "test_optmap_placement_is_score_matched_not_greedy", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
       - {name: "test_optmap_capped_saves_prime_spots", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
       - {name: "test_cluster_map_cohesion_pulls_codemanded_into_one_aisle", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_cluster_map_reports_the_cost_that_chose_the_bin", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
+      - {name: "test_cluster_map_capped_fallback_reports_no_cost", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
       - {name: "test_cluster_map_anchors_at_favored_location_then_compacts", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
       - {name: "test_cluster_map_rank_caps_prime_like_map_rank", file: "Tests/unit/test_assignment_and_labor.py", kind: "function"}
     notes: ""
@@ -2300,6 +2396,8 @@ files:
       - {name: "test_cohesion_max_co_locates_with_an_affinity_partner_despite_higher_travel", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_travel_min_ignores_the_partner_and_takes_the_cheapest_aisle", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_compaction_and_expansion_pick_opposite_columns_around_the_partner", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
+      - {name: "test_the_co_demand_pool_agrees_with_its_per_unit_twin", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
+      - {name: "test_the_co_demand_pool_reports_no_score_before_a_partner_lands", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_affinity_driven_policies_refuse_a_null_lift_matrix", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_demand_weighted_policies_refuse_an_empty_frequency_map", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_nonpositive_speed_is_rejected_at_the_config_boundary", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
@@ -2331,6 +2429,26 @@ files:
       - {name: "test_fenwick_matches_linear_reference_exactly", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
       - {name: "test_config_sampler_reaches_both_production_construction_sites", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
       - {name: "test_fingerprint_v1_unchanged_and_v2_distinct", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_batch_shortfall.py":
+    purpose: "demand that could not be reached is now sayable."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_fully_stocked_demand_reports_no_shortfall", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_a_partially_stocked_sku_reports_the_gap", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_a_sku_with_no_bins_at_all_reports_its_whole_demand", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_shortfall_accumulates_across_skus_independently", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_it_draws_across_several_bins_before_declaring_a_shortfall", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_reserve_bins_count_before_the_shortfall_does", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_the_two_entry_points_produce_the_same_tasks", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_the_plain_entry_point_still_takes_four_positional_args", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_the_fallback_branch_reports_the_same_shortfall", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_batch_stats_carries_the_demand_side", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_the_column_is_not_in_the_guaranteed_surface", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_a_sku_in_two_bins_of_one_aisle_is_picked_once", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_a_pick_can_never_exceed_what_the_bin_holds", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_one_bin_per_sku_per_aisle_is_correct", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
+      - {name: "test_the_runner_records_what_the_batch_asked_for", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
     notes: ""
   "Tests/unit/test_batch_stat_invariance.py":
     purpose: "a batch statistic measures a SPAN, not a timestamp."
@@ -2496,6 +2614,18 @@ files:
       - {name: "test_no_family_module_closes_a_chart_figure_by_hand", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
       - {name: "test_the_module_guards_can_actually_see_the_package", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_co_demand_pool_equivalence.py":
+    purpose: "the co-demand pool decides what the wave decided."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_pool_matches_the_impl_exactly", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
+      - {name: "test_two_consecutive_waves_share_state", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
+      - {name: "test_the_fixture_exercises_what_it_claims", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
+      - {name: "test_compact_and_expand_actually_disagree", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
+      - {name: "test_score_is_the_paced_distance_from_the_partner_centroid", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
+      - {name: "test_an_exhausted_pool_reports_nothing", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
+      - {name: "test_a_stale_winner_key_would_send_the_next_unit_to_the_wrong_aisle", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_equilibrium_reorder.py":
     purpose: "test_equilibrium_reorder.py"
     layer: "tests"
@@ -2517,6 +2647,21 @@ files:
       - {name: "test_supply_cv_above_zero_varies_the_received_quantity_around_the_target", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_the_receipt_floor_holds_even_at_an_absurd_supply_cv", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_supply_cv_is_generated_per_sku_and_survives_a_db_round_trip", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_forward_pick_family.py":
+    purpose: "one spelling for forward-pick vs reserve."
+    layer: "tests"
+    key_symbols:
+      - {name: "FAMILIES", file: "Tests/unit/test_forward_pick_family.py", kind: "const"}
+      - {name: "test_the_unit_side_and_bin_side_answers_match", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+      - {name: "test_it_reproduces_isinstance_singleton", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+      - {name: "test_it_reproduces_the_bin_unit_type_test", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+      - {name: "test_only_the_singleton_family_is_forward_pick", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+      - {name: "test_fulfillment_is_reserve_deliberately", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+      - {name: "test_the_predicate_is_binkey_slot_four", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+      - {name: "test_the_size_tier_does_not_change_the_answer", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+      - {name: "test_candidate_matching_never_crosses_unit_families", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+      - {name: "test_no_module_selects_between_the_two_bin_indexes_by_hand", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
     notes: ""
   "Tests/unit/test_fulfillment_channels.py":
     purpose: "test_fulfillment_channels.py"
@@ -2600,6 +2745,19 @@ files:
       - {name: "test_nothing_drawable_returns_zero_rather_than_an_empty_chart", file: "Tests/unit/test_marks.py", kind: "function"}
       - {name: "test_every_bespoke_entry_names_a_real_evaluation_view_with_a_real_reason", file: "Tests/unit/test_marks.py", kind: "function"}
       - {name: "test_the_bespoke_ledger_is_capped", file: "Tests/unit/test_marks.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_minlabor_pool_equivalence.py":
+    purpose: "the minlabor pool decides what the impl decided."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_pool_matches_the_impl_exactly", file: "Tests/unit/test_minlabor_pool_equivalence.py", kind: "function"}
+      - {name: "test_two_consecutive_waves_share_state", file: "Tests/unit/test_minlabor_pool_equivalence.py", kind: "function"}
+      - {name: "test_min_and_max_actually_disagree", file: "Tests/unit/test_minlabor_pool_equivalence.py", kind: "function"}
+      - {name: "test_the_fixture_exercises_what_it_claims", file: "Tests/unit/test_minlabor_pool_equivalence.py", kind: "function"}
+      - {name: "test_take_returns_the_aisle_decision_score", file: "Tests/unit/test_minlabor_pool_equivalence.py", kind: "function"}
+      - {name: "test_an_exhausted_pool_reports_nothing", file: "Tests/unit/test_minlabor_pool_equivalence.py", kind: "function"}
+      - {name: "test_the_delta_sum_stays_in_csr_column_order", file: "Tests/unit/test_minlabor_pool_equivalence.py", kind: "function"}
+      - {name: "test_the_centroid_term_actually_moves_a_bin_choice", file: "Tests/unit/test_minlabor_pool_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_mixed_catalog_channels.py":
     purpose: "test_mixed_catalog_channels.py"
@@ -2712,6 +2870,8 @@ files:
       - {name: "test_cluster_map_choose_aisle_matches_reference", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
       - {name: "map_assets", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
       - {name: "test_map_wave_matches_per_unit_scan", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_map_pool_matches_the_wave_bin_for_bin", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
+      - {name: "test_the_pool_reports_the_gap_it_chose_on", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
       - {name: "test_map_queue_stays_bounded", file: "Tests/unit/test_placement_fastpath_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_placement_lifecycle.py":
@@ -2764,6 +2924,27 @@ files:
       - {name: "test_reserved_subtrees_are_never_walked", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
       - {name: "test_dry_run_deletes_nothing_and_apply_deletes", file: "Tests/unit/test_prune_stale_analysis.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_put_policy.py":
+    purpose: "the queue's own precedence, and how it composes with the window."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_inherit_means_no_opinion", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_an_unknown_policy_raises_rather_than_inheriting", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_a_spec_validates_its_policy_at_construction", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_every_registered_policy_is_usable", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_fifo_ignores_the_pool_entirely", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_lifo_is_newest_first", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_largest_first_orders_by_quantity", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_largest_first_breaks_ties_by_arrival", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_sku_batched_groups_a_sku_at_its_oldest_members_position", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_sku_batched_is_arrival_ordered_within_a_sku", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_the_set_scoped_policy_cannot_be_called_per_item", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_a_policy_is_still_bounded_by_the_window", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_a_window_of_one_defeats_any_policy", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_a_window_wider_than_the_queue_is_the_plain_policy_order", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_inherit_leaves_the_pool_in_charge", file: "Tests/unit/test_put_policy.py", kind: "function"}
+      - {name: "test_sku_batched_restores_same_sku_adjacency", file: "Tests/unit/test_put_policy.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_putaway_budget.py":
     purpose: "the drain can be capped, and capping loses nothing."
     layer: "tests"
@@ -2779,11 +2960,24 @@ files:
       - {name: "test_a_ranked_drain_with_no_budget_still_reaches_the_per_unit_fallback", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
       - {name: "test_the_budget_counts_placements_not_pops", file: "Tests/unit/test_putaway_budget.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_putaway_item_consumers.py":
+    purpose: "a standing put-away queue must not crash its readers."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_item_does_not_forward_to_its_unit", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+      - {name: "test_a_standing_queue_snapshots_without_raising", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+      - {name: "test_the_old_expression_is_the_one_that_raised", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+      - {name: "test_two_items_of_one_sku_accumulate", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+      - {name: "test_the_runner_does_not_walk_the_put_away_queue_at_all", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+      - {name: "test_the_manager_reporters_unwrap_the_item", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+      - {name: "test_the_diagnostics_bucket_helper_accepts_either", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+      - {name: "test_every_queue_walker_in_the_repo_unwraps", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_putaway_provenance.py":
     purpose: "where a queued unit came from is declared, not inferred."
     layer: "tests"
     key_symbols:
-      - {name: "test_no_enqueue_site_pushes_a_bare_unit", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_only_admit_puts_a_new_unit_on_the_queue", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_the_three_sources_are_all_used", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_an_unknown_source_is_refused_at_construction", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_the_default_is_intake", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
@@ -2819,6 +3013,29 @@ files:
       - {name: "test_draining_restarts_the_crews_clock", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
       - {name: "test_every_batch_starts_its_records_at_zero", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
       - {name: "test_the_labor_total_still_accumulates_across_batches", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_crew_of_one_is_exactly_the_old_serial_clock", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_two_putters_halve_the_makespan", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_each_worker_runs_its_own_gapless_clock", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_no_worker_is_in_two_places_at_once", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_drain_restarts_every_workers_clock", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_crew_of_zero_is_rejected", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_putaway_window.py":
+    purpose: "FIFO with exactly K units of tolerance."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_window_wider_than_the_queue_is_exactly_the_policys_order", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_a_window_of_one_is_strict_fifo", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_the_window_is_the_k_oldest_and_slides_by_one", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_every_served_unit_was_among_the_k_oldest_still_waiting", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_the_window_bounds_LOOKAHEAD_and_not_staleness", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_every_unit_is_served_exactly_once", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_a_wider_window_never_serves_a_unit_later_than_the_policy_would", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_a_pool_without_precedence_is_untouched_by_the_window", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_a_window_below_one_is_refused", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_an_empty_or_single_group_is_handled", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_the_manager_defaults_to_an_unbounded_window", file: "Tests/unit/test_putaway_window.py", kind: "function"}
+      - {name: "test_a_queues_own_k_cap_overrides_the_manager_default", file: "Tests/unit/test_putaway_window.py", kind: "function"}
     notes: ""
   "Tests/unit/test_quantities.py":
     purpose: "the quantity table is the ONE declaration, and it is faithful."
@@ -2842,6 +3059,20 @@ files:
       - {name: "test_keys_and_stems_are_unique", file: "Tests/unit/test_quantities.py", kind: "function"}
       - {name: "test_a_series_quantity_declares_a_stem_and_a_title", file: "Tests/unit/test_quantities.py", kind: "function"}
       - {name: "test_the_stdlib_promise_holds", file: "Tests/unit/test_quantities.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_ranked_assign_pool_equivalence.py":
+    purpose: "the pool computes what the wave computed."
+    layer: "tests"
+    key_symbols:
+      - {name: "ARMS", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "const"}
+      - {name: "test_pool_matches_the_impl_exactly", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
+      - {name: "test_the_fixture_is_not_vacuous", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
+      - {name: "test_order_is_the_impls_own_sort", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
+      - {name: "test_order_is_a_request_the_caller_may_decline", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
+      - {name: "test_take_returns_the_travel_cost_it_chose_on", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
+      - {name: "test_an_exhausted_pool_reports_no_score", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
+      - {name: "test_two_consecutive_groups_share_state", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
+      - {name: "test_the_state_is_actually_deep_copied_between_runs", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_regime_sizing.py":
     purpose: "the PER-REGIME warehouse sizing path (plan_warehouse regime_sizing)."
@@ -3463,6 +3694,8 @@ files:
       - {name: "WarehousePlan", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "tier_ranks_for", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
       - {name: "binkey_of", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
+      - {name: "FORWARD_PICK_FAMILY", file: "Warehouse/inventory/inventory_common.py", kind: "const"}
+      - {name: "is_forward_pick", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
     notes: ""
   "Warehouse/inventory/inventory_optimal.py":
     purpose: "optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map."
@@ -3483,6 +3716,27 @@ files:
     layer: "wh_inventory"
     key_symbols:
       - {name: "ReorderMixin", file: "Warehouse/inventory/inventory_reorder.py", kind: "class"}
+    notes: ""
+  "Warehouse/inventory/put_policy.py":
+    purpose: "how a put-away queue decides which waiting item to work next."
+    layer: "wh_inventory"
+    key_symbols:
+      - {name: "INHERIT", file: "Warehouse/inventory/put_policy.py", kind: "const"}
+      - {name: "key_for", file: "Warehouse/inventory/put_policy.py", kind: "function"}
+    notes: ""
+  "Warehouse/inventory/put_queue.py":
+    purpose: "one configurable put-away queue, instantiated N times."
+    layer: "wh_inventory"
+    key_symbols:
+      - {name: "PALLET", file: "Warehouse/inventory/put_queue.py", kind: "const"}
+      - {name: "SINGLETON", file: "Warehouse/inventory/put_queue.py", kind: "const"}
+      - {name: "FULFILLMENT", file: "Warehouse/inventory/put_queue.py", kind: "const"}
+      - {name: "ANY", file: "Warehouse/inventory/put_queue.py", kind: "const"}
+      - {name: "PutQueueSpec", file: "Warehouse/inventory/put_queue.py", kind: "class"}
+      - {name: "PutQueue", file: "Warehouse/inventory/put_queue.py", kind: "class"}
+      - {name: "PutQueueSet", file: "Warehouse/inventory/put_queue.py", kind: "class"}
+      - {name: "single_queue", file: "Warehouse/inventory/put_queue.py", kind: "function"}
+      - {name: "store_and_fulfillment", file: "Warehouse/inventory/put_queue.py", kind: "function"}
     notes: ""
   "Warehouse/kernel/allocation.py":
     purpose: "split a fixed set of work across N workers."
@@ -3629,14 +3883,23 @@ files:
       - {name: "build_uniform_aisle_trip_min_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_co_demand_placement", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_minimizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_minimizing_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_maximizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_maximizing_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_uniform_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_uniform_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_popularity_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_popularity_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_labor_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_labor_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_cartlabor_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_cartlabor_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_minlabor_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_minlabor_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_maxlabor_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_ranked_maxlabor_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_optmap_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_optmap_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_optmap_wave_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_cluster_map_placement", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "ASSIGNMENT_BUILDERS", file: "Warehouse/placement/Assignment_Functions.py", kind: "const"}

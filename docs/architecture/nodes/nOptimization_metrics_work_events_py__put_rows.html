@@ -18,8 +18,8 @@
 <section class="doc">Merged-stream rows for one batch&#x27;s put-away.
 
 `records` are `Inventory_Manager.drain_putaway_records()` tuples
-`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on
-the put crew&#x27;s own clock from 0 within this batch (the drain restarts it).
+`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker)`, whose `t_start`
+runs on that WORKER&#x27;s own clock from 0 within this batch (the drain restarts them all).
 
 TWO ORIGINS, and they are not the same instant:
 
@@ -39,9 +39,12 @@ i+1&#x27;s release. Restarting at each wave would have the same single worker do
 batches at the same instant — measured on a store arm before this carry existed, 16-33
 rows per DB overlapped.
 
-The records are laid out over the crew&#x27;s workers round-robin; with a crew of one —
-today&#x27;s default — every row is that worker&#x27;s. The event type is `put` and `qty` is
-positive.</section>
+Each record names the WORKER that did it. The manager gives every put to whichever of
+its crew is free earliest, so the worker is a scheduling outcome, not a function of
+position in the list. This used to round-robin on `seq % len(workers)` while the
+durations came from a single serial clock — so a crew of two reported two people each
+doing every other put, at instants that said one person did all of them. The event type
+is `put` and `qty` is positive.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__put_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20put_rows">Source ↗</a></p>
 </article>

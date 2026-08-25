@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_MinLaborPool · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___MinLaborPool" data-id="Warehouse/placement/Assignment_Functions.py::_MinLaborPool">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_MinLaborPool</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_MinLaborPool</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>class _MinLaborPool(_Pool)</code></pre>
+<section class="doc">`_ranked_minlabor_impl` as a pool -- `rank_minlabor`, and `rank_maxlabor` with
+`maximize=True` (one function, both arms, every extremum flipped).
+
+Unlike `_TravelBalancedPool` there is NO per-aisle running load: this policy MINIMISES
+total labor rather than BALANCING it.  Its path dependence flows entirely through the
+deques (pool state) and through two manager dicts that `take` commits to --
+`aisle_idx_sets`, which the affinity reward reads, and `aisle_member_pos`, whose appended
+columns the partner centroid sums in placement order.  That second one is the quieter of
+the two and worth naming: `cx` is not a tie-break, it is the term that picks the bin.
+
+THE DELTA SUM IS INLINED ON PURPOSE (`for ci, w in row_items: if ci in ais`).  It looks
+like a candidate for `_delta_lift_from_row`, and unifying them would be a bug:
+`_delta_lift_from_row` switches which side it iterates on `len(row) &lt;= len(member_set)`,
+so its summation ORDER flips as an aisle fills.  That flip is the one-ulp drift b91cf38
+was written to fix, pinned by Tests/calltree/test_rank_cache_equivalence.py.  This loop
+iterates CSR column order unconditionally and must keep doing so.
+
+The SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) refreshes the last winner
+LAZILY -- on the next unit rather than eagerly after the pop -- because a unit that finds
+no bin leaves nothing stale to repair.  `_last_winner` is cleared every call and re-set
+only after a successful drop.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___build_minlabor_pool_fn_open_pool.html"><code>open_pool</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___MinLaborPool">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=class%20_MinLaborPool">Source ↗</a></p>
+</article>
+</main>
+</body></html>

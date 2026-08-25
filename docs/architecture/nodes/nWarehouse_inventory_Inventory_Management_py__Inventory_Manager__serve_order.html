@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_serve_order · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__serve_order" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>_serve_order</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_serve_order</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+
+<pre class="sig"><code>def _serve_order(self, pool, units: list, k: int | None, put_key=None) -&gt; list</code></pre>
+<section class="doc">WHO is served first, out of one BinKey group.  The drain&#x27;s decision.
+
+`putaway_window` is the tolerance, in units:
+
+  None  the policy&#x27;s whole request is granted -- pre-Phase-2 behaviour, and still
+        the default, so nothing moves until a caller asks for a window.
+  1     strict FIFO.  The policy chooses the BIN and has no say in the order.
+  K     the policy may pick its favourite from the K OLDEST units still waiting.
+        Serve it, slide the window forward by one, repeat.
+
+A window of K &gt;= len(units) is exactly `pool.order(units)`, including the
+tie-breaking: `order` is a stable sort so equal keys keep queue order, and the heap
+below breaks ties on arrival index for the same reason.  That equivalence is
+asserted in Tests/unit/test_putaway_window.py rather than assumed, because it is
+what makes &quot;K = infinity reproduces today&quot; a fact instead of a hope.
+
+This method is the whole point of Phase 1.  Until the pool inversion, an assignment
+function returned `[(unit, bin)] in priority order` and the drain iterated it, so
+every ranked policy was choosing the ORDER as well as the bin -- 14 of the 17
+restock rules, none of them asked to.  Put-away is supposed to be FIFO with a little
+tolerance; instead the queue was freely re-sorted by whatever score maximised the
+assignment function.
+
+The pool split that in two.  `pool.order(units)` is now a REQUEST: the policy states
+the precedence it would like and this method decides what to grant.  Today it grants
+all of it, which is why everything is still byte-identical -- the seam is real but
+not yet load-bearing.  A finite K-oldest window lands here, and only here.
+
+`put_key` is the QUEUE&#x27;s own precedence, from `put_policy`.  When present it
+replaces the pool&#x27;s `sort_key` entirely -- the pool still chooses every bin, it just
+stops choosing who goes first.  `k` then bounds the result exactly as it bounds the
+pool&#x27;s own order, so the two knobs compose rather than override each other.
+
+`units` arrives in queue order (the group&#x27;s insertion order into `_stock_queue`), so
+the FIFO answer is already in hand and needs no extra bookkeeping to recover.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py___windowed.html"><code>_windowed</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_ranked.html"><code>_stock_ranked</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__serve_order">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20_serve_order">Source ↗</a></p>
+</article>
+</main>
+</body></html>

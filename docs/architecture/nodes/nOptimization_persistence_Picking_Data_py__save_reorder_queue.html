@@ -16,8 +16,9 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -&gt; None</code></pre>
 <section class="doc">Persist per-batch queue snapshots.  Each record is
-(batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size); the last two
-are None for &#x27;lead&#x27; entries (in-transit) and carry the bin tier for &#x27;stock&#x27; units.</section>
+(batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size, queue); the middle
+two are None for &#x27;lead&#x27; entries (in-transit) and carry the bin tier for &#x27;stock&#x27; units,
+and `queue` names the put-away stream (None while still in transit).</section>
 <section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___insert_reorder_queue.html"><code>_insert_reorder_queue</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___open_db.html"><code>_open_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__save_reorder_queue">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20save_reorder_queue">Source ↗</a></p>
 </article>

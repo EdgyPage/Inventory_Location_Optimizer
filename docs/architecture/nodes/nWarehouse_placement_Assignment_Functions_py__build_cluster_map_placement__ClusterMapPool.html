@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_ClusterMapPool · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py__build_cluster_map_placement__ClusterMapPool" data-id="Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_ClusterMapPool</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_ClusterMapPool</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>class _ClusterMapPool(_Pool)</code></pre>
+<section class="doc">`place_wave`&#x27;s body, split into open / order / take.
+
+The thinnest port of the four, because `_place` was already the per-unit body and is
+shared with the straggler path -- there is nothing to restructure, only to relocate.
+`_group` and `all_idx` move into `__init__`, the priority sort becomes `order`, and
+`run_cache` becomes an attribute instead of a wave-local dict.
+
+THE RUN CACHE IS THE ONE THING TO BE CAREFUL WITH, and this policy is where the
+lesson was paid for. Its validity argument is written out in `_place`&#x27;s docstring:
+within a same-SKU run the only idx-set that mutates is the winner&#x27;s, and the winner&#x27;s
+cached delta is recomputed immediately after each commit. The first cut instead
+cached ACROSS the winner&#x27;s set growth, and drifted by one ulp -- not because the
+value was wrong, but because `_delta_lift_from_row` iterates the smaller side, so
+adding one member flipped the summation ORDER. That moved a real placement at 8k-SKU
+meso scale. The argument has to be about summation order, not about values.
+
+The cache keys on `run_cache[&#x27;sku&#x27;] == sku`, so losing same-SKU adjacency costs the
+hit rate and not correctness. Making it a persistent `{sku: lifts}` dict to win that
+back would reintroduce exactly the bug above.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py__build_cluster_map_placement__ClusterMapPool">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=class%20_ClusterMapPool">Source ↗</a></p>
+</article>
+</main>
+</body></html>

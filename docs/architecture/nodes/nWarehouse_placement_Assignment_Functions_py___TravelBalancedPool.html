@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_TravelBalancedPool · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___TravelBalancedPool" data-id="Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_TravelBalancedPool</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_TravelBalancedPool</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>class _TravelBalancedPool(_Pool)</code></pre>
+<section class="doc">`_travel_balanced_impl` as a pool -- Rank_labor, and Rank_cartlabor with `cart`.
+
+Everything this policy remembers between placements is either candidate-derived (the
+per-(aisle, bracket) min-D deques, `D_of`, `M_of`) or a RUNNING TOTAL seeded once from
+manager state (`load`, `vol_load`).  Nothing is an aggregate over the unit set.  So the
+split is clean: the whole prologue is `__init__`, the LPT sort is `order`, and one
+placement is `take`.
+
+THE SKU-RUN CACHE comes across unchanged, and its validity argument is worth restating
+because it is the thing a reorder threatens.  `ab_cache`/`score_cache` are rebuilt when
+`sku != run_sku` and refreshed for the WINNER after every placement; a non-winning
+aisle&#x27;s inputs are provably frozen inside a run (`fq`/`var`/`m_s` are per-SKU constants,
+and `load`/`vol_load`/`aisle_sku_sets`/the deque heads move for the winner only).  The
+guard is a value comparison on the SKU, so a drain that stops clustering same-SKU units
+does not make the cache WRONG -- it makes it never hit.  That is the correct failure
+mode, and it is why no `assume_clustered` flag is needed here.
+
+What would break it: turning the cache into a persistent `{sku: ...}` dict to win the
+hit rate back under FIFO.  Between two units of one SKU, OTHER SKUs commit and grow
+other aisles&#x27; state, so a keyed cache would serve stale scores.  Don&#x27;t.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___build_travel_balanced_pool_fn_open_pool.html"><code>open_pool</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___TravelBalancedPool">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=class%20_TravelBalancedPool">Source ↗</a></p>
+</article>
+</main>
+</body></html>

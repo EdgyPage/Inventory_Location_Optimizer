@@ -78,7 +78,7 @@
     },
     "Diagnostics/bucket_fill.py::_unit_bucket": {
       "decorators": [],
-      "doc": null,
+      "doc": "Bucket for a StorageUnit **or** a queued PutawayItem.\n\n`_stock_queue` holds PutawayItem (`.unit`, `.source`), so the three call sites that\nwalk the queue used to hand this function a wrapper and get AttributeError.  Accepting\nboth keeps those call sites reading naturally, and a bin-side caller is unaffected.",
       "is_async": false,
       "kind": "function",
       "signature": "(u) -> Bucket"
@@ -5434,7 +5434,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(unit, bin_, *, source=None)"
+      "signature": "(unit, bin_, *, source=None, score=None, score_rank=None, policy=None)"
     },
     "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin": {
       "decorators": [],
@@ -5486,7 +5486,7 @@
     },
     "Optimization/metrics/work_events.py::put_rows": {
       "decorators": [],
-      "doc": "Merged-stream rows for one batch's put-away.\n\n`records` are `Inventory_Manager.drain_putaway_records()` tuples\n`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source)`, whose `t_start` runs on\nthe put crew's own clock from 0 within this batch (the drain restarts it).\n\nTWO ORIGINS, and they are not the same instant:\n\n  `crew_start`  where the crew actually picks the work up, and what `t_abs` is measured\n                from. The crew is CONTINUOUS: it cannot start batch i's queue before\n                the wave is released, and it cannot start before it finished batch\n                i-1's, so the caller passes `max(batch_start, previous_finish)`.\n                Defaults to `batch_start` for a caller with no carry.\n  `batch_start` the wave's release, and what `t_local` is measured from \u2014 so `t_local`\n                on a put row reads as \"how far into this wave the crew got to it\",\n                and EXCEEDS the batch's duration exactly when the crew is running\n                behind. That is information, not an error.\n\nWhy the crew must carry: one putter placing a whole wave's restock takes longer than\nthe parallel pick crew takes to pick it, so batch i's put-away genuinely overruns batch\ni+1's release. Restarting at each wave would have the same single worker doing two\nbatches at the same instant \u2014 measured on a store arm before this carry existed, 16-33\nrows per DB overlapped.\n\nThe records are laid out over the crew's workers round-robin; with a crew of one \u2014\ntoday's default \u2014 every row is that worker's. The event type is `put` and `qty` is\npositive.",
+      "doc": "Merged-stream rows for one batch's put-away.\n\n`records` are `Inventory_Manager.drain_putaway_records()` tuples\n`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker)`, whose `t_start`\nruns on that WORKER's own clock from 0 within this batch (the drain restarts them all).\n\nTWO ORIGINS, and they are not the same instant:\n\n  `crew_start`  where the crew actually picks the work up, and what `t_abs` is measured\n                from. The crew is CONTINUOUS: it cannot start batch i's queue before\n                the wave is released, and it cannot start before it finished batch\n                i-1's, so the caller passes `max(batch_start, previous_finish)`.\n                Defaults to `batch_start` for a caller with no carry.\n  `batch_start` the wave's release, and what `t_local` is measured from \u2014 so `t_local`\n                on a put row reads as \"how far into this wave the crew got to it\",\n                and EXCEEDS the batch's duration exactly when the crew is running\n                behind. That is information, not an error.\n\nWhy the crew must carry: one putter placing a whole wave's restock takes longer than\nthe parallel pick crew takes to pick it, so batch i's put-away genuinely overruns batch\ni+1's release. Restarting at each wave would have the same single worker doing two\nbatches at the same instant \u2014 measured on a store arm before this carry existed, 16-33\nrows per DB overlapped.\n\nEach record names the WORKER that did it. The manager gives every put to whichever of\nits crew is free earliest, so the worker is a scheduling outcome, not a function of\nposition in the list. This used to round-robin on `seq % len(workers)` while the\ndurations came from a single serial clock \u2014 so a crew of two reported two people each\ndoing every other put, at instants that said one person did all of them. The event type\nis `put` and `qty` is positive.",
       "is_async": false,
       "kind": "function",
       "signature": "(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None)"
@@ -5663,7 +5663,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('6ad0b34af9f1', PRE_STAMP_SIM_SCHEMA_ID, '2b79..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('8114cc4332eb', '96b8e37f158d', '1a594605a10e'..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -5785,6 +5785,13 @@
       "signature": null,
       "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bs_run ON bin_scores (run_id)\\n'"
     },
+    "Optimization/persistence/Picking_Data.py::_CREATE_CARRYOVER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS carryover (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL, -- the batch it carried OUT of\\n reason TEXT NOT NULL, -- 'unpl..."
+    },
     "Optimization/persistence/Picking_Data.py::_CREATE_PICKER_EVENTS": {
       "decorators": [],
       "doc": null,
@@ -5826,6 +5833,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_picks_run_sku ON picks (run_id, sku)\\n'"
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_PUT_QUEUE_STATE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS put_queue_state (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n queue TEXT NOT NULL, -- the PutQueueSpec name\\n depth I..."
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_REORDER_QUEUE": {
       "decorators": [],
@@ -6009,6 +6023,13 @@
       "kind": "function",
       "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
     },
+    "Optimization/persistence/Picking_Data.py::_insert_carryover": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
     "Optimization/persistence/Picking_Data.py::_insert_picker_events": {
       "decorators": [],
       "doc": null,
@@ -6017,6 +6038,13 @@
       "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
     },
     "Optimization/persistence/Picking_Data.py::_insert_picks": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_put_queue_state": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -6247,12 +6275,19 @@
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
     },
-    "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle": {
+    "Optimization/persistence/Picking_Data.py::save_carryover": {
       "decorators": [],
-      "doc": "All per-checkpoint writers on ONE connection with ONE commit.\n\n`work_events` is the merged cross-stream timeline and is keyword-OPTIONAL, so a caller\nthat predates it -- a test, a Diagnostics harness -- is unchanged and writes no rows.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
+      "doc": "Work that did not happen when it should have, and why.  Each record is\n(batch_id, reason, sku, qty).",
       "is_async": false,
       "kind": "function",
-      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list, work_events: list | None=None) -> None"
+      "signature": "(path: str, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle": {
+      "decorators": [],
+      "doc": "All per-checkpoint writers on ONE connection with ONE commit.\n\n`work_events`, `put_queue_state` and `carryover` are keyword-OPTIONAL, so a caller that\npredates them -- a test, a Diagnostics harness -- is unchanged and writes no rows.\n\nA bundle argument that is accepted and never inserted is this function's characteristic\nfailure: `work_events` was one for a while, and the reconciliation that was supposed to\ncatch it passed over 68 databases holding zero rows. Every new argument here needs a\ntest that reads the FILE back.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list, work_events: list | None=None, put_queue_state: list | None=None, carryover: list | None=None) -> None"
     },
     "Optimization/persistence/Picking_Data.py::save_picker_events": {
       "decorators": [],
@@ -6268,9 +6303,16 @@
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list) -> None"
     },
+    "Optimization/persistence/Picking_Data.py::save_put_queue_state": {
+      "decorators": [],
+      "doc": "Per-(batch, queue) stream state: depth and oldest age (LEVELS), admitted/placed/\nblocked (FLOWS).  `blocked` is the only trace a refused admission leaves anywhere.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
+    },
     "Optimization/persistence/Picking_Data.py::save_reorder_queue": {
       "decorators": [],
-      "doc": "Persist per-batch queue snapshots.  Each record is\n(batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size); the last two\nare None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units.",
+      "doc": "Persist per-batch queue snapshots.  Each record is\n(batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size, queue); the middle\ntwo are None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units,\nand `queue` names the put-away stream (None while still in transit).",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
@@ -12402,6 +12444,20 @@
       "kind": "function",
       "signature": "(self, warehouse: Warehouse, assignment_fn: AssignmentFn=_uniform_assignment, affinity: AffinityStore | None=None) -> None"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit": {
+      "decorators": [],
+      "doc": "Put one unit on the put-away queue, stamped with its arrival age.\n\nThe single admission point.  Every producer -- intake, reorder arrivals, reloader\nevictions, and inbound when it exists -- goes through here, so a new producer cannot\nforget to stamp and quietly enter the queue as age -1.\n\nA queue at its staging limit REFUSES, and the item goes to `_held` rather than\nback to the caller.  Handling it here rather than at each producer is deliberate:\nthere are four producers and the failure mode of forgetting one is a unit that\nsilently leaves the conservation ledger, which is exactly the bug that takes a day\nto find.  Callers therefore never see a refusal and none of them changed.\n\nThe stamp is taken on ARRIVAL, not on admission.  A pallet that waited three batches\non the dock is three batches old when it finally gets floor space, and stamping it\nat admission would make it the youngest thing in the warehouse -- turning\nbackpressure into a priority inversion.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, source: str) -> 'PutawayItem'"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit_held": {
+      "decorators": [],
+      "doc": "Retry the held items, oldest first.  Returns how many got in.\n\nStops at the FIRST refusal for a given queue rather than scanning past it for\nsomething that happens to fit.  Letting a younger item slip into the gap a older one\ncould not use is exactly the inversion the age stamp exists to prevent, and it would\nalso make the backpressure unfair in a way no real dock is.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit": {
       "decorators": [],
       "doc": null,
@@ -12453,10 +12509,10 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement": {
       "decorators": [],
-      "doc": "Commit one unit\u2192bin placement and update all manager state dicts.\n\n`source` is the `PutawayItem` origin the drain popped this unit from\n(`intake` / `reorder` / `reslot`), passed through untouched: the manager does not\nact on it, but this is the one call every put-away funnels through, so it is the\nonly place an observer can learn where a placement came from.  Optional and\nignored here, so a direct caller that does not know about the queue \u2014 a test, a\nfuture inbound writer \u2014 is unaffected.",
+      "doc": "Commit one unit\u2192bin placement and update all manager state dicts.\n\n`score` / `score_rank` / `policy` are what the assignment policy chose on, when\nthere was a policy that computed anything.  Like `source`, the manager does not act\non them; they pass through to `BinRecorder`, because this is the one call every\nput-away funnels through and there is nowhere later to recover them from -- the\npools return the number as they decide, and nothing recomputes it.\n\n`source` is the `PutawayItem` origin the drain popped this unit from\n(`intake` / `reorder` / `reslot`), passed through untouched: the manager does not\nact on it, but this is the one call every put-away funnels through, so it is the\nonly place an observer can learn where a placement came from.  Optional and\nignored here, so a direct caller that does not know about the queue \u2014 a test, a\nfuture inbound writer \u2014 is unaffected.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, unit: StorageUnit, bin_: Aisle.Bin, *, source: str | None=None) -> None"
+      "signature": "(self, unit: StorageUnit, bin_: Aisle.Bin, *, source: str | None=None, score: float | None=None, score_rank: int | None=None, policy: str | None=None) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._group_key": {
       "decorators": [],
@@ -12486,6 +12542,13 @@
       "kind": "function",
       "signature": "(self, bin_: Aisle.Bin) -> BinKey"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order": {
+      "decorators": [],
+      "doc": "WHO is served first, out of one BinKey group.  The drain's decision.\n\n`putaway_window` is the tolerance, in units:\n\n  None  the policy's whole request is granted -- pre-Phase-2 behaviour, and still\n        the default, so nothing moves until a caller asks for a window.\n  1     strict FIFO.  The policy chooses the BIN and has no say in the order.\n  K     the policy may pick its favourite from the K OLDEST units still waiting.\n        Serve it, slide the window forward by one, repeat.\n\nA window of K >= len(units) is exactly `pool.order(units)`, including the\ntie-breaking: `order` is a stable sort so equal keys keep queue order, and the heap\nbelow breaks ties on arrival index for the same reason.  That equivalence is\nasserted in Tests/unit/test_putaway_window.py rather than assumed, because it is\nwhat makes \"K = infinity reproduces today\" a fact instead of a hope.\n\nThis method is the whole point of Phase 1.  Until the pool inversion, an assignment\nfunction returned `[(unit, bin)] in priority order` and the drain iterated it, so\nevery ranked policy was choosing the ORDER as well as the bin -- 14 of the 17\nrestock rules, none of them asked to.  Put-away is supposed to be FIFO with a little\ntolerance; instead the queue was freely re-sorted by whatever score maximised the\nassignment function.\n\nThe pool split that in two.  `pool.order(units)` is now a REQUEST: the policy states\nthe precedence it would like and this method decides what to grant.  Today it grants\nall of it, which is why everything is still byte-identical -- the seam is real but\nnot yet load-bearing.  A finite K-oldest window lands here, and only here.\n\n`put_key` is the QUEUE's own precedence, from `put_policy`.  When present it\nreplaces the pool's `sort_key` entirely -- the pool still chooses every bin, it just\nstops choosing who goes first.  `k` then bounds the result exactly as it bounds the\npool's own order, so the two knobs compose rather than override each other.\n\n`units` arrives in queue order (the group's insertion order into `_stock_queue`), so\nthe FIFO answer is already in hand and needs no extra bookkeeping to recover.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, pool, units: list, k: int | None, put_key=None) -> list"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._sigma_delta": {
       "decorators": [],
       "doc": "f_s \u00b7 D(bin) increment for the incremental \u03a3 f\u00b7D tracker.\n\nThe ONE shared expression behind every += / -= on _sigma_fd (placement adds,\neviction/depletion subtracts) \u2014 kept as a method so the formula can't drift\nbetween the three sites.  Callers guard on ``self._sigma_freq is not None``.",
@@ -12512,14 +12575,30 @@
       "doc": "Place queued StorageUnit objects one at a time via placement.place_one.\n\nUsed for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked\nwave leaves behind.  The coupling guard runs in _stock() (the single entry).\n\nPlacement failures:\n  1. Repack into a smaller pallet size tier (retried immediately via appendleft).\n  2. Fall back to singleton bins of the same order type (same).\n  3. If no bin is available, the unit stays in the queue (FIFO, no expiry).\n\n``budget`` caps PLACEMENTS, not pops: a repack splits one unit into several and\npushes them back, and charging a budget for that would make the cap depend on how\nbadly the warehouse is packed rather than on how much the crew can move.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, budget: int | None=None) -> None"
+      "signature": "(self, budget: int | None=None, queue=None) -> None"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_queue": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The put-away queue.\n\nA live deque while there is ONE queue -- which is the default, and why every\nexisting consumer, mutation site and test keeps working unchanged.  With the streams\nsplit there is no single deque to hand back, so this returns a read-only view and\nany code that tried to mutate it would fail loudly rather than mutate a copy.\nInternal drain code takes a `PutQueue` explicitly and never reaches for this.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked": {
       "decorators": [],
       "doc": "Ranked placement: sort units by pick-effort priority, then drain.\n\nGroups the queue by BinKey (handling, category, storage_size, unit_type)\n\u2014 the same key used by _candidates() \u2014 so units only compete with others\nin the same bin pool.  Within each group, placement.place_wave returns\n(unit, bin|None) pairs sorted by pick-effort priority so high-effort\nitems claim the best (lowest-D) bins before lower-priority items.\n\nUnits the wave cannot place are handed to the per-unit path\n(_stock_per_unit), which re-fetches candidates per unit so they spill into\nother tiers / remaining bins exactly as FIFO does (see below).\n\n``budget`` is spent per GROUP here, not per unit, and that is not a simplification.\n`place_wave` scores a whole group at once and mutates the manager's aisle running\nbalances as it decides, so each unit's bin depends on where the earlier units in\nthe same wave went.  Truncating a wave mid-way would place units under a balance\nthat assumed the rest landed too.  So the check happens BEFORE the wave is called:\na group that cannot be afforded is requeued untouched, having never influenced an\naisle balance.  A wave is the atom.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, budget: int | None=None) -> None"
+      "signature": "(self, budget: int | None=None, queue=None) -> None"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._window_for": {
+      "decorators": [],
+      "doc": "The ordering tolerance for one queue: its own `k_cap`, or the manager's default.\n\nA spec's None means INHERIT rather than \"unbounded\", so the manager-wide\n`putaway_window` still governs every queue that has no reason to differ, and the\ndefault single queue behaves exactly as it did before queues existed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, queue) -> int | None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._zone_filter": {
       "decorators": [],
@@ -12545,6 +12624,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list[Aisle.Bin]"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.carryover_rows": {
+      "decorators": [],
+      "doc": "`(batch_id, reason, sku, qty)` for everything that did not get placed.\n\n'unplaced' could not reach a bin; 'held' was refused floor space.  Keeping them\napart is the whole value of the column: they are different problems with different\nfixes, and one carried-over count cannot tell them apart.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch_id: int) -> list[tuple]"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning": {
       "decorators": [],
@@ -12574,7 +12660,7 @@
       "doc": "Bind a put crew's travel speed + cost model, so every placement costs seconds.\n\nFollows `enable_sigma_fd`'s precedent: a binder the harness calls, so the domain\nnever reaches into CONFIG for it.  `speed` is a `cost_model.SpeedProfile` (a put\ncrew's own, which is why a Mode exists); `cost` defaults to `PutawayCost()`.\n\nADDITIVE BY CONSTRUCTION.  Put-away time does not move the pick clock, does not\ncontend for an aisle, and does not change which unit lands in which bin -- the same\nitems are picked, in the same order, at the same instants.  It records a duration\nand a row.  Contention is the inbound feature, not this seam.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, speed, cost=None) -> None"
+      "signature": "(self, speed, cost=None, size: int=1) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue": {
       "decorators": [],
@@ -12589,6 +12675,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, orders: list[Order], quantity: int | None=None) -> 'Inventory_Manager'"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.held_depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Units refused floor space and waiting upstream. 0 unless a queue sets `staging`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.in_transit_qty": {
       "decorators": [
@@ -12638,14 +12733,28 @@
       "kind": "function",
       "signature": "(self) -> float"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_contents": {
+      "decorators": [],
+      "doc": "What is waiting for a bin, per stream, aggregated for the replay viewer.\n\nReturns `(kind, sku, unit_type, storage_size, queue, qty)`.  `kind` is 'stock' for\nitems on a queue and 'held' for items a full queue refused -- the second is invisible\nin `_stock_queue` by construction, so a reader that only walked the queues would\nunder-report the backlog exactly when backpressure is doing something.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list[tuple]"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_depth": {
       "decorators": [
         "property"
       ],
-      "doc": null,
+      "doc": "Units waiting for a bin, INCLUDING those a full queue is holding upstream.\n\nHeld items are waiting just as much as queued ones -- the only difference is that\nthe floor has no room for them yet.  Reporting only the queued half would make a\nstaging limit look like the backlog had vanished, which is the opposite of what a\nbackpressure model is for.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_state_rows": {
+      "decorators": [],
+      "doc": "One row per queue: depth and oldest age (LEVELS) plus the flow counters.\n\nDRAINS the counters, so it must run exactly once per batch or the next batch\ndouble-counts this one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch_id: int) -> list[dict]"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.summary": {
       "decorators": [],
@@ -12672,12 +12781,81 @@
       "kind": "function",
       "signature": "(self) -> int"
     },
+    "Warehouse/inventory/Inventory_Management.py::_MAX_REFILL_PASSES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "10000"
+    },
+    "Warehouse/inventory/Inventory_Management.py::_MultiQueueView": {
+      "decorators": [],
+      "doc": "A read-only, age-ordered view across split put-away streams.\n\n`_stock_queue` was a single deque that three external consumers iterate and measure\n(`Diagnostics/bucket_fill.py`, the runner's queue-depth ledger, and the conservation\ncheck).  Once the streams split there is no one deque to return, and returning a merged\nCOPY would let a caller mutate it and lose the write in silence.  This is iterable and\nsizeable and nothing else, so the mutation fails at the attribute rather than at the\nconsequence.\n\nMerged by arrival age, so a consumer asking \"what is waiting, oldest first\" gets the\nsame answer it always did rather than one queue's contents followed by another's.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__bool__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, queues)"
+    },
+    "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/Inventory_Management.py::_MultiQueueView.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
     "Warehouse/inventory/Inventory_Management.py::_apportion": {
       "decorators": [],
       "doc": "Allocate `m` aisles across `n` bands proportional to `weights`, with a floor of 1 per band\nwhen `m >= n` (so every band is reachable for the zone-filter spill).  When `m < n`, the first\n`m` (hottest) bands get 1 each and the rest 0 (spill covers the empties).  Largest-remainder.",
       "is_async": false,
       "kind": "function",
       "signature": "(m: int, weights: list, n: int) -> list"
+    },
+    "Warehouse/inventory/Inventory_Management.py::_ranked_by_score": {
+      "decorators": [],
+      "doc": "Attach each placement's 0-based rank within its group, best first.\n\n`prefers_low` comes from the pool, so rank 0 always means \"the best choice available\"\nrather than \"the smallest number\" -- three arms (tmax, rank_maxlabor, expn) optimise\nupward on purpose, and a consumer should not have to know which.\n\nUnscored placements (a policy with nothing to report for that unit, or a `None` bin)\nrank NULL rather than last: they were not worse, they were not measured.  Equal scores\nshare the LOWEST rank, competition-style, so a tie never implies an ordering the policy\ndid not make -- the tie was broken by candidate order, not by the objective.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(taken: list, prefers_low: bool) -> list"
+    },
+    "Warehouse/inventory/Inventory_Management.py::_windowed": {
+      "decorators": [],
+      "doc": "Serve `units` best-first, but only ever choosing from the K oldest still waiting.\n\nRanked ONCE from a stable descending sort, then windowed on the rank.  The rank detour\nis not indirection for its own sake: the first version negated each key for a min-heap,\nwhich silently required every key to be a number, and `sku_batched` needs a two-level\nkey.  Ranking also puts the tie rule in one place -- `sorted` is stable, so units the\nkey cannot separate keep their arrival order, which is what a FIFO queue should do\nanyway.\n\nKeys are computed once by the caller and reused across every window an item appears in,\nwhich is what keeps this O(n log n) rather than O(n*k) key evaluations.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(units: list, keys: list, k: int) -> list"
+    },
+    "Warehouse/inventory/Inventory_Management.py::log": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "logging.getLogger(__name__)"
     },
     "Warehouse/inventory/__init__.py": {
       "decorators": [],
@@ -12705,6 +12883,13 @@
       "signature": null,
       "value_preview": "tuple[str, str, str, str]"
     },
+    "Warehouse/inventory/inventory_common.py::FORWARD_PICK_FAMILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'singleton'"
+    },
     "Warehouse/inventory/inventory_common.py::LoadParams": {
       "decorators": [
         "dataclass"
@@ -12731,20 +12916,36 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, name: str, place_one: AssignmentFn, place_wave: 'RankedAssignmentFn | None'=None, order_score: 'Callable[[Any], float] | None'=None) -> None"
+      "signature": "(self, name: str, place_one: AssignmentFn, place_wave: 'RankedAssignmentFn | None'=None, order_score: 'Callable[[Any], float] | None'=None, open_pool: 'PoolFn | None'=None) -> None"
+    },
+    "Warehouse/inventory/inventory_common.py::Placement.is_pooled": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The drain may choose the order: this policy answers one unit at a time.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
     },
     "Warehouse/inventory/inventory_common.py::Placement.is_ranked": {
       "decorators": [
         "property"
       ],
-      "doc": null,
+      "doc": "Placed a whole BinKey group at once -- by pool or by wave.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> bool"
     },
+    "Warehouse/inventory/inventory_common.py::PoolFn": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Callable[[list], 'Pool']"
+    },
     "Warehouse/inventory/inventory_common.py::PutawayItem": {
       "decorators": [],
-      "doc": "One unit waiting for a bin, and where it came from.\n\nThe queue used to hold bare `StorageUnit`s, fed identically by initial intake\n(`enqueue`/`enqueue_all`), reorder arrivals (`_release_to_stock`) and reloader\nevictions (`requeue_bin`).  Once a unit was in, its origin was unrecoverable \u2014 so\n`BinRecorder` reconstructed 'reslot' by holding a set of `id(unit)` and testing\nmembership at placement time.  That works only because the evicted unit is the\nIDENTICAL object and is still alive; it is not a property anything declares.\n\nCarrying the source with the work item makes `bin_placement.cause` a fact the queue\nknows rather than one the recorder infers, and it is the field a trailer id will\noccupy when inbound loads become a source of their own.\n\nFrozen because a queued item's origin must not be editable in flight; `respawn` is the\none legal derivation, used by the repack and singleton rescues, which split one unit\ninto several without changing where any of them came from.",
+      "doc": "One unit waiting for a bin, and where it came from.\n\nThe queue used to hold bare `StorageUnit`s, fed identically by initial intake\n(`enqueue`/`enqueue_all`), reorder arrivals (`_release_to_stock`) and reloader\nevictions (`requeue_bin`).  Once a unit was in, its origin was unrecoverable \u2014 so\n`BinRecorder` reconstructed 'reslot' by holding a set of `id(unit)` and testing\nmembership at placement time.  That works only because the evicted unit is the\nIDENTICAL object and is still alive; it is not a property anything declares.\n\nCarrying the source with the work item makes `bin_placement.cause` a fact the queue\nknows rather than one the recorder infers, and it is the field a trailer id will\noccupy when inbound loads become a source of their own.\n\n`age` is a monotonic arrival stamp, and it exists because \"FIFO\" stopped being a\nproperty of the deque the moment the drain got a K-oldest window.  Queue POSITION used\nto be the only record of how long something had waited, which is fine while nothing ever\nre-enters \u2014 and three things do: the repack rescue, the singleton rescue, and a group\nrequeued whole when the put-away budget runs out.  A stamp survives all three and can be\nasserted; a position cannot even be inspected after the fact.\n\nIt is also what the queue-state snapshots report as `oldest_age`, and the field a\ntrailer's arrival time will map onto when inbound becomes a producer.\n\nFrozen because a queued item's origin must not be editable in flight; `respawn` is the\none legal derivation, used by the repack and singleton rescues, which split one unit\ninto several without changing where any of them came from \u2014 or how old any of them is.",
       "kind": "class",
       "signature": ""
     },
@@ -12753,7 +12954,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, unit: StorageUnit, source: str='intake') -> None"
+      "signature": "(self, unit: StorageUnit, source: str='intake', age: int=-1) -> None"
     },
     "Warehouse/inventory/inventory_common.py::PutawayItem.__repr__": {
       "decorators": [],
@@ -12771,7 +12972,7 @@
     },
     "Warehouse/inventory/inventory_common.py::PutawayItem.respawn": {
       "decorators": [],
-      "doc": "A unit split out of this one during a rescue, keeping the origin.",
+      "doc": "A unit split out of this one during a rescue, keeping the origin AND the age.\n\nA repack does not make a unit newer.  The pallet that arrived first and had to be\nbroken into three should still be put away before a pallet that arrived after it;\ninheriting the stamp is what says so, and it is what keeps the rescue paths from\nbecoming a way to jump the queue.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, unit: StorageUnit) -> 'PutawayItem'"
@@ -12894,6 +13095,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(obj) -> BinKey"
+    },
+    "Warehouse/inventory/inventory_common.py::is_forward_pick": {
+      "decorators": [],
+      "doc": "Whether a unit or a bin belongs to the FORWARD-PICK index rather than reserve.\n\n`Task.from_batch` drains `_sku_singleton_bins` before `_sku_pallet_bins` \"so that\nforward-pick locations are always preferred over reserve locations\" -- this is the\npredicate that decides which of those two a bin is filed under.\n\nDuck-typed through `binkey_of`, which is what lets ONE expression serve both sides.\nIt replaced three: `isinstance(unit, Singleton)` on the unit side and\n`bin_.unit_type == 'singleton'` twice on the bin side.  Those agreed, but only because\n`_candidates_raw` matches `unit_type` EXACTLY in every branch, so a unit never reaches\na bin of another family -- an invariant nothing stated and nothing checked.  Three\nspellings of one concept, two of them on the opposite object from the third, is a\ndisagreement with a delay on it.\n\nFULFILLMENT IS NOT FORWARD-PICK, and that is deliberate rather than overlooked: a\nfulfillment SKU has exactly one bin family, so the two-phase drain is a no-op for it\nand everything lands in the reserve index.  If fulfillment ever grows a forward/reserve\nsplit, this is the one place that decides it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(obj) -> bool"
     },
     "Warehouse/inventory/inventory_common.py::tier_ranks_for": {
       "decorators": [],
@@ -13267,6 +13475,265 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, bin_: 'Aisle.Bin') -> None"
+    },
+    "Warehouse/inventory/put_policy.py": {
+      "decorators": [],
+      "doc": "put_policy.py \u2014 how a put-away queue decides which waiting item to work next.\n\n# \u2500\u2500 two different questions \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA placement pool answers \"which BIN for this unit\". Until the pool inversion it also answered\n\"which unit first\", by returning its assignments pre-sorted \u2014 and that conflation is what\nthis branch exists to undo, because put-away order is an operational decision and a scoring\nfunction is not the thing that should be making it.\n\n`PutQueueSpec.k_cap` narrows how far the pool may reach past the head of the queue. A put\nPOLICY is the other half: it replaces the pool's opinion with the floor's own. \"Put the\nheaviest away first\" and \"finish one SKU before starting the next\" are real rules that no\nplacement objective expresses, and they belong to the queue, not to the assignment function.\n\nThe two compose. A policy proposes an order; `k_cap` then bounds how far that order may\ndepart from arrival order. `fifo` with any `k_cap` is still FIFO; `largest_first` with\n`k_cap=3` is \"of the three oldest, take the biggest\".\n\n# \u2500\u2500 the contract \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA policy is `(PutawayItem) -> comparable`, HIGHER served first, or None for `inherit` \u2014\nwhich means \"no opinion of my own, use the placement pool's precedence\", the pre-registry\nbehaviour and still the default. A tuple is fine and `sku_batched` uses one; the drain ranks\nby a stable sort rather than by arithmetic on the key, so nothing requires a number.\n\nKeys must be a pure function of the item and of state frozen for the batch. The drain\ncomputes each key ONCE and reuses it across every window the item appears in, so a key that\nchanged as placements happened would be read stale \u2014 and it would also make the window's\ncost quadratic, which is the reason the pool states a `sort_key` rather than sorting.\n\n# \u2500\u2500 what is NOT here yet \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nAnything that reads a clock. A \"finish what fits before the whistle\" rule needs `WorkDay`,\nwhich does not exist yet; when it does it lands here as one more entry rather than as a\nchange to any of these.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/inventory/put_policy.py::INHERIT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'inherit'"
+    },
+    "Warehouse/inventory/put_policy.py::_SET_SCOPED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "frozenset({'sku_batched'})"
+    },
+    "Warehouse/inventory/put_policy.py::_fifo": {
+      "decorators": [],
+      "doc": "Strict arrival order, whatever the placement policy would prefer.\n\nDistinct from `k_cap=1`, which also produces arrival order: that constrains the POOL,\nthis replaces it. With `fifo` the pool has no say even at a wide `k_cap`, which is what\nyou want when the constraint is physical (no floor to re-sort on) rather than a\ntolerance you chose.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(item) -> float"
+    },
+    "Warehouse/inventory/put_policy.py::_largest_first": {
+      "decorators": [],
+      "doc": "Biggest quantity first: clear the bulk while the crew is fresh and the aisles are\nempty, on the theory that a big unit placed late has to thread a fuller warehouse.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(item) -> float"
+    },
+    "Warehouse/inventory/put_policy.py::_lifo": {
+      "decorators": [],
+      "doc": "Newest first. Not an aspiration \u2014 it is what an unmanaged stack of pallets against a\nwall actually produces, and having it named makes the cost of that measurable.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(item) -> float"
+    },
+    "Warehouse/inventory/put_policy.py::_sku_batched": {
+      "decorators": [],
+      "doc": "Finish one SKU before starting the next, oldest SKU first.\n\nA real floor practice \u2014 one trip, one item, many bins \u2014 and it happens to restore the\nSKU-run caches that a FIFO window otherwise destroys, because those caches key on\n`sku != last_sku` and only ever hit on adjacent same-SKU units. That is a side effect\nworth knowing about and NOT the reason to choose this policy: the caches stay correct\neither way, they just stop paying.\n\nThe key is two-level: the negated age of the SKU's OLDEST waiting item, then the\nnegated age of this item.  The second level is load-bearing -- with only the first, every\nunit of a SKU ties and their order falls back to whatever order the caller listed them\nin, which is arrival order in the drain and arbitrary anywhere else.  Requires the\nbatch-scoped table below; the drain builds it once per queue per batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(item) -> float"
+    },
+    "Warehouse/inventory/put_policy.py::key_for": {
+      "decorators": [],
+      "doc": "Resolve a policy name to a `(item) -> float` key over THIS batch's waiting items.\n\nReturns None for `inherit` (or None), meaning the caller should use the placement pool's\nown precedence. Raises on an unknown name rather than silently inheriting: a typo in a\nswept configuration would otherwise produce a run that looks like a legitimate arm.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(policy: str | None, items)"
+    },
+    "Warehouse/inventory/put_queue.py": {
+      "decorators": [],
+      "doc": "put_queue.py \u2014 one configurable put-away queue, instantiated N times.\n\n# \u2500\u2500 why this is one object and not three \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA store warehouse has at least two put-away streams that share nothing operationally: loose\nsingletons that a person walks into a cart, and pallets that need a forklift. Fulfillment has\na third. They differ in who does the work, how fast, how much can be staged, and how much\nfreedom the assignment policy gets \u2014 pallets go away in arrival order almost regardless of\nwhat a scoring function would prefer, because there is no floor to lay a hundred of them out\non and re-sort them.\n\nWriting three classes would encode today's three streams as the shape of the code. The axes\nabove are the real content, so they are a SPEC and the queue is one object configured by it.\nA fourth stream is a row. Inbound, when it arrives, is a producer into an existing queue\nrather than a new mechanism.\n\n# \u2500\u2500 the axes \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`accepts`   which unit categories this queue takes. Routing is on `unit_category`, which is\n            already a BinKey component, so a unit's queue is decided by what it IS and never\n            by where it might go.\n`k_cap`     the assignment policy's ordering tolerance, in units. 1 = strict arrival order.\n            None means INHERIT the manager's `putaway_window`, not \"unbounded\" -- so a queue\n            states a tolerance only when it has a reason to differ, and the manager-wide\n            knob keeps working. See Inventory_Manager._serve_order.\n`staging`   how many items may wait at once. None = unbounded. A full queue REFUSES\n            admission and the producer holds; it never drops. This is the modelling of\n            floor space, and it is what makes pallet FIFO physical rather than stipulated.\n`policy`    which waiting item to work next, from `put_policy.PUT_POLICIES`. Where `k_cap`\n            narrows the placement pool's freedom, this REPLACES its opinion with the floor's\n            own \u2014 \"finish one SKU before starting the next\" is a real rule that no placement\n            objective expresses. The two compose.\n`crew`      who does the work \u2014 role, mode and speeds. Carried here so a queue's throughput\n            is a property of the queue and not a global.\n\n# \u2500\u2500 what is deliberately NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nReach height. A store singleton bin can sit at y_phys 1416 (SINGLETON_BIN_HEIGHT 48, aisles\nup to 1440 inches), so \"singleton \u21d2 cart \u21d2 walking speed\" charges a walk for something 118\nfeet up. The honest discriminator is a BIN property known only AFTER assignment, while the\nqueue is chosen BEFORE it. Splitting the store singleton family by aisle height at build\ntime \u2014 which is what fulfillment already does with FULFILLMENT_AISLE_HEIGHT \u2014 would fix it\nproperly. Until then `accepts` on `unit_category` is a PROXY, and this paragraph is the\nrecord that it is one.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/inventory/put_queue.py::ANY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('*',)"
+    },
+    "Warehouse/inventory/put_queue.py::FULFILLMENT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fulfillment'"
+    },
+    "Warehouse/inventory/put_queue.py::PALLET": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'pallet'"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue": {
+      "decorators": [],
+      "doc": "One spec plus the items waiting under it.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, spec: PutQueueSpec)"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue.admit": {
+      "decorators": [],
+      "doc": "Take one item if there is room. False means the producer must hold it.\n\nRefusing rather than dropping is the whole point: the backpressure has to reach\nwhatever is upstream, because \"inbound packs faster than put-away absorbs\" is the\ncondition being modelled, and a silent drop would make it look like it never\nhappened.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, item: PutawayItem) -> bool"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue.drain_counters": {
+      "decorators": [],
+      "doc": "Hand over this batch's counters and reset. Depth and oldest age are read at the\nmoment of the snapshot and are NOT reset \u2014 they are levels, not flows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue.has_room": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue.name": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueue.oldest_age": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The arrival stamp of the longest-waiting item, or None when empty.\n\nThe head is the oldest because every re-entry path preserves order: the rescues\n`appendleft` children back to the head their parent vacated, and the drain requeues\nwhat it popped. Pinned by Tests/integration/test_putaway_age.py.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int | None"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet": {
+      "decorators": [],
+      "doc": "The queues a manager owns, and the routing between them.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, name: str) -> PutQueue"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, specs)"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet.depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet.is_single": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "One queue that takes everything \u2014 the default, and byte-identically the manager\nas it behaved before queues existed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet.route": {
+      "decorators": [],
+      "doc": "The queue this unit belongs in, by `unit_category`.\n\nFIRST match wins, so spec order is precedence and a catch-all belongs last. A unit\nno queue accepts is an error and not a silent drop: it would otherwise vanish from\nthe conservation ledger with nothing to point at.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit) -> PutQueue"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSet.snapshot": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSpec": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The configuration of one put-away queue. Frozen: a queue's identity must not drift\nmid-run, and a sweep that varies these needs to be able to hash them.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSpec.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/put_queue.py::PutQueueSpec.takes": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, category: str | None) -> bool"
+    },
+    "Warehouse/inventory/put_queue.py::SINGLETON": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'singleton'"
+    },
+    "Warehouse/inventory/put_queue.py::single_queue": {
+      "decorators": [],
+      "doc": "The default: one unbounded queue that takes everything, with the policy's full\nordering freedom. Reproduces the pre-queue-set manager exactly.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> PutQueueSet"
+    },
+    "Warehouse/inventory/put_queue.py::store_and_fulfillment": {
+      "decorators": [],
+      "doc": "The three-stream default: singletons into carts, pallets onto a forklift,\nfulfillment on its own.\n\n`k_cap=1` on the pallet queue is the modelling claim, not a tuning knob: with almost no\nstaging floor there is nowhere to lay pallets out and re-sort them, so they are put away\nin arrival order whatever the assignment policy would prefer. The other two keep the\npolicy's freedom until someone measures a reason to narrow it.\n\nOrdered singleton, pallet, fulfillment \u2014 specific before general, though none of these\nthree is a catch-all, so a category outside the list raises rather than falling through.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cart_crew=None, pallet_crew=None, ff_crew=None, pallet_staging: int | None=None, cart_staging: int | None=None, ff_staging: int | None=None) -> PutQueueSet"
     },
     "Warehouse/kernel/__init__.py": {
       "decorators": [],
@@ -14323,16 +14790,25 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, aisle_id: int, path: list[Aisle.Bin], items: dict[int, int], cart: type[StorageCart]=StoreCart) -> None"
+      "signature": "(self, aisle_id: int, path: list[Aisle.Bin], items: dict[int, int], cart: type[StorageCart]=StoreCart, bin_qty: dict[int, int] | None=None) -> None"
     },
     "Warehouse/picking/Workload_Builder.py::Task.from_batch": {
       "decorators": [
         "staticmethod"
       ],
-      "doc": "Decompose a Batch into one Task per aisle.\n\nFor each SKU in the batch, singleton bins are drained before pallet bins\nso that forward-pick locations are always preferred over reserve locations.\n\nIf manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins\ndicts are used directly, skipping the O(N_all_bins) warehouse scan that\nwould otherwise rebuild the index on every batch.\n\nDETERMINISM \u2014 the manager index is `dict[int, set[Aisle.Bin]]`, and `Aisle.Bin`\ndefines no `__hash__`/`__eq__`, so it hashes by identity and a set iterates in\nMEMORY-ADDRESS order.  Whenever a SKU has more on-hand bins than the batch\nquantity drains \u2014 the normal case \u2014 that order decides WHICH bins are taken,\nhence which aisles, tasks, travel and depletion follow.  Under spawn + ASLR the\naddresses differ per process, so two identical-seed runs of the same arm used to\nproduce different `batch_stats`.  Iterating in `location` order \u2014 the canonical\n(aisle_id, bayX, bayY) spatial key persisted everywhere \u2014 makes the selection a\npure function of warehouse state.  Cost is O(k log k) on k bins of ONE SKU; see\n`Tests/unit/test_task_bin_selection_determinism.py`.",
+      "doc": "Decompose a Batch into one Task per aisle.\n\n`_shortfall`, when given, accumulates `{sku: units_short}` for demand no bin could\nsatisfy.  Underscored because callers should reach for `from_batch_with_shortfall`\nrather than pass their own dict; it exists so one drain serves both entry points.\n\nFor each SKU in the batch, singleton bins are drained before pallet bins\nso that forward-pick locations are always preferred over reserve locations.\n\nIf manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins\ndicts are used directly, skipping the O(N_all_bins) warehouse scan that\nwould otherwise rebuild the index on every batch.\n\nDETERMINISM \u2014 the manager index is `dict[int, set[Aisle.Bin]]`, and `Aisle.Bin`\ndefines no `__hash__`/`__eq__`, so it hashes by identity and a set iterates in\nMEMORY-ADDRESS order.  Whenever a SKU has more on-hand bins than the batch\nquantity drains \u2014 the normal case \u2014 that order decides WHICH bins are taken,\nhence which aisles, tasks, travel and depletion follow.  Under spawn + ASLR the\naddresses differ per process, so two identical-seed runs of the same arm used to\nproduce different `batch_stats`.  Iterating in `location` order \u2014 the canonical\n(aisle_id, bayX, bayY) spatial key persisted everywhere \u2014 makes the selection a\npure function of warehouse state.  Cost is O(k log k) on k bins of ONE SKU; see\n`Tests/unit/test_task_bin_selection_determinism.py`.",
       "is_async": false,
       "kind": "function",
-      "signature": "(batch: Batch, warehouse: Warehouse, manager=None, cart: type[StorageCart]=StoreCart) -> list[Task]"
+      "signature": "(batch: Batch, warehouse: Warehouse, manager=None, cart: type[StorageCart]=StoreCart, _shortfall: dict[int, int] | None=None) -> list[Task]"
+    },
+    "Warehouse/picking/Workload_Builder.py::Task.from_batch_with_shortfall": {
+      "decorators": [
+        "staticmethod"
+      ],
+      "doc": "`from_batch`, plus the demand it could NOT satisfy: `{sku: units_short}`.\n\nA second entry point rather than a wider return type: `from_batch` has ~30 call\nsites and none of them want the extra value, so churning all of them for no\nbehaviour change is the more expensive mistake.  One drain serves both, so the\ntasks are identical either way.\n\nTHE SHORTFALL IS PRE-SIMULATION.  It is demand this batch could not reach on the\nshelf -- not demand a picker ran out of time for.  Those are different failures\nwith different fixes, and only this one is knowable before the sim runs.\n\nUntil now it was a loop-local named `remaining`, overwritten on the next SKU.  So\nan arm that placed nothing for a SKU and an arm that placed 500 of it produced\nindistinguishable records, and a rule that fails to pick looked cheap.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batch: Batch, warehouse: Warehouse, manager=None, cart: type[StorageCart]=StoreCart) -> tuple[list[Task], dict[int, int]]"
     },
     "Warehouse/picking/Workload_Builder.py::_Fenwick": {
       "decorators": [],
@@ -14409,6 +14885,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(bins: list[Aisle.Bin]) -> list[Aisle.Bin]"
+    },
+    "Warehouse/picking/Workload_Builder.py::_rederive_plan": {
+      "decorators": [],
+      "doc": "Per-bin quantities for a `Task` built without an explicit plan.\n\nThe same greedy `from_batch` uses -- walk the path, take what the bin has up to the\nSKU's remaining demand -- so a hand-built Task behaves like a real one.  It can pick a\nDIFFERENT distribution than `from_batch` would when the path order differs from the\ndrain order, which is exactly why the real caller passes its plan instead.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: list, items: dict[int, int]) -> list[int]"
     },
     "Warehouse/picking/__init__.py": {
       "decorators": [],
@@ -14491,12 +14974,173 @@
       "signature": null,
       "value_preview": "1.0"
     },
+    "Warehouse/placement/Assignment_Functions.py::_CoDemandPool": {
+      "decorators": [],
+      "doc": "`_co_demand_ranked_impl` as a pool -- compaction (`comp`) and expansion (`expn`).\n\nThis is the first ported policy that scores a unit against what has ALREADY been placed,\nwhich is the case a pool has to get right to be worth anything.  It turns out to be the\nnatural shape: every affinity read in the per-placement body is against LIVE manager\nstate (`aisle_idx_sets`, `aisle_member_pos`) that `take` itself mutates.  That is pool\nstate by definition.  Exactly one thing was a whole-set snapshot -- `all_idx` -- and it\nis read only by the sort key.\n\n`all_idx` is therefore computed here, in `__init__`, at the instant the old code took it,\nand is deliberately frozen for the group even though placements mutate `aisle_idx_sets`\nunderneath it.  It is derived from the AISLES, not from the units, so a drain that\nnarrows or reorders the unit set does not invalidate it; when the sort finally goes, it\ngoes with it, because nothing else reads it.\n\nThe SKU-run cache (`key_cache`) carries the same guarantee and the same caveat as\n`_TravelBalancedPool`'s: the guard is a value comparison on the SKU, so losing\nadjacency costs hit rate and not correctness.  The winner refresh after every placement\nis load-bearing and is NOT a redundant recompute -- see the ulp note on\n`_ClusterMapPool`, which is where that lesson was paid for.",
+      "kind": "class",
+      "signature": "(_Pool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.prefers_low": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.sort_key": {
+      "decorators": [],
+      "doc": "Pick-effort priority with the co-occurrence term. `all_idx` is frozen for the\nlife of the pool, so a SKU's co term is one value and the memo is bit-safe.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.take": {
+      "decorators": [],
+      "doc": "(bin, score) for one unit; (None, None) when no aisle has a bin left.\n\n`score` is the compaction objective in seconds -- `x_pace * |x(bin) - cx|`, the\ndistance from the partners' demand-weighted column centroid that the bin choice\nminimises (compact) or maximises (expand).  None before this SKU has any partner\nplaced, because there is then no centroid and the bin was taken by the cold-start\nrule instead.  The AISLE was chosen on lift, which is a different quantity and not\na property of the bin.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
     "Warehouse/placement/Assignment_Functions.py::_D_map": {
       "decorators": [],
       "doc": "id(bin) \u2192 travel-time D map.  The identical dict-comprehension sat at every\nranked-impl site; ONE helper so the formula can't drift.  Paces are s/inch\n(sec_per_inch of the ft/s speeds); expression shape preserved exactly.",
       "is_async": false,
       "kind": "function",
       "signature": "(cands, x_pace, y_pace) -> dict[int, float]"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool": {
+      "decorators": [],
+      "doc": "`_ranked_minlabor_impl` as a pool -- `rank_minlabor`, and `rank_maxlabor` with\n`maximize=True` (one function, both arms, every extremum flipped).\n\nUnlike `_TravelBalancedPool` there is NO per-aisle running load: this policy MINIMISES\ntotal labor rather than BALANCING it.  Its path dependence flows entirely through the\ndeques (pool state) and through two manager dicts that `take` commits to --\n`aisle_idx_sets`, which the affinity reward reads, and `aisle_member_pos`, whose appended\ncolumns the partner centroid sums in placement order.  That second one is the quieter of\nthe two and worth naming: `cx` is not a tie-break, it is the term that picks the bin.\n\nTHE DELTA SUM IS INLINED ON PURPOSE (`for ci, w in row_items: if ci in ais`).  It looks\nlike a candidate for `_delta_lift_from_row`, and unifying them would be a bug:\n`_delta_lift_from_row` switches which side it iterates on `len(row) <= len(member_set)`,\nso its summation ORDER flips as an aisle fills.  That flip is the one-ulp drift b91cf38\nwas written to fix, pinned by Tests/calltree/test_rank_cache_equivalence.py.  This loop\niterates CSR column order unconditionally and must keep doing so.\n\nThe SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) refreshes the last winner\nLAZILY -- on the next unit rather than eagerly after the pop -- because a unit that finds\nno bin leaves nothing stale to repair.  `_last_winner` is cleared every call and re-set\nonly after a successful drop.",
+      "kind": "class",
+      "signature": "(_Pool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._aisle_best_cost": {
+      "decorators": [],
+      "doc": "Extremal (min, or max if maximize) over the aisle's bracket ends of the\nper-pick labor + travel:  M*(intercept + var) + D  (height scales the whole pick).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid, var)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._better": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, a, b)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.prefers_low": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.sort_key": {
+      "decorators": [],
+      "doc": "Costliest SKUs claim the best (or, for maxlabor, the worst) slots first.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take": {
+      "decorators": [],
+      "doc": "(bin, score) for one unit; (None, None) when nothing is placeable.\n\n`score` is the AISLE decision score, `fq*bc - lam*delta` -- the marginal labor of\nthe aisle's best bracket end minus the affinity reward, which is the objective the\nargmin actually compared.  It is deliberately not `cbest`: the bin is chosen in a\nsecond pass that adds a centroid term, and that term is a tie-shaping device rather\nthan labor, so persisting it would put a different quantity in the same column.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_NO_RUN_SKU": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "object()"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_OptMapPool": {
+      "decorators": [],
+      "doc": "The optmap objective as a POOL: one `_PrefPool` over the group's candidates, one\n`take` per unit, and the order left entirely to the caller.\n\nBody-for-body the loop `build_optmap_wave_fn` already ran -- that function was written\nserving units in QUEUE ORDER with no priority re-sort, so it is the one ranked policy\nwhose behaviour a pool reproduces exactly rather than approximately.  It is the proof\nthat the seam is real before the four impls that DO re-sort are moved onto it.",
+      "kind": "class",
+      "signature": "(_Pool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_OptMapPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bins, target, bin_pref, capped: bool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_OptMapPool.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_OptMapPool.take": {
+      "decorators": [],
+      "doc": "(bin, score) for one unit; (None, None) once the pool is exhausted.\n\n`score` is the objective this policy actually minimises -- the gap between the bin's\npref and the SKU's map target -- read at the moment of choice, so persisting it\ncosts a dict lookup and not a second scoring pass.  None target means the SKU has no\nmap entry, and there is no gap to report.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_Pool": {
+      "decorators": [],
+      "doc": "Base for the placement pools: `take` is required, `order` defaults to queue order.\n\nA policy overrides `order` only if it has a genuine opinion about precedence.  The\ndrain is free to ignore it -- see the PoolFn note in inventory_common.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/Assignment_Functions.py::_Pool.order": {
+      "decorators": [],
+      "doc": "The full precedence, best first.  A REQUEST -- the drain decides what to grant.\n\nStable, so units the key cannot separate keep their queue order: a tie was not an\nopinion, and the older unit should not lose to a younger one for no reason.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, units)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_Pool.sort_key": {
+      "decorators": [],
+      "doc": "The precedence this policy would like, HIGHER FIRST -- or None for no opinion.\n\nStated as a key rather than as a sorted list because the drain's K-oldest window\nasks \"which of these K next\" once per placement, and re-deriving a key inside every\nwindow would mean N*K affinity slices.  Every key here is a pure function of the\nunit and of state frozen at pool-open, never of what the pool has already placed, so\ncomputing it once per unit is safe as well as fast.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_Pool.take": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
     },
     "Warehouse/placement/Assignment_Functions.py::_PrefPool": {
       "decorators": [],
@@ -14566,6 +15210,111 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool": {
+      "decorators": [],
+      "doc": "`_ranked_assign_impl`, split along its real seam.\n\nThe old function did three separable things in one pass: snapshot the group's candidates\n(candidate-derived), decide precedence (unit-derived), and hand out bins (per unit).\nOnly the middle one ever needed the whole unit set, and only the middle one is what the\ndrain is taking back.  So:\n\n  * `__init__` -- the candidate snapshot: `_D_map`, the per-aisle deques sorted\n    extremal-D-first, and the two head dicts.  Plus `all_idx`, the union of every placed\n    SKU index, snapshotted at exactly the instant the old code took it: before the sort,\n    before any placement in this group.  It is deliberately frozen for the whole group\n    even though placements below mutate `aisle_idx_sets`.\n  * `order`  -- the descending pick-effort priority.  This is now a request.\n  * `take`   -- one aisle choice, one head pop, one commit.\n\n`head_bin`/`head_D` key order is load-bearing in three places and is preserved exactly:\n`min`/`max` keep the FIRST extremal, so a D tie resolves to whichever aisle appeared\nfirst in the candidate list; `rank_popularity`'s selector has the same tie behaviour; and\n`rank_random` indexes into `list(head_bin.keys())`.  Insertion order is first-appearance\nin `cands`, refreshed in place on a pop and deleted on exhaustion, so a key never moves\nand never comes back.\n\nTwo dead parameters did not survive the port: `pick_intercept`/`pick_weight_coef`/\n`pick_volume_coef` were unpacked and never read (the priority uses the precomputed\n`c.labor_cost` instead), and `aisle_extra_sum`/`sku_extra_product` had no caller anywhere\nin the repo.",
+      "kind": "class",
+      "signature": "(_Pool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._pick_effort_priority": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit) -> float"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.prefers_low": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.sort_key": {
+      "decorators": [],
+      "doc": "Pick-effort priority: the highest-effort unit claims the extremal-D bin first.\nA policy may supply its own per-unit score instead.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.take": {
+      "decorators": [],
+      "doc": "(bin, score) for one unit; (None, None) when every aisle is drained.\n\n`score` is the chosen bin's travel cost D -- the float the aisle argmin compared,\nso reporting it is one dict read and no arithmetic.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool": {
+      "decorators": [],
+      "doc": "`_travel_balanced_impl` as a pool -- Rank_labor, and Rank_cartlabor with `cart`.\n\nEverything this policy remembers between placements is either candidate-derived (the\nper-(aisle, bracket) min-D deques, `D_of`, `M_of`) or a RUNNING TOTAL seeded once from\nmanager state (`load`, `vol_load`).  Nothing is an aggregate over the unit set.  So the\nsplit is clean: the whole prologue is `__init__`, the LPT sort is `order`, and one\nplacement is `take`.\n\nTHE SKU-RUN CACHE comes across unchanged, and its validity argument is worth restating\nbecause it is the thing a reorder threatens.  `ab_cache`/`score_cache` are rebuilt when\n`sku != run_sku` and refreshed for the WINNER after every placement; a non-winning\naisle's inputs are provably frozen inside a run (`fq`/`var`/`m_s` are per-SKU constants,\nand `load`/`vol_load`/`aisle_sku_sets`/the deque heads move for the winner only).  The\nguard is a value comparison on the SKU, so a drain that stops clustering same-SKU units\ndoes not make the cache WRONG -- it makes it never hit.  That is the correct failure\nmode, and it is why no `assume_clustered` flag is needed here.\n\nWhat would break it: turning the cache into a persistent `{sku: ...}` dict to win the\nhit rate back under FIFO.  Between two units of one SKU, OTHER SKUs commit and grow\nother aisles' state, so a keyed cache would serve stale scores.  Don't.",
+      "kind": "class",
+      "signature": "(_Pool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best": {
+      "decorators": [],
+      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m*(intercept+var) + D.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid, var)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._cart_cost": {
+      "decorators": [],
+      "doc": "Expected cart-swap cost for an aisle holding raw volume mass v_raw.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, v_raw)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._score_of": {
+      "decorators": [],
+      "doc": "The per-(unit, aisle) score -- the ORIGINAL expressions verbatim.\n\nbalance TOTAL expected aisle labor = handling+travel + expected cart swaps,\nso an aisle nearing a full cart is penalised and further volume disperses.\nThe SKU's volume mass counts ONCE per aisle (a second bin of a SKU already\nhere adds no new expected picked volume), mirroring aisle_pick_load_sum.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid, ab, sku, fq, m_s)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.sort_key": {
+      "decorators": [],
+      "doc": "Longest-processing-time first: the highest expected-labor unit is placed while\nthe most aisles are still cheap.  A FIFO window degrades LPT to arbitrary-order\ngreedy; the balance mechanics below are untouched by that.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take": {
+      "decorators": [],
+      "doc": "(bin, score) for one unit; (None, None) when no aisle has a bin left.\n\n`score` is the MARGINAL expected labor this placement adds, `fq * cost` -- the\nquantity the running balance is updated with, so reporting it is free.  The aisle\ntotal `best_score` would be the wrong number to persist: it carries every prior\nplacement in that aisle and is not comparable across aisles, waves or arms.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
     },
     "Warehouse/placement/Assignment_Functions.py::_affinity_row": {
       "decorators": [],
@@ -14637,6 +15386,20 @@
       "kind": "function",
       "signature": "(aid)"
     },
+    "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn.open_pool": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, rep=None)"
+    },
     "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn": {
       "decorators": [],
       "doc": "Shared core for the load-minimising/maximising AssignmentFns (they differed only\nin extremum direction + the min-only early-termination prune).\n\nGreedily extremises the L2 norm of predicted aisle loads\nL_a = W + \u03bb*(W/k)^\u03b3 * lift_sum.\n\nDual-optimisation algorithm\n---------------------------\n1. Reduce candidates to one bin per aisle (extremal-D bin) \u2014 exact by\n   monotonicity of delta_l2 in D within a fixed aisle.\n2. Sort the O(N_aisles) representatives by D (ascending when minimising;\n   descending when maximising \u2014 largest travel cost first has the highest\n   potential delta_l2).\n3. Evaluate aisles in that order with LAZY CSR queries (delta_lift computed\n   only when the aisle is actually reached, not upfront for all aisles).\n4. Early termination (MINIMISING ONLY): once the best score has delta_l2 = 0\n   (no affinity partners in the winning aisle), any remaining aisle with\n   D \u2265 best_old_L cannot improve \u2014 old_L \u2265 D \u2265 best_old_L and\n   delta_l2 \u2265 0 = best_delta_l2.  With sparse top-20 affinity most aisles\n   have delta_lift = 0, so the termination typically fires after the first\n   few aisles.  No such prune exists when maximising: a low-D aisle can\n   still win on very high affinity lift.",
@@ -14657,6 +15420,48 @@
       "is_async": false,
       "kind": "function",
       "signature": "(unit: Any, candidates: list[Any] | None) -> Any | None"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn.open_pool": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, rep=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn": {
+      "decorators": [],
+      "doc": "`open_pool` shared by the four ranked-assign arms (tmin / tmax / rank_random /\nrank_popularity).  Mirrors `_ranked_assign_impl`'s parameter list exactly.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn.open_pool": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, rep=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn.open_pool": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, rep=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_closest_abs": {
       "decorators": [],
@@ -14681,7 +15486,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_cluster_map_pick_bin": {
       "decorators": [],
-      "doc": "Choose the cluster's bin within one aisle: anchor at the favored map location and\ncompact toward the partner centroid; honour the prime-spot cap when capped.",
+      "doc": "Choose the cluster's bin within one aisle: anchor at the favored map location and\ncompact toward the partner centroid; honour the prime-spot cap when capped.\n\nReturns `(bin, cost)`.  The cost is RETURNED rather than recomputed by the caller, and\nthat is deliberate: `_CLUSTER_MAP_W_CENT * x_pace * abs(...)` re-associated as\n`(W * x_pace) * abs(...)` is a different float, so a caller reconstructing the number\nwould eventually persist something that is not what decided.  `None` on the capped\nleast-prime fallback, which is chosen by max-pref and not by this cost at all --\nreporting the cost of a bin that was picked on a different rule would be a lie.",
       "is_async": false,
       "kind": "function",
       "signature": "(lst, pref, target, cx, x_pace, capped)"
@@ -14695,7 +15500,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl": {
       "decorators": [],
-      "doc": "Ranked co-demand placement.  Units are placed in the same pick-effort order as\n_ranked_assign_impl and membership is committed incrementally, but the BIN choice is\nposition-aware: the aisle is scored by demand-weighted lift to its members (MAX for\ncompact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)\nthe partners' column centroid is taken \u2014 vs the extremal-D head.  Each placement also\nappends (x_phys, idx) to aisle_member_pos so later units in the wave see it.",
+      "doc": "Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`\nand `expn` actually run; kept as the frozen oracle the port is tested against.\n\nUnits are placed in the same pick-effort order as\n_ranked_assign_impl and membership is committed incrementally, but the BIN choice is\nposition-aware: the aisle is scored by demand-weighted lift to its members (MAX for\ncompact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)\nthe partners' column centroid is taken \u2014 vs the extremal-D head.  Each placement also\nappends (x_phys, idx) to aisle_member_pos so later units in the wave see it.",
       "is_async": false,
       "kind": "function",
       "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)"
@@ -14744,10 +15549,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl": {
       "decorators": [],
-      "doc": "Shared core for ranked-minimizing and ranked-maximizing assignment.\n\nPriority formula (pick-effort x frequency + co-occurrence):\n  priority = f_i x (pick_intercept + pick_weight_coef x log(weight)\n                                    + pick_volume_coef x log(volume))\n             + beta x co_occur\n\nSorted descending by priority; highest-priority unit claims the extremal-D\nbin first within each same-BinKey group.  minimize=True -> lowest-D bin\n(easiest access); minimize=False -> highest-D bin (hardest access).\n\nW (task workload) remains a measurement metric only; this formula\ndrives bin placement at reorder time.",
+      "doc": "Shared core for ranked-minimizing and ranked-maximizing assignment.\n\nSUPERSEDED by `_RankedAssignPool`, which is what the four arms actually run.  Kept as\nthe frozen oracle the port is tested against, and as the straggler-path reference.\n\nPriority formula (pick-effort x frequency + co-occurrence):\n  priority = f_i x (pick_intercept + pick_weight_coef x log(weight)\n                                    + pick_volume_coef x log(volume))\n             + beta x co_occur\n\nSorted descending by priority; highest-priority unit claims the extremal-D\nbin first within each same-BinKey group.  minimize=True -> lowest-D bin\n(easiest access); minimize=False -> highest-D bin (hardest access).\n\nW (task workload) remains a measurement metric only; this formula\ndrives bin placement at reorder time.",
       "is_async": false,
       "kind": "function",
-      "signature": "(units: list, candidates_fn, affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float, minimize: bool, aisle_selector=None, order_key=None, aisle_extra_sum=None, sku_extra_product=None) -> list"
+      "signature": "(units: list, candidates_fn, affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float, minimize: bool, aisle_selector=None, order_key=None) -> list"
     },
     "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl.pick_effort_priority": {
       "decorators": [],
@@ -14758,7 +15563,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl": {
       "decorators": [],
-      "doc": "Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.\n\nModels the objective E[task labor] = \u03a3_s f_s\u00b7[ M(y_s)\u00b7(intercept + q_s\u00b7v_s) + D ] and\nplaces each unit in the (aisle, bin) that minimises its MARGINAL contribution:\n\n    cost(s, b) = f_s\u00b7( M(y_b)\u00b7(intercept + v_s) + D_b )  \u2212  \u03bb\u00b7\u03a3_{partners p in aisle} lift(s,p)\u00b7f_p\n\nwhere v_s = handle_var (per-unit weight/volume term), M(y) = height bracket multiplier,\nD_b = x_speed\u00b7x_phys + y_speed\u00b7y_phys.  This fuses three slotting levers into one score:\n  \u2022 golden-zone height  \u2014 the M(y_b)\u00b7v_s term pushes heavy/frequent SKUs to low brackets;\n  \u2022 effort-to-front     \u2014 the D_b term pulls them to near, low bins;\n  \u2022 affinity compaction \u2014 the \u2212\u03bb\u00b7delta_lift aisle reward co-locates demand partners in the\n    SAME aisle (the big travel win: fewer aisle-tasks), and within the chosen aisle the bin\n    is pulled toward the partners' column centroid (+x_speed\u00b7|x\u2212cx|) to shorten the sweep.\n\nmaximize=True flips every extremum (argmax score, farthest/highest bins, scatter partners)\nto deliberately MAXIMISE the objective \u2014 a worst-case upper-bound sanity control (Rank_maxlabor)\nthat brackets how much the minimiser is worth.  Unlike _travel_balanced_impl (Rank_labor) there\nis NO LPT load term \u2014 this MINIMISES (or maximises) total labor, it does not BALANCE it.  Units\nare placed highest expected_labor first so the costliest SKUs claim the best (or worst) slots.\n\nBoth the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) extremal-D\ndeque ends \u2014 O(units\u00b7aisles\u00b7brackets), independent of bins-per-aisle.  The chosen bin is popped\nfrom its deque end, so the ends are always live (no stale-bin bookkeeping).",
+      "doc": "Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.\n\nSUPERSEDED by `_MinLaborPool`, which is what `rank_minlabor` and `rank_maxlabor` run;\nkept as the frozen oracle the port is tested against.\n\nModels the objective E[task labor] = \u03a3_s f_s\u00b7[ M(y_s)\u00b7(intercept + q_s\u00b7v_s) + D ] and\nplaces each unit in the (aisle, bin) that minimises its MARGINAL contribution:\n\n    cost(s, b) = f_s\u00b7( M(y_b)\u00b7(intercept + v_s) + D_b )  \u2212  \u03bb\u00b7\u03a3_{partners p in aisle} lift(s,p)\u00b7f_p\n\nwhere v_s = handle_var (per-unit weight/volume term), M(y) = height bracket multiplier,\nD_b = x_speed\u00b7x_phys + y_speed\u00b7y_phys.  This fuses three slotting levers into one score:\n  \u2022 golden-zone height  \u2014 the M(y_b)\u00b7v_s term pushes heavy/frequent SKUs to low brackets;\n  \u2022 effort-to-front     \u2014 the D_b term pulls them to near, low bins;\n  \u2022 affinity compaction \u2014 the \u2212\u03bb\u00b7delta_lift aisle reward co-locates demand partners in the\n    SAME aisle (the big travel win: fewer aisle-tasks), and within the chosen aisle the bin\n    is pulled toward the partners' column centroid (+x_speed\u00b7|x\u2212cx|) to shorten the sweep.\n\nmaximize=True flips every extremum (argmax score, farthest/highest bins, scatter partners)\nto deliberately MAXIMISE the objective \u2014 a worst-case upper-bound sanity control (Rank_maxlabor)\nthat brackets how much the minimiser is worth.  Unlike _travel_balanced_impl (Rank_labor) there\nis NO LPT load term \u2014 this MINIMISES (or maximises) total labor, it does not BALANCE it.  Units\nare placed highest expected_labor first so the costliest SKUs claim the best (or worst) slots.\n\nBoth the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) extremal-D\ndeque ends \u2014 O(units\u00b7aisles\u00b7brackets), independent of bins-per-aisle.  The chosen bin is popped\nfrom its deque end, so the ends are always live (no stale-bin bookkeeping).",
       "is_async": false,
       "kind": "function",
       "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)"
@@ -14854,6 +15659,40 @@
       "kind": "function",
       "signature": "(mgr, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, *, capped) -> Placement"
     },
+    "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool": {
+      "decorators": [],
+      "doc": "`place_wave`'s body, split into open / order / take.\n\nThe thinnest port of the four, because `_place` was already the per-unit body and is\nshared with the straggler path -- there is nothing to restructure, only to relocate.\n`_group` and `all_idx` move into `__init__`, the priority sort becomes `order`, and\n`run_cache` becomes an attribute instead of a wave-local dict.\n\nTHE RUN CACHE IS THE ONE THING TO BE CAREFUL WITH, and this policy is where the\nlesson was paid for. Its validity argument is written out in `_place`'s docstring:\nwithin a same-SKU run the only idx-set that mutates is the winner's, and the winner's\ncached delta is recomputed immediately after each commit. The first cut instead\ncached ACROSS the winner's set growth, and drifted by one ulp -- not because the\nvalue was wrong, but because `_delta_lift_from_row` iterates the smaller side, so\nadding one member flipped the summation ORDER. That moved a real placement at 8k-SKU\nmeso scale. The argument has to be about summation order, not about values.\n\nThe cache keys on `run_cache['sku'] == sku`, so losing same-SKU adjacency costs the\nhit rate and not correctness. Making it a persistent `{sku: lifts}` dict to win that\nback would reintroduce exactly the bug above.",
+      "kind": "class",
+      "signature": "(_Pool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, candidates)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.sort_key": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.take": {
+      "decorators": [],
+      "doc": "(bin, score) for one unit.\n\n`score` is `_cluster_map_pick_bin`'s own cost -- |pref - target| plus the\nweighted centroid pull -- handed back from the comparison that chose the bin\nrather than reconstructed here. None on the capped least-prime fallback, which\nis decided by max-pref instead.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
     "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._group": {
       "decorators": [],
       "doc": "Group candidate bins by aisle + build each aisle's ascending pref list (for the\nO(log) anchor bisect).  The pref list is kept in multiset-sync with by_aisle on removal.",
@@ -14868,26 +15707,19 @@
       "kind": "function",
       "signature": "(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None)"
     },
+    "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.open_pool": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, rep=None)"
+    },
     "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_one": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(unit, candidates)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_wave": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(units, candidates_fn)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_wave.priority": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(unit)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_cluster_maximizing_assignment_fn": {
       "decorators": [],
@@ -14909,13 +15741,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(compact, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0) -> Placement"
-    },
-    "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement.place_wave": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(units, candidates_fn)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_load_maximizing_assignment_fn": {
       "decorators": [],
@@ -14945,6 +15770,20 @@
       "kind": "function",
       "signature": "(unit, candidates)"
     },
+    "Warehouse/placement/Assignment_Functions.py::build_optmap_pool_fn": {
+      "decorators": [],
+      "doc": "`open_pool` for the optimal-map policies -- the pool twin of build_optmap_wave_fn.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, capped=False)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_optmap_pool_fn.open_pool": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, rep=None)"
+    },
     "Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn": {
       "decorators": [],
       "doc": "Ranked-wave twin of build_optmap_fn: the SAME per-unit objective (argmin |pref\u2212target|,\nor capped nearest-with-pref\u2265target), but the O(B) scan is amortized \u2014 one ``_PrefPool`` sort\nover the group's candidates per wave, then an O(log B) bisect per unit.  Units are served in\nQUEUE ORDER (no priority re-sort) so placement matches the per-unit ``place_one`` path except\non exact pref ties.  A None (pool exhausted) falls to the per-unit straggler path, which\nre-fetches candidates and spills up tiers exactly as today.",
@@ -14973,6 +15812,13 @@
       "kind": "function",
       "signature": "(units: list, candidates_fn) -> list"
     },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn": {
+      "decorators": [],
+      "doc": "Pool twin of build_ranked_cartlabor_fn \u2014 same signature.\n\n`total_freq` is summed HERE, once when the policy is built, exactly as the wave builder\ndoes it: a per-pool sum over the same dict would be the same value today but would make\na dict-order change silently repricing every cart penalty.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product, expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
+    },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_fn": {
       "decorators": [],
       "doc": "Travel-aware LPT labor balancer (see _travel_balanced_impl): places each unit in\nthe specific empty bin that minimises the busiest aisle's total expected labor,\nwhere labor = freq\u00b7qty\u00b7(pick_time + travel_time).  Returns (unit, bin) pairs.",
@@ -14986,6 +15832,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(units: list, candidates_fn) -> list"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_pool_fn": {
+      "decorators": [],
+      "doc": "Pool twin of build_ranked_labor_fn \u2014 same signature.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_assignment_fn": {
       "decorators": [],
@@ -15001,6 +15854,13 @@
       "kind": "function",
       "signature": "(units: list, candidates_fn) -> list"
     },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_pool_fn": {
+      "decorators": [],
+      "doc": "Pool twin of build_ranked_maximizing_assignment_fn \u2014 same signature.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*a, **kw)"
+    },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_fn": {
       "decorators": [],
       "doc": "Worst-case sanity control: greedy MAXIMISER of expected task labor (Rank_maxlabor) \u2014\nthe exact mirror of build_ranked_minlabor_fn (high/far bins, scatter co-demanded SKUs).\nIt should land WORST on the objective_task_labor metric, bracketing the minimiser so the\nlever's direction and magnitude are verifiable.",
@@ -15014,6 +15874,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(units: list, candidates_fn) -> list"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_pool_fn": {
+      "decorators": [],
+      "doc": "Pool twin of build_ranked_maxlabor_fn \u2014 same signature.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_assignment_fn": {
       "decorators": [],
@@ -15029,6 +15896,13 @@
       "kind": "function",
       "signature": "(units: list, candidates_fn) -> list"
     },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_pool_fn": {
+      "decorators": [],
+      "doc": "Pool twin of build_ranked_minimizing_assignment_fn \u2014 same signature.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*a, **kw)"
+    },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_fn": {
       "decorators": [],
       "doc": "Greedy minimiser of expected task labor (see _ranked_minlabor_impl): golden-zone\nheight + effort-to-front + affinity compaction fused into one marginal-cost score.\nThe opposite of build_ranked_labor_fn (which BALANCES aisle load).  `beta` is \u03bb, the\naffinity-reward weight that converts lift\u00b7freq into the labor (time) units of the score.",
@@ -15042,6 +15916,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(units: list, candidates_fn) -> list"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_pool_fn": {
+      "decorators": [],
+      "doc": "Pool twin of build_ranked_minlabor_fn \u2014 same signature.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_fn": {
       "decorators": [],
@@ -15064,6 +15945,20 @@
       "kind": "function",
       "signature": "(units: list, candidates_fn) -> list"
     },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn": {
+      "decorators": [],
+      "doc": "Pool twin of build_ranked_popularity_fn \u2014 same signature.\n\nIts selector reads the LIVE `aisle_demand_sum`, which `take` itself increments, so the\naisle choice depends on what this pool has already placed.  That is pool state and ports\nas-is; what it means is that this arm's result moves when the service order moves.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn._selector": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(head_D, head_bin)"
+    },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_assignment_fn": {
       "decorators": [],
       "doc": "Ranked assignment: rank units by pick-effort priority (same as\nranked-minimizing), but place each into a UNIFORM-RANDOM aisle's\nminimum-travel-cost bin instead of the globally min-D aisle.\n\nAblation control: keeps the ranking (incl. demand-weighted lift) so the only\ndifference from ranked-minimizing is random vs D-optimal aisle selection \u2014\nisolating whether the trip-min aisle choice is necessary.",
@@ -15077,6 +15972,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(units: list, candidates_fn) -> list"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_pool_fn": {
+      "decorators": [],
+      "doc": "Pool twin of build_ranked_uniform_assignment_fn \u2014 same signature.\n\nOne RNG draw per unit that finds a live aisle, in the order the drain serves them, so\nthe stream re-pairs with different units the moment the order changes.  That is a real\nconsequence of the reorder, not a defect of the port.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*a, rng=None, **kw)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_trip_maximizing_assignment_fn": {
       "decorators": [],

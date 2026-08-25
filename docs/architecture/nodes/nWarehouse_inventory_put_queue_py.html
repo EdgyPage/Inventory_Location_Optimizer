@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.inventory.put_queue · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_put_queue_py" data-id="Warehouse/inventory/put_queue.py">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <span class="here"><code>Warehouse/inventory/put_queue.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.inventory.put_queue</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_put_queue_py.html"><code>Warehouse/inventory/put_queue.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.inventory.put_queue</code></pre>
+<section class="doc">put_queue.py — one configurable put-away queue, instantiated N times.
+
+# ── why this is one object and not three ──────────────────────────────────────────
+
+A store warehouse has at least two put-away streams that share nothing operationally: loose
+singletons that a person walks into a cart, and pallets that need a forklift. Fulfillment has
+a third. They differ in who does the work, how fast, how much can be staged, and how much
+freedom the assignment policy gets — pallets go away in arrival order almost regardless of
+what a scoring function would prefer, because there is no floor to lay a hundred of them out
+on and re-sort them.
+
+Writing three classes would encode today&#x27;s three streams as the shape of the code. The axes
+above are the real content, so they are a SPEC and the queue is one object configured by it.
+A fourth stream is a row. Inbound, when it arrives, is a producer into an existing queue
+rather than a new mechanism.
+
+# ── the axes ──────────────────────────────────────────────────────────────────────
+
+`accepts`   which unit categories this queue takes. Routing is on `unit_category`, which is
+            already a BinKey component, so a unit&#x27;s queue is decided by what it IS and never
+            by where it might go.
+`k_cap`     the assignment policy&#x27;s ordering tolerance, in units. 1 = strict arrival order.
+            None means INHERIT the manager&#x27;s `putaway_window`, not &quot;unbounded&quot; -- so a queue
+            states a tolerance only when it has a reason to differ, and the manager-wide
+            knob keeps working. See Inventory_Manager._serve_order.
+`staging`   how many items may wait at once. None = unbounded. A full queue REFUSES
+            admission and the producer holds; it never drops. This is the modelling of
+            floor space, and it is what makes pallet FIFO physical rather than stipulated.
+`policy`    which waiting item to work next, from `put_policy.PUT_POLICIES`. Where `k_cap`
+            narrows the placement pool&#x27;s freedom, this REPLACES its opinion with the floor&#x27;s
+            own — &quot;finish one SKU before starting the next&quot; is a real rule that no placement
+            objective expresses. The two compose.
+`crew`      who does the work — role, mode and speeds. Carried here so a queue&#x27;s throughput
+            is a property of the queue and not a global.
+
+# ── what is deliberately NOT here ─────────────────────────────────────────────────
+
+Reach height. A store singleton bin can sit at y_phys 1416 (SINGLETON_BIN_HEIGHT 48, aisles
+up to 1440 inches), so &quot;singleton ⇒ cart ⇒ walking speed&quot; charges a walk for something 118
+feet up. The honest discriminator is a BIN property known only AFTER assignment, while the
+queue is chosen BEFORE it. Splitting the store singleton family by aisle height at build
+time — which is what fulfillment already does with FULFILLMENT_AISLE_HEIGHT — would fix it
+properly. Until then `accepts` on `unit_category` is a PROXY, and this paragraph is the
+record that it is one.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py.html"><code>Warehouse.inventory.inventory_common</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_put_policy_py.html"><code>Warehouse.inventory.put_policy</code></a> <span class="dim">Warehouse/inventory/put_policy.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse.inventory.Inventory_Management</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(27)</span></h2><ul><li><a href="nWarehouse_inventory_put_queue_py__ANY.html"><code>ANY</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__FULFILLMENT.html"><code>FULFILLMENT</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PALLET.html"><code>PALLET</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue.html"><code>PutQueue</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet.html"><code>PutQueueSet</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSpec.html"><code>PutQueueSpec</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__SINGLETON.html"><code>SINGLETON</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet___getitem__.html"><code>__getitem__</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet___iter__.html"><code>__iter__</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue___len__.html"><code>__len__</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet___len__.html"><code>__len__</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSpec___post_init__.html"><code>__post_init__</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue___repr__.html"><code>__repr__</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue_admit.html"><code>admit</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet_depth.html"><code>depth</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue_drain_counters.html"><code>drain_counters</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue_has_room.html"><code>has_room</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet_is_single.html"><code>is_single</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue_name.html"><code>name</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueue_oldest_age.html"><code>oldest_age</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet_route.html"><code>route</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__single_queue.html"><code>single_queue</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet_snapshot.html"><code>snapshot</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__store_and_fulfillment.html"><code>store_and_fulfillment</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSpec_takes.html"><code>takes</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_put_queue_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/put_queue.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

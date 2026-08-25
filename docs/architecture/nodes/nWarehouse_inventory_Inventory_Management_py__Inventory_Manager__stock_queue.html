@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_stock_queue · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_queue" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_queue">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>_stock_queue</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_stock_queue</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+
+<pre class="sig"><code>@property
+def _stock_queue(self)</code></pre>
+<section class="doc">The put-away queue.
+
+A live deque while there is ONE queue -- which is the default, and why every
+existing consumer, mutation site and test keeps working unchanged.  With the streams
+split there is no single deque to hand back, so this returns a read-only view and
+any code that tried to mutate it would fail loudly rather than mutate a copy.
+Internal drain code takes a `PutQueue` explicitly and never reaches for this.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py___MultiQueueView.html"><code>_MultiQueueView</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_queue">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20_stock_queue">Source ↗</a></p>
+</article>
+</main>
+</body></html>

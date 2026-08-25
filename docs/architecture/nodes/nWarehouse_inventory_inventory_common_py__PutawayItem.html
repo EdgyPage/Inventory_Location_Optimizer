@@ -28,10 +28,20 @@ Carrying the source with the work item makes `bin_placement.cause` a fact the qu
 knows rather than one the recorder infers, and it is the field a trailer id will
 occupy when inbound loads become a source of their own.
 
+`age` is a monotonic arrival stamp, and it exists because &quot;FIFO&quot; stopped being a
+property of the deque the moment the drain got a K-oldest window.  Queue POSITION used
+to be the only record of how long something had waited, which is fine while nothing ever
+re-enters — and three things do: the repack rescue, the singleton rescue, and a group
+requeued whole when the put-away budget runs out.  A stamp survives all three and can be
+asserted; a position cannot even be inspected after the fact.
+
+It is also what the queue-state snapshots report as `oldest_age`, and the field a
+trailer&#x27;s arrival time will map onto when inbound becomes a producer.
+
 Frozen because a queued item&#x27;s origin must not be editable in flight; `respawn` is the
 one legal derivation, used by the repack and singleton rescues, which split one unit
-into several without changing where any of them came from.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(5)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enqueue.html"><code>enqueue</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enqueue_all.html"><code>enqueue_all</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py__PutawayItem_respawn.html"><code>respawn</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_to_stock.html"><code>_release_to_stock</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_requeue_bin.html"><code>requeue_bin</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
+into several without changing where any of them came from — or how old any of them is.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__admit.html"><code>_admit</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py__PutawayItem_respawn.html"><code>respawn</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_common_py__PutawayItem">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_common.py#:~:text=class%20PutawayItem">Source ↗</a></p>
 </article>
 </main>
