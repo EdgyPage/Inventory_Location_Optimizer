@@ -178,15 +178,19 @@ Each step is independently verifiable, and no step leaves a producer without a c
 | 1 | A skipped batch closes its own books: drains its put-away records, writes a zero-duration row, and `thr_batch` goes NaN rather than 0.0. | Yes, but **vacuously** — no arm in the sweep skips a batch, so the changed path never runs. Five behavioural sabotages are the evidence instead. | **done** `6d48907` |
 | 2 | `WorkDay` + `ReleaseSchedule` as pure kernel values, fully tested, **not wired**. | Yes — nothing imports them, and a ratchet enforces it. | **done** `3c19dc0` |
 | 3 | Wire the schedule to the release instant; record which day a batch is in and whether its slot was missed. | Only `batch_stats`' two new columns move; its pre-existing columns are 68/68 identical. | **done** `cf2446b` |
-| 3b | The **event-by-event** lockstep test, written against UNCHANGED loops and passing on them. | n/a — a test only. | **next** |
-| 4 | The day cut in both loops **and** the call site that passes `day_end`, in ONE commit. Plus: realized items on `TaskStats`, the day length in run params, and an end-to-end run with the cut on. | No, by design. | |
+| 3b | The **event-by-event** lockstep test, written against UNCHANGED loops and passing on them. | n/a — a test only. Passes today across both schedulers, both lane models, 1 and 3 pickers, four start-time epochs, five fixtures and twelve randomized workloads. | **done** `c68770e` |
+| 4 | **next** — the day cut in both loops **and** the call site that passes `day_end`, in ONE commit. Plus: realized items on `TaskStats`, the day length in run params, and an end-to-end run with the cut on. | No, by design. | |
 | 5 | `PendingDemand`, consuming the cut's carry — ONE definition — plus unpicked-demand rollover, a bound on the carry, and a test that the bound holds. | No, by design. | |
 | 6 | Put-away and inbound rollover. | No. | |
 | 7 | Resume: day clock, pending demand, held items, queue depths, the arrival stamp counter. | Resume-at-N equals a straight run. | |
 | 8 | Analysis: widen the time axis so a schedule with gaps does not corrupt published throughput. | No — it corrects figures that are currently wrong under a paced schedule. | |
 
 **Step 3b is a precondition, not a nicety, and it has to come first for a reason that is easy
-to get backwards.** Every lockstep guard today compares an AGGREGATE, so two loops could stamp
+to get backwards.** It is now done, and it earned its place: pooling one loop's
+`pick_travel_x` onto a single event reshapes 18 of 62 events with every sum bit-identical,
+and the travel breakdown, the axes, the makespan and the event count all still agree. Only
+the event-by-event comparison sees it. That case is itself a test.
+ Every lockstep guard today compares an AGGREGATE, so two loops could stamp
 identical totals on differently-shaped event streams and pass all three — and a day cut is
 exactly the change most likely to reshape a stream while leaving its totals intact. Writing
 the event-by-event comparison AFTER the cut would leave no way to tell whether a divergence it
