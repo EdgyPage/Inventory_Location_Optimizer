@@ -53,6 +53,7 @@ from Warehouse.kernel.timeline import (
     DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS,
     ReleaseSchedule as _ReleaseSchedule,
     WorkDay as _WorkDay)
+from Warehouse.inventory.dock import DockSpec as _DockSpec
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task
@@ -657,6 +658,32 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # order, same instants); it records durations and rows.  See enable_putaway_timing.
     mgr.enable_putaway_timing(_put_crew.speed, size=_put_crew.size)
 
+    # ── the receiving crew ────────────────────────────────────────────────────────
+    # ABSENT BY DEFAULT, AND STRUCTURALLY SO: `recv_crew_spec()` returns None when the size
+    # is 0, so this whole block does not execute -- no Crew, no Workers, no clocks, no Dock,
+    # no WorkDay -- and the run is byte-identical.  That is why the payload key is None
+    # rather than an empty dict: "nothing was constructed" is checkable, "an empty thing
+    # exists" is something a later `max()` or snapshot can still fold in.
+    _recv_spec = args.get('recv_crew')
+    _recv_crew = _recv_workers = _recv_day = None
+    if _recv_spec is not None:
+        _recv_crew = _Crew(role=_Role.RECEIVE, mode=_Mode.of(_recv_spec['mode']),
+                           speed=_SpeedProfile(_recv_spec['x_speed'], _recv_spec['y_speed']),
+                           size=_recv_spec['size'])
+        # The uid cursor the put loop left positioned.  Chained, so the three crews hold
+        # disjoint contiguous blocks and no per-actor rollup can merge two people.
+        _recv_workers = _recv_crew.workers(_uid)
+        _uid = _recv_crew.next_uid(_uid)
+        mgr.enable_receiving(_DockSpec(size=_recv_spec['size']))
+        # ITS OWN DAY, not the pickers'.  Sharing would tie receiving rollover to
+        # `--cut-at-day-end`, which changes which units are PICKED -- so the feature's
+        # headline behaviour would only ever be observable in a configuration that also
+        # perturbs picking.  None here means no whistle: the dock drains every batch and the
+        # crew only costs seconds, which is a clean additive arm on its own.
+        if _recv_spec['day_seconds'] is not None:
+            _recv_day = _WorkDay(length=_recv_spec['day_seconds'],
+                                 origin=_recv_spec['day_origin'])
+
     # ── static per-run scores (saved once, before the loop) ────────────────────
     # Geometry/config-fixed scores the assignment functions compute: the viewer reads
     # these instead of recomputing.  bin layout score = travel D + golden-zone height;
@@ -741,6 +768,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # where it stopped rather than restarting.  Without this the same worker is doing
     # two batches at the same instant.
     put_clock: float = 0.0
+    # The receive crew's own absolute carry, for exactly the reason `put_clock` exists: the
+    # dock's clocks restart at 0 every batch (the drain resets them) while the rows are
+    # stamped from an epoch, so without a carry one receiver would be unloading two batches
+    # at the same instant.
+    recv_clock: float = 0.0
     reorders_ckpt      = 0   # distinct SKUs reordered this checkpoint window (N)
     units_ordered_ckpt = 0   # units ordered this window (U = Σ reorder qty)
     placed_ckpt        = 0   # units placed this window (P = reorder placements)
@@ -843,11 +875,20 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # whichever is later, which is exactly the `_put_base` the event rows use below.
         _put_deadline = (None if _day_end is None
                          else _day_end - max(arm_clock, put_clock))
+        # The RECEIVE whistle: its own day, its own carry.  Reusing `_put_deadline` would be
+        # arithmetically well-formed and wrong -- it is the PUT crew's remaining day, already
+        # shrunk by the PUT crew's backlog -- and the only symptom would be a `recv_cut` that
+        # reads like a legitimately short day.
+        _recv_deadline = (
+            None if _recv_day is None
+            else (_recv_day.end_of(_recv_day.index_of(arm_clock))
+                  - max(arm_clock, recv_clock)))
         if reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.
             reloader.reload(mgr, freq_by_sku, opt_x, opt_y)
-        triggered      = mgr.check_reorders(put_deadline=_put_deadline)
+        triggered      = mgr.check_reorders(put_deadline=_put_deadline,
+                                            recv_deadline=_recv_deadline)
         reorders_ckpt += len(triggered)
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
@@ -890,6 +931,24 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # no receiving crew, which keeps the row shape identical either way rather than
         # leaving a NULL every consumer has to special-case.
         _rcv = mgr.receiving_snapshot()
+        # THE RECEIVE FLUSH, in the block both branches pass through -- so
+        # `close_skipped_batch` is untouched.  That matters: it has two early returns of its
+        # own, and a drain appended after its put block would be silently skipped whenever
+        # put-away produced nothing, which is exactly when a skipped batch is likeliest.
+        #
+        # `arm_clock` is already this batch's release (fixed at the top of the loop) and
+        # `bs.batch_start_time` is pinned equal to it, so one epoch serves both branches.
+        if _recv_workers is not None:
+            _recv_recs = mgr.drain_receiving_records()
+            _recv_base = max(arm_clock, recv_clock)
+            if _recv_recs:
+                we.extend(_work_events.recv_rows(
+                    _recv_recs, batch_id=i, batch_start=arm_clock, crew=_recv_workers,
+                    shift_seconds=_shift_seconds, crew_start=_recv_base))
+                # Grouped `(base + t0) + dur` deliberately, copied from the put carry: float
+                # addition is not associative and the other association moved 28 rows by one
+                # ulp across two arms.
+                recv_clock = max((_recv_base + r[0]) + r[1] for r in _recv_recs)
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
         # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of

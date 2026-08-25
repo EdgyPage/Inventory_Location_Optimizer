@@ -13,7 +13,8 @@ from Optimization.persistence.Picking_Data import create_run, init_run_db, sim_s
 from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
-    CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, work_day_spec,
+    CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, recv_crew_spec,
+    work_day_spec,
     _CART_TYPES,
     _build_pick_cfg, _checkpoint_every,
     _config_name,
@@ -30,7 +31,7 @@ from Warehouse.layout.Storage_Primitive import StoreCart
 
 def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity,
                          granularity, prev_id, prev_start, is_resume, log,
-                         roll_over: bool = False):
+                         roll_over: bool = False, receiving: bool = False):
     """Decide (run_id, start_batch) for one strategy, honoring resume granularity.
 
     - Fresh run / a strategy new on resume → init DB + create_run, start 0.
@@ -63,13 +64,24 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
             log.info(f'  [{s.key}] strategy-level reset -> batch 0 (bit-identical)')
             return create_run(db_path, s.run_type, run_params,
                               identity={**identity, 'strategy_key': s.key}), 0
-        if roll_over:
+        if roll_over or receiving:
+            # Two different pieces of worker-local state, same consequence and same fix.
+            # The receiving case is the worse of the two: unlike the pick carry, merchandise
+            # standing on a discarded dock is STILL credited to the inventory position, so
+            # the SKU does not re-order either -- the run reports labour it did not do and
+            # inventory it does not have.
+            why = ('unpicked demand rolls over: the carry lives in the worker and is in no '
+                   'checkpoint, so resuming here would DROP every unit the pre-crash run '
+                   'carried and report throughput it did not earn'
+                   if roll_over else
+                   'a receiving crew is configured: the standing contents of the dock live '
+                   'in the worker and are in no checkpoint, so resuming here would discard '
+                   'every unit on it -- and that merchandise is still credited to the '
+                   'inventory position, so the SKU never re-orders to replace it either')
             raise RuntimeError(
-                f'[{s.key}] batch-level resume @ {ckpt} is refused while unpicked demand '
-                f'rolls over: the carry lives in the worker and is in no checkpoint, so '
-                f'resuming here would DROP every unit the pre-crash run carried and report '
-                f'throughput it did not earn. Re-run with --resume-granularity strategy '
-                f'(the default), which replays the arm from batch 0.')
+                f'[{s.key}] batch-level resume @ {ckpt} is refused because {why}. Re-run '
+                f'with --resume-granularity strategy (the default), which replays the arm '
+                f'from batch 0.')
         log.warning(f'  [{s.key}] batch-level resume @ {ckpt}: NOT bit-identical to an uncrashed '
                     f'run (un-replayed physical state). Use --resume-granularity strategy for '
                     f'exact cross-arm comparability.')
@@ -290,7 +302,8 @@ def _prepare_channel_run(
             ch_run_dir, s, n_batches, ch_db_path[s.key], ch_run_params, _identity,
             resume_granularity, prev_ids.get(s.key), prev_starts.get(s.key, 0),
             resume is not None, log,
-            roll_over=bool(work_day_spec().get('roll_over_unpicked')))
+            roll_over=bool(work_day_spec().get('roll_over_unpicked')),
+            receiving=recv_crew_spec() is not None)
     if resume:
         log.info(f'  Resuming [{ch.name}]  '
                  + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))
@@ -334,6 +347,7 @@ def _prepare_channel_run(
         # from its MODE, not from the pick config: a crew labelled `foot` costed at the
         # store's machine speed would write rows whose mode and duration disagree.
         put_crew            = put_crew_spec(),
+        recv_crew           = recv_crew_spec(),
         velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )

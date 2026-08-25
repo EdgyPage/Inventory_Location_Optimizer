@@ -187,6 +187,11 @@ CONFIG = {
         'releases_per_day': _s.RELEASES_PER_DAY,
         'cut_at_day_end'  : _s.CUT_AT_DAY_END,
         'roll_over_unpicked': _s.ROLL_OVER_UNPICKED,
+        # The RECEIVING CREW and its own day.  size 0 = no crew, which is every run before
+        # this existed; see recv_crew_spec below for why that is a structural no-op.
+        'recv_crew_size' : _s.RECV_CREW_SIZE,
+        'recv_day_seconds': _s.RECV_DAY_SECONDS,
+        'recv_day_origin': _s.RECV_DAY_ORIGIN,
     },
     'channels': {
         'store': {
@@ -313,6 +318,48 @@ def work_day_spec() -> dict:
         'releases_per_day': g.get('releases_per_day'),
         'cut_at_day_end': bool(g.get('cut_at_day_end')),
         'roll_over_unpicked': bool(g.get('roll_over_unpicked')),
+    }
+
+
+def recv_crew_spec() -> dict | None:
+    """The receiving crew as a picklable record, or **None** when there is no crew.
+
+    None rather than an empty dict, and that distinction is the feature's off-switch. The
+    worker tests `args.get('recv_crew') is None` and skips its whole receive block: no Crew,
+    no Workers, no clocks, no Dock, no WorkDay. The no-op is therefore "nothing was
+    constructed" rather than "an empty thing exists" -- which matters because an empty dock
+    would still be an object something could fold into a clock or a snapshot.
+
+    COPIED FROM `work_day_spec`, NOT FROM `put_crew_spec`. That one reads `_s.PUT_CREW_SIZE`
+    directly and there is no `CONFIG['global']['put_crew_*']` key at all -- so a CLI flag,
+    which writes CONFIG, would be accepted and ignored forever, and a standalone re-analysis
+    would size against this checkout's `settings.py` instead of the run's own. Reading CONFIG
+    at CALL time is what makes the other three seams reachable.
+
+    `day_seconds` is resolved with an explicit `is not None`, never `or`: `--recv-day-seconds
+    0` means "the crew has no day today", and `or` would silently turn that into "no whistle
+    at all" -- the inverse. (The parser rejects 0 as well, so this is the second of two
+    guards on the same mistake.)
+
+    Speeds come from the PUT crew's foot table. Not laziness: an unload has no travel term,
+    so no speed is consumed by the cost model at all, and declaring receiving-specific
+    constants would assert a distinction the model cannot express. They are carried only so a
+    `Crew` can be built and its rows labelled.
+    """
+    g = CONFIG['global']
+    size = int(g.get('recv_crew_size') or 0)
+    if size < 1:
+        return None
+    day = g.get('recv_day_seconds')
+    return {
+        'size': size,
+        'day_seconds': None if day is None else float(day),
+        'day_origin': float(g.get('recv_day_origin') or 0.0),
+        # No mode knob -- see settings.RECV_CREW_SIZE. `foot` labels the rows honestly:
+        # a receiver walks merchandise off a trailer.
+        'mode': 'foot',
+        'x_speed': _s.PUT_FOOT_X,
+        'y_speed': _s.PUT_FOOT_Y,
     }
 
 

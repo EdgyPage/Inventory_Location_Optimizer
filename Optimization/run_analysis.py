@@ -317,6 +317,12 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     g['releases_per_day'] = spec.get('releases_per_day')
     g['cut_at_day_end']   = bool(spec.get('cut_at_day_end'))
     g['roll_over_unpicked'] = bool(spec.get('roll_over_unpicked'))
+    # The receiving crew, unconditionally.  A pre-field spec yields None/0, which correctly
+    # means "that run had no receiving crew" -- never this checkout's setting, which would
+    # make a re-analysis size a dock the run never had.
+    g['recv_crew_size']   = spec.get('recv_crew_size') or 0
+    g['recv_day_seconds'] = spec.get('recv_day_seconds')
+    g['recv_day_origin']  = spec.get('recv_day_origin') or 0.0
     if spec.get('max_skus') is not None:
         g['max_skus'] = spec['max_skus']
     for ch, key in (('store', 'store_fill'), ('fulfillment', 'ff_fill')):

@@ -64,7 +64,7 @@ def pick_rows(events, batch_id, batch_start, crew, *,
 
 def put_rows(records, batch_id, batch_start, crew, *,
              shift_seconds: float = DEFAULT_SHIFT_SECONDS, first_seq: int = 0,
-             crew_start=None):
+             crew_start=None, event_type: str = 'put'):
     """Merged-stream rows for one batch's put-away.
 
     `records` are `Inventory_Manager.drain_putaway_records()` tuples
@@ -99,8 +99,15 @@ def put_rows(records, batch_id, batch_start, crew, *,
     its crew is free earliest, so the worker is a scheduling outcome, not a function of
     position in the list. This used to round-robin on `seq % len(workers)` while the
     durations came from a single serial clock — so a crew of two reported two people each
-    doing every other put, at instants that said one person did all of them. The event type
-    is `put` and `qty` is positive.
+    doing every other put, at instants that said one person did all of them. `qty` is
+    positive.
+
+    `event_type` is a PARAMETER and not the literal it used to be. `role` comes from the
+    worker, so a second stream reusing this body would otherwise write `role='receive'` with
+    `event_type='put'`, and `SUM(duration) WHERE role='put'` would disagree with the same
+    query on `event_type` with nothing to point at. `recv_rows` below is that second stream;
+    it shares this body precisely so the two-origin split, the worker bounds check and the
+    one-stream-per-call refusal exist once.
     """
     if crew_start is None:
         crew_start = batch_start
@@ -123,9 +130,48 @@ def put_rows(records, batch_id, batch_start, crew, *,
         t_abs = crew_start + t_start
         rows.append((batch_id, seq, t_abs, t_abs - batch_start,
                      shift_index(t_abs, shift_seconds), w.uid, w.local_id,
-                     str(w.role), str(w.mode), 'put', aisle_id, sku, abs(int(qty)),
+                     str(w.role), str(w.mode), event_type, aisle_id, sku, abs(int(qty)),
                      float(dur), source))
     return rows
+
+
+def recv_rows(records, batch_id, batch_start, crew, *,
+              shift_seconds: float = DEFAULT_SHIFT_SECONDS, first_seq: int = 0,
+              crew_start=None):
+    """Merged-stream rows for one batch's RECEIVING, through `put_rows`' body.
+
+    `records` are `Inventory_Manager.drain_receiving_records()` tuples
+    `(t_start, dur, sku, qty, worker)`, widened here to the 10-slot put shape with `None`
+    for the aisle and 0.0 for the coordinates -- a dock has no aisle and no position. The
+    `source` slot carries `'dock'`, which is where the work happened; the merchandise's own
+    origin is already on the put row that follows it.
+
+    A THIN WRAPPER ON PURPOSE. Everything that is easy to get subtly wrong lives in
+    `put_rows`: `crew_start` for `t_abs` against `batch_start` for `t_local`, the worker
+    bounds check, and the refusal to mix streams in one call. A second implementation would
+    have its own copy of each, and the copies would drift somewhere nobody looks.
+
+    Refuses a `Crew` OBJECT rather than its pre-offset worker tuple. `Crew.workers()`
+    defaults `first_uid=0`, so passing the crew here would silently re-allocate uids from
+    zero and collide with the pick crew -- and nothing downstream could tell: a collision
+    passes the bounds check, the DDL has no uniqueness constraint, and the merged view still
+    sorts. Any per-actor rollup would then merge two people, and the failure is quietest
+    exactly when the receiving crew is small, which is the likely configuration.
+    """
+    if hasattr(crew, 'workers'):
+        raise TypeError(
+            'recv_rows needs the receive crew\'s pre-offset worker TUPLE, not the Crew '
+            'object: Crew.workers() restarts uids at 0, which collides with the pick crew '
+            'and is invisible downstream. Pass crew.workers(first_uid).')
+    wide = []
+    for t_start, dur, sku, qty, widx in records:
+        if int(qty) <= 0:
+            raise ValueError(
+                f'receive record for sku {sku} carries qty {qty}; an unload moves '
+                f'merchandise, and a zero would be stored where a state change stores NULL')
+        wide.append((t_start, dur, sku, qty, None, 0.0, 0.0, 'dock', widx, 'dock'))
+    return put_rows(wide, batch_id, batch_start, crew, shift_seconds=shift_seconds,
+                    first_seq=first_seq, crew_start=crew_start, event_type='receive')
 
 
 def merged(rows):

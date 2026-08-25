@@ -96,6 +96,42 @@ from Optimization.simdriver.scenario import (             # noqa: F401,E402
 
 # ── entry point ────────────────────────────────────────────────────────────────
 
+def _nonneg_int(text: str) -> int:
+    """An argparse `type=` that rejects negatives but ALLOWS zero.
+
+    `--recv-crew-size 0` is meaningful -- it is the off switch, and the default -- so unlike
+    `_positive_int` below, zero passes.  Negative does not: it would reach
+    `crew_clock.new_clocks` and raise three layers down, or worse, be swallowed by a
+    truthiness guard on the way.
+    """
+    try:
+        n = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'{text!r} is not an integer')
+    if n < 0:
+        raise argparse.ArgumentTypeError(f'{n} is negative; a crew size is 0 or more')
+    return n
+
+
+def _positive_float(text: str) -> float:
+    """An argparse `type=` for a DURATION that is meaningless at zero.
+
+    `--recv-day-seconds 0` would mean "the crew has a day of no length", which is not the
+    same as "the crew has no whistle" (that is omitting the flag) and is not a configuration
+    anyone wants.  Rejected at the parser for the same reason `--n-batches 0` is: argparse
+    prints the flag name and exits 2, instead of the value being quietly turned into its
+    opposite by an `or`.
+    """
+    try:
+        v = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'{text!r} is not a number')
+    if v <= 0.0:
+        raise argparse.ArgumentTypeError(
+            f'{v} is not positive; omit the flag for "no whistle" rather than passing 0')
+    return v
+
+
 def _positive_int(text: str) -> int:
     """An argparse `type=` that rejects zero and negatives.
 
@@ -133,6 +169,9 @@ def _apply_run_spec(args, spec, explicit):
               # started on.
               'work_day_seconds', 'releases_per_day', 'cut_at_day_end',
               'roll_over_unpicked',
+              # ...and the receiving crew, for the same reason: an arm that resumed without
+              # its dock would finish having received for free.
+              'recv_crew_size', 'recv_day_seconds', 'recv_day_origin',
               # ...and the seeds it is drawn from, plus the world it is drawn against.
               'seed_world', 'seed_batches'):
         if f not in spec:
@@ -255,6 +294,31 @@ def main():
         default=CONFIG['global']['roll_over_unpicked'],
         help='Demand a batch did not pick joins the next batch, whatever the cause. The '
              'largest behaviour change here: it ends comparability with the archive.')
+    # ── the receiving crew ──────────────────────────────────────────────────────
+    # Its day is deliberately NOT gated on --cut-at-day-end.  That flag changes which units
+    # are PICKED in which batch; coupling would make receiving rollover observable only in a
+    # configuration that also perturbs picking, which is the first objection a reviewer
+    # raises.  Decoupled, `--recv-crew-size 2 --recv-day-seconds 14400` is a clean arm: real
+    # rollover, zero change to pick or put-away timing.
+    parser.add_argument(
+        '--recv-crew-size', type=_nonneg_int, default=CONFIG['global']['recv_crew_size'],
+        metavar='N',
+        help='Receivers on the inbound dock. 0 (the default) means NO receiving crew: '
+             'merchandise reaches a put queue the instant its lead time elapses, as it '
+             'always did. Above 0, arrivals land on a dock and this many people unload it. '
+             'Crew SIZE is the only lever on a receiving makespan -- an unload has no '
+             'travel term, so there is no speed and no mode to sweep.')
+    parser.add_argument(
+        '--recv-day-seconds', type=_positive_float,
+        default=CONFIG['global']['recv_day_seconds'], metavar='SEC',
+        help="The receiving crew's own working day. Omit for no whistle, where the dock "
+             'drains every batch and the crew only costs seconds. With a value, what the '
+             'crew does not reach stays on the dock for the next batch.')
+    parser.add_argument(
+        '--recv-day-origin', type=float, default=CONFIG['global']['recv_day_origin'],
+        metavar='SEC',
+        help="When the receiving day starts on the run's absolute axis. A dock that opens "
+             'before the pickers do is a real shift pattern; this is where it goes.')
     parser.add_argument('--sampler', choices=('v1', 'v2'),
                         default=CONFIG['global']['sampler'],
                         help='Batch-sampler VERSION — a results era, not a tuning knob. '
@@ -355,6 +419,9 @@ def main():
     g['releases_per_day']  = args.releases_per_day
     g['cut_at_day_end']    = bool(args.cut_at_day_end)
     g['roll_over_unpicked'] = bool(args.roll_over_unpicked)
+    g['recv_crew_size']    = args.recv_crew_size
+    g['recv_day_seconds']  = args.recv_day_seconds
+    g['recv_day_origin']   = args.recv_day_origin
     if args.checkpoint_frac is not None:
         g['checkpoint_frac'] = args.checkpoint_frac
     # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
@@ -472,6 +539,12 @@ def main():
             'releases_per_day': g['releases_per_day'],
             'cut_at_day_end'  : g['cut_at_day_end'],
             'roll_over_unpicked': g['roll_over_unpicked'],
+            # The receiving crew and its own day. Read from `g` (post-overlay), not from
+            # `args`, so a value that came from CONFIG rather than the command line is
+            # recorded too -- otherwise two runs with different docks look identical.
+            'recv_crew_size'  : g['recv_crew_size'],
+            'recv_day_seconds': g['recv_day_seconds'],
+            'recv_day_origin' : g['recv_day_origin'],
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,

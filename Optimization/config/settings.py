@@ -92,6 +92,29 @@ RELEASES_PER_DAY = None    # batches released per day; None = CONTINUOUS, i.e. b
 CUT_AT_DAY_END = False     # stop pickers at the whistle and roll their unreached work into
                            # the next batch.  Changes WHICH units are picked in WHICH batch,
                            # so it can never be a silent default.  --cut-at-day-end
+# ── the receiving crew (inbound) ───────────────────────────────────────────────────
+# Inbound is its OWN crew, with its own hours: merchandise whose lead time has elapsed lands
+# on a dock and a receiving crew works through it, rather than appearing in a put queue for
+# free.  Off by default and STRUCTURALLY so -- size 0 means `recv_crew_spec()` returns None,
+# so no dock, no crew and no clock is ever constructed and the run is byte-identical.
+#
+# There is deliberately no RECV_CREW_MODE and no receiving speed table.  An unload has no
+# travel term (there is no dock coordinate anywhere in the model), so there is nothing for a
+# speed to scale: this model cannot say whether a forklift crew unloads faster than a hand
+# crew, only how crew SIZE moves a makespan, because size is the number of clocks.  Four
+# constants nothing reads would imply otherwise.  See Warehouse/operations/unload.py.
+RECV_CREW_SIZE = 0         # receivers; 0 = NO receiving crew, i.e. every run before this
+                           # existed.  --recv-crew-size
+RECV_DAY_SECONDS = None    # the receiving crew's own day, in seconds; None = no whistle, so
+                           # the dock drains every batch and the crew only ever costs
+                           # seconds.  Deliberately NOT tied to --cut-at-day-end: that knob
+                           # changes which units are PICKED in which batch, and coupling
+                           # would make receiving rollover observable only in a configuration
+                           # that also perturbs picking.  --recv-day-seconds
+RECV_DAY_ORIGIN = 0.0      # when the receiving day starts on the arm's absolute axis.  A
+                           # dock that opens before the pickers is a real shift pattern and
+                           # this is where it goes.  --recv-day-origin
+
 ROLL_OVER_UNPICKED = False # demand a batch did not pick joins the NEXT batch's demand,
                            # whatever the cause: the day cut, a bin that held less than the
                            # plan, or no bin holding the SKU at all.  The largest behaviour
