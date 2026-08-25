@@ -865,7 +865,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             pq.append((i, _kind, _sku, _qty, 0, _ut, _ss, _qn))
         for (_kind, _sku, _rem, _ut, _ss, _qn), _qty in _rq.items():
             pq.append((i, _kind, _sku, _qty, _rem, _ut, _ss, _qn))
-        pqs.extend(mgr.queue_state_rows(i))     # drains the counters: once per batch
+        # ONCE PER BATCH, AND THIS CALL COVERS BOTH BRANCHES.  `queue_state_rows` drains the
+        # flow counters, so a second call in the same batch reports zeros -- and it is above
+        # the skip guard, so the skipped path passes through here too.  Do not add a
+        # matching call inside `if not tasks:`; one was there and the zeros overwrote the
+        # real numbers via INSERT OR REPLACE.
+        pqs.extend(mgr.queue_state_rows(i))
         cov.extend(mgr.carryover_rows(i))
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
@@ -984,8 +989,13 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             _bs.released_late = _late
             pb.append(_bs)
             we.extend(_we_skip)
-            pqs.extend(mgr.queue_state_rows(i))
-            cov.extend(mgr.carryover_rows(i))
+            # NO queue_state_rows / carryover_rows here.  Both already ran above, before the
+            # task build, and nothing `continue`s between there and this branch -- so a
+            # skipped batch reached them TWICE.  `queue_state_rows` DRAINS the flow counters,
+            # so the second call returned admitted=0 placed=0 blocked=0 cut=0, and
+            # `_insert_put_queue_state` is INSERT OR REPLACE on (run_id, batch_id, queue):
+            # the zeros won.  Every skipped batch persisted an idle-looking dock on a queue
+            # that may have moved hundreds of units.
             continue
 
         # The clock CARRIES.  Every picker starts this batch at the arm's current instant,
