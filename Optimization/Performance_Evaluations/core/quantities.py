@@ -293,6 +293,22 @@ QUANTITIES: tuple = (
         axis_stem='reorder placements / batch', unit=Unit('count'), direction='lower',
         source=Source(per_batch=('batch', 'reorder_placements'))),
 
+    # ── appended AFTER the eleven original metrics, deliberately ─────────────────
+    # `_METRICS`' order is the row order of every significance CSV, so a new metric goes at
+    # the END: every pre-existing row keeps its index and no committed evidence is rewritten.
+    Quantity(
+        key='throughput_elapsed', label='Thr / elapsed time',
+        axis_stem='throughput / elapsed time', unit=RATE_PER_HOUR, direction='higher',
+        source=Source(per_batch=('batch', 'thr_elapsed'),
+                      # derived in `frames._elapsed` from the epoch GAP between batches
+                      db_columns=('total_items', 'duration', 'batch_start_time')),
+        notes='What the DAY produced, against `throughput`\'s what the crew worked AT. '
+              'Identical under the continuous default -- the next batch is released the '
+              'instant this one ends, so the makespan IS the elapsed time. They separate '
+              'under a paced release schedule, where a crew that finishes early waits and '
+              'that idle gap is elapsed time `duration` cannot see. Both are real: fewer, '
+              'fuller waves raise this one while leaving `throughput` alone.'),
+
     # ── the compute-cost family: what a RULE costs to run, in wall-clock seconds ──
     # Read from the run's own cost rows rather than from a sim DB, which is what
     # `Source.runtime` names.  These measure the optimiser, not the warehouse.

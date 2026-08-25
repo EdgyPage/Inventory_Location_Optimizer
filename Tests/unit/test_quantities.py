@@ -58,9 +58,37 @@ _LEGACY_AGG_METRICS = [
 ]
 
 
+#: Metrics added AFTER the derivation landed, in the order they were added. The legacy
+#: literal above stays frozen; growth is recorded here so the two things the oracle
+#: actually protects still hold — no existing row is reordered, and no existing row is
+#: renamed. A new metric therefore goes at the END of `QUANTITIES` and every previously
+#: published CSV row keeps its index.
+_ADDED_METRICS = [
+    # 2026-08-25, the working-day clock: throughput against the DAY rather than against
+    # the batch makespan. Identical to `throughput` under the continuous default; they
+    # separate under a paced release schedule, where a crew that finishes early waits and
+    # that idle gap is elapsed time the makespan cannot see.
+    ('throughput_elapsed',    'batch',     'thr_elapsed',        False),
+]
+
+
 def test_the_derived_metric_table_is_the_literal_it_replaced():
-    assert list(stats_core._METRICS) == _LEGACY_METRICS
-    assert Q.metric_specs() == _LEGACY_METRICS
+    """The legacy rows, in the legacy order, with additions only ever appended.
+
+    Two different failures are separated on purpose. A missing or reordered legacy row
+    re-writes committed evidence and is the thing this oracle exists to catch; an appended
+    row is growth and is recorded in `_ADDED_METRICS` above. Asserting the prefix first
+    means a reorder still fails HERE, with the legacy diff, rather than showing up as a
+    confusing whole-list mismatch after someone adds a metric.
+    """
+    got = list(stats_core._METRICS)
+    assert got[:len(_LEGACY_METRICS)] == _LEGACY_METRICS, (
+        'a legacy metric was reordered, renamed or removed — every significance CSV ever '
+        'published has these rows in this order')
+    assert got == _LEGACY_METRICS + _ADDED_METRICS, (
+        'a metric was added without being recorded in _ADDED_METRICS, or was inserted '
+        'somewhere other than the end (which shifts every row below it)')
+    assert Q.metric_specs() == got
 
 
 def test_the_derived_aggregate_table_is_the_literal_it_replaced():

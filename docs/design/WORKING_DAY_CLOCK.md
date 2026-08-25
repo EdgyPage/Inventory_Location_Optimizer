@@ -184,9 +184,29 @@ Each step is independently verifiable, and no step leaves a producer without a c
 | 4c | The day length and release cadence in the run params, so two runs with different days are distinguishable. | Adds run metadata only. | **done** `81884b8` |
 | 5 | Rollover for the OTHER cause — the live-stock clamp, `unpicked_unavailable` — merged with the cut's carry under one reason column. | Recorded always, rolled over only on request; the recording half is byte-identical. | **done** `6783e4a` |
 | 6 | Put-away rollover: the whistle is a START gate on the put crews, and `put_queue_state.cut` says what it left standing. | Cut OFF: byte-identical (1027/1164 digests; the rest are the two new columns and the two timestamp tables). | **done** `90cd7a8` |
-| 6b | Inbound rollover — an arrival the day cannot absorb. | Mostly ALREADY TRUE; see below. | **next** |
-| 7 | Resume: day clock, pending demand, held items, queue depths, the arrival stamp counter. | Resume-at-N equals a straight run. | |
-| 8 | Analysis: widen the time axis so a schedule with gaps does not corrupt published throughput. | No — it corrects figures that are currently wrong under a paced schedule. | |
+| 7 | Resume: batch granularity REFUSES while the carry is on, because `_pending` is in no checkpoint and resuming would drop demand. Strategy granularity — the default — replays from batch 0 and needed nothing. | Default path untouched. | **done** `d410ac0` |
+| 8 | Analysis: `throughput_elapsed`, measured against the elapsed day rather than the batch makespan. | Identical to `throughput` under the continuous default, bit for bit. | **done** |
+| 6b | Inbound HOURS — does the receiving dock have a day of its own? | n/a — needs a decision first. | **blocked on §8's question** |
+
+**Step 7 shrank to one guard, and the reason is worth keeping.** The step listed five pieces
+of state to carry across a resume (day clock, pending demand, held items, queue depths, the
+arrival stamp counter). Under the default granularity none of them needs carrying: a partial
+arm's DB is deleted and the arm replays from batch 0, so every one of them is rebuilt from
+nothing. Batch granularity is where the day clock genuinely broke it, and not in the way its
+existing warning describes — "not bit-identical" reads as a rounding difference, while
+`_pending` living only in the worker's locals means a resume *drops demand* and the run then
+reports throughput it did not earn. That is a conservation break, so it raises.
+
+**Step 8 is a second metric, not a corrected one.** `thr_batch` divides by the batch
+makespan and answers *how fast did the crew work*; `thr_elapsed` divides by the gap between
+consecutive releases and answers *how much did the day produce*. Under the continuous default
+these are the same number to the last bit — the runner sets `arm_clock = batch_start_time +
+duration` and `release_at` returns it unchanged — so nothing published moves. They separate
+only under a paced schedule with slack, and a scheduling change moves them in *opposite*
+directions: fewer, fuller waves raise what a day produces while leaving the working rate
+alone. Neither can stand in for the other, which is why this is an addition. It is a declared
+`Quantity` (appended at the END of the table, so every significance-CSV row keeps its index)
+rather than an ad-hoc frame column, so the era gate and the figure registry both see it.
 
 **Step 6 split, because half of what it named was already built.** "Put-away and inbound
 rollover" was one row on the assumption that inbound needed the same machinery. It does not:
@@ -196,7 +216,8 @@ the staging limit in step 13. What was genuinely missing on the inbound side was
 the arrival, so that a shipment split across trailers packs per delivery rather than as one
 lump; that landed separately as `Warehouse/operations/inbound.py` (`c380a31`). Step 6b is now
 only the question the day clock actually raises: whether the receiving dock has hours of its
-own, distinct from the put crews'. It needs a decision before it needs code — see §7.
+own, distinct from the put crews'. **It needs a decision before it needs code — see §8, and
+it is the only step of this sequence still open.**
 
 **The put cut is a START gate, and that asymmetry with the pick cut is deliberate.** A pick
 path is long and divisible, so it truncates mid-bin. A put is one unit into one bin. A

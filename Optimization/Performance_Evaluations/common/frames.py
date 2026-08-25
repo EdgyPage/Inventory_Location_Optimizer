@@ -9,7 +9,7 @@ import pandas as pd
 
 
 def _bdf(stats):
-    return pd.DataFrame([{
+    df = pd.DataFrame([{
         'batch_id'              : s.batch_id,
         'duration'              : s.duration,        # batch makespan (parallel wall-clock)
         'num_tasks'             : s.num_tasks,
@@ -42,7 +42,62 @@ def _bdf(stats):
         # upstream Tukey outlier flag, carried through so downstream tables can filter
         # or report it (0 for legacy rows that predate the flag).
         'is_outlier'            : getattr(s, 'is_outlier', 0),
+        # The batch's own epoch on the arm's absolute axis.  Needed here (and nowhere else
+        # in this frame) to measure the gap BETWEEN batches -- see `_elapsed` below.
+        'batch_start_time'      : getattr(s, 'batch_start_time', 0.0),
     } for s in stats])
+    return _elapsed(df)
+
+
+def _elapsed(df):
+    """Add `elapsed` and `thr_elapsed`: throughput against the DAY, not the makespan.
+
+    `duration` is the batch MAKESPAN -- first picker starting to last finishing.  Under the
+    continuous default that is also the whole elapsed time, because the next batch is
+    released the instant this one ends, so "how fast did the crew work" and "how much did
+    the day produce" have one answer and nothing had to tell them apart.
+
+    A PACED schedule separates them.  `ReleaseSchedule` releases batch i at its slot, and a
+    crew that finishes early waits.  That gap is real elapsed time in which nothing was
+    picked, and `duration` does not contain it -- so a paced run's `thr_batch` is the rate
+    the crew worked AT while being read as the rate the day DELIVERED.  `thr_elapsed` is the
+    second number, named so the two cannot be confused.
+
+    Both are legitimate and a scheduling change moves them in OPPOSITE directions: fewer,
+    fuller waves raise what the day produces while leaving the working rate alone.  So this
+    is an addition, never a replacement.
+
+    Byte-identical under the default: the runner sets `arm_clock = batch_start_time +
+    duration` and then `release_at`, which returns the clock unchanged with no cadence
+    configured -- so consecutive epochs differ by exactly `duration` and `thr_elapsed ==
+    thr_batch` to the last bit.
+
+    The LAST batch has no successor to measure against and falls back to its own makespan:
+    there is no gap after the final wave, because nothing was waiting for it.
+    """
+    if df.empty:
+        df['elapsed'] = df['thr_elapsed'] = []
+        return df
+    order = df['batch_id'].argsort().values          # DB order is not guaranteed sorted
+    starts = df['batch_start_time'].values[order]
+    dur = df['duration'].values[order]
+    gaps = np.empty(len(df), dtype=float)
+    gaps[:-1] = starts[1:] - starts[:-1]
+    gaps[-1] = dur[-1]
+    # A NEGATIVE gap means the epochs are not monotonic, which a legacy DB (every row
+    # stamped 0.0 before the absolute clock landed) produces for every batch.  Fall back to
+    # the makespan there rather than emitting a negative rate: the run predates the axis
+    # this metric measures, so its two throughputs genuinely are one number.
+    gaps = np.where(gaps > 0.0, gaps, dur)
+    out = np.empty(len(df), dtype=float)
+    out[order] = gaps
+    df['elapsed'] = out
+    # NaN, not 0.0, when there is nothing to divide by -- the same rule `thr_batch` and
+    # `thr_task` apply, and for the same reason: an unmeasured batch counted as zero
+    # throughput drags every mean toward zero.
+    df['thr_elapsed'] = np.where(df['elapsed'] > 0.0,
+                                 df['total_items'] / df['elapsed'], np.nan)
+    return df
 
 
 def _tdf(stats, aisle_unittype_map, aisle_handling_map):
