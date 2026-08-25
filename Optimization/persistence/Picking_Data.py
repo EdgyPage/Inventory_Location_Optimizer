@@ -1078,7 +1078,13 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
                    'batch_start_time': 0.0, 'batch_end_time': 0.0, 'sigma_fd': 0.0,
                    'reload_moves': 0, 'reorder_placements': 0, 'skus_reordered': 0,
                    'units_ordered': 0, 'queue_depth': 0, 'lead_queue_depth': 0,
-                   'in_transit_qty': 0, 'items_demanded': 0}
+                   'in_transit_qty': 0, 'items_demanded': 0,
+                   # A column WRITTEN but absent from this dict is read back as its Python
+                   # default forever, on every run including the ones holding real values --
+                   # the query below is built from these names, so a missing one is simply
+                   # never selected.  These two shipped that way and reported 0 for a run
+                   # that recorded a real working day.
+                   'work_day': 0, 'released_late': 0.0}
 _BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                *_BATCH_OPTIONAL)

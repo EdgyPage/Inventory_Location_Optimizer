@@ -245,8 +245,6 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # every arrival comes whole, which is every run today.  Trailers, docks and load
         # planning live in the CALLER -- this only asks how the shipment showed up.
         self.inbound_split = None
-        # LoadPlans received since the last `drain_inbound()`.
-        self._inbound_plans: list = []
         # Seed for the reorder-quantity noise.  check_reorders draws qty from a per-reorder
         # random.Random((_seed, sku, _batch_num)) so the quantity is a pure function of the
         # seed (reproducible, off the global stream) rather than global call order.  The

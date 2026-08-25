@@ -1,6 +1,6 @@
 {
-  "head": "sha256:6c44b3ce7341d8ca36b7fa500ba0ee21f7abf25dcd1808b202d024433405e78e",
-  "source_fingerprint": "sha256:22edfcc881277a8998044783c19c4c5a7099b28d3c558913ba6ca39abccd5d29",
+  "head": "sha256:d37f33da72290fbf53ef4e5682b99db0d860adb3c6820e03557604b0f98dada6",
+  "source_fingerprint": "sha256:78a12d1a11ec01d6dbf220a9e35961c50837f2c12b1529916af0de076deb3e2c",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -142,6 +142,16 @@
         "artifact ADDED: inventory_model_json -> _dossier/inventory_model.json",
         "artifact ADDED: rule_catalog_json -> _dossier/rule_catalog.json",
         "artifact REMOVED: runtime_pngs (was _runtime/*.png)"
+      ]
+    },
+    "sha256:d37f33da72290fbf53ef4e5682b99db0d860adb3c6820e03557604b0f98dada6": {
+      "short": "d37f33da7229",
+      "parent": "sha256:6c44b3ce7341d8ca36b7fa500ba0ee21f7abf25dcd1808b202d024433405e78e",
+      "created": "2026-08-25T09:49:55",
+      "commit": "2e2626b",
+      "label": "",
+      "changes": [
+        "artifact sim_db.tables +['carryover', 'put_queue_state', 'work_events']"
       ]
     }
   }

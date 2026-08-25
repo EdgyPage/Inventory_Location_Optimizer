@@ -270,10 +270,18 @@ class ReorderMixin:
         # otherwise this grows by one entry per emptied bin for the length of the run.
         self._emptied_at.clear()
 
-    def _release_to_stock(self, sku: int, qty: int, deliveries=None) -> None:
+    def _release_to_stock(self, sku: int, qty: int, deliveries=None) -> list:
         """Convert an arrived (sku, qty) order into storage units and append them to the
         stock queue, updating the queued-unit / queued-qty trackers.  Shared by every
         lead-queue arrival (including lead-0 orders released the same batch).
+
+        RETURNS the `LoadPlan`s it built, rather than stashing them.  An earlier version kept
+        them on the manager behind a `drain_inbound()` -- which was write-only state with an
+        extra method, since nothing ever drained it, and it pinned a tuple of live
+        `StorageUnit`s plus a cloned `Order` for every arrival of the whole run.  There is
+        exactly one caller, so the return value is the honest shape: nothing to leak, and a
+        receiving crew takes the plans from here rather than from a buffer it must remember
+        to empty.
 
         THE INBOUND SEAM.  Packing has always been a function of how much arrives AT ONCE --
         `viable_storage_units` takes a quantity -- but nothing named that, so nothing could
@@ -301,12 +309,12 @@ class ReorderMixin:
             plans = [_inbound.receive(rc, qty)]
         units = [u for p in plans for u in p.units]
         if not units:
-            return
+            return plans
         for unit in units:
             self._admit(unit, 'reorder')
-        self._inbound_plans.extend(plans)
         self._queued_sku_counts[sku] = self._queued_sku_counts.get(sku, 0) + len(units)
         self._queued_qty[sku]        = self._queued_qty.get(sku, 0) + sum(u.quantity for u in units)
+        return plans
 
     # ── the six phases of a completed batch ──────────────────────────────────────
     # `check_reorders` used to be all six inline, which meant there was no way to reclaim
@@ -315,18 +323,6 @@ class ReorderMixin:
     # work stream (inbound put-away against the same clock) needs to interleave these, not
     # replay them as a block.  The composition below is the ONLY caller today and runs them
     # in exactly the order they always ran in.
-
-    def drain_inbound(self) -> list:
-        """The `LoadPlan`s received since the last call, and reset.
-
-        Drained rather than accumulated: a run is hundreds of batches and every arrival
-        holds its storage units, so keeping them all would pin the whole restock stream in
-        memory for a record nobody has asked to be complete.  A consumer that wants the
-        history persists each drain.
-        """
-        out = self._inbound_plans
-        self._inbound_plans = []
-        return out
 
     def _tick_batch(self) -> None:
         """Advance the replenishment calendar by one batch.
@@ -433,22 +429,28 @@ class ReorderMixin:
         self._depleted_skus.clear()
         return triggered
 
-    def _release_arrivals(self) -> None:
+    def _release_arrivals(self) -> list:
         """Release arrived orders (remaining_lead ≤ 0) into the stock queue.
 
         Catches both decremented-to-0 olds AND fresh lead-0 newcomers in the same batch,
         which is why it runs after `_fire_reorders` rather than before.
+
+        Returns this batch's `LoadPlan`s -- what came off the trucks, in arrival order.  The
+        phase is a producer with no consumer today; the return exists so a receiving crew is
+        a caller of an existing phase rather than a rewrite of one.
         """
         if not self._lead_queue:
-            return
+            return []
         still: list[list] = []
+        plans: list = []
         for sku, qty, rem in self._lead_queue:
             if rem <= 0:
                 self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - qty)
-                self._release_to_stock(sku, qty)
+                plans.extend(self._release_to_stock(sku, qty))
             else:
                 still.append([sku, qty, rem])
         self._lead_queue = still
+        return plans
 
     def _drain_putaway(self, deadline: float | None = None) -> None:
         """Place the stock queue into bins (retries prior-batch stragglers too).

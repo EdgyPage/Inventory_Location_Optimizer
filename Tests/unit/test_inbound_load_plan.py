@@ -239,13 +239,48 @@ def test_inbound_split_reshapes_a_real_reorder_arrival():
     # Halve every arrival -- the trailer circumstance, standing in for a load planner.
     mgr.inbound_split = lambda sku, qty: [qty // 2, qty - qty // 2]
 
-    mgr._release_to_stock(101, 6)
+    plans = mgr._release_to_stock(101, 6)
     assert _mix(_received_units(mgr)) == {inbound.SINGLETON: 2}
-
-    plans = mgr.drain_inbound()
     assert [p.tier_mix for p in plans] == [{inbound.SINGLETON: 1}, {inbound.SINGLETON: 1}]
     assert inbound.shipment_penalty(plans) == 1
-    assert mgr.drain_inbound() == [], 'the drain must reset, or a run accumulates every arrival'
+
+
+def test_the_plans_are_returned_and_not_retained():
+    """The manager keeps NO record of what it received, and that is deliberate.
+
+    An earlier version stashed the plans behind a `drain_inbound()` so they would not be
+    write-only -- and then nothing drained it, which made it write-only state with an extra
+    method AND a leak: every arrival of the whole run pinned a tuple of live `StorageUnit`s
+    plus a cloned `Order`. There is exactly one caller, so returning is the honest shape.
+
+    Asserted on the manager's own attribute surface rather than by measuring memory: a leak
+    test that watches RSS is slow, flaky, and passes while the buffer is merely small.
+    """
+    mgr = Inventory_Manager(_warehouse())
+    mgr._originals[101] = _order(sku=101)
+    assert not hasattr(mgr, '_inbound_plans'), 'the buffer is back'
+    assert not hasattr(mgr, 'drain_inbound'), 'the drain with no consumer is back'
+
+    before = set(vars(mgr))
+    for _ in range(5):
+        got = mgr._release_to_stock(101, 6)
+        assert got, 'the caller was handed nothing, so the plans went somewhere else'
+    assert set(vars(mgr)) == before, (
+        'a new attribute appeared during arrivals — something is accumulating again')
+
+
+def test_the_arrival_phase_returns_what_came_off_the_trucks():
+    """`_release_arrivals` hands its plans up, so a receiving crew is a CALLER of an existing
+    phase rather than a rewrite of one. Two arrivals in one batch must both appear, in
+    arrival order."""
+    mgr = Inventory_Manager(_warehouse())
+    for sku in (101, 102):
+        mgr._originals[sku] = _order(sku=sku)
+    mgr._lead_queue = [[101, 6, 0], [102, 6, 0]]
+
+    plans = mgr._release_arrivals()
+    assert [p.sku for p in plans] == [101, 102]
+    assert mgr._release_arrivals() == [], 'an empty lead queue must return a list, not None'
 
 
 def test_the_trackers_count_the_split_packing():

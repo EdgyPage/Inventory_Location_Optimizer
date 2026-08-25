@@ -406,9 +406,15 @@ ARTIFACTS = {
         # `bin_inventory` is deliberately ABSENT: it is no longer written (bin_placement +
         # bin_eviction + picks supersede it).  Archived DBs still carry it and are still read
         # — this list declares what a run WRITES, not what every file on disk contains.
+        # `work_events_merged` is likewise absent because it is a VIEW, not a table.
         'tables': ['simulation_runs', 'batch_stats', 'task_stats', 'picker_events', 'picks',
                    'aisle_metrics', 'reorder_queue', 'bin_scores', 'sku_scores',
-                   'bin_placement', 'bin_eviction'],
+                   'bin_placement', 'bin_eviction',
+                   # The second work stream and the put-away queues.  Absent here from their
+                   # arrival (2026-08-24/25) until 2026-08-25: the declaration claimed 11
+                   # tables where a run wrote 14, and nothing compares this list against a
+                   # real file, so the gap was invisible from both ends.
+                   'work_events', 'put_queue_state', 'carryover'],
         'writer': '_run_strategy_worker@Optimization/simdriver/strategy_runner.py'},
     'keyframes_db': {
         'family': 'keyframes_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)

@@ -6,7 +6,10 @@ sqlite page layout varies, manifests carry timestamps/paths). What CAN and must 
 results-preserving refactor is the CONTENT of the domain tables. This tool defines that
 surface precisely and hashes it:
 
-  - table WHITELIST per DB kind (sim / keyframes / warehouse) — never a blacklist;
+  - table WHITELIST per DB kind (sim / keyframes / warehouse) — never a blacklist, and
+    VERIFIED: a table present in the file but named by neither the whitelist nor
+    `OUT_OF_SURFACE` raises. A whitelist nobody checks is how three tables went unhashed for
+    a whole feature phase while this tool reported IDENTICAL;
   - excluded columns: AUTOINCREMENT `id`, `run_id` (per-file bookkeeping; the distinct-run
     count is recorded in meta instead), `created` (the one wall-clock column), and
     warehouse_stats' `timestamp`/`inventory_db` (clock + absolute path);
@@ -47,9 +50,23 @@ if _REPO_ROOT not in sys.path:
 # ── the comparable surface ───────────────────────────────────────────────────
 SIM_TABLES = ('simulation_runs', 'batch_stats', 'task_stats', 'picker_events', 'picks',
               'aisle_metrics', 'reorder_queue', 'bin_placement', 'bin_eviction',
-              'bin_scores', 'sku_scores')
+              'bin_scores', 'sku_scores',
+              # The second work stream and the put-away queues, added 2026-08-24/25 and
+              # absent here until 2026-08-25 -- so a refactor touching put-away could pass
+              # this gate while changing every row it wrote.
+              'work_events', 'put_queue_state', 'carryover')
 KEYFRAME_TABLES  = ('bin_keyframe',)
 WAREHOUSE_TABLES = ('aisle_layout', 'aisle_type_stats', 'warehouse_stats')
+
+#: Tables that exist in a file and are DELIBERATELY not part of the comparable surface.
+#: Empty today, and that is the point: the check below turns "I forgot" into an error and
+#: leaves "I decided" as a one-line edit with a reason attached.
+OUT_OF_SURFACE: dict = {}
+
+#: SQLite objects that are not tables at all. `work_events_merged` is a VIEW over
+#: `work_events` and `picker_events`, so hashing it would double-count both and report a
+#: difference twice for one cause.
+NOT_A_TABLE = ('work_events_merged',)
 
 EXCLUDED_COLS = {
     '*'              : {'id', 'run_id'},
@@ -98,11 +115,35 @@ def _open_ro(path: str) -> sqlite3.Connection:
     return sqlite3.connect(uri, uri=True)
 
 
+def _surface_check(conn, path: str, tables: tuple[str, ...]) -> None:
+    """Every real table in the file must be declared, one way or the other.
+
+    The whole value of a whitelist is that it is a DECISION about what counts. An
+    undeclared table is not a decision, it is an omission — and an omission here is
+    invisible, because a table nobody hashes can never differ. So it raises.
+
+    Views are excluded by `type='table'` rather than by name, and the one view that exists
+    is named in `NOT_A_TABLE` as well, so the two agree.
+    """
+    have = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
+    undeclared = have - set(tables) - set(OUT_OF_SURFACE) - set(NOT_A_TABLE)
+    if undeclared:
+        raise SystemExit(
+            f'run_digest: {os.path.basename(path)} holds table(s) this gate does not know '
+            f'about: {sorted(undeclared)}.\n'
+            f'  A table that is not hashed can never differ, so leaving it out silently '
+            f'weakens every IDENTICAL this tool has ever printed.\n'
+            f'  Add it to the whitelist for this DB kind, or to OUT_OF_SURFACE with a '
+            f'reason if its content is genuinely not comparable between two runs.')
+
+
 def _digest_db(path: str, tables: tuple[str, ...]) -> dict:
     if not os.path.isfile(path):
         return {'missing': True}
     conn = _open_ro(path)
     try:
+        _surface_check(conn, path, tables)
         out = {t: _table_digest(conn, t) for t in tables}
         if 'simulation_runs' in tables:
             out['_distinct_run_ids'] = conn.execute(
