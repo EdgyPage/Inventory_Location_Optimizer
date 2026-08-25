@@ -748,7 +748,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                     else Batch(batch_cfg, inventory, affinity=affinity,
                                rng=random.Random(seed_batches + i)))
         _now = time.perf_counter(); _dt = _now - _t; t_sample_ckpt += _dt; t_build_ckpt += _dt; _t = _now
-        tasks    = Task.from_batch(batch, warehouse, manager=mgr, cart=pick_cfg.cart)
+        # `_shortfall` is demand no bin could satisfy -- recorded here, consumed by
+        # nothing yet.  It is the pre-simulation half of what will become the carry;
+        # the day-boundary half is not knowable until after the sim runs.
+        tasks, _shortfall = Task.from_batch_with_shortfall(
+            batch, warehouse, manager=mgr, cart=pick_cfg.cart)
         _now = time.perf_counter(); _dt = _now - _t; t_task_ckpt += _dt; t_build_ckpt += _dt; _t = _now
 
         # One fused pass over the occupied bins (bin qtys before picks): the occupancy
@@ -837,6 +841,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # also why the epoch cannot be recovered downstream by a cumsum over batch_stats
         # rows: a skipped batch writes no row at all.
         arm_clock             = bs.batch_start_time + bs.duration
+        # What this batch ASKED for, against `total_items` = what it got.
+        bs.items_demanded     = sum(batch.items.values())
         bs.queue_depth        = mgr.queue_depth
         bs.lead_queue_depth   = mgr.lead_queue_depth
         bs.in_transit_qty     = mgr.in_transit_qty

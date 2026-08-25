@@ -339,9 +339,37 @@ class Task:
         self.carts_required: int = math.ceil(total_vol / cart.capacity()) if total_vol > 0 else 0
 
     @staticmethod
+    def from_batch_with_shortfall(
+            batch: Batch, warehouse: Warehouse, manager=None,
+            cart: type[StorageCart] = StoreCart) -> tuple[list[Task], dict[int, int]]:
+        """`from_batch`, plus the demand it could NOT satisfy: `{sku: units_short}`.
+
+        A second entry point rather than a wider return type: `from_batch` has ~30 call
+        sites and none of them want the extra value, so churning all of them for no
+        behaviour change is the more expensive mistake.  One drain serves both, so the
+        tasks are identical either way.
+
+        THE SHORTFALL IS PRE-SIMULATION.  It is demand this batch could not reach on the
+        shelf -- not demand a picker ran out of time for.  Those are different failures
+        with different fixes, and only this one is knowable before the sim runs.
+
+        Until now it was a loop-local named `remaining`, overwritten on the next SKU.  So
+        an arm that placed nothing for a SKU and an arm that placed 500 of it produced
+        indistinguishable records, and a rule that fails to pick looked cheap.
+        """
+        short: dict[int, int] = {}
+        tasks = Task.from_batch(batch, warehouse, manager, cart, _shortfall=short)
+        return tasks, short
+
+    @staticmethod
     def from_batch(batch: Batch, warehouse: Warehouse, manager=None,
-                   cart: type[StorageCart] = StoreCart) -> list[Task]:
+                   cart: type[StorageCart] = StoreCart,
+                   _shortfall: dict[int, int] | None = None) -> list[Task]:
         """Decompose a Batch into one Task per aisle.
+
+        `_shortfall`, when given, accumulates `{sku: units_short}` for demand no bin could
+        satisfy.  Underscored because callers should reach for `from_batch_with_shortfall`
+        rather than pass their own dict; it exists so one drain serves both entry points.
 
         For each SKU in the batch, singleton bins are drained before pallet bins
         so that forward-pick locations are always preferred over reserve locations.
@@ -395,6 +423,9 @@ class Task:
                     if take > 0:
                         bin_pick[bin_] += take
                         remaining -= take
+                # Whatever is still `remaining` is demand no bin could satisfy.
+                if _shortfall is not None and remaining > 0:
+                    _shortfall[sku] = _shortfall.get(sku, 0) + remaining
         else:
             # Fallback: O(N_all_bins) scan — used when no manager is available.
             # Already deterministic, and it now agrees with the branch above: `warehouse.bins`
@@ -418,6 +449,11 @@ class Task:
                     if take > 0:
                         bin_pick[bin_] += take
                         remaining -= take
+                # Same accounting as the indexed branch above -- the two selection paths
+                # already agree on WHICH bins are drained, so they must agree on what is
+                # left over too, or a manager-less caller reports a different shortfall.
+                if _shortfall is not None and remaining > 0:
+                    _shortfall[sku] = _shortfall.get(sku, 0) + remaining
 
         aisle_bins:  dict[int, list[Aisle.Bin]] = defaultdict(list)
         aisle_items: dict[int, dict[int, int]]  = defaultdict(dict)

@@ -62,6 +62,14 @@ class BatchStats:
     queue_depth: int = 0          # put-away backlog: storage units packed but not yet binned
     lead_queue_depth: int = 0     # in-transit reorders (records awaiting lead-time arrival)
     in_transit_qty: int = 0       # total items in the lead queue (on-order, not yet arrived)
+    # ── the demand side ──────────────────────────────────────────────────────────
+    # Units this batch ASKED for, against `total_items` = units it got.  Until this
+    # existed the requested quantity never left `Task.from_batch` (it was a loop-local
+    # `remaining`, overwritten per SKU), so an arm that placed nothing for a SKU and an
+    # arm that placed 500 of it produced identical records -- and every rate in
+    # `frames.py` divides by what was PICKED, which makes failing to pick look cheap.
+    # 0 on a pre-column vintage; `items_demanded >= total_items` always.
+    items_demanded: int = 0
     is_outlier: bool = False
 
 
@@ -256,6 +264,7 @@ _CREATE_BATCH_STATS = """
         reorder_placements     INTEGER NOT NULL DEFAULT 0,
         skus_reordered         INTEGER NOT NULL DEFAULT 0,
         units_ordered          INTEGER NOT NULL DEFAULT 0,
+        items_demanded         INTEGER NOT NULL DEFAULT 0,
         queue_depth            INTEGER NOT NULL DEFAULT 0,
         lead_queue_depth       INTEGER NOT NULL DEFAULT 0,
         in_transit_qty         INTEGER NOT NULL DEFAULT 0,
@@ -730,7 +739,10 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #   6ad0b34af9f1  the bin-mutation log + dossier era, before `work_events`: every run
     #                 from the log's arrival through 2026-08-24.  This is the shape the
     #                 whole published archive was written with.
-    known_ids=('6ad0b34af9f1',
+    #   1a594605a10e  work_events arrived; batch_stats still had no demand side.  A
+    #                 short window (2026-08-24) -- no published run used it.
+    known_ids=('1a594605a10e',
+              '6ad0b34af9f1',
                PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb'),
 ))
 
@@ -770,6 +782,10 @@ REQUIRES = _compat.Requires(
                         'task_makespan', 'thr_task', 'thr_batch', 'batch_start_time',
                         'batch_end_time', 'sigma_fd', 'reload_moves', 'reorder_placements',
                         'skus_reordered', 'units_ordered', 'queue_depth', 'lead_queue_depth',
+                        # NOT 'items_demanded': the guaranteed surface is the INTERSECTION
+                        # over every vetted vintage, and a column added today is absent from
+                        # all of them.  It rides `_BATCH_OPTIONAL`, which defaults it to 0 on
+                        # a pre-column file -- the same treatment every other late column got.
                         'in_transit_qty'),
         'task_stats': ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
                        'task_end_time', 'duration', 'lift_sum', 'num_bins_visited', 'total_items',
@@ -926,7 +942,7 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
                    'batch_start_time': 0.0, 'batch_end_time': 0.0, 'sigma_fd': 0.0,
                    'reload_moves': 0, 'reorder_placements': 0, 'skus_reordered': 0,
                    'units_ordered': 0, 'queue_depth': 0, 'lead_queue_depth': 0,
-                   'in_transit_qty': 0}
+                   'in_transit_qty': 0, 'items_demanded': 0}
 _BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                *_BATCH_OPTIONAL)
@@ -1295,15 +1311,16 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
         'avg_concurrent_pickers,picking_pct,traveling_pct,'
         'batch_start_time,batch_end_time,'
         'sigma_fd,reload_moves,reorder_placements,skus_reordered,units_ordered,'
-        'queue_depth,lead_queue_depth,in_transit_qty,is_outlier) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'queue_depth,lead_queue_depth,in_transit_qty,items_demanded,is_outlier) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
             (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
              r.task_makespan, r.thr_task, r.thr_batch,
              r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
              r.batch_start_time, r.batch_end_time,
              r.sigma_fd, r.reload_moves, r.reorder_placements, r.skus_reordered, r.units_ordered,
-             r.queue_depth, r.lead_queue_depth, r.in_transit_qty, int(r.is_outlier))
+             r.queue_depth, r.lead_queue_depth, r.in_transit_qty, r.items_demanded,
+             int(r.is_outlier))
             for r in records
         ],
     )
