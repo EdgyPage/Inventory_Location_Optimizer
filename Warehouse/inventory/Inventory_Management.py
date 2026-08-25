@@ -141,6 +141,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # shared budget without each drain having to return a count through paths that
         # already have three exits.
         self._placed_this_call: int = 0
+        # Items a full queue refused. They are stamped and waiting, just not on the floor
+        # yet -- a trailer still loaded, a reorder still on the dock. Retried oldest-first
+        # at the top of every drain. See _admit.
+        self._held: deque[PutawayItem] = deque()
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
@@ -475,7 +479,19 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     @property
     def queue_depth(self) -> int:
-        return len(self._stock_queue)
+        """Units waiting for a bin, INCLUDING those a full queue is holding upstream.
+
+        Held items are waiting just as much as queued ones -- the only difference is that
+        the floor has no room for them yet.  Reporting only the queued half would make a
+        staging limit look like the backlog had vanished, which is the opposite of what a
+        backpressure model is for.
+        """
+        return len(self._stock_queue) + len(self._held)
+
+    @property
+    def held_depth(self) -> int:
+        """Units refused floor space and waiting upstream. 0 unless a queue sets `staging`."""
+        return len(self._held)
 
     @property
     def lead_queue_depth(self) -> int:
@@ -920,6 +936,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # One queue at a time, in spec order.  A shared budget spends down across them:
         # it models a finite crew-hour allowance for the call, and splitting it per queue
         # would make the cap depend on how the streams happen to be configured.
+        # Anything the floor refused earlier gets first claim on the space that just
+        # freed up -- before this call places anything, so a held item cannot be overtaken
+        # by whatever arrives during it.
+        self._admit_held()
         self._placed_this_call = 0
         for queue in self.put_queues:
             if budget is not None and budget <= 0:
@@ -1090,17 +1110,46 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         evictions, and inbound when it exists -- goes through here, so a new producer cannot
         forget to stamp and quietly enter the queue as age -1.
 
-        Returns None when the target queue is at its staging limit and REFUSED the item.
-        The caller must hold it: a refusal is backpressure, and dropping it would make
-        "inbound packs faster than put-away absorbs" look like it never happened.  With the
-        default unbounded queue there is no refusal and the return is never None.
+        A queue at its staging limit REFUSES, and the item goes to `_held` rather than
+        back to the caller.  Handling it here rather than at each producer is deliberate:
+        there are four producers and the failure mode of forgetting one is a unit that
+        silently leaves the conservation ledger, which is exactly the bug that takes a day
+        to find.  Callers therefore never see a refusal and none of them changed.
+
+        The stamp is taken on ARRIVAL, not on admission.  A pallet that waited three batches
+        on the dock is three batches old when it finally gets floor space, and stamping it
+        at admission would make it the youngest thing in the warehouse -- turning
+        backpressure into a priority inversion.
         """
         item = PutawayItem(unit, source, self._putaway_seq)
-        queue = self.put_queues.route(unit)
-        if not queue.admit(item):
-            return None
         self._putaway_seq += 1
+        if not self.put_queues.route(unit).admit(item):
+            self._held.append(item)
+            return None
         return item
+
+    def _admit_held(self) -> int:
+        """Retry the held items, oldest first.  Returns how many got in.
+
+        Stops at the FIRST refusal for a given queue rather than scanning past it for
+        something that happens to fit.  Letting a younger item slip into the gap a older one
+        could not use is exactly the inversion the age stamp exists to prevent, and it would
+        also make the backpressure unfair in a way no real dock is.
+        """
+        if not self._held:
+            return 0
+        blocked: set = set()
+        still: deque = deque()
+        admitted = 0
+        for item in self._held:
+            q = self.put_queues.route(item.unit)
+            if q.name in blocked or not q.admit(item):
+                blocked.add(q.name)
+                still.append(item)
+                continue
+            admitted += 1
+        self._held = still
+        return admitted
 
     def _window_for(self, queue) -> int | None:
         """The ordering tolerance for one queue: its own `k_cap`, or the manager's default.
