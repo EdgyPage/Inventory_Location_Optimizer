@@ -191,13 +191,30 @@ def test_reorder_queue_roundtrip():
     db = _tmp('sim_rq.db')
     init_run_db(db)
     rid = create_run(db, 'uniform_assignment')
-    recs = [(5, 'lead', 101, 30, 2, None, None),
-            (5, 'lead', 102, 12, 1, None, None),
-            (5, 'stock', 101, 8, 0, 'pallet', 'large')]
+    # (batch, kind, sku, qty, remaining_lead, unit_type, storage_size, queue).
+    # `queue` is NULL on 'lead' rows: still in transit, not yet routed to a stream.
+    recs = [(5, 'lead', 101, 30, 2, None, None, None),
+            (5, 'lead', 102, 12, 1, None, None, None),
+            (5, 'stock', 101, 8, 0, 'pallet', 'large', 'store_pallet'),
+            (5, 'held', 103, 4, 0, 'pallet', 'large', 'store_pallet')]
     save_reorder_queue(db, rid, recs)
     got = {(r['kind'], r['sku']): r for r in load_reorder_queue(db, rid, 5)}
 
-    assert len(got) == 3
+    assert len(got) == 4
+
+    # `queue` is NOT in `load_reorder_queue`'s SELECT, deliberately: the guaranteed read
+    # surface is the intersection over every vetted vintage, and naming a column added
+    # today would make this loader raise on every archived run. It is written and read
+    # back here directly, which is the right test of a write-only column anyway.
+    con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+    try:
+        by_kind = dict(con.execute(
+            'SELECT kind, queue FROM reorder_queue WHERE run_id=? AND sku IN (101,103) '
+            'AND kind IN ("held","lead")', (rid,)).fetchall())
+    finally:
+        con.close()
+    assert by_kind['held'] == 'store_pallet', 'a held item must say which stream refused it'
+    assert by_kind['lead'] is None, 'an in-transit item has not been routed to a queue yet'
     assert got[('lead', 101)]['qty'] == 30
     assert got[('lead', 101)]['remaining_lead'] == 2
     assert got[('stock', 101)]['unit_type'] == 'pallet'

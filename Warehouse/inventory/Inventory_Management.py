@@ -1103,6 +1103,55 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 'split — assign to the individual PutQueue.items instead')
         self.put_queues.queues[0].items = value if isinstance(value, deque) else deque(value)
 
+    def queue_contents(self) -> list[tuple]:
+        """What is waiting for a bin, per stream, aggregated for the replay viewer.
+
+        Returns `(kind, sku, unit_type, storage_size, queue, qty)`.  `kind` is 'stock' for
+        items on a queue and 'held' for items a full queue refused -- the second is invisible
+        in `_stock_queue` by construction, so a reader that only walked the queues would
+        under-report the backlog exactly when backpressure is doing something.
+        """
+        agg: dict = {}
+        for q in self.put_queues:
+            for it in q.items:
+                u = it.unit
+                k = ('stock', u.order.sku, u.unit_category, u.storage_size, q.name)
+                agg[k] = agg.get(k, 0) + u.quantity
+        for it in self._held:
+            u = it.unit
+            k = ('held', u.order.sku, u.unit_category, u.storage_size,
+                 self.put_queues.route(u).name)
+            agg[k] = agg.get(k, 0) + u.quantity
+        return [(*k, v) for k, v in agg.items()]
+
+    def carryover_rows(self, batch_id: int) -> list[tuple]:
+        """`(batch_id, reason, sku, qty)` for everything that did not get placed.
+
+        'unplaced' could not reach a bin; 'held' was refused floor space.  Keeping them
+        apart is the whole value of the column: they are different problems with different
+        fixes, and one carried-over count cannot tell them apart.
+        """
+        agg: dict = {}
+        for q in self.put_queues:
+            for it in q.items:
+                k = ('unplaced', it.unit.order.sku)
+                agg[k] = agg.get(k, 0) + it.unit.quantity
+        for it in self._held:
+            k = ('held', it.unit.order.sku)
+            agg[k] = agg.get(k, 0) + it.unit.quantity
+        return [(batch_id, reason, sku, qty) for (reason, sku), qty in agg.items()]
+
+    def queue_state_rows(self, batch_id: int) -> list[dict]:
+        """One row per queue: depth and oldest age (LEVELS) plus the flow counters.
+
+        DRAINS the counters, so it must run exactly once per batch or the next batch
+        double-counts this one.
+        """
+        rows = self.put_queues.snapshot()
+        for r in rows:
+            r['batch_id'] = batch_id
+        return rows
+
     def _admit(self, unit: StorageUnit, source: str) -> 'PutawayItem':
         """Put one unit on the put-away queue, stamped with its arrival age.
 

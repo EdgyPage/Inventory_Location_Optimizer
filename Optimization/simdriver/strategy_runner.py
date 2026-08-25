@@ -606,7 +606,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     we: list = []   # merged cross-stream rows (picks + put-away) on the absolute axis
     pk: list = []   # individual pick records
     pm: list = []   # aisle metrics snapshots
-    pq: list = []   # reorder-queue contents per batch (lead + stock), for the replay viewer
+    pq: list = []   # reorder-queue contents per batch (lead + stock + held), per queue
+    pqs: list = []  # per-(batch, queue) stream STATE: depth/oldest age + the flow counters
+    cov: list = []  # carryover: what did not get placed this batch, and why
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
     demand_breaks  = 0   # batches that picked MORE than was demanded (see the ledger)
@@ -727,18 +729,22 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # and (sku, unit_type, storage_size) for stock to keep the table compact.
         _rq: dict = {}
         for _sku, _qty, _rem in mgr._lead_queue:
-            _k = ('lead', _sku, _rem, None, None)
+            _k = ('lead', _sku, _rem, None, None, None)   # in transit: no queue yet
             _rq[_k] = _rq.get(_k, 0) + _qty
         # `_stock_queue` holds PutawayItem, not StorageUnit -- `.unit` is the unit.
         # Reading the item directly raised AttributeError the moment the queue was
         # non-empty here, which `_stock_per_unit` makes happen whenever a unit finds no
         # bin (it ends `self._stock_queue = pending`).
-        for _it in mgr._stock_queue:
-            _u = _it.unit
-            _k = ('stock', _u.order.sku, 0, _u.unit_category, _u.storage_size)
-            _rq[_k] = _rq.get(_k, 0) + _u.quantity
-        for (_kind, _sku, _rem, _ut, _ss), _qty in _rq.items():
-            pq.append((i, _kind, _sku, _qty, _rem, _ut, _ss))
+        # The put-away side lives on the manager (`queue_contents`, `queue_state_rows`,
+        # `carryover_rows`) rather than being assembled here.  Inline, those branches were
+        # reachable only by a full sweep, and no arm in the coverage sweep leaves anything
+        # unplaced -- so the carryover path had no coverage at all.
+        for (_kind, _sku, _ut, _ss, _qn, _qty) in mgr.queue_contents():
+            pq.append((i, _kind, _sku, _qty, 0, _ut, _ss, _qn))
+        for (_kind, _sku, _rem, _ut, _ss, _qn), _qty in _rq.items():
+            pq.append((i, _kind, _sku, _qty, _rem, _ut, _ss, _qn))
+        pqs.extend(mgr.queue_state_rows(i))     # drains the counters: once per batch
+        cov.extend(mgr.carryover_rows(i))
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
         # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of
@@ -912,7 +918,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 db_path, run_id,
                 batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
                 bin_placements=_bp, bin_evictions=_be,
-                aisle_metrics=pm, reorder_queue=pq, work_events=we)
+                aisle_metrics=pm, reorder_queue=pq, work_events=we,
+                put_queue_state=pqs, carryover=cov)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -962,6 +969,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             p2_run        += p2_sum_ckpt
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
+            pqs.clear(); cov.clear()
             we.clear()
             reorders_ckpt      = 0
             units_ordered_ckpt = 0
@@ -1001,7 +1009,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             db_path, run_id,
             batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
             bin_placements=_bp, bin_evictions=_be,
-            aisle_metrics=pm, reorder_queue=pq, work_events=we)
+            aisle_metrics=pm, reorder_queue=pq, work_events=we,
+            put_queue_state=pqs, carryover=cov)
         t_save_run += time.perf_counter() - _ts_final
 
     # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint

@@ -480,15 +480,58 @@ _CREATE_REORDER_QUEUE = """
         run_id         INTEGER NOT NULL REFERENCES simulation_runs(run_id),
         batch_id       INTEGER NOT NULL,
         kind           TEXT    NOT NULL,   -- 'lead' (in-transit) | 'stock' (awaiting bin)
+                                           -- | 'held' (refused floor space, waiting upstream)
         sku            INTEGER NOT NULL,
         qty            INTEGER NOT NULL,   -- items in this queue entry
         remaining_lead INTEGER NOT NULL DEFAULT 0,  -- batches until arrival ('lead' only)
         unit_type      TEXT,               -- 'pallet'|'singleton' for stock units (NULL for lead)
-        storage_size   TEXT                -- bin size tier for stock units (NULL for lead)
+        storage_size   TEXT,               -- bin size tier for stock units (NULL for lead)
+        -- Which put-away stream this entry is waiting in ('store_cart', 'store_pallet',
+        -- 'fulfillment', or 'all' for the single-queue default).  NULL on 'lead' rows,
+        -- which are still in transit and have not been routed to a queue yet.  Without
+        -- this a split configuration reports one undifferentiated backlog, and the whole
+        -- point of splitting the streams is that they back up independently.
+        queue          TEXT
     )
 """
 _CREATE_REORDER_QUEUE_IDX = """
     CREATE INDEX IF NOT EXISTS ix_rq_run_batch ON reorder_queue (run_id, batch_id)
+"""
+
+# One row per (batch, put-away queue): the STATE of the stream, as against `reorder_queue`
+# above, which lists its contents.  Separate table because the grains differ -- contents are
+# per SKU and state is per queue -- and folding a level into a table of items would make
+# every `SUM(qty)` wrong unless the reader knew to exclude it.
+_CREATE_PUT_QUEUE_STATE = """
+    CREATE TABLE IF NOT EXISTS put_queue_state (
+        run_id     INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id   INTEGER NOT NULL,
+        queue      TEXT    NOT NULL,   -- the PutQueueSpec name
+        depth      INTEGER NOT NULL,   -- items waiting at the snapshot (a LEVEL)
+        oldest_age INTEGER,            -- arrival stamp of the head; NULL when empty
+        staging    INTEGER,            -- the configured limit; NULL = unbounded
+        admitted   INTEGER NOT NULL,   -- entered during the batch (a FLOW)
+        placed     INTEGER NOT NULL,   -- left for a bin during the batch (a FLOW)
+        blocked    INTEGER NOT NULL,   -- REFUSED during the batch (a FLOW).  The only trace
+                                       -- a refusal leaves anywhere: without it the
+                                       -- backpressure is real and invisible.
+        PRIMARY KEY (run_id, batch_id, queue)
+    ) WITHOUT ROWID
+"""
+
+# Work that did not happen when it was supposed to, and why.  `reason` is the whole value of
+# the table: "could not reach a bin" and "ran out of day" are different problems with
+# different fixes, and a single carried-over count cannot tell them apart.
+_CREATE_CARRYOVER = """
+    CREATE TABLE IF NOT EXISTS carryover (
+        run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id INTEGER NOT NULL,     -- the batch it carried OUT of
+        reason   TEXT    NOT NULL,     -- 'unplaced' | 'held' | 'unpicked_unavailable'
+                                       -- | 'unpicked_daycut'
+        sku      INTEGER NOT NULL,
+        qty      INTEGER NOT NULL,
+        PRIMARY KEY (run_id, batch_id, reason, sku)
+    ) WITHOUT ROWID
 """
 
 # ── Score tables ──────────────────────────────────────────────────────────────
@@ -641,6 +684,8 @@ def _apply_run_schema(con: sqlite3.Connection) -> None:
     con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
     con.execute(_CREATE_REORDER_QUEUE)
     con.execute(_CREATE_REORDER_QUEUE_IDX)
+    con.execute(_CREATE_PUT_QUEUE_STATE)
+    con.execute(_CREATE_CARRYOVER)
     con.execute(_CREATE_BIN_SCORES)
     con.execute(_CREATE_BIN_SCORES_IDX)
     con.execute(_CREATE_SKU_SCORES)
@@ -766,7 +811,11 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #   96b8e37f158d  batch_stats gained items_demanded, before bin_placement carried the
     #                 placement score.  A short window (2026-08-22 .. 2026-08-24) -- no
     #                 published run used it.
-    known_ids=('96b8e37f158d',
+    #   8114cc4332eb  bin_placement carried the placement score, before the put-away
+    #                 queues gained their own state and carryover tables.  A short
+    #                 window (2026-08-24) -- no published run used it.
+    known_ids=('8114cc4332eb',
+              '96b8e37f158d',
               '1a594605a10e',
               '6ad0b34af9f1',
                PRE_STAMP_SIM_SCHEMA_ID, '2b7913bcd7e6', 'ee5ebabe74fb'),
@@ -1429,8 +1478,9 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
 
 def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -> None:
     """Persist per-batch queue snapshots.  Each record is
-    (batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size); the last two
-    are None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units."""
+    (batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size, queue); the middle
+    two are None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units,
+    and `queue` names the put-away stream (None while still in transit)."""
     if not records:
         return
     con = _open_db(path)
@@ -1444,11 +1494,57 @@ def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -> None:
 def _insert_reorder_queue(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
         'INSERT INTO reorder_queue '
-        '(run_id,batch_id,kind,sku,qty,remaining_lead,unit_type,storage_size) '
-        'VALUES (?,?,?,?,?,?,?,?)',
-        [(run_id, int(b), str(k), int(s), int(q), int(rl), ut, ss)
-         for (b, k, s, q, rl, ut, ss) in records],
+        '(run_id,batch_id,kind,sku,qty,remaining_lead,unit_type,storage_size,queue) '
+        'VALUES (?,?,?,?,?,?,?,?,?)',
+        [(run_id, int(b), str(k), int(s), int(q), int(rl), ut, ss, qn)
+         for (b, k, s, q, rl, ut, ss, qn) in records],
     )
+
+
+def _insert_put_queue_state(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT OR REPLACE INTO put_queue_state '
+        '(run_id,batch_id,queue,depth,oldest_age,staging,admitted,placed,blocked) '
+        'VALUES (?,?,?,?,?,?,?,?,?)',
+        [(run_id, int(r['batch_id']), str(r['queue']), int(r['depth']), r['oldest_age'],
+          r['staging'], int(r['admitted']), int(r['placed']), int(r['blocked']))
+         for r in records],
+    )
+
+
+def _insert_carryover(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(
+        'INSERT OR REPLACE INTO carryover (run_id,batch_id,reason,sku,qty) '
+        'VALUES (?,?,?,?,?)',
+        [(run_id, int(b), str(reason), int(sku), int(qty))
+         for (b, reason, sku, qty) in records],
+    )
+
+
+def save_put_queue_state(path: str, run_id: int, records: list) -> None:
+    """Per-(batch, queue) stream state: depth and oldest age (LEVELS), admitted/placed/
+    blocked (FLOWS).  `blocked` is the only trace a refused admission leaves anywhere."""
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        _insert_put_queue_state(con, run_id, records)
+        con.commit()
+    finally:
+        con.close()
+
+
+def save_carryover(path: str, run_id: int, records: list) -> None:
+    """Work that did not happen when it should have, and why.  Each record is
+    (batch_id, reason, sku, qty)."""
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        _insert_carryover(con, run_id, records)
+        con.commit()
+    finally:
+        con.close()
 
 
 def load_reorder_queue(path: str, run_id: int, batch_id: int) -> list[dict]:
@@ -1974,11 +2070,18 @@ def save_checkpoint_bundle(
     aisle_metrics  : list,
     reorder_queue  : list,
     work_events    : list | None = None,
+    put_queue_state: list | None = None,
+    carryover      : list | None = None,
 ) -> None:
     """All per-checkpoint writers on ONE connection with ONE commit.
 
-    `work_events` is the merged cross-stream timeline and is keyword-OPTIONAL, so a caller
-    that predates it -- a test, a Diagnostics harness -- is unchanged and writes no rows.
+    `work_events`, `put_queue_state` and `carryover` are keyword-OPTIONAL, so a caller that
+    predates them -- a test, a Diagnostics harness -- is unchanged and writes no rows.
+
+    A bundle argument that is accepted and never inserted is this function's characteristic
+    failure: `work_events` was one for a while, and the reconciliation that was supposed to
+    catch it passed over 68 databases holding zero rows. Every new argument here needs a
+    test that reads the FILE back.
 
     strategy_runner's checkpoint flush used to call the eight `save_*` writers back to
     back, each paying its own open + commit + close against a ~1 GB WAL DB — measured
@@ -2005,6 +2108,10 @@ def save_checkpoint_bundle(
             _insert_work_events(con, run_id, work_events)
         if reorder_queue:
             _insert_reorder_queue(con, run_id, reorder_queue)
+        if put_queue_state:
+            _insert_put_queue_state(con, run_id, put_queue_state)
+        if carryover:
+            _insert_carryover(con, run_id, carryover)
         con.commit()
     finally:
         con.close()

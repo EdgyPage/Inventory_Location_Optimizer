@@ -84,15 +84,38 @@ def test_two_items_of_one_sku_accumulate():
 
 # ── the real consumer, on the real source ─────────────────────────────────────────
 
-def test_the_runner_reads_the_unit_not_the_item():
+def test_the_runner_does_not_walk_the_put_away_queue_at_all():
+    """The strongest version of this ratchet: the runner stopped walking the queue.
+
+    It used to iterate `mgr._stock_queue` and read `.order.sku` off the envelope, which
+    raised the moment the queue was non-empty. The reporting moved onto the manager
+    (`queue_contents`, `queue_state_rows`, `carryover_rows`) because inline it was reachable
+    only by a full sweep — and no arm in the coverage sweep leaves anything unplaced, so the
+    carryover branch had no coverage while looking covered.
+
+    A walker that comes back here has to unwrap correctly all over again, and would be
+    testable only through a sweep again. So the rule is now "do not walk it", which is
+    checkable in one line.
+    """
     import inspect
 
     import Optimization.simdriver.strategy_runner as sr
     src = inspect.getsource(sr)
-    assert '_u = _it.unit' in src, 'the runner no longer unwraps the PutawayItem'
-    assert '_u.order.sku' in src
-    assert 'for _u in mgr._stock_queue' not in src, (
-        'the runner iterates the queue binding the ITEM to a name it then uses as a unit')
+    assert 'mgr._stock_queue' not in src, (
+        'the runner walks the put-away queue again; use the manager reporters instead')
+    for reporter in ('queue_contents()', 'queue_state_rows(', 'carryover_rows('):
+        assert reporter in src, f'the runner no longer calls mgr.{reporter}'
+
+
+def test_the_manager_reporters_unwrap_the_item():
+    """What the old ratchet actually protected, at its new home."""
+    import inspect
+
+    import Warehouse.inventory.Inventory_Management as im
+    for fn in (im.Inventory_Manager.queue_contents,
+               im.Inventory_Manager.carryover_rows):
+        src = inspect.getsource(fn)
+        assert 'it.unit' in src, f'{fn.__name__} reads the envelope as if it were a unit'
 
 
 def test_the_diagnostics_bucket_helper_accepts_either():
