@@ -26,7 +26,7 @@ import pytest
 from Warehouse.placement.Assignment_Functions import (
     _closest_abs, _PrefPool, _affinity_row, _delta_lift_from_row,
     _aisle_anchor_gap, _cluster_map_choose_aisle, _demand_weighted_delta_lift,
-    build_optmap_fn, build_optmap_wave_fn,
+    build_optmap_fn, build_optmap_wave_fn, build_optmap_pool_fn,
 )
 
 
@@ -205,8 +205,9 @@ def test_cluster_map_choose_aisle_matches_reference():
 SEED, N_SKUS, BINS_PER_AISLE, N_BATCHES = 42, 1500, 100, 40
 
 
-def _build_map_mgr(wh_cfg, inventory, wp, ranked):
-    """A map manager placing via the ranked WAVE (ranked=True) or the per-unit SCAN."""
+def _build_map_mgr(wh_cfg, inventory, wp, mode):
+    """A map manager placing by `mode`: the per-unit SCAN, the ranked WAVE, or the POOL."""
+    assert mode in ('scan', 'wave', 'pool'), mode
     from Warehouse.layout.Aisle_Storage import Aisle
     from Warehouse.inventory.Inventory_Management import Inventory_Manager, Placement
     Aisle.next_aisle_id = 1
@@ -224,11 +225,23 @@ def _build_map_mgr(wh_cfg, inventory, wp, ranked):
     freq_by_sku = {c.sku: c.demand.relative_frequency for c in inventory.orders}
     qty_by_sku  = {c.sku: c.demand.quantity_rate      for c in inventory.orders}
     mgr.build_optimal_map(inventory.orders, freq_by_sku, qty_by_sku, wp)
-    if ranked:
+    if mode == 'wave':
         mgr.placement = Placement('optmap', build_optmap_fn(mgr), build_optmap_wave_fn(mgr))
+    elif mode == 'pool':
+        mgr.placement = Placement('optmap', build_optmap_fn(mgr),
+                                  open_pool=build_optmap_pool_fn(mgr))
     else:
         mgr.placement = Placement('optmap', build_optmap_fn(mgr))
     return wh, mgr
+
+
+def _bin_state(mgr):
+    """Which SKU sits in which BIN -- the exact surface, keyed on reproducible geometry
+    rather than id(bin).  The aisle rollup below is the right comparison for two DIFFERENT
+    algorithms that may split an exact tie differently; two runs of the SAME objective have
+    no excuse for disagreeing about a single bin."""
+    return {(b.location[0], b.x_phys, b.y_phys): mgr._bin_sku.get(bid)
+            for bid, b in mgr._unavailable.items()}
 
 
 def _aisle_sku_state(mgr):
@@ -281,8 +294,8 @@ def test_map_wave_matches_per_unit_scan(map_assets):
     """The ranked wave and the per-unit scan are both exact closest-pref minimisers, so a full
     reorder+pick sim lands SKUs in the same aisles (bin identity may differ only on exact ties)."""
     inventory, wh_cfg, pick_cfg, wp, batch_cfg = map_assets
-    wh1, mgr1 = _build_map_mgr(wh_cfg, inventory, wp, ranked=False)
-    wh2, mgr2 = _build_map_mgr(wh_cfg, inventory, wp, ranked=True)
+    wh1, mgr1 = _build_map_mgr(wh_cfg, inventory, wp, mode='scan')
+    wh2, mgr2 = _build_map_mgr(wh_cfg, inventory, wp, mode='wave')
     assert mgr1.placement.is_ranked is False
     assert mgr2.placement.is_ranked is True
 
@@ -294,11 +307,72 @@ def test_map_wave_matches_per_unit_scan(map_assets):
     assert scan_counts == wave_counts
 
 
+def test_map_pool_matches_the_wave_bin_for_bin(map_assets):
+    """The pool runs the wave's own `take_*` calls in the wave's own order, so it is not
+    merely an equivalent minimiser -- it is the same decision, and every bin must match.
+
+    This is the seam commit: `place_wave` returns the order it wants, `open_pool` answers one
+    unit at a time and lets the drain choose.  For optmap the two orders are the same one
+    (queue order), which is exactly why it ports first -- a difference here is a porting bug,
+    with no tie-breaking or float-reassociation story available to explain it away.
+    """
+    inventory, wh_cfg, pick_cfg, wp, batch_cfg = map_assets
+    wh1, mgr1 = _build_map_mgr(wh_cfg, inventory, wp, mode='wave')
+    wh2, mgr2 = _build_map_mgr(wh_cfg, inventory, wp, mode='pool')
+    assert mgr1.placement.is_pooled is False and mgr1.placement.is_ranked is True
+    assert mgr2.placement.is_pooled is True  and mgr2.placement.is_ranked is True
+
+    _, _, wave_reord = _run_map(wh1, mgr1, pick_cfg, batch_cfg, inventory)
+    _, _, pool_reord = _run_map(wh2, mgr2, pick_cfg, batch_cfg, inventory)
+    assert wave_reord > 0 and pool_reord == wave_reord
+    wave_bins, pool_bins = _bin_state(mgr1), _bin_state(mgr2)
+    assert wave_bins and wave_bins == pool_bins
+
+
+def test_the_pool_reports_the_gap_it_chose_on(map_assets):
+    """`take` returns the score, which is the whole reason the drain can persist it: the old
+    shape had no "score this bin for this unit" step to call afterwards.  For optmap the
+    score is |pref - target|, and the pool's choice must actually MINIMISE it -- so no bin
+    left in the pool may be closer to the target than the one handed out."""
+    from Warehouse.layout.Storage_Primitive import viable_storage_units
+    inventory, wh_cfg, pick_cfg, wp, batch_cfg = map_assets
+    _, mgr = _build_map_mgr(wh_cfg, inventory, wp, mode='pool')
+    # A pool covers ONE BinKey group, which is what the drain hands it, so take the biggest
+    # group the catalogue offers.  Built here rather than read off `_stock_queue`, which
+    # `enqueue_all` has already drained by the time the manager is returned.
+    groups: dict = {}
+    for o in inventory.orders:
+        for u in viable_storage_units(o, 1):
+            groups.setdefault(mgr._group_key(u), []).append(u)
+    units = max(groups.values(), key=len)[:40]
+    assert len(units) >= 2, 'no BinKey group with more than one unit'
+    cands = list(mgr._candidates(units[0]))
+    assert len(cands) > len(units), (len(cands), len(units))
+
+    pool = mgr.placement.open_pool(cands)
+    seen, scored = set(), 0
+    for unit in units:
+        b, score = pool.take(unit)
+        assert b is not None and id(b) not in seen, 'a bin was handed out twice'
+        seen.add(id(b))
+        tgt = mgr._map_target.get(unit.order.sku)
+        if tgt is None:
+            assert score is None                 # no target, so no gap to report
+            continue
+        scored += 1
+        assert score == abs(mgr._bin_pref.get(id(b), 0.0) - tgt)
+        # It is the MINIMUM gap among everything still in the pool.
+        rest = [abs(mgr._bin_pref.get(id(c), 0.0) - tgt)
+                for c in cands if id(c) not in seen]
+        assert not rest or score <= min(rest) + 1e-12, (score, min(rest))
+    assert scored > 0, 'every SKU was unknown to the map — the score path never ran'
+
+
 def test_map_queue_stays_bounded(map_assets):
     """The ranked wave sheds its per-tier snapshot surplus to the straggler path, so the reorder
     queue never grows without bound across many batches."""
     inventory, wh_cfg, pick_cfg, wp, batch_cfg = map_assets
-    wh, mgr = _build_map_mgr(wh_cfg, inventory, wp, ranked=True)
+    wh, mgr = _build_map_mgr(wh_cfg, inventory, wp, mode='wave')
     _counts, max_depth, reorders = _run_map(wh, mgr, pick_cfg, batch_cfg, inventory)
     assert reorders > 0                     # the wave path was actually exercised
     # A leak would make depth climb monotonically with batches; assert it stays modest.

@@ -30,6 +30,23 @@ RankedAssignmentFn = Callable[
 ]
 
 
+# A POOL is a policy's candidate bins for ONE BinKey group, opened once per wave and
+# consumed one unit at a time:
+#
+#     pool = placement.open_pool(candidates)
+#     bin_, score = pool.take(unit)          # consumes the bin; None when exhausted
+#
+# It is the inversion of `place_wave`.  A wave RETURNS the order it wants, which is how the
+# assignment functions came to decide placement ORDER as well as the bin; a pool answers one
+# unit at a time and leaves the order to the caller.  That is what lets the drain impose FIFO
+# (with a K-oldest window) without touching the choice, and it costs nothing: the snapshot was
+# never order-dependent, because every unit in a group shares a BinKey.
+#
+# `take` returns the SCORE it chose on, so the number the policy optimised is capturable
+# without a second scoring pass -- there is no separate "score this bin for this unit" step to
+# call later, which is precisely why the old shape could not be observed.
+PoolFn = Callable[[list], 'Pool']
+
 #: Where a unit in the put-away queue came from.  Three today; a trailer is the fourth,
 #: and the reason this is a named vocabulary rather than a bool.
 PUTAWAY_SOURCES = ('intake', 'reorder', 'reslot')
@@ -86,14 +103,19 @@ class Placement:
     drain is just a policy that also carries a ``place_wave`` — no special-casing, and
     a future ranked-cohesion policy is expressible the same way.
     """
-    __slots__ = ('name', 'place_one', 'place_wave', 'uses_aisle_index', 'order_score')
+    __slots__ = ('name', 'place_one', 'place_wave', 'uses_aisle_index', 'order_score',
+                 'open_pool')
 
     def __init__(self, name: str, place_one: AssignmentFn,
                  place_wave: 'RankedAssignmentFn | None' = None,
-                 order_score: 'Callable[[Any], float] | None' = None) -> None:
+                 order_score: 'Callable[[Any], float] | None' = None,
+                 open_pool: 'PoolFn | None' = None) -> None:
         self.name             = name
         self.place_one        = place_one
         self.place_wave       = place_wave
+        # A POOL policy: the drain owns the order, the pool owns the choice.  Preferred over
+        # `place_wave` when present.  See the note beside PoolFn.
+        self.open_pool        = open_pool
         # the per-unit fn declares whether it reads mgr._aisle_index (coupling guard)
         self.uses_aisle_index = bool(getattr(place_one, 'uses_aisle_index', False))
         # Per-policy enqueue ordering: (unit)->float, sorted DESCENDING before placement.
@@ -103,7 +125,13 @@ class Placement:
 
     @property
     def is_ranked(self) -> bool:
-        return self.place_wave is not None
+        """Placed a whole BinKey group at once -- by pool or by wave."""
+        return self.place_wave is not None or self.open_pool is not None
+
+    @property
+    def is_pooled(self) -> bool:
+        """The drain may choose the order: this policy answers one unit at a time."""
+        return self.open_pool is not None
 
 
 @dataclass

@@ -1497,6 +1497,56 @@ def build_optmap_fn(mgr, capped=False):
     return place_one
 
 
+class _OptMapPool:
+    """The optmap objective as a POOL: one `_PrefPool` over the group's candidates, one
+    `take` per unit, and the order left entirely to the caller.
+
+    Body-for-body the loop `build_optmap_wave_fn` already ran -- that function was written
+    serving units in QUEUE ORDER with no priority re-sort, so it is the one ranked policy
+    whose behaviour a pool reproduces exactly rather than approximately.  It is the proof
+    that the seam is real before the four impls that DO re-sort are moved onto it.
+    """
+
+    __slots__ = ('_pool', '_target', '_pref', '_capped')
+
+    def __init__(self, bins, target, bin_pref, capped: bool):
+        self._pool   = _PrefPool(bins, bin_pref)
+        self._target = target
+        self._pref   = bin_pref
+        self._capped = capped
+
+    def __len__(self):
+        return len(self._pool)
+
+    def take(self, unit):
+        """(bin, score) for one unit; (None, None) once the pool is exhausted.
+
+        `score` is the objective this policy actually minimises -- the gap between the bin's
+        pref and the SKU's map target -- read at the moment of choice, so persisting it
+        costs a dict lookup and not a second scoring pass.  None target means the SKU has no
+        map entry, and there is no gap to report.
+        """
+        tgt = self._target.get(unit.order.sku)
+        if tgt is None:                       # unknown SKU: don't waste a prime bin
+            b = self._pool.take_max() if self._capped else self._pool.take_min()
+        elif self._capped:                    # nearest with pref >= target (else least-prime)
+            b = self._pool.take_ge(tgt)
+        else:                                 # symmetric closest match
+            b = self._pool.take_closest(tgt)
+        if b is None:
+            return None, None
+        score = None if tgt is None else abs(self._pref.get(id(b), 0.0) - tgt)
+        return b, score
+
+
+def build_optmap_pool_fn(mgr, capped=False):
+    """`open_pool` for the optimal-map policies -- the pool twin of build_optmap_wave_fn."""
+    def open_pool(candidates):
+        return _OptMapPool(candidates, mgr._map_target, mgr._bin_pref, capped)
+    open_pool.name = 'optmap_rank' if capped else 'optmap'
+    return open_pool
+
+
 def build_optmap_wave_fn(mgr, capped=False):
     """Ranked-wave twin of build_optmap_fn: the SAME per-unit objective (argmin |pref−target|,
     or capped nearest-with-pref≥target), but the O(B) scan is amortized — one ``_PrefPool`` sort

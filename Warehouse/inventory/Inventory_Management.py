@@ -1002,8 +1002,19 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             # is exactly the property `BinRecorder`'s cross-call `id()` set could not rely on.
             units   = [it.unit for it in items]
             by_unit = {id(it.unit): it for it in items}
-            # Ranked assignments — high pick-effort units claim the best bins first.
-            assignments = self.placement.place_wave(units, self._candidates)   # type: ignore[misc]
+            if self.placement.is_pooled:
+                # POOLED: the DRAIN owns the order and the pool owns the choice.  One
+                # snapshot per group, exactly as the wave took -- the candidate set never
+                # depended on the order, because every unit in a group shares a BinKey.
+                # Queue order here, which is what the pooled policies already served in.
+                pool = self.placement.open_pool(self._candidates(units[0]))
+                assignments = []
+                for unit in units:
+                    bin_, _score = pool.take(unit)
+                    assignments.append((unit, bin_))
+            else:
+                # Ranked assignments — high pick-effort units claim the best bins first.
+                assignments = self.placement.place_wave(units, self._candidates)   # type: ignore[misc]
             for unit, bin_ in assignments:
                 if bin_ is not None:
                     self._execute_placement(unit, bin_,
