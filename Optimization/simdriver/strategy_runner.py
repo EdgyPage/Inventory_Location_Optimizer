@@ -307,7 +307,7 @@ def close_skipped_batch(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_i
     for qname, qrecs in by_queue.items():
         rows.extend(_work_events.put_rows(
             qrecs, batch_id=batch_id, batch_start=arm_clock,
-            crew=put_crews.get(qname, put_workers),
+            crew=put_crews[qname],
             shift_seconds=shift_seconds, crew_start=base))
     # Grouped `(base + t0) + dur` deliberately: float addition is not associative, and the
     # non-skipped path groups it the same way.
@@ -635,12 +635,24 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     _pc = args.get('put_crew') or {'size': 1, 'mode': 'foot', 'x_speed': 2.0, 'y_speed': 4.0}
     _put_crew = _Crew(role=_Role.PUT, mode=_Mode.of(_pc['mode']),
                       speed=_SpeedProfile(_pc['x_speed'], _pc['y_speed']), size=_pc['size'])
-    _put_workers = _put_crew.workers(_pick_crew.next_uid(0))
-    # Worker rosters BY QUEUE.  One entry today: the manager's default queue is named 'all'
-    # and takes everything, so this is the single crew under its own name.  A split
-    # configuration adds entries here, and each stream needs its own uid block -- which is
-    # why the roster is a dict rather than a second bare list.
-    _put_crews = {q.name: _put_workers for q in mgr.put_queues}
+    # Worker rosters BY QUEUE, each with its OWN uid block.  One entry today: the manager's
+    # default queue is named 'all' and takes everything, so the cursor runs once and produces
+    # exactly `_put_crew.workers(_pick_crew.next_uid(0))` -- byte-identical to the single
+    # tuple this used to build.
+    #
+    # It used to be `{q.name: _put_workers for q in ...}`, which handed every stream the SAME
+    # people while the comment above it claimed otherwise.  Nothing would have raised: a
+    # duplicated uid passes `put_rows`' `0 <= widx < len(workers)` check, `work_events` has no
+    # uniqueness constraint, and the merged view still sorts -- so a per-actor rollup would
+    # quietly merge two crews and the timeline would say a putter did another stream's work.
+    _uid = _pick_crew.next_uid(0)
+    _put_crews = {}
+    for _q in mgr.put_queues:
+        _put_crews[_q.name] = _put_crew.workers(_uid)
+        _uid = _put_crew.next_uid(_uid)
+    # The default roster for a caller that does not know the queue name (the skipped-batch
+    # path passes it through).  With one queue this IS the only roster.
+    _put_workers = _put_crews[mgr.put_queues.queues[0].name]
     # Put-away now costs seconds.  ADDITIVE: it moves no pick result (same items, same
     # order, same instants); it records durations and rows.  See enable_putaway_timing.
     mgr.enable_putaway_timing(_put_crew.speed, size=_put_crew.size)
@@ -1115,7 +1127,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             for _qname, _qrecs in _by_queue.items():
                 we.extend(_work_events.put_rows(
                     _qrecs, batch_id=i, batch_start=bs.batch_start_time,
-                    crew=_put_crews.get(_qname, _put_workers),
+                    # `[_qname]`, not `.get(_qname, _put_workers)`: a record whose queue
+                    # has no roster is a wiring bug, and falling back to the put roster
+                    # would stamp another crew's work with put-away actors -- silently,
+                    # since nothing downstream can tell.
+                    crew=_put_crews[_qname],
                     shift_seconds=_shift_seconds, crew_start=_put_base))
             if _put_recs:
                 # max(end), not the LAST record's: with several workers the list
