@@ -239,6 +239,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # by 1 each batch and hands arrivals (remaining_lead <= 0) to the stock queue.
         self._batch_num: int = 0
         self._lead_queue: list[list] = []   # each entry: [sku, qty, remaining_lead]
+        # THE INBOUND SEAM.  `inbound_split(sku, qty) -> list[int] | None` decides whether an
+        # arrival comes in as one delivery or several; packing is per delivery, so a shipment
+        # that would palletize whole can land as singletons when a trailer splits it.  None =
+        # every arrival comes whole, which is every run today.  Trailers, docks and load
+        # planning live in the CALLER -- this only asks how the shipment showed up.
+        self.inbound_split = None
+        # LoadPlans received since the last `drain_inbound()`.
+        self._inbound_plans: list = []
         # Seed for the reorder-quantity noise.  check_reorders draws qty from a per-reorder
         # random.Random((_seed, sku, _batch_num)) so the quantity is a pure function of the
         # seed (reproducible, off the global stream) rather than global call order.  The

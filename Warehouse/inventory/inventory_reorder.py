@@ -13,6 +13,7 @@ import random
 
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units
+from Warehouse.operations import inbound as _inbound
 from Warehouse.inventory.inventory_common import (
     PutawayItem, is_forward_pick, _equilibrium_qty)
 
@@ -269,16 +270,41 @@ class ReorderMixin:
         # otherwise this grows by one entry per emptied bin for the length of the run.
         self._emptied_at.clear()
 
-    def _release_to_stock(self, sku: int, qty: int) -> None:
+    def _release_to_stock(self, sku: int, qty: int, deliveries=None) -> None:
         """Convert an arrived (sku, qty) order into storage units and append them to the
         stock queue, updating the queued-unit / queued-qty trackers.  Shared by every
-        lead-queue arrival (including lead-0 orders released the same batch)."""
-        rc    = self._originals[sku].reorder()
-        units = viable_storage_units(rc, qty)
+        lead-queue arrival (including lead-0 orders released the same batch).
+
+        THE INBOUND SEAM.  Packing has always been a function of how much arrives AT ONCE --
+        `viable_storage_units` takes a quantity -- but nothing named that, so nothing could
+        express an order that would be palletized arriving whole and lands as two singleton
+        packs when a trailer splits it.  `deliveries` is that: a list of quantities summing
+        to `qty`, each packed on its own.  None means one delivery of the whole amount,
+        which is what every caller does today and is byte-identical.
+
+        The split is the CALLER's to decide.  Trailers, docks and load planning belong
+        upstream of here; this only says that when a shipment arrives in pieces, each piece
+        packs as the piece it is.  The `LoadPlan`s are returned by `receive_all` and carry
+        the counterfactual, so the cost of the split is answerable
+        (`inbound.shipment_penalty`).
+
+        A caller that does not want to thread `deliveries` through every arrival sets
+        `inbound_split` instead -- consulted here, so the split is reachable from the
+        ordinary lead-queue release without `_release_arrivals` knowing about it.
+        """
+        rc = self._originals[sku].reorder()
+        if deliveries is None and self.inbound_split is not None:
+            deliveries = self.inbound_split(sku, qty)
+        if deliveries:
+            plans = _inbound.receive_all(rc, deliveries)
+        else:
+            plans = [_inbound.receive(rc, qty)]
+        units = [u for p in plans for u in p.units]
         if not units:
             return
         for unit in units:
             self._admit(unit, 'reorder')
+        self._inbound_plans.extend(plans)
         self._queued_sku_counts[sku] = self._queued_sku_counts.get(sku, 0) + len(units)
         self._queued_qty[sku]        = self._queued_qty.get(sku, 0) + sum(u.quantity for u in units)
 
@@ -289,6 +315,18 @@ class ReorderMixin:
     # work stream (inbound put-away against the same clock) needs to interleave these, not
     # replay them as a block.  The composition below is the ONLY caller today and runs them
     # in exactly the order they always ran in.
+
+    def drain_inbound(self) -> list:
+        """The `LoadPlan`s received since the last call, and reset.
+
+        Drained rather than accumulated: a run is hundreds of batches and every arrival
+        holds its storage units, so keeping them all would pin the whole restock stream in
+        memory for a record nobody has asked to be complete.  A consumer that wants the
+        history persists each drain.
+        """
+        out = self._inbound_plans
+        self._inbound_plans = []
+        return out
 
     def _tick_batch(self) -> None:
         """Advance the replenishment calendar by one batch.
