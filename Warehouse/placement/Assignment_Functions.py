@@ -2402,7 +2402,14 @@ def _aisle_anchor_gap(lst, pref, target):
 
 def _cluster_map_pick_bin(lst, pref, target, cx, x_pace, capped):
     """Choose the cluster's bin within one aisle: anchor at the favored map location and
-    compact toward the partner centroid; honour the prime-spot cap when capped."""
+    compact toward the partner centroid; honour the prime-spot cap when capped.
+
+    Returns `(bin, cost)`.  The cost is RETURNED rather than recomputed by the caller, and
+    that is deliberate: `_CLUSTER_MAP_W_CENT * x_pace * abs(...)` re-associated as
+    `(W * x_pace) * abs(...)` is a different float, so a caller reconstructing the number
+    would eventually persist something that is not what decided.  `None` on the capped
+    least-prime fallback, which is chosen by max-pref and not by this cost at all --
+    reporting the cost of a bin that was picked on a different rule would be a lie."""
     def cost(b):
         p = pref.get(id(b), 0.0)
         c = abs(p - target) if target is not None else p
@@ -2412,9 +2419,12 @@ def _cluster_map_pick_bin(lst, pref, target, cx, x_pace, capped):
     if capped and target is not None:
         eligible = [b for b in lst if pref.get(id(b), 0.0) >= target]   # tier or worse
         if eligible:
-            return min(eligible, key=cost)
-        return max(lst, key=lambda b: pref.get(id(b), 0.0))             # least-prime last resort
-    return min(lst, key=cost)
+            b = min(eligible, key=cost)
+            return b, cost(b)
+        b = max(lst, key=lambda b: pref.get(id(b), 0.0))    # least-prime last resort
+        return b, None
+    b = min(lst, key=cost)
+    return b, cost(b)
 
 
 def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target,
@@ -2508,10 +2518,10 @@ def build_cluster_map_placement(mgr, affinity, wp,
         aid = _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row,
                                         aisle_idx_sets, freq_by_idx, target, lifts=lifts)
         if aid is None:
-            return None
+            return None, None
         _mass, cx = _demand_weighted_partner_centroid(
             affinity, sku, aisle_member_pos[aid], freq_by_idx)
-        chosen = _cluster_map_pick_bin(by_aisle[aid], pref, target, cx, x_pace, capped)
+        chosen, cost = _cluster_map_pick_bin(by_aisle[aid], pref, target, cx, x_pace, capped)
         by_aisle[aid].remove(chosen)
         plst = prefs_by_aisle[aid]                        # drop the chosen bin's pref (multiset-sync)
         k = bisect.bisect_left(plst, pref.get(id(chosen), 0.0))
@@ -2523,40 +2533,77 @@ def build_cluster_map_placement(mgr, affinity, wp,
             # The commit may have grown THIS aisle's idx-set: recompute its delta fresh so
             # the next same-SKU unit sees exactly what a full per-unit recompute would.
             run_cache['lifts'][aid] = _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx)
-        return chosen
+        return chosen, cost
 
     def place_one(unit, candidates):
         if not candidates:
             return None
         by_aisle, prefs_by_aisle = _group(candidates)
         c = unit.order
+        # The straggler path wants the bin only; the cost has nowhere to go from here.
         return _place(c.sku, by_aisle, prefs_by_aisle,
-                      freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0))
+                      freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0))[0]
 
-    def place_wave(units, candidates_fn):
-        all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
+    class _ClusterMapPool(_Pool):
+        """`place_wave`'s body, split into open / order / take.
 
-        def priority(unit):
+        The thinnest port of the four, because `_place` was already the per-unit body and is
+        shared with the straggler path -- there is nothing to restructure, only to relocate.
+        `_group` and `all_idx` move into `__init__`, the priority sort becomes `order`, and
+        `run_cache` becomes an attribute instead of a wave-local dict.
+
+        THE RUN CACHE IS THE ONE THING TO BE CAREFUL WITH, and this policy is where the
+        lesson was paid for. Its validity argument is written out in `_place`'s docstring:
+        within a same-SKU run the only idx-set that mutates is the winner's, and the winner's
+        cached delta is recomputed immediately after each commit. The first cut instead
+        cached ACROSS the winner's set growth, and drifted by one ulp -- not because the
+        value was wrong, but because `_delta_lift_from_row` iterates the smaller side, so
+        adding one member flipped the summation ORDER. That moved a real placement at 8k-SKU
+        meso scale. The argument has to be about summation order, not about values.
+
+        The cache keys on `run_cache['sku'] == sku`, so losing same-SKU adjacency costs the
+        hit rate and not correctness. Making it a persistent `{sku: lifts}` dict to win that
+        back would reintroduce exactly the bug above.
+        """
+
+        __slots__ = ('_by_aisle', '_prefs', '_all_idx', '_run_cache')
+
+        def __init__(self, candidates):
+            self._by_aisle, self._prefs = _group(candidates)   # one tier, once per group
+            self._all_idx = (set().union(*aisle_idx_sets.values())
+                             if aisle_idx_sets else set())
+            self._run_cache: dict = {}          # same-SKU run reuse; _place owns the rules
+
+        def __len__(self):
+            return sum(len(lst) for lst in self._by_aisle.values())
+
+        def order(self, units):
+            all_idx = self._all_idx
+            def priority(unit):
+                c = unit.order
+                co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx,
+                                                        freq_by_idx)
+                return c.demand.relative_frequency * c.labor_cost + co
+            return sorted(units, key=priority, reverse=True)
+
+        def take(self, unit):
+            """(bin, score) for one unit.
+
+            `score` is `_cluster_map_pick_bin`'s own cost -- |pref - target| plus the
+            weighted centroid pull -- handed back from the comparison that chose the bin
+            rather than reconstructed here. None on the capped least-prime fallback, which
+            is decided by max-pref instead."""
             c = unit.order
-            co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
-            return c.demand.relative_frequency * c.labor_cost + co
+            return _place(c.sku, self._by_aisle, self._prefs,
+                          freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0),
+                          self._run_cache)
 
-        sorted_units = sorted(units, key=priority, reverse=True)
-        result: list = []
-        if not sorted_units:
-            return result
-        by_aisle, prefs_by_aisle = _group(candidates_fn(sorted_units[0]))   # one tier, once per wave
-        run_cache: dict = {}                    # same-SKU run reuse; _place owns the rules
-        for unit in sorted_units:
-            c = unit.order
-            result.append((unit, _place(c.sku, by_aisle, prefs_by_aisle,
-                                        freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0),
-                                        run_cache)))
-        return result
+    def open_pool(candidates, rep=None):
+        return _ClusterMapPool(candidates)
 
     place_one.name = name
-    place_wave.name = name
-    return Placement(name, place_one, place_wave)
+    open_pool.name = name
+    return Placement(name, place_one, open_pool=open_pool)
 
 
 # ── programmatic name → builder registries (robust downstream lookup) ──────

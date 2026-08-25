@@ -600,9 +600,46 @@ def test_cluster_map_cohesion_pulls_codemanded_into_one_aisle():
                                       beta=1.0, capped=False)
     c1 = _Cart(1, 5.0, 2.0, 1.0, handle_var=5.0)   # higher expected_labor → placed first
     c2 = _Cart(2, 1.0, 1.0, 1.0, handle_var=1.0)
-    placed = [b for _, b in plc.place_wave([_Unit(c1), _Unit(c2)], lambda u: list(bins))]
+    units = [_Unit(c1), _Unit(c2)]
+    pool = plc.open_pool(list(bins), units[0])
+    placed = [pool.take(u)[0] for u in pool.order(units)]
     assert all(b is not None for b in placed)
     assert placed[0].location[0] == placed[1].location[0]    # same aisle (cohesion)
+
+
+def test_cluster_map_reports_the_cost_that_chose_the_bin():
+    """The score is `_cluster_map_pick_bin`'s own comparison value, returned rather than
+    reconstructed. Reconstructing it would re-associate
+    `_CLUSTER_MAP_W_CENT * x_pace * abs(...)`, and a differently-grouped product is a
+    different float — so the persisted number would drift from the deciding one."""
+    bins = [_Bin(1, 10, 0), _Bin(1, 20, 0)]
+    mgr = types.SimpleNamespace(_bin_pref={id(bins[0]): 5.0, id(bins[1]): 9.0},
+                                _map_target={1: 5.0})
+    aff = _aff_csr([1, 2], [(1, 2, 4.0)])
+    idx = aff._sku_to_idx
+    ass, aix, ads, amp = _cm_state()
+    plc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+                                      {idx[1]: 2.0, idx[2]: 1.0}, {1: 2.0}, {1: 1.0},
+                                      beta=1.0, capped=False)
+    b, score = plc.open_pool(list(bins)).take(_Unit(_Cart(1, 5.0, 2.0, 1.0, handle_var=5.0)))
+    # No partner is placed, so there is no centroid term: the cost is the raw anchor gap.
+    assert b is bins[0] and score == abs(mgr._bin_pref[id(b)] - 5.0) == 0.0
+
+
+def test_cluster_map_capped_fallback_reports_no_cost():
+    """The capped least-prime last resort is chosen by max-pref, not by the anchor cost.
+    Reporting a cost there would put a number in the column that did not decide anything."""
+    bins = [_Bin(1, 10, 0), _Bin(1, 20, 0)]
+    mgr = types.SimpleNamespace(_bin_pref={id(bins[0]): 1.0, id(bins[1]): 2.0},
+                                _map_target={1: 99.0})       # nothing is prime enough
+    aff = _aff_csr([1, 2], [(1, 2, 4.0)])
+    idx = aff._sku_to_idx
+    ass, aix, ads, amp = _cm_state()
+    plc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+                                      {idx[1]: 2.0, idx[2]: 1.0}, {1: 2.0}, {1: 1.0},
+                                      beta=1.0, capped=True)
+    b, score = plc.open_pool(list(bins)).take(_Unit(_Cart(1, 5.0, 2.0, 1.0, handle_var=5.0)))
+    assert b is bins[1] and score is None        # least-prime, and no cost to claim
 
 
 def test_cluster_map_anchors_at_favored_location_then_compacts():
