@@ -92,10 +92,30 @@ overlay the other runs faintly so you can compare e.g. `uni_*` vs `opt_*` fill.
 - **Fill heatmap**: red/amber aisles or whole buckets sitting below the others
   localise *where* the shortfall is (a specific handling/category/size/unit bucket).
 
+## Reconciling the receiving stream — `receiving_report.py`
+
+Not a dashboard: a cross-check. `work_events` has **no consumer** anywhere outside `Tests/`,
+so a work stream can be wired end to end, write duplicated or malformed rows, and produce a
+run that looks healthy from every existing angle. This reads the receiving stream back and
+compares it against `batch_stats`, which was written by different code from different state.
+
+```bash
+python Diagnostics/receiving_report.py <run_root_or_name>            # PASS/FAIL per arm
+python Diagnostics/receiving_report.py <run_root_or_name> --verbose  # the numbers
+```
+
+Five checks, each catching a defect nothing else can see: the two surfaces' seconds agree;
+their counts agree exactly; the three crews' `actor_uid` blocks are disjoint and contiguous;
+no two rows share a merge key (the existing `rows == sorted(rows)` guard passes on
+duplicates); and `role` agrees with `event_type` in both directions. All five are
+sabotage-verified against a corrupted copy of a real DB. A run with no receiving crew reports
+PASS with no activity — which is every run before the feature existed.
+
 ## Files
 ```
 trace_lifecycle.py     instrumented live tracer
 replay_run.py          real-run DB exporter
+receiving_report.py    cross-checks the receiving stream against batch_stats (read-only)
 static/                index.html · app.js · style.css  (the dashboard)
 out/                   generated JSON (git-ignored; regenerate any time)
 ```
