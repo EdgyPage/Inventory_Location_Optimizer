@@ -1,11 +1,14 @@
 # The working-day clock — what the first plan got wrong, and the sequence that replaces it
 
-**Status:** in progress — steps 1 and 2 of §5 are done, the rest is not. Written before any of
-it was built, because a read-only survey found that the approved four-commit plan cannot be
-executed as written. Kept current as steps land; where a step shipped differently from the
-plan, the difference and its reason are recorded rather than the table being quietly edited. Two
-commits collide on an API that neither ships, one commit's entire output is consumed by nobody,
-and no commit anywhere turns the feature on.
+**Status:** in progress — steps 1 and 2 of §5 are done, the rest is not.
+
+Written before any of it was built, because a read-only survey found that the approved
+four-commit plan cannot be executed as written: two of its commits collide on an API that
+neither ships, one commit's entire output is consumed by nobody, and no commit anywhere turns
+the feature on.
+
+Kept current as steps land. Where a step ships differently from the plan, the difference and
+its reason are recorded rather than the table being quietly edited.
 
 Everything below is either quoted from the code or was checked against it. Where a claim in the
 original plan turned out to be false, the false version is kept alongside the correction —
