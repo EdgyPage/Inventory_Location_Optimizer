@@ -334,6 +334,15 @@ class _WaveAsPool:
 
     __slots__ = ('_impl', '_cands', '_a', '_kw', '_answers')
 
+    #: The drain reads this to rank placements by score (`_ranked_by_score`). Its VALUE is
+    #: irrelevant here and that is worth stating: `take` below always reports a score of
+    #: None, so the sort it feeds is over an empty list. What matters is that the attribute
+    #: EXISTS -- the pool inversion added `pool.prefers_low` to the drain and this shim
+    #: predates it, so every frozen-oracle test in this file died with an AttributeError
+    #: until 2026-08-25. Nothing noticed because `Tests/calltree` is hand-run and is not in
+    #: the routine suite. `True` matches the `_Pool` base default.
+    prefers_low = True
+
     def __init__(self, impl, cands, *a, **kw):
         self._impl, self._cands, self._a, self._kw = impl, cands, a, kw
         self._answers = None

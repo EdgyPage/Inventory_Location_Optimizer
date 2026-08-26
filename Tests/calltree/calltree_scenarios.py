@@ -51,6 +51,15 @@ from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.fast_pick import DeferredPickSimulation
 from Warehouse.picking.Pick import PickConfig
+from collections import namedtuple as _namedtuple
+
+from Warehouse.inventory.dock import DockSpec as _DockSpec
+from Warehouse.inventory.put_queue import (
+    PutQueueSet as _PutQueueSet, PutQueueSpec as _PutQueueSpec,
+    store_and_fulfillment as _store_and_fulfillment)
+from Warehouse.kernel.cost_model import SpeedProfile as _SpeedProfile
+from Warehouse.layout.Storage_Primitive import (
+    FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
 from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Optimization.metrics.Simulation_Analytics import (
@@ -120,7 +129,10 @@ class ScenarioAssets:
 def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
                  n_pickers: int = 10, seed: int = 42, target_fill: float = 0.85,
                  strategy: str = DEFAULT_STRATEGY,
-                 coverage: float = 10.0, safety: float = 2.0) -> ScenarioAssets:
+                 coverage: float = 10.0, safety: float = 2.0,
+                 put_timing: bool = False, put_split: bool = False,
+                 put_staging: int | None = None, put_crew: int = 1,
+                 recv_crew: int = 0) -> ScenarioAssets:
     """Deterministic single-arm assets with production placement wiring.
 
     Mirrors Diagnostics/trace_lifecycle.py's recipe (plan_warehouse to a target fill,
@@ -182,13 +194,40 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
     random.seed(seed + 1)
     mgr.enqueue_all(inventory.orders)
 
+    # ── the put-away / receiving machinery, all OFF by default ────────────────────
+    # Their off-state is "the binder was never called", so a scenario that does not ask
+    # for them is byte-identical to one built before these parameters existed. Enabled
+    # here rather than by the caller because `enqueue_all` above must run FIRST: initial
+    # intake is not a receipt and must not be diverted onto a dock.
+    if put_timing or put_split or recv_crew:
+        mgr.enable_putaway_timing(_SpeedProfile(2.0, 4.0), size=put_crew)
+    if put_split:
+        # Crews passed explicitly for the same reason the runner does it: the default
+        # fallback would give three queues the FULL crew size, i.e. 3x the putters, and
+        # a split-vs-single comparison would measure headcount rather than routing.
+        _c = _namedtuple('_PutCrew', 'speed size')(_SpeedProfile(2.0, 4.0), put_crew)
+        mgr.put_queues = _store_and_fulfillment(
+            cart_crew=_c, pallet_crew=_c, ff_crew=_c,
+            cart_staging=put_staging, pallet_staging=put_staging,
+            ff_staging=put_staging,
+            store_cart=_StoreCart, ff_cart=_FulfillmentCart, swap_coef=10.0)
+    elif put_staging is not None:
+        # Staging without the split: one queue with a floor limit. The cheapest way to
+        # make the held list and the refill loop execute at all.
+        mgr.put_queues = _PutQueueSet([_PutQueueSpec('all', staging=put_staging)])
+    if recv_crew:
+        mgr.enable_receiving(_DockSpec(size=recv_crew))
+
     return ScenarioAssets(
         inventory=inventory, affinity=affinity, warehouse=warehouse, mgr=mgr,
         pick_cfg=pick_cfg, wp=wp, batch_cfg=batch_cfg, strategy=strategy,
         sizes={'n_skus': n_skus, 'n_skus_sampled': len(inventory.orders),
                'bins_per_aisle': bins_per_aisle, 'n_bins': len(warehouse.bins),
                'n_aisles': len(warehouse.aisles), 'n_pickers': n_pickers,
-               'target_fill': target_fill})
+               'target_fill': target_fill,
+               'put_timing': bool(put_timing or put_split or recv_crew),
+               'put_split': put_split, 'put_staging': put_staging,
+               'put_crew': put_crew, 'recv_crew': recv_crew})
 
 
 # ── meso: the single-arm batch loop ──────────────────────────────────────────
@@ -204,7 +243,8 @@ class MesoResult:
 
 
 def run_meso(assets: ScenarioAssets, *, n_batches: int = 20, seed: int = 42,
-             tracer=None) -> MesoResult:
+             tracer=None, put_deadline: float | None = None,
+             recv_deadline: float | None = None) -> MesoResult:
     """One arm's batch loop, phase-for-phase with strategy_runner L489-690.
 
     With a tracer: each phase runs inside tracer.section(t_*), so tree↔section alignment
@@ -234,8 +274,20 @@ def run_meso(assets: ScenarioAssets, *, n_batches: int = 20, seed: int = 42,
 
     for i in range(n_batches):
         with sec('t_reord'):
-            triggered = mgr.check_reorders()
+            triggered = mgr.check_reorders(put_deadline=put_deadline,
+                                           recv_deadline=recv_deadline)
             _rm, batch_rp = mgr.pop_churn()
+            # THE FOUR PER-BATCH SURFACES the runner calls inside its own `t_reord`, and
+            # the reason this loop can measure the put-away/receiving work at all. Three of
+            # them walk a STANDING BACKLOG rather than this batch's work, so leaving them
+            # out would hide exactly the growth a ladder exists to find. Their results are
+            # discarded here -- the runner turns them into DB rows; what is being measured
+            # is the cost of producing them.
+            mgr.queue_contents()
+            mgr.queue_state_rows(i)
+            mgr.carryover_rows(i)
+            mgr.receiving_snapshot()
+            mgr.drain_receiving_records()
         reorders_total   += len(triggered)
         placements_total += batch_rp
 
@@ -243,8 +295,11 @@ def run_meso(assets: ScenarioAssets, *, n_batches: int = 20, seed: int = 42,
             batch = Batch(assets.batch_cfg, assets.inventory, affinity=None,
                           rng=random.Random(rng_batches + i))
         with sec('t_task'):
-            tasks = Task.from_batch(batch, warehouse, manager=mgr,
-                                    cart=assets.pick_cfg.cart)
+            # `from_batch_with_shortfall`, matching the runner: the plain `from_batch`
+            # discards the demand no bin could serve, which is one of the three carry
+            # causes and the one a starved configuration produces most of.
+            tasks, _short = Task.from_batch_with_shortfall(
+                batch, warehouse, manager=mgr, cart=assets.pick_cfg.cart)
 
         # Mirrors the runner's fused pass (occupancy accumulated inside t_pre; keyframe
         # rows not requested — the meso loop writes no keyframes).  t_inv keeps its slot
