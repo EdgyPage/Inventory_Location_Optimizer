@@ -70,6 +70,10 @@ _DEEP_LADDER = [   # run_simulation args per rung; sized so 5 rungs fit ~an hour
     dict(max_skus=10_000, s_max_bins=15_000, ff_max_bins=20_000, n_batches=15),
     dict(max_skus=20_000, s_max_bins=25_000, ff_max_bins=33_000, n_batches=15),
     dict(max_skus=40_000, s_max_bins=50_000, ff_max_bins=66_000, n_batches=15),
+    # 60k is not a doubling, and that is the point.  The `save_s` knee sits somewhere in
+    # 40k..80k, and with only 2x rungs a knee is one data point -- indistinguishable from
+    # "this machine, that afternoon".  A mid rung brackets it.
+    dict(max_skus=60_000, s_max_bins=75_000, ff_max_bins=99_000, n_batches=15),
     dict(max_skus=80_000, s_max_bins=100_000, ff_max_bins=132_000, n_batches=15),
 ]
 

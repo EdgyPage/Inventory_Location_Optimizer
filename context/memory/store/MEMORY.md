@@ -54,3 +54,6 @@
 - [Carryover: two producers, one key](carryover-two-producers-one-key.md) — a level and a flow shared reason='unplaced' under INSERT OR REPLACE and 500 units vanished; the table now raises
 - [_admit_held was quadratic](admit-held-was-quadratic.md) — two failed attempts then a fix; an exit counting EVERY queue is unreachable when one is idle, partitioning _held took k 1.84 to 0.94
 - [Conservation ledger is bin-only](conservation-ledger-is-bin-only.md) — cons_breaks==0 proves nothing about units lost before a bin; three defects have hidden in that gap
+- [A count is not a claim](a-count-is-not-a-claim.md) — divide by a denominator before concluding; a raw exponent cannot tell "work per unit rose" from "more units"
+- [Knees hide from r-squared](knees-hide-from-r-squared.md) — an r2 gate drops step changes; the deep ladder's biggest jump scored 0.77 and was reported as nothing
+- [runtime_metrics is the deep instrument](runtime-metrics-is-the-deep-instrument.md) — the deep tier's t_* are MEAN seconds per batch per arm, never a share of the wall
