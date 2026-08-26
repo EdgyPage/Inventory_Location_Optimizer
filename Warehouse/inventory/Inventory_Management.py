@@ -1364,11 +1364,30 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         return [(*k, v) for k, v in agg.items()]
 
     def carryover_rows(self, batch_id: int) -> list[tuple]:
-        """`(batch_id, reason, sku, qty)` for everything that did not get placed.
+        """`(batch_id, reason, sku, qty)` for every unit still standing unbinned.
 
-        'unplaced' could not reach a bin; 'held' was refused floor space.  Keeping them
-        apart is the whole value of the column: they are different problems with different
-        fixes, and one carried-over count cannot tell them apart.
+        THREE reasons, spanning TWO classes, and the split is deliberate:
+
+          placement failure   'unplaced' could not reach a bin; 'held' was refused floor
+                              space.  Keeping these apart is the whole value of the column:
+                              different problems, different fixes, and one carried-over
+                              count cannot tell them apart.
+          pre-placement       'dock' has not been offered a bin at all -- it is still on a
+                              trailer, waiting to be unloaded.
+
+        So sum ALL THREE for "what is standing unbinned", and filter to the first two for
+        "what did placement fail to do".  Both sums are over THIS method's output, which is
+        entirely levels.  The `carryover` TABLE also carries the pick side's `unpicked_*`
+        FLOWS from a different producer, and a level and a flow must never be added: see
+        the reason column's own comment.  The dock is here because leaving it out made this
+        surface and `queue_contents` disagree about the same question: `queue_contents`
+        emits a 'dock' kind, and on a 200-batch run that was 52,479 rows this table denied.
+        A consumer summing carryover to size the backlog silently missed all of them.
+
+        The three are disjoint by construction -- a unit is on the dock, or admitted to a
+        queue, or held, never two of those -- so no sku can collide across reasons, and the
+        primary key stays one row per producer.  See `_insert_carryover`, which now RAISES
+        on a duplicate rather than replacing.
         """
         agg: dict = {}
         for q in self.put_queues:
@@ -1378,6 +1397,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         for it in self._held:
             k = ('held', it.unit.order.sku)
             agg[k] = agg.get(k, 0) + it.unit.quantity
+        if self._dock is not None:
+            for it in self._dock.items:
+                k = ('dock', it.unit.order.sku)
+                agg[k] = agg.get(k, 0) + it.unit.quantity
         return [(batch_id, reason, sku, qty) for (reason, sku), qty in agg.items()]
 
     def queue_state_rows(self, batch_id: int) -> list[dict]:

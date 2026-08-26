@@ -633,7 +633,11 @@ _CREATE_CARRYOVER = """
     CREATE TABLE IF NOT EXISTS carryover (
         run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
         batch_id INTEGER NOT NULL,     -- the batch it carried OUT of
-        reason   TEXT    NOT NULL,     -- WHY it carried, and the two families do not mix:
+        reason   TEXT    NOT NULL,     -- WHY it carried.  THREE families, and they do not
+                                       -- mix -- never SUM(qty) across the whole table.
+                                       --   pre-placement LEVEL, re-emitted every batch --
+                                       --     'dock'      still on a trailer; never offered
+                                       --                 a bin, so not a placement failure
                                        --   put-away LEVELS, re-emitted every batch --
                                        --     'unplaced'  a storage unit no bin could take
                                        --     'held'      refused floor space upstream
