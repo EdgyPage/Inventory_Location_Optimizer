@@ -403,12 +403,18 @@ _CREATE_WORK_EVENTS = """
         shift_index INTEGER NOT NULL,           -- floor(t_abs / shift_seconds); a LABEL
         actor_uid   INTEGER NOT NULL,           -- unique across every crew in the run
         actor_local INTEGER NOT NULL,           -- dense within this actor's own crew
-        role        TEXT    NOT NULL,           -- 'pick' | 'put'
+        role        TEXT    NOT NULL,           -- 'pick' | 'put' | 'receive'
         mode        TEXT    NOT NULL,           -- 'foot' | 'machine'
+        -- What happened.  For 'put' and 'receive' this EQUALS the role -- one row, one
+        -- unit of work.  For 'pick' it is the picking vocabulary (task_start | arrive |
+        -- pick | done | cut | cart_swap), because a pick row is a state change and a
+        -- picker's work is the span BETWEEN two of them.
         event_type  TEXT    NOT NULL,
         aisle_id    INTEGER,
         sku         INTEGER,
-        qty         INTEGER,                    -- SIGNED: pick < 0, put > 0
+        qty         INTEGER,                    -- SIGNED: pick < 0, put/receive > 0.
+                                                -- NULL on a state change, which moves no
+                                                -- merchandise -- absent, not zero.
         -- Seconds of WORK this row represents, or NULL when the row is an instant
         -- rather than an interval.  A put or an unload is an interval and carries one; a
         -- pick event is a state change stamped at a moment (task_start / pick / done /
@@ -546,6 +552,7 @@ _CREATE_REORDER_QUEUE = """
         batch_id       INTEGER NOT NULL,
         kind           TEXT    NOT NULL,   -- 'lead' (in-transit) | 'stock' (awaiting bin)
                                            -- | 'held' (refused floor space, waiting upstream)
+                                           -- | 'dock' (arrived, waiting to be unloaded)
         sku            INTEGER NOT NULL,
         qty            INTEGER NOT NULL,   -- items in this queue entry
         remaining_lead INTEGER NOT NULL DEFAULT 0,  -- batches until arrival ('lead' only)
