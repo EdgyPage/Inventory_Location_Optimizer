@@ -46,7 +46,7 @@ for _p in (_REPO_ROOT, _HERE):
         sys.path.insert(0, _p)
 
 import calltree_scenarios as scenarios
-from calltree_growth import _fit_loglog
+from calltree_growth import CONFIGS, _MESO_LADDERS, _fit_loglog, _split_kwargs
 
 _OUT_DIR = os.path.join(_HERE, 'out')
 _PROJECT_PREFIXES = tuple(os.path.join(_REPO_ROOT, p) + os.sep
@@ -150,23 +150,43 @@ class MemTracker:
 # ── meso tier ────────────────────────────────────────────────────────────────
 
 def run_meso_mem(*, n_skus: int, bins_per_aisle: int = 100, n_pickers: int = 10,
-                 n_batches: int = 20, seed: int = 42) -> dict:
-    assets = scenarios.build_assets(n_skus=n_skus, bins_per_aisle=bins_per_aisle,
-                                    n_pickers=n_pickers, seed=seed)
+                 n_batches: int = 20, seed: int = 42, config: str = 'none') -> dict:
+    """One traced-for-allocation arm.  `config` is a `calltree_growth.CONFIGS` name.
+
+    The overlay goes through the SAME `_split_kwargs` the growth ladder uses rather than a
+    second copy -- two copies of "what a rung means" would drift, and the whole point of
+    running both tools is that `k_mem` and `k_count` describe the same scenario.
+
+    No extra instrumentation is needed to see a data-structure change: `MemTracker.stop()`
+    already reports per-line allocation for `Warehouse/`, so a per-queue partition of the held
+    list shows up in `top_sites` on its own -- but only once a configuration can reach it,
+    which before this argument nothing could.
+    """
+    kwargs = dict(CONFIGS[config].overlay,
+                  n_skus=n_skus, bins_per_aisle=bins_per_aisle, n_pickers=n_pickers)
+    build, run_kw, _nb = _split_kwargs(kwargs, seed)
+    assets = scenarios.build_assets(**build)
     mt = MemTracker()
     mt.start()
-    r = scenarios.run_meso(assets, n_batches=n_batches, seed=seed, tracer=mt)
+    r = scenarios.run_meso(assets, n_batches=n_batches, seed=seed, tracer=mt, **run_kw)
     mt.stop()
     doc = mt.report()
-    doc['sizes'] = dict(assets.sizes, n_batches=n_batches,
+    # `assets.sizes` already carries put_timing / put_split / put_staging / recv_crew, so the
+    # artifact self-documents which configuration produced it.
+    doc['sizes'] = dict(assets.sizes, n_batches=n_batches, config=config,
                         picks=r.picks, placements=r.placements)
     return doc
 
 
-def ladder_mem(seed: int) -> dict:
+def ladder_mem(seed: int, config: str = 'none') -> dict:
     rungs = []
-    for n in (500, 1_000, 2_000, 4_000, 8_000):
-        doc = run_meso_mem(n_skus=n, seed=seed)
+    # The SAME rungs the growth ladder uses for this configuration.  Fitting k_mem over
+    # different x values than k_count makes the two incomparable, and comparing them is the
+    # reason both tools exist.
+    _rungs = CONFIGS[config].rungs.get('skus') or _MESO_LADDERS['skus']
+    for _r in _rungs:
+        n = _r['n_skus']
+        doc = run_meso_mem(n_skus=n, seed=seed, config=config)
         rungs.append({'x': doc['sizes']['n_skus_sampled'], 'doc': doc})
         print(f"  rung skus={n}: peak by section (KiB) "
               f"{ {k: v for k, v in sorted(doc['section_peak_kib'].items(), key=lambda kv: -kv[1])[:3]} }"
@@ -249,15 +269,28 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description='memory measurement: tracemalloc + RSS tiers')
     ap.add_argument('--tier', choices=('meso',), default=None)
     ap.add_argument('--ladder', choices=('skus',), default=None)
+    ap.add_argument('--config', choices=tuple(CONFIGS), default='none',
+                    help='named scenario configuration, shared with calltree_growth. NOT '
+                         'honoured by --deep, which reads settings.py instead.')
     ap.add_argument('--deep', action='store_true')
     ap.add_argument('--skus', type=int, default=2_000)
     ap.add_argument('--batches', type=int, default=20)
     ap.add_argument('--seed', type=int, default=42)
     ap.add_argument('--workers', type=int, default=18)
     args = ap.parse_args(argv)
+    # cp1252 cannot encode the r-squared superscript in the summary below, so a redirected
+    # stdout crashed AFTER the artifact was written.  Same fix as calltree_growth.
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, OSError):
+        pass
     os.makedirs(_OUT_DIR, exist_ok=True)
 
     if args.deep:
+        if args.config != 'none':
+            ap.error('--config does not reach --deep: the deep RSS tier launches real '
+                     'run_simulation subprocesses, which read Optimization/config/settings.py. '
+                     'Tagging the artifact with a cfg it did not use would be a false claim.')
         from calltree_store import archive_path, record
         res = deep_rss(args.workers, _DEEP_RUNGS)
         out = archive_path('memory', tier='deep-rss', workers=args.workers)
@@ -277,26 +310,34 @@ def main(argv=None) -> int:
 
     if args.ladder:
         from calltree_store import archive_path, record
-        print(f'meso memory ladder over skus (seed {args.seed}):')
-        report = ladder_mem(args.seed)
-        out = archive_path('memory', tier='meso', knob='skus', seed=args.seed)
+        print(f'meso memory ladder over skus (seed {args.seed}, cfg {args.config}): '
+              f'{CONFIGS[args.config].why}')
+        report = ladder_mem(args.seed, args.config)
+        _tags = {'tier': 'meso', 'knob': 'skus', 'seed': args.seed, 'cfg': args.config}
+        out = archive_path('memory', **_tags)
         with open(out, 'w', encoding='utf-8') as fh:
             json.dump(report, fh, indent=1)
-        record('memory', out, tags={'tier': 'meso', 'knob': 'skus', 'seed': args.seed},
+        record('memory', out, tags=_tags,
                summary={'k_mem': {k: v['k_mem'] for k, v in report['sections'].items()},
                         'retained_per_batch_kib': report['retained_per_batch_kib_at_max']})
         print(f"\nsection k_mem (peak allocation vs skus; flag >= 1.3):")
         for name, e in sorted(report['sections'].items()):
             print(f"  {name:10s} k_mem={e['k_mem']:6.2f}  r²={e['r2']:.2f}  "
                   f"peaks={e['peaks_kib']}")
-        print(f"\nretained/batch at 8k rung: {report['retained_per_batch_kib_at_max']} KiB")
-        print('top allocation sites at 8k rung:')
+        # NOT "8k": the top rung depends on the CONFIGURATION -- a staged config stops
+        # at 2,400 because a floor makes each rung far more expensive.  The hardcoded
+        # label claimed a size the run never reached.
+        _top = report['xs'][-1]
+        print(f"\nretained/batch at the {_top:,}-sku rung: "
+              f"{report['retained_per_batch_kib_at_max']} KiB")
+        print(f'top allocation sites at the {_top:,}-sku rung:')
         for s in report['top_sites_at_max'][:12]:
             print(f"  {s['kib']:>10.1f} KiB  x{s['count']:<8,} {s['site']}")
         print(f'wrote {os.path.relpath(out, _REPO_ROOT)}')
         return 0
 
-    doc = run_meso_mem(n_skus=args.skus, n_batches=args.batches, seed=args.seed)
+    doc = run_meso_mem(n_skus=args.skus, n_batches=args.batches, seed=args.seed,
+                       config=args.config)
     print(json.dumps(doc, indent=1))
     return 0
 

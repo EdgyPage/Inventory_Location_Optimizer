@@ -126,3 +126,62 @@ def test_default_strategy_still_registered():
     from Optimization.config.strategies import STRATEGY_BY_KEY
     assert scenarios.DEFAULT_STRATEGY in STRATEGY_BY_KEY, \
         f'{scenarios.DEFAULT_STRATEGY!r} left the registry — pick a new default arm'
+
+
+# ── flow anchors ──────────────────────────────────────────────────────────────────
+
+# Where each `_FLOW_COUNTS` tree-name lives. Same split as `_SECTION_MAP_HOME` and for the
+# same reason: `calltree_growth` must never import product modules, so the resolution table
+# lives here and this test resolves it against the real code.
+#
+# This gate matters MORE than SECTION_MAP's. A broken section anchor makes a section vanish
+# from the report, which is visible. A broken flow anchor makes the flow report `0` — and `0`
+# is exactly the reading ("the path never ran") that flows were added to prevent.
+_FLOW_HOME = {
+    'Inventory_Management': 'Warehouse.inventory.Inventory_Management',
+    'put_queue'           : 'Warehouse.inventory.put_queue',
+    'dock'                : 'Warehouse.inventory.dock',
+}
+
+
+def test_flow_anchors_resolve():
+    """Every `_FLOW_COUNTS` name must still name a real callable."""
+    import calltree_growth as cg
+
+    assert len(cg._FLOW_COUNTS) >= 5, 'the flow table shrank; was it gutted rather than fixed?'
+
+    for key, (name, parent) in cg._FLOW_COUNTS.items():
+        for tree_name in (name, parent):
+            if tree_name is None:
+                continue
+            mod_base, _, qualname = tree_name.partition(':')
+            assert mod_base in _FLOW_HOME, (
+                f'flow {key!r} names module {mod_base!r}, which is not in _FLOW_HOME — '
+                f'update both together')
+            mod = importlib.import_module(_FLOW_HOME[mod_base])
+            obj = mod
+            for part in qualname.split('.'):
+                assert hasattr(obj, part), (
+                    f'flow anchor {tree_name!r} broke: {_FLOW_HOME[mod_base]} has no '
+                    f'{part!r}. The flow would silently report 0, which reads as "the path '
+                    f'never ran" — the exact misreading flows exist to prevent.')
+                obj = getattr(obj, part)
+            assert callable(obj), f'{tree_name} resolved to a non-callable'
+
+
+def test_every_named_config_is_buildable():
+    """A config whose overlay names a key `build_assets` does not take is accepted by argparse
+    and then dies mid-ladder, minutes in. `calltree_growth` validates at import; this pins the
+    other half — that the keys it allows are the ones the builder actually reads."""
+    import inspect
+
+    import calltree_growth as cg
+    import calltree_scenarios as cs
+
+    accepted = set(inspect.signature(cs.build_assets).parameters)
+    accepted |= set(inspect.signature(cs.run_meso).parameters)
+    accepted |= {'n_batches'}          # consumed by the ladder itself, not by build_assets
+    for name, cfg in cg.CONFIGS.items():
+        unknown = set(cfg.overlay) - accepted
+        assert not unknown, f'config {name!r} sets {sorted(unknown)}, which nothing accepts'
+        assert cfg.why, f'config {name!r} has no `why`; it prints on selection'

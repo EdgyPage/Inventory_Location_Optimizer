@@ -37,9 +37,37 @@ This library is for occasional deep investigation, not per-change CI:
 python Tests/calltree/calltree_capture.py --tier meso --seed 42     # tree + counts, ~1 min
 python Tests/calltree/calltree_growth.py  --ladder meso --knob skus # exponents, ~1 min
 python Tests/calltree/calltree_growth.py  --ladder meso --knob batches
+python Tests/calltree/calltree_growth.py  --knob skus --config split_staging4   # put-away
+python Tests/calltree/calltree_memory.py  --ladder skus --config split_staging4
 python Tests/calltree/calltree_growth.py  --ladder deep --workers 18  # real runs, ~1 hour
 python Tests/calltree/calltree_render.py                            # open out/render/viewer.html
 ```
+
+### `--config`: a ladder scales a size, a CONFIG chooses the scenario
+
+A size ladder alone cannot find a cost in code it never runs. Until 2026-08 no ladder set
+`put_timing`, `put_split`, `put_staging` or `recv_crew`, so `Inventory_Manager._admit_held`,
+`_held` and `HeldItems` were **structurally dead in every rung** — a quadratic lived there and
+the ladder reported clean. `--config` layers a named scenario under every rung (shared with
+`calltree_memory.py`, so `k_mem` and `k_count` describe the same run):
+
+| `--config` | what it is |
+|---|---|
+| `none` | plain size ladder; the put-away and receiving machinery never executes |
+| `baseline_put` | timed put-away, unbounded floor — the 2×2 origin cell |
+| `split` / `staging4` | the other two cells: streams alone, backpressure alone |
+| `split_staging4` | both — the configuration the `_admit_held` work was measured on |
+| `receiving` | a dock in front of the put queues |
+| `dayshift` | the 200-batch stress run's shape: staged floors, a dock, both whistles |
+
+The staged configs use a **tight** warehouse (`bins_per_aisle=40, coverage=2.0, safety=0.4`)
+and smaller rungs (300–2,400 SKUs). That is not a shortcut: production coverage leaves so much
+slack that nothing is ever held, so the path stays dead however the queues are configured.
+
+`--config` is refused on `--ladder deep`, loudly. The deep tier shells out to `run_simulation`,
+which reads `Optimization/config/settings.py`; honouring the flag there is impossible and
+dropping it silently is the failure the whole allow-list exists to prevent. Pass the real flags
+(`--put-queue-split`, `--put-*-staging`, `--recv-crew-size`) to `run_simulation` instead.
 
 Growth fitting reads call counts against the ladder knob: counts are exact and
 deterministic under fixed seeds, so a function whose count exponent is well above 1
@@ -47,7 +75,7 @@ is a super-linear suspect long before its wall share is visible at test scale. F
 meso run already flagged `_travel_balanced_impl.<locals>._aisle_best` at k≈1.66
 (11.7k → 1.14M calls across a 16× SKU ladder).
 
-## Two caveats that keep results honest
+## Three caveats that keep results honest
 
 - **Two-pass overhead.** Deterministic tracing multiplies wall time ~40× at small scale.
   Every capture therefore stores UNTRACED section walls (the regression truth) beside the
@@ -55,6 +83,14 @@ meso run already flagged `_travel_balanced_impl.<locals>._aisle_best` at k≈1.6
 - **The dead-placement trap.** `Tests/bench/perf_simulation.py::_build_inventory` sets no
   `reorder_point`/`equilibrium_qty`, so reorder-time placement — the entire `t_reord`
   section and every assignment function — never executes in tools built directly on it.
+- **A LEVEL is not coverage.** Each rung reports `levels` (queue/dock/held depth) read at the
+  END of the run, and separately `flows` (cumulative `_admit_held` calls, held appends, retry
+  touches, routes) from the traced pass. Read the flows. A run whose held path executed
+  thirteen million times and drained by the last batch reports `held: 0`, and that zero was
+  read as "the path never ran" — in an artifact whose own `counts` recorded
+  `_admit_held: 10,666` a few lines away. A flow proves the path ran; a level only says where
+  the backlog finished. `flows: ALL ZERO` in the per-rung output means *not measured*, and the
+  line names the `--config` that would measure it.
   `Tests/bench/profile_lifecycle.py` inherits that AND runs the non-production
   `PickSimulation` engine: read its historical numbers with both caveats. Scenarios here
   set real reorder fields (`calltree_scenarios.set_reorder_fields`) and the smoke test
