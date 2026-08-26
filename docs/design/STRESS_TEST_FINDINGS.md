@@ -4,8 +4,22 @@ The machinery shipped in `dd68e00..fa18639` was correct at 4–8 batches and had
 scale. This is what running it at scale found: two halves, **growth** (does anything get
 super-linearly worse) and **correctness** (does the carry close).
 
-Reproduce with `Tests/calltree/calltree_growth.py` for the ladders and
-`Diagnostics/receiving_report.py` for the reconciliation. Neither is in a gate — see section 5.
+Reproduce with:
+
+```bash
+python Tests/calltree/calltree_growth.py --knob skus --config split_staging4   # the ladder
+python Tests/calltree/calltree_growth.py --knob skus --config none             # the control
+python Diagnostics/receiving_report.py <run>                                   # the carry
+```
+
+`--config` is load-bearing and did not exist when this document was first written. Without it
+no ladder set `put_timing`, `put_split`, `put_staging` or `recv_crew`, so `_admit_held`, `_held`
+and `HeldItems` were **structurally dead in every runnable rung** — the line here used to say
+"reproduce with `calltree_growth.py`" and that was false: the tool could not express the
+configuration these numbers were measured in, and the figures below came from a throwaway
+probe. They are now archived artifacts under `Tests/calltree/out/archive/`, tagged `cfg-`.
+
+Neither tool is in a gate — see section 5.
 
 ---
 
@@ -99,14 +113,32 @@ split, so it is the configuration on deck.
 full queue is skipped in O(1) and there is no exit condition left to get wrong. Routing happens
 once, when the item is held, so the retry does none. Same ladder, same parameters:
 
-| SKUs | 300 | 600 | 1,200 | 2,400 | OLS k |
-|---|---|---|---|---|---|
-| retry touches, before | 291,094 | 968,173 | 3,686,219 | 13,041,581 | 1.84 |
-| retry touches, after | 7,659 | 14,262 | 28,138 | 53,178 | **0.94** |
-| reduction | 38x | 68x | 131x | **246x** | |
+Re-measured 2026-08-26 with the committed instrument (`--config split_staging4 --knob skus`),
+which reproduced the throwaway probe's counts exactly:
+
+| SKUs | 300 | 600 | 1,200 | 2,400 | OLS k | r² |
+|---|---|---|---|---|---|---|
+| `route_calls`, before | 308,792 | 998,218 | 3,743,071 | 13,041,581 | 1.84 | 1.00 |
+| `route_calls`, after | 12,394 | 22,968 | 45,164 | 85,272 | **0.93** | 1.00 |
+| reduction | 25x | 43x | 83x | **153x** | | |
+| `held_retry_touches`, after | 7,659 | 14,262 | 28,138 | 53,178 | **0.94** | 1.00 |
+| `refill_passes`, after | 1,557 | 2,876 | 5,653 | 10,615 | 0.93 | 1.00 |
 
 The reduction *itself* grows with the catalogue, which is what distinguishes removing a growth
-term from removing a constant. `k = 0.94` is under the framework's `FLAG_COUNT_EXP = 1.30`.
+term from removing a constant. Every flow is under the framework's `FLAG_COUNT_EXP = 1.30`, and
+**no put-away symbol appears in the offender list at any configuration.**
+
+The 2x2 also re-ran, and this time on call counts rather than walls:
+
+| config | wall @2,400 | held path | verdict |
+|---|---|---|---|
+| `baseline_put` | 2.61 s | never executes | — |
+| `split` | 2.59 s | never executes | **the split costs nothing** |
+| `staging4` | 5.87 s | 42,560 appends, k=0.94 | the floor is the whole cost |
+| `split_staging4` | 5.98 s | 42,535 appends, k=0.94 | the split adds nothing on top |
+
+`baseline_put` and `split` produce byte-identical flows. It is the **floor**, not the split,
+that creates a backlog at all — which is why `staging=None` kept the defect unreachable.
 
 Two intermediate attempts, recorded so they are not retried:
 
@@ -124,7 +156,34 @@ The equivalence guard is `Tests/unit/test_admit_held_is_linear.py` (renamed from
 reimplementation of the ORIGINAL global age-ordered walk, a different algorithm rather than a
 paraphrase of the one under test, and it pins the idle-queue case directly.
 
-### S2–S8: refuted or constant-factor
+### NEW, from the re-measurement: staged placement re-scores super-linearly
+
+Found only because the instrument can now run a staged configuration, and **not** a
+consequence of the `_admit_held` work — the retry itself is provably linear above.
+
+The staged wall does not grow like a constant multiple of the baseline. The ratio climbs
+1.42 → 1.58 → 1.92 → 2.25 across the four rungs, and `t_reord` fits **k = 1.13 under
+`baseline_put` against k = 1.475 under `staging4`**. The excess localizes cleanly: five
+offenders appear under staging that are absent from the unstaged cell, and every one of them is
+in the placement-scoring or bin-geometry path, not the held list.
+
+| appears only under staging | k |
+|---|---|
+| `_TravelBalancedPool.__init__.<locals>.<lambda>` | 1.75 |
+| `cost_model:height_multiplier` | 1.68 |
+| `Aisle_Storage:Aisle.Bin.y_phys` | 1.67 |
+| `Aisle_Storage:Aisle.Bin.x_phys` | 1.64 |
+| `Aisle_Storage:Aisle.Bin.location` | 1.45 |
+
+The plausible mechanism, **not yet verified**: a floor defers placement, so units land later
+and in larger groups against a fuller warehouse, and each placement then scores more bins.
+Whether that is inherent to deferral or a defect in the scoring path is a separate
+investigation. Recorded here because it is the first thing this instrument found that nobody
+was looking for.
+
+Five further offenders (`_aisle_best` k=1.53, `_score_of` k=1.53, `delta_lift_idxs` k=1.52 and
+its genexpr, `sum_lift`'s listcomp k=1.32) appear under **both** cells and on the default
+`cfg=none` ladder too. Those are pre-existing, already recorded, and orthogonal.
 
 ### S2–S8: refuted or constant-factor
 
@@ -242,6 +301,14 @@ Five defects the plan did not anticipate. Each was invisible; each is fixed.
   `work_events.shift_index`. (`a49e4d2`)
 
 ---
+
+### Memory: nothing to report, and that is now a measurement
+
+`calltree_memory.py --ladder skus --config split_staging4`: every section's `k_mem` is
+sub-linear (0.50–0.99, nothing flagged), and `put_queue.py` does not appear in the top twelve
+allocation sites. The per-queue partition's dict-of-deques costs nothing measurable. Before the
+`--config` pass-through the memory tool forwarded four arguments and could not express this
+configuration at all, so "no memory cost" was an assumption rather than a result.
 
 ## 4. What this run does NOT prove
 

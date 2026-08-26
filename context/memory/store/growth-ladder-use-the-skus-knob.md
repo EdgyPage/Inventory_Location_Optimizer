@@ -23,12 +23,17 @@ per-batch work whose size does not depend on the backlog. Also decompose before 
 a 2x2 (split × staging) showed the queue *split* costs nothing (k 1.100 → 1.013) while
 **staging** carried it (k → 1.450).
 
-**CORRECTION (2026-08-25):** this memory previously ended "after the fix the exponents matched
-and staging was left as a 2.6x constant, not a growth term." That was wrong. `68bf962` removed
-the work per touch (96x fewer `route()` calls at 2,400 SKUs, exact and real) but not the
-touches: held-item touches still grow at **k = 1.81**, against 1.82 before. The early exit fires
-on `len(blocked) >= len(put_queues)` — *every* queue in the set — so on a store-only catalogue,
-where the three-queue split only ever routes to two, it is **unreachable**. Blast radius is zero
-until the split is turned on (it is off by default and all staging is `None`), but the growth
-term is OPEN, not closed. Full detail in `docs/design/STRESS_TEST_FINDINGS.md`. Related: [[calltree-framework-first-findings]],
+**RESOLVED 2026-08-26, after two wrong answers.** This memory once said staging was "a 2.6x
+constant, not a growth term"; that was wrong when written (`68bf962` removed the work per touch
+but not the touches, and its early exit was *unreachable* whenever a queue never receives). The
+partition (`e9e89b2`) closed it for real, and the committed instrument now confirms it:
+`held_retry_touches` 7,659 / 14,262 / 28,138 / 53,178 over 300–2,400 SKUs, **k = 0.94**, against
+1.84 before.
+
+Two things the re-measurement added. The **floor**, not the split, is what creates a backlog:
+`baseline_put` and `split` produce byte-identical flows and never hold anything, which is why
+`staging=None` kept the defect unreachable for months. And staging is still not a clean constant
+— the staged/unstaged wall ratio climbs 1.42 → 2.25 across the ladder — but the excess is now
+localized to the PLACEMENT path (`height_multiplier` k=1.68, `Aisle.Bin.y_phys` k=1.67), not the
+held list. That is a separate, unverified finding. Full detail in `docs/design/STRESS_TEST_FINDINGS.md`. Related: [[calltree-framework-first-findings]],
 [[hand-run-test-tiers-rot-silently]].
