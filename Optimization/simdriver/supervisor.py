@@ -87,7 +87,19 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
             _tag = _tag_of(cell, uid)
             try:
                 res = fut.result()
-                log.info(f'  [{_tag}] done  batches={res["done"]}  wall={res["elapsed"]:.1f}s')
+                # Both ledgers already produce a `log.error` inside the worker, so a
+                # break is not silent -- but the parent's per-arm line is what a reader
+                # scans, and a break belongs on it rather than only in the worker stream a
+                # hundred lines up.  Zero is not printed: a clean line stays clean.
+                _cb = int(res.get('cons_breaks') or 0)
+                _db = int(res.get('demand_breaks') or 0)
+                _ledger = f'  LEDGER cons={_cb} demand={_db}' if (_cb or _db) else ''
+                log.info(f'  [{_tag}] done  batches={res["done"]}  '
+                         f'wall={res["elapsed"]:.1f}s{_ledger}')
+                if _cb or _db:
+                    log.error(f'  [{_tag}] LEDGER BROKE: {_cb} conservation, {_db} demand '
+                              f'-- the numbers for this arm are suspect; see the worker '
+                              f'log for the batch that broke first.')
                 done_uids.add(uid)
                 if run_root:                         # parent-side runtime-metrics DB (best-effort)
                     try:

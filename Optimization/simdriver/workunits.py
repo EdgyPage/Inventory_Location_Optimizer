@@ -183,6 +183,20 @@ def _prepare_channel_run(
         'n_batches'       : n_batches,
         'seed_world'      : seed_world(),
         'seed_batches'    : seed_batches() + channel.batch_seed_offset,  # this channel's actual seed
+        # ── SCOPE: the next four are WHOLE-CATALOGUE, not this channel ───────────────
+        # They average over `inventory.orders`, every regime included, while the arm this
+        # record describes runs on ONE channel's partition -- so a mixed run writes
+        # IDENTICAL values into the store leaf and the fulfillment leaf, while the two
+        # neighbours above (`batch_mean_frac`, `seed_batches`) really are per-channel.
+        # `n_skus` above is whole-catalogue for the same reason.  Two scopes in one record
+        # with nothing to tell them apart -- the same shape as the unit-of-account mix
+        # fixed in `Performance_Evaluations/tables/per_run.py`.
+        # NOT recomputed over the channel partition here: this record is a DECLARED
+        # artifact and the docs render these values, so narrowing them is a schema ride
+        # rather than an edit.  `catalogue_scope` states what they are so no reader has to
+        # infer it.  (The artifact is named once in this file, above -- the run-tree ratchet
+        # counts prose, and spelling a contract path twice is the debt it exists to stop.)
+        'catalogue_scope'    : 'all_regimes',
         'avg_equilibrium_qty': round(sum(getattr(c, 'equilibrium_qty', 1)
                                          for c in inventory.orders) / max(len(inventory.orders), 1), 1),
         'avg_reorder_point'  : round(sum(getattr(c, 'reorder_point', 1)

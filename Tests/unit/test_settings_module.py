@@ -230,6 +230,44 @@ def test_the_worker_payload_carries_the_put_crew():
     assert 'put_crew            = put_crew_spec()' in inspect.getsource(wu)
 
 
+# -- put_queues_spec: the third sibling, which had no test at all ------------------
+
+def test_the_split_is_off_by_default_and_structurally_so():
+    """`None` means "the single default queue", so the no-op is the ABSENCE of a spec rather
+    than a spec that happens to describe one queue. A future edit that returned a
+    one-queue dict here would be a silent behaviour change with every test still green."""
+    assert settings.PUT_QUEUE_SPLIT is False
+    assert sim_config.put_queues_spec() is None
+
+
+def test_the_split_spec_is_read_at_call_time_not_import_time():
+    """The seam CONFIG contract: an accessor that snapshotted at import would ignore the CLI
+    flag, the run_spec restore and the worker payload all at once — and do it silently."""
+    g = sim_config.CONFIG['global']
+    was = g.get('put_queue_split')
+    try:
+        g['put_queue_split'] = True
+        spec = sim_config.put_queues_spec()
+        assert spec is not None, (
+            'CONFIG says the split is on and the accessor still returns None — it is not '
+            'reading CONFIG at call time')
+    finally:
+        g['put_queue_split'] = was
+    assert sim_config.put_queues_spec() is None, 'the accessor did not go back'
+
+
+def test_the_worker_payload_carries_the_queue_split():
+    """THE fifth seam, and the one CLAUDE.md records as the one that gets skipped: the pool
+    is SPAWN, so a worker re-imports config and gets pristine defaults unless the resolved
+    value travels in `_shared`. Skipping it reverts the knob to its default in every worker
+    with nothing raising."""
+    import inspect
+    import Optimization.simdriver.workunits as wu
+    assert 'put_queues_spec()' in inspect.getsource(wu), (
+        'the split never reaches the worker payload, so a spawned worker will silently run '
+        'the single default queue however the run was configured')
+
+
 def test_the_pick_half_of_the_table_stays_in_the_swept_registry():
     """Only the PUT speeds belong in settings. Duplicating the pick speeds here would
     re-create the very duplication this module removed."""

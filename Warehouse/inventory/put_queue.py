@@ -323,8 +323,10 @@ class PutQueueSet:
         """The queue this unit belongs in, by `unit_category`.
 
         FIRST match wins, so spec order is precedence and a catch-all belongs last. A unit
-        no queue accepts is an error and not a silent drop: it would otherwise vanish from
-        the conservation ledger with nothing to point at.
+        no queue accepts is an error and not a silent drop -- and RAISING is the whole
+        defence, because nothing downstream would notice. The conservation ledger is a STOCK
+        ledger over BINS: a unit lost before it reaches one is invisible to it, which is how
+        two separate defects hid during 2026-08. There is no ledger to vanish from here.
         """
         cat = getattr(unit, 'unit_category', None)
         for q in self.queues:

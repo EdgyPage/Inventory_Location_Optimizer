@@ -1409,6 +1409,14 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # State the ledger's verdict once per arm, either way: a silent pass is indistinguishable
     # from a check that never ran, and "the log is complete" is the claim the whole spatial
     # record rests on.  The failing form repeats at ERROR so it survives a log tail.
+    if demand_breaks:
+        # Conservation got an end-of-arm report and this did not, so an arm with 200 demand
+        # breaks said so exactly once, in a line about batch 3.  The per-batch log is gated
+        # on the FIRST break by design -- to avoid 100 identical lines -- which makes a
+        # total here the only way to learn there were 100.
+        log.error(f'Strategy {strategy} DEMAND: {demand_breaks} batch(es) picked MORE than '
+                  f'was demanded. ONE-SIDED by construction: under-picking is not checked '
+                  f'here and is legitimate whenever stock is short.')
     if cons_breaks:
         log.error(f'Strategy {strategy} CONSERVATION: {cons_breaks} batch(es) broke the ledger; '
                   f'{cons_residual:+,} units unaccounted for at the end. The bin-mutation log '
@@ -1463,6 +1471,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # from the result dicts without grepping 34 worker logs.
         'cons_breaks'  : cons_breaks,
         'cons_residual': cons_residual,
+        # Returned so the parent can surface it per arm.  It was counted, logged once, and
+        # then dropped on the floor.
+        'demand_breaks': demand_breaks,
         # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
         #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
         'n_bins'    : n_bins,

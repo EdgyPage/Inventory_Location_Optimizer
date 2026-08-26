@@ -1445,8 +1445,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         A queue at its staging limit REFUSES, and the item goes to `_held` rather than
         back to the caller.  Handling it here rather than at each producer is deliberate:
         there are four producers and the failure mode of forgetting one is a unit that
-        silently leaves the conservation ledger, which is exactly the bug that takes a day
-        to find.  Callers therefore never see a refusal and none of them changed.
+        silently disappears -- and NOT one the conservation ledger would catch, because that
+        ledger is a stock ledger over BINS and this unit never reached one. Nothing would
+        raise and nothing would count it. Exactly the bug that takes a day to find.  Callers therefore never see a refusal and none of them changed.
 
         The stamp is taken on ARRIVAL, not on admission.  A pallet that waited three batches
         on the dock is three batches old when it finally gets floor space, and stamping it
