@@ -192,6 +192,17 @@ CONFIG = {
         'recv_crew_size' : _s.RECV_CREW_SIZE,
         'recv_day_seconds': _s.RECV_DAY_SECONDS,
         'recv_day_origin': _s.RECV_DAY_ORIGIN,
+        # The SPLIT put-away configuration.  False = one catch-all queue, which is every
+        # run before this existed; see put_queues_spec below for why that is a structural
+        # no-op rather than a flag test.
+        'put_queue_split'   : _s.PUT_QUEUE_SPLIT,
+        'put_cart_crew'     : _s.PUT_CART_CREW,
+        'put_pallet_crew'   : _s.PUT_PALLET_CREW,
+        'put_ff_crew'       : _s.PUT_FF_CREW,
+        'put_cart_staging'  : _s.PUT_CART_STAGING,
+        'put_pallet_staging': _s.PUT_PALLET_STAGING,
+        'put_ff_staging'    : _s.PUT_FF_STAGING,
+        'put_swap_coef'     : _s.PUT_SWAP_COEF,
     },
     'channels': {
         'store': {
@@ -360,6 +371,47 @@ def recv_crew_spec() -> dict | None:
         'mode': 'foot',
         'x_speed': _s.PUT_FOOT_X,
         'y_speed': _s.PUT_FOOT_Y,
+    }
+
+
+def put_queues_spec() -> dict | None:
+    """The split put-away configuration as a picklable record, or **None** for one queue.
+
+    None rather than a dict with `split=False`, for the same reason `recv_crew_spec` returns
+    None: the worker tests `args.get('put_queues') is None` and skips the assignment
+    entirely, so the no-op is "the manager keeps the `single_queue()` it built in
+    `__init__`" rather than "something reconstructed the default".
+
+    Reads CONFIG at CALL time. Copying `put_crew_spec` below would have been the natural
+    move and is a trap: it reads `_s.PUT_CREW_SIZE` directly, there is no
+    `CONFIG['global']['put_crew_*']` key at all, and a CLI flag writing CONFIG would
+    therefore be accepted and ignored forever.
+
+    THE CREW SIZES ARE NOT A DETAIL. Each queue gets its own crew and its own clock, so
+    three queues of size 1 is three putters where the default is one -- roughly 3x the
+    put-away throughput before any other difference. A sweep comparing split against single
+    must size these against the single-queue total, or it is measuring headcount.
+
+    Staging is carried as-is including None: `None` means an unbounded floor, and that is a
+    meaningfully different configuration from a large one, because it is what decides
+    whether the held list and the refill loop ever execute at all.
+    """
+    g = CONFIG['global']
+    if not g.get('put_queue_split'):
+        return None
+    return {
+        'cart_crew': int(g.get('put_cart_crew') or 1),
+        'pallet_crew': int(g.get('put_pallet_crew') or 1),
+        'ff_crew': int(g.get('put_ff_crew') or 1),
+        # Explicit `is None` tests, never `or`: `--put-pallet-staging 1` is the tightest
+        # meaningful floor and `or` would turn it into "unbounded", the exact inverse.
+        'cart_staging': (None if g.get('put_cart_staging') is None
+                         else int(g['put_cart_staging'])),
+        'pallet_staging': (None if g.get('put_pallet_staging') is None
+                           else int(g['put_pallet_staging'])),
+        'ff_staging': (None if g.get('put_ff_staging') is None
+                       else int(g['put_ff_staging'])),
+        'swap_coef': float(g.get('put_swap_coef') or 0.0),
     }
 
 

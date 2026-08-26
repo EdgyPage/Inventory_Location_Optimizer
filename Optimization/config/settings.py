@@ -139,6 +139,31 @@ FF_PICK_MODE = 'foot'                  # walker
 PUT_CREW_SIZE = 1                      # one walker; put-away is not yet a swept axis
 PUT_CREW_MODE = 'foot'                 # 'foot' | 'machine' -- picks the speed below
 
+# ── the SPLIT put-away configuration ──────────────────────────────────────────────
+# Off by default: one catch-all queue named 'all', which is what every run has ever used.
+# On, put-away becomes three streams with their own crews, carts and floor space --
+# singletons into a cart, pallets onto a forklift, fulfillment into its own bins.
+#
+# Splitting is not free and not neutral.  Each queue gets its OWN crew, so three queues of
+# size N is 3N putters and roughly 3x the throughput; size them against the single-queue
+# total or the comparison is meaningless.  And the staging limits below are what make the
+# split interesting at all: with no limit the floor is unbounded, nothing is ever refused,
+# and the backpressure machinery (held items, the refill loop, `blocked`) never executes.
+PUT_QUEUE_SPLIT = False    # three streams instead of one.  --put-queue-split
+PUT_CART_CREW = 1          # putters walking singletons into carts.   --put-cart-crew
+PUT_PALLET_CREW = 1        # forklift drivers moving pallets.         --put-pallet-crew
+PUT_FF_CREW = 1            # putters on the fulfillment stream.       --put-ff-crew
+PUT_CART_STAGING = None    # items the singleton floor holds at once; None = unbounded.
+                           # --put-cart-staging
+PUT_PALLET_STAGING = None  # pallet positions on the dock floor.  The one most worth
+                           # setting: with nowhere to lay pallets out there is nothing to
+                           # re-sort, which is what makes pallet put-away FIFO physical
+                           # rather than stipulated.  --put-pallet-staging
+PUT_FF_STAGING = None      # fulfillment floor space.  --put-ff-staging
+PUT_SWAP_COEF = 0.0        # seconds to swap a full put-away cart for an empty one.  0 keeps
+                           # swaps counted and free, which is what the single-queue default
+                           # does today.  --put-swap-coef
+
 # Travel speeds are a (role x mode) table.  The PICK half lives in the pick-config
 # registry, correctly: those coefficients are a swept AXIS, and a number that varies
 # within one run is not a default.  The PUT half has no other home, so it is here.

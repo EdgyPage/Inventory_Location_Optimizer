@@ -132,6 +132,25 @@ def _positive_float(text: str) -> float:
     return v
 
 
+def _nonneg_float(text: str) -> float:
+    """An argparse `type=` for a coefficient where 0 is the default and negative is nonsense.
+
+    `swap_coef` is validated nowhere else -- not in `PutQueueSpec.__post_init__`, not in
+    `PutQueue`. A negative value makes a cart swap REDUCE the duration of the put it precedes,
+    and a negative total moves the crew clock BACKWARD, which makes `crew_clock.can_start`
+    true again after the whistle has already blown. None of that raises anywhere.
+    """
+    try:
+        v = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'{text!r} is not a number')
+    if v < 0.0:
+        raise argparse.ArgumentTypeError(
+            f'{v} is negative; a swap cannot give time back, and a negative total would '
+            f'move a crew clock backward past its own whistle')
+    return v
+
+
 def _positive_int(text: str) -> int:
     """An argparse `type=` that rejects zero and negatives.
 
@@ -172,6 +191,11 @@ def _apply_run_spec(args, spec, explicit):
               # ...and the receiving crew, for the same reason: an arm that resumed without
               # its dock would finish having received for free.
               'recv_crew_size', 'recv_day_seconds', 'recv_day_origin',
+              # ...and the put-away shape, for the same reason: an arm that resumed
+              # without its split would finish with one crew where it started with three.
+              'put_queue_split', 'put_cart_crew', 'put_pallet_crew', 'put_ff_crew',
+              'put_cart_staging', 'put_pallet_staging', 'put_ff_staging',
+              'put_swap_coef',
               # ...and the seeds it is drawn from, plus the world it is drawn against.
               'seed_world', 'seed_batches'):
         if f not in spec:
@@ -319,6 +343,39 @@ def main():
         metavar='SEC',
         help="When the receiving day starts on the run's absolute axis. A dock that opens "
              'before the pickers do is a real shift pattern; this is where it goes.')
+    # ── the SPLIT put-away configuration ────────────────────────────────────────
+    # Three streams instead of one catch-all queue.  Two warnings belong on the flags
+    # themselves because both are silent: each queue gets its OWN crew, so three queues of
+    # size 1 is 3x the putters and roughly 3x the throughput; and without a staging limit
+    # the floor is unbounded, nothing is ever refused, and none of the backpressure
+    # machinery executes at all.
+    parser.add_argument(
+        '--put-queue-split', action='store_true',
+        default=CONFIG['global']['put_queue_split'],
+        help='Split put-away into three streams — singletons into carts, pallets onto a '
+             'forklift, fulfillment into its own bins — instead of one catch-all queue. '
+             'Each stream gets its own crew and its own clock, so size the crews below '
+             'against the single-queue total or you are measuring headcount.')
+    for _flag, _key, _what in (
+            ('--put-cart-crew', 'put_cart_crew', 'putters walking singletons into carts'),
+            ('--put-pallet-crew', 'put_pallet_crew', 'forklift drivers moving pallets'),
+            ('--put-ff-crew', 'put_ff_crew', 'putters on the fulfillment stream')):
+        parser.add_argument(_flag, type=_positive_int, default=CONFIG['global'][_key],
+                            metavar='N', help=f'{_what.capitalize()} (split only).')
+    for _flag, _key, _what in (
+            ('--put-cart-staging', 'put_cart_staging', 'the singleton floor'),
+            ('--put-pallet-staging', 'put_pallet_staging', 'the pallet floor'),
+            ('--put-ff-staging', 'put_ff_staging', 'the fulfillment floor')):
+        parser.add_argument(_flag, type=_positive_int, default=CONFIG['global'][_key],
+                            metavar='N',
+                            help=f'Items {_what} holds at once; omit for unbounded. '
+                                 f'Setting it is what turns backpressure on at all — with '
+                                 f'no limit nothing is ever refused.')
+    parser.add_argument(
+        '--put-swap-coef', type=_nonneg_float, default=CONFIG['global']['put_swap_coef'],
+        metavar='SEC',
+        help='Seconds to swap a full put-away cart for an empty one. 0 (the default) '
+             'leaves swaps counted and free, which is what the single queue does today.')
     parser.add_argument('--sampler', choices=('v1', 'v2'),
                         default=CONFIG['global']['sampler'],
                         help='Batch-sampler VERSION — a results era, not a tuning knob. '
@@ -422,6 +479,14 @@ def main():
     g['recv_crew_size']    = args.recv_crew_size
     g['recv_day_seconds']  = args.recv_day_seconds
     g['recv_day_origin']   = args.recv_day_origin
+    g['put_queue_split']    = bool(args.put_queue_split)
+    g['put_cart_crew']      = args.put_cart_crew
+    g['put_pallet_crew']    = args.put_pallet_crew
+    g['put_ff_crew']        = args.put_ff_crew
+    g['put_cart_staging']   = args.put_cart_staging
+    g['put_pallet_staging'] = args.put_pallet_staging
+    g['put_ff_staging']     = args.put_ff_staging
+    g['put_swap_coef']      = args.put_swap_coef
     if args.checkpoint_frac is not None:
         g['checkpoint_frac'] = args.checkpoint_frac
     # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
@@ -545,6 +610,16 @@ def main():
             'recv_crew_size'  : g['recv_crew_size'],
             'recv_day_seconds': g['recv_day_seconds'],
             'recv_day_origin' : g['recv_day_origin'],
+            # The split put-away configuration. Read from `g` (post-overlay) so a value
+            # that came from CONFIG rather than the command line is recorded too.
+            'put_queue_split'   : g['put_queue_split'],
+            'put_cart_crew'     : g['put_cart_crew'],
+            'put_pallet_crew'   : g['put_pallet_crew'],
+            'put_ff_crew'       : g['put_ff_crew'],
+            'put_cart_staging'  : g['put_cart_staging'],
+            'put_pallet_staging': g['put_pallet_staging'],
+            'put_ff_staging'    : g['put_ff_staging'],
+            'put_swap_coef'     : g['put_swap_coef'],
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,

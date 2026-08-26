@@ -323,6 +323,16 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     g['recv_crew_size']   = spec.get('recv_crew_size') or 0
     g['recv_day_seconds'] = spec.get('recv_day_seconds')
     g['recv_day_origin']  = spec.get('recv_day_origin') or 0.0
+    # The put-away shape.  A pre-field spec yields False/None, which correctly means "that
+    # run used the single catch-all queue" -- never this checkout's setting.
+    g['put_queue_split']    = bool(spec.get('put_queue_split'))
+    g['put_cart_crew']      = spec.get('put_cart_crew') or 1
+    g['put_pallet_crew']    = spec.get('put_pallet_crew') or 1
+    g['put_ff_crew']        = spec.get('put_ff_crew') or 1
+    g['put_cart_staging']   = spec.get('put_cart_staging')
+    g['put_pallet_staging'] = spec.get('put_pallet_staging')
+    g['put_ff_staging']     = spec.get('put_ff_staging')
+    g['put_swap_coef']      = spec.get('put_swap_coef') or 0.0
     if spec.get('max_skus') is not None:
         g['max_skus'] = spec['max_skus']
     for ch, key in (('store', 'store_fill'), ('fulfillment', 'ff_fill')):

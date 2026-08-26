@@ -53,7 +53,12 @@ from Warehouse.kernel.timeline import (
     DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS,
     ReleaseSchedule as _ReleaseSchedule,
     WorkDay as _WorkDay)
+from collections import namedtuple as _namedtuple
+
 from Warehouse.inventory.dock import DockSpec as _DockSpec
+from Warehouse.inventory.put_queue import store_and_fulfillment as _store_and_fulfillment
+from Warehouse.layout.Storage_Primitive import (
+    FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task
@@ -636,6 +641,31 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     _pc = args.get('put_crew') or {'size': 1, 'mode': 'foot', 'x_speed': 2.0, 'y_speed': 4.0}
     _put_crew = _Crew(role=_Role.PUT, mode=_Mode.of(_pc['mode']),
                       speed=_SpeedProfile(_pc['x_speed'], _pc['y_speed']), size=_pc['size'])
+    # ── the SPLIT put-away configuration ──────────────────────────────────────────
+    # BEFORE the roster loop below, which iterates `mgr.put_queues` -- and `put_rows` looks
+    # up `_put_crews[_qname]` with a bare subscript, so a stream with no roster is a
+    # KeyError by design rather than a silent fallback to someone else's actors.
+    #
+    # Absent by default and structurally so: `put_queues_spec()` returns None when the split
+    # is off, so nothing is constructed and the manager keeps the `single_queue()` it built
+    # in its own __init__.
+    _pq_spec = args.get('put_queues')
+    if _pq_spec is not None:
+        # Crews passed EXPLICITLY.  `_bind_put_crews` falls back to the manager default for
+        # any queue whose spec names no crew, so a bare `store_and_fulfillment()` would give
+        # three queues at the FULL default size -- 3x the putters, and a split-vs-single
+        # comparison would be measuring headcount rather than routing.
+        _pq_crew = _namedtuple('_PutCrew', 'speed size')
+        mgr.put_queues = _store_and_fulfillment(
+            cart_crew=_pq_crew(_put_crew.speed, _pq_spec['cart_crew']),
+            pallet_crew=_pq_crew(_put_crew.speed, _pq_spec['pallet_crew']),
+            ff_crew=_pq_crew(_put_crew.speed, _pq_spec['ff_crew']),
+            cart_staging=_pq_spec['cart_staging'],
+            pallet_staging=_pq_spec['pallet_staging'],
+            ff_staging=_pq_spec['ff_staging'],
+            store_cart=_StoreCart, ff_cart=_FulfillmentCart,
+            swap_coef=_pq_spec['swap_coef'])
+
     # Worker rosters BY QUEUE, each with its OWN uid block.  One entry today: the manager's
     # default queue is named 'all' and takes everything, so the cursor runs once and produces
     # exactly `_put_crew.workers(_pick_crew.next_uid(0))` -- byte-identical to the single
