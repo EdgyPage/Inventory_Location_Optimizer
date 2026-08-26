@@ -15,7 +15,16 @@
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
 
 <pre class="sig"><code>def _insert_carryover(con: sqlite3.Connection, run_id: int, records: list) -&gt; None</code></pre>
-<section class="doc empty">No docstring.</section>
+<section class="doc">Write the carryover rows, refusing a batch that would destroy one of its own.
+
+The primary key is (run_id, batch_id, reason, sku) and the insert is OR REPLACE, so two
+rows sharing a key silently collapse to the last one written. That is correct for a
+RESUME -- re-running a batch should replace its rows -- and catastrophic within a single
+flush, where it means two producers disagreed about what a reason means and the bigger
+number lost.
+
+RAISES rather than logs. The conservation ledger logs because it measures something that
+can legitimately drift; this is not a measurement, it is rows about to be deleted.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__save_carryover.html"><code>save_carryover</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__save_checkpoint_bundle.html"><code>save_checkpoint_bundle</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py___insert_carryover">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20_insert_carryover">Source ↗</a></p>
 </article>

@@ -16,7 +16,11 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def drain_counters(self) -&gt; dict</code></pre>
 <section class="doc">Hand over this batch&#x27;s counters and reset. Depth and oldest age are read at the
-moment of the snapshot and are NOT reset — they are levels, not flows.</section>
+moment of the snapshot and are NOT reset — they are levels, not flows.
+
+`cut` is reset here with the flows and is NOT one of them; see its declaration.
+Being reset per batch is what makes a counter per-batch, not what makes it
+summable.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_put_queue_py__PutQueue_drain_counters">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/put_queue.py#:~:text=def%20drain_counters">Source ↗</a></p>
 </article>

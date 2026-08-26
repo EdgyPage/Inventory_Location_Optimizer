@@ -20,7 +20,26 @@
 Stops at the FIRST refusal for a given queue rather than scanning past it for
 something that happens to fit.  Letting a younger item slip into the gap a older one
 could not use is exactly the inversion the age stamp exists to prevent, and it would
-also make the backpressure unfair in a way no real dock is.</section>
+also make the backpressure unfair in a way no real dock is.
+
+AND STOPS ENTIRELY once every queue has refused, which is the difference between
+this being linear and being quadratic.  `_stock`&#x27;s refill loop calls this once per
+pass and needs roughly `work / staging` passes, so with a tight floor the passes and
+the held list grow together.  Without the early exit the loop still walked every
+remaining item on every pass -- doing a `route()` each time -- to reach a conclusion
+the first blocked-out queue had already settled.
+
+Measured before the exit existed, at 40 batches with `staging=4`: `route()` was
+called 27,248,644 times at 2,400 SKUs against 174,738 without staging, growing at
+k=1.784 where the rest of the drain grows at k=0.91.  Wall went 5.08s -&gt; 18.67s at
+that size and the gap widens with the catalogue.
+
+Skipping the tail costs nothing observable: every remaining item takes the
+`q.name in blocked` branch, whose only effects are appending to `still` -- which the
+`extend` reproduces in the same order -- and re-adding a name already in the set.
+`admit(arrival=False)` deliberately counts nothing, and `route()` is a pure lookup
+that cannot raise here because `_admit` already routed every one of these items
+before it held them.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock.html"><code>_stock</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__admit_held">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20_admit_held">Source ↗</a></p>
 </article>

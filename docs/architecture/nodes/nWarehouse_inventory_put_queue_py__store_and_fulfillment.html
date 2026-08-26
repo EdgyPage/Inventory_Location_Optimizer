@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_put_queue_py.html"><code>Warehouse/inventory/put_queue.py</code></a> <span class="sep">›</span> <span class="here"><code>store_and_fulfillment</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>store_and_fulfillment</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_put_queue_py.html"><code>Warehouse/inventory/put_queue.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def store_and_fulfillment(cart_crew=None, pallet_crew=None, ff_crew=None, pallet_staging: int | None=None, cart_staging: int | None=None, ff_staging: int | None=None, store_cart=None, ff_cart=None, swap_coef: float=0.0) -&gt; PutQueueSet</code></pre>
 <section class="doc">The three-stream default: singletons into carts, pallets onto a forklift,
 fulfillment on its own.
@@ -25,7 +25,7 @@ policy&#x27;s freedom until someone measures a reason to narrow it.
 
 Ordered singleton, pallet, fulfillment — specific before general, though none of these
 three is a catch-all, so a category outside the list raises rather than falling through.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet.html"><code>PutQueueSet</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSpec.html"><code>PutQueueSpec</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSet.html"><code>PutQueueSet</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li><li><a href="nWarehouse_inventory_put_queue_py__PutQueueSpec.html"><code>PutQueueSpec</code></a> <span class="dim">Warehouse/inventory/put_queue.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_put_queue_py__store_and_fulfillment">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/put_queue.py#:~:text=def%20store_and_fulfillment">Source ↗</a></p>
 </article>
 </main>

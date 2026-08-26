@@ -543,6 +543,14 @@ files:
       - {name: "FF_PICK_MODE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CREW_SIZE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CREW_MODE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_QUEUE_SPLIT", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_CART_CREW", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_PALLET_CREW", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_FF_CREW", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_CART_STAGING", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_PALLET_STAGING", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_FF_STAGING", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_SWAP_COEF", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_FOOT_X", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_FOOT_Y", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_MACHINE_X", file: "Optimization/config/settings.py", kind: "const"}
@@ -573,6 +581,7 @@ files:
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "work_day_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "recv_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "put_queues_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "ff_fill", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -1790,7 +1799,7 @@ files:
     key_symbols:
       - {name: "test_no_crew_writes_no_receiving_and_still_reconciles", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
       - {name: "test_a_receiving_crew_reconciles_across_both_surfaces", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
-      - {name: "test_the_three_crews_hold_disjoint_contiguous_uid_blocks", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
+      - {name: "test_the_three_crews_hold_disjoint_uid_blocks", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
       - {name: "test_a_short_day_leaves_work_on_the_dock", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
       - {name: "test_the_receive_rows_carry_the_right_role_and_type", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
       - {name: "test_the_reconciliation_is_not_vacuous", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
@@ -1924,6 +1933,19 @@ files:
       - {name: "test_the_ledger_scenario_exercises_all_three_terms", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
       - {name: "test_conservation_holds_at_every_batch", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
       - {name: "test_the_ledger_breaks_when_a_mutation_goes_unrecorded", file: "Tests/integration/test_bin_log_replay.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_carryover_key_collision.py":
+    purpose: "two producers, one key, and the bigger row lost."
+    layer: "tests"
+    key_symbols:
+      - {name: "db", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
+      - {name: "test_the_two_reason_families_share_no_word", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
+      - {name: "test_the_producers_use_only_their_own_family", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
+      - {name: "test_a_duplicate_key_in_one_flush_raises", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
+      - {name: "test_the_refusal_names_both_quantities", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
+      - {name: "test_the_guard_does_not_fire_on_legitimate_rows", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
+      - {name: "test_a_resume_may_still_replace_its_own_batch", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
+      - {name: "test_the_put_side_is_a_level_and_the_pick_side_is_a_flow", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
     notes: ""
   "Tests/integration/test_consumer_paths_golden.py":
     purpose: "the consumer migration onto the run-tree contract is a NO-OP."
@@ -2432,6 +2454,17 @@ files:
       - {name: "test_a_shared_first_uid_really_does_collide", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
       - {name: "test_the_runner_advances_a_cursor_instead_of_reusing_one_tuple", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
       - {name: "test_no_roster_lookup_falls_back_to_another_crew", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_admit_held_early_exit.py":
+    purpose: "the retry stops once every queue has refused."
+    layer: "tests"
+    key_symbols:
+      - {name: "counted", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
+      - {name: "test_route_is_called_per_queue_not_per_held_item", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
+      - {name: "test_the_count_does_not_grow_with_the_held_list", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
+      - {name: "test_a_partially_blocked_set_still_walks_far_enough", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
+      - {name: "test_the_early_exit_matches_an_exhaustive_walk", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
+      - {name: "test_the_comparison_is_not_vacuous", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
     notes: ""
   "Tests/unit/test_affinity_lift_invariant.py":
     purpose: "test_affinity_lift_invariant.py"

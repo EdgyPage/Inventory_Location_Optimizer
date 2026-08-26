@@ -49,12 +49,14 @@ number on its own.
    Both are carried integers rather than recomputed floats, so `==` is the stronger statement
    and a tolerance here would be hiding something.
 
-3. **The uid blocks are disjoint and contiguous.** `actor_uid` is the only thing that says
+3. **The uid blocks are disjoint.** `actor_uid` is the only thing that says
    WHO did a unit of work, and nothing enforces it: `Worker` validates only non-negativity,
    the DDL has no uniqueness constraint, `put_rows` bounds-checks `0 &lt;= widx &lt; len(workers)`
    which a collision passes, and the merged view still sorts. Nothing else in the repo can
    see a collision — it surfaces only as a per-actor rollup quietly merging two people, and
    it is quietest when the receiving crew is small, which is the likely configuration.
+   Contiguity is deliberately NOT checked -- an allocated-but-idle crew leaves the same gap
+   as a misallocated one, so the check failed healthy runs and passed the defect it was for.
 
 4. **No duplicate merge keys.** `(t_abs, batch_id, role, mode, actor_uid, seq)` is the
    declared total order. The existing guard is `assert rows == sorted(rows)`, which any
@@ -64,7 +66,10 @@ number on its own.
 5. **`role` and `event_type` agree.** `put_rows` takes `role` from the worker and used to
    hard-code the event type, so a receive row could carry `role=&#x27;receive&#x27;, event_type=&#x27;put&#x27;`.
    Then `SUM(duration) WHERE role=&#x27;put&#x27;` and the same query on `event_type` disagree, and
-   there is nothing to point at. Checked in BOTH directions.
+   there is nothing to point at. Every put and receive row must carry an event_type equal
+   to its role, and no other row may claim one -- which also catches a put row typed &#x27;pick&#x27;.
+   Pick rows are exempt: picking has its own vocabulary (task_start / pick / done / cut) and
+   is the one stream where the two legitimately differ.
 
 # ── usage ─────────────────────────────────────────────────────────────────────────
 

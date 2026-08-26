@@ -15,7 +15,11 @@
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_dock_py.html"><code>Warehouse/inventory/dock.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def snapshot(self) -&gt; tuple</code></pre>
-<section class="doc">`(depth, unloaded, cut, seconds)` — and reset the three FLOWS.
+<section class="doc">`(depth, unloaded, cut, seconds)` — and reset the three per-batch counters.
+
+Two of those three are flows; `cut` is not, though it resets like one.  See
+`PutQueue.cut`, which has the same shape and the same warning: it re-counts the
+whole standing dock every batch, so it must never be summed across them.
 
 Depth is a LEVEL and survives, exactly as `PutQueue.drain_counters` treats its own.
 Must run once per batch: a second call in the same batch reports zeros, and that is

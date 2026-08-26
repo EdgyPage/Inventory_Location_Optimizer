@@ -4841,6 +4841,46 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
+      "dst": "Optimization/config/settings.py::PUT_CART_CREW",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_CART_STAGING",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_FF_CREW",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_FF_STAGING",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_PALLET_CREW",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_PALLET_STAGING",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_QUEUE_SPLIT",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_SWAP_COEF",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
       "dst": "Optimization/config/settings.py::RECV_CREW_SIZE",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
@@ -6723,6 +6763,11 @@
     {
       "dst": "Optimization/run_simulation.py::_apply_run_spec",
       "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_nonneg_float",
+      "kind": "ref",
       "src": "Optimization/run_simulation.py::main"
     },
     {
@@ -8896,6 +8941,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Warehouse/inventory/put_queue.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -9177,6 +9227,11 @@
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py::store_and_fulfillment",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -9467,6 +9522,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::put_crew_spec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::put_queues_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
@@ -20517,6 +20577,22 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_CART_CREW",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_CART_CREW",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_CART_STAGING",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_CART_STAGING",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::PUT_CREW_MODE",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -20529,6 +20605,22 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "PUT_CREW_SIZE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_FF_CREW",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_FF_CREW",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_FF_STAGING",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_FF_STAGING",
       "public": true
     },
     {
@@ -20561,6 +20653,38 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "PUT_MACHINE_Y",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_PALLET_CREW",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_PALLET_CREW",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_PALLET_STAGING",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_PALLET_STAGING",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_QUEUE_SPLIT",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_QUEUE_SPLIT",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_SWAP_COEF",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_SWAP_COEF",
       "public": true
     },
     {
@@ -20913,6 +21037,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "put_crew_spec",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::put_queues_spec",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "put_queues_spec",
       "public": true
     },
     {
@@ -23457,6 +23589,14 @@
       "kind": "function",
       "module": "Optimization/run_simulation.py",
       "name": "_apply_run_spec",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_nonneg_float",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_nonneg_float",
       "public": false
     },
     {

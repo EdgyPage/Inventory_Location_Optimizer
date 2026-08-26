@@ -106,7 +106,7 @@
     },
     "Diagnostics/receiving_report.py": {
       "decorators": [],
-      "doc": "receiving_report.py \u2014 the receiving stream, reconciled against the run that wrote it.\n\n# \u2500\u2500 why this exists at all \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`work_events` has no consumer. Outside `Tests/`, the only modules that mention it are the\nconfig, the metrics writer, the persistence layer and the runner \u2014 nothing in\n`Visualization/` or `Performance_Evaluations/` reads a single row. So a third work stream can\nbe wired end to end, write duplicated or malformed rows, and produce a run that looks\ncompletely healthy from every existing angle.\n\nThat makes the receiving crew unfalsifiable unless something reads it back. This is that\nsomething, and it is deliberately a RECONCILIATION rather than a report: it compares two\nsurfaces that were written by different code from different state, so agreement is evidence\nand disagreement names which half is wrong.\n\n  `work_events`   one row per unload, written by `metrics.work_events.recv_rows` from the\n                  dock's own drained records, stamped against the crew's absolute carry.\n  `batch_stats`   four scalars per batch, written by `persistence.Picking_Data` from\n                  `Inventory_Manager.receiving_snapshot()`, which reads the dock's counters.\n\nNothing forces those to agree. They share no code below the manager, and each is a plausible\nnumber on its own.\n\n# \u2500\u2500 the five checks, and the specific defect each one catches \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n1. **Seconds agree.** `SUM(duration) WHERE role='receive'` against `SUM(recv_seconds)`.\n   Catches a dropped `we.extend`, a `bs.recv_seconds` assignment that never ran (the skipped\n   branch), and a checkpoint buffer that was not cleared \u2014 `INSERT OR REPLACE` on a composite\n   key makes re-inserted rows look correct, but it doubles this sum.\n\n2. **Counts agree, EXACTLY.** `COUNT(*) WHERE role='receive'` against `SUM(recv_unloaded)`.\n   Both are carried integers rather than recomputed floats, so `==` is the stronger statement\n   and a tolerance here would be hiding something.\n\n3. **The uid blocks are disjoint and contiguous.** `actor_uid` is the only thing that says\n   WHO did a unit of work, and nothing enforces it: `Worker` validates only non-negativity,\n   the DDL has no uniqueness constraint, `put_rows` bounds-checks `0 <= widx < len(workers)`\n   which a collision passes, and the merged view still sorts. Nothing else in the repo can\n   see a collision \u2014 it surfaces only as a per-actor rollup quietly merging two people, and\n   it is quietest when the receiving crew is small, which is the likely configuration.\n\n4. **No duplicate merge keys.** `(t_abs, batch_id, role, mode, actor_uid, seq)` is the\n   declared total order. The existing guard is `assert rows == sorted(rows)`, which any\n   non-decreasing sequence satisfies \u2014 including one full of identical keys. A genuinely\n   ambiguous merge passes the test that exists to prove the order is total.\n\n5. **`role` and `event_type` agree.** `put_rows` takes `role` from the worker and used to\n   hard-code the event type, so a receive row could carry `role='receive', event_type='put'`.\n   Then `SUM(duration) WHERE role='put'` and the same query on `event_type` disagree, and\n   there is nothing to point at. Checked in BOTH directions.\n\n# \u2500\u2500 usage \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    python Diagnostics/receiving_report.py <run_root_or_name>     # every arm, PASS/FAIL\n    python Diagnostics/receiving_report.py <run_root> --verbose   # per-arm numbers\n\nRun roots may be bare names (resolved under COMPARISON_OUTPUT_DIR) or absolute paths. Arms\nare enumerated through the run's own contract (`runschema.resolver_for`) and never by joining\npath strings: the store CONFIG and the store CHANNEL are both named `store`, so\n`<cell>/<pair>/store/store/` is a real path, and two levels are conditional.",
+      "doc": "receiving_report.py \u2014 the receiving stream, reconciled against the run that wrote it.\n\n# \u2500\u2500 why this exists at all \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`work_events` has no consumer. Outside `Tests/`, the only modules that mention it are the\nconfig, the metrics writer, the persistence layer and the runner \u2014 nothing in\n`Visualization/` or `Performance_Evaluations/` reads a single row. So a third work stream can\nbe wired end to end, write duplicated or malformed rows, and produce a run that looks\ncompletely healthy from every existing angle.\n\nThat makes the receiving crew unfalsifiable unless something reads it back. This is that\nsomething, and it is deliberately a RECONCILIATION rather than a report: it compares two\nsurfaces that were written by different code from different state, so agreement is evidence\nand disagreement names which half is wrong.\n\n  `work_events`   one row per unload, written by `metrics.work_events.recv_rows` from the\n                  dock's own drained records, stamped against the crew's absolute carry.\n  `batch_stats`   four scalars per batch, written by `persistence.Picking_Data` from\n                  `Inventory_Manager.receiving_snapshot()`, which reads the dock's counters.\n\nNothing forces those to agree. They share no code below the manager, and each is a plausible\nnumber on its own.\n\n# \u2500\u2500 the five checks, and the specific defect each one catches \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n1. **Seconds agree.** `SUM(duration) WHERE role='receive'` against `SUM(recv_seconds)`.\n   Catches a dropped `we.extend`, a `bs.recv_seconds` assignment that never ran (the skipped\n   branch), and a checkpoint buffer that was not cleared \u2014 `INSERT OR REPLACE` on a composite\n   key makes re-inserted rows look correct, but it doubles this sum.\n\n2. **Counts agree, EXACTLY.** `COUNT(*) WHERE role='receive'` against `SUM(recv_unloaded)`.\n   Both are carried integers rather than recomputed floats, so `==` is the stronger statement\n   and a tolerance here would be hiding something.\n\n3. **The uid blocks are disjoint.** `actor_uid` is the only thing that says\n   WHO did a unit of work, and nothing enforces it: `Worker` validates only non-negativity,\n   the DDL has no uniqueness constraint, `put_rows` bounds-checks `0 <= widx < len(workers)`\n   which a collision passes, and the merged view still sorts. Nothing else in the repo can\n   see a collision \u2014 it surfaces only as a per-actor rollup quietly merging two people, and\n   it is quietest when the receiving crew is small, which is the likely configuration.\n   Contiguity is deliberately NOT checked -- an allocated-but-idle crew leaves the same gap\n   as a misallocated one, so the check failed healthy runs and passed the defect it was for.\n\n4. **No duplicate merge keys.** `(t_abs, batch_id, role, mode, actor_uid, seq)` is the\n   declared total order. The existing guard is `assert rows == sorted(rows)`, which any\n   non-decreasing sequence satisfies \u2014 including one full of identical keys. A genuinely\n   ambiguous merge passes the test that exists to prove the order is total.\n\n5. **`role` and `event_type` agree.** `put_rows` takes `role` from the worker and used to\n   hard-code the event type, so a receive row could carry `role='receive', event_type='put'`.\n   Then `SUM(duration) WHERE role='put'` and the same query on `event_type` disagree, and\n   there is nothing to point at. Every put and receive row must carry an event_type equal\n   to its role, and no other row may claim one -- which also catches a put row typed 'pick'.\n   Pick rows are exempt: picking has its own vocabulary (task_start / pick / done / cut) and\n   is the one stream where the two legitimately differ.\n\n# \u2500\u2500 usage \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    python Diagnostics/receiving_report.py <run_root_or_name>     # every arm, PASS/FAIL\n    python Diagnostics/receiving_report.py <run_root> --verbose   # per-arm numbers\n\nRun roots may be bare names (resolved under COMPARISON_OUTPUT_DIR) or absolute paths. Arms\nare enumerated through the run's own contract (`runschema.resolver_for`) and never by joining\npath strings: the store CONFIG and the store CHANNEL are both named `store`, so\n`<cell>/<pair>/store/store/` is a real path, and two levels are conditional.",
       "kind": "module",
       "signature": null
     },
@@ -4412,6 +4412,20 @@
       "signature": null,
       "value_preview": "100"
     },
+    "Optimization/config/settings.py::PUT_CART_CREW": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1"
+    },
+    "Optimization/config/settings.py::PUT_CART_STAGING": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
     "Optimization/config/settings.py::PUT_CREW_MODE": {
       "decorators": [],
       "doc": null,
@@ -4425,6 +4439,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "1"
+    },
+    "Optimization/config/settings.py::PUT_FF_CREW": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1"
+    },
+    "Optimization/config/settings.py::PUT_FF_STAGING": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
     },
     "Optimization/config/settings.py::PUT_FOOT_X": {
       "decorators": [],
@@ -4453,6 +4481,34 @@
       "kind": "const",
       "signature": null,
       "value_preview": "2.0"
+    },
+    "Optimization/config/settings.py::PUT_PALLET_CREW": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1"
+    },
+    "Optimization/config/settings.py::PUT_PALLET_STAGING": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/settings.py::PUT_QUEUE_SPLIT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "False"
+    },
+    "Optimization/config/settings.py::PUT_SWAP_COEF": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.0"
     },
     "Optimization/config/settings.py::RECV_CREW_SIZE": {
       "decorators": [],
@@ -4760,6 +4816,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
+    },
+    "Optimization/config/sim_config.py::put_queues_spec": {
+      "decorators": [],
+      "doc": "The split put-away configuration as a picklable record, or **None** for one queue.\n\nNone rather than a dict with `split=False`, for the same reason `recv_crew_spec` returns\nNone: the worker tests `args.get('put_queues') is None` and skips the assignment\nentirely, so the no-op is \"the manager keeps the `single_queue()` it built in\n`__init__`\" rather than \"something reconstructed the default\".\n\nReads CONFIG at CALL time. Copying `put_crew_spec` below would have been the natural\nmove and is a trap: it reads `_s.PUT_CREW_SIZE` directly, there is no\n`CONFIG['global']['put_crew_*']` key at all, and a CLI flag writing CONFIG would\ntherefore be accepted and ignored forever.\n\nTHE CREW SIZES ARE NOT A DETAIL. Each queue gets its own crew and its own clock, so\nthree queues of size 1 is three putters where the default is one -- roughly 3x the\nput-away throughput before any other difference. A sweep comparing split against single\nmust size these against the single-queue total, or it is measuring headcount.\n\nStaging is carried as-is including None: `None` means an unbounded floor, and that is a\nmeaningfully different configuration from a large one, because it is what decides\nwhether the held list and the refill loop ever execute at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict | None"
     },
     "Optimization/config/sim_config.py::recv_crew_spec": {
       "decorators": [],
@@ -5802,7 +5865,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('31cb7d1b1199', '8af17e7d417e', '0ab75b4fabc2'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('ce01ca0095b2', '31cb7d1b1199', '8af17e7d417e'..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -5929,7 +5992,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS carryover (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL, -- the batch it carried OUT of\\n reason TEXT NOT NULL, -- 'unpl..."
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS carryover (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL, -- the batch it carried OUT of\\n reason TEXT NOT NULL, -- WHY i..."
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_PICKER_EVENTS": {
       "decorators": [],
@@ -6164,7 +6227,7 @@
     },
     "Optimization/persistence/Picking_Data.py::_insert_carryover": {
       "decorators": [],
-      "doc": null,
+      "doc": "Write the carryover rows, refusing a batch that would destroy one of its own.\n\nThe primary key is (run_id, batch_id, reason, sku) and the insert is OR REPLACE, so two\nrows sharing a key silently collapse to the last one written. That is correct for a\nRESUME -- re-running a batch should replace its rows -- and catastrophic within a single\nflush, where it means two producers disagreed about what a reason means and the bigger\nnumber lost.\n\nRAISES rather than logs. The conservation ledger logs because it measures something that\ncan legitimately drift; this is not a measurement, it is rows about to be deleted.",
       "is_async": false,
       "kind": "function",
       "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
@@ -6980,6 +7043,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(args, spec, explicit)"
+    },
+    "Optimization/run_simulation.py::_nonneg_float": {
+      "decorators": [],
+      "doc": "An argparse `type=` for a coefficient where 0 is the default and negative is nonsense.\n\n`swap_coef` is validated nowhere else -- not in `PutQueueSpec.__post_init__`, not in\n`PutQueue`. A negative value makes a cart swap REDUCE the duration of the put it precedes,\nand a negative total moves the crew clock BACKWARD, which makes `crew_clock.can_start`\ntrue again after the whistle has already blown. None of that raises anywhere.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(text: str) -> float"
     },
     "Optimization/run_simulation.py::_nonneg_int": {
       "decorators": [],
@@ -12613,7 +12683,7 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit_held": {
       "decorators": [],
-      "doc": "Retry the held items, oldest first.  Returns how many got in.\n\nStops at the FIRST refusal for a given queue rather than scanning past it for\nsomething that happens to fit.  Letting a younger item slip into the gap a older one\ncould not use is exactly the inversion the age stamp exists to prevent, and it would\nalso make the backpressure unfair in a way no real dock is.",
+      "doc": "Retry the held items, oldest first.  Returns how many got in.\n\nStops at the FIRST refusal for a given queue rather than scanning past it for\nsomething that happens to fit.  Letting a younger item slip into the gap a older one\ncould not use is exactly the inversion the age stamp exists to prevent, and it would\nalso make the backpressure unfair in a way no real dock is.\n\nAND STOPS ENTIRELY once every queue has refused, which is the difference between\nthis being linear and being quadratic.  `_stock`'s refill loop calls this once per\npass and needs roughly `work / staging` passes, so with a tight floor the passes and\nthe held list grow together.  Without the early exit the loop still walked every\nremaining item on every pass -- doing a `route()` each time -- to reach a conclusion\nthe first blocked-out queue had already settled.\n\nMeasured before the exit existed, at 40 batches with `staging=4`: `route()` was\ncalled 27,248,644 times at 2,400 SKUs against 174,738 without staging, growing at\nk=1.784 where the rest of the drain grows at k=0.91.  Wall went 5.08s -> 18.67s at\nthat size and the gap widens with the catalogue.\n\nSkipping the tail costs nothing observable: every remaining item takes the\n`q.name in blocked` branch, whose only effects are appending to `still` -- which the\n`extend` reproduces in the same order -- and re-adding a name already in the set.\n`admit(arrival=False)` deliberately counts nothing, and `route()` is a pure lookup\nthat cannot raise here because `_admit` already routed every one of these items\nbefore it held them.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
@@ -13191,7 +13261,7 @@
     },
     "Warehouse/inventory/dock.py::Dock.snapshot": {
       "decorators": [],
-      "doc": "`(depth, unloaded, cut, seconds)` \u2014 and reset the three FLOWS.\n\nDepth is a LEVEL and survives, exactly as `PutQueue.drain_counters` treats its own.\nMust run once per batch: a second call in the same batch reports zeros, and that is\nnot hypothetical \u2014 the put side shipped that defect and persisted an idle-looking\nqueue for every skipped batch.",
+      "doc": "`(depth, unloaded, cut, seconds)` \u2014 and reset the three per-batch counters.\n\nTwo of those three are flows; `cut` is not, though it resets like one.  See\n`PutQueue.cut`, which has the same shape and the same warning: it re-counts the\nwhole standing dock every batch, so it must never be summed across them.\n\nDepth is a LEVEL and survives, exactly as `PutQueue.drain_counters` treats its own.\nMust run once per batch: a second call in the same batch reports zeros, and that is\nnot hypothetical \u2014 the put side shipped that defect and persisted an idle-looking\nqueue for every skipped batch.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> tuple"
@@ -13995,7 +14065,7 @@
     },
     "Warehouse/inventory/put_queue.py::PutQueue.drain_counters": {
       "decorators": [],
-      "doc": "Hand over this batch's counters and reset. Depth and oldest age are read at the\nmoment of the snapshot and are NOT reset \u2014 they are levels, not flows.",
+      "doc": "Hand over this batch's counters and reset. Depth and oldest age are read at the\nmoment of the snapshot and are NOT reset \u2014 they are levels, not flows.\n\n`cut` is reset here with the flows and is NOT one of them; see its declaration.\nBeing reset per batch is what makes a counter per-batch, not what makes it\nsummable.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> dict"
