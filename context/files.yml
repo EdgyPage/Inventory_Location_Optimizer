@@ -1957,6 +1957,8 @@ files:
       - {name: "test_no_sku_is_reported_under_two_reasons_at_once", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
       - {name: "test_the_keys_are_unique_so_the_flush_will_not_raise", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
       - {name: "test_a_run_with_no_receiving_crew_reports_no_dock_reason", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
+      - {name: "test_replacing_a_loaded_put_queue_set_raises_instead_of_deleting", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
+      - {name: "test_an_empty_set_may_still_be_replaced", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
     notes: ""
   "Tests/integration/test_consumer_paths_golden.py":
     purpose: "the consumer migration onto the run-tree contract is a NO-OP."
@@ -2317,6 +2319,15 @@ files:
       - {name: "test_the_batch_loop_snapshots_the_queue_state_exactly_once", file: "Tests/integration/test_skipped_batch_counters.py", kind: "function"}
       - {name: "test_the_scan_would_notice_a_second_call", file: "Tests/integration/test_skipped_batch_counters.py", kind: "function"}
       - {name: "test_carryover_is_a_level_and_survives_being_read_twice", file: "Tests/integration/test_skipped_batch_counters.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_skipped_batch_demand_carry.py":
+    purpose: "a skipped batch's demand must survive the `continue`."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_skipped_batch_hands_its_whole_demand_to_the_next_one", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
+      - {name: "test_the_conservation_ledger_cannot_see_this_which_is_why_it_needs_a_test", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
+      - {name: "test_with_rollover_off_a_skipped_batch_carries_nothing", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
+      - {name: "test_the_skip_branch_is_what_is_being_exercised", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
     notes: ""
   "Tests/integration/test_viewer_errors.py":
     purpose: "the viewer's schema-failure boundary: everything 501s, nothing 500s."
@@ -3578,6 +3589,9 @@ files:
       - {name: "test_the_crew_size_setting_is_actually_read", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_runner_builds_the_put_crew_from_the_payload_not_the_pick_config", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_worker_payload_carries_the_put_crew", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_split_is_off_by_default_and_structurally_so", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_split_spec_is_read_at_call_time_not_import_time", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_worker_payload_carries_the_queue_split", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_pick_half_of_the_table_stays_in_the_swept_registry", file: "Tests/unit/test_settings_module.py", kind: "function"}
     notes: ""
   "Tests/unit/test_sim_schema_id.py":
