@@ -601,8 +601,17 @@ _CREATE_CARRYOVER = """
     CREATE TABLE IF NOT EXISTS carryover (
         run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
         batch_id INTEGER NOT NULL,     -- the batch it carried OUT of
-        reason   TEXT    NOT NULL,     -- 'unplaced' | 'held' | 'unpicked_unavailable'
-                                       -- | 'unpicked_daycut'
+        reason   TEXT    NOT NULL,     -- WHY it carried, and the two families do not mix:
+                                       --   put-away LEVELS, re-emitted every batch --
+                                       --     'unplaced'  a storage unit no bin could take
+                                       --     'held'      refused floor space upstream
+                                       --   pick FLOWS, this batch's unserved demand --
+                                       --     'unpicked_daycut'      never reached the bin
+                                       --     'unpicked_unavailable' bin held less than planned
+                                       --     'unpicked_unstocked'   no bin held the SKU at all
+                                       -- The last was 'unplaced' until 2026-08-25 and collided
+                                       -- with the put-away level under this table's own PK,
+                                       -- destroying the larger row without a word.
         sku      INTEGER NOT NULL,
         qty      INTEGER NOT NULL,
         PRIMARY KEY (run_id, batch_id, reason, sku)
@@ -1620,6 +1629,27 @@ def _insert_put_queue_state(con: sqlite3.Connection, run_id: int, records: list)
 
 
 def _insert_carryover(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    """Write the carryover rows, refusing a batch that would destroy one of its own.
+
+    The primary key is (run_id, batch_id, reason, sku) and the insert is OR REPLACE, so two
+    rows sharing a key silently collapse to the last one written. That is correct for a
+    RESUME -- re-running a batch should replace its rows -- and catastrophic within a single
+    flush, where it means two producers disagreed about what a reason means and the bigger
+    number lost.
+
+    RAISES rather than logs. The conservation ledger logs because it measures something that
+    can legitimately drift; this is not a measurement, it is rows about to be deleted.
+    """
+    seen: dict = {}
+    for b, reason, sku, qty in records:
+        k = (int(b), str(reason), int(sku))
+        if k in seen:
+            raise ValueError(
+                f'carryover has two rows for {k} in one flush ({seen[k]} and {qty}); the '
+                f'primary key is (run_id, batch_id, reason, sku) under INSERT OR REPLACE, '
+                f'so one of them would be destroyed silently. Two producers are using the '
+                f'same reason for different quantities -- give one of them its own.')
+        seen[k] = qty
     con.executemany(
         'INSERT OR REPLACE INTO carryover (run_id,batch_id,reason,sku,qty) '
         'VALUES (?,?,?,?,?)',

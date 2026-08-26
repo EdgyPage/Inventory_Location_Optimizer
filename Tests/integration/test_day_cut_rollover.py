@@ -145,6 +145,10 @@ def test_the_shared_batch_is_never_mutated():
 #
 #   unpicked_daycut       the picker never reached the bin       (Pick.carry_residue)
 #   unpicked_unavailable  reached it; the bin held less          (the loops' clamp)
+#   unpicked_unstocked    no bin held the SKU at all             (from_batch's shortfall)
+# All three are `unpicked_*` because all three are DEMAND. The third was `unplaced` until
+# 2026-08-25, which collided with the put-away side's own `unplaced` -- a LEVEL counting
+# storage units -- inside one carryover key, destroying the larger row silently.
 #   unplaced              no bin held the SKU at all             (from_batch's shortfall)
 
 def _run_causes(roll, day=None, n_batches=6):
@@ -155,7 +159,7 @@ def _run_causes(roll, day=None, n_batches=6):
     rel = ReleaseSchedule(WorkDay(length=day)) if day else None
     arm, picked = 0.0, 0
     pending: dict = {}
-    tally = {'unpicked_daycut': 0, 'unpicked_unavailable': 0, 'unplaced': 0}
+    tally = {'unpicked_daycut': 0, 'unpicked_unavailable': 0, 'unpicked_unstocked': 0}
     for i in range(n_batches):
         mgr.check_reorders()
         base = Batch(a.batch_cfg, a.inventory, affinity=None, rng=random.Random(1000 + i))
@@ -179,7 +183,7 @@ def _run_causes(roll, day=None, n_batches=6):
         now: dict = {}
         for reason, src in (('unpicked_daycut', sim.carried),
                             ('unpicked_unavailable', sim.unmet),
-                            ('unplaced', short or {})):
+                            ('unpicked_unstocked', short or {})):
             for sku, q in src.items():
                 if q:
                     now[sku] = now.get(sku, 0) + q
@@ -212,7 +216,7 @@ def test_every_cause_is_counted_separately():
     invisible behind the other."""
     _p, tally, _pend = _run_causes(roll=False, day=2_000.0)
     assert tally['unpicked_daycut'] > 0, 'a 2,000 s day should cut'
-    assert tally['unplaced'] > 0, 'this catalogue should have unplaceable demand'
+    assert tally['unpicked_unstocked'] > 0, 'this catalogue should have unstocked demand'
     # `unpicked_unavailable` is REAL MACHINERY WITH NO OCCURRENCES in this workload: the
     # live-stock clamp never bites here, which is the same fact `items_realized` reports
     # when it equals `total_items` on all 1,700 task rows of the coverage sweep. Asserted as
@@ -227,4 +231,4 @@ def test_no_cut_still_carries_the_unplaceable_half():
     still has demand no bin could satisfy, and that is exactly what used to evaporate."""
     _p, tally, _pend = _run_causes(roll=False, day=None)
     assert tally['unpicked_daycut'] == 0, 'no cut, so nothing should be cut'
-    assert tally['unplaced'] > 0
+    assert tally['unpicked_unstocked'] > 0

@@ -1122,7 +1122,15 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         #
         #   unpicked_daycut       the picker never reached the bin      (Pick.carry_residue)
         #   unpicked_unavailable  reached it; the bin held less         (the loops' clamp)
-        #   unplaced              no bin held the SKU at all            (from_batch's shortfall)
+        #   unpicked_unstocked    no bin held the SKU at all            (from_batch's shortfall)
+        #
+        # All three are `unpicked_*` because all three are DEMAND this batch did not serve.
+        # The third was called `unplaced` until 2026-08-25, which collided with the put-away
+        # side's own `unplaced` -- a LEVEL counting storage units standing on a queue --
+        # inside the shared `cov` list. `carryover`'s key is (run_id, batch_id, reason, sku)
+        # under INSERT OR REPLACE, so for any SKU where both were non-zero the pick row
+        # silently destroyed the put-away row: measured, a 500-unit backlog erased by a
+        # 3-unit shortfall.  The guard below stops the class, this name stops the instance.
         #
         # Rolling all three means demand does not evaporate.  It is deliberately UNCAPPED: a
         # SKU nothing restocks accumulates, which is what a warehouse that cannot serve its
@@ -1133,7 +1141,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         _carry_now: dict = {}
         for _reason, _src in (('unpicked_daycut', sim.carried),
                               ('unpicked_unavailable', sim.unmet),
-                              ('unplaced', _shortfall or {})):
+                              ('unpicked_unstocked', _shortfall or {})):
             for _sku, _q in _src.items():
                 if not _q:
                     continue
