@@ -182,10 +182,29 @@ def test_a_split_manager_places_everything_it_is_given():
         placed.append(unit)
         _o(unit, bin_, source=source)
     mgr._execute_placement = cap
+
+    # `placed` is a FLOW that `queue_state_rows` drains, and the meso loop now snapshots
+    # every batch exactly as the runner does -- so reading `q.placed` at the end returns
+    # only whatever the LAST batch left. Accumulate the snapshots instead, the way
+    # `test_putaway_backpressure` already does for `blocked`. Wrapped on the MANAGER
+    # because `PutQueueSet` is slotted and its methods cannot be patched.
+    per_queue: dict = {}
+    orig_rows = mgr.queue_state_rows
+
+    def cap_rows(batch_id, _o=orig_rows, _t=per_queue):
+        rows = _o(batch_id)
+        for r in rows:
+            _t[r['queue']] = _t.get(r['queue'], 0) + r['placed']
+        return rows
+    mgr.queue_state_rows = cap_rows
+
     cs.run_meso(a, n_batches=5, seed=42)
+    # ...plus what the final batch left undrained: the loop snapshots at the TOP of a
+    # batch, so the last batch's placements have not been swept into a row yet.
+    for q in mgr.put_queues:
+        per_queue[q.name] = per_queue.get(q.name, 0) + q.placed
 
     assert len(placed) > 100, f'only {len(placed)} placements — nothing was exercised'
-    per_queue = {q.name: q.placed for q in mgr.put_queues}
     assert sum(per_queue.values()) == len(placed), (per_queue, len(placed))
     used = {n for n, c in per_queue.items() if c}
     assert len(used) >= 2, (
