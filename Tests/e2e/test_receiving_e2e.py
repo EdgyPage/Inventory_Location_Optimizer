@@ -130,7 +130,7 @@ def test_a_receiving_crew_reconciles_across_both_surfaces(tmp_path, monkeypatch)
     assert r['seconds_events'] > 0.0
 
 
-def test_the_three_crews_hold_disjoint_contiguous_uid_blocks(tmp_path, monkeypatch):
+def test_the_three_crews_hold_disjoint_uid_blocks(tmp_path, monkeypatch):
     """A uid collision is invisible to everything else: it passes `put_rows`' bounds check,
     the DDL has no uniqueness constraint, and the merged view still sorts. It surfaces only
     as a per-actor rollup merging two people — and is quietest when the receiving crew is
@@ -140,7 +140,10 @@ def test_the_three_crews_hold_disjoint_contiguous_uid_blocks(tmp_path, monkeypat
     blocks = r['uid_blocks']
     assert set(blocks) == {'pick', 'put', 'receive'}, blocks
     assert r['uid_overlaps'] == 0
-    assert r['checks']['uids_contiguous']
+    # NO contiguity assertion. It was here and it was unsound: an allocated-but-IDLE crew
+    # leaves the same gap as a misallocated one, so on a 200-batch run with two of three put
+    # queues idle it failed a provably healthy roster (allocated 0..28, observed {0..24, 26,
+    # 28}). Disjointness is the half that actually guards the collision.
     # ...and they are in allocation order, which is what makes the cursor chaining visible
     lo = {role: rng[0] for role, rng in blocks.items()}
     assert lo['pick'] < lo['put'] < lo['receive'], blocks
@@ -151,7 +154,10 @@ def test_a_short_day_leaves_work_on_the_dock(tmp_path, monkeypatch):
     the committed unload through per batch — the START gate — and the rest carries."""
     db, run_id = _run_one_arm(tmp_path, monkeypatch, crew_size=1, day_seconds=0.5)
     rows = load_batch_stats(db, run_id)
-    assert sum(r.recv_cut for r in rows) > 0, 'the whistle never bit'
+    # `any`, not `sum`. `recv_cut` is a LEVEL -- it equals `recv_depth` whenever a whistle
+    # is in force -- so summing it counts a waiting unit once per batch it waits. What is
+    # meaningful is whether the boundary bit at all, and in how many batches.
+    assert any(r.recv_cut > 0 for r in rows), 'the whistle never bit'
     assert max(r.recv_depth for r in rows) > 0, 'nothing was left standing'
     # the dock is never negative and the carry is monotone while nothing clears it
     assert all(r.recv_depth >= 0 for r in rows)

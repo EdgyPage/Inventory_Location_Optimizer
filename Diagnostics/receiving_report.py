@@ -32,12 +32,14 @@ number on its own.
    Both are carried integers rather than recomputed floats, so `==` is the stronger statement
    and a tolerance here would be hiding something.
 
-3. **The uid blocks are disjoint and contiguous.** `actor_uid` is the only thing that says
+3. **The uid blocks are disjoint.** `actor_uid` is the only thing that says
    WHO did a unit of work, and nothing enforces it: `Worker` validates only non-negativity,
    the DDL has no uniqueness constraint, `put_rows` bounds-checks `0 <= widx < len(workers)`
    which a collision passes, and the merged view still sorts. Nothing else in the repo can
    see a collision — it surfaces only as a per-actor rollup quietly merging two people, and
    it is quietest when the receiving crew is small, which is the likely configuration.
+   Contiguity is deliberately NOT checked -- an allocated-but-idle crew leaves the same gap
+   as a misallocated one, so the check failed healthy runs and passed the defect it was for.
 
 4. **No duplicate merge keys.** `(t_abs, batch_id, role, mode, actor_uid, seq)` is the
    declared total order. The existing guard is `assert rows == sorted(rows)`, which any
@@ -47,7 +49,10 @@ number on its own.
 5. **`role` and `event_type` agree.** `put_rows` takes `role` from the worker and used to
    hard-code the event type, so a receive row could carry `role='receive', event_type='put'`.
    Then `SUM(duration) WHERE role='put'` and the same query on `event_type` disagree, and
-   there is nothing to point at. Checked in BOTH directions.
+   there is nothing to point at. Every put and receive row must carry an event_type equal
+   to its role, and no other row may claim one -- which also catches a put row typed 'pick'.
+   Pick rows are exempt: picking has its own vocabulary (task_start / pick / done / cut) and
+   is the one stream where the two legitimately differ.
 
 # ── usage ─────────────────────────────────────────────────────────────────────────
 
@@ -116,12 +121,17 @@ def reconcile(db_path: str, run_id: int | None = None) -> dict:
             f"WHERE role = 'receive'{where}", args).fetchone()
         unloaded, secs_bs, cut, depth = con.execute(
             'SELECT COALESCE(SUM(recv_unloaded), 0), COALESCE(SUM(recv_seconds), 0.0), '
-            'COALESCE(SUM(recv_cut), 0), COALESCE(MAX(recv_depth), 0) FROM batch_stats '
+            # NOT SUM(recv_cut). `cut` is a LEVEL -- it equals `recv_depth` whenever a
+            # whistle is in force, so summing counts a waiting unit once per batch it waits.
+            # This reported 619,418 against a dock that never exceeded 6,162 on a 200-batch
+            # run: 101x, as the headline number. What IS additive is how OFTEN the boundary
+            # bit -- the count of batches with a non-zero cut.
+            'COALESCE(SUM(recv_cut > 0), 0), COALESCE(MAX(recv_depth), 0) FROM batch_stats '
             + ('WHERE 1=1' + where if where else 'WHERE 1=1'), args).fetchone()
 
         out.update(seconds_events=secs_ev, seconds_batch_stats=secs_bs,
                    qty_events=n_ev, qty_batch_stats=unloaded,
-                   cut_total=cut, dock_depth_max=depth,
+                   cut_batches=cut, dock_depth_max=depth,
                    active=bool(n_ev or unloaded or cut))
 
         # ── 1 + 2: the two surfaces ───────────────────────────────────────────────
@@ -140,9 +150,22 @@ def reconcile(db_path: str, run_id: int | None = None) -> dict:
         out['uid_blocks'] = {r: (min(u), max(u)) for r, u in sorted(by_role.items())}
         out['uid_overlaps'] = overlaps
         out['checks']['uids_disjoint'] = (overlaps == 0)
-        # Contiguity is a separate claim from disjointness and catches a different mistake:
-        # a crew allocated from a hand-picked offset rather than the running cursor.
-        out['checks']['uids_contiguous'] = (not seen) or (sorted(seen) == list(range(len(seen))))
+        # NO CONTIGUITY CHECK, and its absence is deliberate.
+        #
+        # There was one -- `sorted(seen) == range(len(seen))` -- meant to catch a crew
+        # allocated from a hand-picked offset rather than the running cursor. It cannot: an
+        # ALLOCATED-BUT-IDLE actor leaves exactly the same gap. Measured on a 200-batch run
+        # whose rosters were provably correct (pick 0..24, store_cart 25, store_pallet 26,
+        # fulfillment 27, receive 28), the observed uids were {0..24, 26, 28} because two of
+        # the three put queues admitted nothing in 200 batches -- so the check failed a
+        # healthy run, and would have passed the misallocation it was written for whenever
+        # that crew happened to be idle. A check that cannot distinguish its failure from a
+        # normal state is worse than none: it trains a reader to ignore a red verdict.
+        #
+        # DISJOINTNESS is the sound half and is what actually guards the collision: two crews
+        # sharing a uid is the defect that merges two people in every per-actor rollup, and
+        # it is visible here regardless of who was idle. `uid_blocks` is still reported so a
+        # reader can see the layout and judge it against the roster themselves.
 
         # ── 4: the merge key is actually a key ────────────────────────────────────
         dupes = con.execute(
@@ -153,9 +176,17 @@ def reconcile(db_path: str, run_id: int | None = None) -> dict:
         out['checks']['merge_key_is_total'] = (dupes == 0)
 
         # ── 5: role and event_type say the same thing ─────────────────────────────
+        # Every PUT and RECEIVE row must carry an event_type equal to its role. Stated that
+        # way rather than as `(role='receive') != (event_type='receive')`, which was the
+        # first form: that catches a receive row typed as something else and a foreign row
+        # typed 'receive', but sails past a put row typed 'pick'. Pick rows are excluded
+        # because picking has a vocabulary of its own -- task_start, pick, done, cut -- and
+        # is the one stream where role and event_type legitimately differ.
         mism = con.execute(
-            f"SELECT COUNT(*) FROM work_events WHERE 1=1{where} AND "
-            f"((role = 'receive') != (event_type = 'receive'))", args).fetchone()[0]
+            f"SELECT COUNT(*) FROM work_events WHERE 1=1{where} AND ("
+            f"  (role IN ('put','receive') AND event_type <> role)"
+            f"  OR (role NOT IN ('put','receive') AND event_type IN ('put','receive')))",
+            args).fetchone()[0]
         out['role_event_type_mismatches'] = mism
         out['checks']['role_matches_event_type'] = (mism == 0)
     finally:
@@ -201,7 +232,8 @@ def main(argv=None) -> int:
                       f"batch_stats={r.get('qty_batch_stats', 0):,} "
                       f"secs={r.get('seconds_events', 0.0):,.3f}/"
                       f"{r.get('seconds_batch_stats', 0.0):,.3f} "
-                      f"cut={r.get('cut_total', 0):,} depth={r.get('dock_depth_max', 0):,}")
+                      f"cut_batches={r.get('cut_batches', 0):,} "
+                      f"depth_max={r.get('dock_depth_max', 0):,}")
                 print(f"        uid blocks: {r.get('uid_blocks')}")
             if bad:
                 print(f'        FAILED: {", ".join(bad)}')

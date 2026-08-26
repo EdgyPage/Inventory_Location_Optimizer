@@ -308,10 +308,12 @@ _CREATE_BATCH_STATS = """
         recv_depth             INTEGER NOT NULL DEFAULT 0,
         -- FLOW: storage units the receiving crew took off a trailer this batch.
         recv_unloaded          INTEGER NOT NULL DEFAULT 0,
-        -- FLOW: storage units the crew's whistle left standing.  The twin of
-        -- `put_queue_state.cut`, and the only record that the day bounded receiving at all
-        -- -- `recv_depth` alone cannot separate "a deep dock nobody reached" from "a shallow
-        -- one the day cut hard".
+        -- The twin of `put_queue_state.cut`: the units standing when the whistle blew, and
+        -- the only record that a day bounded receiving at all -- `recv_depth` alone cannot
+        -- separate "a deep dock nobody reached" from "one a whistle stopped".
+        -- LEVEL, not a flow: see `put_queue_state.cut`, which has the same shape and the
+        -- same warning.  DO NOT SUM ACROSS BATCHES -- it equals `recv_depth` whenever a
+        -- whistle is in force, so summing counts a waiting unit once per batch it waits.
         recv_cut               INTEGER NOT NULL DEFAULT 0,
         -- FLOW: seconds of receiving labour.  NOT included in any put-away total; folding
         -- them together would silently widen an already-published figure.
@@ -581,15 +583,21 @@ _CREATE_PUT_QUEUE_STATE = """
                                        -- which includes the forklift/pallet stream: a
                                        -- forklift carries one pallet, so "how much fits"
                                        -- never arises.
-        cut        INTEGER NOT NULL,   -- items the DAY'S WHISTLE left standing (a FLOW).
-                                       -- Distinct from `depth`, which is a level: a deep
-                                       -- queue the whistle never reached and a shallow one
-                                       -- it stopped hard are different problems, and only
-                                       -- this column separates them.  Not a `carryover`
-                                       -- reason, because that table snapshots the queue's
-                                       -- whole standing contents every batch -- a level, so
-                                       -- the cut would have to be derived there as a
-                                       -- residual of itself.
+        cut        INTEGER NOT NULL,   -- items the DAY'S WHISTLE left standing.  A LEVEL,
+                                       -- NOT a flow -- it was labelled one here by analogy
+                                       -- with the three counters above, and it is not.
+                                       -- DO NOT SUM IT ACROSS BATCHES.  "How many were
+                                       -- standing when the whistle blew" is the depth at
+                                       -- that instant, so a unit waiting ten batches is
+                                       -- counted ten times.  Measured on a 200-batch run:
+                                       -- `cut == depth` in 200 of 200 batches, and the sum
+                                       -- came to 101x the largest true value.
+                                       -- What IS additive: the COUNT of batches where it is
+                                       -- non-zero, i.e. how often the boundary bit.
+                                       -- Kept beside `depth` because it carries the one
+                                       -- thing depth cannot: whether a whistle was in force
+                                       -- at all.  `depth > 0, cut = 0` is a backlog nobody
+                                       -- was stopped from clearing.
         PRIMARY KEY (run_id, batch_id, queue)
     ) WITHOUT ROWID
 """
