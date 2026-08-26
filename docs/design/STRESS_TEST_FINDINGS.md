@@ -310,6 +310,48 @@ allocation sites. The per-queue partition's dict-of-deques costs nothing measura
 `--config` pass-through the memory tool forwarded four arguments and could not express this
 configuration at all, so "no memory cost" was an assumption rather than a result.
 
+### Production scale: the deep tier, 10k to 80k SKUs
+
+`--ladder deep --workers 18` — four real `run_simulation` sweeps (the full 34-arm suite each,
+`--spec single` notwithstanding), 58 minutes total. This is the only measurement that reaches
+past the 76,500-SKU default catalogue.
+
+**`t_reord` fits k = 0.95, r² = 1.00** over 10k → 80k, walls 0.30 / 0.56 / 1.10 / 2.16 s. That
+is the section containing put-away, at real scale, in real subprocesses. No offender flagged at
+any rung. Together with the meso ladder's k = 0.94 on the retry flows, the `_admit_held` term is
+closed at both scales.
+
+Caveat worth stating: the deep tier runs `settings.py` defaults, so this is the **default**
+path. `--config` is refused there by design, so the staged configuration's k = 0.94 is still
+extrapolated past 2,400 SKUs rather than measured there.
+
+### NEW, and not put-away: a knee in the simulation phase between 40k and 80k
+
+Decomposing each rung's log into phases:
+
+| rung | build+precompute | simulation | analysis |
+|---|---|---|---|
+| 10k | 1.1 m | 3.2 m | 1.3 m |
+| 20k | 1.3 m | 4.4 m | 1.4 m |
+| 40k | 1.4 m | 7.5 m | 2.3 m |
+| 80k | 2.1 m | **27.4 m** | 3.9 m |
+
+Per doubling, the simulation phase fits k = +0.45, +0.77, then **+1.87**. Analysis stays flat at
+~+0.77 throughout, so it is not the analysis suite. The traced sections account for roughly 12
+seconds of that 27-minute phase, so whatever grows is **outside every instrumented section** —
+and `t_reord` is linear across all four rungs, so it is not put-away.
+
+Not diagnosed. A knee at the top rung of a four-rung ladder on one machine has at least three
+candidate explanations — a genuine threshold in some structure, memory pressure at 230,750 bins
+× 34 arms × 18 workers, or cache behaviour — and telling them apart needs a repeat run and a
+middle rung, not a guess. Recorded because it is real, reproducible from the archived artifact,
+and nobody was looking for it.
+
+For context on run cost rather than growth: the same 80k rung took 17.3 minutes on the
+2026-08-20 archived deep ladder against 33.6 now. That comparison spans roughly 150 commits
+including the entire receiving and working-day feature set, which added tables and per-batch
+work, so it is **not** attributable to any single change here.
+
 ## 4. What this run does NOT prove
 
 Stated plainly, because a green reconciliation invites over-reading:
@@ -329,8 +371,10 @@ Stated plainly, because a green reconciliation invites over-reading:
   `SELECT queue, SUM(admitted), SUM(placed), MAX(depth) FROM put_queue_state GROUP BY queue`.
   Contention between streams is untested either way.
 - **Single arm, single channel.** No cross-channel interaction, no `_frozen/` tree, no resume.
-- **Growth was fitted on the skus knob only**, over 300/600/1,200/2,400 SKUs — well short of the
-  76,500 default catalogue. (The exponents ARE four-rung OLS fits, not two-point slopes: the
+- **The STAGED growth was fitted on the skus knob only**, over 300/600/1,200/2,400 SKUs — well
+  short of the 76,500 default catalogue. The deep tier reaches 80,000 and shows `t_reord` linear
+  there, but only in the DEFAULT configuration; `--config` cannot reach the deep tier, so the
+  staged path above 2,400 SKUs remains extrapolation. (The exponents ARE four-rung OLS fits, not two-point slopes: the
   framework returns `(nan, 0.0)` below three points and `fit_report` short-circuits, so a
   two-point exponent cannot be emitted. Earlier revisions of this document printed only the
   first and last rung, which invited the opposite reading.)
