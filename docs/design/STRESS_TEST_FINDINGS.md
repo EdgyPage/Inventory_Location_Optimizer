@@ -37,7 +37,8 @@ At 40 batches, `staging=4`, exact call counts:
 | after | 42,736 | 283,774 | k = 0.914 |
 | unstaged (control) | 26,408 | 174,738 | k = 0.912 |
 
-**96x fewer calls**; wall 41.7 s → 21.7 s. Fixed in `68bf962`, pinned by
+**96x fewer `route()` calls at 2,400 SKUs** — the ratio itself grows with the catalogue, so at
+300 SKUs it is 15.9x; wall 41.7 s → 21.7 s. Fixed in `68bf962`, pinned by
 `Tests/unit/test_admit_held_early_exit.py` — which asserts the call **count** (exact and
 deterministic, where a stopwatch would be flaky) *and* separately that the early exit matches an
 exhaustive walk item-for-item and in order, because an exit that dropped or reordered an item
@@ -47,7 +48,7 @@ would be worse than the slowness it cured.
 refill loop runs exactly one pass. The defect was unreachable until the split put-queue
 configuration became selectable with real staging limits (`53bee99`).
 
-### The cost is staging, not the split — and after the fix it is a constant
+### The cost is staging, not the split
 
 A 2x2 decomposition, because "split queues are slow" and "backpressure is slow" are different
 findings with different remedies:
@@ -58,10 +59,54 @@ findings with different remedies:
 | + split queues, no staging | k = 1.013 |
 | + staging, single queue | k = **1.450** |
 
-The split costs nothing. **Staging carried all of it.** After the S1 fix, baseline k = 1.238
-against staging k = 1.281 — the exponents match, and what remains is a **2.6x constant factor**,
-not a growth term. A constant factor is a budgeting question; a growth term is a defect. This is
-now the former.
+The split costs nothing. **Staging carried all of it.** These are *wall* fits, and the exact
+instrument was available in the same artifact — see the correction below for why that matters.
+
+### CORRECTION — the growth term is NOT closed
+
+This section previously read: *"baseline k = 1.238 against staging k = 1.281 — the exponents
+match, and what remains is a 2.6x constant factor, not a growth term … This is now the former."*
+**That was wrong, and it is retracted.** An adversarial audit of this document caught it and the
+finding was then reproduced directly.
+
+What `68bf962` actually did: it removed the *work per touch*, not the touches. The early exit
+breaks out of the `route()`/`admit()` loop, but the original then did `still.extend(rest)` into a
+fresh deque — so every call still copied the entire held list. O(H) per call, O(H) calls.
+
+Measured at 20 batches, `staging=4`, split queues, over four rungs:
+
+| SKUs | 300 | 600 | 1,200 | 2,400 | OLS k |
+|---|---|---|---|---|---|
+| held-item touches | 308,792 | 998,218 | 3,743,071 | 13,041,581 | **1.81** |
+
+against `k = 1.82` before the exit existed. The exponent did not move.
+
+**The root cause is deeper than the copy**, and this part is new. The exit fires on
+`len(blocked) >= len(self.put_queues)` — *every queue in the set*. On a store-only catalogue the
+three-queue split routes to `store_cart` and `store_pallet` only; `fulfillment` never receives
+anything, so `blocked` tops out at 2 of 3 and **the exit is unreachable**. Measured directly: 3
+queues in the set, 2 ever routed to, 2,877 calls, 998,218 touches, ~347 items examined per call.
+The exit is reachable only in the single-queue configuration — which is the one configuration
+where staging is `None` and the held list is always empty.
+
+**Blast radius today is zero** and stays that way until someone turns the split on:
+`PUT_QUEUE_SPLIT = False` and all three `PUT_*_STAGING = None` in
+`Optimization/config/settings.py`, and `put_queues_spec()` returns `None` without the split. No
+archived run has executed this path. But the 200-batch stress run used `staging=8` with the
+split, so it is the configuration on deck.
+
+**What was fixed here:** `_admit_held` now mutates the deque in place — admitted items are
+popped, refused ones pushed back at the front in order, and the untouched tail never read — so
+the O(H) copy is gone and the function costs O(examined). That is strictly better and provably
+order-identical (the equivalence test compares against an exhaustive walk), but it does not move
+the exponent, because the walk and not the copy is what dominates once the exit cannot fire.
+
+**What is still open:** making the exit reachable needs `_held` partitioned per queue, so a
+blocked queue's items are skipped in O(1) instead of walked. A parallel per-queue census was
+tried and rejected — it is derived state that can drift out of sync with the deque, and a stale
+census makes the retry break instantly and livelock, which is worse than the slowness it cures.
+
+### S2–S8: refuted or constant-factor
 
 ### S2–S8: refuted or constant-factor
 
@@ -199,8 +244,11 @@ Stated plainly, because a green reconciliation invites over-reading:
   `SELECT queue, SUM(admitted), SUM(placed), MAX(depth) FROM put_queue_state GROUP BY queue`.
   Contention between streams is untested either way.
 - **Single arm, single channel.** No cross-channel interaction, no `_frozen/` tree, no resume.
-- **Growth was fitted on the skus knob only**, at 300 and 2,400 SKUs — well short of the 76,500
-  default catalogue.
+- **Growth was fitted on the skus knob only**, over 300/600/1,200/2,400 SKUs — well short of the
+  76,500 default catalogue. (The exponents ARE four-rung OLS fits, not two-point slopes: the
+  framework returns `(nan, 0.0)` below three points and `fit_report` short-circuits, so a
+  two-point exponent cannot be emitted. Earlier revisions of this document printed only the
+  first and last rung, which invited the opposite reading.)
 
 ---
 

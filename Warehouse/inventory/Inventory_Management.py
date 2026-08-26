@@ -1503,34 +1503,52 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         that size and the gap widens with the catalogue.
 
         Skipping the tail costs nothing observable: every remaining item takes the
-        `q.name in blocked` branch, whose only effects are appending to `still` -- which the
-        `extend` reproduces in the same order -- and re-adding a name already in the set.
-        `admit(arrival=False)` deliberately counts nothing, and `route()` is a pure lookup
-        that cannot raise here because `_admit` already routed every one of these items
-        before it held them.
+        `q.name in blocked` branch, whose only effects are holding the item -- in the same
+        order -- and re-adding a name already in the set.  `admit(arrival=False)`
+        deliberately counts nothing, and `route()` is a pure lookup that cannot raise here
+        because `_admit` already routed every one of these items before it held them.
+
+        THE EXIT ALONE WAS NOT ENOUGH, and the first version of this fix claimed otherwise.
+        It broke out of the `route()` loop and then did `still.extend(rest)` into a fresh
+        deque, so every call still COPIED the whole held list: O(H) per call, O(H) calls,
+        quadratic.  Exact counts at 20 batches, staging=4, over 300/600/1,200/2,400 SKUs --
+        `route()` calls fell to k=0.888 while held-item TOUCHES stayed at k=1.840, against
+        k=1.823 before the exit existed.  The expensive work per touch went (96x at 2,400
+        SKUs); the touches did not.
+
+        So the deque is now mutated IN PLACE.  Admitted items are popped and dropped, refused
+        ones are collected and pushed back at the front in their original order, and the
+        untouched tail is never read at all -- `extendleft(reversed(refused))` restores
+        exactly the order the copy used to produce, because every refused item preceded every
+        untouched one.  Cost is O(examined), and after the exit `examined` is bounded by
+        `admitted + n_queues`.
         """
         if not self._held:
             return 0
+        held = self._held
         n_queues = len(self.put_queues)
         blocked: set = set()
-        still: deque = deque()
+        refused: list = []
         admitted = 0
-        rest = iter(self._held)
-        for item in rest:
+        while held:
+            item = held.popleft()
             q = self.put_queues.route(item.unit)
             # arrival=False: this item was counted as blocked when it first arrived, and
             # counting each retry again would report the refill loop's pass count.
             if q.name in blocked or not q.admit(item, arrival=False):
                 blocked.add(q.name)
-                still.append(item)
+                refused.append(item)
                 if len(blocked) >= n_queues:
-                    # Every queue has refused. Nothing after this point can be admitted, so
-                    # the remaining walk is pure cost -- and it is the whole quadratic.
-                    still.extend(rest)
+                    # Every queue has refused, so nothing further can be admitted.  BREAK
+                    # WITHOUT READING THE TAIL: it is already sitting in `held` in order,
+                    # and touching it is what made this quadratic.
                     break
                 continue
             admitted += 1
-        self._held = still
+        # Refused items go back in front of the untouched tail, oldest first -- which is
+        # where they were.  O(refused), not O(held).
+        if refused:
+            held.extendleft(reversed(refused))
         return admitted
 
     def _window_for(self, queue) -> int | None:
