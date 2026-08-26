@@ -645,6 +645,11 @@ _CREATE_CARRYOVER = """
                                        --     'unpicked_daycut'      never reached the bin
                                        --     'unpicked_unavailable' bin held less than planned
                                        --     'unpicked_unstocked'   no bin held the SKU at all
+                                       --     'unpicked_notasks'     the batch built NO tasks
+                                       --       at all, so this demand was never routed to a
+                                       --       bin to succeed or fail.  Distinct from the
+                                       --       three above, which each name a reason a task
+                                       --       DID look and came back short.
                                        -- The last was 'unplaced' until 2026-08-25 and collided
                                        -- with the put-away level under this table's own PK,
                                        -- destroying the larger row without a word.

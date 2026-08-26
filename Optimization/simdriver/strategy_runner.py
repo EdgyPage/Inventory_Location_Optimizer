@@ -1087,7 +1087,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             _bs, _we_skip, put_clock = close_skipped_batch(
                 batch_id=i, mgr=mgr, arm_clock=arm_clock, put_clock=put_clock,
                 k_pickers=k_pickers, run_id=run_id,
-                demanded=sum(batch.items.values()), sigma_fd=batch_sigma,
+                # `_eff_batch`, NOT `batch`.  The two differ by exactly the inherited
+                # carry, and using `batch` here gave `items_demanded` a SECOND definition
+                # that excluded it -- so the column meant different things depending on
+                # whether its batch happened to be skipped.  A strict no-op with rollover
+                # off, where `_eff_batch is batch`.
+                demanded=sum(_eff_batch.items.values()), sigma_fd=batch_sigma,
                 reload_moves=batch_rm, reorder_placements=batch_rp,
                 skus_reordered=len(triggered), units_ordered=batch_uo,
                 put_workers=_put_workers, put_crews=_put_crews,
@@ -1105,6 +1110,37 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # `_insert_put_queue_state` is INSERT OR REPLACE on (run_id, batch_id, queue):
             # the zeros won.  Every skipped batch persisted an idle-looking dock on a queue
             # that may have moved hundreds of units.
+
+            # ── THE CARRY, which this `continue` used to jump over ────────────────
+            # `_pending` is reassigned at the BOTTOM of the loop body.  Skipping past that
+            # left it holding the PREVIOUS batch's carry, so this batch's own sampled demand
+            # simply ceased to exist and a stale carry was re-offered in its place.
+            #
+            # Measured before the fix, forcing one skip in a 6-batch run with rollover on:
+            # the skipped batch wanted 993 units and the next batch was handed 898 IN TOTAL
+            # -- fewer than the skipped batch alone had asked for, so none of it survived.
+            # `cons_breaks` was 0 throughout.  It would be: the conservation ledger is a
+            # STOCK ledger over bins, and demand that never reached a bin is invisible to it.
+            #
+            # Nothing was picked -- there were no tasks -- so the WHOLE effective batch
+            # carries, inherited carry and fresh demand alike.  With rollover off this
+            # assigns the `{}` it already held, which is why the store-only path is
+            # byte-identical.
+            _pending = dict(_eff_batch.items) if _roll_over else {}
+
+            # ...and say so in `carryover`.  The put-away side was already emitted at the
+            # top of the batch; these are the pick side's, and the reasons are distinct, so
+            # nothing shares a primary key with anything (see `_insert_carryover`, which
+            # raises rather than replacing).
+            _sf_skip = _shortfall or {}
+            for _sku, _q in _eff_batch.items.items():
+                if not _q:
+                    continue
+                _un = min(_sf_skip.get(_sku, 0), _q)
+                if _un:
+                    cov.append((i, 'unpicked_unstocked', _sku, _un))
+                if _q - _un:
+                    cov.append((i, 'unpicked_notasks', _sku, _q - _un))
             continue
 
         # The clock CARRIES.  Every picker starts this batch at the arm's current instant,
