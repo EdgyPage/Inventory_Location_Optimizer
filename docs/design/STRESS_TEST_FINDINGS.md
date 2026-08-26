@@ -388,25 +388,40 @@ Decomposing each rung's log into phases:
 Per doubling, the simulation phase fits k = +0.45, +0.77, then **+1.87**. Analysis stays flat at
 ~+0.77 throughout, so it is not the analysis suite.
 
-**RETRACTION.** This section first continued: "the traced sections account for roughly 12 seconds
-of that 27-minute phase, so whatever grows is outside every instrumented section." That inference
-was unfounded and is withdrawn. `calltree_scenarios.macro_sections()` returns
-`statistics.fmean` over checkpoint lines, and with `CHECKPOINT_FRAC = 0.1` at 15 batches there is
-one checkpoint line **per batch per arm** — so the deep tier's `t_*` values are *mean seconds per
-batch, averaged across every arm in the run*. They are not a subset of the phase wall and were
-never commensurable with it. Nothing about where the growth sits follows from comparing them.
+**LOCATED — it is the DB-save section.** Reading `runtime_metrics.db`, which carries per-arm
+totals and which the deep tier had been discarding, resolves this outright. 136 arms per rung:
 
-The knee in the **wall** is real and reproducible from the archived artifact. Its location is
-simply unknown, and the deep tier as it stood could not have located it: it records
-`counts: {}` — no call counts at all — so at production scale only the noisy instrument runs.
+| rung | Σ `total_s` | `save_s` | `reord_s` | residual |
+|---|---|---|---|---|
+| 10k | 1,749 s | 784 | 607 | 2.1% |
+| 20k | 2,705 s | 1,014 | 1,150 | 2.2% |
+| 40k | 4,626 s | 1,497 | 2,239 | 2.2% |
+| 80k | **24,341 s** | **18,343** | 4,407 | 0.8% |
 
-What *would* answer it already exists and was being discarded: `runtime_metrics.db` carries, per
-arm, `total_s`, all seven section **totals**, `peak_rss_mib`, `n_bins`, `n_aisles` and the arm's
-identity — roughly 272 rows per deep run. `total_s − Σ sections` per arm isolates the batch
-loop's unattributed tail; per-arm `total_s` names *which* arm; `peak_rss_mib` tests the memory
-hypothesis directly. Candidate explanations still include a genuine threshold, memory pressure at
-230,750 bins × 34 arms × 18 workers, and cache behaviour — and separating them needs a middle
-rung and a repeat, not a guess.
+Per doubling, `save_s` goes **+0.37, +0.56, then +3.62** — 1,497 s to 18,343 s, a 12.3x jump
+for a 2x size step — while `reord_s` stays flat at **+0.92, +0.96, +0.98**. Put-away is linear
+at production scale, independently of the meso result. And the residual
+(`Σ total_s − Σ sections`) is 0.8–2.2%, so there is no mysterious unattributed work: the
+section partition accounts for arm time almost completely.
+
+Not yet explained, and deliberately not guessed at: `save_s` is sqlite writes from 18 workers
+in parallel, and the per-arm peak RSS grows only 415 → 635 MiB across the ladder, so the shape
+is more consistent with I/O saturation than with memory pressure. The test is cheap — re-run
+the 80k rung at `--workers 4` and see whether per-arm `save_s` falls — and it is a separate
+investigation.
+
+**RETRACTION, kept because the mistake is instructive.** This section first read: "the traced
+sections account for roughly 12 seconds of that 27-minute phase, so whatever grows is outside
+every instrumented section." Both halves were wrong. `macro_sections()` returns
+`statistics.fmean` over checkpoint lines, one per batch per arm, so those `t_*` values are
+*mean seconds per batch averaged across every arm* — never a subset of the phase wall, and not
+commensurable with it. And the growth was not outside the instrumented sections at all: it was
+in `save_s`, one of the seven, which `runtime_metrics.db` had recorded per arm the whole time.
+
+The lesson is not "read the other table". It is that **nothing checked whether the two numbers
+being compared were the same kind of number.** `calltree_growth` now reports the units of its
+section block, fits the per-arm TOTALS separately, and prints a commensurability line
+(`Σ total_s / workers` against the measured wall) at every rung.
 
 For context on run cost rather than growth: the same 80k rung took 17.3 minutes on the
 2026-08-20 archived deep ladder against 33.6 now. That comparison spans roughly 150 commits

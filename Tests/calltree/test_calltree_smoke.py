@@ -199,3 +199,45 @@ def test_the_default_config_does_not_reach_the_put_away_path():
     assert flows['held_appends'] == 0 and flows['refill_passes'] == 0, (
         f'the default configuration reached the held path after all: {flows}. If that is '
         f'deliberate, the "cfg=none does not exercise it" message is now a lie.')
+
+
+# ── a knee is the shape a single fit hides ────────────────────────────────────────
+
+def test_the_knee_detector_catches_what_the_r2_gate_drops():
+    """THE case it was built for, with the real numbers.
+
+    `save_s` on the deep ladder went 784 / 1,014 / 1,497 / 18,343 seconds. A single OLS fit
+    gives k=1.42 at r²=0.77, so `MIN_R2 = 0.90` drops it — the largest super-linear jump in the
+    artifact reported as nothing. That is backwards for the failure mode that matters: a smooth
+    power law fits WELL and gets flagged, while a threshold crossed between two rungs fits badly
+    and does not.
+    """
+    import calltree_growth as cg
+
+    xs = [10_000, 20_000, 40_000, 80_000]
+    save_s = [784.15, 1014.46, 1496.54, 18343.23]
+
+    slope, r2 = cg._fit_loglog(xs, save_s)
+    assert r2 < cg.MIN_R2, (
+        f'the single fit now scores r²={r2:.2f}, so the r² gate would catch this after all '
+        f'and the premise of the knee detector has changed')
+
+    k = cg._knee(xs, save_s)
+    assert k is not None, f'the knee detector missed the case it exists for (fit was k={slope})'
+    assert k['last_step_k'] > 3.0
+    assert k['earlier_median_k'] < 1.0
+    assert k['at_x'] == 80_000
+
+
+def test_the_knee_detector_does_not_fire_on_a_clean_curve():
+    """NON-VACUITY, and the more important half: a detector that flags everything is a
+    detector nobody reads. `reord_s` from the same artifact is linear at every step and must
+    stay silent."""
+    import calltree_growth as cg
+
+    xs = [10_000, 20_000, 40_000, 80_000]
+    assert cg._knee(xs, [606.6, 1150.33, 2238.87, 4407.17]) is None, 'fired on linear reord_s'
+    # ...and a genuinely quadratic series is smooth, so it is the FIT's job, not the knee's
+    assert cg._knee(xs, [1.0, 4.0, 16.0, 64.0]) is None, 'fired on a clean power law'
+    # a series that is flat then jumps IS a knee, however small the numbers
+    assert cg._knee(xs, [10.0, 10.5, 11.0, 100.0]) is not None

@@ -38,8 +38,10 @@ import argparse
 import json
 import math
 import os
+import re
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 
@@ -119,6 +121,47 @@ def _counts_under(tree: dict, parent: str) -> dict[str, int]:
 
     walk(tree)
     return out
+
+
+#: A single step whose local exponent exceeds the median of the earlier steps by this much
+#: is a KNEE.  Tuned against the one real instance: `save_s` went +0.37, +0.56, +3.62 per
+#: doubling, so the last step clears the earlier median by 3.15.  Set well below that -- the
+#: cost of a false knee is one line of output, the cost of a missed one is a production
+#: threshold nobody sees.
+FLAG_KNEE_JUMP = 1.00
+
+
+def _local_exponents(xs, ys) -> list[float]:
+    """Per-step log-log slopes: `k_i` between consecutive rungs, not one fit over all of them."""
+    out = []
+    for (x0, y0), (x1, y1) in zip(zip(xs, ys), zip(xs[1:], ys[1:])):
+        if x0 > 0 and x1 > 0 and y0 > 0 and y1 > 0 and x1 != x0:
+            out.append(math.log(y1 / y0) / math.log(x1 / x0))
+        else:
+            out.append(float('nan'))
+    return out
+
+
+def _knee(xs, ys) -> dict | None:
+    """The last step's local exponent against the median of the ones before it.
+
+    Returns a finding when the series ELBOWS rather than curving.  This exists because the
+    r-squared gate is exactly wrong for a knee: a clean power law fits well and gets flagged,
+    while a threshold crossed between two rungs fits badly and is dropped.  `save_s` on the
+    deep ladder -- the biggest super-linear jump anywhere in that artifact -- scored r2=0.77
+    and was reported as nothing.
+    """
+    ks = _local_exponents(xs, ys)
+    if len(ks) < 2 or any(k != k for k in ks):
+        return None
+    last, earlier = ks[-1], sorted(ks[:-1])
+    n = len(earlier)
+    med = earlier[n // 2] if n % 2 else (earlier[n // 2 - 1] + earlier[n // 2]) / 2
+    if last - med < FLAG_KNEE_JUMP:
+        return None
+    return {'local_exponents': [round(k, 3) for k in ks],
+            'last_step_k': round(last, 3), 'earlier_median_k': round(med, 3),
+            'at_x': xs[-1]}
 
 
 def _flat_counts(tree: dict) -> dict[str, int]:
@@ -377,6 +420,98 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
 
 # ── deep ladder ──────────────────────────────────────────────────────────────
 
+_RUN_ROOT_RE = re.compile(r'^(?:Output directory|All simulations complete\.\s+Root)\s*:\s*'
+                          r'(.+?)\s*$', re.MULTILINE)
+
+
+def _run_root_from(stdout: str) -> str | None:
+    """The run root the subprocess reported, or None.
+
+    Taken from the child's own stdout rather than reconstructed: the root carries a timestamp
+    and a spec-dependent prefix, and guessing it would silently pick up someone else's run.
+    """
+    hits = _RUN_ROOT_RE.findall(stdout or '')
+    for h in reversed(hits):                    # the completion line is the authoritative one
+        if os.path.isdir(h):
+            return h
+    return None
+
+
+def _sample_rss(proc, every: float = 2.0) -> dict:
+    """Peak RSS of the whole process tree while `proc` runs.
+
+    Merged in from `calltree_memory.deep_rss`, which builds a BYTE-IDENTICAL command to this
+    ladder's and therefore measured a different run of the same thing.  Two artifacts from two
+    runs could never show that a wall knee and a memory knee were the same event -- which
+    matters, because memory pressure is the leading hypothesis for the knee this tier found.
+    """
+    try:
+        import psutil
+    except ImportError:
+        return {'peak_total_gib': None, 'peak_worker_gib': None, 'rss_samples': 0}
+    try:
+        ps = psutil.Process(proc.pid)
+    except psutil.Error:
+        return {'peak_total_gib': None, 'peak_worker_gib': None, 'rss_samples': 0}
+    peak_total = peak_worker = 0
+    n = 0
+    while proc.poll() is None:
+        try:
+            procs = [ps] + ps.children(recursive=True)
+            rss = [p.memory_info().rss for p in procs]
+        except psutil.Error:                    # a child exited mid-walk; not worth a retry
+            rss = []
+        if rss:
+            peak_total = max(peak_total, sum(rss))
+            if len(rss) > 1:
+                peak_worker = max(peak_worker, max(rss[1:]))
+            n += 1
+        time.sleep(every)
+    return {'peak_total_gib': round(peak_total / 2 ** 30, 2),
+            'peak_worker_gib': round(peak_worker / 2 ** 30, 2),
+            'rss_samples': n}
+
+
+def _arm_rollup(run_root: str, workers: int) -> dict:
+    """Per-arm runtime rows, rolled up -- the deep tier's SHARP instrument.
+
+    Everything here is a TOTAL, not a mean, which is the whole point: `Sum(total_s) / workers`
+    is an honest model of the simulation phase, and `Sum(total_s) - Sum(sections)` is the batch
+    loop's unattributed tail (the row-accumulation block that sits inside `elapsed` and in no
+    section).  Per-arm `total_s` localizes a knee to WHICH ARM, which no mean can.
+    """
+    from Optimization.persistence import runtime_metrics as rm
+    rows = rm.load_rows(run_root)
+    if not rows:
+        return {}
+    def _f(r, k):
+        v = r.get(k)
+        return float(v) if v is not None else 0.0
+    total = sum(_f(r, 'total_s') for r in rows)
+    sect = {col: sum(_f(r, col) for r in rows) for col, _label in rm.SECTIONS}
+    slowest = max(rows, key=lambda r: _f(r, 'total_s'))
+    peaks = [_f(r, 'peak_rss_mib') for r in rows if r.get('peak_rss_mib')]
+    return {
+        'arms': len(rows),
+        'total_s_sum': round(total, 2),
+        # the model of the phase: perfectly-packed arms across the pool
+        'phase_model_s': round(total / max(workers, 1), 2),
+        'sections_sum': {k: round(v, 2) for k, v in sect.items()},
+        # A2: what no section accounts for.  Reported as a SHARE too, because the absolute
+        # number grows with the run and the share is the thing that should stay flat.
+        'residual_s': round(total - sum(sect.values()), 2),
+        'residual_frac': round((total - sum(sect.values())) / total, 4) if total else None,
+        'precomp_s_sum': round(sum(_f(r, 'precomp_s') for r in rows), 2),
+        'slowest_arm': {'arm': slowest.get('arm'), 'total_s': round(_f(slowest, 'total_s'), 2)},
+        'total_s_max': round(_f(slowest, 'total_s'), 2),
+        'peak_rss_mib_max': round(max(peaks), 1) if peaks else None,
+        # A4: the SECOND axis.  The ladder scales SKUs and bins together, so every per-bin
+        # cost is charged to the SKU exponent unless the bin count is carried alongside.
+        'n_bins': int(_f(slowest, 'n_bins')) or None,
+        'n_aisles': int(_f(slowest, 'n_aisles')) or None,
+    }
+
+
 def run_deep_ladder(workers: int, dry_run: bool) -> dict:
     """Real run_simulation per rung; sections parsed from each run's own log."""
     results = []
@@ -394,39 +529,85 @@ def run_deep_ladder(workers: int, dry_run: bool) -> dict:
         print(f"  rung max_skus={kwargs['max_skus']:,}: running "
               f'({workers} workers)...', flush=True)
         env = dict(os.environ, MPLBACKEND='Agg')
-        t0 = time.perf_counter()
-        proc = subprocess.run(cmd, cwd=_REPO_ROOT, env=env, capture_output=True,
-                              text=True, encoding='utf-8', errors='replace')
-        wall = time.perf_counter() - t0
-        if proc.returncode != 0:
-            print(f'  RUNG FAILED (exit {proc.returncode}); last output:')
-            print('\n'.join((proc.stdout or proc.stderr or '').splitlines()[-10:]))
+        # stdout to a FILE, not a pipe: the RSS sampler below needs the child running while we
+        # poll it, and a pipe that fills would deadlock behind a reader that is sleeping.
+        with tempfile.TemporaryFile(mode='w+', encoding='utf-8', errors='replace') as fh:
+            t0 = time.perf_counter()
+            proc = subprocess.Popen(cmd, cwd=_REPO_ROOT, env=env, stdout=fh,
+                                    stderr=subprocess.STDOUT)
+            rss = _sample_rss(proc)
+            rc = proc.wait()
+            wall = time.perf_counter() - t0
+            fh.seek(0)
+            out_txt = fh.read()
+        if rc != 0:
+            print(f'  RUNG FAILED (exit {rc}); last output:')
+            print('\n'.join(out_txt.splitlines()[-10:]))
             continue
         try:
             parsed = scenarios.macro_sections()   # newest run.log = the one we just made
         except scenarios.ScenarioUnavailable as e:
             print(f'  rung done but log unparsable: {e}')
-            continue
+            parsed = {'sections': {}, 'source': 'unparsable'}
+
+        run_root = _run_root_from(out_txt)
+        arms = _arm_rollup(run_root, workers) if run_root else {}
+
         results.append({'x': kwargs['max_skus'], 'kwargs': kwargs,
-                        'wall_s': wall, 'sections': parsed['sections'],
-                        'source': parsed['source'], 'counts': {}})
+                        'wall_s': wall,
+                        # MEANS PER BATCH, averaged over every arm -- NOT a share of the wall.
+                        # Kept for continuity with archived deep artifacts and renamed in the
+                        # report so nothing sums them against a phase again.
+                        'sections_mean_per_batch': parsed['sections'],
+                        'source': parsed['source'], 'counts': {},
+                        'run_root': run_root, 'rss': rss, 'arms': arms})
         print(f'  rung done in {wall / 60:.1f} min ({parsed["source"]})')
+        if arms:
+            print(f"      {arms['arms']} arms: Sum(total_s)={arms['total_s_sum']:,.0f}s "
+                  f"-> phase model {arms['phase_model_s'] / 60:.1f} min "
+                  f"(actual {wall / 60:.1f})")
+            print(f"      unattributed by any section: {arms['residual_s']:,.0f}s "
+                  f"({arms['residual_frac']:.1%})   slowest arm "
+                  f"{arms['slowest_arm']['arm']} at {arms['slowest_arm']['total_s']:,.0f}s")
+            print(f"      n_bins={arms['n_bins']:,} peak_rss_arm={arms['peak_rss_mib_max']}M "
+                  f"peak_rss_tree={rss.get('peak_total_gib')}G")
+        else:
+            print('      NO runtime_metrics rows — the per-arm instrument is unavailable, so '
+                  'this rung has only a wall.')
     return {'knob': 'max_skus(deep)', 'rungs': results}
 
 
 # ── fitting + report ─────────────────────────────────────────────────────────
+
+def _rt_sections():
+    """`runtime_metrics.SECTIONS`, imported lazily -- the meso tier must not import product
+    persistence just to fit a ladder."""
+    try:
+        from Optimization.persistence import runtime_metrics as rm
+        return rm.SECTIONS
+    except ImportError:
+        return ()
+
 
 def fit_report(ladder: dict) -> dict:
     rungs = ladder['rungs']
     xs = [r['x'] for r in rungs]
     report = {'knob': ladder['knob'], 'config': ladder.get('config', 'none'), 'xs': xs,
               'sections': {}, 'functions': {}, 'flows': {},
-              'flows_per_placement': {}, 'offenders': []}
+              'flows_per_placement': {}, 'arm_totals': {}, 'knees': {},
+              'offenders': []}
     if len(rungs) < 3:
         return report
 
+    # MESO rungs carry `sections` (real untraced walls for one arm).  DEEP rungs carry
+    # `sections_mean_per_batch`, which is a MEAN PER BATCH averaged over every arm in the run
+    # -- not a share of anything.  They are fitted the same way because an exponent of a mean
+    # is still meaningful; they are NEVER summed against a wall.  The report labels which.
+    _sec_key = 'sections' if 'sections' in rungs[0] else 'sections_mean_per_batch'
+    report['sections_units'] = ('untraced wall seconds, one arm' if _sec_key == 'sections'
+                                else 'MEAN seconds per batch, averaged over every arm')
     for sec in SECTIONS:
-        ys = [r['sections'].get(sec, 0.0) for r in rungs]
+        ys = [r.get(_sec_key, {}).get(sec, 0.0) for r in rungs]
         if max(ys, default=0.0) < 0.01:
             continue
         slope, r2 = _fit_loglog(xs, ys)
@@ -490,6 +671,65 @@ def fit_report(ladder: dict) -> dict:
         if r2 >= MIN_R2 and slope >= 0.30:
             report['offenders'].append({'kind': 'per-placement', 'name': name,
                                         'exponent': round(slope, 3), 'r2': round(r2, 3)})
+
+    # ── PER-ARM TOTALS (deep only) ───────────────────────────────────────────────
+    # These are sums over every arm, not means, so they ARE commensurable with the phase and
+    # can be fitted, summed and compared.  This is what the deep tier should have been reading
+    # all along: `runtime_metrics.db` has carried it per arm for as long as the tier has
+    # existed.
+    arms = [r.get('arms') or {} for r in rungs]
+    if all(a.get('total_s_sum') for a in arms):
+        series = {'total_s_sum': [a['total_s_sum'] for a in arms],
+                  'residual_s': [a['residual_s'] for a in arms],
+                  'n_bins': [a.get('n_bins') or 0 for a in arms],
+                  'peak_rss_mib_max': [a.get('peak_rss_mib_max') or 0 for a in arms]}
+        for col, _label in _rt_sections():
+            series[col] = [a['sections_sum'].get(col, 0.0) for a in arms]
+        for name, ys in series.items():
+            if not all(y > 0 for y in ys):
+                continue
+            slope, r2 = _fit_loglog(xs, [float(y) for y in ys])
+            if slope != slope:
+                continue
+            report['arm_totals'][name] = {'exponent': round(slope, 3), 'r2': round(r2, 3),
+                                          'values': ys}
+            if r2 >= MIN_R2 and slope >= FLAG_TIME_EXP and name != 'n_bins':
+                report['offenders'].append({'kind': 'arm-total', 'name': name,
+                                            'exponent': round(slope, 3), 'r2': round(r2, 3)})
+        # A7: COMMENSURABILITY.  `sum(total_s)/workers` is a model of the phase; if it is
+        # nowhere near the measured wall then the rows describe a different run than the
+        # clock did, and every exponent above is about the wrong thing.  This is the check
+        # whose absence let a mean-per-batch be compared against a phase wall for months.
+        report['commensurable'] = [
+            {'x': r['x'],
+             'phase_model_min': round((a['phase_model_s']) / 60, 2),
+             'wall_min': round(r['wall_s'] / 60, 2),
+             'ratio': round(a['phase_model_s'] / r['wall_s'], 3) if r['wall_s'] else None}
+            for r, a in zip(rungs, arms)]
+
+    # ── KNEES ────────────────────────────────────────────────────────────────────
+    # Run over every series already fitted above, because a knee can hide in any of them and
+    # the r-squared gate suppresses exactly this shape.
+    _series = []
+    for name, e in report['sections'].items():
+        _series.append((f'section:{name}', e['walls']))
+    for name, e in report['functions'].items():
+        _series.append((f'count:{name}', e['counts']))
+    for name, e in report['flows'].items():
+        _series.append((f'flow:{name}', e['counts']))
+    for name, e in report['arm_totals'].items():
+        if name != 'n_bins':
+            _series.append((f'arm-total:{name}', e['values']))
+    for label, ys in _series:
+        k = _knee(xs, ys)
+        if k is None:
+            continue
+        report['knees'][label] = k
+        report['offenders'].append({
+            'kind': 'knee', 'name': label,
+            'exponent': k['last_step_k'], 'r2': 1.0,     # sorts by severity of the jump
+            'note': (f"local k {k['earlier_median_k']} -> {k['last_step_k']} at "
+                     f"x={k['at_x']:,}; a single fit would smear this away")})
 
     report['offenders'].sort(key=lambda o: -o['exponent'])
     return report
@@ -583,7 +823,8 @@ def main(argv=None) -> int:
                     'offenders': [f"{o['name']} k={o['exponent']}"
                                   for o in report['offenders'][:8]]})
 
-    print(f'\nsection exponents (expect ≈1 vs {report["knob"]}; flag ≥ {FLAG_TIME_EXP}):')
+    print(f'\nsection exponents [{report.get("sections_units", "?")}] '
+          f'(expect ≈1 vs {report["knob"]}; flag ≥ {FLAG_TIME_EXP}):')
     for sec, e in report['sections'].items():
         print(f"  {sec:10s} k={e['exponent']:6.2f}  r²={e['r2']:.2f}")
     if report['flows']:
@@ -593,6 +834,25 @@ def main(argv=None) -> int:
     elif args.ladder == 'meso':
         print(f'\nno flows recorded — cfg={args.config} does not exercise the put-away or '
               f'receiving path')
+
+    if report['knees']:
+        print('\nKNEES (a step change, which a single fit and the r² gate both hide):')
+        for label, k in sorted(report['knees'].items(),
+                               key=lambda kv: -kv[1]['last_step_k']):
+            print(f"  {label}")
+            print(f"      local k per step {k['local_exponents']} — last step "
+                  f"{k['last_step_k']} vs earlier median {k['earlier_median_k']} "
+                  f"at x={k['at_x']:,}")
+
+    if report['arm_totals']:
+        print('\nPER-ARM TOTALS (sums over every arm — commensurable with the phase, unlike '
+              'the section means above):')
+        for name, e in sorted(report['arm_totals'].items()):
+            print(f"  {name:18s} k={e['exponent']:6.2f}  r²={e['r2']:.2f}  {e['values']}")
+        print('\n  commensurability (Σtotal_s/workers vs the measured wall):')
+        for c in report.get('commensurable', []):
+            print(f"    x={c['x']:>7,}  model {c['phase_model_min']:>6.1f} min  "
+                  f"wall {c['wall_min']:>6.1f} min  ratio {c['ratio']}")
 
     if report['flows_per_placement']:
         print('\nPER-PLACEMENT ratios (work per unit, not unit count — the discriminator):')
