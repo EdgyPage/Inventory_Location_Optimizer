@@ -1665,6 +1665,7 @@ files:
       - {name: "FLAG_TIME_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "MIN_R2", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "MIN_CALLS", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "LadderConfig", file: "Tests/calltree/calltree_growth.py", kind: "class"}
       - {name: "run_meso_ladder", file: "Tests/calltree/calltree_growth.py", kind: "function"}
       - {name: "run_deep_ladder", file: "Tests/calltree/calltree_growth.py", kind: "function"}
       - {name: "fit_report", file: "Tests/calltree/calltree_growth.py", kind: "function"}
@@ -1736,6 +1737,8 @@ files:
       - {name: "test_production_engine_identity", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_scenario_reorders_actually_fire", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_default_strategy_still_registered", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_flow_anchors_resolve", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_every_named_config_is_buildable", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_calltree_smoke.py":
     purpose: "the measurement framework measures what it claims to."
@@ -1745,6 +1748,9 @@ files:
       - {name: "test_tracer_sees_engine_threads_and_placement", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_counts_deterministic_and_seed_sensitive", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_section_attribution_covers_the_tree", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_a_staged_config_actually_exercises_the_held_path", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_it_is_the_FLOOR_that_creates_a_held_backlog", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_default_config_does_not_reach_the_put_away_path", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_rank_cache_equivalence.py":
     purpose: "frozen oracles for the Phase-6 SKU-run caches."
