@@ -48,3 +48,8 @@
 - [Empty-bin preference is structural](empty-bin-preference-is-structural.md) — put-away already never adds to an occupied bin (measured 0 across 4 arms), so a scoring term for it would fake a tunable
 - [Receiving is its own crew](receiving-is-its-own-crew.md) — the dock intercepts inside _admit (so the reorder ledger needed zero edits); arrivals are still batch-quantized, so the makespan reads long and crew SIZING is not answerable
 - [A config knob has five seams](config-knob-has-five-seams.md) — settings.py names four; the fifth is workunits._shared, and skipping it silently reverts the knob to its default in every spawned worker
+- [cut is a level, not a flow](cut-is-a-level-not-a-flow.md) — cut resets every batch but re-counts the standing queue, so summing it inflated a shipped report 101x; count non-zero batches instead
+- [Growth ladder: use the skus knob](growth-ladder-use-the-skus-knob.md) — the batches knob saturates every backlog level, so put-away/receiving growth only shows on skus; decompose before attributing
+- [Hand-run test tiers rot silently](hand-run-test-tiers-rot-silently.md) — Tests/calltree and Tests/bench are in no gate; three dead oracles and a never-executed feature came from there
+- [Carryover: two producers, one key](carryover-two-producers-one-key.md) — a level and a flow shared reason='unplaced' under INSERT OR REPLACE and 500 units vanished; the table now raises
+- [_admit_held was quadratic](admit-held-was-quadratic.md) — 96x too many route() calls, and unreachable until staging was set: re-run the ladder in a newly-selectable configuration
