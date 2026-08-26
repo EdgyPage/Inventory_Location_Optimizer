@@ -1947,6 +1947,17 @@ files:
       - {name: "test_a_resume_may_still_replace_its_own_batch", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
       - {name: "test_the_put_side_is_a_level_and_the_pick_side_is_a_flow", file: "Tests/integration/test_carryover_key_collision.py", kind: "function"}
     notes: ""
+  "Tests/integration/test_carryover_spans_the_dock.py":
+    purpose: "`carryover_rows` and `queue_contents` agree again."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_loaded_dock_produces_dock_carryover_rows", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
+      - {name: "test_the_dock_quantity_is_merchandise_pieces_not_storage_units", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
+      - {name: "test_docked_and_unplaced_are_separate_reasons_and_do_not_overlap", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
+      - {name: "test_no_sku_is_reported_under_two_reasons_at_once", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
+      - {name: "test_the_keys_are_unique_so_the_flush_will_not_raise", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
+      - {name: "test_a_run_with_no_receiving_crew_reports_no_dock_reason", file: "Tests/integration/test_carryover_spans_the_dock.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_consumer_paths_golden.py":
     purpose: "the consumer migration onto the run-tree contract is a NO-OP."
     layer: "tests"

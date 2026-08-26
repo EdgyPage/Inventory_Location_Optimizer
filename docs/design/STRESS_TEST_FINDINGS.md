@@ -129,12 +129,29 @@ The positive-feedback stall did not occur in 200 batches with all three carries 
 START gate is why: a worker already past the whistle begins nothing new, but the job in progress
 finishes, so overtime is bounded by one job per worker and the clock always advances.
 
-### R4, R6, R7, R8 — not reached
+### R7 — the dock absent from `carryover_rows`: DECIDED, fixed
+
+Never a measurement — a decision, and it was taken: **add the dock, keep the classes visible.**
+`queue_contents` emitted a `'dock'` kind and `carryover_rows` did not, so the two surfaces
+disagreed about what the unbinned backlog is; on this run that was 52,479 rows one of them
+denied, and a consumer sizing the backlog from `carryover` missed every unit still on a trailer.
+
+The two classes stay distinguishable because they are different problems:
+
+| class | reasons | what it means |
+|---|---|---|
+| placement failure | `unplaced`, `held` | was offered a bin or floor space and did not get one |
+| pre-placement | `dock` | never offered anything — still on a trailer |
+
+Sum all three for the backlog; filter to the first two for placement. The `reason` column now
+documents all three families and one instruction: **never `SUM(qty)` across the whole table**,
+because the pick side's `unpicked_*` rows are FLOWS and these are LEVELS. (`b7b55ed`)
+
+### R4, R6, R8 — not reached
 
 R4 (`items_demanded`'s two definitions) is consistent at scale, but the two call sites were not
 separately audited. R6 (batch-resume with `--cut-at-day-end` alone) needs a resume, and this was
-a single uninterrupted arm. R7 (the dock absent from `carryover_rows`) is a decision still owed,
-not a measurement. R8 (`lift_cache` never cleared) was not instrumented.
+a single uninterrupted arm. R8 (`lift_cache` never cleared) was not instrumented.
 
 ---
 
