@@ -106,6 +106,17 @@ def _flat_counts(tree: dict) -> dict[str, int]:
 
 # ── meso ladder ──────────────────────────────────────────────────────────────
 
+#: Scenario CONFIGURATION a rung may carry, on top of its size. Passed to `build_assets`.
+#: An explicit list rather than `**kwargs`: a typo in a ladder definition must fail at
+#: `build_assets` rather than being silently dropped, which is what used to happen to every
+#: key this function did not name.
+_BUILD_KEYS = ('put_timing', 'put_split', 'put_staging', 'put_crew', 'recv_crew',
+               'strategy', 'coverage', 'safety', 'target_fill')
+#: ...and the two whistles, which go to `run_meso` rather than `build_assets`. These are what
+#: make a level GROW, and a level that never grows hides every cost proportional to it.
+_RUN_KEYS = ('put_deadline', 'recv_deadline')
+
+
 def run_meso_ladder(knob: str, seed: int) -> dict:
     rungs = _MESO_LADDERS[knob]
     results = []
@@ -114,6 +125,8 @@ def run_meso_ladder(knob: str, seed: int) -> dict:
                      bins_per_aisle=kwargs.get('bins_per_aisle', 100),
                      n_pickers=kwargs.get('n_pickers', 10),
                      seed=seed)
+        build.update({k: kwargs[k] for k in _BUILD_KEYS if k in kwargs})
+        run_kw = {k: kwargs[k] for k in _RUN_KEYS if k in kwargs}
         n_batches = kwargs.get('n_batches', 20)
 
         # untraced walls
@@ -121,22 +134,28 @@ def run_meso_ladder(knob: str, seed: int) -> dict:
         x = {'skus': assets.sizes['n_skus_sampled'], 'bins': assets.sizes['n_bins'],
              'batches': n_batches, 'pickers': build['n_pickers']}[knob]
         t0 = time.perf_counter()
-        r_u = scenarios.run_meso(assets, n_batches=n_batches, seed=seed)
+        r_u = scenarios.run_meso(assets, n_batches=n_batches, seed=seed, **run_kw)
         wall = time.perf_counter() - t0
 
         # traced counts
         assets = scenarios.build_assets(**build)
         tr = CallTreeTracer(track_c_calls=False)     # counts of project fns; lower overhead
         tr.start()
-        scenarios.run_meso(assets, n_batches=n_batches, seed=seed, tracer=tr)
+        scenarios.run_meso(assets, n_batches=n_batches, seed=seed, tracer=tr, **run_kw)
         tr.stop()
         counts = _flat_counts(tr.tree().to_dict())
 
         results.append({'x': x, 'kwargs': kwargs, 'wall_s': wall,
                         'sections': r_u.sections, 'picks': r_u.picks,
                         'placements': r_u.placements, 'counts': counts})
+        _m = assets.mgr
+        _lv = (f'q={_m.queue_depth:,} dock={_m.dock_depth:,} '
+               f'held={len(_m._held):,}')
+        results[-1]['levels'] = {'queue_depth': _m.queue_depth,
+                                 'dock_depth': _m.dock_depth,
+                                 'held': len(_m._held)}
         print(f'  rung {knob}={x}: wall={wall:.2f}s picks={r_u.picks:,} '
-              f'placements={r_u.placements:,} fns={len(counts)}')
+              f'placements={r_u.placements:,} fns={len(counts)} {_lv}')
     return {'knob': knob, 'rungs': results}
 
 
