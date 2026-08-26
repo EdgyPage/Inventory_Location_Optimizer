@@ -176,3 +176,38 @@ def test_a_run_with_no_receiving_crew_reports_no_dock_reason():
     assert 'dock' not in by, f'a dockless manager emitted dock rows: {by}'
     assert (by.get('unplaced', 0) + by.get('held', 0)) > 0, (
         'nothing was standing at all, so the absence of dock rows proves nothing')
+
+
+# ── swapping the queue set cannot delete merchandise ──────────────────────────────
+
+def test_replacing_a_loaded_put_queue_set_raises_instead_of_deleting():
+    """The rebind does not migrate items, and the conservation ledger is a STOCK ledger over
+    bins -- so a swap that dropped a loaded queue would destroy merchandise with nothing
+    raising and nothing able to notice. Today the runner installs the split set before
+    anything is admitted, which makes this unreachable; it is asserted anyway because that is
+    a property of one call site's ORDER, not of the code.
+    """
+    from Warehouse.inventory.put_queue import ANY, PutQueueSet, PutQueueSpec
+
+    a = _assets()
+    _arrive(a)
+    a.mgr._receive(deadline=None)
+    standing = sum(len(q.items) for q in a.mgr.put_queues)
+    assert standing > 0, 'nothing is queued, so the guard is not being exercised'
+
+    fresh = PutQueueSet([PutQueueSpec('replacement', accepts=ANY, staging=None)])
+    with pytest.raises(ValueError, match='refusing to replace'):
+        a.mgr.put_queues = fresh
+    assert sum(len(q.items) for q in a.mgr.put_queues) == standing, (
+        'the guard raised but the set was swapped anyway')
+
+
+def test_an_empty_set_may_still_be_replaced():
+    """The guard must not block the legitimate case, which is the only one the runner uses."""
+    from Warehouse.inventory.put_queue import ANY, PutQueueSet, PutQueueSpec
+
+    a = _assets()
+    assert sum(len(q.items) for q in a.mgr.put_queues) == 0
+    fresh = PutQueueSet([PutQueueSpec('replacement', accepts=ANY, staging=None)])
+    a.mgr.put_queues = fresh
+    assert [q.name for q in a.mgr.put_queues] == ['replacement']

@@ -1290,6 +1290,27 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     @put_queues.setter
     def put_queues(self, queues: PutQueueSet) -> None:
+        """Install a queue set.  REFUSES to discard merchandise doing it.
+
+        The rebind does not migrate items, so swapping a loaded set would delete whatever it
+        held -- silently, and invisibly to the conservation ledger, which is a stock ledger
+        over BINS and cannot see a unit that never reached one.
+
+        Today nothing loses anything: the runner installs the split set after `enqueue_all`,
+        and initial stocking drains the default queue empty before it gets here.  But that is
+        a property of the CALL ORDER at one call site, not a guarantee -- move the install one
+        line later, or add a second caller, and the hole opens with no error.  So the
+        invariant is asserted where it can be, rather than documented where it cannot.
+        """
+        old = getattr(self, '_put_queues', None)
+        if old is not None and old is not queues:
+            standing = sum(len(q.items) for q in old)
+            if standing:
+                raise ValueError(
+                    f'refusing to replace a put-queue set still holding {standing} storage '
+                    f'unit(s): the rebind does not migrate items, so they would be deleted '
+                    f'with nothing raising and no ledger able to see it. Drain the queues '
+                    f'first, or install the new set before anything is admitted.')
         self._put_queues = queues
         if self._put_speed is not None:
             self._bind_put_crews()
