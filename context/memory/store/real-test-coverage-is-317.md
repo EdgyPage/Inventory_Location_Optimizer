@@ -27,8 +27,16 @@ not as live calls. `Tests/unit Tests/integration` now collects **402** tests, up
 That evidence was ~15% fiction, and the gap is invisible — the files look like tests, collect like
 tests, and report like tests.
 
+**A SECOND SHAPE, found 2026-08-26: the source-scan test.** A test whose assertions read
+`inspect.getsource(...)` and match strings CAN fail, so the probe above passes it — but it
+cannot observe a computed value. `Tests/integration/test_skipped_batch_counters.py` covers the
+runner's skipped-batch branch that way; it stayed green while that branch silently deleted a
+whole batch of demand, because the defect was in what the loop COMPUTED, not in what it called.
+Source scans are legitimate for pinning call ORDER and for seams a value cannot reach; they are
+not coverage of behaviour, and a directory can look well covered while no test runs the thing.
+
 **How to apply:** when a suite's pass count is offered as proof, check that the assertions can
-actually raise. The cheap probe is `grep -n 'check(' Tests/**/*.py` — every surviving hit should be
+actually raise, AND that something observes a value rather than the source text. The cheap probe is `grep -n 'check(' Tests/**/*.py` — every surviving hit should be
 inside a docstring explaining the history, never a live call. If a conversion of vacuous tests
 leaves the pass count unchanged, the conversion was cosmetic. See [[claude-md-section-3-traps]] —
 CLAUDE.md §3 carries this warning for the same reason.

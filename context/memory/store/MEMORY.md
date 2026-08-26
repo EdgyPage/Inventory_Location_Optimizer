@@ -53,3 +53,4 @@
 - [Hand-run test tiers rot silently](hand-run-test-tiers-rot-silently.md) — Tests/calltree and Tests/bench are in no gate; three dead oracles and a never-executed feature came from there
 - [Carryover: two producers, one key](carryover-two-producers-one-key.md) — a level and a flow shared reason='unplaced' under INSERT OR REPLACE and 500 units vanished; the table now raises
 - [_admit_held was quadratic](admit-held-was-quadratic.md) — 96x too many route() calls, and unreachable until staging was set: re-run the ladder in a newly-selectable configuration
+- [Conservation ledger is bin-only](conservation-ledger-is-bin-only.md) — cons_breaks==0 proves nothing about units lost before a bin; three defects have hidden in that gap
