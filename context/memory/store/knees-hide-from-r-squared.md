@@ -12,10 +12,16 @@ metadata:
 for rejecting garbage fits and **exactly backwards for a knee**. A smooth power law fits well
 and gets flagged; a threshold crossed between two rungs fits badly and is dropped.
 
-The real instance (2026-08-26): `save_s` on the deep ladder ran 784 / 1,014 / 1,497 / **18,343**
-seconds over 10k→80k SKUs. A single OLS fit gives k = 1.42 at **r2 = 0.77**, so the largest
-super-linear jump anywhere in that artifact was reported as no offender at all. Local per-step
-exponents show it instantly: **+0.37, +0.56, +3.62**.
+The instance that motivated it (2026-08-26): `save_s` on a deep ladder ran
+784 / 1,014 / 1,497 / **18,343** seconds over 10k→80k SKUs. A single OLS fit gives k = 1.42 at
+**r2 = 0.77**, so the largest super-linear jump anywhere in that artifact was reported as no
+offender at all. Local per-step exponents show it instantly: **+0.37, +0.56, +3.62**.
+
+**That run then failed to reproduce.** A repeat with a mid rung gave
+507 / 941 / 1,793 / 2,525 / 3,806, k = 0.94, and the detector correctly reports nothing. The
+detector is right either way and is still tested against the original numbers; what it surfaced
+there was machine variance. That is the correct division of labour — a detector hands you a
+candidate, and a REPEAT RUN adjudicates it. Never ship a finding from one ladder.
 
 `_knee()` now runs over every fitted series (sections, counts, flows, arm totals) and reports
 when the last step's local exponent exceeds the median of the earlier steps by

@@ -388,45 +388,57 @@ Decomposing each rung's log into phases:
 Per doubling, the simulation phase fits k = +0.45, +0.77, then **+1.87**. Analysis stays flat at
 ~+0.77 throughout, so it is not the analysis suite.
 
-**LOCATED — it is the DB-save section.** Reading `runtime_metrics.db`, which carries per-arm
-totals and which the deep tier had been discarding, resolves this outright. 136 arms per rung:
+**IT DID NOT REPRODUCE. There is no knee.** A second deep run — same command, same machine,
+with a 60k rung added — is linear everywhere:
 
-| rung | Σ `total_s` | `save_s` | `reord_s` | residual |
+| rung | Σ `total_s` | `save_s` | `reord_s` | wall |
 |---|---|---|---|---|
-| 10k | 1,749 s | 784 | 607 | 2.1% |
-| 20k | 2,705 s | 1,014 | 1,150 | 2.2% |
-| 40k | 4,626 s | 1,497 | 2,239 | 2.2% |
-| 80k | **24,341 s** | **18,343** | 4,407 | 0.8% |
+| 10k | 1,384 s | 507 | 547 | 4.9 min |
+| 20k | 2,498 s | 941 | 1,058 | 6.4 min |
+| 40k | 4,804 s | 1,793 | 2,153 | 10.1 min |
+| 60k | 7,209 s | 2,525 | 3,415 | 14.1 min |
+| 80k | 10,821 s | 3,806 | 5,159 | 19.4 min |
 
-Per doubling, `save_s` goes **+0.37, +0.56, then +3.62** — 1,497 s to 18,343 s, a 12.3x jump
-for a 2x size step — while `reord_s` stays flat at **+0.92, +0.96, +0.98**. Put-away is linear
-at production scale, independently of the meso result. And the residual
-(`Σ total_s − Σ sections`) is 0.8–2.2%, so there is no mysterious unattributed work: the
-section partition accounts for arm time almost completely.
+`total_s_sum` fits **k = 0.97 (r² = 0.99)**, `save_s` **k = 0.94 (r² = 1.00)**, `reord_s`
+**k = 1.06**. The knee detector — which is tested, and which does fire on the first run's
+numbers — reports **nothing**. The commensurability ratio rises smoothly, 0.26 → 0.52.
 
-Not yet explained, and deliberately not guessed at: `save_s` is sqlite writes from 18 workers
-in parallel, and the per-arm peak RSS grows only 415 → 635 MiB across the ladder, so the shape
-is more consistent with I/O saturation than with memory pressure. The test is cheap — re-run
-the 80k rung at `--workers 4` and see whether per-arm `save_s` falls — and it is a separate
-investigation.
+Against the first run, the 80k rung's `save_s` was **18,343 s** and is now **3,806 s**: 4.8x
+apart for an identical command. That is machine variance, not a threshold in the code. The first
+run's top rung was an outlier, and everything derived from it — the +1.87 phase exponent, the
++3.62 `save_s` step, "a knee between 40k and 80k" — is withdrawn.
 
-**RETRACTION, kept because the mistake is instructive.** This section first read: "the traced
-sections account for roughly 12 seconds of that 27-minute phase, so whatever grows is outside
-every instrumented section." Both halves were wrong. `macro_sections()` returns
-`statistics.fmean` over checkpoint lines, one per batch per arm, so those `t_*` values are
-*mean seconds per batch averaged across every arm* — never a subset of the phase wall, and not
-commensurable with it. And the growth was not outside the instrumented sections at all: it was
-in `save_s`, one of the seven, which `runtime_metrics.db` had recorded per arm the whole time.
+**TWO RETRACTIONS ON ONE FINDING, and the pattern is the point.** This section has now said, in
+order:
 
-The lesson is not "read the other table". It is that **nothing checked whether the two numbers
-being compared were the same kind of number.** `calltree_growth` now reports the units of its
-section block, fits the per-arm TOTALS separately, and prints a commensurability line
-(`Σ total_s / workers` against the measured wall) at every rung.
+1. *"the traced sections account for ~12 s of that 27-minute phase, so whatever grows is outside
+   every instrumented section"* — wrong. `macro_sections()` returns `statistics.fmean` over
+   checkpoint lines, one per batch per arm, so those `t_*` are **mean seconds per batch averaged
+   across every arm**. They are not a subset of the phase wall and were never commensurable with
+   it. Nothing checked whether the two numbers being compared were the same KIND of number.
+2. *"it is `save_s`, +3.62 per doubling"* — also wrong, for a different reason. A four-rung
+   ladder at 2x spacing makes its top rung a single data point, and one point cannot separate "a
+   threshold in the code" from "this machine, that afternoon".
 
-For context on run cost rather than growth: the same 80k rung took 17.3 minutes on the
-2026-08-20 archived deep ladder against 33.6 now. That comparison spans roughly 150 commits
-including the entire receiving and working-day feature set, which added tables and per-batch
-work, so it is **not** attributable to any single change here.
+The repeat and the mid rung were in the plan precisely to test the second, and they earned their
+runtime by **falsifying the finding they were meant to sharpen**. A measurement that only ever
+confirms is not a measurement.
+
+What survives, measured twice independently: **`reord_s` is linear at production scale**
+(k = 0.95 then 1.06 over 10k → 80k), so the put-away work this whole exercise began with is
+clean at eight times the meso ladder's top rung. The per-arm residual is 2.0–2.5% in both runs,
+so the section partition genuinely accounts for arm time. Peak RSS is smooth in both — process
+tree 13.2 → 17.1 GiB, per arm 415 → 641 MiB — so nothing suggests memory pressure at this scale.
+
+The instrument changes stand on their own regardless: reading `runtime_metrics.db` gives per-arm
+totals that ARE commensurable with the phase, the section block now prints its units, every rung
+reports `Σ total_s / workers` against the measured wall, and the knee detector exists because an
+r² gate structurally hides step changes.
+
+**And the 2026-08-20 baseline agrees.** That archived deep ladder put the 80k rung at 17.3
+minutes; the first run here said 33.6, the repeat says 19.4. Two of the three cluster, and the
+odd one out is the run that produced the knee — which is the corroboration a single ladder could
+not give.
 
 ## 4. What this run does NOT prove
 
