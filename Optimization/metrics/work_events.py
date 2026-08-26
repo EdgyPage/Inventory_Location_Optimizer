@@ -30,7 +30,10 @@ from __future__ import annotations
 from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS, shift_index
 
 #: Pick events that move inventory.  Everything else (task_start, arrive, task_end, done,
-#: cart_swap) is a state change and carries no quantity.
+#: cart_swap) is a state change and carries no quantity -- and no duration either: a pick
+#: row is an instant, a put or unload row is an interval.  Both absences are NULL rather
+#: than 0, because a consumer summing either column must not be handed a plausible total
+#: assembled from half the streams.
 _QTY_EVENTS = frozenset({'pick'})
 
 
@@ -55,10 +58,16 @@ def pick_rows(events, batch_id, batch_start, crew, *,
                 f'row cannot be written under another actor\'s uid')
         w = workers[pid]
         qty = -abs(e.quantity) if (e.event_type in _QTY_EVENTS and e.quantity) else None
+        # duration NULL, not 0.0.  A pick event is an INSTANT -- task_start, pick, done,
+        # cut -- not an interval, so it has no duration to report, and saying `0.0` claims
+        # it took no time.  Same rule as `qty` above, and for the same reason: a consumer
+        # summing this column must get put + receive labour and not a number that looks
+        # like a total.  (Until 2026-08-25 the column was NOT NULL and every pick row said
+        # 0.0.)
         rows.append((batch_id, seq, e.time, e.time - batch_start,
                      shift_index(e.time, shift_seconds), w.uid, w.local_id,
                      str(w.role), str(w.mode), e.event_type, e.aisle_id, e.sku, qty,
-                     0.0, None))
+                     None, None))
     return rows
 
 

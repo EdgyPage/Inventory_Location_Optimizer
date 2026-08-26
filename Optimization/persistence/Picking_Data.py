@@ -409,7 +409,15 @@ _CREATE_WORK_EVENTS = """
         aisle_id    INTEGER,
         sku         INTEGER,
         qty         INTEGER,                    -- SIGNED: pick < 0, put > 0
-        duration    REAL    NOT NULL DEFAULT 0,
+        -- Seconds of WORK this row represents, or NULL when the row is an instant
+        -- rather than an interval.  A put or an unload is an interval and carries one; a
+        -- pick event is a state change stamped at a moment (task_start / pick / done /
+        -- cut) and carries NULL, exactly as `qty` above is NULL for the events that move
+        -- no merchandise.  Absent and zero are different, and this column was NOT NULL
+        -- DEFAULT 0 until 2026-08-25: all 29,657 pick rows of a 200-batch run claimed to
+        -- have taken no time, so `SUM(duration)` silently returned put+receive labour only
+        -- while looking like a total.
+        duration    REAL,
         source      TEXT                        -- put-away origin: intake|reorder|reslot
     )
 """
@@ -918,7 +926,12 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #   8af17e7d417e  put_queue_state gained cart_swaps + cut, before batch_stats recorded
     #                 what the receiving dock did.  A short window (2026-08-25) -- no
     #                 published run used it.
-    known_ids=('31cb7d1b1199',
+    #   31cb7d1b1199  batch_stats recorded the dock, while work_events.duration was still
+    #                 NOT NULL DEFAULT 0 -- so every pick row in such a file claims to have
+    #                 taken no time, and SUM(duration) over one is put+receive only.  A
+    #                 short window (2026-08-25) -- no published run used it.
+    known_ids=('ce01ca0095b2',
+              '31cb7d1b1199',
               '8af17e7d417e',
               '0ab75b4fabc2',
               'c33feeed3975',
