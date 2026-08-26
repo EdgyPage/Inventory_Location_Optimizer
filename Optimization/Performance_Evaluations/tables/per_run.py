@@ -71,13 +71,23 @@ def _per_run_rows(strategies, df_b, df_t, title):
             total_production_time=tot_prod,
             production_time_per_item=(tot_prod / tot_items if tot_items else float('nan')),
             mean_completion_rate=float(bb['completion_rate'].mean()),
-            mean_queue_depth=float(qd.mean()), max_queue_depth=float(qd.max()),
+            # ── UNITS ARE NOT THE SAME ACROSS THESE COLUMNS ──────────────────────
+            # `*_depth` counts STORAGE UNITS (packs); `mean_in_transit` counts MERCHANDISE
+            # PIECES. They sit in one row with nothing to say so, and the gap is real --
+            # measured on a 200-batch run, the dock held 6,162 units against 7,292 pieces,
+            # and an in-queue batch reached 2.00x. Summing across the boundary is wrong.
+            # The one sum that IS valid is `mean_queue_depth + mean_recv_depth`: both are
+            # packs, and they are the two disjoint halves of the unbinned backlog.
+            # Verified 2026-08-25 that nothing in the repo crosses the boundary today
+            # (frames, per_run, context, rollup, receiving_report, quantities all checked);
+            # the suffixes below exist so the next reader does not have to check.
+            mean_queue_depth_units=float(qd.mean()), max_queue_depth_units=float(qd.max()),
             # The dock. 0 on every run with no receiving crew, which is what such a run
             # means -- not a gap. `mean_recv_depth` and `mean_queue_depth` are the two
             # disjoint halves of the unbinned backlog and are meant to be summed.
-            mean_recv_depth=float(rd.mean()), max_recv_depth=float(rd.max()),
+            mean_recv_depth_units=float(rd.mean()), max_recv_depth_units=float(rd.max()),
             total_recv_seconds=float(rs_.sum()),
-            mean_in_transit=float(it.mean()),
+            mean_in_transit_pieces=float(it.mean()),
             # Put-away VOLUME per batch.  Added because the published exposure argument —
             # how much a restock trip may lengthen before it cancels the pick saving —
             # divides the saving by this number, and a reader was told to recompute it
