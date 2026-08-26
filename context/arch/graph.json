@@ -14381,11 +14381,6 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
-    },
-    {
       "dst": "Warehouse/kernel/cost_model.py::per_pick",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best"

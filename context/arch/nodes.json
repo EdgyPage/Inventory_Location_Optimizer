@@ -16168,7 +16168,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)"
+      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None, geo_memo=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__len__": {
       "decorators": [],
