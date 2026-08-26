@@ -12683,7 +12683,7 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit_held": {
       "decorators": [],
-      "doc": "Retry the held items, oldest first.  Returns how many got in.\n\nStops at the FIRST refusal for a given queue rather than scanning past it for\nsomething that happens to fit.  Letting a younger item slip into the gap a older one\ncould not use is exactly the inversion the age stamp exists to prevent, and it would\nalso make the backpressure unfair in a way no real dock is.\n\nAND STOPS ENTIRELY once every queue has refused, which is the difference between\nthis being linear and being quadratic.  `_stock`'s refill loop calls this once per\npass and needs roughly `work / staging` passes, so with a tight floor the passes and\nthe held list grow together.  Without the early exit the loop still walked every\nremaining item on every pass -- doing a `route()` each time -- to reach a conclusion\nthe first blocked-out queue had already settled.\n\nMeasured before the exit existed, at 40 batches with `staging=4`: `route()` was\ncalled 27,248,644 times at 2,400 SKUs against 174,738 without staging, growing at\nk=1.784 where the rest of the drain grows at k=0.91.  Wall went 5.08s -> 18.67s at\nthat size and the gap widens with the catalogue.\n\nSkipping the tail costs nothing observable: every remaining item takes the\n`q.name in blocked` branch, whose only effects are holding the item -- in the same\norder -- and re-adding a name already in the set.  `admit(arrival=False)`\ndeliberately counts nothing, and `route()` is a pure lookup that cannot raise here\nbecause `_admit` already routed every one of these items before it held them.\n\nTHE EXIT ALONE WAS NOT ENOUGH, and the first version of this fix claimed otherwise.\nIt broke out of the `route()` loop and then did `still.extend(rest)` into a fresh\ndeque, so every call still COPIED the whole held list: O(H) per call, O(H) calls,\nquadratic.  Exact counts at 20 batches, staging=4, over 300/600/1,200/2,400 SKUs --\n`route()` calls fell to k=0.888 while held-item TOUCHES stayed at k=1.840, against\nk=1.823 before the exit existed.  The expensive work per touch went (96x at 2,400\nSKUs); the touches did not.\n\nSo the deque is now mutated IN PLACE.  Admitted items are popped and dropped, refused\nones are collected and pushed back at the front in their original order, and the\nuntouched tail is never read at all -- `extendleft(reversed(refused))` restores\nexactly the order the copy used to produce, because every refused item preceded every\nuntouched one.  Cost is O(examined), and after the exit `examined` is bounded by\n`admitted + n_queues`.",
+      "doc": "Retry the held items, oldest first within each queue.  Returns how many got in.\n\nStops at the FIRST refusal for a given queue rather than scanning past it for\nsomething that happens to fit.  Letting a younger item slip into the gap an older one\ncould not use is exactly the inversion the age stamp exists to prevent, and it would\nalso make the backpressure unfair in a way no real dock is.\n\nCOST IS O(queues + admitted), and getting there took three attempts:\n\n  1. The original walked every held item on every call, doing a `route()` each time.\n     `_stock`'s refill loop calls this once per pass and needs roughly\n     `work / staging` passes, so passes and the held list grew together: quadratic.\n     Measured at 40 batches, staging=4 -- 27,248,644 `route()` calls at 2,400 SKUs.\n  2. An early exit on \"every queue has refused\" cut the routing 96x at that size, and\n     was reported as the fix.  It was not.  It still did `still.extend(rest)` into a\n     fresh deque, so every call copied the whole list -- and worse, THE EXIT WAS\n     UNREACHABLE.  It fired on `len(blocked) >= len(self.put_queues)`, every queue in\n     the set, while a store-only catalogue routes to two of the split's three and\n     `fulfillment` stays empty forever.  Touches kept growing at k=1.81 against 1.82\n     before the exit existed.\n  3. `_held` is now PARTITIONED by queue (`HeldItems`), so a full queue is skipped in\n     O(1) and there is no exit condition to get wrong.  Routing already happened when\n     the item was held, so this does none.\n\nA per-queue COUNT beside the single deque was tried between 2 and 3 and rejected:\nderived state that can drift, and a stale one makes this stop instantly and livelock,\nwhich is worse than the slowness it cures.  The partition needs nothing kept in sync.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
@@ -13982,6 +13982,61 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'fulfillment'"
+    },
+    "Warehouse/inventory/put_queue.py::HeldItems": {
+      "decorators": [],
+      "doc": "Put-away items a queue refused, partitioned BY THAT QUEUE.\n\nOne deque per queue rather than one global deque, and the reason is asymptotic. The\nrefill loop retries the held items once per pass and needs roughly `work / staging`\npasses, so the passes and the held list grow together. With a single deque the retry had\nto WALK to discover that the items it could admit were not there -- O(H) per call, O(H)\ncalls, quadratic. Keyed by queue, a full queue is skipped in O(1) and the retry costs\nO(queues + admitted).\n\nThe earlier attempt at this kept the single deque and added an early exit on \"every queue\nhas refused\". That exit is unreachable whenever a queue in the set never receives\nanything -- which is every store-only run of the three-queue split, where `fulfillment`\nstays empty and `blocked` tops out at 2 of 3. Measured: ~347 items examined per call,\ntouches growing at k=1.81. The exit was not too weak; it was asking a question the\npartition answers structurally.\n\nA per-queue COUNT was also tried and rejected: derived state that can drift from the\ndeque, and a stale one makes the retry stop instantly and livelock. Here the partition IS\nthe state -- there is nothing to keep in sync.\n\nORDER. Oldest-first is preserved within a queue, which is the only place it means\nanything: an item competes for floor space only with other items bound for its own\nqueue, so a global age order across queues never affected an admission. `__iter__` yields\nqueue by queue and is used for aggregation (`carryover_rows`, `queue_contents`), where\norder is irrelevant.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/put_queue.py::HeldItems.__bool__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/inventory/put_queue.py::HeldItems.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/put_queue.py::HeldItems.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/put_queue.py::HeldItems.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/put_queue.py::HeldItems.append": {
+      "decorators": [],
+      "doc": "Hold one item against the queue that refused it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, queue_name: str, item: PutawayItem) -> None"
+    },
+    "Warehouse/inventory/put_queue.py::HeldItems.clear": {
+      "decorators": [],
+      "doc": "Drop everything held.  Tests use it to isolate a queue's own behaviour; nothing in\nthe product does, because merchandise does not evaporate.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/put_queue.py::HeldItems.loaded": {
+      "decorators": [],
+      "doc": "`(queue_name, deque)` for the queues actually holding something.\n\nA list rather than a generator: `_admit_held` drains these in place, and mutating a\ndict's values while iterating its items is the kind of thing that works until a\nqueue empties.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
     },
     "Warehouse/inventory/put_queue.py::PALLET": {
       "decorators": [],

@@ -15,45 +15,33 @@
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
 
 <pre class="sig"><code>def _admit_held(self) -&gt; int</code></pre>
-<section class="doc">Retry the held items, oldest first.  Returns how many got in.
+<section class="doc">Retry the held items, oldest first within each queue.  Returns how many got in.
 
 Stops at the FIRST refusal for a given queue rather than scanning past it for
-something that happens to fit.  Letting a younger item slip into the gap a older one
+something that happens to fit.  Letting a younger item slip into the gap an older one
 could not use is exactly the inversion the age stamp exists to prevent, and it would
 also make the backpressure unfair in a way no real dock is.
 
-AND STOPS ENTIRELY once every queue has refused, which is the difference between
-this being linear and being quadratic.  `_stock`&#x27;s refill loop calls this once per
-pass and needs roughly `work / staging` passes, so with a tight floor the passes and
-the held list grow together.  Without the early exit the loop still walked every
-remaining item on every pass -- doing a `route()` each time -- to reach a conclusion
-the first blocked-out queue had already settled.
+COST IS O(queues + admitted), and getting there took three attempts:
 
-Measured before the exit existed, at 40 batches with `staging=4`: `route()` was
-called 27,248,644 times at 2,400 SKUs against 174,738 without staging, growing at
-k=1.784 where the rest of the drain grows at k=0.91.  Wall went 5.08s -&gt; 18.67s at
-that size and the gap widens with the catalogue.
+  1. The original walked every held item on every call, doing a `route()` each time.
+     `_stock`&#x27;s refill loop calls this once per pass and needs roughly
+     `work / staging` passes, so passes and the held list grew together: quadratic.
+     Measured at 40 batches, staging=4 -- 27,248,644 `route()` calls at 2,400 SKUs.
+  2. An early exit on &quot;every queue has refused&quot; cut the routing 96x at that size, and
+     was reported as the fix.  It was not.  It still did `still.extend(rest)` into a
+     fresh deque, so every call copied the whole list -- and worse, THE EXIT WAS
+     UNREACHABLE.  It fired on `len(blocked) &gt;= len(self.put_queues)`, every queue in
+     the set, while a store-only catalogue routes to two of the split&#x27;s three and
+     `fulfillment` stays empty forever.  Touches kept growing at k=1.81 against 1.82
+     before the exit existed.
+  3. `_held` is now PARTITIONED by queue (`HeldItems`), so a full queue is skipped in
+     O(1) and there is no exit condition to get wrong.  Routing already happened when
+     the item was held, so this does none.
 
-Skipping the tail costs nothing observable: every remaining item takes the
-`q.name in blocked` branch, whose only effects are holding the item -- in the same
-order -- and re-adding a name already in the set.  `admit(arrival=False)`
-deliberately counts nothing, and `route()` is a pure lookup that cannot raise here
-because `_admit` already routed every one of these items before it held them.
-
-THE EXIT ALONE WAS NOT ENOUGH, and the first version of this fix claimed otherwise.
-It broke out of the `route()` loop and then did `still.extend(rest)` into a fresh
-deque, so every call still COPIED the whole held list: O(H) per call, O(H) calls,
-quadratic.  Exact counts at 20 batches, staging=4, over 300/600/1,200/2,400 SKUs --
-`route()` calls fell to k=0.888 while held-item TOUCHES stayed at k=1.840, against
-k=1.823 before the exit existed.  The expensive work per touch went (96x at 2,400
-SKUs); the touches did not.
-
-So the deque is now mutated IN PLACE.  Admitted items are popped and dropped, refused
-ones are collected and pushed back at the front in their original order, and the
-untouched tail is never read at all -- `extendleft(reversed(refused))` restores
-exactly the order the copy used to produce, because every refused item preceded every
-untouched one.  Cost is O(examined), and after the exit `examined` is bounded by
-`admitted + n_queues`.</section>
+A per-queue COUNT beside the single deque was tried between 2 and 3 and rejected:
+derived state that can drift, and a stale one makes this stop instantly and livelock,
+which is worse than the slowness it cures.  The partition needs nothing kept in sync.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock.html"><code>_stock</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__admit_held">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20_admit_held">Source ↗</a></p>
 </article>

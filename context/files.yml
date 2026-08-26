@@ -2477,16 +2477,17 @@ files:
       - {name: "test_the_runner_advances_a_cursor_instead_of_reusing_one_tuple", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
       - {name: "test_no_roster_lookup_falls_back_to_another_crew", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
     notes: ""
-  "Tests/unit/test_admit_held_early_exit.py":
-    purpose: "the retry stops once every queue has refused."
+  "Tests/unit/test_admit_held_is_linear.py":
+    purpose: "the retry costs O(queues + admitted), not O(held)."
     layer: "tests"
     key_symbols:
-      - {name: "counted", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
-      - {name: "test_route_is_called_per_queue_not_per_held_item", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
-      - {name: "test_the_count_does_not_grow_with_the_held_list", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
-      - {name: "test_a_partially_blocked_set_still_walks_far_enough", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
-      - {name: "test_the_early_exit_matches_an_exhaustive_walk", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
-      - {name: "test_the_comparison_is_not_vacuous", file: "Tests/unit/test_admit_held_early_exit.py", kind: "function"}
+      - {name: "counted", file: "Tests/unit/test_admit_held_is_linear.py", kind: "function"}
+      - {name: "test_admit_is_called_per_queue_not_per_held_item", file: "Tests/unit/test_admit_held_is_linear.py", kind: "function"}
+      - {name: "test_the_count_does_not_grow_with_the_held_list", file: "Tests/unit/test_admit_held_is_linear.py", kind: "function"}
+      - {name: "test_an_idle_queue_does_not_make_the_retry_walk", file: "Tests/unit/test_admit_held_is_linear.py", kind: "function"}
+      - {name: "test_the_partition_matches_the_original_global_walk", file: "Tests/unit/test_admit_held_is_linear.py", kind: "function"}
+      - {name: "test_the_comparison_is_not_vacuous", file: "Tests/unit/test_admit_held_is_linear.py", kind: "function"}
+      - {name: "test_nothing_is_held_against_a_queue_that_did_not_refuse_it", file: "Tests/unit/test_admit_held_is_linear.py", kind: "function"}
     notes: ""
   "Tests/unit/test_affinity_lift_invariant.py":
     purpose: "test_affinity_lift_invariant.py"
@@ -4131,6 +4132,7 @@ files:
       - {name: "PutQueue", file: "Warehouse/inventory/put_queue.py", kind: "class"}
       - {name: "PutQueueSet", file: "Warehouse/inventory/put_queue.py", kind: "class"}
       - {name: "single_queue", file: "Warehouse/inventory/put_queue.py", kind: "function"}
+      - {name: "HeldItems", file: "Warehouse/inventory/put_queue.py", kind: "class"}
       - {name: "store_and_fulfillment", file: "Warehouse/inventory/put_queue.py", kind: "function"}
     notes: ""
   "Warehouse/kernel/allocation.py":
