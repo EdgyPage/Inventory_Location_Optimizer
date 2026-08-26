@@ -75,10 +75,15 @@ class BatchStats:
     # correctly, because such a run genuinely received nothing as labour.
     recv_depth: int = 0        # LEVEL: storage units still on the dock (see `queue_depth`)
     recv_unloaded: int = 0     # FLOW: storage units taken off a trailer this batch
-    recv_cut: int = 0          # FLOW: storage units the receiving whistle left standing
+    # NOT a flow -- a LEVEL that resets every batch.  Never sum it; see `PutQueue.cut`.
+    recv_cut: int = 0          # storage units the receiving whistle left standing
     recv_seconds: float = 0.0  # FLOW: receiving labour, seconds (never in `putaway_seconds`)
-    # Which working day this batch was released into, and by how many seconds it missed its
+    # Which working day this batch was RELEASED into, and by how many seconds it missed its
     # slot.  Both 0 under the continuous default, which has no day structure and no slots.
+    # `work_day == 0` therefore says nothing about whether a whistle ever blew: the release
+    # schedule and the crew shift are two different days.  On the 200-batch stress run every
+    # batch reported `work_day = 0` while the cut fired 1,418 times across 14 shifts.  The
+    # shift a unit of WORK happened in is `work_events.shift_index`.
     work_day: int = 0
     released_late: float = 0.0
     is_outlier: bool = False
@@ -286,10 +291,14 @@ _CREATE_BATCH_STATS = """
         queue_depth            INTEGER NOT NULL DEFAULT 0,
         lead_queue_depth       INTEGER NOT NULL DEFAULT 0,
         in_transit_qty         INTEGER NOT NULL DEFAULT 0,
-        -- Which working day this batch was released into, 0-based.  Always 0 under the
+        -- Which working day this batch was RELEASED into, 0-based.  Always 0 under the
         -- continuous default: that schedule has no day structure to place a batch in.
         -- Without this no analysis can group a result BY DAY, which is the unit the whole
         -- working-day model is expressed in.
+        -- NOT the shift the work happened in, and the two come apart: a continuous release
+        -- leaves this 0 for every batch even while the crews' whistle is cutting them.
+        -- Measured on a 200-batch run -- `work_day = 0` throughout, 1,418 cut events over
+        -- 14 shifts.  For the shift a unit of work landed in, read `work_events.shift_index`.
         work_day               INTEGER NOT NULL DEFAULT 0,
         -- Seconds by which this batch missed its scheduled slot, because the crew was still
         -- working the previous one.  The release clamps to when the arm is actually free --

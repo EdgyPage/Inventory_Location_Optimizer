@@ -151,10 +151,16 @@ class PutQueue:
             spec.cart.capacity()) if spec.cart is not None else 0.0
         self.cart_remaining: float = self.cart_cap
         self.cart_swaps: int = 0
-        #: Items this queue still held when the day's whistle stopped it, this batch.  A
-        #: FLOW counter like `blocked`: it says what the boundary cost, where `depth` says
-        #: what is standing.  Both are needed -- a deep queue that the whistle never reached
-        #: and a shallow one it cut hard are different problems.
+        #: Items this queue still held when the day's whistle stopped it, this batch.
+        #: NOT a flow, despite resetting every batch like one.  The counter is reset; the
+        #: VALUE is a level, because what it records is `len(self.items)` at the whistle --
+        #: the same standing queue, re-counted from scratch each batch.  DO NOT SUM IT: a
+        #: unit that waits ten batches contributes ten times.  Measured on a 200-batch run,
+        #: `cut == depth` in 200 of 200 batches and the sum came to 101x the largest true
+        #: value.  What IS additive is the COUNT of batches where it is non-zero.
+        #: Kept beside `depth` because it carries the one thing depth cannot: whether a
+        #: whistle was in force at all.  `depth > 0, cut = 0` is a backlog nobody was
+        #: stopped from clearing.
         self.cut: int = 0
 
     def __len__(self):
@@ -266,7 +272,11 @@ class PutQueue:
 
     def drain_counters(self) -> dict:
         """Hand over this batch's counters and reset. Depth and oldest age are read at the
-        moment of the snapshot and are NOT reset — they are levels, not flows."""
+        moment of the snapshot and are NOT reset — they are levels, not flows.
+
+        `cut` is reset here with the flows and is NOT one of them; see its declaration.
+        Being reset per batch is what makes a counter per-batch, not what makes it
+        summable."""
         out = {'queue': self.spec.name, 'depth': len(self.items),
                'oldest_age': self.oldest_age, 'staging': self.spec.staging,
                'admitted': self.admitted, 'placed': self.placed, 'blocked': self.blocked,

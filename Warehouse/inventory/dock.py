@@ -203,7 +203,11 @@ class Dock:
         return recs
 
     def snapshot(self) -> tuple:
-        """`(depth, unloaded, cut, seconds)` — and reset the three FLOWS.
+        """`(depth, unloaded, cut, seconds)` — and reset the three per-batch counters.
+
+        Two of those three are flows; `cut` is not, though it resets like one.  See
+        `PutQueue.cut`, which has the same shape and the same warning: it re-counts the
+        whole standing dock every batch, so it must never be summed across them.
 
         Depth is a LEVEL and survives, exactly as `PutQueue.drain_counters` treats its own.
         Must run once per batch: a second call in the same batch reports zeros, and that is
