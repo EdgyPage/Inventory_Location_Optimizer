@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>recv_crew_spec · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_sim_config_py__recv_crew_spec" data-id="Optimization/config/sim_config.py::recv_crew_spec">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a> <span class="sep">›</span> <span class="here"><code>recv_crew_spec</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>recv_crew_spec</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def recv_crew_spec() -&gt; dict | None</code></pre>
+<section class="doc">The receiving crew as a picklable record, or **None** when there is no crew.
+
+None rather than an empty dict, and that distinction is the feature&#x27;s off-switch. The
+worker tests `args.get(&#x27;recv_crew&#x27;) is None` and skips its whole receive block: no Crew,
+no Workers, no clocks, no Dock, no WorkDay. The no-op is therefore &quot;nothing was
+constructed&quot; rather than &quot;an empty thing exists&quot; -- which matters because an empty dock
+would still be an object something could fold into a clock or a snapshot.
+
+COPIED FROM `work_day_spec`, NOT FROM `put_crew_spec`. That one reads `_s.PUT_CREW_SIZE`
+directly and there is no `CONFIG[&#x27;global&#x27;][&#x27;put_crew_*&#x27;]` key at all -- so a CLI flag,
+which writes CONFIG, would be accepted and ignored forever, and a standalone re-analysis
+would size against this checkout&#x27;s `settings.py` instead of the run&#x27;s own. Reading CONFIG
+at CALL time is what makes the other three seams reachable.
+
+`day_seconds` is resolved with an explicit `is not None`, never `or`: `--recv-day-seconds
+0` means &quot;the crew has no day today&quot;, and `or` would silently turn that into &quot;no whistle
+at all&quot; -- the inverse. (The parser rejects 0 as well, so this is the second of two
+guards on the same mistake.)
+
+Speeds come from the PUT crew&#x27;s foot table. Not laziness: an unload has no travel term,
+so no speed is consumed by the cost model at all, and declaring receiving-specific
+constants would assert a distinction the model cannot express. They are carried only so a
+`Crew` can be built and its rows labelled.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_settings_py__PUT_FOOT_X.html"><code>PUT_FOOT_X</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_FOOT_Y.html"><code>PUT_FOOT_Y</code></a> <span class="dim">Optimization/config/settings.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__recv_crew_spec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20recv_crew_spec">Source ↗</a></p>
+</article>
+</main>
+</body></html>

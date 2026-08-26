@@ -14,10 +14,18 @@
 <h1><span class="kind kind-function">function</span> <code>_release_to_stock</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _release_to_stock(self, sku: int, qty: int, deliveries=None) -&gt; None</code></pre>
+<pre class="sig"><code>def _release_to_stock(self, sku: int, qty: int, deliveries=None) -&gt; list</code></pre>
 <section class="doc">Convert an arrived (sku, qty) order into storage units and append them to the
 stock queue, updating the queued-unit / queued-qty trackers.  Shared by every
 lead-queue arrival (including lead-0 orders released the same batch).
+
+RETURNS the `LoadPlan`s it built, rather than stashing them.  An earlier version kept
+them on the manager behind a `drain_inbound()` -- which was write-only state with an
+extra method, since nothing ever drained it, and it pinned a tuple of live
+`StorageUnit`s plus a cloned `Order` for every arrival of the whole run.  There is
+exactly one caller, so the return value is the honest shape: nothing to leak, and a
+receiving crew takes the plans from here rather than from a buffer it must remember
+to empty.
 
 THE INBOUND SEAM.  Packing has always been a function of how much arrives AT ONCE --
 `viable_storage_units` takes a quantity -- but nothing named that, so nothing could

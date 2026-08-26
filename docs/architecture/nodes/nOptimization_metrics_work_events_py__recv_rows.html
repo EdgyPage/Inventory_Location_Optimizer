@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>recv_rows · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_metrics_work_events_py__recv_rows" data-id="Optimization/metrics/work_events.py::recv_rows">
+<nav class="crumbs"><a href="../layers.html">opt_metrics</a> <span class="sep">›</span> <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a> <span class="sep">›</span> <span class="here"><code>recv_rows</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>recv_rows</code></h1>
+<p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def recv_rows(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None)</code></pre>
+<section class="doc">Merged-stream rows for one batch&#x27;s RECEIVING, through `put_rows`&#x27; body.
+
+`records` are `Inventory_Manager.drain_receiving_records()` tuples
+`(t_start, dur, sku, qty, worker)`, widened here to the 10-slot put shape with `None`
+for the aisle and 0.0 for the coordinates -- a dock has no aisle and no position. The
+`source` slot carries `&#x27;dock&#x27;`, which is where the work happened; the merchandise&#x27;s own
+origin is already on the put row that follows it.
+
+A THIN WRAPPER ON PURPOSE. Everything that is easy to get subtly wrong lives in
+`put_rows`: `crew_start` for `t_abs` against `batch_start` for `t_local`, the worker
+bounds check, and the refusal to mix streams in one call. A second implementation would
+have its own copy of each, and the copies would drift somewhere nobody looks.
+
+Refuses a `Crew` OBJECT rather than its pre-offset worker tuple. `Crew.workers()`
+defaults `first_uid=0`, so passing the crew here would silently re-allocate uids from
+zero and collide with the pick crew -- and nothing downstream could tell: a collision
+passes the bounds check, the DDL has no uniqueness constraint, and the merged view still
+sorts. Any per-actor rollup would then merge two people, and the failure is quietest
+exactly when the receiving crew is small, which is the likely configuration.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_metrics_work_events_py__put_rows.html"><code>put_rows</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__recv_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20recv_rows">Source ↗</a></p>
+</article>
+</main>
+</body></html>

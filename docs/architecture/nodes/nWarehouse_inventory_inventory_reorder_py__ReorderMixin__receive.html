@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_receive · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive" data-id="Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin.html"><code>ReorderMixin</code></a> <span class="sep">›</span> <span class="here"><code>_receive</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_receive</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _receive(self, arrivals=(), deadline: float | None=None) -&gt; None</code></pre>
+<section class="doc">Unload what is standing on the dock, until the crew runs out of day.
+
+Returns immediately when there is no receiving crew, which is every run that does not
+ask for one -- the dock is not constructed at all, so this is one `is None` test and
+not a flag.
+
+WHERE THIS SITS IS THE DESIGN. Above it, steps 0-3 are the CALENDAR: a lead time
+elapses whether or not anyone is at work, and a trailer that arrives at four o&#x27;clock
+has still arrived. Below it, `_drain_putaway` is the put crew&#x27;s labour. Receiving is
+labour too, and it must run BEFORE the put drain, or a unit unloaded at nine in the
+morning would wait a whole batch for a bin -- a latency that would be an artifact of
+where the hook sits rather than anything about a warehouse.
+
+THE WHISTLE IS A START GATE, exactly as put-away&#x27;s is: a receiver already past
+`deadline` begins nothing new, and the unload in progress when it blows finishes. So
+overtime is bounded by one unload per worker, which is what someone carrying a pallet
+off a tail lift actually does. `deadline` is a REMAINDER on the crew&#x27;s batch-local
+clock, not an instant -- see `crew_clock.can_start`.
+
+What the whistle stops stays on the dock and is the first thing tomorrow&#x27;s crew
+touches: the deque is in arrival order, so the rollover is FIFO and no unit can be
+overtaken by merchandise that arrived after it.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_operations_unload_py__unload_cost.html"><code>unload_cost</code></a> <span class="dim">Warehouse/operations/unload.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_receive">Source ↗</a></p>
+</article>
+</main>
+</body></html>

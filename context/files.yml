@@ -13,6 +13,13 @@ files:
       - {name: "runtime_view", file: "Diagnostics/bucket_fill.py", kind: "function"}
       - {name: "main", file: "Diagnostics/bucket_fill.py", kind: "function"}
     notes: ""
+  "Diagnostics/receiving_report.py":
+    purpose: "the receiving stream, reconciled against the run that wrote it."
+    layer: "diagnostics"
+    key_symbols:
+      - {name: "reconcile", file: "Diagnostics/receiving_report.py", kind: "function"}
+      - {name: "main", file: "Diagnostics/receiving_report.py", kind: "function"}
+    notes: ""
   "Diagnostics/replay_run.py":
     purpose: "export a real simulation run's persisted DBs to a dashboard trace."
     layer: "diagnostics"
@@ -526,6 +533,9 @@ files:
       - {name: "WORK_DAY_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "RELEASES_PER_DAY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "CUT_AT_DAY_END", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "RECV_CREW_SIZE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "RECV_DAY_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "RECV_DAY_ORIGIN", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "ROLL_OVER_UNPICKED", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "FF_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
@@ -562,6 +572,7 @@ files:
       - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "work_day_spec", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "recv_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "ff_fill", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -662,6 +673,7 @@ files:
     key_symbols:
       - {name: "pick_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
       - {name: "put_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
+      - {name: "recv_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
       - {name: "merged", file: "Optimization/metrics/work_events.py", kind: "function"}
     notes: ""
   "Optimization/persistence/Picking_Data.py":
@@ -1527,6 +1539,14 @@ files:
       - {name: "test_server_routes_call_only_protocol_members", file: "Tests/architecture/test_viewer_protocol_conformance.py", kind: "function"}
       - {name: "test_top_skus_default_is_50_everywhere", file: "Tests/architecture/test_viewer_protocol_conformance.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_written_columns_are_readable.py":
+    purpose: "a column nobody can read back is not persisted."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_batch_stats_column_written_can_be_read_back", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+      - {name: "test_the_ratchet_can_actually_fail", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+      - {name: "test_the_optional_defaults_match_the_column_types", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+    notes: ""
   "Tests/bench/bench_ranked_assign.py":
     purpose: "perf benchmark for _ranked_assign_impl (lift waves)."
     layer: "tests"
@@ -1590,6 +1610,7 @@ files:
       - {name: "SIM_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "KEYFRAME_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "WAREHOUSE_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
+      - {name: "NOT_A_TABLE", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "EXCLUDED_COLS", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "digest_run", file: "Tests/bench/run_digest.py", kind: "function"}
       - {name: "compare", file: "Tests/bench/run_digest.py", kind: "function"}
@@ -1762,6 +1783,17 @@ files:
       - {name: "test_mixed_analysis_replicates_per_channel", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
       - {name: "test_independent_sweep_is_union_not_cross_product", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
       - {name: "test_store_only_catalog_skips_fulfillment_sweep", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
+    notes: ""
+  "Tests/e2e/test_receiving_e2e.py":
+    purpose: "a receiving crew through the production seam, reconciled."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_crew_writes_no_receiving_and_still_reconciles", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
+      - {name: "test_a_receiving_crew_reconciles_across_both_surfaces", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
+      - {name: "test_the_three_crews_hold_disjoint_contiguous_uid_blocks", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
+      - {name: "test_a_short_day_leaves_work_on_the_dock", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
+      - {name: "test_the_receive_rows_carry_the_right_role_and_type", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
+      - {name: "test_the_reconciliation_is_not_vacuous", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
     notes: ""
   "Tests/gpu/bench_gpu_all.py":
     purpose: "run the full CPU-vs-GPU benchmark suite (sampling / placement / picksim),"
@@ -2119,6 +2151,28 @@ files:
       - {name: "test_batch_stats_round_trips_the_working_day_and_the_missed_slot", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
       - {name: "test_the_working_day_columns_default_to_zero", file: "Tests/integration/test_queue_state_and_carryover.py", kind: "function"}
     notes: ""
+  "Tests/integration/test_receiving_phase.py":
+    purpose: "a receiving crew, its day, and what it leaves on the floor."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_without_a_crew_nothing_is_constructed_and_nothing_diverts", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_the_dock_only_intercepts_the_sources_it_declares", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_a_reorder_arrival_lands_on_the_dock", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_the_dock_depth_and_the_queue_depth_are_disjoint", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_merchandise_on_the_dock_is_still_on_order", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_a_backed_up_dock_does_not_make_a_sku_reorder_forever", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_a_zero_length_day_unloads_nothing_and_loses_nothing", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_what_the_whistle_stops_is_unloaded_the_next_day", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_an_unload_may_run_past_the_whistle_once", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_a_bigger_crew_clears_more_of_the_same_day", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_the_rollover_is_fifo", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_the_age_stamp_is_the_arrival_not_the_unload", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_the_snapshot_resets_flows_and_keeps_the_level", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_receiving_seconds_are_not_folded_into_putaway_seconds", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_the_records_carry_batch_local_times_and_drain", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_the_seconds_match_the_cost_model", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+      - {name: "test_an_unload_is_a_put_at_the_origin_with_no_height", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_run_layout.py":
     purpose: "Locks the run_layout.json descriptor \u2014 write/read round-trip, descriptor-driven cells() with no DBs on disk, and write_run_layout keys == the JSON Schema properties."
     layer: "tests"
@@ -2220,6 +2274,16 @@ files:
       - {name: "test_disabled_variants_registered_but_excluded", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
       - {name: "test_duplicate_name_raises", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
       - {name: "test_bad_channel_raises", file: "Tests/integration/test_simconfig_registry.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_skipped_batch_counters.py":
+    purpose: "a skipped batch keeps the flows check_reorders produced."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_one_snapshot_per_batch_however_the_batch_ends", file: "Tests/integration/test_skipped_batch_counters.py", kind: "function"}
+      - {name: "test_the_second_call_in_a_batch_really_does_report_zeros", file: "Tests/integration/test_skipped_batch_counters.py", kind: "function"}
+      - {name: "test_the_batch_loop_snapshots_the_queue_state_exactly_once", file: "Tests/integration/test_skipped_batch_counters.py", kind: "function"}
+      - {name: "test_the_scan_would_notice_a_second_call", file: "Tests/integration/test_skipped_batch_counters.py", kind: "function"}
+      - {name: "test_carryover_is_a_level_and_survives_being_read_twice", file: "Tests/integration/test_skipped_batch_counters.py", kind: "function"}
     notes: ""
   "Tests/integration/test_viewer_errors.py":
     purpose: "the viewer's schema-failure boundary: everything 501s, nothing 500s."
@@ -2359,6 +2423,16 @@ files:
       - {name: "test_the_batch_reader_surfaces_it_rather_than_reporting_a_short_batch", file: "Tests/unit/test_actor_space.py", kind: "function"}
       - {name: "test_progress_reports_the_pick_crew_and_says_so", file: "Tests/unit/test_actor_space.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_actor_uid_blocks.py":
+    purpose: "two crews are never the same people."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_chained_crews_get_disjoint_contiguous_uid_blocks", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
+      - {name: "test_local_ids_stay_dense_within_each_crew", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
+      - {name: "test_a_shared_first_uid_really_does_collide", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
+      - {name: "test_the_runner_advances_a_cursor_instead_of_reusing_one_tuple", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
+      - {name: "test_no_roster_lookup_falls_back_to_another_crew", file: "Tests/unit/test_actor_uid_blocks.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_affinity_lift_invariant.py":
     purpose: "test_affinity_lift_invariant.py"
     layer: "tests"
@@ -2409,6 +2483,7 @@ files:
       - {name: "test_a_batch_scores_the_same_wherever_it_sits_on_the_axis", file: "Tests/unit/test_arm_clock.py", kind: "function"}
       - {name: "test_the_makespan_is_the_slowest_picker_not_the_absolute_end", file: "Tests/unit/test_arm_clock.py", kind: "function"}
       - {name: "test_the_runner_carries_one_uniform_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
+      - {name: "test_the_reported_start_is_the_epoch_the_pickers_were_handed", file: "Tests/unit/test_arm_clock.py", kind: "function"}
       - {name: "test_a_skipped_batch_still_does_not_advance_the_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
       - {name: "test_a_skipped_batch_writes_a_zero_duration_row_at_the_arm_clock", file: "Tests/unit/test_arm_clock.py", kind: "function"}
       - {name: "test_a_skipped_batch_drains_its_put_records", file: "Tests/unit/test_arm_clock.py", kind: "function"}
@@ -2529,6 +2604,18 @@ files:
       - {name: "test_concurrency_is_unchanged_by_a_shift", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
       - {name: "test_a_picker_that_drew_no_tasks_contributes_no_span", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
       - {name: "test_an_empty_batch_is_still_all_zeros", file: "Tests/unit/test_batch_stat_invariance.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_batch_stats_receiving_columns.py":
+    purpose: "the dock's four numbers survive the round trip."
+    layer: "tests"
+    key_symbols:
+      - {name: "db", file: "Tests/unit/test_batch_stats_receiving_columns.py", kind: "function"}
+      - {name: "test_all_four_are_on_the_dataclass_the_ddl_and_the_read_surface", file: "Tests/unit/test_batch_stats_receiving_columns.py", kind: "function"}
+      - {name: "test_the_defaults_are_zero_and_correctly_typed", file: "Tests/unit/test_batch_stats_receiving_columns.py", kind: "function"}
+      - {name: "test_real_values_survive_write_and_read", file: "Tests/unit/test_batch_stats_receiving_columns.py", kind: "function"}
+      - {name: "test_a_zero_is_recorded_rather_than_omitted", file: "Tests/unit/test_batch_stats_receiving_columns.py", kind: "function"}
+      - {name: "test_the_pre_existing_columns_are_untouched", file: "Tests/unit/test_batch_stats_receiving_columns.py", kind: "function"}
+      - {name: "test_the_two_depths_are_disjoint_halves_of_one_backlog", file: "Tests/unit/test_batch_stats_receiving_columns.py", kind: "function"}
     notes: ""
   "Tests/unit/test_bell_freq_profile.py":
     purpose: "test_bell_freq_profile.py"
@@ -2693,6 +2780,29 @@ files:
       - {name: "test_an_exhausted_pool_reports_nothing", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
       - {name: "test_a_stale_winner_key_would_send_the_next_unit_to_the_wrong_aisle", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_crew_clock.py":
+    purpose: "the five rules every timed work stream shares, in one place."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_new_crew_is_all_idle", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_a_crew_of_nobody_is_a_configuration_error", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_the_error_names_the_stream", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_size_of_is_zero_when_unbound", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_the_gate_reads_the_EARLIEST_free_worker", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_a_worker_free_exactly_AT_the_whistle_is_stopped", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_no_deadline_and_no_crew_both_mean_yes", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_a_negative_deadline_stops_everyone", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_work_goes_to_whoever_is_free_earliest", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_ties_break_to_the_lowest_index", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_a_crew_of_one_is_exactly_a_serial_clock", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_a_bigger_crew_finishes_the_same_work_sooner", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_finish_is_the_last_worker_and_zero_when_unbound", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_reset_mutates_in_place", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_reset_tolerates_an_unbound_stream", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_crew_clock_imports_nothing", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_put_queue_has_no_second_copy_of_the_rules", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+      - {name: "test_the_delegation_preserves_the_start_gate", file: "Tests/unit/test_crew_clock.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_day_cut.py":
     purpose: "stopping a picker at the whistle, and carrying what it did not reach."
     layer: "tests"
@@ -2795,6 +2905,8 @@ files:
       - {name: "test_a_split_moves_the_same_merchandise", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
       - {name: "test_zero_and_empty_deliveries_are_dropped_not_counted", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
       - {name: "test_inbound_split_reshapes_a_real_reorder_arrival", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_the_plans_are_returned_and_not_retained", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
+      - {name: "test_the_arrival_phase_returns_what_came_off_the_trucks", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
       - {name: "test_the_trackers_count_the_split_packing", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
       - {name: "test_no_split_policy_reproduces_the_packer_exactly", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
       - {name: "test_a_policy_returning_none_is_the_same_as_no_policy", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
@@ -2878,7 +2990,8 @@ files:
     key_symbols:
       - {name: "FOOT", file: "Tests/unit/test_operations_actors.py", kind: "const"}
       - {name: "MACHINE", file: "Tests/unit/test_operations_actors.py", kind: "const"}
-      - {name: "test_the_four_combinations_exist", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_the_member_sets_are_exactly_these", file: "Tests/unit/test_operations_actors.py", kind: "function"}
+      - {name: "test_the_role_spelling_decides_a_tie_and_must_stay_boring", file: "Tests/unit/test_operations_actors.py", kind: "function"}
       - {name: "test_a_member_renders_as_its_bare_value", file: "Tests/unit/test_operations_actors.py", kind: "function"}
       - {name: "test_of_parses_known_text", file: "Tests/unit/test_operations_actors.py", kind: "function"}
       - {name: "test_of_rejects_anything_else_and_lists_the_options", file: "Tests/unit/test_operations_actors.py", kind: "function"}
@@ -3201,6 +3314,28 @@ files:
       - {name: "test_two_consecutive_groups_share_state", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
       - {name: "test_the_state_is_actually_deep_copied_between_runs", file: "Tests/unit/test_ranked_assign_pool_equivalence.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_receiving_params.py":
+    purpose: "the receiving crew reaches a real run, through all five seams."
+    layer: "tests"
+    key_symbols:
+      - {name: "restore", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_defaults_are_no_crew", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_there_is_no_receiving_speed_or_mode_knob", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_keys_are_in_config", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_accessor_reads_config_and_not_the_module", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_no_crew_is_none_and_not_an_empty_dict", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_a_zero_length_day_is_not_the_same_as_no_day", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_each_knob_has_a_flag", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_crew_size_accepts_zero_but_not_negative", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_day_length_rejects_zero_at_the_parser", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_recorded_in_the_run_spec_and_restored_on_resume", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_restored_by_a_standalone_reanalysis", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_crew_reaches_the_worker_payload", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_worker_reads_the_crew_only_from_its_arguments", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_receive_whistle_is_not_the_put_whistle", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_the_day_origin_reaches_the_workday_and_moves_the_whistle", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+      - {name: "test_batch_resume_is_refused_when_a_dock_is_configured", file: "Tests/unit/test_receiving_params.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_regime_sizing.py":
     purpose: "the PER-REGIME warehouse sizing path (plan_warehouse regime_sizing)."
     layer: "tests"
@@ -3253,8 +3388,10 @@ files:
       - {name: "test_draining_putaway_does_not_advance_the_calendar_or_order_anything", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
       - {name: "test_every_phase_is_callable_on_a_fresh_manager", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
       - {name: "test_the_phase_list_here_matches_the_composition", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
-      - {name: "test_the_put_deadline_reaches_only_the_drain", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
-      - {name: "test_the_default_deadline_is_none", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_each_labour_phase_gets_its_own_whistle_and_the_calendar_gets_none", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_the_two_whistles_are_not_the_same_sentinel", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_both_deadlines_default_to_none", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
+      - {name: "test_receiving_is_handed_this_batch_arrivals", file: "Tests/unit/test_reorder_phases.py", kind: "function"}
     notes: ""
   "Tests/unit/test_reorder_queue.py":
     purpose: "test_reorder_queue.py"
@@ -3876,6 +4013,13 @@ files:
     key_symbols:
       - {name: "Inventory_Manager", file: "Warehouse/inventory/Inventory_Management.py", kind: "class"}
     notes: ""
+  "Warehouse/inventory/dock.py":
+    purpose: "the receiving crew and what is standing on their floor."
+    layer: "wh_inventory"
+    key_symbols:
+      - {name: "DockSpec", file: "Warehouse/inventory/dock.py", kind: "class"}
+      - {name: "Dock", file: "Warehouse/inventory/dock.py", kind: "class"}
+    notes: ""
   "Warehouse/inventory/inventory_common.py":
     purpose: "leaf types/constants/helpers shared by the Inventory_Manager"
     layer: "wh_inventory"
@@ -3954,6 +4098,17 @@ files:
       - {name: "aisle_traverse_cost", file: "Warehouse/kernel/cost_model.py", kind: "function"}
       - {name: "SpeedProfile", file: "Warehouse/kernel/cost_model.py", kind: "class"}
       - {name: "cart_step", file: "Warehouse/kernel/cost_model.py", kind: "function"}
+    notes: ""
+  "Warehouse/kernel/crew_clock.py":
+    purpose: "one crew's workers as a list of instants, and the five rules over it."
+    layer: "wh_kernel"
+    key_symbols:
+      - {name: "new_clocks", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+      - {name: "size_of", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+      - {name: "can_start", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+      - {name: "finish", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+      - {name: "charge", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+      - {name: "reset", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
     notes: ""
   "Warehouse/kernel/regime.py":
     purpose: "storage-regime identity (store vs fulfillment)."
@@ -4043,6 +4198,13 @@ files:
     key_symbols:
       - {name: "Role", file: "Warehouse/operations/roles.py", kind: "class"}
       - {name: "Mode", file: "Warehouse/operations/roles.py", kind: "class"}
+    notes: ""
+  "Warehouse/operations/unload.py":
+    purpose: "what it costs to take merchandise off a trailer."
+    layer: "wh_operations"
+    key_symbols:
+      - {name: "UnloadCost", file: "Warehouse/operations/unload.py", kind: "class"}
+      - {name: "unload_cost", file: "Warehouse/operations/unload.py", kind: "function"}
     notes: ""
   "Warehouse/operations/worker.py":
     purpose: "one actor, and a pool of them, with the two id spaces kept apart."

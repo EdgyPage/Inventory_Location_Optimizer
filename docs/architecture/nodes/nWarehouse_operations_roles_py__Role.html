@@ -15,7 +15,21 @@
 <p class="meta">layer <span class="chip">wh_operations</span> · file <a href="../files/nWarehouse_operations_roles_py.html"><code>Warehouse/operations/roles.py</code></a></p>
 
 <pre class="sig"><code>class Role(_Named)</code></pre>
-<section class="doc">What the actor is doing with inventory: taking it out, or putting it away.</section>
+<section class="doc">What the actor is doing with inventory: taking it out, putting it away, or
+bringing it in.
+
+THE VALUE IS THE DB COLUMN.  `work_events.role` is free TEXT with no CHECK, written as
+`str(w.role)`, and nothing calls `Role.of` on the way in -- so a typo persists silently
+and every `WHERE role=&#x27;receive&#x27;` returns nothing while the row count still reconciles.
+That is why these are an Enum at all.
+
+One consequence of the SPELLING, recorded because it is invisible and easy to
+&quot;improve&quot;: the merged event stream&#x27;s declared order breaks ties on `role` as a STRING,
+and the batch epoch is a real tie in every run.  `&#x27;pick&#x27; &lt; &#x27;put&#x27; &lt; &#x27;receive&#x27;`, so a
+receive sorts LAST at a shared instant.  Renaming it to `&#x27;dock&#x27;` or `&#x27;inbound&#x27;` would
+silently move it FIRST, ahead of every pick -- and no test would notice, because Python&#x27;s
+`sorted` and SQLite&#x27;s BINARY collation agree under any name.  The order is arbitrary and
+must stay uninteresting; do not rename one of these to get a sort you like.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_roles_py__Role">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/roles.py#:~:text=class%20Role">Source ↗</a></p>
 </article>

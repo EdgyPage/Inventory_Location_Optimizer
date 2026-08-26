@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>check_reorders</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def check_reorders(self, put_deadline: float | None=None) -&gt; list[int]</code></pre>
+<pre class="sig"><code>def check_reorders(self, put_deadline: float | None=None, recv_deadline: float | None=None) -&gt; list[int]</code></pre>
 <section class="doc">Order-Up-To replenishment through an explicit, deterministic lead queue.
 
 Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
@@ -26,22 +26,29 @@ lead 0.  Per call (one completed batch), in this order and no other:
      centred on the equilibrium fill (supply_cv set at generation).
   3. Release every arrived order (remaining_lead ≤ 0) into the stock queue — this
      catches both decremented-to-0 olds AND fresh lead-0 newcomers (same batch).
-  4. Place the stock queue into bins via _stock().
+  4. Unload the dock, if there is a receiving crew, until its day runs out.
+  5. Place the stock queue into bins via _stock().
 
 Inventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a
 SKU with an order already in flight is not reordered again.
 
-`put_deadline` is the day&#x27;s whistle for step 4 only, in seconds on the put crews&#x27;
-batch-local clocks.  It reaches nothing above it on purpose: steps 0-3 are the
-CALENDAR advancing — a lead time elapses whether or not anyone is at work, and a
-trailer that arrives at four o&#x27;clock has still arrived.  What the day bounds is the
-LABOUR, and the labour is step 4.
+`put_deadline` and `recv_deadline` are the two crews&#x27; whistles, each in seconds on
+its OWN batch-local clock, and each reaching exactly one phase.  They are separate
+parameters rather than one shared day because the crews are separate: handing
+receiving the put crew&#x27;s remaining day would be arithmetically well-formed and wrong
+by an unrelated crew&#x27;s overrun, and a cut count of zero reads as &quot;the boundary cost
+nothing&quot;.
+
+Neither reaches anything above step 4 on purpose: steps 0-3 are the CALENDAR
+advancing — a lead time elapses whether or not anyone is at work, and a trailer that
+arrives at four o&#x27;clock has still arrived.  What a day bounds is the LABOUR, and the
+labour is steps 4 and 5.
 
 THE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can
 drive them separately, but reordering them changes results: firing before the lead
 tick would decrement an order in the batch it was placed, and releasing before
 firing would delay every lead-0 arrival by a batch.</section>
-<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__advance_lead_queue.html"><code>_advance_lead_queue</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__drain_putaway.html"><code>_drain_putaway</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__fire_reorders.html"><code>_fire_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_arrivals.html"><code>_release_arrivals</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__tick_batch.html"><code>_tick_batch</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_reclaim_emptied_bins.html"><code>reclaim_emptied_bins</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__runtime_view.html"><code>runtime_view</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(7)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__advance_lead_queue.html"><code>_advance_lead_queue</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__drain_putaway.html"><code>_drain_putaway</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__fire_reorders.html"><code>_fire_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive.html"><code>_receive</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_arrivals.html"><code>_release_arrivals</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__tick_batch.html"><code>_tick_batch</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_reclaim_emptied_bins.html"><code>reclaim_emptied_bins</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__runtime_view.html"><code>runtime_view</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20check_reorders">Source ↗</a></p>
 </article>
 </main>

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>put_rows</code></h1>
 <p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def put_rows(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None)</code></pre>
+<pre class="sig"><code>def put_rows(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None, event_type: str=&#x27;put&#x27;)</code></pre>
 <section class="doc">Merged-stream rows for one batch&#x27;s put-away.
 
 `records` are `Inventory_Manager.drain_putaway_records()` tuples
@@ -49,9 +49,16 @@ Each record names the WORKER that did it. The manager gives every put to whichev
 its crew is free earliest, so the worker is a scheduling outcome, not a function of
 position in the list. This used to round-robin on `seq % len(workers)` while the
 durations came from a single serial clock — so a crew of two reported two people each
-doing every other put, at instants that said one person did all of them. The event type
-is `put` and `qty` is positive.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py__close_skipped_batch.html"><code>close_skipped_batch</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+doing every other put, at instants that said one person did all of them. `qty` is
+positive.
+
+`event_type` is a PARAMETER and not the literal it used to be. `role` comes from the
+worker, so a second stream reusing this body would otherwise write `role=&#x27;receive&#x27;` with
+`event_type=&#x27;put&#x27;`, and `SUM(duration) WHERE role=&#x27;put&#x27;` would disagree with the same
+query on `event_type` with nothing to point at. `recv_rows` below is that second stream;
+it shares this body precisely so the two-origin split, the worker bounds check and the
+one-stream-per-call refusal exist once.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_index.html"><code>shift_index</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nOptimization_metrics_work_events_py__recv_rows.html"><code>recv_rows</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py__close_skipped_batch.html"><code>close_skipped_batch</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__put_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20put_rows">Source ↗</a></p>
 </article>
 </main>

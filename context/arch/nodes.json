@@ -104,6 +104,68 @@
       "kind": "function",
       "signature": "(inv_db: str, allowlist: set, warehouse, planned_cartons: list, log) -> None"
     },
+    "Diagnostics/receiving_report.py": {
+      "decorators": [],
+      "doc": "receiving_report.py \u2014 the receiving stream, reconciled against the run that wrote it.\n\n# \u2500\u2500 why this exists at all \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`work_events` has no consumer. Outside `Tests/`, the only modules that mention it are the\nconfig, the metrics writer, the persistence layer and the runner \u2014 nothing in\n`Visualization/` or `Performance_Evaluations/` reads a single row. So a third work stream can\nbe wired end to end, write duplicated or malformed rows, and produce a run that looks\ncompletely healthy from every existing angle.\n\nThat makes the receiving crew unfalsifiable unless something reads it back. This is that\nsomething, and it is deliberately a RECONCILIATION rather than a report: it compares two\nsurfaces that were written by different code from different state, so agreement is evidence\nand disagreement names which half is wrong.\n\n  `work_events`   one row per unload, written by `metrics.work_events.recv_rows` from the\n                  dock's own drained records, stamped against the crew's absolute carry.\n  `batch_stats`   four scalars per batch, written by `persistence.Picking_Data` from\n                  `Inventory_Manager.receiving_snapshot()`, which reads the dock's counters.\n\nNothing forces those to agree. They share no code below the manager, and each is a plausible\nnumber on its own.\n\n# \u2500\u2500 the five checks, and the specific defect each one catches \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n1. **Seconds agree.** `SUM(duration) WHERE role='receive'` against `SUM(recv_seconds)`.\n   Catches a dropped `we.extend`, a `bs.recv_seconds` assignment that never ran (the skipped\n   branch), and a checkpoint buffer that was not cleared \u2014 `INSERT OR REPLACE` on a composite\n   key makes re-inserted rows look correct, but it doubles this sum.\n\n2. **Counts agree, EXACTLY.** `COUNT(*) WHERE role='receive'` against `SUM(recv_unloaded)`.\n   Both are carried integers rather than recomputed floats, so `==` is the stronger statement\n   and a tolerance here would be hiding something.\n\n3. **The uid blocks are disjoint and contiguous.** `actor_uid` is the only thing that says\n   WHO did a unit of work, and nothing enforces it: `Worker` validates only non-negativity,\n   the DDL has no uniqueness constraint, `put_rows` bounds-checks `0 <= widx < len(workers)`\n   which a collision passes, and the merged view still sorts. Nothing else in the repo can\n   see a collision \u2014 it surfaces only as a per-actor rollup quietly merging two people, and\n   it is quietest when the receiving crew is small, which is the likely configuration.\n\n4. **No duplicate merge keys.** `(t_abs, batch_id, role, mode, actor_uid, seq)` is the\n   declared total order. The existing guard is `assert rows == sorted(rows)`, which any\n   non-decreasing sequence satisfies \u2014 including one full of identical keys. A genuinely\n   ambiguous merge passes the test that exists to prove the order is total.\n\n5. **`role` and `event_type` agree.** `put_rows` takes `role` from the worker and used to\n   hard-code the event type, so a receive row could carry `role='receive', event_type='put'`.\n   Then `SUM(duration) WHERE role='put'` and the same query on `event_type` disagree, and\n   there is nothing to point at. Checked in BOTH directions.\n\n# \u2500\u2500 usage \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    python Diagnostics/receiving_report.py <run_root_or_name>     # every arm, PASS/FAIL\n    python Diagnostics/receiving_report.py <run_root> --verbose   # per-arm numbers\n\nRun roots may be bare names (resolved under COMPARISON_OUTPUT_DIR) or absolute paths. Arms\nare enumerated through the run's own contract (`runschema.resolver_for`) and never by joining\npath strings: the store CONFIG and the store CHANNEL are both named `store`, so\n`<cell>/<pair>/store/store/` is a real path, and two levels are conditional.",
+      "kind": "module",
+      "signature": null
+    },
+    "Diagnostics/receiving_report.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.abspath(__file__))"
+    },
+    "Diagnostics/receiving_report.py::_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(_HERE)"
+    },
+    "Diagnostics/receiving_report.py::_TOL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1e-06"
+    },
+    "Diagnostics/receiving_report.py::_has": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con, table: str) -> bool"
+    },
+    "Diagnostics/receiving_report.py::_open_ro": {
+      "decorators": [],
+      "doc": "Read-only AND immutable: a plain `mode=ro` open still mints -wal/-shm sidecars beside\nan archived DB, and cannot remove them afterwards.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str)"
+    },
+    "Diagnostics/receiving_report.py::_sim_dbs": {
+      "decorators": [],
+      "doc": "Every arm's sim DB, through the run's own contract.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(root: str)"
+    },
+    "Diagnostics/receiving_report.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "Diagnostics/receiving_report.py::reconcile": {
+      "decorators": [],
+      "doc": "Cross-check one sim DB's receiving surface. Returns a dict; never raises on content.\n\n`run_id` None means every run in the file, which is what a per-arm DB holds anyway.\n\nA DB with no receiving activity is a PASS with `active=False` \u2014 every run before this\nfeature, and every run that did not ask for a crew. That is not the same as a failure,\nand conflating them would make the tool useless on exactly the runs it should be quiet\nabout.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db_path: str, run_id: int | None=None) -> dict"
+    },
     "Diagnostics/replay_run.py": {
       "decorators": [],
       "doc": "replay_run.py \u2014 export a real simulation run's persisted DBs to a dashboard trace.\n\nReads the SQLite output of a finished `run_simulation.py` run and emits a\nDiagnostics/out/replay_<label>.json with per-batch warehouse fill (overall, by\naisle, by bucket) so the SAME dashboard can visualise the actual misbehaving run\n\u2014 including the warehouses that settle at ~70% instead of the target ~85%.\n\nPer Visualization/RECONSTRUCTION.md the relevant files are (this docstring is also `--help`, so\nit stays inside cp1252 \u2014 no box drawing here, unlike the section banners below):\n\n    <pair>/warehouse.db            aisle_layout    (geometry -> per-aisle capacity)\n    <pair>/<config>/sim_X.db       bin_placement   PLACE  |\n                                   bin_eviction    EVICT  |  the bin-mutation log:\n                                   picks           PICK   |  fold -> EXACT occupancy\n                                   aisle_metrics   (n_bins occupied / aisle / batch)\n                                   bin_inventory   (pick deltas - ARCHIVED runs only)\n                                   batch_stats     (duration / batch)\n                                   simulation_runs (run params)\n\nWhere occupancy comes from \u2014 and what it is worth\n-------------------------------------------------\nThree sources, tried best-first.  Only the first is correct, so every export now RECORDS which one\nit used (`meta.occupancy_source` / `occupancy_exact` / `occupancy_phase` / `occupancy_note`) and the\nCLI prints a warning when the curve is an approximation.  A wrong fill curve presented as fact is\nthe failure this tool shipped with for its whole life.\n\n1. `bin_placement` + `bin_eviction` + `picks`  ->  **EXACT at every batch.**\n   Bin state changes at exactly five sites in the codebase (one of them dead code), and picks are\n   already fully recorded, so PLACE + EVICT + PICK is complete *by construction*.  Folding them in\n   application order \u2014 EVICT, then PLACE, then PICK, mirroring the runner \u2014 reproduces the\n   simulation's own bin state.  Reference fold: `Tests/bench/bin_log_harness.py::fold`; proof\n   against a live simulation: `Tests/integration/test_bin_log_replay.py`.  Checked here against a\n   production arm's `sim_X.keyframes.db` (an independent record written by the runner): 9,690/9,690\n   bins identical at batch 0 and 9,450/9,450 at batch 3, sku and qty included, zero ghosts.\n\n2. `aisle_metrics.n_bins`  ->  **approximate.**  It is the manager's own occupied-bin counter\n   (`sum(_aisle_sku_counts[aid].values())`) sampled after the restock pass and BEFORE the batch's\n   picks, so it is a different frame from the other two sources, and it lags a bin emptied by a\n   pick.  Only strategies that maintain aisle state write it at all \u2014 for a uniform-placement arm\n   the table is empty, which is why the third source is what usually ran.\n\n3. `bin_inventory` deltas  ->  **approximate and biased downward**, and no longer written at all:\n   only runs from the archive carry this table, and on a current DB source 1 always answers first.\n   The table records picks and\n   NEVER restocks: `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is\n   already in it at its post-restock quantity and the `post_qty == pre_qty` skip drops it.\n   Measured on a production arm: **0 rows** with `post_qty > pre_qty` against 20,662-42,832\n   `reorder_placements` per batch.  Replaying those deltas can therefore only ever DECAY occupancy\n   \u2014 68,271 occupied bins against a true 165,519 five batches past a keyframe.  It draws a\n   warehouse that slowly drains, plausibly enough that nothing flagged it for months.\n\nOld runs keep working: the ~500 GB archive predates `bin_placement`, so those DBs fall through to\n2/3 and are labelled approximate instead of silently believed.\n\nUsage\n-----\n    python Diagnostics/replay_run.py <run_base_dir>\n    python Diagnostics/replay_run.py <run_base_dir>/<pair>/<config>/sim_uni_fifo_norsl.db\n    python Diagnostics/replay_run.py <run_base_dir> --max 200     # cap exported batches\n\nThen view with the dashboard:\n    cd Diagnostics && python -m http.server 8009  -> http://localhost:8009/static/",
@@ -380,7 +442,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "()"
+      "signature": "(*a, **kw)"
     },
     "Diagnostics/trace_lifecycle.py::_set_equilibrium": {
       "decorators": [],
@@ -4392,6 +4454,27 @@
       "signature": null,
       "value_preview": "2.0"
     },
+    "Optimization/config/settings.py::RECV_CREW_SIZE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0"
+    },
+    "Optimization/config/settings.py::RECV_DAY_ORIGIN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.0"
+    },
+    "Optimization/config/settings.py::RECV_DAY_SECONDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
     "Optimization/config/settings.py::RELEASES_PER_DAY": {
       "decorators": [],
       "doc": null,
@@ -4677,6 +4760,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
+    },
+    "Optimization/config/sim_config.py::recv_crew_spec": {
+      "decorators": [],
+      "doc": "The receiving crew as a picklable record, or **None** when there is no crew.\n\nNone rather than an empty dict, and that distinction is the feature's off-switch. The\nworker tests `args.get('recv_crew') is None` and skips its whole receive block: no Crew,\nno Workers, no clocks, no Dock, no WorkDay. The no-op is therefore \"nothing was\nconstructed\" rather than \"an empty thing exists\" -- which matters because an empty dock\nwould still be an object something could fold into a clock or a snapshot.\n\nCOPIED FROM `work_day_spec`, NOT FROM `put_crew_spec`. That one reads `_s.PUT_CREW_SIZE`\ndirectly and there is no `CONFIG['global']['put_crew_*']` key at all -- so a CLI flag,\nwhich writes CONFIG, would be accepted and ignored forever, and a standalone re-analysis\nwould size against this checkout's `settings.py` instead of the run's own. Reading CONFIG\nat CALL time is what makes the other three seams reachable.\n\n`day_seconds` is resolved with an explicit `is not None`, never `or`: `--recv-day-seconds\n0` means \"the crew has no day today\", and `or` would silently turn that into \"no whistle\nat all\" -- the inverse. (The parser rejects 0 as well, so this is the second of two\nguards on the same mistake.)\n\nSpeeds come from the PUT crew's foot table. Not laziness: an unload has no travel term,\nso no speed is consumed by the cost model at all, and declaring receiving-specific\nconstants would assert a distinction the model cannot express. They are carried only so a\n`Crew` can be built and its rows labelled.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict | None"
     },
     "Optimization/config/sim_config.py::regime_sizing_from_config": {
       "decorators": [],
@@ -5528,7 +5618,14 @@
     },
     "Optimization/metrics/work_events.py::put_rows": {
       "decorators": [],
-      "doc": "Merged-stream rows for one batch's put-away.\n\n`records` are `Inventory_Manager.drain_putaway_records()` tuples\n`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker, queue)`, whose\n`t_start` runs on that WORKER's own clock from 0 within this batch (the drain restarts\nthem all).\n\nONE QUEUE PER CALL.  Each put-away stream has its own crew, so its worker indices mean\nsomething only against that crew's roster -- worker 0 of the cart crew and worker 0 of\nthe forklift crew are different people.  Handing this function a mixed list would\nsilently attribute one stream's work to the other's actors, so it refuses.\n\nTWO ORIGINS, and they are not the same instant:\n\n  `crew_start`  where the crew actually picks the work up, and what `t_abs` is measured\n                from. The crew is CONTINUOUS: it cannot start batch i's queue before\n                the wave is released, and it cannot start before it finished batch\n                i-1's, so the caller passes `max(batch_start, previous_finish)`.\n                Defaults to `batch_start` for a caller with no carry.\n  `batch_start` the wave's release, and what `t_local` is measured from \u2014 so `t_local`\n                on a put row reads as \"how far into this wave the crew got to it\",\n                and EXCEEDS the batch's duration exactly when the crew is running\n                behind. That is information, not an error.\n\nWhy the crew must carry: one putter placing a whole wave's restock takes longer than\nthe parallel pick crew takes to pick it, so batch i's put-away genuinely overruns batch\ni+1's release. Restarting at each wave would have the same single worker doing two\nbatches at the same instant \u2014 measured on a store arm before this carry existed, 16-33\nrows per DB overlapped.\n\nEach record names the WORKER that did it. The manager gives every put to whichever of\nits crew is free earliest, so the worker is a scheduling outcome, not a function of\nposition in the list. This used to round-robin on `seq % len(workers)` while the\ndurations came from a single serial clock \u2014 so a crew of two reported two people each\ndoing every other put, at instants that said one person did all of them. The event type\nis `put` and `qty` is positive.",
+      "doc": "Merged-stream rows for one batch's put-away.\n\n`records` are `Inventory_Manager.drain_putaway_records()` tuples\n`(t_start, dur, sku, qty, aisle_id, x_phys, y_phys, source, worker, queue)`, whose\n`t_start` runs on that WORKER's own clock from 0 within this batch (the drain restarts\nthem all).\n\nONE QUEUE PER CALL.  Each put-away stream has its own crew, so its worker indices mean\nsomething only against that crew's roster -- worker 0 of the cart crew and worker 0 of\nthe forklift crew are different people.  Handing this function a mixed list would\nsilently attribute one stream's work to the other's actors, so it refuses.\n\nTWO ORIGINS, and they are not the same instant:\n\n  `crew_start`  where the crew actually picks the work up, and what `t_abs` is measured\n                from. The crew is CONTINUOUS: it cannot start batch i's queue before\n                the wave is released, and it cannot start before it finished batch\n                i-1's, so the caller passes `max(batch_start, previous_finish)`.\n                Defaults to `batch_start` for a caller with no carry.\n  `batch_start` the wave's release, and what `t_local` is measured from \u2014 so `t_local`\n                on a put row reads as \"how far into this wave the crew got to it\",\n                and EXCEEDS the batch's duration exactly when the crew is running\n                behind. That is information, not an error.\n\nWhy the crew must carry: one putter placing a whole wave's restock takes longer than\nthe parallel pick crew takes to pick it, so batch i's put-away genuinely overruns batch\ni+1's release. Restarting at each wave would have the same single worker doing two\nbatches at the same instant \u2014 measured on a store arm before this carry existed, 16-33\nrows per DB overlapped.\n\nEach record names the WORKER that did it. The manager gives every put to whichever of\nits crew is free earliest, so the worker is a scheduling outcome, not a function of\nposition in the list. This used to round-robin on `seq % len(workers)` while the\ndurations came from a single serial clock \u2014 so a crew of two reported two people each\ndoing every other put, at instants that said one person did all of them. `qty` is\npositive.\n\n`event_type` is a PARAMETER and not the literal it used to be. `role` comes from the\nworker, so a second stream reusing this body would otherwise write `role='receive'` with\n`event_type='put'`, and `SUM(duration) WHERE role='put'` would disagree with the same\nquery on `event_type` with nothing to point at. `recv_rows` below is that second stream;\nit shares this body precisely so the two-origin split, the worker bounds check and the\none-stream-per-call refusal exist once.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None, event_type: str='put')"
+    },
+    "Optimization/metrics/work_events.py::recv_rows": {
+      "decorators": [],
+      "doc": "Merged-stream rows for one batch's RECEIVING, through `put_rows`' body.\n\n`records` are `Inventory_Manager.drain_receiving_records()` tuples\n`(t_start, dur, sku, qty, worker)`, widened here to the 10-slot put shape with `None`\nfor the aisle and 0.0 for the coordinates -- a dock has no aisle and no position. The\n`source` slot carries `'dock'`, which is where the work happened; the merchandise's own\norigin is already on the put row that follows it.\n\nA THIN WRAPPER ON PURPOSE. Everything that is easy to get subtly wrong lives in\n`put_rows`: `crew_start` for `t_abs` against `batch_start` for `t_local`, the worker\nbounds check, and the refusal to mix streams in one call. A second implementation would\nhave its own copy of each, and the copies would drift somewhere nobody looks.\n\nRefuses a `Crew` OBJECT rather than its pre-offset worker tuple. `Crew.workers()`\ndefaults `first_uid=0`, so passing the crew here would silently re-allocate uids from\nzero and collide with the pick crew -- and nothing downstream could tell: a collision\npasses the bounds check, the DDL has no uniqueness constraint, and the merged view still\nsorts. Any per-actor rollup would then merge two people, and the failure is quietest\nexactly when the receiving crew is small, which is the likely configuration.",
       "is_async": false,
       "kind": "function",
       "signature": "(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None)"
@@ -5705,7 +5802,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('8af17e7d417e', '0ab75b4fabc2', 'c33feeed3975'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('31cb7d1b1199', '8af17e7d417e', '0ab75b4fabc2'..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -6883,6 +6980,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(args, spec, explicit)"
+    },
+    "Optimization/run_simulation.py::_nonneg_int": {
+      "decorators": [],
+      "doc": "An argparse `type=` that rejects negatives but ALLOWS zero.\n\n`--recv-crew-size 0` is meaningful -- it is the off switch, and the default -- so unlike\n`_positive_int` below, zero passes.  Negative does not: it would reach\n`crew_clock.new_clocks` and raise three layers down, or worse, be swallowed by a\ntruthiness guard on the way.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(text: str) -> int"
+    },
+    "Optimization/run_simulation.py::_positive_float": {
+      "decorators": [],
+      "doc": "An argparse `type=` for a DURATION that is meaningless at zero.\n\n`--recv-day-seconds 0` would mean \"the crew has a day of no length\", which is not the\nsame as \"the crew has no whistle\" (that is omitting the flag) and is not a configuration\nanyone wants.  Rejected at the parser for the same reason `--n-batches 0` is: argparse\nprints the flag name and exits 2, instead of the value being quietly turned into its\nopposite by an `or`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(text: str) -> float"
     },
     "Optimization/run_simulation.py::_positive_int": {
       "decorators": [],
@@ -8857,7 +8968,7 @@
       "doc": "Decide (run_id, start_batch) for one strategy, honoring resume granularity.\n\n- Fresh run / a strategy new on resume \u2192 init DB + create_run, start 0.\n- Resumed done arm (checkpoint \u2265 n_batches) \u2192 reuse run_id, start n_batches (empty loop).\n- Resumed PARTIAL arm (0 < ckpt < n_batches):\n    strategy granularity \u2192 reset the arm's DB + fresh run_id, start 0 (bit-identical to an\n                           uncrashed run \u2014 no un-replayed physical state);\n    batch granularity    \u2192 reuse run_id, start = ckpt (fast, but NOT bit-identical \u2014 warn),\n                           and REFUSED outright when the carry is on (see below).\n\nTHE CARRY MAKES BATCH-LEVEL RESUME LOSE DEMAND, not just precision.  `_pending` -- the\nunits a day cut or a stock clamp rolled into the next batch -- lives in the worker's\nlocals and is in no checkpoint.  Resuming at batch N therefore discards everything the\npre-crash run had carried, and the resumed stream never asks for it again.  That is not\nthe \"un-replayed physical state\" the warning describes: a resumed run would report BETTER\nthroughput than it earned, because the work it failed to do stopped being counted, which\nis precisely the error `items_demanded` exists to make impossible.  So with rollover on\nit raises instead of warning.  Strategy granularity -- the default -- is unaffected: it\nreplays from batch 0, and a carry that never happened cannot be lost.",
       "is_async": false,
       "kind": "function",
-      "signature": "(ch_run_dir, s, n_batches, db_path, run_params, identity, granularity, prev_id, prev_start, is_resume, log, roll_over: bool=False)"
+      "signature": "(ch_run_dir, s, n_batches, db_path, run_params, identity, granularity, prev_id, prev_start, is_resume, log, roll_over: bool=False, receiving: bool=False)"
     },
     "Optimization/simdriver/workunits.py::_prepare_channel_run": {
       "decorators": [],
@@ -12598,6 +12709,13 @@
       "kind": "function",
       "signature": "(self, bin_: Aisle.Bin) -> BinKey"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._queue": {
+      "decorators": [],
+      "doc": "Route one STAMPED item to its put queue, holding it if the queue is full.\n\nSplit out of `_admit` so the receiving crew has somewhere to hand an item it has\nalready taken off a trailer.  `_admit` stamps and decides WHERE work enters; this\ndecides which put queue takes it.  A dock unload calls this directly -- the item was\nstamped on arrival and must not be re-stamped.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, item: 'PutawayItem') -> 'PutawayItem'"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order": {
       "decorators": [],
       "doc": "WHO is served first, out of one BinKey group.  The drain's decision.\n\n`putaway_window` is the tolerance, in units:\n\n  None  the policy's whole request is granted -- pre-Phase-2 behaviour, and still\n        the default, so nothing moves until a caller asks for a window.\n  1     strict FIFO.  The policy chooses the BIN and has no say in the order.\n  K     the policy may pick its favourite from the K OLDEST units still waiting.\n        Serve it, slide the window forward by one, repeat.\n\nA window of K >= len(units) is exactly `pool.order(units)`, including the\ntie-breaking: `order` is a stable sort so equal keys keep queue order, and the heap\nbelow breaks ties on arrival index for the same reason.  That equivalence is\nasserted in Tests/unit/test_putaway_window.py rather than assumed, because it is\nwhat makes \"K = infinity reproduces today\" a fact instead of a hope.\n\nThis method is the whole point of Phase 1.  Until the pool inversion, an assignment\nfunction returned `[(unit, bin)] in priority order` and the drain iterated it, so\nevery ranked policy was choosing the ORDER as well as the bin -- 14 of the 17\nrestock rules, none of them asked to.  Put-away is supposed to be FIFO with a little\ntolerance; instead the queue was freely re-sorted by whatever score maximised the\nassignment function.\n\nThe pool split that in two.  `pool.order(units)` is now a REQUEST: the policy states\nthe precedence it would like and this method decides what to grant.  Today it grants\nall of it, which is why everything is still byte-identical -- the seam is real but\nnot yet load-bearing.  A finite K-oldest window lands here, and only here.\n\n`put_key` is the QUEUE's own precedence, from `put_policy`.  When present it\nreplaces the pool's `sort_key` entirely -- the pool still chooses every bin, it just\nstops choosing who goes first.  `k` then bounds the result exactly as it bounds the\npool's own order, so the two knobs compose rather than override each other.\n\n`units` arrives in queue order (the group's insertion order into `_stock_queue`), so\nthe FIFO answer is already in hand and needs no extra bookkeeping to recover.",
@@ -12695,9 +12813,25 @@
       "kind": "function",
       "signature": "(self, enabled: bool, n_bands: int=3, orders: Any=None, *, mode: str='equal', abc: dict | None=None) -> None"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.dock_depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Storage units standing on the dock. 0 when there is no receiving crew.\n\nDISJOINT from `queue_depth`, which counts the put queues and `_held`: an item is in\none place or the other, never both. A reader wanting the whole unbinned backlog sums\nthem, which is why both are reported rather than one merged number.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_putaway_records": {
       "decorators": [],
       "doc": "Hand over this batch's put-away records, and start the crew's clock over.\n\nA DRAIN IS A BATCH BOUNDARY.  The records carry `t_start` on the crew's own clock\nmeasured from the start of the batch, because the consumer\n(`Optimization.metrics.work_events.put_rows`) offsets them onto the arm's absolute\naxis by adding the batch epoch -- and the batch epoch is not known until after the\nbatch's picks have been simulated, so the manager cannot stamp absolute times\nitself.\n\nResetting here is therefore load-bearing, not tidiness.  Without it `_put_clock`\naccumulates across the whole arm while `put_rows` still adds the epoch, so every\nput row after batch 0 is stamped too late by the total put-away seconds of every\npreceding batch, and the error grows without bound: measured on an eight-batch\nstore arm, batch 7's puts landed at `t_local` 53,769-64,152 s against a 17,906 s\nbatch, and batch 6's puts overran batch 7's picks so the merged view interleaved\nbatches.\n\nDrained rather than read so the caller takes ownership once per batch and the\nmanager never holds a run's worth of rows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_receiving_records": {
+      "decorators": [],
+      "doc": "This batch's unload records, and restart the crew's clock. `[]` when no crew.\n\nA drain is a batch boundary -- see `Dock.drain_records` and, for what happens when\nthe reset is missed, `drain_putaway_records`.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -12717,6 +12851,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, speed, cost=None, size: int=1) -> None"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_receiving": {
+      "decorators": [],
+      "doc": "Give the warehouse a receiving crew, and a dock for it to work.\n\nFollows `enable_putaway_timing`'s precedent: a binder the harness calls, so the domain\nnever reaches into CONFIG for its own configuration.  There is deliberately no\n`disable_receiving` -- the off state is \"this was never called\", which is what makes\nthe feature's no-op structural rather than a flag nobody can see.\n\nNOT ADDITIVE, unlike put-away timing, and that is the point.  A receiving crew changes\nWHEN merchandise reaches a put queue, so it changes which units are binned in which\nbatch.  It does not change the pick simulation, the packing, or which bin a given unit\nlands in once it is offered.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, spec, cost=None) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue": {
       "decorators": [],
@@ -12820,6 +12961,22 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, batch_id: int) -> list[dict]"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.receiving_seconds": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Total receiving labor recorded so far, in seconds. 0.0 when there is no crew.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.receiving_snapshot": {
+      "decorators": [],
+      "doc": "`(depth, unloaded, cut, seconds)` for this batch, resetting the three flows.\n\n`(0, 0, 0, 0.0)` when there is no receiving crew, so the caller writes the same row\nshape either way and a no-dock run records four honest zeros rather than a NULL that\nevery consumer then has to special-case.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.summary": {
       "decorators": [],
@@ -12927,6 +13084,139 @@
       "doc": "Warehouse.inventory \u2014 The Inventory_Manager placement engine and its mixins (planning, optimal, reorder) plus their shared leaf helpers.  This is the composition documented in files.yml: inventory_optimal and inventory_reorder exist only for Inventory_Management.\n\nSee README.md for what does and does not belong here.",
       "kind": "module",
       "signature": null
+    },
+    "Warehouse/inventory/dock.py": {
+      "decorators": [],
+      "doc": "dock.py \u2014 the receiving crew and what is standing on their floor.\n\n# \u2500\u2500 why this is not a fourth PutQueue \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`put_queue.py` says, in writing, that a fourth stream should be a row rather than a class.\nFor put-away streams that is right and this file does not change it. A receiving CREW is a\ndifferent thing, and three properties of `PutQueueSet` make membership actively wrong \u2014 each\nverified in the code, not argued from taste:\n\n  1. `Inventory_Manager._stock`'s drain loop iterates EVERY queue in `self.put_queues` and\n     hands its contents to the placement pool. A dock in that set would have its trailers\n     placed into bins on batch 1, which is the entire feature undone.\n  2. `_cost_putaway` recomputes `self._put_clock = max(x.finish for x in self._put_queues)`,\n     and that feeds `_put_base = max(bs.batch_start_time, put_clock)` \u2014 the offset applied to\n     every put row in every later batch. A dock in the set would silently shift the whole\n     put-away stream along the absolute axis with its durations unchanged.\n  3. A fourth member flips `len(self.put_queues) == 1` false, which swaps `_stock_queue` from\n     a bare deque to `_MultiQueueView` \u2014 whose setter raises, and which re-sorts the whole\n     backlog by age on every read. Three consumers outside this package read it.\n\nSo the dock stands alone and shares the part that genuinely IS the same: the crew's clock,\nvia `Warehouse.kernel.crew_clock`. There is exactly one copy of the whistle rule.\n\n# \u2500\u2500 what the dock does and does not model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nIt holds `PutawayItem`s \u2014 ALREADY PACKED and ALREADY STAMPED \u2014 and hands them to the put\nqueue one at a time as its crew works through the day. Three consequences worth stating:\n\n**Packing happens at ARRIVAL, not at unload.** The load plan is the shipper's and is fixed\nwhen the trailer is loaded. If the day boundary re-packed a half-unloaded trailer, the tier\nmix \u2014 and therefore `unit_category`, the queue an item routes to, and which bins are legal \u2014\nwould become a function of crew size and day length, and a receiving-staffing sweep would\nsilently be a packing sweep as well. `Warehouse/operations/inbound.py` measured the effect:\nhalving deliveries re-packed 5 of the first 12 SKUs, in BOTH directions.\n\n**The age stamp is the arrival's, not the unload's.** Items reach the dock through `_admit`,\nwhich stamps on arrival, so a pallet that waited three batches on the dock is three batches\nold when it finally gets floor space. Stamping at unload would make the longest-waiting\nmerchandise the youngest thing in the warehouse \u2014 the priority inversion `_admit`'s docstring\nexists to forbid.\n\n**The dock exerts backpressure on nothing, and nothing exerts backpressure on the dock.**\n`arrive()` never refuses: there is no floor limit, because a refusal needs somewhere for the\nmerchandise to go and the only candidate is `_held`, which `_admit_held` retries INSIDE\n`_stock` \u2014 so held trailer merchandise would be put away for free, bypassing the crew\nentirely. The only bound on receiving is the crew's hours. The dock's DEPTH is the report.\n(One real coupling is kept: unloading hands the item to the put queue, so if that queue is at\nits staging limit the item goes to `_held` \u2014 unloading and put-away admission are different\nacts, and the unit is legitimately off the trailer either way.)\n\n# \u2500\u2500 two limitations that will produce plausible wrong numbers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n**Arrivals are quantized to BATCHES.** `Inventory_Manager.LEAD_TIME_UNIT` is `'batches'`, so\nevery trailer in a batch arrives at the same instant \u2014 the batch epoch \u2014 and the crew has no\nsub-batch arrival times to schedule against. The direction is knowable: a real day's arrivals\nspread out, so the modelled crew faces its whole day's work at once and its makespan reads\nLONG. Sizing a receiving crew off this model would therefore over-staff it. Converting lead\ntime to seconds moves every restock result on every arm and is a change of its own.\n\n**A put row can carry a smaller `t_abs` than the receive row of the same unit.** Both clocks\nrestart at the batch epoch and the streams are simulated independently and merged, which is\nthe model `work_events` already declares. The overlap is bounded by one batch's receive\nmakespan. Widening `_put_base` to include the dock's finish would over-correct \u2014 it would\nmake the first pallet off the truck wait for the last \u2014 and the honest fix needs a dock\ncoordinate and a per-unit handoff instant, neither of which exists.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/inventory/dock.py::Dock": {
+      "decorators": [],
+      "doc": "One spec, one crew clock, and the merchandise standing on the floor.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/dock.py::Dock.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, spec: DockSpec, cost=None)"
+    },
+    "Warehouse/inventory/dock.py::Dock.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/dock.py::Dock.arrive": {
+      "decorators": [],
+      "doc": "Put one already-stamped item on the floor.\n\nNEVER refuses -- see the module docstring. Appended, so the deque is in arrival order\nand the head is the oldest, which is what makes the unload FIFO and keeps\n`PutawayItem.age` monotonic along it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, item) -> None"
+    },
+    "Warehouse/inventory/dock.py::Dock.can_start": {
+      "decorators": [],
+      "doc": "Is anyone free to BEGIN an unload before `deadline`? A START gate -- see\n`crew_clock.can_start` for what `deadline` is measured against.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, deadline: float | None) -> bool"
+    },
+    "Warehouse/inventory/dock.py::Dock.charge": {
+      "decorators": [],
+      "doc": "Book `dur` to whoever is free earliest; return (start, worker index).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, dur: float)"
+    },
+    "Warehouse/inventory/dock.py::Dock.crew_size": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/dock.py::Dock.depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Storage units on the floor. A LEVEL -- `snapshot()` reports it without resetting.\n\nThe same unit as `Inventory_Manager.queue_depth`, and DISJOINT from it: an item is on\nthe dock or in a put queue, never both. A reader wanting the whole unbinned backlog\nsums them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/dock.py::Dock.drain_records": {
+      "decorators": [],
+      "doc": "This batch's unload records, and start the crew's clock over.\n\nA DRAIN IS A BATCH BOUNDARY, for the same reason `drain_putaway_records` is: the\nrecords carry `t0` on the crew's own clock measured from the start of the batch,\nbecause the batch epoch is not known here -- receiving runs at the TOP of the batch,\nbefore the pickers have been simulated. The runner adds the epoch when it writes the\nrows. Resetting is load-bearing, not tidiness: without it the clock accumulates across\nthe whole arm while the runner still adds the epoch, and every row after batch 0 is\nstamped too late by the total receiving seconds of every preceding batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Warehouse/inventory/dock.py::Dock.finish": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "When the last receiver becomes free, on the batch-local clock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Warehouse/inventory/dock.py::Dock.name": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Warehouse/inventory/dock.py::Dock.note_arrivals": {
+      "decorators": [],
+      "doc": "Record that `plans` deliveries reached the dock this batch.\n\nA COUNT, not the plans themselves: a run is hundreds of batches and a `LoadPlan` pins\na tuple of live `StorageUnit`s plus a cloned `Order`, which is precisely the leak\n`drain_inbound` turned out to be.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, plans) -> None"
+    },
+    "Warehouse/inventory/dock.py::Dock.reset_clocks": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/dock.py::Dock.snapshot": {
+      "decorators": [],
+      "doc": "`(depth, unloaded, cut, seconds)` \u2014 and reset the three FLOWS.\n\nDepth is a LEVEL and survives, exactly as `PutQueue.drain_counters` treats its own.\nMust run once per batch: a second call in the same batch reports zeros, and that is\nnot hypothetical \u2014 the put side shipped that defect and persisted an idle-looking\nqueue for every skipped batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Warehouse/inventory/dock.py::Dock.takes": {
+      "decorators": [],
+      "doc": "Does this dock intercept an admission from `source`?",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, source: str | None) -> bool"
+    },
+    "Warehouse/inventory/dock.py::DockSpec": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The configuration of the receiving dock. Frozen, like `PutQueueSpec`: a crew's\nidentity must not drift mid-run, and a sweep varying these has to hash them.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/dock.py::DockSpec.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
     },
     "Warehouse/inventory/inventory_common.py": {
       "decorators": [],
@@ -13485,6 +13775,13 @@
       "kind": "function",
       "signature": "(self, sku: int, qty: int) -> None"
     },
+    "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive": {
+      "decorators": [],
+      "doc": "Unload what is standing on the dock, until the crew runs out of day.\n\nReturns immediately when there is no receiving crew, which is every run that does not\nask for one -- the dock is not constructed at all, so this is one `is None` test and\nnot a flag.\n\nWHERE THIS SITS IS THE DESIGN. Above it, steps 0-3 are the CALENDAR: a lead time\nelapses whether or not anyone is at work, and a trailer that arrives at four o'clock\nhas still arrived. Below it, `_drain_putaway` is the put crew's labour. Receiving is\nlabour too, and it must run BEFORE the put drain, or a unit unloaded at nine in the\nmorning would wait a whole batch for a bin -- a latency that would be an artifact of\nwhere the hook sits rather than anything about a warehouse.\n\nTHE WHISTLE IS A START GATE, exactly as put-away's is: a receiver already past\n`deadline` begins nothing new, and the unload in progress when it blows finishes. So\novertime is bounded by one unload per worker, which is what someone carrying a pallet\noff a tail lift actually does. `deadline` is a REMAINDER on the crew's batch-local\nclock, not an instant -- see `crew_clock.can_start`.\n\nWhat the whistle stops stays on the dock and is the first thing tomorrow's crew\ntouches: the deque is in arrival order, so the rollover is FIFO and no unit can be\novertaken by merchandise that arrived after it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, arrivals=(), deadline: float | None=None) -> None"
+    },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._reclaim_empty_bins": {
       "decorators": [],
       "doc": "Return bins in _pending_reclaim to the available index.\n\nWith _unavailable as a dict and _pending_reclaim as a targeted list,\nthis is O(pending_bins) \u2014 typically a handful per batch \u2014 instead of\nthe previous O(total_bins) full scan.  Attribute refs are hoisted\noutside the loop to avoid repeated self. lookups across ~7k iterations.\n\nThe per-SKU aisle teardown inside the loop is the hoisted INLINE TWIN of\n_drop_sku_from_aisle (the canonical cold-path version used by requeue_bin)\n\u2014 KEEP THE TWO IN SYNC when editing either.",
@@ -13494,17 +13791,17 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_arrivals": {
       "decorators": [],
-      "doc": "Release arrived orders (remaining_lead \u2264 0) into the stock queue.\n\nCatches both decremented-to-0 olds AND fresh lead-0 newcomers in the same batch,\nwhich is why it runs after `_fire_reorders` rather than before.",
+      "doc": "Release arrived orders (remaining_lead \u2264 0) into the stock queue.\n\nCatches both decremented-to-0 olds AND fresh lead-0 newcomers in the same batch,\nwhich is why it runs after `_fire_reorders` rather than before.\n\nReturns this batch's `LoadPlan`s -- what came off the trucks, in arrival order.  The\nphase is a producer with no consumer today; the return exists so a receiving crew is\na caller of an existing phase rather than a rewrite of one.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self) -> None"
+      "signature": "(self) -> list"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock": {
       "decorators": [],
-      "doc": "Convert an arrived (sku, qty) order into storage units and append them to the\nstock queue, updating the queued-unit / queued-qty trackers.  Shared by every\nlead-queue arrival (including lead-0 orders released the same batch).\n\nTHE INBOUND SEAM.  Packing has always been a function of how much arrives AT ONCE --\n`viable_storage_units` takes a quantity -- but nothing named that, so nothing could\nexpress an order that would be palletized arriving whole and lands as two singleton\npacks when a trailer splits it.  `deliveries` is that: a list of quantities summing\nto `qty`, each packed on its own.  None means one delivery of the whole amount,\nwhich is what every caller does today and is byte-identical.\n\nThe split is the CALLER's to decide.  Trailers, docks and load planning belong\nupstream of here; this only says that when a shipment arrives in pieces, each piece\npacks as the piece it is.  The `LoadPlan`s are returned by `receive_all` and carry\nthe counterfactual, so the cost of the split is answerable\n(`inbound.shipment_penalty`).\n\nA caller that does not want to thread `deliveries` through every arrival sets\n`inbound_split` instead -- consulted here, so the split is reachable from the\nordinary lead-queue release without `_release_arrivals` knowing about it.",
+      "doc": "Convert an arrived (sku, qty) order into storage units and append them to the\nstock queue, updating the queued-unit / queued-qty trackers.  Shared by every\nlead-queue arrival (including lead-0 orders released the same batch).\n\nRETURNS the `LoadPlan`s it built, rather than stashing them.  An earlier version kept\nthem on the manager behind a `drain_inbound()` -- which was write-only state with an\nextra method, since nothing ever drained it, and it pinned a tuple of live\n`StorageUnit`s plus a cloned `Order` for every arrival of the whole run.  There is\nexactly one caller, so the return value is the honest shape: nothing to leak, and a\nreceiving crew takes the plans from here rather than from a buffer it must remember\nto empty.\n\nTHE INBOUND SEAM.  Packing has always been a function of how much arrives AT ONCE --\n`viable_storage_units` takes a quantity -- but nothing named that, so nothing could\nexpress an order that would be palletized arriving whole and lands as two singleton\npacks when a trailer splits it.  `deliveries` is that: a list of quantities summing\nto `qty`, each packed on its own.  None means one delivery of the whole amount,\nwhich is what every caller does today and is byte-identical.\n\nThe split is the CALLER's to decide.  Trailers, docks and load planning belong\nupstream of here; this only says that when a shipment arrives in pieces, each piece\npacks as the piece it is.  The `LoadPlan`s are returned by `receive_all` and carry\nthe counterfactual, so the cost of the split is answerable\n(`inbound.shipment_penalty`).\n\nA caller that does not want to thread `deliveries` through every arrival sets\n`inbound_split` instead -- consulted here, so the split is reachable from the\nordinary lead-queue release without `_release_arrivals` knowing about it.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, sku: int, qty: int, deliveries=None) -> None"
+      "signature": "(self, sku: int, qty: int, deliveries=None) -> list"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._tick_batch": {
       "decorators": [],
@@ -13515,17 +13812,10 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders": {
       "decorators": [],
-      "doc": "Order-Up-To replenishment through an explicit, deterministic lead queue.\n\nEvery reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record \u2014 even\nlead 0.  Per call (one completed batch), in this order and no other:\n  0. Advance the batch calendar and reclaim bins the picks emptied.\n  1. Advance every pre-existing in-transit order: remaining_lead -= 1.\n  2. Fire OUP reorders for depleted SKUs \u2192 append new records (remaining_lead =\n     round(lead_time_mean) \u2265 0); reorder qty ~ Normal(ideal, ideal\u00b7supply_cv)\n     centred on the equilibrium fill (supply_cv set at generation).\n  3. Release every arrived order (remaining_lead \u2264 0) into the stock queue \u2014 this\n     catches both decremented-to-0 olds AND fresh lead-0 newcomers (same batch).\n  4. Place the stock queue into bins via _stock().\n\nInventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a\nSKU with an order already in flight is not reordered again.\n\n`put_deadline` is the day's whistle for step 4 only, in seconds on the put crews'\nbatch-local clocks.  It reaches nothing above it on purpose: steps 0-3 are the\nCALENDAR advancing \u2014 a lead time elapses whether or not anyone is at work, and a\ntrailer that arrives at four o'clock has still arrived.  What the day bounds is the\nLABOUR, and the labour is step 4.\n\nTHE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can\ndrive them separately, but reordering them changes results: firing before the lead\ntick would decrement an order in the batch it was placed, and releasing before\nfiring would delay every lead-0 arrival by a batch.",
+      "doc": "Order-Up-To replenishment through an explicit, deterministic lead queue.\n\nEvery reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record \u2014 even\nlead 0.  Per call (one completed batch), in this order and no other:\n  0. Advance the batch calendar and reclaim bins the picks emptied.\n  1. Advance every pre-existing in-transit order: remaining_lead -= 1.\n  2. Fire OUP reorders for depleted SKUs \u2192 append new records (remaining_lead =\n     round(lead_time_mean) \u2265 0); reorder qty ~ Normal(ideal, ideal\u00b7supply_cv)\n     centred on the equilibrium fill (supply_cv set at generation).\n  3. Release every arrived order (remaining_lead \u2264 0) into the stock queue \u2014 this\n     catches both decremented-to-0 olds AND fresh lead-0 newcomers (same batch).\n  4. Unload the dock, if there is a receiving crew, until its day runs out.\n  5. Place the stock queue into bins via _stock().\n\nInventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a\nSKU with an order already in flight is not reordered again.\n\n`put_deadline` and `recv_deadline` are the two crews' whistles, each in seconds on\nits OWN batch-local clock, and each reaching exactly one phase.  They are separate\nparameters rather than one shared day because the crews are separate: handing\nreceiving the put crew's remaining day would be arithmetically well-formed and wrong\nby an unrelated crew's overrun, and a cut count of zero reads as \"the boundary cost\nnothing\".\n\nNeither reaches anything above step 4 on purpose: steps 0-3 are the CALENDAR\nadvancing \u2014 a lead time elapses whether or not anyone is at work, and a trailer that\narrives at four o'clock has still arrived.  What a day bounds is the LABOUR, and the\nlabour is steps 4 and 5.\n\nTHE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can\ndrive them separately, but reordering them changes results: firing before the lead\ntick would decrement an order in the batch it was placed, and releasing before\nfiring would delay every lead-0 arrival by a batch.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, put_deadline: float | None=None) -> list[int]"
-    },
-    "Warehouse/inventory/inventory_reorder.py::ReorderMixin.drain_inbound": {
-      "decorators": [],
-      "doc": "The `LoadPlan`s received since the last call, and reset.\n\nDrained rather than accumulated: a run is hundreds of batches and every arrival\nholds its storage units, so keeping them all would pin the whole restock stream in\nmemory for a record nobody has asked to be complete.  A consumer that wants the\nhistory persists each drain.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> list"
+      "signature": "(self, put_deadline: float | None=None, recv_deadline: float | None=None) -> list[int]"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn": {
       "decorators": [],
@@ -13605,7 +13895,7 @@
     },
     "Warehouse/inventory/put_queue.py": {
       "decorators": [],
-      "doc": "put_queue.py \u2014 one configurable put-away queue, instantiated N times.\n\n# \u2500\u2500 why this is one object and not three \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA store warehouse has at least two put-away streams that share nothing operationally: loose\nsingletons that a person walks into a cart, and pallets that need a forklift. Fulfillment has\na third. They differ in who does the work, how fast, how much can be staged, and how much\nfreedom the assignment policy gets \u2014 pallets go away in arrival order almost regardless of\nwhat a scoring function would prefer, because there is no floor to lay a hundred of them out\non and re-sort them.\n\nWriting three classes would encode today's three streams as the shape of the code. The axes\nabove are the real content, so they are a SPEC and the queue is one object configured by it.\nA fourth stream is a row. Inbound, when it arrives, is a producer into an existing queue\nrather than a new mechanism.\n\n# \u2500\u2500 the axes \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`accepts`   which unit categories this queue takes. Routing is on `unit_category`, which is\n            already a BinKey component, so a unit's queue is decided by what it IS and never\n            by where it might go.\n`k_cap`     the assignment policy's ordering tolerance, in units. 1 = strict arrival order.\n            None means INHERIT the manager's `putaway_window`, not \"unbounded\" -- so a queue\n            states a tolerance only when it has a reason to differ, and the manager-wide\n            knob keeps working. See Inventory_Manager._serve_order.\n`staging`   how many items may wait at once. None = unbounded. A full queue REFUSES\n            admission and the producer holds; it never drops. This is the modelling of\n            floor space, and it is what makes pallet FIFO physical rather than stipulated.\n`policy`    which waiting item to work next, from `put_policy.PUT_POLICIES`. Where `k_cap`\n            narrows the placement pool's freedom, this REPLACES its opinion with the floor's\n            own \u2014 \"finish one SKU before starting the next\" is a real rule that no placement\n            objective expresses. The two compose.\n`crew`      who does the work \u2014 role, mode and speeds. Carried here so a queue's throughput\n            is a property of the queue and not a global.\n`cart`      the vehicle, and its VOLUME limit. Same capacity as the channel's picking cart:\n            a store putter and a store picker push the same cart. A load is bounded by\n            volume, not by item count \u2014 `staging` bounds the floor, this bounds the trip.\n\n# \u2500\u2500 what is deliberately NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nReach height. A store singleton bin can sit at y_phys 1416 (SINGLETON_BIN_HEIGHT 48, aisles\nup to 1440 inches), so \"singleton \u21d2 cart \u21d2 walking speed\" charges a walk for something 118\nfeet up. The honest discriminator is a BIN property known only AFTER assignment, while the\nqueue is chosen BEFORE it. Splitting the store singleton family by aisle height at build\ntime \u2014 which is what fulfillment already does with FULFILLMENT_AISLE_HEIGHT \u2014 would fix it\nproperly. Until then `accepts` on `unit_category` is a PROXY, and this paragraph is the\nrecord that it is one.",
+      "doc": "put_queue.py \u2014 one configurable put-away queue, instantiated N times.\n\n# \u2500\u2500 why this is one object and not three \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA store warehouse has at least two put-away streams that share nothing operationally: loose\nsingletons that a person walks into a cart, and pallets that need a forklift. Fulfillment has\na third. They differ in who does the work, how fast, how much can be staged, and how much\nfreedom the assignment policy gets \u2014 pallets go away in arrival order almost regardless of\nwhat a scoring function would prefer, because there is no floor to lay a hundred of them out\non and re-sort them.\n\nWriting three classes would encode today's three streams as the shape of the code. The axes\nabove are the real content, so they are a SPEC and the queue is one object configured by it.\nA fourth put-away stream is a row.\n\nInbound turned out to be half of that. It IS a producer into an existing queue -- receiving\nmerchandise enters through `_admit` exactly like every other source, unchanged. But the\nreceiving CREW is not a member of this set, and could not be: `Inventory_Manager._stock`\ndrains every queue here into the placement pool, so a dock among them would have its trailers\nbinned on batch 1; `_cost_putaway` folds `max(x.finish for x in self._put_queues)` into\n`_put_clock`, which offsets every put row on the absolute axis; and a fourth member flips\n`len(self.put_queues) == 1`, swapping `_stock_queue` for `_MultiQueueView`, whose setter\nraises. So `Warehouse/inventory/dock.py` stands alone and shares the one part that genuinely\nis the same -- the crew's clock, via `Warehouse.kernel.crew_clock`.\n\n# \u2500\u2500 the axes \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`accepts`   which unit categories this queue takes. Routing is on `unit_category`, which is\n            already a BinKey component, so a unit's queue is decided by what it IS and never\n            by where it might go.\n`k_cap`     the assignment policy's ordering tolerance, in units. 1 = strict arrival order.\n            None means INHERIT the manager's `putaway_window`, not \"unbounded\" -- so a queue\n            states a tolerance only when it has a reason to differ, and the manager-wide\n            knob keeps working. See Inventory_Manager._serve_order.\n`staging`   how many items may wait at once. None = unbounded. A full queue REFUSES\n            admission and the producer holds; it never drops. This is the modelling of\n            floor space, and it is what makes pallet FIFO physical rather than stipulated.\n`policy`    which waiting item to work next, from `put_policy.PUT_POLICIES`. Where `k_cap`\n            narrows the placement pool's freedom, this REPLACES its opinion with the floor's\n            own \u2014 \"finish one SKU before starting the next\" is a real rule that no placement\n            objective expresses. The two compose.\n`crew`      who does the work \u2014 role, mode and speeds. Carried here so a queue's throughput\n            is a property of the queue and not a global.\n`cart`      the vehicle, and its VOLUME limit. Same capacity as the channel's picking cart:\n            a store putter and a store picker push the same cart. A load is bounded by\n            volume, not by item count \u2014 `staging` bounds the floor, this bounds the trip.\n\n# \u2500\u2500 what is deliberately NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nReach height. A store singleton bin can sit at y_phys 1416 (SINGLETON_BIN_HEIGHT 48, aisles\nup to 1440 inches), so \"singleton \u21d2 cart \u21d2 walking speed\" charges a walk for something 118\nfeet up. The honest discriminator is a BIN property known only AFTER assignment, while the\nqueue is chosen BEFORE it. Splitting the store singleton family by aisle height at build\ntime \u2014 which is what fulfillment already does with FULFILLMENT_AISLE_HEIGHT \u2014 would fix it\nproperly. Until then `accepts` on `unit_category` is a PROXY, and this paragraph is the\nrecord that it is one.",
       "kind": "module",
       "signature": null
     },
@@ -13673,7 +13963,7 @@
     },
     "Warehouse/inventory/put_queue.py::PutQueue.can_start": {
       "decorators": [],
-      "doc": "Is anyone on this crew free to BEGIN a put before `deadline`?\n\n`deadline` is on the same batch-local clock the crew's clocks run on, which is what\nlets the caller state a day boundary without knowing the batch epoch (see\n`Inventory_Manager.drain_putaway_records` for why that epoch is not available here).\n\nA START gate, not a completion gate: the put running when the whistle blows finishes,\nbecause a putter does not set a pallet down halfway up an aisle. Overtime is bounded\nby one put per worker.\n\nTrue when untimed -- a queue with no crew has no clock to be past, and every run that\ndoes not ask for a cut passes None here anyway.",
+      "doc": "Is anyone on this crew free to BEGIN a put before `deadline`?  A START gate --\nsee `crew_clock.can_start` for why, and for what `deadline` is measured against.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, deadline: float | None) -> bool"
@@ -13689,7 +13979,7 @@
     },
     "Warehouse/inventory/put_queue.py::PutQueue.charge": {
       "decorators": [],
-      "doc": "Book `dur` to whoever is free earliest; return (start, worker index).\n\nGreedy list scheduling.  Ties break to the lowest index, so a crew of one is\nexactly a serial clock.",
+      "doc": "Book `dur` to whoever is free earliest; return (start, worker index).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, dur: float)"
@@ -14012,6 +14302,54 @@
       "is_async": false,
       "kind": "function",
       "signature": "(x_speed: float, y_speed: float, *, source: str) -> None"
+    },
+    "Warehouse/kernel/crew_clock.py": {
+      "decorators": [],
+      "doc": "crew_clock \u2014 one crew's workers as a list of instants, and the five rules over it.\n\n# \u2500\u2500 why this is functions over a list, and not a class \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nEvery timed work stream in this simulator needs the same five things: a clock per worker,\n\"who is free earliest\", \"is anyone free before the whistle\", \"when does the last one finish\",\nand \"start the batch over\". Put-away had them as five `PutQueue` methods. Receiving needs the\nidentical five, and two copies of a rule like `min(clocks) < deadline` will drift \u2014 one will\nsay `<=` some day, and the number it produces will be plausible forever.\n\nThey are **functions over a bare `list[float]`** rather than a `CrewClock` class for two\nreasons, in order. First, `Warehouse/inventory/put_queue.py` states in its own docstring that\nthree streams must not become three classes; a base class is exactly the hierarchy it refuses,\nand it would force `PutQueue` to swap a real slot for a property. Second, `list[float]` is\nalready the representation everything holds, so nothing has to be migrated and no test that\nassigns to `q.clocks` has to change.\n\n`architecture.yml` forbids `wh_kernel -> *`, so this module imports nothing at all. That is\nwhat lets both `Warehouse/inventory/` and `Warehouse/operations/` reach it without inverting\nanything.\n\n# \u2500\u2500 the two contracts a caller must know \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n**The clock is BATCH-LOCAL.** Every value here starts at 0 at the top of a batch and is reset\nby whoever drains that batch's records. The absolute instant is the caller's business: it\nholds a per-arm carry and adds the batch epoch when it writes rows. This is not tidiness --\n`Inventory_Manager.drain_putaway_records` records what happened when it was skipped, with the\nmeasurement: batch 7's puts landed at t_local 53,769-64,152 s against a 17,906 s batch, and\nthe error grows without bound.\n\n**`can_start` is a START gate, not a completion gate.** A worker already past the whistle\nbegins nothing new; the job in progress when it blows runs to the end. Overtime is therefore\nbounded by one job per worker, which is what the physical thing does -- a putter does not set\na pallet down halfway up an aisle, and a receiver does not leave half a pallet on the tail\nlift. A completion gate would need the job's duration, which is known only after its\ndestination is chosen, so it would mean choosing and then un-choosing a placement.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/kernel/crew_clock.py::can_start": {
+      "decorators": [],
+      "doc": "Is anyone free to BEGIN work before `deadline`?\n\n`deadline` is on the same batch-local clock these values run on -- a REMAINDER, not an\ninstant. That is what lets a caller state a day boundary without knowing the batch epoch,\nand it is also the easiest thing to get wrong: hand this an absolute instant and the\nwhistle never fires, so the day reads as unbounded and the cut counter reads as zero,\nwhich looks exactly like \"the boundary cost nothing\".\n\nTrue when unbound: a stream with no crew has no clock to be past, and every run that does\nnot ask for a cut passes None anyway.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks, deadline: float | None) -> bool"
+    },
+    "Warehouse/kernel/crew_clock.py::charge": {
+      "decorators": [],
+      "doc": "Book `dur` to whoever is free earliest; return `(start, worker_index)`.\n\nGreedy list scheduling. Ties break to the lowest index, so a crew of one is exactly a\nserial clock -- which is what makes a size-1 stream byte-identical to the single-clock\nmodel that preceded this.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks, dur: float)"
+    },
+    "Warehouse/kernel/crew_clock.py::finish": {
+      "decorators": [],
+      "doc": "When the LAST worker becomes free, on the batch-local clock. 0.0 when unbound.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks) -> float"
+    },
+    "Warehouse/kernel/crew_clock.py::new_clocks": {
+      "decorators": [],
+      "doc": "`size` idle workers. Raises below 1, because a crew of nobody is a configuration\nerror rather than a crew that does nothing slowly.\n\n`what` names the owner in the message -- a queue name, a dock name -- so a bad size in a\nmulti-stream configuration says WHICH stream.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(size: int, what: str='crew') -> list"
+    },
+    "Warehouse/kernel/crew_clock.py::reset": {
+      "decorators": [],
+      "doc": "Restart every worker at 0, IN PLACE.\n\nIn place rather than rebinding, so a caller holding the list keeps the one the owner\nuses. A drain does this per batch and the runner adds the batch epoch back on when it\nwrites the rows -- see the module docstring for what happens when it does not.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks) -> None"
+    },
+    "Warehouse/kernel/crew_clock.py::size_of": {
+      "decorators": [],
+      "doc": "How many workers. 0 when unbound, which is every stream that never got a crew.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks) -> int"
     },
     "Warehouse/kernel/regime.py": {
       "decorators": [],
@@ -14737,7 +15075,7 @@
     },
     "Warehouse/operations/__init__.py": {
       "decorators": [],
-      "doc": "operations \u2014 WHO does the work: roles, modes, workers, crews.\n\nThe domain's actor model, split out from the pick simulation so a second work stream can\nreuse it.  Imports `Warehouse/kernel/` and nothing else, so a future `Warehouse/inbound/`\nneeds no dependency inversion to build a crew of unloaders.\n\n    Role     pick | put\n    Mode     foot | machine          -- the axis that decides speed\n    Worker   uid + local_id + role + mode + SpeedProfile\n    Crew     a pool of identical workers, and the uid allocator across pools\n\nThe speed VALUE object (`SpeedProfile`) deliberately lives in `Warehouse/kernel/cost_model`,\nnot here: `cost_model` and the placement scorers consume speeds, and `architecture.yml`\nforbids `wh_kernel -> *`, so the kernel cannot import this package.  The value lives in the\nkernel; whose value it is lives here.",
+      "doc": "operations \u2014 WHO does the work: roles, modes, workers, crews.\n\nThe domain's actor model plus the operations themselves, split out from the pick simulation\nso a second work stream can reuse it.  Imports the kernel and the VALUE layers (`wh_layout`,\n`wh_catalog`) but none of the machinery that consumes them -- not the pick simulation, the\nplacement engine, the assignment functions or the run harness -- so a future\n`Warehouse/inbound/` needs no dependency inversion to build a crew of unloaders.  (An older\nversion of this line said \"kernel and nothing else\", which no rule enforced and which\n`inbound.receive`'s call to `viable_storage_units` already contradicted.)\n\n    Role     pick | put\n    Mode     foot | machine          -- the axis that decides speed\n    Worker   uid + local_id + role + mode + SpeedProfile\n    Crew     a pool of identical workers, and the uid allocator across pools\n\nThe speed VALUE object (`SpeedProfile`) deliberately lives in `Warehouse/kernel/cost_model`,\nnot here: `cost_model` and the placement scorers consume speeds, and `architecture.yml`\nforbids `wh_kernel -> *`, so the kernel cannot import this package.  The value lives in the\nkernel; whose value it is lives here.",
       "kind": "module",
       "signature": null
     },
@@ -14910,7 +15248,7 @@
     },
     "Warehouse/operations/roles.py::Role": {
       "decorators": [],
-      "doc": "What the actor is doing with inventory: taking it out, or putting it away.",
+      "doc": "What the actor is doing with inventory: taking it out, putting it away, or\nbringing it in.\n\nTHE VALUE IS THE DB COLUMN.  `work_events.role` is free TEXT with no CHECK, written as\n`str(w.role)`, and nothing calls `Role.of` on the way in -- so a typo persists silently\nand every `WHERE role='receive'` returns nothing while the row count still reconciles.\nThat is why these are an Enum at all.\n\nOne consequence of the SPELLING, recorded because it is invisible and easy to\n\"improve\": the merged event stream's declared order breaks ties on `role` as a STRING,\nand the batch epoch is a real tie in every run.  `'pick' < 'put' < 'receive'`, so a\nreceive sorts LAST at a shared instant.  Renaming it to `'dock'` or `'inbound'` would\nsilently move it FIRST, ahead of every pick -- and no test would notice, because Python's\n`sorted` and SQLite's BINARY collation agree under any name.  The order is arbitrary and\nmust stay uninteresting; do not rename one of these to get a sort you like.",
       "kind": "class",
       "signature": "(_Named)"
     },
@@ -14935,6 +15273,27 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cls, value)"
+    },
+    "Warehouse/operations/unload.py": {
+      "decorators": [],
+      "doc": "unload \u2014 what it costs to take merchandise off a trailer.\n\n# \u2500\u2500 the put-away cost, minus the two terms a dock does not have \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`putaway.put_cost` is `travel + per_pick(height_multiplier(...), intercept, handle_var(...),\nquantity)`.  An unload keeps the handling term verbatim and drops both of the others:\n\n**No travel.**  `put_cost`'s travel is `x_phys * speed.x_pace + y_phys * speed.y_pace`\nagainst a BIN.  A receive has no bin, and there is no dock coordinate anywhere in the model\n-- grepping `dock|trailer|unload` across `Warehouse/` finds this file and prose.  The\ntempting shortcut is to call `put_cost` with the dock at `(0, 0)`: travel comes out exactly\n0.0 and `height_multiplier(brackets, 0.0)` comes out exactly 1.0, so it returns a plausible\nnumber while silently asserting that unloading involves no travel at all.  Same for a\n`dock_travel = 0.0` field: it is a slot for a number no layout can validate, and setting it\nto 200 would assert 200 inches of x-travel corresponding to nothing.  So the term is ABSENT,\nand this paragraph is the record that its absence is a decision.\n\n**No height multiplier.**  A trailer floor is one height.  `UnloadCost` therefore has no\n`height_brackets` field at all, rather than one defaulted to a flat bracket -- the field's\nabsence is what makes the claim checkable.\n\n**No speed, and therefore no mode.**  Without a travel term there is nothing for a speed to\nscale, so `unload_cost` takes no `SpeedProfile`.  The consequence is worth stating plainly\nbecause someone will want a knob for it: *this model cannot say whether a forklift crew\nunloads faster than a hand crew.*  Only crew SIZE changes a receiving makespan, because size\nis the number of clocks.  A mode knob would label rows without moving a second, and a sweep\nover it would publish \"mode makes no difference to receiving\".  When an unload gains a\ntravel term, mode arrives with it.\n\n# \u2500\u2500 the granularity, which moves the answer by an order of magnitude \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`per_pick(mult, intercept, var, qty)` is `mult * (intercept + qty * var)`, so the intercept\nis charged ONCE PER CALL.  A 60-unit arrival therefore costs one intercept-second if it is\ncosted as one call and sixty if it is costed per pack -- and at the default `intercept=1.0`\nthat is a 59-second difference on a single arrival, scaling with the run.\n\nThe charge is **per `StorageUnit`**: one call per pack, because a pack is what a person\nlifts, and the fixed grab-orient-set-down charge belongs to the lift.  There is deliberately\nno per-DELIVERY setup term (backing the trailer in, opening the doors): its default would\nhave to be invented, and a coefficient defaulted to 0.0 is dead code that rots.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/operations/unload.py::UnloadCost": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The unload time model's coefficients \u2014 the receiving twin of `PutawayCost`.\n\nEvery default is the PUT-AWAY default **by reference**, not by copied literal.  That is\nthe whole point: `PutawayCost`'s own docstring warns against \"a second set of magic\nnumbers to reconcile later (this project has already paid for two default sets that\ndrifted 55x apart)\", and a reference makes the drift structurally impossible rather than\nmerely a diff someone might notice.  Change a put-away coefficient and this moves with\nit, which is right until someone measures a dock and has a reason to separate them.\n\nNo `height_brackets`, and no speed \u2014 see the module docstring for why each is absent\nrather than defaulted.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/operations/unload.py::unload_cost": {
+      "decorators": [],
+      "doc": "Seconds to take ONE storage unit off a trailer.\n\n`weight` and `volume` are PER ITEM \u2014 `order.weight` and `order.volume()`, exactly as\n`put_cost` takes them.  Passing a pack's or a trailer's volume instead inflates the log\nterm by `ln(quantity)` per unit, and `handle_var` clamps its log input to >= 1 so it\nnever raises: a 34-pallet arrival would simply cost as if every item were 34x bigger.\n\n`quantity` is the merchandise in THIS pack (`unit.quantity`), so the intercept is charged\nonce for the pack and the variable term once per item in it.\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(weight: float, volume: float, quantity: int, cost: UnloadCost) -> float"
     },
     "Warehouse/operations/worker.py": {
       "decorators": [],

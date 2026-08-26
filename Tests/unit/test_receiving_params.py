@@ -211,6 +211,42 @@ def test_the_receive_whistle_is_not_the_put_whistle():
         'the receive whistle is not measured against its own carry')
 
 
+def test_the_day_origin_reaches_the_workday_and_moves_the_whistle():
+    """A dock that opens before the pickers is a real shift pattern, and `--recv-day-origin`
+    is where it goes. Two halves, because either alone would pass on a dead knob:
+
+      * the runner builds the `WorkDay` WITH the origin (a source check — the value has to
+        get there);
+      * a shifted origin produces a different remaining-day (a behaviour check — getting
+        there has to matter).
+
+    `WorkDay.remaining` is not what the runner calls, so the arithmetic is reproduced the way
+    the runner does it: `end_of(index_of(t)) - t`.
+    """
+    import ast as _ast
+
+    from Warehouse.kernel.timeline import WorkDay
+    from Optimization.simdriver import strategy_runner as sr
+
+    body = _ast.unparse(_ast.parse(inspect.getsource(sr._run_strategy_worker_impl)))
+    assert "origin=_recv_spec['day_origin']" in body, (
+        'the receiving day is built without its origin, so --recv-day-origin is dead config')
+
+    flat = WorkDay(length=3600.0, origin=0.0)
+    early = WorkDay(length=3600.0, origin=1800.0)
+
+    def remaining(day, t):
+        return day.end_of(day.index_of(t)) - t
+
+    # At the same instant the two docks have different amounts of day left, which is the
+    # whole point of the knob.
+    assert remaining(flat, 1000.0) == 2600.0
+    assert remaining(early, 1000.0) == 800.0
+    assert remaining(flat, 1000.0) != remaining(early, 1000.0)
+    # ...and the shift is a shift, not a shortening: both days are still 3600 long.
+    assert remaining(early, 1800.0) == 3600.0
+
+
 def test_batch_resume_is_refused_when_a_dock_is_configured():
     """The dock's standing contents live in the worker and are in no checkpoint. Resuming at
     batch N discards them — and unlike the pick carry, that merchandise is still credited to

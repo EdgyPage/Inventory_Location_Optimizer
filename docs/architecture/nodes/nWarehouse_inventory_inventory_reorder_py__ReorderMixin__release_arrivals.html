@@ -14,11 +14,15 @@
 <h1><span class="kind kind-function">function</span> <code>_release_arrivals</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 
-<pre class="sig"><code>def _release_arrivals(self) -&gt; None</code></pre>
+<pre class="sig"><code>def _release_arrivals(self) -&gt; list</code></pre>
 <section class="doc">Release arrived orders (remaining_lead ≤ 0) into the stock queue.
 
 Catches both decremented-to-0 olds AND fresh lead-0 newcomers in the same batch,
-which is why it runs after `_fire_reorders` rather than before.</section>
+which is why it runs after `_fire_reorders` rather than before.
+
+Returns this batch&#x27;s `LoadPlan`s -- what came off the trucks, in arrival order.  The
+phase is a producer with no consumer today; the return exists so a receiving crew is
+a caller of an existing phase rather than a rewrite of one.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_to_stock.html"><code>_release_to_stock</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_arrivals">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_release_arrivals">Source ↗</a></p>
 </article>

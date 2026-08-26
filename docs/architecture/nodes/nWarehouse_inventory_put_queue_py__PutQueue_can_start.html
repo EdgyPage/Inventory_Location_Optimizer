@@ -13,21 +13,11 @@
 <nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_put_queue_py.html"><code>Warehouse/inventory/put_queue.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_put_queue_py__PutQueue.html"><code>PutQueue</code></a> <span class="sep">›</span> <span class="here"><code>can_start</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>can_start</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_put_queue_py.html"><code>Warehouse/inventory/put_queue.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def can_start(self, deadline: float | None) -&gt; bool</code></pre>
-<section class="doc">Is anyone on this crew free to BEGIN a put before `deadline`?
-
-`deadline` is on the same batch-local clock the crew&#x27;s clocks run on, which is what
-lets the caller state a day boundary without knowing the batch epoch (see
-`Inventory_Manager.drain_putaway_records` for why that epoch is not available here).
-
-A START gate, not a completion gate: the put running when the whistle blows finishes,
-because a putter does not set a pallet down halfway up an aisle. Overtime is bounded
-by one put per worker.
-
-True when untimed -- a queue with no crew has no clock to be past, and every run that
-does not ask for a cut passes None here anyway.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="doc">Is anyone on this crew free to BEGIN a put before `deadline`?  A START gate --
+see `crew_clock.can_start` for why, and for what `deadline` is measured against.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_crew_clock_py__can_start.html"><code>can_start</code></a> <span class="dim">Warehouse/kernel/crew_clock.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_put_queue_py__PutQueue_can_start">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/put_queue.py#:~:text=def%20can_start">Source ↗</a></p>
 </article>
 </main>

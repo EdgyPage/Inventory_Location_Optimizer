@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostics.receiving_report · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_receiving_report_py" data-id="Diagnostics/receiving_report.py">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <span class="here"><code>Diagnostics/receiving_report.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Diagnostics.receiving_report</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
+
+<pre class="sig"><code>Diagnostics.receiving_report</code></pre>
+<section class="doc">receiving_report.py — the receiving stream, reconciled against the run that wrote it.
+
+# ── why this exists at all ────────────────────────────────────────────────────────
+
+`work_events` has no consumer. Outside `Tests/`, the only modules that mention it are the
+config, the metrics writer, the persistence layer and the runner — nothing in
+`Visualization/` or `Performance_Evaluations/` reads a single row. So a third work stream can
+be wired end to end, write duplicated or malformed rows, and produce a run that looks
+completely healthy from every existing angle.
+
+That makes the receiving crew unfalsifiable unless something reads it back. This is that
+something, and it is deliberately a RECONCILIATION rather than a report: it compares two
+surfaces that were written by different code from different state, so agreement is evidence
+and disagreement names which half is wrong.
+
+  `work_events`   one row per unload, written by `metrics.work_events.recv_rows` from the
+                  dock&#x27;s own drained records, stamped against the crew&#x27;s absolute carry.
+  `batch_stats`   four scalars per batch, written by `persistence.Picking_Data` from
+                  `Inventory_Manager.receiving_snapshot()`, which reads the dock&#x27;s counters.
+
+Nothing forces those to agree. They share no code below the manager, and each is a plausible
+number on its own.
+
+# ── the five checks, and the specific defect each one catches ─────────────────────
+
+1. **Seconds agree.** `SUM(duration) WHERE role=&#x27;receive&#x27;` against `SUM(recv_seconds)`.
+   Catches a dropped `we.extend`, a `bs.recv_seconds` assignment that never ran (the skipped
+   branch), and a checkpoint buffer that was not cleared — `INSERT OR REPLACE` on a composite
+   key makes re-inserted rows look correct, but it doubles this sum.
+
+2. **Counts agree, EXACTLY.** `COUNT(*) WHERE role=&#x27;receive&#x27;` against `SUM(recv_unloaded)`.
+   Both are carried integers rather than recomputed floats, so `==` is the stronger statement
+   and a tolerance here would be hiding something.
+
+3. **The uid blocks are disjoint and contiguous.** `actor_uid` is the only thing that says
+   WHO did a unit of work, and nothing enforces it: `Worker` validates only non-negativity,
+   the DDL has no uniqueness constraint, `put_rows` bounds-checks `0 &lt;= widx &lt; len(workers)`
+   which a collision passes, and the merged view still sorts. Nothing else in the repo can
+   see a collision — it surfaces only as a per-actor rollup quietly merging two people, and
+   it is quietest when the receiving crew is small, which is the likely configuration.
+
+4. **No duplicate merge keys.** `(t_abs, batch_id, role, mode, actor_uid, seq)` is the
+   declared total order. The existing guard is `assert rows == sorted(rows)`, which any
+   non-decreasing sequence satisfies — including one full of identical keys. A genuinely
+   ambiguous merge passes the test that exists to prove the order is total.
+
+5. **`role` and `event_type` agree.** `put_rows` takes `role` from the worker and used to
+   hard-code the event type, so a receive row could carry `role=&#x27;receive&#x27;, event_type=&#x27;put&#x27;`.
+   Then `SUM(duration) WHERE role=&#x27;put&#x27;` and the same query on `event_type` disagree, and
+   there is nothing to point at. Checked in BOTH directions.
+
+# ── usage ─────────────────────────────────────────────────────────────────────────
+
+    python Diagnostics/receiving_report.py &lt;run_root_or_name&gt;     # every arm, PASS/FAIL
+    python Diagnostics/receiving_report.py &lt;run_root&gt; --verbose   # per-arm numbers
+
+Run roots may be bare names (resolved under COMPARISON_OUTPUT_DIR) or absolute paths. Arms
+are enumerated through the run&#x27;s own contract (`runschema.resolver_for`) and never by joining
+path strings: the store CONFIG and the store CHANNEL are both named `store`, so
+`&lt;cell&gt;/&lt;pair&gt;/store/store/` is a real path, and two levels are conditional.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___HERE.html"><code>_HERE</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___TOL.html"><code>_TOL</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___open_ro.html"><code>_open_ro</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___sim_dbs.html"><code>_sim_dbs</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
