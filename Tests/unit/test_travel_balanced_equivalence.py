@@ -244,7 +244,7 @@ def _run_both(units, bins, freq, qty, plp, vol=None, cart_on=False, waves=1,
             seq.append([(id(u), id(b) if b is not None else None) for u, b in res])
             if vanish_bins_after_wave:
                 taken = {id(b) for _u, b in res if b is not None}
-                remaining_bins = [b for b in remaining_bins if id(b) not in taken]
+                remaining_bins = _swap_remove_all(remaining_bins, taken)
         outs.append({
             'seq': seq,
             'sku_sets': {a: set(s) for a, s in st['aisle_sku_sets'].items()},
@@ -254,6 +254,34 @@ def _run_both(units, bins, freq, qty, plp, vol=None, cart_on=False, waves=1,
             'vol_sum': copy.deepcopy(avs),
         })
     return outs
+
+
+def _swap_remove_all(bins, taken_ids):
+    """Remove `taken_ids` the way the product does: SWAP-REMOVE, not an order-preserving filter.
+
+    `Inventory_Manager._index_remove` moves the LAST element into the vacated slot
+    (`lst[pos] = lst[-1]; lst.pop()`), so the surviving free list is not in its previous relative
+    order. That matters here and only here: candidate-list order decides placement tie-breaks
+    twice over -- `by_aisle`'s dict insertion order is the aisle scan's first-seen-wins order, and
+    a stable `sort` makes intra-bucket order `(D, position-in-candidates)`.
+
+    A filter comprehension preserves order, so the wave-2 candidate list this harness used to
+    build was one the product can never produce. Any implementation that quietly depended on the
+    old ordering -- a pool reused across waves, say -- would have passed. Ties are not exotic for
+    a load balancer: `_load` starts all-zero across geometrically identical aisles.
+    """
+    out = list(bins)
+    pos = {id(b): i for i, b in enumerate(out)}
+    for bid in taken_ids:
+        i = pos.pop(bid, None)
+        if i is None:
+            continue
+        last = out[-1]
+        out[i] = last
+        out.pop()
+        if id(last) != bid:
+            pos[id(last)] = i
+    return out
 
 
 def _assert_equal(*outs):
@@ -370,3 +398,23 @@ def test_two_consecutive_waves_shared_state(cart_on):
     a, b, c = _run_both(units, bins, freq, qty, plp, vol, cart_on=cart_on, waves=2)
     assert any(x[1] is not None for x in a['seq'][1]), 'wave 2 must place something'
     _assert_equal(a, b, c)
+
+
+def test_the_swap_remove_helper_actually_permutes():
+    """NON-VACUITY for `_swap_remove_all`. If it happened to preserve order, the multi-wave
+    cases would be back to testing an ordering the product never produces, and nothing would
+    say so. Also pins the removal SET, because a swap-remove that dropped the wrong element
+    would be a far worse bug than the ordering one it fixes."""
+    bins = [f'b{i}' for i in range(10)]
+    ids = {id(b): b for b in bins}
+    taken = {id(bins[2]), id(bins[5])}
+
+    got = _swap_remove_all(bins, taken)
+    filtered = [b for b in bins if id(b) not in taken]
+
+    assert set(map(id, got)) == set(map(id, filtered)), 'swap-remove dropped the wrong bins'
+    assert len(got) == 8
+    assert got != filtered, (
+        'the helper preserved order, so it is not reproducing `_index_remove` and the '
+        'multi-wave tests are back to a candidate ordering the product cannot produce')
+    del ids

@@ -175,15 +175,64 @@ in the placement-scoring or bin-geometry path, not the held list.
 | `Aisle_Storage:Aisle.Bin.x_phys` | 1.64 |
 | `Aisle_Storage:Aisle.Bin.location` | 1.45 |
 
-The plausible mechanism, **not yet verified**: a floor defers placement, so units land later
-and in larger groups against a fuller warehouse, and each placement then scores more bins.
-Whether that is inherent to deferral or a defect in the scoring path is a separate
-investigation. Recorded here because it is the first thing this instrument found that nobody
-was looking for.
+**The mechanism, now measured — and it is the OPPOSITE of the one first guessed here.** This
+paragraph previously read "a floor defers placement, so units land later and in larger groups
+against a fuller warehouse, and each placement then scores more bins." That is retracted.
+
+A floor does not defer placement into larger groups. It converts one drain per batch into
+`work / staging` refill passes, and each pass re-groups by BinKey and re-opens a
+`_TravelBalancedPool` **from scratch**:
+
+| at 2,400 SKUs | unstaged | staged | |
+|---|---|---|---|
+| refill passes (`_admit_held`) | 19 | 10,666 | |
+| pool opens | 873 | 15,509 | **17.8x** |
+| candidate bins scanned per placement | 2.47 | 71.7 | **29x** |
+| free-bin list per open | 178 | 291 | 1.63x |
+| `_TravelBalancedPool.take` | 42,636 | 42,636 | **identical** |
+
+The last row is the proof. Per-placement work did not change *at all* — the same merchandise
+reaches the same bins by the same route. What changed is how often the pool's O(candidates)
+`__init__` prologue is re-paid: it is amortized over **4.1 placements instead of 72**. The 29x
+decomposes as 17.8x more opens x 1.63x a larger free list per open, and the dominant term is the
+open count.
+
+The five offenders above are exactly that prologue: `_D_map` reads `x_phys` and `y_phys` per
+candidate, `height_multiplier` reads `y_phys` again, `b.location[0]` allocates a tuple per
+candidate, and `list.sort` calls its key lambda once per candidate. None of them is on the
+per-placement path, which is bounded by aisles rather than bins.
+
+The secondary rise in `_aisle_best` / `_score_of` (2.16 to 4.64 per placement) is SKU-run
+fragmentation: four-item waves break the `sku != self._run_sku` run far more often, triggering
+the O(#aisles) cache rebuild.
 
 Five further offenders (`_aisle_best` k=1.53, `_score_of` k=1.53, `delta_lift_idxs` k=1.52 and
 its genexpr, `sum_lift`'s listcomp k=1.32) appear under **both** cells and on the default
 `cfg=none` ladder too. Those are pre-existing, already recorded, and orthogonal.
+
+#### Why the 17.8x cannot be reclaimed, and what can
+
+Reusing a pool across refill passes is the obvious fix and it **cannot be byte-identical**, for
+two independent reasons. Recorded so it is not rediscovered:
+
+- **`_index_remove` is a swap-remove** — it moves the last element into the vacated slot, so the
+  surviving free list is not in its previous relative order. A reused pool holds the pre-pass
+  order; a fresh pool derives the swap-permuted one. Placement tie-breaks depend on that order
+  twice: `by_aisle`'s dict insertion order drives `take`'s first-seen-wins aisle scan, and a
+  stable `sort` makes intra-bucket order `(D, position-in-candidates)`. For a load balancer, score
+  ties are the *normal* condition — `_load` starts all-zero across geometrically identical aisles
+  — not a corner case.
+- **`_load` re-seeding.** A fresh open re-reads the travel-blind `aisle_pick_load_sum`, discarding
+  the travel-aware marginals a reused pool would carry forward. Different arithmetic.
+
+The honest ceiling for a byte-identical change: per-open cost is `O(candidates)` **plus**
+`O(#aisles)` load seeding **plus** `O(#aisles x #brackets)` for the first `take`'s run-boundary
+rebuild. Only the first term is addressable without moving results, so the realistic win is
+roughly 2-3x on the prologue. The 17.8x lives in the pass structure, and `_stock`'s own comment
+("STAGING BOUNDS THE BACKLOG, NOT THE THROUGHPUT") records why that structure exists.
+
+**Blast radius remains zero**: `PUT_QUEUE_SPLIT = False` and all `PUT_*_STAGING = None`, so no
+shipped or archived run pays this.
 
 ### S2–S8: refuted or constant-factor
 
@@ -337,15 +386,27 @@ Decomposing each rung's log into phases:
 | 80k | 2.1 m | **27.4 m** | 3.9 m |
 
 Per doubling, the simulation phase fits k = +0.45, +0.77, then **+1.87**. Analysis stays flat at
-~+0.77 throughout, so it is not the analysis suite. The traced sections account for roughly 12
-seconds of that 27-minute phase, so whatever grows is **outside every instrumented section** —
-and `t_reord` is linear across all four rungs, so it is not put-away.
+~+0.77 throughout, so it is not the analysis suite.
 
-Not diagnosed. A knee at the top rung of a four-rung ladder on one machine has at least three
-candidate explanations — a genuine threshold in some structure, memory pressure at 230,750 bins
-× 34 arms × 18 workers, or cache behaviour — and telling them apart needs a repeat run and a
-middle rung, not a guess. Recorded because it is real, reproducible from the archived artifact,
-and nobody was looking for it.
+**RETRACTION.** This section first continued: "the traced sections account for roughly 12 seconds
+of that 27-minute phase, so whatever grows is outside every instrumented section." That inference
+was unfounded and is withdrawn. `calltree_scenarios.macro_sections()` returns
+`statistics.fmean` over checkpoint lines, and with `CHECKPOINT_FRAC = 0.1` at 15 batches there is
+one checkpoint line **per batch per arm** — so the deep tier's `t_*` values are *mean seconds per
+batch, averaged across every arm in the run*. They are not a subset of the phase wall and were
+never commensurable with it. Nothing about where the growth sits follows from comparing them.
+
+The knee in the **wall** is real and reproducible from the archived artifact. Its location is
+simply unknown, and the deep tier as it stood could not have located it: it records
+`counts: {}` — no call counts at all — so at production scale only the noisy instrument runs.
+
+What *would* answer it already exists and was being discarded: `runtime_metrics.db` carries, per
+arm, `total_s`, all seven section **totals**, `peak_rss_mib`, `n_bins`, `n_aisles` and the arm's
+identity — roughly 272 rows per deep run. `total_s − Σ sections` per arm isolates the batch
+loop's unattributed tail; per-arm `total_s` names *which* arm; `peak_rss_mib` tests the memory
+hypothesis directly. Candidate explanations still include a genuine threshold, memory pressure at
+230,750 bins × 34 arms × 18 workers, and cache behaviour — and separating them needs a middle
+rung and a repeat, not a guess.
 
 For context on run cost rather than growth: the same 80k rung took 17.3 minutes on the
 2026-08-20 archived deep ladder against 33.6 now. That comparison spans roughly 150 commits

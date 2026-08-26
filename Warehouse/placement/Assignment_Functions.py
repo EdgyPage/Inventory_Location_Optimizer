@@ -11,6 +11,7 @@ from __future__ import annotations
 import bisect
 import math
 import random
+import heapq
 from collections import deque
 from typing import Any
 
@@ -1552,13 +1553,17 @@ class _TravelBalancedPool(_Pool):
     """
 
     __slots__ = ('_ass', '_ais', '_ads', '_apl', '_splp', '_fbs', '_qbs', '_s2i',
-                 '_intercept', '_by_aisle', '_D_of', '_load', '_vol_load',
+                 '_intercept', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
                  '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_score_cache')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
-                 freq_by_sku, qty_by_sku, cart=None):
+                 freq_by_sku, qty_by_sku, cart=None, geo_memo=None):
+        # `geo_memo` is owned by the factory closure and shared across opens; see the prologue.
+        # None means "compute everything", which is what a directly-constructed pool (tests,
+        # the equivalence oracle) gets, and is behaviourally identical either way.
+        self._geo_memo = geo_memo
         self._ass, self._ais, self._ads = aisle_sku_sets, aisle_idx_sets, aisle_demand_sum
         self._apl, self._splp = aisle_pick_load_sum, sku_pick_load_product
         self._fbs, self._qbs = freq_by_sku, qty_by_sku
@@ -1581,17 +1586,54 @@ class _TravelBalancedPool(_Pool):
             self._cart_coef = wp.cart_swap_coef
             self._cap_raw = wp.cart_capacity * total_freq / max(expected_batch_skus, 1e-9)
 
-        D_of = _D_map(cands, x_pace, y_pace)
-        M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
-        # per aisle: {height_mult: deque of bins (that bracket) sorted by D ascending}
+        # ── per aisle: {height_mult: HEAP of (D, seq, bin)}, cheapest-D first ────────
+        #
+        # A HEAP, not a sorted deque, because the pool reads roughly three bins from a bucket
+        # it used to sort in full -- a selection problem solved as a sorting problem.
+        #
+        # A MEMO, because `x_phys`, `y_phys` and `location` are Python-level property calls on
+        # immutable geometry (`location` allocates a fresh tuple every call) and
+        # `height_multiplier` is a pure step function with no cache.  A staging floor re-opens
+        # this pool 15,509 times over one ladder, so those four were re-evaluated ~24 million
+        # times for values that cannot change: a Bin's bay coordinates are fixed for the run.
+        # The memo is keyed by RESOLVED cost profile in the factory, because `D` depends on its
+        # paces and `M` on its brackets -- a mixed warehouse resolves a different `wp` per
+        # regime and must not share entries.  Each value holds its own bin, so `id()` cannot be
+        # recycled underneath the key.
+        #
+        # BOTH ARE BYTE-IDENTICAL, and that is the whole reason this is safe to touch:
+        #   * `sort` is stable, so the old bucket order was the unique total order by
+        #     (D, append-index).  `_seq` IS that append-index and is unique within a bucket, so
+        #     `(D, seq)` is a strict total order and `heappop` reproduces exactly that
+        #     sequence, prefix by prefix.  The bin sits third and is never reached by tuple
+        #     comparison.
+        #   * the memoized `D` is the same `x_pace * b.x_phys + y_pace * b.y_phys` expression
+        #     `_D_map` evaluates, on operands that never change -- the same float bit for bit,
+        #     however many evaluations are skipped.
+        #
+        # `heapify` is O(n) at C level and calls no Python key function, so the per-candidate
+        # `<lambda>` the old `sort(key=...)` paid -- once per bin, per open -- is gone too.
+        #
+        # NaN: `sort` and `heapify` disagree on it.  `D` is NaN only if a pace is `inf` and a
+        # coordinate is 0; `sec_per_inch` returns `inf` only for a non-positive speed, which
+        # `validate_speeds` already rejects.
+        geo = self._geo_memo
+        if geo is None:
+            geo = {}
         by_aisle: dict[int, dict] = {}
+        _seq = 0
         for b in cands:
-            by_aisle.setdefault(b.location[0], {}).setdefault(M_of[id(b)], []).append(b)
+            e = geo.get(id(b))
+            if e is None or e[0] is not b:
+                e = geo[id(b)] = (b, b.location[0],
+                                  x_pace * b.x_phys + y_pace * b.y_phys,
+                                  height_multiplier(brackets, b.y_phys))
+            by_aisle.setdefault(e[1], {}).setdefault(e[3], []).append((e[2], _seq, b))
+            _seq += 1
         for groups in by_aisle.values():
-            for m, lst in list(groups.items()):
-                lst.sort(key=lambda bb: D_of[id(bb)])
-                groups[m] = deque(lst)
-        self._D_of, self._by_aisle = D_of, by_aisle
+            for lst in groups.values():
+                heapq.heapify(lst)
+        self._by_aisle = by_aisle
         # running per-aisle total (handling+travel) labor, seeded from the maintained sum
         self._load = {aid: float(aisle_pick_load_sum.get(aid, 0.0)) for aid in by_aisle}
         # running per-aisle expected picked-volume mass (raw f*q*vol), seeded likewise
@@ -1604,7 +1646,7 @@ class _TravelBalancedPool(_Pool):
         self._score_cache: dict = {}
 
     def __len__(self):
-        return sum(len(dq) for g in self._by_aisle.values() for dq in g.values())
+        return sum(len(h) for g in self._by_aisle.values() for h in g.values())
 
     def sort_key(self, unit):
         """Longest-processing-time first: the highest expected-labor unit is placed while
@@ -1621,12 +1663,15 @@ class _TravelBalancedPool(_Pool):
         """(cost, mult, bin) of the cheapest available bin in the aisle for this var.
         Height scales the whole at-location pick: cost = m*(intercept+var) + D."""
         best = None
-        intercept, D_of = self._intercept, self._D_of
-        for m, dq in self._by_aisle[aid].items():
-            if not dq:
+        intercept = self._intercept
+        for m, h in self._by_aisle[aid].items():
+            if not h:
                 continue
-            b = dq[0]
-            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            # h[0] is (D, seq, bin): D comes straight off the head, so the `D_of[id(b)]`
+            # dict lookup this line used to pay -- once per aisle at every SKU-run boundary,
+            # and once more for the winner after every placement -- is gone.
+            d, _seq, b = h[0]
+            cost = per_pick(m, intercept, var) + d
             if best is None or cost < best[0]:
                 best = (cost, m, b)
         return best
@@ -1698,7 +1743,7 @@ class _TravelBalancedPool(_Pool):
                 self._vol_load[best_aid] += m_s
                 self._avs[best_aid] += m_s
 
-        by_aisle[best_aid][m].popleft()
+        heapq.heappop(by_aisle[best_aid][m])
         # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
         # refresh its cache entries; an exhausted aisle goes None and is skipped exactly
         # like the original `continue`.
@@ -1715,12 +1760,20 @@ def _build_travel_balanced_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets,
                                    aisle_demand_sum, aisle_pick_load_sum,
                                    sku_pick_load_product, freq_by_sku, qty_by_sku,
                                    cart=None):
+    # id(resolved wp) -> (wp, {id(bin): (bin, aisle_id, D, height_mult)}).  Keyed by profile
+    # because D and M depend on it; the wp is kept in the value so a recycled id() cannot alias
+    # a stale table.  Lives as long as the placement function, i.e. one arm.
+    _geo_memos: dict = {}
+
     def open_pool(candidates, rep=None):
+        w = _wp_for(wp, rep) if rep is not None else wp   # per-regime cost, mixed warehouse
+        ent = _geo_memos.get(id(w))
+        if ent is None or ent[0] is not w:
+            ent = _geo_memos[id(w)] = (w, {})
         return _TravelBalancedPool(
-            candidates, affinity,
-            _wp_for(wp, rep) if rep is not None else wp,   # per-regime cost, mixed warehouse
+            candidates, affinity, w,
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum,
-            sku_pick_load_product, freq_by_sku, qty_by_sku, cart=cart)
+            sku_pick_load_product, freq_by_sku, qty_by_sku, cart=cart, geo_memo=ent[1])
     return open_pool
 
 
