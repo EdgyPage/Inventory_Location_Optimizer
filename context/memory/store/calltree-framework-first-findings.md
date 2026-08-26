@@ -161,7 +161,11 @@ t_extract, t_sim.**
     serve each other's arrays — the sidecar name now carries the source db filename.
 - **C3 t_extract: CLOSED, report-and-stop.** `lift_sum` is a digest-stored column whose float
   is locked to scipy's submatrix summation order — no byte-identical restructure exists.
-  `lift_cache` hit rate measured 24.4% (75% of task sku-sets are unique). A restructure here
+  `lift_cache` hit rate measured 24.4% (75% of task sku-sets are unique) -- but that is a
+  MESO-HARNESS number, and the scope was missing here until 2026-08-25. The harness runs a
+  small catalogue with `bins_per_aisle=100`, so task SKU sets are tiny and repeat; a
+  production-shaped run turns them over instead and the rate collapses toward zero. Do not
+  cite 24.4% as a production hit rate. A restructure here
   is a results-era decision, same class as the sampler v2 opt-in.
 - **C4 `_co_demand_ranked_impl` SKU-run cache + priority sort-key memo**
   (`Warehouse/placement/Assignment_Functions.py`): `aisle_key = (mass, ±d0)` cached per aisle

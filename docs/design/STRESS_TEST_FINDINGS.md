@@ -186,9 +186,18 @@ Stated plainly, because a green reconciliation invites over-reading:
 
 - **The lead-time seam is dark.** `avg_lead_time_mean = 0.0` for the whole run. Nothing about
   in-transit timing was exercised.
-- **The split ran but was never exercised.** All 2,412 packs routed to `store_pallet`; the cart
-  and fulfillment queues stayed empty. The *routing* is proven; *contention between streams* is
-  not.
+- **The split ran, but what it proved is narrower than first written here.** The original
+  wording — "all 2,412 packs routed to `store_pallet`, the cart and fulfillment queues stayed
+  empty, the routing is proven" — overstated it, and is retracted. The only independent evidence
+  was a uid gap showing the cart *crew* never worked, and that cannot tell "nothing was ever
+  admitted to the cart queue" apart from "things were admitted and none could be placed" — the
+  second being a growing `unplaced` backlog, which is a defect rather than a configuration.
+  A separate audit did close the adjacent worry: `PutQueueSet.route` is first-match-wins on
+  `unit_category` and *raises* `LookupError` rather than dropping a unit, and the split set
+  contains no `ANY` catch-all that could swallow a singleton — so the predicate itself is sound.
+  What remains unproven is the queue population. The settling query, on a fresh split run:
+  `SELECT queue, SUM(admitted), SUM(placed), MAX(depth) FROM put_queue_state GROUP BY queue`.
+  Contention between streams is untested either way.
 - **Single arm, single channel.** No cross-channel interaction, no `_frozen/` tree, no resume.
 - **Growth was fitted on the skus knob only**, at 300 and 2,400 SKUs — well short of the 76,500
   default catalogue.
