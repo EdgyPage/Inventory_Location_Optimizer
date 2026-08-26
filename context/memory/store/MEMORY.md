@@ -52,5 +52,5 @@
 - [Growth ladder: use the skus knob](growth-ladder-use-the-skus-knob.md) — the batches knob saturates every backlog level, so put-away/receiving growth only shows on skus; decompose before attributing
 - [Hand-run test tiers rot silently](hand-run-test-tiers-rot-silently.md) — Tests/calltree and Tests/bench are in no gate; three dead oracles and a never-executed feature came from there
 - [Carryover: two producers, one key](carryover-two-producers-one-key.md) — a level and a flow shared reason='unplaced' under INSERT OR REPLACE and 500 units vanished; the table now raises
-- [_admit_held was quadratic](admit-held-was-quadratic.md) — 96x too many route() calls, and unreachable until staging was set: re-run the ladder in a newly-selectable configuration
+- [_admit_held was quadratic](admit-held-was-quadratic.md) — two failed attempts then a fix; an exit counting EVERY queue is unreachable when one is idle, partitioning _held took k 1.84 to 0.94
 - [Conservation ledger is bin-only](conservation-ledger-is-bin-only.md) — cons_breaks==0 proves nothing about units lost before a bin; three defects have hidden in that gap

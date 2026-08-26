@@ -346,6 +346,71 @@ def single_queue() -> PutQueueSet:
     return PutQueueSet([PutQueueSpec('all')])
 
 
+class HeldItems:
+    """Put-away items a queue refused, partitioned BY THAT QUEUE.
+
+    One deque per queue rather than one global deque, and the reason is asymptotic. The
+    refill loop retries the held items once per pass and needs roughly `work / staging`
+    passes, so the passes and the held list grow together. With a single deque the retry had
+    to WALK to discover that the items it could admit were not there -- O(H) per call, O(H)
+    calls, quadratic. Keyed by queue, a full queue is skipped in O(1) and the retry costs
+    O(queues + admitted).
+
+    The earlier attempt at this kept the single deque and added an early exit on "every queue
+    has refused". That exit is unreachable whenever a queue in the set never receives
+    anything -- which is every store-only run of the three-queue split, where `fulfillment`
+    stays empty and `blocked` tops out at 2 of 3. Measured: ~347 items examined per call,
+    touches growing at k=1.81. The exit was not too weak; it was asking a question the
+    partition answers structurally.
+
+    A per-queue COUNT was also tried and rejected: derived state that can drift from the
+    deque, and a stale one makes the retry stop instantly and livelock. Here the partition IS
+    the state -- there is nothing to keep in sync.
+
+    ORDER. Oldest-first is preserved within a queue, which is the only place it means
+    anything: an item competes for floor space only with other items bound for its own
+    queue, so a global age order across queues never affected an admission. `__iter__` yields
+    queue by queue and is used for aggregation (`carryover_rows`, `queue_contents`), where
+    order is irrelevant.
+    """
+
+    __slots__ = ('_by_queue',)
+
+    def __init__(self):
+        self._by_queue: dict[str, deque] = {}
+
+    def __len__(self) -> int:
+        return sum(len(d) for d in self._by_queue.values())
+
+    def __bool__(self) -> bool:
+        return any(self._by_queue.values())
+
+    def __iter__(self):
+        for d in self._by_queue.values():
+            yield from d
+
+    def append(self, queue_name: str, item: PutawayItem) -> None:
+        """Hold one item against the queue that refused it."""
+        d = self._by_queue.get(queue_name)
+        if d is None:
+            d = self._by_queue[queue_name] = deque()
+        d.append(item)
+
+    def clear(self) -> None:
+        """Drop everything held.  Tests use it to isolate a queue's own behaviour; nothing in
+        the product does, because merchandise does not evaporate."""
+        self._by_queue.clear()
+
+    def loaded(self):
+        """`(queue_name, deque)` for the queues actually holding something.
+
+        A list rather than a generator: `_admit_held` drains these in place, and mutating a
+        dict's values while iterating its items is the kind of thing that works until a
+        queue empties.
+        """
+        return [(n, d) for n, d in self._by_queue.items() if d]
+
+
 def store_and_fulfillment(cart_crew=None, pallet_crew=None, ff_crew=None,
                           pallet_staging: int | None = None,
                           cart_staging: int | None = None,

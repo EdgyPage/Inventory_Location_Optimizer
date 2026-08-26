@@ -62,7 +62,7 @@ findings with different remedies:
 The split costs nothing. **Staging carried all of it.** These are *wall* fits, and the exact
 instrument was available in the same artifact — see the correction below for why that matters.
 
-### CORRECTION — the growth term is NOT closed
+### CORRECTION — `68bf962` did NOT close the growth term (the partition did)
 
 This section previously read: *"baseline k = 1.238 against staging k = 1.281 — the exponents
 match, and what remains is a 2.6x constant factor, not a growth term … This is now the former."*
@@ -95,16 +95,34 @@ where staging is `None` and the held list is always empty.
 archived run has executed this path. But the 200-batch stress run used `staging=8` with the
 split, so it is the configuration on deck.
 
-**What was fixed here:** `_admit_held` now mutates the deque in place — admitted items are
-popped, refused ones pushed back at the front in order, and the untouched tail never read — so
-the O(H) copy is gone and the function costs O(examined). That is strictly better and provably
-order-identical (the equivalence test compares against an exhaustive walk), but it does not move
-the exponent, because the walk and not the copy is what dominates once the exit cannot fire.
+**CLOSED, on the third attempt.** `_held` is now PARTITIONED per queue (`HeldItems`), so a
+full queue is skipped in O(1) and there is no exit condition left to get wrong. Routing happens
+once, when the item is held, so the retry does none. Same ladder, same parameters:
 
-**What is still open:** making the exit reachable needs `_held` partitioned per queue, so a
-blocked queue's items are skipped in O(1) instead of walked. A parallel per-queue census was
-tried and rejected — it is derived state that can drift out of sync with the deque, and a stale
-census makes the retry break instantly and livelock, which is worse than the slowness it cures.
+| SKUs | 300 | 600 | 1,200 | 2,400 | OLS k |
+|---|---|---|---|---|---|
+| retry touches, before | 291,094 | 968,173 | 3,686,219 | 13,041,581 | 1.84 |
+| retry touches, after | 7,659 | 14,262 | 28,138 | 53,178 | **0.94** |
+| reduction | 38x | 68x | 131x | **246x** | |
+
+The reduction *itself* grows with the catalogue, which is what distinguishes removing a growth
+term from removing a constant. `k = 0.94` is under the framework's `FLAG_COUNT_EXP = 1.30`.
+
+Two intermediate attempts, recorded so they are not retried:
+
+- **An early exit alone** (`68bf962`). It cut `route()` calls 96x at 2,400 SKUs, which is real,
+  but it still copied the whole list into a fresh deque per call — and the exit was unreachable
+  anyway, per above. The in-place rewrite that removed the copy did not move the exponent
+  either, because the walk and not the copy is what dominates once the exit cannot fire.
+- **A parallel per-queue census** beside the single deque. Rejected: derived state that can
+  drift from the deque, and a stale one makes the retry stop instantly and livelock, which is
+  worse than the slowness it cures. The tests caught it in seconds. The partition needs nothing
+  kept in sync, because the partition *is* the state.
+
+The equivalence guard is `Tests/unit/test_admit_held_is_linear.py` (renamed from
+`..._early_exit.py` — there is no early exit any more). It compares the partition against a
+reimplementation of the ORIGINAL global age-ordered walk, a different algorithm rather than a
+paraphrase of the one under test, and it pins the idle-queue case directly.
 
 ### S2–S8: refuted or constant-factor
 

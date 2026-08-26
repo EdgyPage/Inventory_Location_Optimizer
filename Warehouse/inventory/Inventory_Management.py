@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
 from Warehouse.inventory.put_policy import key_for as _put_key_for
 from Warehouse.inventory.put_queue import (
-    PutQueueSet, single_queue, store_and_fulfillment)
+    HeldItems, PutQueueSet, single_queue, store_and_fulfillment)
 from Warehouse.inventory.inventory_common import (
     PutawayItem,
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
@@ -186,7 +186,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # Items a full queue refused. They are stamped and waiting, just not on the floor
         # yet -- a trailer still loaded, a reorder still on the dock. Retried oldest-first
         # at the top of every drain. See _admit.
-        self._held: deque[PutawayItem] = deque()
+        #: Refused items, partitioned by the queue that refused them -- see `HeldItems`.
+        #: A plain deque here is what made the retry quadratic.
+        self._held: HeldItems = HeldItems()
         self._affinity: AffinityStore | None = affinity
         self._index: dict[BinKey, list[Aisle.Bin]] = defaultdict(list)
         # id(bin) → position in its _index tier list — O(1) swap-remove support.
@@ -1478,78 +1480,53 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         decides which put queue takes it.  A dock unload calls this directly -- the item was
         stamped on arrival and must not be re-stamped.
         """
-        if not self.put_queues.route(item.unit).admit(item):
-            self._held.append(item)
+        q = self.put_queues.route(item.unit)
+        if not q.admit(item):
+            # Held AGAINST ITS QUEUE.  Routing happens here, once, so the retry never has to
+            # route again -- and a full queue can then be skipped whole instead of walked.
+            self._held.append(q.name, item)
             return None
         return item
 
     def _admit_held(self) -> int:
-        """Retry the held items, oldest first.  Returns how many got in.
+        """Retry the held items, oldest first within each queue.  Returns how many got in.
 
         Stops at the FIRST refusal for a given queue rather than scanning past it for
-        something that happens to fit.  Letting a younger item slip into the gap a older one
+        something that happens to fit.  Letting a younger item slip into the gap an older one
         could not use is exactly the inversion the age stamp exists to prevent, and it would
         also make the backpressure unfair in a way no real dock is.
 
-        AND STOPS ENTIRELY once every queue has refused, which is the difference between
-        this being linear and being quadratic.  `_stock`'s refill loop calls this once per
-        pass and needs roughly `work / staging` passes, so with a tight floor the passes and
-        the held list grow together.  Without the early exit the loop still walked every
-        remaining item on every pass -- doing a `route()` each time -- to reach a conclusion
-        the first blocked-out queue had already settled.
+        COST IS O(queues + admitted), and getting there took three attempts:
 
-        Measured before the exit existed, at 40 batches with `staging=4`: `route()` was
-        called 27,248,644 times at 2,400 SKUs against 174,738 without staging, growing at
-        k=1.784 where the rest of the drain grows at k=0.91.  Wall went 5.08s -> 18.67s at
-        that size and the gap widens with the catalogue.
+          1. The original walked every held item on every call, doing a `route()` each time.
+             `_stock`'s refill loop calls this once per pass and needs roughly
+             `work / staging` passes, so passes and the held list grew together: quadratic.
+             Measured at 40 batches, staging=4 -- 27,248,644 `route()` calls at 2,400 SKUs.
+          2. An early exit on "every queue has refused" cut the routing 96x at that size, and
+             was reported as the fix.  It was not.  It still did `still.extend(rest)` into a
+             fresh deque, so every call copied the whole list -- and worse, THE EXIT WAS
+             UNREACHABLE.  It fired on `len(blocked) >= len(self.put_queues)`, every queue in
+             the set, while a store-only catalogue routes to two of the split's three and
+             `fulfillment` stays empty forever.  Touches kept growing at k=1.81 against 1.82
+             before the exit existed.
+          3. `_held` is now PARTITIONED by queue (`HeldItems`), so a full queue is skipped in
+             O(1) and there is no exit condition to get wrong.  Routing already happened when
+             the item was held, so this does none.
 
-        Skipping the tail costs nothing observable: every remaining item takes the
-        `q.name in blocked` branch, whose only effects are holding the item -- in the same
-        order -- and re-adding a name already in the set.  `admit(arrival=False)`
-        deliberately counts nothing, and `route()` is a pure lookup that cannot raise here
-        because `_admit` already routed every one of these items before it held them.
-
-        THE EXIT ALONE WAS NOT ENOUGH, and the first version of this fix claimed otherwise.
-        It broke out of the `route()` loop and then did `still.extend(rest)` into a fresh
-        deque, so every call still COPIED the whole held list: O(H) per call, O(H) calls,
-        quadratic.  Exact counts at 20 batches, staging=4, over 300/600/1,200/2,400 SKUs --
-        `route()` calls fell to k=0.888 while held-item TOUCHES stayed at k=1.840, against
-        k=1.823 before the exit existed.  The expensive work per touch went (96x at 2,400
-        SKUs); the touches did not.
-
-        So the deque is now mutated IN PLACE.  Admitted items are popped and dropped, refused
-        ones are collected and pushed back at the front in their original order, and the
-        untouched tail is never read at all -- `extendleft(reversed(refused))` restores
-        exactly the order the copy used to produce, because every refused item preceded every
-        untouched one.  Cost is O(examined), and after the exit `examined` is bounded by
-        `admitted + n_queues`.
+        A per-queue COUNT beside the single deque was tried between 2 and 3 and rejected:
+        derived state that can drift, and a stale one makes this stop instantly and livelock,
+        which is worse than the slowness it cures.  The partition needs nothing kept in sync.
         """
-        if not self._held:
-            return 0
-        held = self._held
-        n_queues = len(self.put_queues)
-        blocked: set = set()
-        refused: list = []
         admitted = 0
-        while held:
-            item = held.popleft()
-            q = self.put_queues.route(item.unit)
-            # arrival=False: this item was counted as blocked when it first arrived, and
-            # counting each retry again would report the refill loop's pass count.
-            if q.name in blocked or not q.admit(item, arrival=False):
-                blocked.add(q.name)
-                refused.append(item)
-                if len(blocked) >= n_queues:
-                    # Every queue has refused, so nothing further can be admitted.  BREAK
-                    # WITHOUT READING THE TAIL: it is already sitting in `held` in order,
-                    # and touching it is what made this quadratic.
-                    break
-                continue
-            admitted += 1
-        # Refused items go back in front of the untouched tail, oldest first -- which is
-        # where they were.  O(refused), not O(held).
-        if refused:
-            held.extendleft(reversed(refused))
+        for name, items in self._held.loaded():
+            q = self.put_queues[name]
+            while items:
+                # arrival=False: this item was counted as blocked when it first arrived, and
+                # counting each retry again would report the refill loop's pass count.
+                if not q.admit(items[0], arrival=False):
+                    break          # full: the rest of THIS queue cannot go either
+                items.popleft()
+                admitted += 1
         return admitted
 
     def _window_for(self, queue) -> int | None:

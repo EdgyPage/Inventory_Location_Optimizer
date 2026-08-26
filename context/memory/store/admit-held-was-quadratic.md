@@ -1,6 +1,6 @@
 ---
 name: admit-held-was-quadratic
-description: the early exit cut route() calls 96x but is UNREACHABLE whenever a queue never receives; the growth term is still open
+description: two failed attempts then a fix -- an exit counting EVERY queue is unreachable when one is idle; partitioning _held per queue took k 1.84 -> 0.94
 metadata: 
   node_type: memory
   type: project
@@ -15,7 +15,7 @@ held list grew together.
 **What `68bf962` fixed, and it is real:** the work per touch. Exact `PutQueueSet.route()` counts
 at 40 batches, `staging=4` — 677,845 → 42,736 at 300 SKUs, 27,248,644 → 283,774 at 2,400
 (**96x at 2,400, but only 15.9x at 300** — the ratio grows with the catalogue). Wall 41.7 s →
-21.7 s. Pinned by `Tests/unit/test_admit_held_early_exit.py`, which asserts the call count and,
+21.7 s. Pinned by `Tests/unit/test_admit_held_is_linear.py`, which asserts the call count and,
 separately, item-for-item equivalence against an exhaustive walk.
 
 **CORRECTION (2026-08-26) — the growth term is NOT closed.** Two things were still wrong:
@@ -31,9 +31,17 @@ separately, item-for-item equivalence against an exhaustive walk.
 **Blast radius is zero** until the split is enabled — `PUT_QUEUE_SPLIT = False`, all
 `PUT_*_STAGING = None`, and no archived run has executed the path.
 
-**How to apply:** the real fix partitions `_held` per queue so a blocked queue is skipped in
-O(1). A parallel per-queue census was tried and **rejected** — derived state that drifts from
-the deque, and a stale one makes the retry break instantly and livelock, worse than the
-slowness. Also: a flag defaulting to `None` can hide a whole class of behaviour, so re-run the
+**CLOSED 2026-08-26, third attempt.** `_held` is now PARTITIONED per queue (`HeldItems` in
+`put_queue.py`), so a full queue is skipped in O(1) and there is no exit condition left to get
+wrong. Retry touches over 300/600/1,200/2,400 SKUs: 7,659 / 14,262 / 28,138 / 53,178,
+**k = 0.937** against 1.840 — and the reduction grows with the catalogue (38x → 246x), which is
+what distinguishes removing a growth term from removing a constant.
+
+**How to apply:** a parallel per-queue census was tried between attempts 2 and 3 and
+**rejected** — derived state that drifts from the deque, and a stale one makes the retry stop
+instantly and livelock, worse than the slowness. Prefer a structure where the invariant is
+intrinsic over one that must be kept in sync. And note the general shape: an exit condition
+that asks about *every* configured resource is wrong when a resource can be permanently idle;
+ask about the ones actually holding work. Also: a flag defaulting to `None` can hide a whole class of behaviour, so re-run the
 ladder in the *new* configuration and on the **skus** knob
 ([[growth-ladder-use-the-skus-knob]]). Detail in `docs/design/STRESS_TEST_FINDINGS.md`.

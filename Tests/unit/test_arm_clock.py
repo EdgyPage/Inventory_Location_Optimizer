@@ -143,7 +143,7 @@ def _skip_mgr(n_records=3):
     import types
 
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
-    from Warehouse.inventory.put_queue import single_queue
+    from Warehouse.inventory.put_queue import HeldItems, single_queue
     from Warehouse.kernel.cost_model import SpeedProfile
 
     m = Inventory_Manager.__new__(Inventory_Manager)
@@ -153,7 +153,7 @@ def _skip_mgr(n_records=3):
     m._put_seconds = 0.0
     m._put_records = []
     m._put_queues = single_queue()
-    m._held = []
+    m._held = HeldItems()   # partitioned by queue; a bare list has no `loaded()`
     m._lead_queue = []
     m.enable_putaway_timing(SpeedProfile(2.0, 4.0), size=1)
     unit = types.SimpleNamespace(
