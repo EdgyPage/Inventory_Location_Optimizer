@@ -243,7 +243,34 @@ _FLOW_COUNTS: dict[str, tuple[str, str | None]] = {
     'queue_admissions'  : ('put_queue:PutQueue.admit', None),
     'route_calls'       : ('put_queue:PutQueueSet.route', None),
     'dock_arrivals'     : ('dock:Dock.arrive', None),
+    # PLACEMENT side.  `open_pool` counts pool constructions exactly; the pool's own
+    # `__init__` walks every candidate once, so `bins_scanned` is the exact number of
+    # candidate bins examined.  Together they decompose the prologue cost that a staging
+    # floor multiplies: opens x candidates-per-open.
+    'pool_opens'        : ('Assignment_Functions:'
+                           '_build_travel_balanced_pool_fn.<locals>.open_pool', None),
+    'pool_takes'        : ('Assignment_Functions:_TravelBalancedPool.take', None),
+    # NO `bins_scanned` counter, and its absence is a RESULT rather than an oversight.
+    # Candidate bins used to be countable exactly, because the prologue paid one Python call
+    # per candidate: `sort(key=lambda ...)`, and `list.sort` calls a key exactly once per
+    # element.  6d862a2 removed every per-candidate Python call -- heapify has no key
+    # function and the geometry memo replaced four property calls with one dict lookup -- so
+    # there is nothing left for the tracer to see.  Candidate VOLUME is now a derived
+    # quantity: `pool_opens x |free list|`, and the free list is not traceable either.
+    # If it ever needs measuring again, measure it deliberately; do not reach for
+    # `_TravelBalancedPool.__init__`, which counts OPENS and would silently read as bins.
 }
+
+#: FLOWS worth reporting PER PLACEMENT as well as absolutely.
+#:
+#: This is the sharpest lesson of the 2026-08 growth work.  An absolute count exponent
+#: conflates "each unit of work got more expensive" with "there are more units of work", and
+#: those have different fixes.  Under a staging floor `bins_scanned` fitted k=1.74 -- which says
+#: nothing about which one it was.  The ratio said it immediately: bins-scanned PER PLACEMENT
+#: went 2.47 -> 71.7 while takes-per-placement stayed flat, so per-placement work was unchanged
+#: and the prologue was simply being re-paid.  A denominator turns a number into a claim.
+_PER_PLACEMENT = ('pool_opens', 'pool_takes', 'refill_passes',
+                  'held_retry_touches', 'held_appends')
 
 
 def _flows(tree: dict, flat: dict[str, int]) -> dict[str, int]:
@@ -323,16 +350,22 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
                 f'{r_t.placements}, levels {levels_u} vs {levels_t}. The counts below would '
                 f'describe a different run than the walls beside them.')
 
+        per_pl = ({k: flows[k] / r_u.placements for k in _PER_PLACEMENT if flows.get(k)}
+                  if r_u.placements else {})
         results.append({'x': x, 'kwargs': kwargs, 'wall_s': wall,
                         'sections': r_u.sections, 'picks': r_u.picks,
                         'placements': r_u.placements, 'counts': counts,
-                        'flows': flows, 'levels': levels_u, 'levels_traced': levels_t})
+                        'flows': flows, 'flows_per_placement': per_pl,
+                        'levels': levels_u, 'levels_traced': levels_t})
 
         _fl = ' '.join(f'{k}={v:,}' for k, v in flows.items() if v)
         print(f'  rung {knob}={x}: wall={wall:.2f}s picks={r_u.picks:,} '
               f'placements={r_u.placements:,} fns={len(counts)}')
         if _fl:
             print(f'      flows (traced, cumulative): {_fl}')
+            if per_pl:
+                print('      per placement: '
+                      + ' '.join(f'{k}={v:.2f}' for k, v in sorted(per_pl.items())))
         else:
             print(f'      flows: ALL ZERO -- the put-away/receiving path did not execute '
                   f'under cfg={config}. Use --config split_staging4 to exercise it.')
@@ -387,7 +420,8 @@ def fit_report(ladder: dict) -> dict:
     rungs = ladder['rungs']
     xs = [r['x'] for r in rungs]
     report = {'knob': ladder['knob'], 'config': ladder.get('config', 'none'), 'xs': xs,
-              'sections': {}, 'functions': {}, 'flows': {}, 'offenders': []}
+              'sections': {}, 'functions': {}, 'flows': {},
+              'flows_per_placement': {}, 'offenders': []}
     if len(rungs) < 3:
         return report
 
@@ -436,6 +470,26 @@ def fit_report(ladder: dict) -> dict:
             report['offenders'].append({'kind': 'flow', 'name': name,
                                         'exponent': round(slope, 3), 'r2': round(r2, 3),
                                         'counts': ys})
+
+    # PER-PLACEMENT ratios.  A ratio that grows is the finding an absolute count cannot
+    # make: it says the work per unit rose, not merely that there were more units.  Flagged at
+    # the same threshold, because a ratio exponent above 1 is already super-linear per unit.
+    ratio_names: set = set()
+    for r in rungs:
+        ratio_names.update(r.get('flows_per_placement', {}))
+    for name in sorted(ratio_names):
+        ys = [r.get('flows_per_placement', {}).get(name, 0.0) for r in rungs]
+        if not all(ys):
+            continue          # absent at some rung: a ratio over a missing flow means nothing
+        slope, r2 = _fit_loglog(xs, ys)
+        if slope != slope:
+            continue
+        report['flows_per_placement'][name] = {'exponent': round(slope, 3),
+                                               'r2': round(r2, 3),
+                                               'ratios': [round(y, 3) for y in ys]}
+        if r2 >= MIN_R2 and slope >= 0.30:
+            report['offenders'].append({'kind': 'per-placement', 'name': name,
+                                        'exponent': round(slope, 3), 'r2': round(r2, 3)})
 
     report['offenders'].sort(key=lambda o: -o['exponent'])
     return report
@@ -539,6 +593,11 @@ def main(argv=None) -> int:
     elif args.ladder == 'meso':
         print(f'\nno flows recorded — cfg={args.config} does not exercise the put-away or '
               f'receiving path')
+
+    if report['flows_per_placement']:
+        print('\nPER-PLACEMENT ratios (work per unit, not unit count — the discriminator):')
+        for name, e in sorted(report['flows_per_placement'].items()):
+            print(f"  {name:20s} k={e['exponent']:6.2f}  r²={e['r2']:.2f}  {e['ratios']}")
 
     if report['offenders']:
         print(f'\nOFFENDERS (count k ≥ {FLAG_COUNT_EXP} or wall k ≥ {FLAG_TIME_EXP}, '

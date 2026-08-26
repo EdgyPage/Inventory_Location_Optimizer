@@ -138,6 +138,7 @@ def test_default_strategy_still_registered():
 # from the report, which is visible. A broken flow anchor makes the flow report `0` — and `0`
 # is exactly the reading ("the path never ran") that flows were added to prevent.
 _FLOW_HOME = {
+    'Assignment_Functions': 'Warehouse.placement.Assignment_Functions',
     'Inventory_Management': 'Warehouse.inventory.Inventory_Management',
     'put_queue'           : 'Warehouse.inventory.put_queue',
     'dock'                : 'Warehouse.inventory.dock',
@@ -161,6 +162,12 @@ def test_flow_anchors_resolve():
             mod = importlib.import_module(_FLOW_HOME[mod_base])
             obj = mod
             for part in qualname.split('.'):
+                if part == '<locals>':
+                    # A closure. Everything after this segment is created at CALL time and
+                    # cannot be reached by an attribute walk, so resolving the enclosing
+                    # function is the most this gate can do -- and that is still the name a
+                    # refactor would change.
+                    break
                 assert hasattr(obj, part), (
                     f'flow anchor {tree_name!r} broke: {_FLOW_HOME[mod_base]} has no '
                     f'{part!r}. The flow would silently report 0, which reads as "the path '
