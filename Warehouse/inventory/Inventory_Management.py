@@ -1445,19 +1445,45 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         something that happens to fit.  Letting a younger item slip into the gap a older one
         could not use is exactly the inversion the age stamp exists to prevent, and it would
         also make the backpressure unfair in a way no real dock is.
+
+        AND STOPS ENTIRELY once every queue has refused, which is the difference between
+        this being linear and being quadratic.  `_stock`'s refill loop calls this once per
+        pass and needs roughly `work / staging` passes, so with a tight floor the passes and
+        the held list grow together.  Without the early exit the loop still walked every
+        remaining item on every pass -- doing a `route()` each time -- to reach a conclusion
+        the first blocked-out queue had already settled.
+
+        Measured before the exit existed, at 40 batches with `staging=4`: `route()` was
+        called 27,248,644 times at 2,400 SKUs against 174,738 without staging, growing at
+        k=1.784 where the rest of the drain grows at k=0.91.  Wall went 5.08s -> 18.67s at
+        that size and the gap widens with the catalogue.
+
+        Skipping the tail costs nothing observable: every remaining item takes the
+        `q.name in blocked` branch, whose only effects are appending to `still` -- which the
+        `extend` reproduces in the same order -- and re-adding a name already in the set.
+        `admit(arrival=False)` deliberately counts nothing, and `route()` is a pure lookup
+        that cannot raise here because `_admit` already routed every one of these items
+        before it held them.
         """
         if not self._held:
             return 0
+        n_queues = len(self.put_queues)
         blocked: set = set()
         still: deque = deque()
         admitted = 0
-        for item in self._held:
+        rest = iter(self._held)
+        for item in rest:
             q = self.put_queues.route(item.unit)
             # arrival=False: this item was counted as blocked when it first arrived, and
             # counting each retry again would report the refill loop's pass count.
             if q.name in blocked or not q.admit(item, arrival=False):
                 blocked.add(q.name)
                 still.append(item)
+                if len(blocked) >= n_queues:
+                    # Every queue has refused. Nothing after this point can be admitted, so
+                    # the remaining walk is pure cost -- and it is the whole quadratic.
+                    still.extend(rest)
+                    break
                 continue
             admitted += 1
         self._held = still
