@@ -1,11 +1,11 @@
 ---
 name: inbound-pipeline-wayfinder-decisions
-description: "2026-08-26 wayfinder session — durable DECISIONS for the inbound trailer pipeline (overturns the packing-at-arrival invariant, draws the Inbound/ package boundary, chooses the lead-time denomination, sets the column-semantics conventions, validates the semantic-layer accessor design with a runnable prototype, designs the two-level priority seams, shapes the Cart/Trailer objects, sets the drain-or-cap shift-end rule — the map's LAST open decision) plus TWO EXECUTED tickets the same day (Inbound/ package skeleton: move + injection seam; column-semantics layer: Schema/semantics.py BUILT and tagged to zero remainder across all six families) — trailer/priorities/pack-at-unload/shift code still not built"
+description: "The inbound-groundwork wayfinder map CLOSED 2026-08-26/27 — all fifteen tickets resolved, destination reached, everything committed on develop. Records every decision AND every landing: the Inbound/ package skeleton, the column-semantics layer (zero remainder, six families), BatchTransit behind the order port, the v1 trailer pipeline (Inbound/trailer.py, priorities.py, transit.py), and the drain-or-cap shift (SHIFT_DRAIN_OR_CAP, timeline.shift_end). The future inbound-optimization effort starts from this memory's Out-of-scope list, not from an unbuilt-code list — nothing of this effort remains unbuilt."
 metadata: 
   node_type: memory
   type: project
   originSessionId: 6cf27a52-c76a-43c2-a56f-3b7410486717
-  modified: 2026-08-27T04:20:00.000Z
+  modified: 2026-08-27T05:45:00.000Z
 ---
 
 A planning-only session (2026-08-26) resolved five durable decisions for the not-yet-built
@@ -35,8 +35,12 @@ see `docs/agents/domain.md`); map: `.scratch/inbound-groundwork/map.md`.
 **Skeleton landed later the same day (2026-08-26, commit `aae9033`).** The
 package move and injection seam are code now. **The column-semantics layer also landed the same
 day (commits `c82751a`, `59ff750`, `fc690bd`, `4d9376b`, `f964f60`) — see points 41-43 below.**
-The trailer model, transit move, pack-at-unload overturn, priorities module, and drain-or-cap
-shift are still decisions, not code. [[putaway-seams-for-inbound]]
+**The map CLOSED 2026-08-27 (commit `403e590`): the transit move (commit `c68246f`, points
+44-45 below), the v1 trailer pipeline (commit `b7a0ad3`, points 46-48 below), and the
+drain-or-cap shift (commit `900baa7`, points 49-51 below) are ALL landed — see those points for
+what code exists and what nuance survives (e.g. pack-at-unload's cost model, point 47).** Nothing
+of this effort remains unbuilt; the future inbound-optimization effort starts from the Out of
+scope list at the end of this memory, not from a residual build list. [[putaway-seams-for-inbound]]
 and [[receiving-is-its-own-crew]] describe the pre-skeleton behaviour except where they now note
 the move to `Inbound/`.
 
@@ -54,7 +58,10 @@ the move to `Inbound/`.
    changes packs. User decision, tradeoff explicit.
 3. **Site state persists day over day** — a half-unloaded trailer, dock depth, and queued packs
    survive the working-day boundary (extends [[working-day-clock-plan-corrections]]'s open
-   step 6b, still a decision-not-code item as of this date).
+   step 6b). **REALIZED in-run by the v1 trailer pipeline (point 30, 46 below): `Trailer`
+   instances carry state across the day boundary with no reset.** A CHECKPOINT format for
+   standing trailers across `--resume` is the one piece explicitly left to the future
+   inbound-optimization effort (see Out of scope, end of memory).
 4. **New code lands in a TOP-LEVEL `Inbound/` package** beside `Warehouse/`, not
    `Warehouse/inbound/` (contradicts the "future `Warehouse/inbound/`" aside in
    [[one-clock-one-speed-one-config]] — that sentence is now superseded). Vocabulary: "site" =
@@ -121,8 +128,9 @@ the move to `Inbound/`.
     implementation time to record this pick, per the note's own instructions.
 14. **New spatial entities**: *parking lot* (unbounded, arrived trailers awaiting a door) and
     *dock door* (finitely many staging slots). Which parked trailer stages next, and which
-    staged trailer unloads, are the global-priority seam's decisions (not yet designed — a
-    later ticket); the door count is a knob (a later ticket).
+    staged trailer unloads, are the global-priority seam's decisions (designed at points 26-29
+    below and BUILT in `Inbound/priorities.py`, point 46); the door count is a knob
+    (`INBOUND_DOCK_DOORS`, landed with the trailer pipeline).
 15. **"Every day begins at 0" is a day-local VIEW in minutes** (for reports and authoring) —
     the absolute clock stays the recorded truth, never what lands in `work_events`; the
     frozen-clock 6504-vs-2262-second bug ([[one-clock-one-speed-one-config]]) is the cited
@@ -247,14 +255,13 @@ remains the throwaway prototype and is superseded, not the production code — r
 `Schema/semantics.py` directly). Both graduated tickets
 (`.scratch/inbound-groundwork/issues/11-build-the-semantic-layer.md` and
 `.scratch/inbound-groundwork/issues/12-run-the-convention-pass.md`) are DONE.
-The priority-seam design (points 26-29) is also still a decision, not code — the planned
-priorities module (would-be path Inbound/priorities.py) does not exist yet; when it lands it
-should mirror `Warehouse/inventory/put_policy.py`'s registry shape. The skeleton landing
-(point 34 below) is a separate, already-executed pass — it moved `dock.py`/`unload.py`/
-`pack.py` and built the injection seam, but did NOT touch packing, priorities, or the trailer
-model. Until the rest of this ships, treat this memory as the forward pointer and the four
-memories above (as amended for the skeleton landing) as accurate history of the code they
-describe.
+The priority-seam design (points 26-29) is **NO LONGER decision-only — `Inbound/priorities.py`
+landed with the v1 trailer pipeline (commit `b7a0ad3`, point 46 below), mirroring
+`Warehouse/inventory/put_policy.py`'s registry shape exactly as designed.** The skeleton landing
+(point 34 below) was a separate, earlier pass — it moved `dock.py`/`unload.py`/`pack.py` and
+built the injection seam, but did NOT itself touch packing, priorities, or the trailer model;
+those landed in the later tickets (44-51 below). The whole effort is now shipped; this memory is
+the history of how it got there, not a forward pointer to unbuilt code.
 
 **Cart/trailer-shape decisions (2026-08-26, seventh ticket, same day):**
 
@@ -288,11 +295,11 @@ describe.
     in one run) are future work the type seam permits, not v1.
 
 **How to apply (cart/trailer shape):** full record
-`.scratch/inbound-groundwork/issues/07-shape-cart-and-trailer-objects.md` `## Answer`. Points
-30-33 are also still a decision, not code — no `TrailerType`/`Trailer` class exists yet; when
-built it should mirror `Warehouse/layout/Storage_Primitive.py`'s `StorageCart` type/instance
-split and reuse `StorageCart.add_from_bin`'s perfect-packing volumetric-fit assumption rather
-than re-deriving it.
+`.scratch/inbound-groundwork/issues/07-shape-cart-and-trailer-objects.md` `## Answer`. **Points
+30-33 are NO LONGER decision-only — `Inbound/trailer.py` (commit `b7a0ad3`, point 46 below)
+built `TrailerType`/`Trailer53`/`Trailer28`/`Trailer`/`LoadPallet` exactly as designed here,
+mirroring `Warehouse/layout/Storage_Primitive.py`'s `StorageCart` type/instance split and
+reusing its perfect-packing volumetric-fit assumption rather than re-deriving it.**
 
 **Skeleton landed (2026-08-26, eighth ticket, same day, commit `aae9033`):**
 
@@ -322,9 +329,11 @@ than re-deriving it.
 36. **What did NOT land in this pass**: the trailer/`TrailerType` model (points 30-33), the
     transit move off the batch-denominated lead queue (points 12-14), the pack-at-unload
     overturn (point 2), and the priorities module (points 26-29, still would-be path
-    Inbound/priorities.py) are all still decisions, not code. This pass was purely a package
-    move plus an injection-seam refactor — no simulated behaviour changed (the packer default
-    and unload pricing are relocated, not altered).
+    Inbound/priorities.py) were all still decisions, not code, AT THIS POINT IN THE SESSION
+    (2026-08-26, eighth ticket). This pass was purely a package move plus an injection-seam
+    refactor — no simulated behaviour changed (the packer default and unload pricing are
+    relocated, not altered). **All four landed in the tickets that followed the same day and
+    the next — see points 44-51 below.**
 
 **How to apply (skeleton):** the moved files are the new anchors for every path in points 1-29
 above that pre-date this landing — read `Inbound/dock.py`, `Inbound/unload.py`, `Inbound/pack.py`
@@ -369,14 +378,14 @@ priorities module is the one with a concrete, already-drawn file target.
     `.scratch/inbound-groundwork/issues/15-build-the-drain-or-cap-shift.md`.
 
 **How to apply (shift-end rule):** full record
-`.scratch/inbound-groundwork/issues/10-set-the-shift-end-rule.md` `## Answer`. Points 37-40 are
-also still a decision, not code — no drain-or-cap flag exists in `settings.py` yet. **`SHIFT_SECONDS`
+`.scratch/inbound-groundwork/issues/10-set-the-shift-end-rule.md` `## Answer`. **Points 37-40 are
+NO LONGER decision-only — `SHIFT_DRAIN_OR_CAP` landed in `settings.py` with commit `900baa7`
+(point 49 below), exactly as designed here.** `SHIFT_SECONDS`
 HAS since been renamed to `REPORTING_FRAME_SECONDS` at the authoring surface as part of ticket 12
 (see points 41-43 below) — the collision this point's parenthetical worried about is resolved,
-"shift" is now free for the drain-or-cap dispatcher.** This ticket
-closed the map's planning phase entirely; tickets 11 and 12 are DONE (points 41-43 below); the
-next work on this effort is one of the three remaining execution tickets — 13, 14 (blocked by 13),
-and 15.
+"shift" is now free for the drain-or-cap dispatcher, which now uses it. This ticket
+closed the map's planning phase entirely; tickets 11 and 12 are DONE (points 41-43 below), and
+tickets 13, 14, and 15 are ALSO DONE (points 44-51 below) — the map is fully closed.
 
 **Column-semantics layer EXECUTED (2026-08-26, tenth and eleventh tickets, same day, commits
 `c82751a`, `59ff750`, `fc690bd`, `4d9376b`, `f964f60`):**
@@ -426,8 +435,121 @@ and 15.
 `Tests/architecture/test_column_semantics.py` is the completeness ratchet: it fails if a new
 column ships untagged, so a schema change that adds a column MUST add its semantics tag in the
 same commit (extends CLAUDE.md §2's "schema changes ride the pipeline" rule with a machine-checked
-consequence). The next consumers of this layer are whatever code the trailer pipeline (tickets 13-
-15) writes — new columns there inherit the same completeness requirement from day one.
+consequence). The trailer pipeline (tickets 13-15, points 44-51 below) is the first consumer of
+this discipline outside its own build — its new columns inherited the same completeness
+requirement from day one.
+
+**Transit-off-the-lead-queue EXECUTED (2026-08-26, twelfth ticket, same day, commit `c68246f`,
+docs commit `0d244ed`):**
+
+44. **Ticket 13 built** — `BatchTransit` (module scope in `Warehouse/inventory/inventory_reorder.py`,
+    beside the default packer) now owns `dispatch`/`advance`/`release`/`depth`/`merchandise()`/
+    `snapshot()` — the lead-queue timing machinery moved behind the order port exactly as
+    designed in point 9 above. The manager keeps only the scalar `_deferred_qty` ledger. All
+    seven `check_reorders` phase wrappers (point 9's list) stay and delegate — the phase ratchet
+    (`Tests/unit/test_reorder_phases.py`) still pins call sites, and `test_lead_time_unit` now
+    ALSO pins the delegation. `_lead_queue` survives as a compatibility PROPERTY so every
+    historical reader and `__new__`-built test manager works unchanged.
+    `Optimization/simdriver/strategy_runner.py` reads the new public `transit_snapshot()`
+    (3-tuple shape preserved) instead of the old private attribute.
+45. **The `LEAD_TIME_UNIT` note now records the made pick** (point 13's instruction, fulfilled):
+    flag-off routes through `BatchTransit` (batches); flag-on routes through the trailer model's
+    absolute-clock leads (point 46 below). One lesson from the landing: the note-location guard
+    reads the FIRST occurrence of its token, so the transit docstrings reference "the unit note"
+    WITHOUT naming it — the same failure-mode family as point 43(b) and
+    [[case-only-rename-deletes-its-own-page]]. Byte-identical by construction; 1,740
+    unit+integration + 6 receiving-e2e green.
+
+**How to apply (transit move):** the INJECTED trailer transit (point 46) lands on the SAME
+`mgr.transit` seam this ticket built, mirroring `BatchTransit`'s method set exactly
+(`SOURCE`/`dispatch`/`advance`/`release`/`depth`/`merchandise`/`snapshot`) — phase bodies cannot
+tell which is bound. Read `Warehouse/inventory/inventory_reorder.py`'s `BatchTransit` for the
+seam contract before touching either implementation.
+
+**The v1 trailer pipeline EXECUTED (2026-08-26, thirteenth ticket, same day, commit `b7a0ad3`,
+docs commit `6bafa46`):**
+
+46. **Ticket 14 built, everything the decisions specified**: `Inbound/trailer.py` —
+    `TrailerType`/`Trailer53` (26 positions)/`Trailer28` (12) on the `StorageCart` pattern,
+    `POSITION_VOLUME = 48^3`; stateful `Trailer` (contents, lead, dispatch stamp, door state;
+    persists day over day per point 3); `LoadPallet` (mixed SKUs, volumetric perfect-pack,
+    next-fit, contiguous lot merging). **Capacity quantizes per PALLET, not per trailer —
+    inter-pallet waste is real and tested** (a durable lesson, see the description field).
+    `Inbound/priorities.py` — the two registries designed at points 26-29 (Global over trailers,
+    Local over items), a frozen `DockContext` (the future space-signal's home, point 27),
+    `bounded_order` as the `k_cap` analog, proven inert under `'fifo'` and biting under a real
+    key; no `INHERIT` entry, by decision (point 26). `Inbound/transit.py` — `TrailerTransit`
+    mirrors `BatchTransit`'s seam exactly (point 44); release emits one delivery per contiguous
+    per-trailer lot, never merged across trailers — each portion packing on its own IS the
+    `inbound_split` model realized structurally (point 1's "inbound_split" phrase now has code).
+    The ledger debits every portion to zero.
+47. **What the ticket left as an implementation choice, taken and documented, not a reversal of
+    any decision**: unload+pack stay charged as the EXISTING per-pack receiving cost — a
+    separate pack-time cost model (the literal cost-side half of point 2's pack-at-unload
+    overturn) is a future knob, not built in this pass. The STRUCTURAL half of point 2 (packing
+    now happens per-portion, at release/unload rather than as one lump at trailer arrival) IS
+    realized by `TrailerTransit.release`'s per-portion packing (point 46). A trailer waits for
+    nothing (anything loading departs at release); doors are BOOKKEEPING in v1 — a throttle
+    would invent staffing physics the shift decision (point 39) declined; the census and knob
+    (`INBOUND_DOCK_DOORS`) exist for the future policies that make doors bite.
+48. **Clock, provenance, knobs**: leads are seconds on the absolute clock (minutes-authored,
+    `INBOUND_TRAILER_LEAD_MINUTES`, converted once at the spec seam); the runner passes
+    `arm_clock` into `check_reorders(now_s=)`, stowed on a manager field so every phase stays
+    arg-free; **a positive lead with no clock fails SAFE** (merchandise waits, never silently
+    drops). `'trailer'` is the declared fourth `PutawayItem` source (point 1's stage list now
+    has a fourth producer); both provenance pins flipped as planned (the unknown-source probe
+    now uses `'teleport'`). Receiving's `DockSpec` gains `('reorder','trailer')` sources when
+    both features are on. `INBOUND_TRAILER_TYPE` (`None` = structurally absent — the whole
+    feature is inert until a type is named, same discipline as every other flag in this effort),
+    `INBOUND_DOCK_DOORS`, the two `INBOUND_*_POLICY` knobs and the bound (point 29) ride one
+    call-time `inbound_spec()` on the `recv_crew_spec` pattern (point 6, point 28), carried in
+    the worker payload and built/bound by the driver (the broker rule, point 6). CLI flags and
+    run-spec recording are explicitly deferred to the first sweep. 12 new pipeline tests
+    (loading arithmetic, splits, leads, the bound, provenance, conservation, per-portion packing
+    vs packer ground truth); 1,752 unit+integration + 6 receiving-e2e untouched.
+
+**How to apply (trailer pipeline):** read `Inbound/trailer.py`, `Inbound/priorities.py`,
+`Inbound/transit.py` directly — they are the production code for every design decision in points
+1, 2 (structural half only, see point 47), 12-14, 26-29, and 30-33 above. The feature stays
+byte-identical while `INBOUND_TRAILER_TYPE` is unset; flipping it on is the only way any of this
+code executes.
+
+**The drain-or-cap shift EXECUTED (2026-08-26, fourteenth ticket, same day, commit `900baa7`;
+the map CLOSED 2026-08-27, commit `403e590`):**
+
+49. **Ticket 15 built**: one mode flag, `SHIFT_DRAIN_OR_CAP` (default OFF = byte-identical),
+    riding the working-day record (`work_day_spec`) so the mode and the day it caps against
+    cannot disagree in a worker. **The cap IMPLIES the cut** — mode-on forces `_cut_at_day_end`
+    rather than trusting two flags to agree (a cap without carry would lose demand);
+    `roll_over_unpicked` stays independent since two of its three causes have no day boundary in
+    sight. **One site-wide boundary**: the receiving crew shares the cap when the mode is on;
+    its own day knobs remain the flag-off configuration (point 39).
+50. **The end instant is pure kernel arithmetic** — `timeline.shift_end(cap_end, last_finish,
+    drained)`: a drain before the cap ends the shift when the crews finish ("off the clock");
+    standing work, or START-gate overtime finishing past the whistle, ends it at the cap —
+    whichever came FIRST. Days stay origin-aligned exactly as decided (point 40): an early
+    drain stops the labour, never the calendar. **The judgment lives in the runner's per-day
+    ledger**, closed at the first batch of the next day: drained = nothing cut all day (pick
+    carry AND `recv_cut`) and no standing work (put queues + held + the dock floor + carried
+    demand — never the lead queue, per point 38). Reported as a `[shift]` log line per day — a
+    REPORT, never a scheduler, so no schema change. `Tests/unit/test_shift_end.py` pins the
+    drain-early, capped, overtime-past-the-whistle, and exact-boundary cases, plus source-pins
+    on the forced-cut and shared-receiving-day implications. 1,758 unit+integration + 6
+    receiving-e2e untouched flag-off.
+51. **A durable placement lesson from the landing**: the per-day ledger reads that batch's
+    `put_clock`, which is computed LATE in the batch-loop iteration — the shift-judgment block
+    must live at the loop TAIL, where every clock and column for the batch is already final.
+    Placing it earlier reads a stale clock silently (no error).
+
+**The map CLOSED (2026-08-27, commit `403e590`)**: all fifteen tickets on
+`.scratch/inbound-groundwork/map.md` are resolved; "Not yet specified" is now empty. The fog
+remnants named at earlier points in this memory (day-over-day `--resume` for standing trailers,
+point 3 above; the unload seam's warehouse-space signal, point 27's `ctx`; dock backpressure,
+points 14/47's bookkeeping-doors choice) moved to the map's **Out of scope** section as
+signposts for the FUTURE inbound-optimization effort — that effort starts there, not from a
+residual build list. Nothing described as "still a decision, not code" anywhere earlier in this
+memory remains true as of 2026-08-27; every such sentence above has been annotated at its
+original location rather than deleted, per this store's own history-preservation rule.
 
 See also [[putaway-seams-for-inbound]], [[receiving-is-its-own-crew]],
 [[one-clock-one-speed-one-config]], [[working-day-clock-plan-corrections]],
