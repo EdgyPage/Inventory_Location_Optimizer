@@ -38,8 +38,14 @@ class BatchTransit:
     def __init__(self):
         self._entries: list[list] = []
 
-    def dispatch(self, sku: int, qty: int, lead: int) -> None:
-        """Accept one fired reorder from the order port."""
+    #: What admissions from this transit are stamped as — the flag-off provenance.
+    SOURCE = 'reorder'
+
+    def dispatch(self, sku: int, qty: int, lead: int,
+                 unit_volume: int | None = None, now_s: float | None = None) -> None:
+        """Accept one fired reorder from the order port.  `unit_volume` and `now_s`
+        are the trailer transit's business, carried on the seam so the two transits
+        are indistinguishable to the phase bodies; the batch countdown ignores both."""
         self._entries.append([sku, qty, lead])
 
     def advance(self) -> None:
@@ -50,7 +56,7 @@ class BatchTransit:
         for entry in self._entries:
             entry[2] -= 1
 
-    def release(self) -> list[list]:
+    def release(self, now_s: float | None = None) -> list[list]:
         """Pop and return every arrived entry (remaining_lead <= 0), in queue order.
 
         Un-arrived entries keep their order; a negative remainder is an order that arrived
@@ -389,8 +395,9 @@ class ReorderMixin:
         units = [u for p in plans for u in p.units]
         if not units:
             return plans
+        source = getattr(self.transit, 'SOURCE', 'reorder')
         for unit in units:
-            self._admit(unit, 'reorder')
+            self._admit(unit, source)
         self._queued_sku_counts[sku] = self._queued_sku_counts.get(sku, 0) + len(units)
         self._queued_qty[sku]        = self._queued_qty.get(sku, 0) + sum(u.quantity for u in units)
         return plans
@@ -503,7 +510,8 @@ class ReorderMixin:
             else:
                 qty = ideal
             lead = max(0, int(round(getattr(rc, 'lead_time_mean', 0.0))))   # deterministic lead
-            self.transit.dispatch(sku, qty, lead)
+            self.transit.dispatch(sku, qty, lead,
+                                  unit_volume=rc.volume(), now_s=self._now_s)
             self._deferred_qty[sku] = self._deferred_qty.get(sku, 0) + qty
             self._units_ordered += qty
             triggered.append(sku)
@@ -521,7 +529,7 @@ class ReorderMixin:
         a caller of an existing phase rather than a rewrite of one.
         """
         plans: list = []
-        for sku, qty, _rem in self.transit.release():
+        for sku, qty, _rem in self.transit.release(self._now_s):
             self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - qty)
             plans.extend(self._release_to_stock(sku, qty))
         return plans
@@ -584,7 +592,8 @@ class ReorderMixin:
             self._stock(deadline=deadline)
 
     def check_reorders(self, put_deadline: float | None = None,
-                       recv_deadline: float | None = None) -> list[int]:
+                       recv_deadline: float | None = None,
+                       now_s: float | None = None) -> list[int]:
         """Order-Up-To replenishment through an explicit, deterministic lead queue.
 
         Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even
@@ -619,6 +628,10 @@ class ReorderMixin:
         tick would decrement an order in the batch it was placed, and releasing before
         firing would delay every lead-0 arrival by a batch.
         """
+        # The arm's absolute epoch, stowed for the transit (trailer leads are seconds
+        # on this clock; the batch countdown ignores it).  A field rather than a phase
+        # parameter so every phase stays callable with no arguments — the ratchet.
+        self._now_s = now_s
         self._tick_batch()
         self.reclaim_emptied_bins()
         self._advance_lead_queue()

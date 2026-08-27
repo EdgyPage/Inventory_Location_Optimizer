@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>release</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def release(self) -&gt; list[list]</code></pre>
+<pre class="sig"><code>def release(self, now_s: float | None=None) -&gt; list[list]</code></pre>
 <section class="doc">Pop and return every arrived entry (remaining_lead &lt;= 0), in queue order.
 
 Un-arrived entries keep their order; a negative remainder is an order that arrived

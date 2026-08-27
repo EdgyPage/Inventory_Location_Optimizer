@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbound.trailer · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_trailer_py" data-id="Inbound/trailer.py">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <span class="here"><code>Inbound/trailer.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Inbound.trailer</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_trailer_py.html"><code>Inbound/trailer.py</code></a></p>
+
+<pre class="sig"><code>Inbound.trailer</code></pre>
+<section class="doc">trailer — the vehicle, its load pallets, and the FIFO loading that fills them.
+
+# ── the two-level object model ────────────────────────────────────────────────────
+
+`TrailerType` is stateless class-as-config on the `StorageCart` pattern
+(`Warehouse/layout/Storage_Primitive.py`): capacity read off the TYPE, one subclass per
+real vehicle.  Positions come from footprint arithmetic at the 48-inch square pallet
+(`Warehouse.physical.PALLET_FOOTPRINT`), single-stacked: a 53-foot trailer is 13 rows x 2
+across = 26 positions; a 28-foot pup is 6 x 2 = 12.  Both are overridable class attributes,
+and a mixed fleet is a future policy the type seam permits — one run uses one type today.
+
+`Trailer` is the stateful half and persists day over day: contents, remaining volume, an
+optional lead, the arrival stamp, door state.  Its pack plan is computed once at arrival
+(fixed by its full per-SKU contents — crew interruption pauses packing WORK, never changes
+the packs) and dropped when the trailer is fully worked, so nothing pins packs across
+batches — the constraint the removed LoadPlan-retention leak taught.
+
+# ── the load pallet, and why it is not a pack ─────────────────────────────────────
+
+A LOAD PALLET is the transport grouping loose items ride on — it may MIX SKUs that fit its
+48-cubed volume, and it is what the receiving crew pulls.  It is NOT a pack: packing has
+not happened yet (root `CONTEXT.md` carries both entries with cross-avoid notes).  Fit is
+volumetric with the perfect-packing assumption verbatim from `StorageCart.add_from_bin`;
+next-fit closes a pallet, pallets fill positions, and an item that fits no remaining
+position starts a NEW trailer — which is what keeps loading strictly FIFO (&quot;placed
+perfectly in FIFO order into a trailer if it fits&quot;).
+
+FIFO loading makes SKU lots CONTIGUOUS by construction: all of one reorder loads before the
+next begins, so &quot;three pallets of x&quot; sit together and the local-priority key&#x27;s candidate is
+the load pallet, degenerating to the SKU lot on single-SKU pallets.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_physical_py.html"><code>Warehouse.physical</code></a> <span class="dim">Warehouse/physical.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nInbound___init___py.html"><code>Inbound</code></a> <span class="dim">Inbound/__init__.py</span></li><li><a href="nInbound_transit_py.html"><code>Inbound.transit</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(15)</span></h2><ul><li><a href="nInbound_trailer_py__LoadPallet.html"><code>LoadPallet</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer.html"><code>Trailer</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer28.html"><code>Trailer28</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer53.html"><code>Trailer53</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__TrailerType.html"><code>TrailerType</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__LoadPallet___init__.html"><code>__init__</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer___init__.html"><code>__init__</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer___repr__.html"><code>__repr__</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__LoadPallet_add.html"><code>add</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer_arrived.html"><code>arrived</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__TrailerType_capacity.html"><code>capacity</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer_load.html"><code>load</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer_lots.html"><code>lots</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__LoadPallet_remaining_volume.html"><code>remaining_volume</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_trailer_py__Trailer_sku_totals.html"><code>sku_totals</code></a> <span class="dim">Inbound/trailer.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_trailer_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/trailer.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

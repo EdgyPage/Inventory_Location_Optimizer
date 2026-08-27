@@ -18,16 +18,19 @@ Two rules, both enforced by `context/architecture.yml` boundaries:
 
 # ── what lives here ───────────────────────────────────────────────────────────────
 
-    dock.py     the Dock: spec, crew clocks, and the merchandise standing on the floor
-    unload.py   what it costs to take one storage unit off a trailer
-    pack.py     packing one delivery into storage units, and the LoadPlan record
-
-The trailer model (TrailerType/Trailer, load pallets, priorities.py) lands here next — the
-decisions are on the wayfinder map; the code is not yet written.
+    dock.py        the Dock: spec, crew clocks, and the merchandise standing on the floor
+    unload.py      what it costs to take one storage unit off a trailer
+    pack.py        packing one delivery into storage units, and the LoadPlan record
+    trailer.py     TrailerType (53/28), stateful Trailers, and the load pallets they carry
+    priorities.py  the global/local policy registries, frozen DockContext, ordering bound
+    transit.py     TrailerTransit: order port -> trailers -> parking lot -> dock doors
 """
 from Inbound.dock import Dock, DockSpec
 from Inbound.pack import LoadPlan, packer, receive, receive_all, shipment_penalty
+from Inbound.trailer import LoadPallet, Trailer, Trailer28, Trailer53, TRAILER_TYPES
+from Inbound.transit import TrailerTransit
 from Inbound.unload import UnloadCost, unload_cost
 
-__all__ = ['Dock', 'DockSpec', 'LoadPlan', 'packer', 'receive', 'receive_all',
-           'shipment_penalty', 'UnloadCost', 'unload_cost']
+__all__ = ['Dock', 'DockSpec', 'LoadPlan', 'LoadPallet', 'packer', 'receive',
+           'receive_all', 'shipment_penalty', 'Trailer', 'Trailer28', 'Trailer53',
+           'TRAILER_TYPES', 'TrailerTransit', 'UnloadCost', 'unload_cost']

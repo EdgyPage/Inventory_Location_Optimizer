@@ -192,6 +192,12 @@ CONFIG = {
         'recv_crew_size' : _s.RECV_CREW_SIZE,
         'recv_day_seconds': _s.RECV_DAY_SECONDS,
         'recv_day_origin': _s.RECV_DAY_ORIGIN,
+        'inbound_trailer_type'  : _s.INBOUND_TRAILER_TYPE,
+        'inbound_dock_doors'    : _s.INBOUND_DOCK_DOORS,
+        'inbound_lead_minutes'  : _s.INBOUND_TRAILER_LEAD_MINUTES,
+        'inbound_global_policy' : _s.INBOUND_GLOBAL_POLICY,
+        'inbound_local_policy'  : _s.INBOUND_LOCAL_POLICY,
+        'inbound_trailer_bound' : _s.INBOUND_TRAILER_BOUND,
         # The SPLIT put-away configuration.  False = one catch-all queue, which is every
         # run before this existed; see put_queues_spec below for why that is a structural
         # no-op rather than a flag test.
@@ -371,6 +377,33 @@ def recv_crew_spec() -> dict | None:
         'mode': 'foot',
         'x_speed': _s.PUT_FOOT_X,
         'y_speed': _s.PUT_FOOT_Y,
+    }
+
+
+def inbound_spec() -> dict | None:
+    """The trailer pipeline's configuration as a picklable record, or **None** for off.
+
+    None rather than a dict with a flag, for the same reason `recv_crew_spec` returns None:
+    the worker tests `args.get('inbound') is None` and skips the whole build -- no
+    TrailerTransit, no trailer objects, and the manager keeps the batch lead queue it
+    constructed for itself, byte-identically.
+
+    Reads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`'s
+    settings snapshot).  The lead is authored in MINUTES and converted to the sim's
+    seconds exactly once, here -- the minutes-at-the-surface decision.
+    """
+    g = CONFIG['global']
+    ttype = g.get('inbound_trailer_type')
+    if not ttype:
+        return None
+    lead_min = float(g.get('inbound_lead_minutes') or 0.0)
+    return {
+        'trailer_type': str(ttype),
+        'doors': int(g.get('inbound_dock_doors') or 4),
+        'lead_s': lead_min * 60.0,
+        'global_policy': str(g.get('inbound_global_policy') or 'fifo'),
+        'local_policy': str(g.get('inbound_local_policy') or 'fifo'),
+        'bound': g.get('inbound_trailer_bound'),
     }
 
 

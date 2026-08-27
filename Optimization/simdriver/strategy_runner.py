@@ -57,6 +57,8 @@ from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
 from Inbound.pack import packer as _inbound_packer
+from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
+from Inbound.transit import TrailerTransit as _TrailerTransit
 from Warehouse.inventory.put_queue import store_and_fulfillment as _store_and_fulfillment
 from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
@@ -705,7 +707,10 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # disjoint contiguous blocks and no per-actor rollup can merge two people.
         _recv_workers = _recv_crew.workers(_uid)
         _uid = _recv_crew.next_uid(_uid)
-        mgr.enable_receiving(_Dock(_DockSpec(size=_recv_spec['size'])))
+        _recv_sources = ('reorder', 'trailer') if args.get('inbound') is not None \
+            else ('reorder',)
+        mgr.enable_receiving(_Dock(_DockSpec(size=_recv_spec['size'],
+                                             sources=_recv_sources)))
         # The rich packer rides with the crew: LoadPlans exist so the dock can count
         # deliveries; unbound (every store-only run) the mixin's default packs the same units.
         mgr.packer = _inbound_packer
@@ -717,6 +722,22 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         if _recv_spec['day_seconds'] is not None:
             _recv_day = _WorkDay(length=_recv_spec['day_seconds'],
                                  origin=_recv_spec['day_origin'])
+
+    # ── the trailer pipeline ──────────────────────────────────────────────────────
+    # ABSENT BY DEFAULT, structurally: `inbound_spec()` returns None when no trailer type
+    # is named, so no TrailerTransit exists and the manager keeps its own batch lead queue
+    # byte-identically.  When present, the driver BUILDS and BINDS -- the broker holds what
+    # it is handed (`mgr.transit`, `mgr.packer`); nothing under Warehouse/ imports Inbound.
+    _inb_spec = args.get('inbound')
+    if _inb_spec is not None:
+        mgr.transit = _TrailerTransit(
+            _TRAILER_TYPES[_inb_spec['trailer_type']],
+            lead_s=_inb_spec['lead_s'],
+            doors=_inb_spec['doors'],
+            global_policy=_inb_spec['global_policy'],
+            local_policy=_inb_spec['local_policy'],
+            bound=_inb_spec['bound'])
+        mgr.packer = _inbound_packer   # per-trailer portions pack as the pieces they are
 
     # ── static per-run scores (saved once, before the loop) ────────────────────
     # Geometry/config-fixed scores the assignment functions compute: the viewer reads
@@ -922,7 +943,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # (below) re-places them + reorders in priority order.
             reloader.reload(mgr, freq_by_sku, opt_x, opt_y)
         triggered      = mgr.check_reorders(put_deadline=_put_deadline,
-                                            recv_deadline=_recv_deadline)
+                                            recv_deadline=_recv_deadline,
+                                            now_s=arm_clock)
         reorders_ckpt += len(triggered)
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>check_reorders</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def check_reorders(self, put_deadline: float | None=None, recv_deadline: float | None=None) -&gt; list[int]</code></pre>
+<pre class="sig"><code>def check_reorders(self, put_deadline: float | None=None, recv_deadline: float | None=None, now_s: float | None=None) -&gt; list[int]</code></pre>
 <section class="doc">Order-Up-To replenishment through an explicit, deterministic lead queue.
 
 Every reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record — even

@@ -252,6 +252,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # deferred ledger.  The trailer pipeline binds its own transit here flag-on —
         # injection, never import, like `packer` below.
         self.transit = _BatchTransit()
+        # The arm's absolute epoch as of the current check_reorders call — the trailer
+        # transit's clock; None outside a run (bare test managers), which fails safe:
+        # a positive lead simply has not arrived yet.
+        self._now_s: float | None = None
         # THE INBOUND SEAM.  `inbound_split(sku, qty) -> list[int] | None` decides whether an
         # arrival comes in as one delivery or several; packing is per delivery, so a shipment
         # that would palletize whole can land as singletons when a trailer splits it.  None =

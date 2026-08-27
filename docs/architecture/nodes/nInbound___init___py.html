@@ -35,13 +35,13 @@ Two rules, both enforced by `context/architecture.yml` boundaries:
 
 # ── what lives here ───────────────────────────────────────────────────────────────
 
-    dock.py     the Dock: spec, crew clocks, and the merchandise standing on the floor
-    unload.py   what it costs to take one storage unit off a trailer
-    pack.py     packing one delivery into storage units, and the LoadPlan record
-
-The trailer model (TrailerType/Trailer, load pallets, priorities.py) lands here next — the
-decisions are on the wayfinder map; the code is not yet written.</section>
-<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nInbound_dock_py.html"><code>Inbound.dock</code></a> <span class="dim">Inbound/dock.py</span></li><li><a href="nInbound_pack_py.html"><code>Inbound.pack</code></a> <span class="dim">Inbound/pack.py</span></li><li><a href="nInbound_unload_py.html"><code>Inbound.unload</code></a> <span class="dim">Inbound/unload.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(1)</span></h2><ul><li><a href="nInbound___init___py____all__.html"><code>__all__</code></a> <span class="dim">Inbound/__init__.py</span></li></ul></section>
+    dock.py        the Dock: spec, crew clocks, and the merchandise standing on the floor
+    unload.py      what it costs to take one storage unit off a trailer
+    pack.py        packing one delivery into storage units, and the LoadPlan record
+    trailer.py     TrailerType (53/28), stateful Trailers, and the load pallets they carry
+    priorities.py  the global/local policy registries, frozen DockContext, ordering bound
+    transit.py     TrailerTransit: order port -&gt; trailers -&gt; parking lot -&gt; dock doors</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nInbound_dock_py.html"><code>Inbound.dock</code></a> <span class="dim">Inbound/dock.py</span></li><li><a href="nInbound_pack_py.html"><code>Inbound.pack</code></a> <span class="dim">Inbound/pack.py</span></li><li><a href="nInbound_trailer_py.html"><code>Inbound.trailer</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_transit_py.html"><code>Inbound.transit</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nInbound_unload_py.html"><code>Inbound.unload</code></a> <span class="dim">Inbound/unload.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(1)</span></h2><ul><li><a href="nInbound___init___py____all__.html"><code>__all__</code></a> <span class="dim">Inbound/__init__.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound___init___py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/__init__.py">Source ↗</a></p>
 </article>
 </main>

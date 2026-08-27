@@ -495,7 +495,7 @@
     },
     "Inbound/__init__.py": {
       "decorators": [],
-      "doc": "Inbound \u2014 the receiving side of the site: trailers, the dock, unloading and packing.\n\nA top-level package beside `Warehouse/`, split out so the two domains meet only at the\nInventory Manager's broker seam (see root `CONTEXT.md` for the vocabulary and\n`.scratch/inbound-groundwork/` while the effort is in flight).\n\n# \u2500\u2500 the import law \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nTwo rules, both enforced by `context/architecture.yml` boundaries:\n\n  * This package imports Warehouse VALUE layers only \u2014 `wh_kernel`, `wh_layout`,\n    `wh_catalog`, and `wh_operations` (for the `PutawayCost` anti-drift coupling in\n    `unload.py`).  Never `wh_inventory`, `wh_picking`, `wh_placement`, or the harness.\n  * NO Warehouse module imports this package \u2014 not even the Inventory Manager.  The driver\n    (`Optimization/`) constructs Inbound's objects from CONFIG specs and binds them on the\n    manager (`enable_receiving`, `mgr.packer`), the way observers and placement functions\n    are already injected.  Hub-ness is injection, not imports.\n\n# \u2500\u2500 what lives here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    dock.py     the Dock: spec, crew clocks, and the merchandise standing on the floor\n    unload.py   what it costs to take one storage unit off a trailer\n    pack.py     packing one delivery into storage units, and the LoadPlan record\n\nThe trailer model (TrailerType/Trailer, load pallets, priorities.py) lands here next \u2014 the\ndecisions are on the wayfinder map; the code is not yet written.",
+      "doc": "Inbound \u2014 the receiving side of the site: trailers, the dock, unloading and packing.\n\nA top-level package beside `Warehouse/`, split out so the two domains meet only at the\nInventory Manager's broker seam (see root `CONTEXT.md` for the vocabulary and\n`.scratch/inbound-groundwork/` while the effort is in flight).\n\n# \u2500\u2500 the import law \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nTwo rules, both enforced by `context/architecture.yml` boundaries:\n\n  * This package imports Warehouse VALUE layers only \u2014 `wh_kernel`, `wh_layout`,\n    `wh_catalog`, and `wh_operations` (for the `PutawayCost` anti-drift coupling in\n    `unload.py`).  Never `wh_inventory`, `wh_picking`, `wh_placement`, or the harness.\n  * NO Warehouse module imports this package \u2014 not even the Inventory Manager.  The driver\n    (`Optimization/`) constructs Inbound's objects from CONFIG specs and binds them on the\n    manager (`enable_receiving`, `mgr.packer`), the way observers and placement functions\n    are already injected.  Hub-ness is injection, not imports.\n\n# \u2500\u2500 what lives here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    dock.py        the Dock: spec, crew clocks, and the merchandise standing on the floor\n    unload.py      what it costs to take one storage unit off a trailer\n    pack.py        packing one delivery into storage units, and the LoadPlan record\n    trailer.py     TrailerType (53/28), stateful Trailers, and the load pallets they carry\n    priorities.py  the global/local policy registries, frozen DockContext, ordering bound\n    transit.py     TrailerTransit: order port -> trailers -> parking lot -> dock doors",
       "kind": "module",
       "signature": null
     },
@@ -504,7 +504,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['Dock', 'DockSpec', 'LoadPlan', 'packer', 'receive', 'receive_all', 'shipment_penalty', 'UnloadCost', 'unload_cost']"
+      "value_preview": "['Dock', 'DockSpec', 'LoadPlan', 'LoadPallet', 'packer', 'receive', 'receive_all', 'shipment_penalty', 'Trailer', 'Trailer28', 'Trailer53', 'TRAILER_TYPES', 'TrailerTransit', 'UnloadCost', 'unload_..."
     },
     "Inbound/dock.py": {
       "decorators": [],
@@ -779,6 +779,240 @@
       "is_async": false,
       "kind": "function",
       "signature": "(plans) -> int"
+    },
+    "Inbound/priorities.py": {
+      "decorators": [],
+      "doc": "priorities \u2014 the dock's two policy registries, on `put_policy`'s proven contract.\n\n# \u2500\u2500 two levels, two registries \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nGLOBAL ranks TRAILERS, and one ranking serves BOTH dock moments: a freed door goes to the\ntop-ranked unstaged trailer, and the crew unloads the top-ranked staged one.  LOCAL ranks a\ntrailer's LOAD PALLETS \u2014 what a crew actually pulls; on a single-SKU pallet that degenerates\nto the SKU lot.  A separate staging-vs-unload split is a later registry addition if a real\npolicy ever needs it (one adapter is a hypothetical seam).\n\nThe contract is `put_policy`'s exactly: a policy is a PURE key function, HIGHER served\nfirst, over (candidate, ctx) where `ctx` is FROZEN for the drain \u2014 computed once, reused\nacross every decision in it.  `ctx` is also where the warehouse-space signal arrives when\nthe future feature builds it (\"unloading that takes advantage of space in warehouse\"): a\nnamed view on the context, no signature change.  A LOCAL policy may reorder WORK but never\npack composition \u2014 the pack plan is fixed per trailer.\n\nThere is deliberately NO `inherit` entry: at the dock there is no placement pool whose\nprecedence could stand in, so the default is plain `'fifo'`.\n\n# \u2500\u2500 the ordering bound \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`bounded_order` is the dock's `k_cap` analog, shipped now by decision: the policy PROPOSES\nan order, the bound limits how far it may depart from arrival order \u2014 \"of the `bound`\nlongest-waiting trailers, take the best\".  Denominated in TRAILERS; None = unbounded.  With\n`'fifo'` (v1's only policy) any bound is inert, which is what keeps v1 byte-identical while\nthe interface is real.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/priorities.py::DockContext": {
+      "decorators": [],
+      "doc": "Everything a priority key may see, frozen once per drain.\n\nKeys must be pure functions of (candidate, ctx); anything that changes as work happens\nwould be read stale by design \u2014 the same rule, for the same one-key-per-drain cost\nreason, as `put_policy`.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/priorities.py::DockContext.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, doors: int, free_doors: int, lot_depth: int)"
+    },
+    "Inbound/priorities.py::_fifo_pallet": {
+      "decorators": [],
+      "doc": "Load order: the pallet loaded first is pulled first.  The candidate is\n(position_index, LoadPallet) so a key needs no back-pointer to its trailer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(indexed_pallet, ctx) -> float"
+    },
+    "Inbound/priorities.py::_fifo_trailer": {
+      "decorators": [],
+      "doc": "Strict arrival order: the longest-waiting trailer first.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(trailer, ctx) -> float"
+    },
+    "Inbound/priorities.py::bounded_order": {
+      "decorators": [],
+      "doc": "The policy's order, bounded: repeatedly take the best-keyed of the `bound`\nlongest-waiting remaining candidates (arrival order = input order).  None = the\npolicy's order stands unbounded.  Stable on key ties, like the put drain.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates: list, key, ctx, bound: int | None) -> list"
+    },
+    "Inbound/priorities.py::global_key": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(policy: str)"
+    },
+    "Inbound/priorities.py::local_key": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(policy: str)"
+    },
+    "Inbound/trailer.py": {
+      "decorators": [],
+      "doc": "trailer \u2014 the vehicle, its load pallets, and the FIFO loading that fills them.\n\n# \u2500\u2500 the two-level object model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`TrailerType` is stateless class-as-config on the `StorageCart` pattern\n(`Warehouse/layout/Storage_Primitive.py`): capacity read off the TYPE, one subclass per\nreal vehicle.  Positions come from footprint arithmetic at the 48-inch square pallet\n(`Warehouse.physical.PALLET_FOOTPRINT`), single-stacked: a 53-foot trailer is 13 rows x 2\nacross = 26 positions; a 28-foot pup is 6 x 2 = 12.  Both are overridable class attributes,\nand a mixed fleet is a future policy the type seam permits \u2014 one run uses one type today.\n\n`Trailer` is the stateful half and persists day over day: contents, remaining volume, an\noptional lead, the arrival stamp, door state.  Its pack plan is computed once at arrival\n(fixed by its full per-SKU contents \u2014 crew interruption pauses packing WORK, never changes\nthe packs) and dropped when the trailer is fully worked, so nothing pins packs across\nbatches \u2014 the constraint the removed LoadPlan-retention leak taught.\n\n# \u2500\u2500 the load pallet, and why it is not a pack \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA LOAD PALLET is the transport grouping loose items ride on \u2014 it may MIX SKUs that fit its\n48-cubed volume, and it is what the receiving crew pulls.  It is NOT a pack: packing has\nnot happened yet (root `CONTEXT.md` carries both entries with cross-avoid notes).  Fit is\nvolumetric with the perfect-packing assumption verbatim from `StorageCart.add_from_bin`;\nnext-fit closes a pallet, pallets fill positions, and an item that fits no remaining\nposition starts a NEW trailer \u2014 which is what keeps loading strictly FIFO (\"placed\nperfectly in FIFO order into a trailer if it fits\").\n\nFIFO loading makes SKU lots CONTIGUOUS by construction: all of one reorder loads before the\nnext begins, so \"three pallets of x\" sit together and the local-priority key's candidate is\nthe load pallet, degenerating to the SKU lot on single-SKU pallets.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/trailer.py::LoadPallet": {
+      "decorators": [],
+      "doc": "One transport grouping of loose items: (sku, qty, unit_volume) lots that fit 48^3.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/trailer.py::LoadPallet.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/trailer.py::LoadPallet.add": {
+      "decorators": [],
+      "doc": "Take up to `qty` items volumetrically; returns how many fit (perfect packing,\nthe `StorageCart.add_from_bin` assumption verbatim).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sku: int, qty: int, unit_volume: int) -> int"
+    },
+    "Inbound/trailer.py::LoadPallet.remaining_volume": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/trailer.py::Trailer": {
+      "decorators": [],
+      "doc": "One vehicle in flight or on the ground.  State matters and persists day over day.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/trailer.py::Trailer.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer_type: type, seq: int, lead_s: float=0.0, dispatched_s: float | None=None)"
+    },
+    "Inbound/trailer.py::Trailer.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/trailer.py::Trailer.arrived": {
+      "decorators": [],
+      "doc": "Has this trailer reached the parking lot?\n\nLead zero (the decided default) arrives instantly.  A positive lead needs the\nabsolute clock; when no clock reaches the calendar (`now_s` None \u2014 bare test\nmanagers), a positive lead simply has not arrived, which fails safe: merchandise\nwaits rather than teleports.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, now_s: float | None) -> bool"
+    },
+    "Inbound/trailer.py::Trailer.load": {
+      "decorators": [],
+      "doc": "Next-fit at the pallet level: fill the open pallet, then a new one while\npositions remain.  Returns how many items fit; the remainder starts a new trailer\n(the caller's next-fit, which is what preserves FIFO).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sku: int, qty: int, unit_volume: int) -> int"
+    },
+    "Inbound/trailer.py::Trailer.lots": {
+      "decorators": [],
+      "doc": "Every (sku, qty, unit_volume) lot in pallet order \u2014 contiguous by construction.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/trailer.py::Trailer.sku_totals": {
+      "decorators": [],
+      "doc": "{sku: qty} of the whole load \u2014 what fixes the pack plan at arrival.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Inbound/trailer.py::Trailer28": {
+      "decorators": [],
+      "doc": "28-foot pup: 6 rows x 2 across, single-stacked.",
+      "kind": "class",
+      "signature": "(TrailerType)"
+    },
+    "Inbound/trailer.py::Trailer53": {
+      "decorators": [],
+      "doc": "53-foot trailer: 13 rows x 2 across of 48-inch pallets, single-stacked.",
+      "kind": "class",
+      "signature": "(TrailerType)"
+    },
+    "Inbound/trailer.py::TrailerType": {
+      "decorators": [],
+      "doc": "Stateless config: how many pallet positions a vehicle holds. Subclass per vehicle.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/trailer.py::TrailerType.capacity": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "Total loose-item volume, positions x one max pallet each.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls) -> int"
+    },
+    "Inbound/transit.py": {
+      "decorators": [],
+      "doc": "transit \u2014 the trailer model on the manager's order-port seam.\n\n`TrailerTransit` binds where `BatchTransit` (the flag-off default in\n`Warehouse/inventory/inventory_reorder.py`) sits: same seam, same phase wrappers, injected\nby the driver and never imported by anything under `Warehouse/` \u2014 the broker rule.  What\nchanges flag-on is the SHAPE of transit: fired reorders load item-by-item into trailers\n(FIFO next-fit \u2014 a lot that outgrows the open trailer continues in a fresh one, which is\n`inbound_split` realized structurally: each trailer's portion packs as its own delivery),\ntrailers dispatch when loading passes them by and arrive per their lead (seconds on the\nabsolute clock, minutes-authored, default ZERO = instantly), stand in the PARKING LOT,\nstage to DOCK DOORS, and are worked in priority order \u2014 global over trailers at both dock\nmoments, local over load pallets, both `'fifo'` in v1.\n\n# \u2500\u2500 what the doors do in v1, and deliberately do not \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nDoors are BOOKKEEPING in v1: every arrival lands at the batch epoch and every policy is\nFIFO, so a per-batch door throttle would invent staffing physics the shift-end decision\nalready declined \u2014 the crew's hours are the bound on receiving, exactly as the dock's\nno-backpressure note says.  The door count, free-door census and staging order are all\nreal and reported through `DockContext`, so the policies that make doors bite (arrival\nspread, non-FIFO staging) arrive as registry entries, not as rewiring.\n\n# \u2500\u2500 the seam contract \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nMirrors `BatchTransit` exactly \u2014 `SOURCE`, `dispatch`, `advance`, `release`, `depth`,\n`merchandise()`, `snapshot()` \u2014 so the manager's phase bodies cannot tell which transit is\nbound.  `release()` returns `[sku, qty, remaining]` DELIVERIES (one per contiguous trailer\nlot, in unload order); the manager's ledger debit, packer and admission flow are untouched,\nand admissions carry `SOURCE = 'trailer'`, the fourth `PutawayItem` provenance.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/transit.py::TrailerTransit": {
+      "decorators": [],
+      "doc": "Trailers from the order port to the dock doors, in one object.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/transit.py::TrailerTransit.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, doors: int=4, global_policy: str='fifo', local_policy: str='fifo', bound: int | None=None)"
+    },
+    "Inbound/transit.py::TrailerTransit._depart": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer: Trailer) -> None"
+    },
+    "Inbound/transit.py::TrailerTransit.advance": {
+      "decorators": [],
+      "doc": "Leads are absolute-clock seconds; a batch tick moves nothing by itself.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Inbound/transit.py::TrailerTransit.depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "In-flight ENTRIES: trailers loading, in transit, or parked.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/transit.py::TrailerTransit.dispatch": {
+      "decorators": [],
+      "doc": "Load one fired reorder, item-by-item, FIFO next-fit across trailers.\n\n`lead` (batches) is the LEGACY denomination and is deliberately ignored here: a\ntrailer's lead is `lead_s` on the absolute clock (ticket: \"Choose the lead-time\ndenomination\").  `unit_volume` None falls back to one item per position-volume\nshare of nothing \u2014 callers on this seam pass `order.volume()`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sku: int, qty: int, lead: int, unit_volume: int | None=None, now_s: float | None=None) -> None"
+    },
+    "Inbound/transit.py::TrailerTransit.merchandise": {
+      "decorators": [],
+      "doc": "Pieces not yet released to the dock \u2014 the in_transit_qty level.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/transit.py::TrailerTransit.release": {
+      "decorators": [],
+      "doc": "Everything the dock can start on this batch, as [sku, qty, 0] deliveries.\n\nOrder of operations IS the model: (1) anything still loading departs \u2014 a trailer\nwaits for nothing in v1; (2) arrivals (lead elapsed against `now_s`) join the\nparking lot; (3) the lot stages to doors and staged trailers are worked in\nGLOBAL-priority order, each trailer's pallets in LOCAL-priority order, emitting one\ndelivery per contiguous SKU lot \u2014 so a split shipment packs as the pieces it\narrived in.  Worked trailers free their doors within the drain (v1: doors are\nbookkeeping; see the module note).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, now_s: float | None=None) -> list"
+    },
+    "Inbound/transit.py::TrailerTransit.snapshot": {
+      "decorators": [],
+      "doc": "(sku, qty, remaining_lead) tuples for the replay rows; remaining is 1 for\nanything still riding a lead, 0 for parked \u2014 batches were never its unit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
     },
     "Inbound/unload.py": {
       "decorators": [],
@@ -4727,6 +4961,48 @@
       "signature": null,
       "value_preview": "'foot'"
     },
+    "Optimization/config/settings.py::INBOUND_DOCK_DOORS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "4"
+    },
+    "Optimization/config/settings.py::INBOUND_GLOBAL_POLICY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fifo'"
+    },
+    "Optimization/config/settings.py::INBOUND_LOCAL_POLICY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fifo'"
+    },
+    "Optimization/config/settings.py::INBOUND_TRAILER_BOUND": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/settings.py::INBOUND_TRAILER_LEAD_MINUTES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.0"
+    },
+    "Optimization/config/settings.py::INBOUND_TRAILER_TYPE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
     "Optimization/config/settings.py::KEYFRAME_INTERVAL": {
       "decorators": [],
       "doc": null,
@@ -5131,6 +5407,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> float"
+    },
+    "Optimization/config/sim_config.py::inbound_spec": {
+      "decorators": [],
+      "doc": "The trailer pipeline's configuration as a picklable record, or **None** for off.\n\nNone rather than a dict with a flag, for the same reason `recv_crew_spec` returns None:\nthe worker tests `args.get('inbound') is None` and skips the whole build -- no\nTrailerTransit, no trailer objects, and the manager keeps the batch lead queue it\nconstructed for itself, byte-identically.\n\nReads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`'s\nsettings snapshot).  The lead is authored in MINUTES and converted to the sim's\nseconds exactly once, here -- the minutes-at-the-surface decision.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict | None"
     },
     "Optimization/config/sim_config.py::k_pickers": {
       "decorators": [],
@@ -13773,7 +14056,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('intake', 'reorder', 'reslot')"
+      "value_preview": "('intake', 'reorder', 'reslot', 'trailer')"
     },
     "Warehouse/inventory/inventory_common.py::Placement": {
       "decorators": [],
@@ -14266,10 +14549,10 @@
     },
     "Warehouse/inventory/inventory_reorder.py::BatchTransit.dispatch": {
       "decorators": [],
-      "doc": "Accept one fired reorder from the order port.",
+      "doc": "Accept one fired reorder from the order port.  `unit_volume` and `now_s`\nare the trailer transit's business, carried on the seam so the two transits\nare indistinguishable to the phase bodies; the batch countdown ignores both.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, sku: int, qty: int, lead: int) -> None"
+      "signature": "(self, sku: int, qty: int, lead: int, unit_volume: int | None=None, now_s: float | None=None) -> None"
     },
     "Warehouse/inventory/inventory_reorder.py::BatchTransit.merchandise": {
       "decorators": [],
@@ -14283,7 +14566,7 @@
       "doc": "Pop and return every arrived entry (remaining_lead <= 0), in queue order.\n\nUn-arrived entries keep their order; a negative remainder is an order that arrived\nwhile nothing drained it \u2014 never clamped, because clamping would hide the backlog.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self) -> list[list]"
+      "signature": "(self, now_s: float | None=None) -> list[list]"
     },
     "Warehouse/inventory/inventory_reorder.py::BatchTransit.snapshot": {
       "decorators": [],
@@ -14387,7 +14670,7 @@
       "doc": "Order-Up-To replenishment through an explicit, deterministic lead queue.\n\nEvery reorder enters `_lead_queue` as a [sku, qty, remaining_lead] record \u2014 even\nlead 0.  Per call (one completed batch), in this order and no other:\n  0. Advance the batch calendar and reclaim bins the picks emptied.\n  1. Advance every pre-existing in-transit order: remaining_lead -= 1.\n  2. Fire OUP reorders for depleted SKUs \u2192 append new records (remaining_lead =\n     round(lead_time_mean) \u2265 0); reorder qty ~ Normal(ideal, ideal\u00b7supply_cv)\n     centred on the equilibrium fill (supply_cv set at generation).\n  3. Release every arrived order (remaining_lead \u2264 0) into the stock queue \u2014 this\n     catches both decremented-to-0 olds AND fresh lead-0 newcomers (same batch).\n  4. Unload the dock, if there is a receiving crew, until its day runs out.\n  5. Place the stock queue into bins via _stock().\n\nInventory POSITION = on_hand + queued (stock queue) + deferred (lead queue), so a\nSKU with an order already in flight is not reordered again.\n\n`put_deadline` and `recv_deadline` are the two crews' whistles, each in seconds on\nits OWN batch-local clock, and each reaching exactly one phase.  They are separate\nparameters rather than one shared day because the crews are separate: handing\nreceiving the put crew's remaining day would be arithmetically well-formed and wrong\nby an unrelated crew's overrun, and a cut count of zero reads as \"the boundary cost\nnothing\".\n\nNeither reaches anything above step 4 on purpose: steps 0-3 are the CALENDAR\nadvancing \u2014 a lead time elapses whether or not anyone is at work, and a trailer that\narrives at four o'clock has still arrived.  What a day bounds is the LABOUR, and the\nlabour is steps 4 and 5.\n\nTHE ORDER IS THE BEHAVIOUR.  Each step above is a method so a future caller can\ndrive them separately, but reordering them changes results: firing before the lead\ntick would decrement an order in the batch it was placed, and releasing before\nfiring would delay every lead-0 arrival by a batch.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, put_deadline: float | None=None, recv_deadline: float | None=None) -> list[int]"
+      "signature": "(self, put_deadline: float | None=None, recv_deadline: float | None=None, now_s: float | None=None) -> list[int]"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn": {
       "decorators": [],

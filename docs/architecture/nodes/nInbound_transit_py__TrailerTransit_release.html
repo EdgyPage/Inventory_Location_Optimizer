@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>release · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_transit_py__TrailerTransit_release" data-id="Inbound/transit.py::TrailerTransit.release">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_transit_py.html"><code>Inbound/transit.py</code></a> <span class="sep">›</span> <a href="nInbound_transit_py__TrailerTransit.html"><code>TrailerTransit</code></a> <span class="sep">›</span> <span class="here"><code>release</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>release</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_transit_py.html"><code>Inbound/transit.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def release(self, now_s: float | None=None) -&gt; list</code></pre>
+<section class="doc">Everything the dock can start on this batch, as [sku, qty, 0] deliveries.
+
+Order of operations IS the model: (1) anything still loading departs — a trailer
+waits for nothing in v1; (2) arrivals (lead elapsed against `now_s`) join the
+parking lot; (3) the lot stages to doors and staged trailers are worked in
+GLOBAL-priority order, each trailer&#x27;s pallets in LOCAL-priority order, emitting one
+delivery per contiguous SKU lot — so a split shipment packs as the pieces it
+arrived in.  Worked trailers free their doors within the drain (v1: doors are
+bookkeeping; see the module note).</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_priorities_py__DockContext.html"><code>DockContext</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__bounded_order.html"><code>bounded_order</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__depart.html"><code>_depart</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_transit_py__TrailerTransit_release">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/transit.py#:~:text=def%20release">Source ↗</a></p>
+</article>
+</main>
+</body></html>

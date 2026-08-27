@@ -14,8 +14,10 @@
 <h1><span class="kind kind-function">function</span> <code>dispatch</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def dispatch(self, sku: int, qty: int, lead: int) -&gt; None</code></pre>
-<section class="doc">Accept one fired reorder from the order port.</section>
+<pre class="sig"><code>def dispatch(self, sku: int, qty: int, lead: int, unit_volume: int | None=None, now_s: float | None=None) -&gt; None</code></pre>
+<section class="doc">Accept one fired reorder from the order port.  `unit_volume` and `now_s`
+are the trailer transit&#x27;s business, carried on the seam so the two transits
+are indistinguishable to the phase bodies; the batch countdown ignores both.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__BatchTransit_dispatch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20dispatch">Source ↗</a></p>
 </article>

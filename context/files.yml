@@ -63,6 +63,31 @@ files:
       - {name: "shipment_penalty", file: "Inbound/pack.py", kind: "function"}
       - {name: "packer", file: "Inbound/pack.py", kind: "function"}
     notes: ""
+  "Inbound/priorities.py":
+    purpose: "the dock's two policy registries, on `put_policy`'s proven contract."
+    layer: "inbound"
+    key_symbols:
+      - {name: "DockContext", file: "Inbound/priorities.py", kind: "class"}
+      - {name: "global_key", file: "Inbound/priorities.py", kind: "function"}
+      - {name: "local_key", file: "Inbound/priorities.py", kind: "function"}
+      - {name: "bounded_order", file: "Inbound/priorities.py", kind: "function"}
+    notes: ""
+  "Inbound/trailer.py":
+    purpose: "the vehicle, its load pallets, and the FIFO loading that fills them."
+    layer: "inbound"
+    key_symbols:
+      - {name: "LoadPallet", file: "Inbound/trailer.py", kind: "class"}
+      - {name: "TrailerType", file: "Inbound/trailer.py", kind: "class"}
+      - {name: "Trailer53", file: "Inbound/trailer.py", kind: "class"}
+      - {name: "Trailer28", file: "Inbound/trailer.py", kind: "class"}
+      - {name: "Trailer", file: "Inbound/trailer.py", kind: "class"}
+    notes: ""
+  "Inbound/transit.py":
+    purpose: "the trailer model on the manager's order-port seam."
+    layer: "inbound"
+    key_symbols:
+      - {name: "TrailerTransit", file: "Inbound/transit.py", kind: "class"}
+    notes: ""
   "Inbound/unload.py":
     purpose: "what it costs to take merchandise off a trailer."
     layer: "inbound"
@@ -567,6 +592,12 @@ files:
       - {name: "RECV_CREW_SIZE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "RECV_DAY_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "RECV_DAY_ORIGIN", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_TRAILER_TYPE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_DOCK_DOORS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_TRAILER_LEAD_MINUTES", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_GLOBAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_LOCAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_TRAILER_BOUND", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "ROLL_OVER_UNPICKED", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "FF_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
@@ -612,6 +643,7 @@ files:
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "work_day_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "recv_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "inbound_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_queues_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -3360,7 +3392,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_only_admit_puts_a_new_unit_on_the_queue", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
-      - {name: "test_the_three_sources_are_all_used", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_every_source_has_a_producer", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_an_unknown_source_is_refused_at_construction", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_the_default_is_intake", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_an_item_cannot_be_relabelled_in_flight", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
@@ -3823,6 +3855,23 @@ files:
       - {name: "test_both_sims_call_the_shared_exit_rather_than_inlining_it", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_the_lockstep_comment_names_a_test_that_actually_guards_it", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_the_named_guards_exist_and_cover_the_travel_math", file: "Tests/unit/test_timeline.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_trailer_pipeline.py":
+    purpose: "the v1 trailer model, from loading to admission."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_types_carry_the_decided_positions", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_a_pallet_is_next_fit_and_merges_contiguous_lots", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_a_trailer_fills_pallet_by_pallet_and_stops_at_its_positions", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_a_lot_that_outgrows_the_trailer_continues_in_a_fresh_one", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_fifo_loading_keeps_lots_contiguous_and_in_order", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_a_positive_lead_without_a_clock_fails_safe", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_a_lead_elapses_against_the_absolute_clock", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_the_census_counts_what_has_not_reached_the_dock", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_the_bound_is_inert_under_fifo_and_bites_under_a_real_key", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_trailer_admissions_carry_the_fourth_source_and_conserve_merchandise", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_per_trailer_portions_pack_as_the_pieces_they_are", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_the_ledger_debits_every_portion_of_a_split_reorder", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
     notes: ""
   "Tests/unit/test_travel_balanced_equivalence.py":
     purpose: "the SKU-run-cached `_travel_balanced_impl` selects the"

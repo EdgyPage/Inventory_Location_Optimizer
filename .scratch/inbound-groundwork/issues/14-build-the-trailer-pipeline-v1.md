@@ -1,7 +1,7 @@
 # Build the trailer pipeline v1
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 13
 
 ## Question

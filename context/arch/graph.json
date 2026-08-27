@@ -596,6 +596,16 @@
       "src": "Inbound/__init__.py"
     },
     {
+      "dst": "Inbound/trailer.py",
+      "kind": "imports",
+      "src": "Inbound/__init__.py"
+    },
+    {
+      "dst": "Inbound/transit.py",
+      "kind": "imports",
+      "src": "Inbound/__init__.py"
+    },
+    {
       "dst": "Inbound/unload.py",
       "kind": "imports",
       "src": "Inbound/__init__.py"
@@ -704,6 +714,86 @@
       "dst": "Inbound/pack.py::receive",
       "kind": "calls",
       "src": "Inbound/pack.py::receive_all"
+    },
+    {
+      "dst": "Inbound/priorities.py::_fifo_pallet",
+      "kind": "ref",
+      "src": "Inbound/priorities.py"
+    },
+    {
+      "dst": "Inbound/priorities.py::_fifo_trailer",
+      "kind": "ref",
+      "src": "Inbound/priorities.py"
+    },
+    {
+      "dst": "Warehouse/physical.py",
+      "kind": "imports",
+      "src": "Inbound/trailer.py"
+    },
+    {
+      "dst": "Inbound/trailer.py::LoadPallet",
+      "kind": "calls",
+      "src": "Inbound/trailer.py::Trailer.__init__"
+    },
+    {
+      "dst": "Inbound/trailer.py::Trailer.lots",
+      "kind": "calls",
+      "src": "Inbound/trailer.py::Trailer.__repr__"
+    },
+    {
+      "dst": "Inbound/trailer.py::LoadPallet",
+      "kind": "calls",
+      "src": "Inbound/trailer.py::Trailer.load"
+    },
+    {
+      "dst": "Inbound/trailer.py::Trailer.lots",
+      "kind": "calls",
+      "src": "Inbound/trailer.py::Trailer.sku_totals"
+    },
+    {
+      "dst": "Inbound/priorities.py",
+      "kind": "imports",
+      "src": "Inbound/transit.py"
+    },
+    {
+      "dst": "Inbound/trailer.py",
+      "kind": "imports",
+      "src": "Inbound/transit.py"
+    },
+    {
+      "dst": "Inbound/priorities.py::global_key",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.__init__"
+    },
+    {
+      "dst": "Inbound/priorities.py::local_key",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.__init__"
+    },
+    {
+      "dst": "Inbound/trailer.py::Trailer",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.dispatch"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._depart",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.dispatch"
+    },
+    {
+      "dst": "Inbound/priorities.py::DockContext",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.release"
+    },
+    {
+      "dst": "Inbound/priorities.py::bounded_order",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.release"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._depart",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.release"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py",
@@ -4966,6 +5056,36 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
+      "dst": "Optimization/config/settings.py::INBOUND_DOCK_DOORS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_GLOBAL_POLICY",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_LOCAL_POLICY",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_TRAILER_BOUND",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_TRAILER_LEAD_MINUTES",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_TRAILER_TYPE",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
       "dst": "Optimization/config/settings.py::KEYFRAME_INTERVAL",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
@@ -9131,6 +9251,16 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Inbound/trailer.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Inbound/transit.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/config/strategies.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -9247,6 +9377,11 @@
     },
     {
       "dst": "Inbound/dock.py::DockSpec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -9762,6 +9897,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::_config_name",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::inbound_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
@@ -16668,6 +16808,278 @@
       "public": true
     },
     {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py",
+      "kind": "module",
+      "module": "Inbound/priorities.py",
+      "name": "Inbound.priorities",
+      "public": true
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::DockContext",
+      "kind": "class",
+      "module": "Inbound/priorities.py",
+      "name": "DockContext",
+      "public": true
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::DockContext.__init__",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::_fifo_pallet",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "_fifo_pallet",
+      "public": false
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::_fifo_trailer",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "_fifo_trailer",
+      "public": false
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::bounded_order",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "bounded_order",
+      "public": true
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::global_key",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "global_key",
+      "public": true
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::local_key",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "local_key",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py",
+      "kind": "module",
+      "module": "Inbound/trailer.py",
+      "name": "Inbound.trailer",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::LoadPallet",
+      "kind": "class",
+      "module": "Inbound/trailer.py",
+      "name": "LoadPallet",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::LoadPallet.__init__",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::LoadPallet.add",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "add",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::LoadPallet.remaining_volume",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "remaining_volume",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer",
+      "kind": "class",
+      "module": "Inbound/trailer.py",
+      "name": "Trailer",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer.__init__",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer.__repr__",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer.arrived",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "arrived",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer.load",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "load",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer.lots",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "lots",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer.sku_totals",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "sku_totals",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer28",
+      "kind": "class",
+      "module": "Inbound/trailer.py",
+      "name": "Trailer28",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::Trailer53",
+      "kind": "class",
+      "module": "Inbound/trailer.py",
+      "name": "Trailer53",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::TrailerType",
+      "kind": "class",
+      "module": "Inbound/trailer.py",
+      "name": "TrailerType",
+      "public": true
+    },
+    {
+      "file": "Inbound/trailer.py",
+      "id": "Inbound/trailer.py::TrailerType.capacity",
+      "kind": "function",
+      "module": "Inbound/trailer.py",
+      "name": "capacity",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py",
+      "kind": "module",
+      "module": "Inbound/transit.py",
+      "name": "Inbound.transit",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit",
+      "kind": "class",
+      "module": "Inbound/transit.py",
+      "name": "TrailerTransit",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit.__init__",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit._depart",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "_depart",
+      "public": false
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit.advance",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "advance",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit.depth",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "depth",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit.dispatch",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "dispatch",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit.merchandise",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "merchandise",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit.release",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "release",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit.snapshot",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "snapshot",
+      "public": true
+    },
+    {
       "file": "Inbound/unload.py",
       "id": "Inbound/unload.py",
       "kind": "module",
@@ -21141,6 +21553,54 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_DOCK_DOORS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_DOCK_DOORS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_GLOBAL_POLICY",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_GLOBAL_POLICY",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_LOCAL_POLICY",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_LOCAL_POLICY",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_TRAILER_BOUND",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_TRAILER_BOUND",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_TRAILER_LEAD_MINUTES",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_TRAILER_LEAD_MINUTES",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_TRAILER_TYPE",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_TRAILER_TYPE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::KEYFRAME_INTERVAL",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -21601,6 +22061,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "ff_fill",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::inbound_spec",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "inbound_spec",
       "public": true
     },
     {

@@ -118,6 +118,23 @@ RECV_DAY_ORIGIN = 0.0      # when the receiving day starts on the arm's absolute
                            # dock that opens before the pickers is a real shift pattern and
                            # this is where it goes.  --recv-day-origin
 
+# ── the inbound trailer pipeline ─────────────────────────────────────────────────
+# OFF unless a trailer type is named, and STRUCTURALLY so: `inbound_spec()` returns None,
+# no TrailerTransit is built, and the manager keeps the batch lead queue byte-identically.
+# Naming a type is a RESULTS ERA, not a tuning knob -- reorders then travel as trailer
+# loads, pack per trailer portion, and admit with source 'trailer'.
+INBOUND_TRAILER_TYPE = None      # '53' (26 pallet positions) | '28' (12); None = no trailers
+INBOUND_DOCK_DOORS = 4           # staging slots at the dock; BOOKKEEPING in v1 -- every
+                                 # arrival lands at the batch epoch and every policy is
+                                 # FIFO, so a throttle here would invent staffing physics.
+                                 # The knob exists for the policies that make doors bite.
+INBOUND_TRAILER_LEAD_MINUTES = 0.0   # per-trailer transit delay, authored in MINUTES
+                                 # (converted once at the spec seam); 0 = arrives instantly
+INBOUND_GLOBAL_POLICY = 'fifo'   # trailer order at BOTH dock moments (Inbound/priorities.py)
+INBOUND_LOCAL_POLICY = 'fifo'    # load-pallet order within a trailer
+INBOUND_TRAILER_BOUND = None     # the dock's k_cap analog, in TRAILERS; None = unbounded
+                                 # (inert under fifo -- shipped for the interface, by decision)
+
 ROLL_OVER_UNPICKED = False # demand a batch did not pick joins the NEXT batch's demand,
                            # whatever the cause: the day cut, a bin that held less than the
                            # plan, or no bin holding the SKU at all.  The largest behaviour

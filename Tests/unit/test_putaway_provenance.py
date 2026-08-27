@@ -86,9 +86,14 @@ def test_only_admit_puts_a_new_unit_on_the_queue():
                       'no declared origin and no arrival stamp:\n' + '\n'.join(bare))
 
 
-def test_the_three_sources_are_all_used():
-    """A vocabulary entry nothing produces is a vocabulary entry that will rot."""
-    src = inspect.getsource(im) + inspect.getsource(ir)
+def test_every_source_has_a_producer():
+    """A vocabulary entry nothing produces is a vocabulary entry that will rot.
+
+    The fourth source lives across the package split: 'trailer' is produced by
+    `Inbound.transit.TrailerTransit.SOURCE`, injected on the manager's order-port seam —
+    so the sweep reads that module too."""
+    import Inbound.transit as it
+    src = inspect.getsource(im) + inspect.getsource(ir) + inspect.getsource(it)
     for source in PUTAWAY_SOURCES:
         assert f"'{source}'" in src, f'nothing ever enqueues with source={source!r}'
 
@@ -97,7 +102,9 @@ def test_the_three_sources_are_all_used():
 
 def test_an_unknown_source_is_refused_at_construction():
     with pytest.raises(ValueError, match='unknown put-away source'):
-        PutawayItem(_Unit(), 'trailer')      # the fourth source — not declared yet
+        PutawayItem(_Unit(), 'teleport')     # nothing arrives by magic
+    # The fourth source is DECLARED now — the trailer pipeline's admissions carry it.
+    assert PutawayItem(_Unit(), 'trailer').source == 'trailer'
 
 
 def test_the_default_is_intake():

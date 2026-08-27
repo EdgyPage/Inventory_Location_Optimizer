@@ -14,6 +14,7 @@ from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
     CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, put_queues_spec,
+    inbound_spec,
     recv_crew_spec,
     work_day_spec,
     _CART_TYPES,
@@ -363,6 +364,7 @@ def _prepare_channel_run(
         # store's machine speed would write rows whose mode and duration disagree.
         put_crew            = put_crew_spec(),
         recv_crew           = recv_crew_spec(),
+        inbound             = inbound_spec(),
         put_queues          = put_queues_spec(),
         velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)

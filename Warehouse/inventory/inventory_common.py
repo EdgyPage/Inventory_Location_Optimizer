@@ -59,7 +59,7 @@ PoolFn = Callable[[list], 'Pool']
 
 #: Where a unit in the put-away queue came from.  Three today; a trailer is the fourth,
 #: and the reason this is a named vocabulary rather than a bool.
-PUTAWAY_SOURCES = ('intake', 'reorder', 'reslot')
+PUTAWAY_SOURCES = ('intake', 'reorder', 'reslot', 'trailer')
 
 
 class PutawayItem:

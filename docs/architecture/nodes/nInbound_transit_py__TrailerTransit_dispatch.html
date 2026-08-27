@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dispatch · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_transit_py__TrailerTransit_dispatch" data-id="Inbound/transit.py::TrailerTransit.dispatch">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_transit_py.html"><code>Inbound/transit.py</code></a> <span class="sep">›</span> <a href="nInbound_transit_py__TrailerTransit.html"><code>TrailerTransit</code></a> <span class="sep">›</span> <span class="here"><code>dispatch</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>dispatch</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_transit_py.html"><code>Inbound/transit.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def dispatch(self, sku: int, qty: int, lead: int, unit_volume: int | None=None, now_s: float | None=None) -&gt; None</code></pre>
+<section class="doc">Load one fired reorder, item-by-item, FIFO next-fit across trailers.
+
+`lead` (batches) is the LEGACY denomination and is deliberately ignored here: a
+trailer&#x27;s lead is `lead_s` on the absolute clock (ticket: &quot;Choose the lead-time
+denomination&quot;).  `unit_volume` None falls back to one item per position-volume
+share of nothing — callers on this seam pass `order.volume()`.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nInbound_trailer_py__Trailer.html"><code>Trailer</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__depart.html"><code>_depart</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_transit_py__TrailerTransit_dispatch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/transit.py#:~:text=def%20dispatch">Source ↗</a></p>
+</article>
+</main>
+</body></html>
