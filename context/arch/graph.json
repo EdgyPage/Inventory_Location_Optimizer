@@ -6296,6 +6296,36 @@
       "src": "Optimization/persistence/runtime_metrics.py::record_precompute"
     },
     {
+      "dst": "Optimization/persistence/runtime_semantics.py::_wall",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/runtime_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::register",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_semantics.py::_ID"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_semantics.py::_wall"
+    },
+    {
       "dst": "Schema/semantics.py",
       "kind": "imports",
       "src": "Optimization/persistence/sim_semantics.py"
@@ -6318,7 +6348,42 @@
     {
       "dst": "Schema/semantics.py::Col",
       "kind": "calls",
+      "src": "Optimization/persistence/sim_semantics.py::_BAY"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/sim_semantics.py::_ENUM"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
       "src": "Optimization/persistence/sim_semantics.py::_KEY"
+    },
+    {
+      "dst": "Schema/semantics.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/warehouse_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/warehouse_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::register",
+      "kind": "calls",
+      "src": "Optimization/persistence/warehouse_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/warehouse_semantics.py::_ENUM"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/warehouse_semantics.py::_KEY"
     },
     {
       "dst": "Optimization/Performance_Evaluations/__init__.py",
@@ -12081,6 +12146,26 @@
       "src": "Warehouse/catalog/Order.py::_sample_weight"
     },
     {
+      "dst": "Schema/semantics.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/affinity_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Warehouse/generation/affinity_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::register",
+      "kind": "calls",
+      "src": "Warehouse/generation/affinity_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Warehouse/generation/affinity_semantics.py::_KEY"
+    },
+    {
       "dst": "Schema/compat.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_affinity.py"
@@ -12754,6 +12839,36 @@
       "dst": "Warehouse/generation/generate_profile_suite.py::_save_close",
       "kind": "calls",
       "src": "Warehouse/generation/generate_profile_suite.py::plot_profile_stats_table"
+    },
+    {
+      "dst": "Schema/semantics.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/inventory_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Warehouse/generation/inventory_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::register",
+      "kind": "calls",
+      "src": "Warehouse/generation/inventory_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Warehouse/generation/inventory_semantics.py::_DIM"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Warehouse/generation/inventory_semantics.py::_ENUM"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Warehouse/generation/inventory_semantics.py::_KEY"
     },
     {
       "dst": "Warehouse/catalog/Affinity_Store.py",
@@ -23706,6 +23821,30 @@
       "public": true
     },
     {
+      "file": "Optimization/persistence/runtime_semantics.py",
+      "id": "Optimization/persistence/runtime_semantics.py",
+      "kind": "module",
+      "module": "Optimization/persistence/runtime_semantics.py",
+      "name": "Optimization.persistence.runtime_semantics",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/runtime_semantics.py",
+      "id": "Optimization/persistence/runtime_semantics.py::_ID",
+      "kind": "const",
+      "module": "Optimization/persistence/runtime_semantics.py",
+      "name": "_ID",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/runtime_semantics.py",
+      "id": "Optimization/persistence/runtime_semantics.py::_wall",
+      "kind": "function",
+      "module": "Optimization/persistence/runtime_semantics.py",
+      "name": "_wall",
+      "public": false
+    },
+    {
       "file": "Optimization/persistence/sim_semantics.py",
       "id": "Optimization/persistence/sim_semantics.py",
       "kind": "module",
@@ -23715,9 +23854,49 @@
     },
     {
       "file": "Optimization/persistence/sim_semantics.py",
+      "id": "Optimization/persistence/sim_semantics.py::_BAY",
+      "kind": "const",
+      "module": "Optimization/persistence/sim_semantics.py",
+      "name": "_BAY",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/sim_semantics.py",
+      "id": "Optimization/persistence/sim_semantics.py::_ENUM",
+      "kind": "const",
+      "module": "Optimization/persistence/sim_semantics.py",
+      "name": "_ENUM",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/sim_semantics.py",
       "id": "Optimization/persistence/sim_semantics.py::_KEY",
       "kind": "const",
       "module": "Optimization/persistence/sim_semantics.py",
+      "name": "_KEY",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/warehouse_semantics.py",
+      "id": "Optimization/persistence/warehouse_semantics.py",
+      "kind": "module",
+      "module": "Optimization/persistence/warehouse_semantics.py",
+      "name": "Optimization.persistence.warehouse_semantics",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/warehouse_semantics.py",
+      "id": "Optimization/persistence/warehouse_semantics.py::_ENUM",
+      "kind": "const",
+      "module": "Optimization/persistence/warehouse_semantics.py",
+      "name": "_ENUM",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/warehouse_semantics.py",
+      "id": "Optimization/persistence/warehouse_semantics.py::_KEY",
+      "kind": "const",
+      "module": "Optimization/persistence/warehouse_semantics.py",
       "name": "_KEY",
       "public": false
     },
@@ -29570,6 +29749,22 @@
       "public": true
     },
     {
+      "file": "Warehouse/generation/affinity_semantics.py",
+      "id": "Warehouse/generation/affinity_semantics.py",
+      "kind": "module",
+      "module": "Warehouse/generation/affinity_semantics.py",
+      "name": "Warehouse.generation.affinity_semantics",
+      "public": true
+    },
+    {
+      "file": "Warehouse/generation/affinity_semantics.py",
+      "id": "Warehouse/generation/affinity_semantics.py::_KEY",
+      "kind": "const",
+      "module": "Warehouse/generation/affinity_semantics.py",
+      "name": "_KEY",
+      "public": false
+    },
+    {
       "file": "Warehouse/generation/generate_affinity.py",
       "id": "Warehouse/generation/generate_affinity.py",
       "kind": "module",
@@ -30552,6 +30747,38 @@
       "module": "Warehouse/generation/generate_profile_suite.py",
       "name": "plot_profile_stats_table",
       "public": true
+    },
+    {
+      "file": "Warehouse/generation/inventory_semantics.py",
+      "id": "Warehouse/generation/inventory_semantics.py",
+      "kind": "module",
+      "module": "Warehouse/generation/inventory_semantics.py",
+      "name": "Warehouse.generation.inventory_semantics",
+      "public": true
+    },
+    {
+      "file": "Warehouse/generation/inventory_semantics.py",
+      "id": "Warehouse/generation/inventory_semantics.py::_DIM",
+      "kind": "const",
+      "module": "Warehouse/generation/inventory_semantics.py",
+      "name": "_DIM",
+      "public": false
+    },
+    {
+      "file": "Warehouse/generation/inventory_semantics.py",
+      "id": "Warehouse/generation/inventory_semantics.py::_ENUM",
+      "kind": "const",
+      "module": "Warehouse/generation/inventory_semantics.py",
+      "name": "_ENUM",
+      "public": false
+    },
+    {
+      "file": "Warehouse/generation/inventory_semantics.py",
+      "id": "Warehouse/generation/inventory_semantics.py::_KEY",
+      "kind": "const",
+      "module": "Warehouse/generation/inventory_semantics.py",
+      "name": "_KEY",
+      "public": false
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",

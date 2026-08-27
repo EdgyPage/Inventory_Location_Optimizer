@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.generation.inventory_semantics · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_generation_inventory_semantics_py" data-id="Warehouse/generation/inventory_semantics.py">
+<nav class="crumbs"><a href="../layers.html">generation</a> <span class="sep">›</span> <span class="here"><code>Warehouse/generation/inventory_semantics.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.generation.inventory_semantics</code></h1>
+<p class="meta">layer <span class="chip">generation</span> · file <a href="../files/nWarehouse_generation_inventory_semantics_py.html"><code>Warehouse/generation/inventory_semantics.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>Warehouse.generation.inventory_semantics</code></pre>
+<section class="doc">inventory_semantics — the profiles-tree (inventory) family&#x27;s column semantics.
+
+The catalogue&#x27;s per-SKU constants: physical dimensions in inches (the inch/second boundary
+is `cost_model.sec_per_inch`), demand rates per BATCH, and the batch-denominated lead the
+trailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a
+planned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery
+can produce FEWER units — &quot;splitting is worse&quot; is not a safe assumption on most of a
+generated catalogue.
+
+Tags are metadata: importing this module changes no DDL, no shape id, no result.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nSchema_semantics_py.html"><code>Schema.semantics</code></a> <span class="dim">Schema/semantics.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_generation_inventory_semantics_py___DIM.html"><code>_DIM</code></a> <span class="dim">Warehouse/generation/inventory_semantics.py</span></li><li><a href="nWarehouse_generation_inventory_semantics_py___ENUM.html"><code>_ENUM</code></a> <span class="dim">Warehouse/generation/inventory_semantics.py</span></li><li><a href="nWarehouse_generation_inventory_semantics_py___KEY.html"><code>_KEY</code></a> <span class="dim">Warehouse/generation/inventory_semantics.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_generation_inventory_semantics_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/inventory_semantics.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

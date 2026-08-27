@@ -7083,13 +7083,67 @@
       "kind": "function",
       "signature": "(run_root: str) -> str"
     },
-    "Optimization/persistence/sim_semantics.py": {
+    "Optimization/persistence/runtime_semantics.py": {
       "decorators": [],
-      "doc": "sim_semantics \u2014 the sim_db family's column semantics, declared beside its DDL.\n\nThe structured form of every warning `Picking_Data.py`'s DDL comments carry in prose: kind,\nunit, unit of account, grain, clock, null-meaning and the scar that earned each tag.  Keyed\nexactly as `SIM_DB_FAMILY.declared_shape()['tables']` keys its columns, so the completeness\ngate (`Tests/architecture/test_column_semantics.py`) is a dict diff with nothing to drift.\n\n`COVERED` names the tables whose tagging is COMPLETE and therefore gated.  It starts with\nthe four epicenter tables \u2014 five of the twelve recorded incident classes hit `batch_stats`\nalone \u2014 and grows to the whole family in the convention pass (\"leave no remainder\").\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
+      "doc": "runtime_semantics \u2014 the runtime-metrics family's column semantics, beside its DDL.\n\nOne row per ARM, and every `*_s` here is a SPAN of WALL-CLOCK COMPUTE seconds \u2014 the same\nword \"seconds\" as the sim tables and a completely different instrument (incident class 11:\nsumming a deep-ladder mean against a phase wall cost a day and a wrong committed claim).\nThe clock axis on every time column is what makes that mistake refusable now.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
       "kind": "module",
       "signature": null
     },
+    "Optimization/persistence/runtime_semantics.py::_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'enum', 'arm')"
+    },
+    "Optimization/persistence/runtime_semantics.py::_wall": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(note=None, null_means=None)"
+    },
+    "Optimization/persistence/sim_semantics.py": {
+      "decorators": [],
+      "doc": "sim_semantics \u2014 the sim_db (and keyframes) column semantics, declared beside their DDL.\n\nThe structured form of every warning `Picking_Data.py`'s DDL comments carry in prose: kind,\nunit, unit of account, grain, clock, null-meaning and the scar that earned each tag.  Keyed\nexactly as `SIM_DB_FAMILY.declared_shape()['tables']` keys its columns, so the completeness\ngate (`Tests/architecture/test_column_semantics.py`) is a dict diff with nothing to drift.\n\nEvery table of both families is COVERED \u2014 the convention pass left no remainder.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/sim_semantics.py::_BAY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'coordinate', 'row')"
+    },
+    "Optimization/persistence/sim_semantics.py::_ENUM": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'enum', 'row')"
+    },
     "Optimization/persistence/sim_semantics.py::_KEY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'id', 'row')"
+    },
+    "Optimization/persistence/warehouse_semantics.py": {
+      "decorators": [],
+      "doc": "warehouse_semantics \u2014 the warehouse-DB family's column semantics, beside its DDL.\n\nBuild-time counts, target shares and identity fingerprints; no time columns, low risk \u2014\ntagged anyway, because \"leave no remainder\" is the rule that keeps the next column honest.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/warehouse_semantics.py::_ENUM": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'enum', 'row')"
+    },
+    "Optimization/persistence/warehouse_semantics.py::_KEY": {
       "decorators": [],
       "doc": null,
       "kind": "const",
@@ -12216,6 +12270,19 @@
       "kind": "module",
       "signature": null
     },
+    "Warehouse/generation/affinity_semantics.py": {
+      "decorators": [],
+      "doc": "affinity_semantics \u2014 the affinity family's column semantics.\n\nThree tiny tables; `lift` is a dimensionless co-demand ratio, comparable only within one\ncatalogue's generation \u2014 a SCORE, not a share and not a rate.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/generation/affinity_semantics.py::_KEY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'id', 'row')"
+    },
     "Warehouse/generation/generate_affinity.py": {
       "decorators": [],
       "doc": "Generate a demand-weighted sparse affinity matrix from an inventory DB.\n\nLift is a genuine co-purchase association **independent of demand**: within each\n(handling \u00d7 category) storage area, SKUs are partitioned into random latent\naffinity clusters (assigned independently of relative_frequency / demand_qty_rate),\nand same-cluster pairs get a positive association strength.  This makes lift a real\nsignal \u2014 `lift = 1` is independence, `lift > 1` is positive association \u2014 rather\nthan a restatement of popularity.  Only the top-K partners per SKU are stored,\nproducing a sparse matrix orders of magnitude smaller than all-pairs.\n\nLift formula\n------------\n1. Partition each storage area's SKUs into \u2308n / cluster_size\u2309 clusters, assigned\n   uniformly at random (independent of demand).\n2. For a pair (i, j) in the SAME cluster:\n\n       lift(i, j) = clip( min_lift + (max_lift - min_lift) * U(0,1], min_lift, max_lift )\n\n   (with `min_lift = 1` \u21d2 stored lift \u2208 (1, max_lift], i.e. positive association).\n3. Different-cluster pairs are independent (lift = 1) and are NOT stored.\n\nFor each SKU, the top-K cluster-mates by lift are stored.  Both (i\u2192j) and (j\u2192i)\nshare the same lift (first-writer-wins via INSERT OR IGNORE) so delta_lift and\nsum_lift remain symmetric.\n\nStorage\n-------\nExpected rows \u2248 N_skus \u00d7 top_k \u00d7 2 (some overlap reduced by INSERT OR IGNORE).\nFor 76 500 SKUs with top_k=10: ~1.5 M rows \u2248 43 MB.\nPrevious all-pairs approach: up to 488 M rows \u2248 13 GB.\n\nOutput layout\n-------------\n<out_dir>/<name>/\n    affinity.db              \u2014 SQLite: affinity + run_metadata\n    params.json              \u2014 full parameter record\n    stats.json               \u2014 descriptive statistics\n    plots/\n        lift_histogram.png   \u2014 distribution of stored lift values\n        lift_by_group.png    \u2014 mean/median lift per storage group\n        activity_vs_lift.png \u2014 demand throughput vs lift (confirms signal)\n        degree_distribution.png \u2014 how many SKUs reference each partner\n        cumulative_lift.png  \u2014 CDF of lift values\n\nUsage\n-----\npython generate_affinity.py --inventory-db path/to/inventory.db [options]\npython generate_affinity.py --inventory-db ... --estimate\n\nCallable API\n------------\nfrom Warehouse.generation.generate_affinity import generate_run\ngenerate_run(inventory_db='...', name='run1', top_k=10)",
@@ -13073,6 +13140,33 @@
       "is_async": false,
       "kind": "function",
       "signature": "(profile_stats: dict[str, dict], out_dir: str) -> None"
+    },
+    "Warehouse/generation/inventory_semantics.py": {
+      "decorators": [],
+      "doc": "inventory_semantics \u2014 the profiles-tree (inventory) family's column semantics.\n\nThe catalogue's per-SKU constants: physical dimensions in inches (the inch/second boundary\nis `cost_model.sec_per_inch`), demand rates per BATCH, and the batch-denominated lead the\ntrailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a\nplanned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery\ncan produce FEWER units \u2014 \"splitting is worse\" is not a safe assumption on most of a\ngenerated catalogue.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/generation/inventory_semantics.py::_DIM": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LEVEL, 'inches', 'sku', note='catalogue constant; seconds enter only through sec_per_inch')"
+    },
+    "Warehouse/generation/inventory_semantics.py::_ENUM": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'enum', 'row')"
+    },
+    "Warehouse/generation/inventory_semantics.py::_KEY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'id', 'row')"
     },
     "Warehouse/inventory/Inventory_Management.py": {
       "decorators": [],

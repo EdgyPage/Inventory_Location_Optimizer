@@ -15,19 +15,17 @@
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_sim_semantics_py.html"><code>Optimization/persistence/sim_semantics.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>Optimization.persistence.sim_semantics</code></pre>
-<section class="doc">sim_semantics — the sim_db family&#x27;s column semantics, declared beside its DDL.
+<section class="doc">sim_semantics — the sim_db (and keyframes) column semantics, declared beside their DDL.
 
 The structured form of every warning `Picking_Data.py`&#x27;s DDL comments carry in prose: kind,
 unit, unit of account, grain, clock, null-meaning and the scar that earned each tag.  Keyed
 exactly as `SIM_DB_FAMILY.declared_shape()[&#x27;tables&#x27;]` keys its columns, so the completeness
 gate (`Tests/architecture/test_column_semantics.py`) is a dict diff with nothing to drift.
 
-`COVERED` names the tables whose tagging is COMPLETE and therefore gated.  It starts with
-the four epicenter tables — five of the twelve recorded incident classes hit `batch_stats`
-alone — and grows to the whole family in the convention pass (&quot;leave no remainder&quot;).
+Every table of both families is COVERED — the convention pass left no remainder.
 
 Tags are metadata: importing this module changes no DDL, no shape id, no result.</section>
-<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nSchema_semantics_py.html"><code>Schema.semantics</code></a> <span class="dim">Schema/semantics.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_sim_semantics_py___KEY.html"><code>_KEY</code></a> <span class="dim">Optimization/persistence/sim_semantics.py</span></li></ul></section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nSchema_semantics_py.html"><code>Schema.semantics</code></a> <span class="dim">Schema/semantics.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nOptimization_persistence_sim_semantics_py___BAY.html"><code>_BAY</code></a> <span class="dim">Optimization/persistence/sim_semantics.py</span></li><li><a href="nOptimization_persistence_sim_semantics_py___ENUM.html"><code>_ENUM</code></a> <span class="dim">Optimization/persistence/sim_semantics.py</span></li><li><a href="nOptimization_persistence_sim_semantics_py___KEY.html"><code>_KEY</code></a> <span class="dim">Optimization/persistence/sim_semantics.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_sim_semantics_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/sim_semantics.py">Source ↗</a></p>
 </article>
 </main>

@@ -17,9 +17,27 @@ from __future__ import annotations
 
 import pytest
 
-from Optimization.persistence.Picking_Data import SIM_DB_FAMILY
+from Optimization.persistence.Picking_Data import KEYFRAME_DB_FAMILY, SIM_DB_FAMILY
+from Optimization.persistence.runtime_metrics import RUNTIME_DB_FAMILY
+from Optimization.persistence.Warehouse_Data import WAREHOUSE_DB_FAMILY
+from Warehouse.generation.generate_affinity import AFFINITY_DB_FAMILY
+from Warehouse.generation.generate_inventory import INVENTORY_DB_FAMILY
 from Optimization.persistence.sim_semantics import COVERED, SIM_DB_SEMANTICS
+import Optimization.persistence.runtime_semantics    # noqa: F401  (registers on import)
+import Optimization.persistence.warehouse_semantics  # noqa: F401
+import Warehouse.generation.affinity_semantics       # noqa: F401
+import Warehouse.generation.inventory_semantics      # noqa: F401
 from Schema import semantics as S
+
+#: Every registered family and its Family object — the no-remainder sweep's scope.
+FAMILIES = [
+    ('sim_db',             SIM_DB_FAMILY),
+    ('keyframes_db',       KEYFRAME_DB_FAMILY),
+    ('runtime_metrics_db', RUNTIME_DB_FAMILY),
+    ('warehouse_db',       WAREHOUSE_DB_FAMILY),
+    ('affinity_db',        AFFINITY_DB_FAMILY),
+    ('inventory_db',       INVENTORY_DB_FAMILY),
+]
 
 
 def _shape_tables() -> dict:
@@ -28,10 +46,21 @@ def _shape_tables() -> dict:
 
 # ── 1. completeness: the covered tables leave no remainder ───────────────────────
 
-def test_covered_tables_are_completely_and_validly_tagged():
-    problems = S.check_completeness(_shape_tables(), 'sim_db')
+@pytest.mark.parametrize('family,obj', FAMILIES, ids=[f for f, _ in FAMILIES])
+def test_every_family_is_completely_and_validly_tagged(family, obj):
+    problems = S.check_completeness(obj.declared_shape()['tables'], family)
     assert problems == [], 'declared semantics drifted from the declared shape:\n  ' + \
         '\n  '.join(problems)
+
+
+def test_every_covered_table_means_every_table():
+    """The no-remainder rule itself: a family may not declare a table and leave it out of
+    its covered set — that would be a silent carve-out the gate never sees."""
+    for family, obj in FAMILIES:
+        _sem, covered = S.semantics_for(family)
+        shape = set(obj.declared_shape()['tables'])
+        assert set(covered) == shape, (
+            f'{family}: covered={sorted(covered)} != shape tables={sorted(shape)}')
 
 
 def test_the_gate_actually_bites():

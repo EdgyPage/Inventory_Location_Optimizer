@@ -1,13 +1,11 @@
-"""sim_semantics — the sim_db family's column semantics, declared beside its DDL.
+"""sim_semantics — the sim_db (and keyframes) column semantics, declared beside their DDL.
 
 The structured form of every warning `Picking_Data.py`'s DDL comments carry in prose: kind,
 unit, unit of account, grain, clock, null-meaning and the scar that earned each tag.  Keyed
 exactly as `SIM_DB_FAMILY.declared_shape()['tables']` keys its columns, so the completeness
 gate (`Tests/architecture/test_column_semantics.py`) is a dict diff with nothing to drift.
 
-`COVERED` names the tables whose tagging is COMPLETE and therefore gated.  It starts with
-the four epicenter tables — five of the twelve recorded incident classes hit `batch_stats`
-alone — and grows to the whole family in the convention pass ("leave no remainder").
+Every table of both families is COVERED — the convention pass left no remainder.
 
 Tags are metadata: importing this module changes no DDL, no shape id, no result.
 """
@@ -18,6 +16,8 @@ from Schema.semantics import (
     SHARE, SIM, SPAN, STAMP, register)
 
 _KEY = Col(LABEL, 'id', 'row')
+_BAY = Col(LABEL, 'coordinate', 'row')
+_ENUM = Col(LABEL, 'enum', 'row')
 
 SIM_DB_SEMANTICS: dict = {
     'batch_stats': {
@@ -106,7 +106,7 @@ SIM_DB_SEMANTICS: dict = {
     'put_queue_state': {
         'run_id':     _KEY,
         'batch_id':   _KEY,
-        'queue':      Col(LABEL, 'enum', 'row'),
+        'queue':      _ENUM,
         'depth':      Col(LEVEL, 'units', 'batch', account=PACKS),
         'oldest_age': Col(SPAN, 'batches', 'batch', clock=BATCHES,
                           null_means='the queue is empty',
@@ -137,14 +137,14 @@ SIM_DB_SEMANTICS: dict = {
         'shift_index': Col(LABEL, 'frame', 'row', logical='frame_index',
                            note='a reporting frame that labels and never schedules — '
                                 'distinct from the shift that dispatches (drain-or-cap)'),
-        'actor_uid':   Col(LABEL, 'uid', 'row',
-                           note='unique ACROSS crews; a uid in a local slot lands inside '
-                                '[0,k) and is accepted — the id-space confusion '
-                                '_group_events_by_picker now raises on'),
-        'actor_local': Col(LABEL, 'local-id', 'row',
+        'actor_uid':   Col(LABEL, 'uid', 'row', space='crew-unique',
+                           note='a uid in a local slot lands inside [0,k) and is accepted '
+                                '— the id-space confusion _group_events_by_picker now '
+                                'raises on'),
+        'actor_local': Col(LABEL, 'local-id', 'row', space='crew-local',
                            note='dense PER CREW [0,k); the other id space'),
-        'role':        Col(LABEL, 'enum', 'row'),
-        'mode':        Col(LABEL, 'enum', 'row'),
+        'role':        _ENUM,
+        'mode':        _ENUM,
         'event_type':  Col(LABEL, 'enum', 'row',
                            note='for put/receive it equals role; for pick a row is a state '
                                 'change and the work is the span BETWEEN rows'),
@@ -163,10 +163,255 @@ SIM_DB_SEMANTICS: dict = {
         'source':      Col(LABEL, 'enum', 'row',
                            null_means='the event is not an admission'),
     },
+    'aisle_metrics': {
+        'run_id':        _KEY,
+        'batch_id':      _KEY,
+        'aisle_id':      _KEY,
+        'n_skus':        Col(LEVEL, 'skus', 'batch'),
+        'n_bins':        Col(LEVEL, 'bins', 'batch'),
+        'demand_sum':    Col(FLOW, 'items', 'batch', account=PIECES,
+                             note='this batch’s demand routed to the aisle'),
+        'lift_sum':      Col(SCORE, 's-weighted', 'batch',
+                             note='digest-stored float; summation order is locked'),
+        'pick_load_sum': Col(FLOW, 'items', 'batch', account=PIECES),
+    },
+    'bin_eviction': {
+        'run_id':   _KEY,
+        'batch_id': _KEY,
+        'seq':      Col(LABEL, 'ordinal', 'row',
+                        note='run-scoped monotonic, ascending within a batch'),
+        'aisle_id': _KEY,
+        'bayX':     _BAY,
+        'bayY':     _BAY,
+        'sku':      _KEY,
+        'qty':      Col(FLOW, 'items', 'row', account=PIECES,
+                        note='units removed; the unit re-enters the stock queue'),
+    },
+    'bin_placement': {
+        'run_id':     _KEY,
+        'batch_id':   _KEY,
+        'seq':        Col(LABEL, 'ordinal', 'row',
+                          note='RUN-scoped, not per batch — the PK collision note is in '
+                               'the DDL'),
+        'aisle_id':   _KEY,
+        'bayX':       _BAY,
+        'bayY':       _BAY,
+        'sku':        _KEY,
+        'qty':        Col(FLOW, 'items', 'row', account=PIECES,
+                          note='units placed into this bin'),
+        'cause':      _ENUM,
+        'score':      Col(SCORE, 'policy-relative', 'row',
+                          null_means='no score was recorded — a zero would claim a '
+                                     'perfect placement',
+                          note='NOT comparable across arms; `policy` says whose scale'),
+        'score_rank': Col(LABEL, 'ordinal', 'row',
+                          null_means='no ranking group was recorded'),
+        'policy':     Col(LABEL, 'enum', 'row',
+                          null_means='pre-policy vintage'),
+    },
+    'bin_scores': {
+        'run_id':       _KEY,
+        'aisle_id':     _KEY,
+        'bayX':         _BAY,
+        'bayY':         _BAY,
+        'travel_d':     Col(SPAN, 's', 'bin', clock=SIM,
+                            note='geometry-fixed travel seconds to this bin'),
+        'height_mult':  Col(SCORE, 'multiplier', 'bin'),
+        'layout_score': Col(SCORE, 's', 'bin', clock=SIM),
+        'map_pref':     Col(SCORE, 'policy-relative', 'bin',
+                            null_means='not an optimal-map arm'),
+    },
+    'picker_events': {
+        'id':               _KEY,
+        'run_id':           _KEY,
+        'batch_id':         _KEY,
+        'picker_id':        Col(LABEL, 'local-id', 'row', space='crew-local',
+                                note='dense per crew — the pick-only, batch-relative '
+                                     'stream'),
+        'time':             Col(STAMP, 's', 'batch', clock=SIM),
+        'event_type':       _ENUM,
+        'aisle_id':         Col(LABEL, 'id', 'row',
+                                null_means='a state-change row with no aisle'),
+        'bayX':             Col(LABEL, 'coordinate', 'row',
+                                null_means='a state-change row with no bin'),
+        'bayY':             Col(LABEL, 'coordinate', 'row',
+                                null_means='a state-change row with no bin'),
+        'sku':              Col(LABEL, 'id', 'row',
+                                null_means='a state-change row with no SKU'),
+        'quantity':         Col(FLOW, 'items', 'row', account=PIECES,
+                                null_means='the row moved no merchandise'),
+        'bins_completed':   Col(LEVEL, 'bins', 'session-cumulative',
+                                note='SESSION-CUMULATIVE: a realized quantity is the '
+                                     'DIFFERENCE between two events; reading one row as a '
+                                     'per-task flow repeats the plan-read-as-actuals '
+                                     'incident'),
+        'total_bins':       Col(LEVEL, 'bins', 'session-cumulative'),
+        'items_picked':     Col(LEVEL, 'items', 'session-cumulative', account=PIECES),
+        'total_items':      Col(LEVEL, 'items', 'session-cumulative', account=PIECES),
+        'pick_travel_x':    Col(SPAN, 's', 'row', clock=SIM,
+                                note='accrued since the previous event; the '
+                                     'reconciliation identity has FIVE terms plus '
+                                     'handling (no column) — not three'),
+        'pick_travel_y':    Col(SPAN, 's', 'row', clock=SIM),
+        'non_pick_travel_x': Col(SPAN, 's', 'row', clock=SIM),
+        'non_pick_travel_y': Col(SPAN, 's', 'row', clock=SIM),
+        'cart_move':        Col(SPAN, 's', 'row', clock=SIM),
+    },
+    'picks': {
+        'id':        _KEY,
+        'run_id':    _KEY,
+        'batch_id':  _KEY,
+        'picker_id': Col(LABEL, 'local-id', 'row', space='crew-local'),
+        'sim_time':  Col(STAMP, 's', 'batch', clock=SIM),
+        'aisle_id':  _KEY,
+        'bayX':      _BAY,
+        'bayY':      _BAY,
+        'sku':       _KEY,
+        'quantity':  Col(FLOW, 'items', 'row', account=PIECES),
+    },
+    'reorder_queue': {
+        'run_id':         _KEY,
+        'batch_id':       _KEY,
+        'kind':           Col(LABEL, 'enum', 'row',
+                              note="'lead' in transit | 'stock' awaiting bin | 'held' "
+                                   "refused floor | 'dock' awaiting unload"),
+        'sku':            _KEY,
+        'qty':            Col(LEVEL, 'items', 'batch', account=PIECES,
+                              note='a LISTING re-emitted per batch — the contents of the '
+                                   'queues, never summed across batches'),
+        'remaining_lead': Col(SPAN, 'batches', 'batch', clock=BATCHES,
+                              note="the legacy countdown ('lead' rows only); the trailer "
+                                   "feature replaces it flag-on with absolute-clock leads"),
+        'unit_type':      Col(LABEL, 'enum', 'row',
+                              null_means="a 'lead' row — still in transit, not yet packed"),
+        'storage_size':   Col(LABEL, 'enum', 'row',
+                              null_means="a 'lead' row — still in transit, not yet packed"),
+        'queue':          Col(LABEL, 'enum', 'row',
+                              null_means="a 'lead' row — not yet routed to a put-away "
+                                         "queue"),
+    },
+    'simulation_runs': {
+        'run_id':                _KEY,
+        'run_type':              _ENUM,
+        'created':               Col(LABEL, 'timestamp', 'run',
+                                     note='wall-clock TEXT, identity only — never '
+                                          'arithmetic'),
+        'strategy_key':          Col(LABEL, 'enum', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'pair_label':            Col(LABEL, 'enum', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'config_label':          Col(LABEL, 'enum', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'warehouse_fingerprint': Col(LABEL, 'digest', 'run',
+                                     null_means='pre-fingerprint vintage'),
+        'inventory_label':       Col(LABEL, 'enum', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'channel':               Col(LABEL, 'enum', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'sim_schema_id':         Col(LABEL, 'digest', 'run',
+                                     null_means='pre-stamp vintage'),
+        'num_pickers':           Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'x_speed':               Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type',
+                                     note='a pace, ft/s upstream of sec_per_inch'),
+        'y_speed':               Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'pick_intercept':        Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type',
+                                     note='15 s — warehouse-sized seconds; these constants '
+                                          'being seconds is what convicted the ms divisor'),
+        'pick_weight_coef':      Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'pick_volume_coef':      Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'cart_swap_coef':        Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'k_pickers':             Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'n_batches':             Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'seed_world':            Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'keyframe_interval':     Col(LABEL, 'param', 'run',
+                                     null_means='not recorded by this vintage or run type'),
+        'optimal_sigma_fd':      Col(LEVEL, 's-weighted', 'run',
+                                     null_means='no yardstick computed for this run'),
+        'optimal_work':          Col(LEVEL, 's-weighted', 'run',
+                                     null_means='no yardstick computed for this run'),
+    },
+    'sku_scores': {
+        'run_id':              _KEY,
+        'sku':                 _KEY,
+        'map_target':          Col(SCORE, 'policy-relative', 'sku',
+                                   null_means='not an optimal-map arm'),
+        'labor_cost':          Col(SCORE, 's/unit', 'sku',
+                                   null_means='not recorded by this vintage'),
+        'handle_var':          Col(SCORE, 's/unit', 'sku',
+                                   null_means='not recorded by this vintage'),
+        'expected_popularity': Col(RATE, 'freq*items/batch', 'sku', per='batch',
+                                   null_means='not recorded by this vintage'),
+        'expected_labor':      Col(RATE, 's/batch', 'sku', clock=SIM, per='batch',
+                                   null_means='not recorded by this vintage'),
+        'equilibrium_qty':     Col(COUNT, 'items', 'sku', account=PIECES,
+                                   null_means='not recorded by this vintage'),
+        'reorder_point':       Col(COUNT, 'items', 'sku', account=PIECES,
+                                   null_means='not recorded by this vintage'),
+        'lead_time_mean':      Col(SPAN, 'batches', 'sku', clock=BATCHES,
+                                   null_means='not recorded by this vintage',
+                                   note='the batch-denominated lead the trailer feature '
+                                        'replaces flag-on'),
+    },
+    'task_stats': {
+        'id':               _KEY,
+        'run_id':           _KEY,
+        'batch_id':         _KEY,
+        'aisle_id':         _KEY,
+        'picker_id':        Col(LABEL, 'local-id', 'row', space='crew-local'),
+        'task_start_time':  Col(STAMP, 's', 'batch', clock=SIM),
+        'task_end_time':    Col(STAMP, 's', 'batch', clock=SIM),
+        'duration':         Col(SPAN, 's', 'row', clock=SIM),
+        'W':                Col(SCORE, 's', 'row', clock=SIM,
+                                note='the labour score the partitioner minimises'),
+        'lift_sum':         Col(SCORE, 's-weighted', 'row'),
+        'num_bins_visited': Col(COUNT, 'bins', 'row', pair='bins_realized',
+                                note='the PLAN — agrees with the actual everywhere until '
+                                     'a clamp or cut bites'),
+        'total_items':      Col(COUNT, 'items', 'row', account=PIECES,
+                                pair='items_realized', note='the PLAN'),
+        'items_realized':   Col(COUNT, 'items', 'row', account=PIECES,
+                                pair='total_items',
+                                note='the ACTUAL, read off the event stream'),
+        'bins_realized':    Col(COUNT, 'bins', 'row', pair='num_bins_visited',
+                                note='the ACTUAL'),
+        'is_outlier':       Col(LABEL, 'flag', 'row'),
+    },
 }
 
-#: The gate's scope: tables whose tagging is COMPLETE.  Grows to the whole family (and the
-#: other families) in the convention pass.
-COVERED: tuple = ('batch_stats', 'carryover', 'put_queue_state', 'work_events')
+KEYFRAMES_SEMANTICS: dict = {
+    'bin_keyframe': {
+        'run_id':       _KEY,
+        'batch_id':     _KEY,
+        'aisle_id':     _KEY,
+        'bayX':         _BAY,
+        'bayY':         _BAY,
+        'sku':          _KEY,
+        'unit_type':    _ENUM,
+        'storage_size': _ENUM,
+        'qty':          Col(LEVEL, 'items', 'batch', account=PIECES,
+                            note='a snapshot per (run, batch, bin) — audit points, never '
+                                 'summed across batches'),
+    },
+    'schema_meta': {
+        'key':   Col(LABEL, 'enum', 'row'),
+        'value': Col(LABEL, 'text', 'row',
+                     null_means='a flag-style key with no payload'),
+    },
+}
+
+#: Every table of both families — the convention pass left no remainder.
+COVERED: tuple = tuple(SIM_DB_SEMANTICS)
+KEYFRAMES_COVERED: tuple = tuple(KEYFRAMES_SEMANTICS)
 
 register('sim_db', SIM_DB_SEMANTICS, COVERED)
+register('keyframes_db', KEYFRAMES_SEMANTICS, KEYFRAMES_COVERED)

@@ -804,8 +804,18 @@ files:
       - {name: "record_precompute", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
       - {name: "load_rows", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
     notes: ""
+  "Optimization/persistence/runtime_semantics.py":
+    purpose: "the runtime-metrics family's column semantics, beside its DDL."
+    layer: "opt_persistence"
+    key_symbols: []
+    notes: ""
   "Optimization/persistence/sim_semantics.py":
     purpose: "the sim_db family's column semantics, declared beside its DDL."
+    layer: "opt_persistence"
+    key_symbols: []
+    notes: ""
+  "Optimization/persistence/warehouse_semantics.py":
+    purpose: "the warehouse-DB family's column semantics, beside its DDL."
     layer: "opt_persistence"
     key_symbols: []
     notes: ""
@@ -1285,7 +1295,9 @@ files:
     purpose: "the completeness gate over declared column semantics."
     layer: "tests"
     key_symbols:
-      - {name: "test_covered_tables_are_completely_and_validly_tagged", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
+      - {name: "FAMILIES", file: "Tests/architecture/test_column_semantics.py", kind: "const"}
+      - {name: "test_every_family_is_completely_and_validly_tagged", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
+      - {name: "test_every_covered_table_means_every_table", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
       - {name: "test_the_gate_actually_bites", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
       - {name: "test_a_time_unit_cannot_be_declared_without_a_clock", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
       - {name: "ROWS", file: "Tests/architecture/test_column_semantics.py", kind: "const"}
@@ -4065,6 +4077,11 @@ files:
     key_symbols:
       - {name: "Order", file: "Warehouse/catalog/Order.py", kind: "class"}
     notes: ""
+  "Warehouse/generation/affinity_semantics.py":
+    purpose: "the affinity family's column semantics."
+    layer: "generation"
+    key_symbols: []
+    notes: ""
   "Warehouse/generation/generate_affinity.py":
     purpose: "Generate a demand-weighted sparse affinity matrix from an inventory DB."
     layer: "generation"
@@ -4140,6 +4157,11 @@ files:
       - {name: "plot_cross_profile_overlay", file: "Warehouse/generation/generate_profile_suite.py", kind: "function"}
       - {name: "plot_profile_stats_table", file: "Warehouse/generation/generate_profile_suite.py", kind: "function"}
       - {name: "main", file: "Warehouse/generation/generate_profile_suite.py", kind: "function"}
+    notes: ""
+  "Warehouse/generation/inventory_semantics.py":
+    purpose: "the profiles-tree (inventory) family's column semantics."
+    layer: "generation"
+    key_symbols: []
     notes: ""
   "Warehouse/inventory/Inventory_Management.py":
     purpose: "the Inventory_Manager placement engine: assignment-driven bin placement composed from the planning/optimal/reorder mixins."

@@ -82,14 +82,17 @@ class Col:
     per: str | None = None           # a RATE's denominator, part of its meaning
     null_means: str | None = None    # REQUIRED when the column is nullable: absent != 0
     logical: str | None = None       # the honest name at the logical layer; physical frozen
+    pair: str | None = None          # the plan/actual twin this column pairs with
+    space: str | None = None         # an id column's space ('crew-unique', 'crew-local', ...)
     note: str | None = None          # the scar: the incident this tag exists to prevent
 
     def __post_init__(self):
         if self.kind not in KINDS:
             raise ValueError(f'unknown kind {self.kind!r}; the vocabulary is {KINDS}')
-        if self.unit in TIME_UNITS and self.clock is None:
-            raise ValueError(f'a {self.unit!r}-denominated column must declare its clock '
-                             f'(sim / wall / batches are not the same instrument)')
+        if self.unit in TIME_UNITS and self.kind in (STAMP, SPAN, RATE)                 and self.clock is None:
+            raise ValueError(f'a {self.unit!r}-denominated {self.kind} must declare its '
+                             f'clock (sim / wall / batches are not the same instrument); '
+                             f'a COUNT of batches is a count, not a time')
         if self.clock is not None and self.clock not in CLOCKS:
             raise ValueError(f'unknown clock {self.clock!r}; known: {CLOCKS}')
 
@@ -270,7 +273,7 @@ def check_completeness(shape_tables: dict, family: str) -> list:
                 if meta['notnull'] == 0 and meta['pk'] == 0 and v.null_means is None:
                     problems.append(f'{table}.{name}: nullable but declares no '
                                     f'null-meaning (absent is not zero)')
-                if v.unit in TIME_UNITS and v.clock is None:
+                if v.unit in TIME_UNITS and v.kind in (STAMP, SPAN, RATE)                         and v.clock is None:
                     problems.append(f'{table}.{name}: time unit with no clock')
         for name in tags:
             if name not in cols:

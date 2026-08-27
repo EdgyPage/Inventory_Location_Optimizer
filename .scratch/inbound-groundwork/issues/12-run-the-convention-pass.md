@@ -1,7 +1,7 @@
 # Run the convention pass to zero remainder
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 11
 
 ## Question
