@@ -62,7 +62,7 @@ def _config_sources():
     ('CHECKPOINT_FRAC',   ('global', 'checkpoint_frac')),
     ('KEYFRAME_INTERVAL', ('global', 'keyframe_interval')),
     ('SAMPLER',           ('global', 'sampler')),
-    ('SHIFT_SECONDS',     ('global', 'shift_seconds')),
+    ('REPORTING_FRAME_SECONDS', ('global', 'shift_seconds')),
 ])
 def test_a_global_setting_is_the_source_of_its_config_key(name, path):
     assert hasattr(settings, name), f'settings.{name} does not exist'
@@ -170,8 +170,8 @@ def test_the_picker_counts_have_one_source():
 
 def test_the_shift_length_comes_from_the_kernels_declaration():
     from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS
-    assert settings.SHIFT_SECONDS == DEFAULT_SHIFT_SECONDS
-    assert sim_config.shift_seconds() == settings.SHIFT_SECONDS
+    assert settings.REPORTING_FRAME_SECONDS == DEFAULT_SHIFT_SECONDS
+    assert sim_config.shift_seconds() == settings.REPORTING_FRAME_SECONDS
 
 
 def test_pick_config_coefficients_are_NOT_here():

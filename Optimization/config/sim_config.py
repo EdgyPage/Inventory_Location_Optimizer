@@ -179,7 +179,7 @@ CONFIG = {
         # FRAME over a continuous clock: it labels work_events.shift_index and nothing
         # dispatches against it -- work does not pause at the whistle and no task is split
         # at a boundary.  See Warehouse.kernel.timeline.shift_index.
-        'shift_seconds'   : _s.SHIFT_SECONDS,
+        'shift_seconds'   : _s.REPORTING_FRAME_SECONDS,   # CONFIG key frozen (recorded surface); the authoring name is the honest one
         # The WORKING DAY, which unlike shift_seconds above actually dispatches: it decides
         # when a batch is released and when a picker is stopped.  Defaults reproduce the
         # pre-working-day runner exactly.  See Warehouse.kernel.timeline.WorkDay.

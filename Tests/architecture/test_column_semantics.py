@@ -151,3 +151,38 @@ def test_logical_names_resolve_to_their_physical_tags():
         SIM_DB_SEMANTICS['work_events']['shift_index']
     with pytest.raises(KeyError):
         S.resolve('sim_db', 'batch_stats', 'not_a_name')
+
+
+# ── 5. the converted readers declare their uses, and the declarations validate ───
+
+#: The audit's ranked at-risk reads, converted to declared reads.  AST-read (never
+#: imported — a viewer module may drag matplotlib) and validated as pure literals.
+#: The two bench log-parsers from the audit's list are NOT here: they parse logs, not
+#: columns, and the layer's domain is the declared shape.
+CONVERTED = [
+    'Diagnostics/receiving_report.py',
+    'Optimization/Performance_Evaluations/catalog/inventory.py',
+    'Optimization/Performance_Evaluations/common/frames.py',
+    'Diagnostics/replay_run.py',
+    'Optimization/run_whatif_labor.py',
+    'Optimization/run_whatif_volume.py',
+    'Visualization/readers/base.py',
+]
+
+
+@pytest.mark.parametrize('rel', CONVERTED, ids=[p.split('/')[-1] for p in CONVERTED])
+def test_converted_readers_declare_valid_uses(rel):
+    import ast as _ast
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[2]
+    tree = _ast.parse((root / rel).read_text(encoding='utf-8'))
+    uses = None
+    for node in _ast.walk(tree):
+        if (isinstance(node, _ast.Assign) and isinstance(node.targets[0], _ast.Name)
+                and node.targets[0].id == 'SEMANTIC_USES'):
+            uses = _ast.literal_eval(node.value)
+    assert uses, f'{rel}: no SEMANTIC_USES literal — the conversion regressed'
+    label = rel.split('/')[-1]
+    clauses = [c for family, u in uses.items()
+               for c in S.validate_uses(family, label, u)]
+    assert clauses == [], '\n'.join(clauses)

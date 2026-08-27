@@ -46,8 +46,11 @@ STAMP, SPAN, LEVEL, FLOW, COUNT, RATE, SCORE, SHARE, LABEL = (
     'stamp', 'span', 'level', 'flow', 'count', 'rate', 'score', 'share', 'label')
 KINDS: tuple = (STAMP, SPAN, LEVEL, FLOW, COUNT, RATE, SCORE, SHARE, LABEL)
 
-#: Additive kinds — the only ones `sum_of` will total across rows.
-ADDITIVE: tuple = (FLOW, COUNT)
+#: Additive kinds — the only ones `sum_of` will total across rows.  SPAN is here on
+#: purpose: spans of WORK add (total labour is SUM of per-event durations — the
+#: task_makespan invariant), and person-seconds vs wall-seconds is the reader's per-what.
+#: A LEVEL never adds: it re-counts the same standing quantity every snapshot.
+ADDITIVE: tuple = (FLOW, COUNT, SPAN)
 
 #: Clocks.  The same word "seconds" appears on all three and they are mutually
 #: incommensurable (incident class 11): sim-modeled time, wall-clock compute time, and the

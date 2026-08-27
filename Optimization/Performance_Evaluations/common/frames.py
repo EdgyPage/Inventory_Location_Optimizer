@@ -8,6 +8,23 @@ import numpy as np
 import pandas as pd
 
 
+#: Every declared-shape column this tool touches, and HOW (phase-2 of the staged
+#: semantics gate).  A PURE LITERAL: Tests/architecture/test_column_semantics.py
+#: AST-reads it and validates against Schema/semantics.py without importing this
+#: module, so declaring costs no dependency.
+SEMANTIC_USES = {'sim_db': {
+    'batch_stats.duration': 'ratio', 'batch_stats.task_makespan': 'ratio',
+    'batch_stats.total_items': 'ratio', 'batch_stats.avg_concurrent_pickers': 'read',
+    'batch_stats.picking_pct': 'read', 'batch_stats.traveling_pct': 'read',
+    'batch_stats.sigma_fd': 'read', 'batch_stats.reload_moves': 'read',
+    'batch_stats.reorder_placements': 'read', 'batch_stats.queue_depth': 'read',
+    'batch_stats.recv_depth': 'read', 'batch_stats.recv_unloaded': 'read',
+    'batch_stats.recv_cut': 'read', 'batch_stats.recv_seconds': 'read',
+    'batch_stats.lead_queue_depth': 'read', 'batch_stats.in_transit_qty': 'read',
+    'batch_stats.is_outlier': 'read', 'batch_stats.batch_start_time': 'read',
+}}
+
+
 def _bdf(stats):
     df = pd.DataFrame([{
         'batch_id'              : s.batch_id,

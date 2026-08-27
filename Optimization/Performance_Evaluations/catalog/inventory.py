@@ -38,6 +38,16 @@ _ROP_FORMULAS = (
 _FIELDS = ('equilibrium_qty', 'reorder_point', 'lead_time_mean', 'expected_batch_demand')
 
 
+#: Every declared-shape column this tool touches, and HOW (phase-2 of the staged
+#: semantics gate).  A PURE LITERAL: Tests/architecture/test_column_semantics.py
+#: AST-reads it and validates against Schema/semantics.py without importing this
+#: module, so declaring costs no dependency.
+SEMANTIC_USES = {'inventory_db': {
+    'cartons.expected_batch_demand': 'read', 'cartons.equilibrium_qty': 'read',
+    'cartons.reorder_point': 'read', 'cartons.lead_time_mean': 'read',
+}}
+
+
 def _dist(vals: list) -> dict:
     vals = sorted(v for v in vals if v is not None)
     if not vals:

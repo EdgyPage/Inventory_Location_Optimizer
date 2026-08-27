@@ -83,6 +83,22 @@ if _ROOT not in sys.path:
 _TOL = 1e-6
 
 
+#: Every declared-shape column this tool touches, and HOW (phase-2 of the staged
+#: semantics gate).  A PURE LITERAL: Tests/architecture/test_column_semantics.py
+#: AST-reads it and validates against Schema/semantics.py without importing this
+#: module, so declaring costs no dependency.
+SEMANTIC_USES = {'sim_db': {
+    'work_events.duration': 'sum', 'work_events.role': 'read',
+    'work_events.actor_uid': 'read', 'work_events.t_abs': 'read',
+    'work_events.batch_id': 'read', 'work_events.mode': 'read',
+    'work_events.seq': 'read', 'work_events.event_type': 'read',
+    'work_events.run_id': 'read',
+    'batch_stats.recv_unloaded': 'sum', 'batch_stats.recv_seconds': 'sum',
+    'batch_stats.recv_cut': 'read', 'batch_stats.recv_depth': 'read',
+    'batch_stats.run_id': 'read',
+}}
+
+
 def _open_ro(path: str):
     """Read-only AND immutable: a plain `mode=ro` open still mints -wal/-shm sidecars beside
     an archived DB, and cannot remove them afterwards."""

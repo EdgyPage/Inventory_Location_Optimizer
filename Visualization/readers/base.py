@@ -71,6 +71,28 @@ _PROBED = tuple(SIM_CAPABILITIES[name] for name in
 _FAMILY_KEYS = ('handling_type', 'unit_type', 'storage_size')
 
 
+#: Every declared-shape column this tool touches, and HOW (phase-2 of the staged
+#: semantics gate).  A PURE LITERAL: Tests/architecture/test_column_semantics.py
+#: AST-reads it and validates against Schema/semantics.py without importing this
+#: module, so declaring costs no dependency.
+SEMANTIC_USES = {'sim_db': {
+    'simulation_runs.run_id': 'read',
+    'sku_scores.sku': 'read', 'sku_scores.map_target': 'read',
+    'sku_scores.labor_cost': 'read', 'sku_scores.handle_var': 'read',
+    'sku_scores.expected_popularity': 'read', 'sku_scores.expected_labor': 'read',
+    'sku_scores.equilibrium_qty': 'read', 'sku_scores.reorder_point': 'read',
+    'sku_scores.lead_time_mean': 'read',
+    'bin_placement.batch_id': 'read', 'bin_placement.seq': 'read',
+    'bin_placement.aisle_id': 'read', 'bin_placement.bayX': 'read',
+    'bin_placement.bayY': 'read', 'bin_placement.sku': 'read',
+    'bin_placement.qty': 'read',
+    'bin_eviction.batch_id': 'read', 'bin_eviction.seq': 'read',
+    'bin_eviction.aisle_id': 'read', 'bin_eviction.bayX': 'read',
+    'bin_eviction.bayY': 'read',
+    'picks.quantity': 'sum', 'picks.aisle_id': 'read', 'picks.bayX': 'read',
+    'picks.bayY': 'read', 'picks.batch_id': 'read',
+}}
+
 def _ro(path: str) -> sqlite3.Connection:
     """Open `path` strictly read-only — `Schema.connect.read_only`, the sanctioned opener.
 

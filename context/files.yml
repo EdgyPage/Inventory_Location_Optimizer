@@ -17,6 +17,7 @@ files:
     purpose: "the receiving stream, reconciled against the run that wrote it."
     layer: "diagnostics"
     key_symbols:
+      - {name: "SEMANTIC_USES", file: "Diagnostics/receiving_report.py", kind: "const"}
       - {name: "reconcile", file: "Diagnostics/receiving_report.py", kind: "function"}
       - {name: "main", file: "Diagnostics/receiving_report.py", kind: "function"}
     notes: ""
@@ -24,6 +25,7 @@ files:
     purpose: "export a real simulation run's persisted DBs to a dashboard trace."
     layer: "diagnostics"
     key_symbols:
+      - {name: "SEMANTIC_USES", file: "Diagnostics/replay_run.py", kind: "const"}
       - {name: "read_layout", file: "Diagnostics/replay_run.py", kind: "function"}
       - {name: "occupied_from_bin_log", file: "Diagnostics/replay_run.py", kind: "function"}
       - {name: "occupied_from_aisle_metrics", file: "Diagnostics/replay_run.py", kind: "function"}
@@ -102,6 +104,7 @@ files:
     purpose: "the inventory model the run PRODUCED, not the one its formula states."
     layer: "evaluations"
     key_symbols:
+      - {name: "SEMANTIC_USES", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "const"}
       - {name: "pair_model", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "function"}
       - {name: "render", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "function"}
     notes: ""
@@ -150,7 +153,8 @@ files:
   "Optimization/Performance_Evaluations/common/frames.py":
     purpose: "DataFrame builders + steady-state series alignment (verbatim from the monoliths)."
     layer: "evaluations"
-    key_symbols: []
+    key_symbols:
+      - {name: "SEMANTIC_USES", file: "Optimization/Performance_Evaluations/common/frames.py", kind: "const"}
     notes: ""
   "Optimization/Performance_Evaluations/common/io.py":
     purpose: "Figure-save + fresh-directory helpers (deduped from the two retired monoliths)."
@@ -556,7 +560,7 @@ files:
       - {name: "CHECKPOINT_FRAC", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "KEYFRAME_INTERVAL", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "SAMPLER", file: "Optimization/config/settings.py", kind: "const"}
-      - {name: "SHIFT_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "REPORTING_FRAME_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "WORK_DAY_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "RELEASES_PER_DAY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "CUT_AT_DAY_END", file: "Optimization/config/settings.py", kind: "const"}
@@ -862,6 +866,7 @@ files:
     layer: "optimization"
     key_symbols:
       - {name: "REQUIRES", file: "Optimization/run_whatif_labor.py", kind: "const"}
+      - {name: "SEMANTIC_USES", file: "Optimization/run_whatif_labor.py", kind: "const"}
       - {name: "canonical_arm_order", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "run", file: "Optimization/run_whatif_labor.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_labor.py", kind: "function"}
@@ -871,6 +876,7 @@ files:
     layer: "optimization"
     key_symbols:
       - {name: "REQUIRES", file: "Optimization/run_whatif_volume.py", kind: "const"}
+      - {name: "SEMANTIC_USES", file: "Optimization/run_whatif_volume.py", kind: "const"}
       - {name: "scan", file: "Optimization/run_whatif_volume.py", kind: "function"}
       - {name: "build_rows", file: "Optimization/run_whatif_volume.py", kind: "function"}
       - {name: "run", file: "Optimization/run_whatif_volume.py", kind: "function"}
@@ -1308,6 +1314,8 @@ files:
       - {name: "test_a_discriminated_column_refuses_row_free_reads", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
       - {name: "test_use_assertions_catch_the_receiving_report_shape", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
       - {name: "test_logical_names_resolve_to_their_physical_tags", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
+      - {name: "CONVERTED", file: "Tests/architecture/test_column_semantics.py", kind: "const"}
+      - {name: "test_converted_readers_declare_valid_uses", file: "Tests/architecture/test_column_semantics.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_context_sync.py":
     purpose: "test_context_sync.py"
@@ -4006,6 +4014,7 @@ files:
     purpose: "the SQLite implementation of `SimReader`, shared by every vetted schema."
     layer: "visualization"
     key_symbols:
+      - {name: "SEMANTIC_USES", file: "Visualization/readers/base.py", kind: "const"}
       - {name: "REQUIRES", file: "Visualization/readers/base.py", kind: "const"}
       - {name: "REQUIRES_KEYFRAMES", file: "Visualization/readers/base.py", kind: "const"}
       - {name: "REQUIRES_VIZ_CACHE", file: "Visualization/readers/base.py", kind: "const"}

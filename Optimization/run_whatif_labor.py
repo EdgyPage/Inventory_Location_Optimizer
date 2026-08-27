@@ -73,6 +73,16 @@ REQUIRES = _compat.Requires(
     })
 
 
+#: Every declared-shape column this tool touches, and HOW (phase-2 of the staged
+#: semantics gate).  A PURE LITERAL: Tests/architecture/test_column_semantics.py
+#: AST-reads it and validates against Schema/semantics.py without importing this
+#: module, so declaring costs no dependency.
+SEMANTIC_USES = {'sim_db': {
+    'batch_stats.task_makespan': 'sum', 'batch_stats.duration': 'sum',
+    'batch_stats.total_items': 'sum',
+}}
+
+
 def _scheduler_of(cell: str) -> str:
     """'k1_off_lpt' -> 'lpt'; 'k1_off_rr' -> 'round_robin' (the swept scheduler is the cell suffix)."""
     return _SCHED.get(cell.rsplit('_', 1)[-1], 'round_robin')

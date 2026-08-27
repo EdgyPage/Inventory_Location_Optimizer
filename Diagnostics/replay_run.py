@@ -122,6 +122,31 @@ _REPLAY_NOTE: dict[str, str] = {
 }
 
 
+#: Every declared-shape column this tool touches, and HOW (phase-2 of the staged
+#: semantics gate).  A PURE LITERAL: Tests/architecture/test_column_semantics.py
+#: AST-reads it and validates against Schema/semantics.py without importing this
+#: module, so declaring costs no dependency.
+#: `bin_inventory` (also read here) is the RETIRED archive table, outside the
+#: declared shape by design; its two ordering traps live at its sunset note.
+SEMANTIC_USES = {'sim_db': {
+    'bin_eviction.batch_id': 'read', 'bin_eviction.aisle_id': 'read',
+    'bin_eviction.bayX': 'read', 'bin_eviction.bayY': 'read',
+    'bin_placement.batch_id': 'read', 'bin_placement.aisle_id': 'read',
+    'bin_placement.bayX': 'read', 'bin_placement.bayY': 'read',
+    'bin_placement.qty': 'read',
+    'picks.batch_id': 'read', 'picks.aisle_id': 'read', 'picks.bayX': 'read',
+    'picks.bayY': 'read', 'picks.quantity': 'read',
+    'aisle_metrics.batch_id': 'read', 'aisle_metrics.aisle_id': 'read',
+    'aisle_metrics.n_bins': 'read',
+    'batch_stats.batch_id': 'read', 'batch_stats.duration': 'read',
+    'simulation_runs.run_id': 'read',
+}, 'warehouse_db': {
+    'aisle_layout.aisle_id': 'read', 'aisle_layout.handling_type': 'read',
+    'aisle_layout.category': 'read', 'aisle_layout.unit_type': 'read',
+    'aisle_layout.storage_size': 'read',
+}}
+
+
 def _note(cap) -> str:
     """The `occupancy_note` an export carries for `cap`: the registry's caveat, then ours.
 

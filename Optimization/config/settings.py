@@ -34,7 +34,7 @@ for five more that were caught before they could.
 - **What-if cell definitions.** `Optimization/config/whatif_config.SPECS`.
 - **Restock-rule membership.** `Optimization/config/strategies`.
 - **Anything derived.** `checkpoint_every` is computed from `n_batches`; the shift's
-  hour-length is `SHIFT_SECONDS / 3600`. A derived value declared beside its input is two
+  hour-length is `REPORTING_FRAME_SECONDS / 3600`. A derived value declared beside its input is two
   things to keep in step.
 
 Adding a setting: declare it here, thread it into `CONFIG` below, and — if it changes
@@ -73,17 +73,20 @@ SAMPLER = 'v2'
 # `work_events.shift_index`; nothing dispatches against it, work does not pause at the
 # whistle, and a task spanning a boundary is recorded under the shift it started in.
 
-SHIFT_SECONDS = DEFAULT_SHIFT_SECONDS      # 8 hours, in the sim's own unit
+REPORTING_FRAME_SECONDS = DEFAULT_SHIFT_SECONDS   # 8 hours, in the sim's own unit
+#   (SHIFT_SECONDS until the convention pass: renamed so *shift* is free for the
+#   drain-or-cap scheduler that actually dispatches; this one only labels
+#   work_events.shift_index — logical name frame_index.)
 
 # ── the working day ──────────────────────────────────────────────────────────────
-# A SCHEDULER, and the opposite of SHIFT_SECONDS above in every way that matters: this one
+# A SCHEDULER, and the opposite of REPORTING_FRAME_SECONDS above in every way that matters: this one
 # dispatches.  Kept as three separate settings because they answer three questions and a run
 # can want any one without the others.
 #
 # The defaults reproduce the pre-working-day runner exactly, which is the property that lets
 # every one of these ship without re-deriving the archive.
 
-WORK_DAY_SECONDS = None    # day length; None = SHIFT_SECONDS.  --work-day-seconds
+WORK_DAY_SECONDS = None    # day length; None = REPORTING_FRAME_SECONDS.  --work-day-seconds
 RELEASES_PER_DAY = None    # batches released per day; None = CONTINUOUS, i.e. batch i starts
                            # when batch i-1 finished, which is what the runner already did.
                            # An integer cuts the day into that many slots, and an EMPTY batch

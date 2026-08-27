@@ -607,21 +607,14 @@ _CREATE_PUT_QUEUE_STATE = """
                                        -- which includes the forklift/pallet stream: a
                                        -- forklift carries one pallet, so "how much fits"
                                        -- never arises.
-        cut        INTEGER NOT NULL,   -- items the DAY'S WHISTLE left standing.  A LEVEL,
-                                       -- NOT a flow -- it was labelled one here by analogy
-                                       -- with the three counters above, and it is not.
-                                       -- DO NOT SUM IT ACROSS BATCHES.  "How many were
-                                       -- standing when the whistle blew" is the depth at
-                                       -- that instant, so a unit waiting ten batches is
-                                       -- counted ten times.  Measured on a 200-batch run:
-                                       -- `cut == depth` in 200 of 200 batches, and the sum
-                                       -- came to 101x the largest true value.
-                                       -- What IS additive: the COUNT of batches where it is
-                                       -- non-zero, i.e. how often the boundary bit.
-                                       -- Kept beside `depth` because it carries the one
-                                       -- thing depth cannot: whether a whistle was in force
-                                       -- at all.  `depth > 0, cut = 0` is a backlog nobody
-                                       -- was stopped from clearing.
+        cut        INTEGER NOT NULL,   -- items the DAY'S WHISTLE left standing.  A LEVEL
+                                       -- despite its three flow neighbours -- never summed
+                                       -- (101x once); kind, unit and the full scar live in
+                                       -- `sim_semantics.py`, the one home for that fact.
+                                       -- Kept beside `depth` for the one thing depth cannot
+                                       -- say: whether a whistle was in force at all
+                                       -- (`depth > 0, cut = 0` is a backlog nobody was
+                                       -- stopped from clearing).
         PRIMARY KEY (run_id, batch_id, queue)
     ) WITHOUT ROWID
 """
@@ -633,26 +626,13 @@ _CREATE_CARRYOVER = """
     CREATE TABLE IF NOT EXISTS carryover (
         run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
         batch_id INTEGER NOT NULL,     -- the batch it carried OUT of
-        reason   TEXT    NOT NULL,     -- WHY it carried.  THREE families, and they do not
-                                       -- mix -- never SUM(qty) across the whole table.
-                                       --   pre-placement LEVEL, re-emitted every batch --
-                                       --     'dock'      still on a trailer; never offered
-                                       --                 a bin, so not a placement failure
-                                       --   put-away LEVELS, re-emitted every batch --
-                                       --     'unplaced'  a storage unit no bin could take
-                                       --     'held'      refused floor space upstream
-                                       --   pick FLOWS, this batch's unserved demand --
-                                       --     'unpicked_daycut'      never reached the bin
-                                       --     'unpicked_unavailable' bin held less than planned
-                                       --     'unpicked_unstocked'   no bin held the SKU at all
-                                       --     'unpicked_notasks'     the batch built NO tasks
-                                       --       at all, so this demand was never routed to a
-                                       --       bin to succeed or fail.  Distinct from the
-                                       --       three above, which each name a reason a task
-                                       --       DID look and came back short.
-                                       -- The last was 'unplaced' until 2026-08-25 and collided
-                                       -- with the put-away level under this table's own PK,
-                                       -- destroying the larger row without a word.
+        reason   TEXT    NOT NULL,     -- WHY it carried.  THREE families that never mix
+                                       -- (put-side LEVELS re-emitted every batch vs pick
+                                       -- FLOWS) -- never SUM(qty) across the table.  The
+                                       -- per-reason kinds, units and the collision that
+                                       -- once destroyed 500 units live in ONE place now:
+                                       -- `sim_semantics.py`'s ByDiscriminator on this
+                                       -- column.
         sku      INTEGER NOT NULL,
         qty      INTEGER NOT NULL,
         PRIMARY KEY (run_id, batch_id, reason, sku)

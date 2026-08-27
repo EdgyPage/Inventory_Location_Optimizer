@@ -110,6 +110,13 @@
       "kind": "module",
       "signature": null
     },
+    "Diagnostics/receiving_report.py::SEMANTIC_USES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'sim_db': {'work_events.duration': 'sum', 'work_events.role': 'read', 'work_events.actor_uid': 'read', 'work_events.t_abs': 'read', 'work_events.batch_id': 'read', 'work_events.mode': 'read', 'wor..."
+    },
     "Diagnostics/receiving_report.py::_HERE": {
       "decorators": [],
       "doc": null,
@@ -171,6 +178,13 @@
       "doc": "replay_run.py \u2014 export a real simulation run's persisted DBs to a dashboard trace.\n\nReads the SQLite output of a finished `run_simulation.py` run and emits a\nDiagnostics/out/replay_<label>.json with per-batch warehouse fill (overall, by\naisle, by bucket) so the SAME dashboard can visualise the actual misbehaving run\n\u2014 including the warehouses that settle at ~70% instead of the target ~85%.\n\nPer Visualization/RECONSTRUCTION.md the relevant files are (this docstring is also `--help`, so\nit stays inside cp1252 \u2014 no box drawing here, unlike the section banners below):\n\n    <pair>/warehouse.db            aisle_layout    (geometry -> per-aisle capacity)\n    <pair>/<config>/sim_X.db       bin_placement   PLACE  |\n                                   bin_eviction    EVICT  |  the bin-mutation log:\n                                   picks           PICK   |  fold -> EXACT occupancy\n                                   aisle_metrics   (n_bins occupied / aisle / batch)\n                                   bin_inventory   (pick deltas - ARCHIVED runs only)\n                                   batch_stats     (duration / batch)\n                                   simulation_runs (run params)\n\nWhere occupancy comes from \u2014 and what it is worth\n-------------------------------------------------\nThree sources, tried best-first.  Only the first is correct, so every export now RECORDS which one\nit used (`meta.occupancy_source` / `occupancy_exact` / `occupancy_phase` / `occupancy_note`) and the\nCLI prints a warning when the curve is an approximation.  A wrong fill curve presented as fact is\nthe failure this tool shipped with for its whole life.\n\n1. `bin_placement` + `bin_eviction` + `picks`  ->  **EXACT at every batch.**\n   Bin state changes at exactly five sites in the codebase (one of them dead code), and picks are\n   already fully recorded, so PLACE + EVICT + PICK is complete *by construction*.  Folding them in\n   application order \u2014 EVICT, then PLACE, then PICK, mirroring the runner \u2014 reproduces the\n   simulation's own bin state.  Reference fold: `Tests/bench/bin_log_harness.py::fold`; proof\n   against a live simulation: `Tests/integration/test_bin_log_replay.py`.  Checked here against a\n   production arm's `sim_X.keyframes.db` (an independent record written by the runner): 9,690/9,690\n   bins identical at batch 0 and 9,450/9,450 at batch 3, sku and qty included, zero ghosts.\n\n2. `aisle_metrics.n_bins`  ->  **approximate.**  It is the manager's own occupied-bin counter\n   (`sum(_aisle_sku_counts[aid].values())`) sampled after the restock pass and BEFORE the batch's\n   picks, so it is a different frame from the other two sources, and it lags a bin emptied by a\n   pick.  Only strategies that maintain aisle state write it at all \u2014 for a uniform-placement arm\n   the table is empty, which is why the third source is what usually ran.\n\n3. `bin_inventory` deltas  ->  **approximate and biased downward**, and no longer written at all:\n   only runs from the archive carry this table, and on a current DB source 1 always answers first.\n   The table records picks and\n   NEVER restocks: `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is\n   already in it at its post-restock quantity and the `post_qty == pre_qty` skip drops it.\n   Measured on a production arm: **0 rows** with `post_qty > pre_qty` against 20,662-42,832\n   `reorder_placements` per batch.  Replaying those deltas can therefore only ever DECAY occupancy\n   \u2014 68,271 occupied bins against a true 165,519 five batches past a keyframe.  It draws a\n   warehouse that slowly drains, plausibly enough that nothing flagged it for months.\n\nOld runs keep working: the ~500 GB archive predates `bin_placement`, so those DBs fall through to\n2/3 and are labelled approximate instead of silently believed.\n\nUsage\n-----\n    python Diagnostics/replay_run.py <run_base_dir>\n    python Diagnostics/replay_run.py <run_base_dir>/<pair>/<config>/sim_uni_fifo_norsl.db\n    python Diagnostics/replay_run.py <run_base_dir> --max 200     # cap exported batches\n\nThen view with the dashboard:\n    cd Diagnostics && python -m http.server 8009  -> http://localhost:8009/static/",
       "kind": "module",
       "signature": null
+    },
+    "Diagnostics/replay_run.py::SEMANTIC_USES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'sim_db': {'bin_eviction.batch_id': 'read', 'bin_eviction.aisle_id': 'read', 'bin_eviction.bayX': 'read', 'bin_eviction.bayY': 'read', 'bin_placement.batch_id': 'read', 'bin_placement.aisle_id': '..."
     },
     "Diagnostics/replay_run.py::_BatchStream": {
       "decorators": [],
@@ -976,6 +990,13 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::SEMANTIC_USES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'inventory_db': {'cartons.expected_batch_demand': 'read', 'cartons.equilibrium_qty': 'read', 'cartons.reorder_point': 'read', 'cartons.lead_time_mean': 'read'}}"
+    },
     "Optimization/Performance_Evaluations/catalog/inventory.py::_FIELDS": {
       "decorators": [],
       "doc": null,
@@ -1438,6 +1459,13 @@
       "doc": "DataFrame builders + steady-state series alignment (verbatim from the monoliths).\n\n`_bdf`/`_tdf` turn the namedtuple stat lists from Picking_Data into the wide per-batch /\nper-task frames every graph consumes; `_roll` is the rolling-mean helper; `_metric_series`\nand `_aligned` build the paired matrices the stats suite tests.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/Performance_Evaluations/common/frames.py::SEMANTIC_USES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'sim_db': {'batch_stats.duration': 'ratio', 'batch_stats.task_makespan': 'ratio', 'batch_stats.total_items': 'ratio', 'batch_stats.avg_concurrent_pickers': 'read', 'batch_stats.picking_pct': 'read..."
     },
     "Optimization/Performance_Evaluations/common/frames.py::_aligned": {
       "decorators": [],
@@ -4639,7 +4667,7 @@
     },
     "Optimization/config/settings.py": {
       "decorators": [],
-      "doc": "settings \u2014 every tunable a run has, as a flat list of named values.\n\nThe authoring surface. One name per knob, at module level, grouped by what it governs and\nannotated with what changing it costs. `sim_config.CONFIG` is DERIVED from this file, so\nthis is the one place a value is written down and the nested dict is a view of it.\n\n    settings.py          you edit this                        (declaration)\n        |\n        v\n    sim_config.CONFIG    the nested dict every reader knows   (run state)\n        |\n        v\n    resolve at run time  + CLI flags + the what-if cell       (this run)\n\n## Reading this file\n\nEvery value below is a DEFAULT. Three things override it, in order:\n\n1. a CLI flag (`--n-batches`, `--seed-world`, \u2026) \u2014 see `run_simulation`\n2. a what-if cell, for the three axes it sweeps \u2014 see `simdriver.cells`\n3. a `--resume`, which restores whatever the original run recorded in its run spec\n\nOverrides are written into `CONFIG` and read back through the accessors in `sim_config`\n(`n_batches()`, `seed_world()`, \u2026). **Never snapshot one of these at import**: a module\nscalar cannot see a CLI override, which is a bug this project has now shipped twice \u2014 once\nfor `_INITIAL_FILL`, which made a run misreport its own sizing in its warehouse DB, and once\nfor five more that were caught before they could.\n\n## What does NOT live here\n\n- **Pick-config coefficients.** Those are a swept AXIS, not a setting: each variant is a\n  self-registering module under `Optimization/simconfig/configs/`, and the run sweeps all of\n  them. A number that varies within one run is not a default.\n- **What-if cell definitions.** `Optimization/config/whatif_config.SPECS`.\n- **Restock-rule membership.** `Optimization/config/strategies`.\n- **Anything derived.** `checkpoint_every` is computed from `n_batches`; the shift's\n  hour-length is `SHIFT_SECONDS / 3600`. A derived value declared beside its input is two\n  things to keep in step.\n\nAdding a setting: declare it here, thread it into `CONFIG` below, and \u2014 if it changes\nresults \u2014 give it a CLI flag, record it in the run spec, and restore it in both\n`_apply_run_spec` and `run_analysis._apply_run_shape`. Miss one of those four and the flag\nis accepted and then silently ignored; `Tests/unit/test_run_shaping_params.py` is the guard.",
+      "doc": "settings \u2014 every tunable a run has, as a flat list of named values.\n\nThe authoring surface. One name per knob, at module level, grouped by what it governs and\nannotated with what changing it costs. `sim_config.CONFIG` is DERIVED from this file, so\nthis is the one place a value is written down and the nested dict is a view of it.\n\n    settings.py          you edit this                        (declaration)\n        |\n        v\n    sim_config.CONFIG    the nested dict every reader knows   (run state)\n        |\n        v\n    resolve at run time  + CLI flags + the what-if cell       (this run)\n\n## Reading this file\n\nEvery value below is a DEFAULT. Three things override it, in order:\n\n1. a CLI flag (`--n-batches`, `--seed-world`, \u2026) \u2014 see `run_simulation`\n2. a what-if cell, for the three axes it sweeps \u2014 see `simdriver.cells`\n3. a `--resume`, which restores whatever the original run recorded in its run spec\n\nOverrides are written into `CONFIG` and read back through the accessors in `sim_config`\n(`n_batches()`, `seed_world()`, \u2026). **Never snapshot one of these at import**: a module\nscalar cannot see a CLI override, which is a bug this project has now shipped twice \u2014 once\nfor `_INITIAL_FILL`, which made a run misreport its own sizing in its warehouse DB, and once\nfor five more that were caught before they could.\n\n## What does NOT live here\n\n- **Pick-config coefficients.** Those are a swept AXIS, not a setting: each variant is a\n  self-registering module under `Optimization/simconfig/configs/`, and the run sweeps all of\n  them. A number that varies within one run is not a default.\n- **What-if cell definitions.** `Optimization/config/whatif_config.SPECS`.\n- **Restock-rule membership.** `Optimization/config/strategies`.\n- **Anything derived.** `checkpoint_every` is computed from `n_batches`; the shift's\n  hour-length is `REPORTING_FRAME_SECONDS / 3600`. A derived value declared beside its input is two\n  things to keep in step.\n\nAdding a setting: declare it here, thread it into `CONFIG` below, and \u2014 if it changes\nresults \u2014 give it a CLI flag, record it in the run spec, and restore it in both\n`_apply_run_spec` and `run_analysis._apply_run_shape`. Miss one of those four and the flag\nis accepted and then silently ignored; `Tests/unit/test_run_shaping_params.py` is the guard.",
       "kind": "module",
       "signature": null
     },
@@ -4846,6 +4874,13 @@
       "signature": null,
       "value_preview": "None"
     },
+    "Optimization/config/settings.py::REPORTING_FRAME_SECONDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "DEFAULT_SHIFT_SECONDS"
+    },
     "Optimization/config/settings.py::ROLL_OVER_UNPICKED": {
       "decorators": [],
       "doc": null,
@@ -4873,13 +4908,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "42"
-    },
-    "Optimization/config/settings.py::SHIFT_SECONDS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "DEFAULT_SHIFT_SECONDS"
     },
     "Optimization/config/settings.py::STORE_BATCH_MEAN": {
       "decorators": [],
@@ -7578,6 +7606,13 @@
       "signature": null,
       "value_preview": "_compat.Requires(family='sim_db', label='run_whatif_labor hours reader', tables={'batch_stats': ('duration', 'task_makespan', 'total_items')})"
     },
+    "Optimization/run_whatif_labor.py::SEMANTIC_USES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'sim_db': {'batch_stats.task_makespan': 'sum', 'batch_stats.duration': 'sum', 'batch_stats.total_items': 'sum'}}"
+    },
     "Optimization/run_whatif_labor.py::_ARM_HUE": {
       "decorators": [],
       "doc": null,
@@ -7758,6 +7793,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "_compat.Requires(family='sim_db', label='run_whatif_volume series reader', tables={'batch_stats': ('batch_id', 'duration', 'task_makespan', 'total_items')})"
+    },
+    "Optimization/run_whatif_volume.py::SEMANTIC_USES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'sim_db': {'batch_stats.duration': 'ratio', 'batch_stats.total_items': 'read', 'batch_stats.task_makespan': 'read'}}"
     },
     "Optimization/run_whatif_volume.py::_FIELDS": {
       "decorators": [],
@@ -11093,6 +11135,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "_compat.Requires(family='warehouse_db', label='Visualization reader (warehouse geometry)', tables={'aisle_layout': ('aisle_id', 'handling_type', 'category', 'unit_type', 'storage_size', 'bay_x', 'b..."
+    },
+    "Visualization/readers/base.py::SEMANTIC_USES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'sim_db': {'simulation_runs.run_id': 'read', 'sku_scores.sku': 'read', 'sku_scores.map_target': 'read', 'sku_scores.labor_cost': 'read', 'sku_scores.handle_var': 'read', 'sku_scores.expected_popul..."
     },
     "Visualization/readers/base.py::SqliteSimReader": {
       "decorators": [],
