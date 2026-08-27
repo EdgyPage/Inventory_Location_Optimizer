@@ -40,9 +40,9 @@ WAREHOUSE_SEMANTICS: dict = {
         'id':                    _KEY,
         'inventory_db':          Col(LABEL, 'path', 'run',
                                      note='where the catalogue CAME from at build time — '
-                                          'sim_meta.json’s inv_db went stale against the '
-                                          'moved archive, so treat any path column as '
-                                          'provenance, never as a live location'),
+                                          'the run manifest’s inv_db pointer went stale '
+                                          'against the moved archive, so treat any path '
+                                          'column as provenance, never as a live location'),
         'timestamp':             Col(LABEL, 'timestamp', 'run',
                                      note='wall-clock TEXT, identity only'),
         'n_skus':                Col(COUNT, 'skus', 'run'),
