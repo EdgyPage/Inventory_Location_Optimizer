@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-25T14:01:51.170Z
+  modified: 2026-08-26T22:55:28.307Z
 ---
 
 A read-only survey (2026-08-25, 12 agents) found the approved Phase-3 plan cannot be executed
@@ -51,6 +51,10 @@ doc §8 states the choice. Three things that stayed true and are easy to get bac
   this feature: worker-local state is invisible to a checkpoint, so any new per-arm
   accumulator has to be re-derived on resume or refused.
 
+**2026-08-26 update:** step 6b is still open and is now inside the inbound-pipeline wayfinder
+map's scope — site state (dock depth, half-unloaded trailer, queued packs) is decided to
+persist day over day. See [[inbound-pipeline-wayfinder-decisions]].
+
 Related: [[empty-batch-clock-stall-is-a-contract]], [[lockstep-tests-compare-aggregates-only]],
 [[placement-pools-and-the-audit-point]], [[config-knob-has-five-seams]],
-[[putaway-seams-for-inbound]].
+[[putaway-seams-for-inbound]], [[inbound-pipeline-wayfinder-decisions]].

@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-25T13:14:17.369Z
+  modified: 2026-08-27T03:01:22.131Z
 ---
 
 Nine byte-identical commits (`d45364b..266c324`, 2026-08-24) decoupled put-away from picking
@@ -33,7 +33,9 @@ seconds; `picker_id ∈ [0,k)` is assumed by `_group_events_by_picker` and
 `picking_pct + traveling_pct == 1` by construction, so a second crew needs its own actor
 space; bin reclaim still happens once, at the top of the next batch.
 
-**The arrival seam now exists (2026-08-25, `c380a31`).** `Warehouse/operations/inbound.py`:
+**The arrival seam now exists (2026-08-25, `c380a31`).** In what is now `Inbound/pack.py`
+(moved from the old path Warehouse/operations/inbound.py by the 2026-08-26 skeleton landing, see
+[[inbound-pipeline-wayfinder-decisions]]):
 `receive(order, qty)` / `receive_all(order, deliveries)` wrap `viable_storage_units`
 **unchanged** and return `LoadPlan`s carrying the counterfactual (`unsplit()`,
 `split_penalty()`). A trailer model is a *producer* into `Inventory_Manager.inbound_split(sku,
@@ -48,4 +50,20 @@ The whole pick→inventory boundary is three notifications and two reads, allowl
 `Tests/architecture/test_sim_inventory_boundary.py`. Deliberately NO listener registry — see
 [[gpu-broker-dormant-not-for-placement]] for why unconsumed infra is not free here.
 
-See also [[sim-time-unit-is-seconds-not-ms]], [[a-grant-is-not-an-output]].
+**Planned overturn (2026-08-26, decision-only as of the wayfinder session; the `Inbound/`
+skeleton itself landed later the same day — see below):** "Packing is per delivery, which is
+the whole point" above is scheduled to be OVERTURNED — packing moves to unload time (dock-side
+crew work), not arrival. See [[inbound-pipeline-wayfinder-decisions]] for the full decision
+record; this paragraph still describes the current code truthfully (pack-at-arrival has not
+been overturned yet, only relocated to `Inbound/pack.py`).
+
+**Skeleton landed (2026-08-26, uncommitted).** The old path Warehouse/inventory/dock.py moved
+to `Inbound/dock.py`, the old path Warehouse/operations/unload.py moved to `Inbound/unload.py`,
+the old path Warehouse/operations/inbound.py moved to `Inbound/pack.py` — a top-level package, zero
+lazy imports, `Dock` now constructed by `Optimization/simdriver/strategy_runner.py` and
+injected into `enable_receiving`. See [[inbound-pipeline-wayfinder-decisions]] for the full
+list of what shipped in this pass and what (trailer model, transit move, provenance source)
+is still unbuilt.
+
+See also [[sim-time-unit-is-seconds-not-ms]], [[a-grant-is-not-an-output]],
+[[inbound-pipeline-wayfinder-decisions]].

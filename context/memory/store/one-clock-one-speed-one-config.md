@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-24T19:52:13.164Z
+  modified: 2026-08-27T01:42:47.604Z
 ---
 
 Twenty commits (`50d8f33..7478f25`) ahead of the inbound trailer/dock feature.
@@ -49,5 +49,16 @@ is backwards and looks like a calibration residual — pinned in a test, not fix
 across crews (`work_events` only). A uid in a local slot lands inside `[0, k)` and is
 accepted — which is why `_group_events_by_picker` now RAISES instead of silently dropping.
 
+**2026-08-26 update:** lead time in batches is now a live, ticketed decision for the inbound
+trailer pipeline (not yet built) — see [[inbound-pipeline-wayfinder-decisions]]. Also, the
+"future `Warehouse/inbound/`" phrasing above is superseded: the decision is a TOP-LEVEL
+`Inbound/` package beside `Warehouse/`, not `Warehouse/inbound/`. **Same day, resolved:** "the
+trailer feature should choose" is now answered — a trailer's lead is an OPTIONAL per-trailer
+delay on the absolute clock, authored in minutes at the settings surface and stored in seconds
+(`TIME_UNIT` stays `'seconds'`), default zero, flag-on; the legacy batch-denominated lead queue
+stays byte-identical flag-off. Still PLANNED, no code changed. See
+[[inbound-pipeline-wayfinder-decisions]] points 12-16.
+
 See [[sim-time-unit-is-seconds-not-ms]] (fixed in the same span), [[putaway-seams-for-inbound]]
-(the previous refactor's seams), [[case-only-rename-deletes-its-own-page]].
+(the previous refactor's seams), [[case-only-rename-deletes-its-own-page]],
+[[inbound-pipeline-wayfinder-decisions]].
