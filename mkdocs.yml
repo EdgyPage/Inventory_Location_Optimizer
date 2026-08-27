@@ -69,6 +69,8 @@ exclude_docs: |
   experiments/ingest.py
   experiments/site_tree.py
   experiments/figures.yml
+  # agent-skill configuration (repo reference, not site pages)
+  agents/
 
 nav:
   - Home: index.md

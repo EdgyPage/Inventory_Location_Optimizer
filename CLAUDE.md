@@ -10,7 +10,7 @@ verified anchors in `context/` — see the last section before adding anything h
 | `README.md` | the human map: setup, the 5-step workflow, and every CLI's arguments |
 | **`context/INDEX.md`** | **densest file in the repo.** Before touching `context/`, `Optimization/runschema/`, or any anchor |
 | `Tests/README.md` | what a failure in each test directory *means*, and the 3 placement constraints |
-| 14 package READMEs | what belongs in a directory — and what does not |
+| 15 package READMEs | what belongs in a directory — and what does not |
 | `context/architecture.yml` | the layer map and the 19 import `boundaries` |
 
 ## 1. Commands that actually work
@@ -140,6 +140,26 @@ re-resolved** — grep `context/files.yml` or use `git log --follow`.
   example — the guard would flag it, and an allowlist entry for our own docs is worse than prose.)
 - Durable cross-session facts live in `context/memory/store/` (a git-tracked mirror of the session
   memory store). The `memory-maintainer` agent owns it; see `context/memory/README.md`.
+
+## Agent skills
+
+Per-repo configuration for the installed engineering skills. Each pointer file is the single source
+of truth for its topic; edit those, not this summary.
+
+### Issue tracker
+
+Issues and specs live as markdown files under `.scratch/<feature-slug>/` — **not** GitHub Issues,
+despite the GitHub remote, and `gh` is not installed. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical roles, each label string equal to its name; here a "label" is a `Status:` line in
+the issue file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root — unrelated to the `context/`
+directory, which is a different system. See `docs/agents/domain.md`.
 
 ## 6. What does NOT belong in this file
 
