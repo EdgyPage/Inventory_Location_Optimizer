@@ -177,5 +177,5 @@ def test_allocation_imports_nothing_but_the_standard_library():
         elif isinstance(node, ast.ImportFrom):
             mod = node.module or ''
         if mod and mod.split('.')[0] in ('Warehouse', 'Optimization', 'Schema',
-                                         'Diagnostics', 'Visualization'):
+                                         'Diagnostics', 'Visualization', 'Inbound'):
             pytest.fail(f'allocation imports {mod}; the kernel may import nothing')

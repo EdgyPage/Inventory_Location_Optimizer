@@ -164,7 +164,7 @@ def test_timeline_imports_nothing_but_the_standard_library():
     for node in ast.walk(tree):
         mod = (node.names[0].name if isinstance(node, ast.Import)
                else (node.module or '') if isinstance(node, ast.ImportFrom) else None)
-        if mod and mod.split('.')[0] in ('Warehouse', 'Optimization', 'Schema'):
+        if mod and mod.split('.')[0] in ('Warehouse', 'Optimization', 'Schema', 'Inbound'):
             pytest.fail(f'timeline imports {mod}; the kernel may import nothing')
 
 

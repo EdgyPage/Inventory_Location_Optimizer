@@ -129,12 +129,12 @@ def test_the_two_depths_are_disjoint_halves_of_one_backlog():
     import sys
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'calltree'))
     import calltree_scenarios as cs                                   # noqa: E402
-    from Warehouse.inventory.dock import DockSpec
+    from Inbound.dock import Dock, DockSpec
     from Warehouse.layout.Storage_Primitive import viable_storage_units
 
     a = cs.build_assets(n_skus=120, bins_per_aisle=20, strategy='uni_fifo_norsl',
                         seed=5, coverage=2.0, safety=0.4)
-    a.mgr.enable_receiving(DockSpec(size=1))
+    a.mgr.enable_receiving(Dock(DockSpec(size=1)))
     n = 0
     for order in a.inventory.orders[:12]:
         for unit in viable_storage_units(order.reorder(), 4):

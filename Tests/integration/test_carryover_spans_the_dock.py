@@ -29,7 +29,7 @@ import sys
 
 import pytest
 
-from Warehouse.inventory.dock import DockSpec
+from Inbound.dock import Dock, DockSpec
 from Warehouse.layout.Storage_Primitive import viable_storage_units
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'calltree'))
@@ -40,7 +40,7 @@ def _assets(*, receiving=True, size=1, n_skus=200):
     a = cs.build_assets(n_skus=n_skus, bins_per_aisle=20, strategy='uni_fifo_norsl',
                         seed=11, coverage=2.0, safety=0.4)
     if receiving:
-        a.mgr.enable_receiving(DockSpec(size=size))
+        a.mgr.enable_receiving(Dock(DockSpec(size=size)))
     return a
 
 

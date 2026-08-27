@@ -55,7 +55,8 @@ from Warehouse.kernel.timeline import (
     WorkDay as _WorkDay)
 from collections import namedtuple as _namedtuple
 
-from Warehouse.inventory.dock import DockSpec as _DockSpec
+from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
+from Inbound.pack import packer as _inbound_packer
 from Warehouse.inventory.put_queue import store_and_fulfillment as _store_and_fulfillment
 from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
@@ -704,7 +705,10 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # disjoint contiguous blocks and no per-actor rollup can merge two people.
         _recv_workers = _recv_crew.workers(_uid)
         _uid = _recv_crew.next_uid(_uid)
-        mgr.enable_receiving(_DockSpec(size=_recv_spec['size']))
+        mgr.enable_receiving(_Dock(_DockSpec(size=_recv_spec['size'])))
+        # The rich packer rides with the crew: LoadPlans exist so the dock can count
+        # deliveries; unbound (every store-only run) the mixin's default packs the same units.
+        mgr.packer = _inbound_packer
         # ITS OWN DAY, not the pickers'.  Sharing would tie receiving rollover to
         # `--cut-at-day-end`, which changes which units are PICKED -- so the feature's
         # headline behaviour would only ever be observable in a configuration that also

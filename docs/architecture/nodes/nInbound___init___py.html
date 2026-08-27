@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbound · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound___init___py" data-id="Inbound/__init__.py">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <span class="here"><code>Inbound/__init__.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Inbound</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound___init___py.html"><code>Inbound/__init__.py</code></a></p>
+
+<pre class="sig"><code>Inbound</code></pre>
+<section class="doc">Inbound — the receiving side of the site: trailers, the dock, unloading and packing.
+
+A top-level package beside `Warehouse/`, split out so the two domains meet only at the
+Inventory Manager&#x27;s broker seam (see root `CONTEXT.md` for the vocabulary and
+`.scratch/inbound-groundwork/` while the effort is in flight).
+
+# ── the import law ────────────────────────────────────────────────────────────────
+
+Two rules, both enforced by `context/architecture.yml` boundaries:
+
+  * This package imports Warehouse VALUE layers only — `wh_kernel`, `wh_layout`,
+    `wh_catalog`, and `wh_operations` (for the `PutawayCost` anti-drift coupling in
+    `unload.py`).  Never `wh_inventory`, `wh_picking`, `wh_placement`, or the harness.
+  * NO Warehouse module imports this package — not even the Inventory Manager.  The driver
+    (`Optimization/`) constructs Inbound&#x27;s objects from CONFIG specs and binds them on the
+    manager (`enable_receiving`, `mgr.packer`), the way observers and placement functions
+    are already injected.  Hub-ness is injection, not imports.
+
+# ── what lives here ───────────────────────────────────────────────────────────────
+
+    dock.py     the Dock: spec, crew clocks, and the merchandise standing on the floor
+    unload.py   what it costs to take one storage unit off a trailer
+    pack.py     packing one delivery into storage units, and the LoadPlan record
+
+The trailer model (TrailerType/Trailer, load pallets, priorities.py) lands here next — the
+decisions are on the wayfinder map; the code is not yet written.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nInbound_dock_py.html"><code>Inbound.dock</code></a> <span class="dim">Inbound/dock.py</span></li><li><a href="nInbound_pack_py.html"><code>Inbound.pack</code></a> <span class="dim">Inbound/pack.py</span></li><li><a href="nInbound_unload_py.html"><code>Inbound.unload</code></a> <span class="dim">Inbound/unload.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(1)</span></h2><ul><li><a href="nInbound___init___py____all__.html"><code>__all__</code></a> <span class="dim">Inbound/__init__.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound___init___py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/__init__.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -141,7 +141,7 @@ _FLOW_HOME = {
     'Assignment_Functions': 'Warehouse.placement.Assignment_Functions',
     'Inventory_Management': 'Warehouse.inventory.Inventory_Management',
     'put_queue'           : 'Warehouse.inventory.put_queue',
-    'dock'                : 'Warehouse.inventory.dock',
+    'dock'                : 'Inbound.dock',
 }
 
 

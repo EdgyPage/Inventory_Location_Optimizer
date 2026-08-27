@@ -53,7 +53,7 @@ from Warehouse.picking.fast_pick import DeferredPickSimulation
 from Warehouse.picking.Pick import PickConfig
 from collections import namedtuple as _namedtuple
 
-from Warehouse.inventory.dock import DockSpec as _DockSpec
+from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
 from Warehouse.inventory.put_queue import (
     PutQueueSet as _PutQueueSet, PutQueueSpec as _PutQueueSpec,
     store_and_fulfillment as _store_and_fulfillment)
@@ -216,7 +216,7 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
         # make the held list and the refill loop execute at all.
         mgr.put_queues = _PutQueueSet([_PutQueueSpec('all', staging=put_staging)])
     if recv_crew:
-        mgr.enable_receiving(_DockSpec(size=recv_crew))
+        mgr.enable_receiving(_Dock(_DockSpec(size=recv_crew)))
 
     return ScenarioAssets(
         inventory=inventory, affinity=affinity, warehouse=warehouse, mgr=mgr,

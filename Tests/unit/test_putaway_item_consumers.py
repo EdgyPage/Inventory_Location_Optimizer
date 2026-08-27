@@ -135,7 +135,7 @@ def test_every_queue_walker_in_the_repo_unwraps():
 
     root = pathlib.Path(__file__).resolve().parents[2]
     offenders = []
-    for sub in ('Optimization', 'Warehouse', 'Diagnostics', 'Tests'):
+    for sub in ('Optimization', 'Warehouse', 'Inbound', 'Diagnostics', 'Tests'):
         for path in sorted((root / sub).rglob('*.py')):
             raw = path.read_text(encoding='utf-8')
             if '_stock_queue' not in raw:

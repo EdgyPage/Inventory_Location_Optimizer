@@ -1,4 +1,7 @@
-"""inbound — what arrived, how it packed, and what a single delivery would have produced.
+"""pack — what arrived, how it packed, and what a single delivery would have produced.
+
+(`Warehouse/operations/inbound.py` until the Inbound package split; `LoadPlan` becomes
+`PackPlan` in the convention pass, not before.)
 
 # ── why packing belongs to the ARRIVAL, not to the order ──────────────────────────
 
@@ -172,3 +175,16 @@ def shipment_penalty(plans) -> int:
         return 0
     got = sum(p.unit_count for p in plans)
     return got - plans[0].unsplit().unit_count
+
+
+def packer(order, quantity: int, deliveries=None) -> list:
+    """The injectable packer the Inventory Manager's broker seam consumes.
+
+    One callable covering both arrival shapes — `deliveries` is the split (or None for one
+    whole delivery), exactly the contract `_release_to_stock` has always had. The driver
+    binds this as `mgr.packer`; the manager's own default packs the identical unit stream
+    without producing `LoadPlan`s, so binding this changes RECORDS, never units.
+    """
+    if deliveries:
+        return receive_all(order, deliveries)
+    return [receive(order, quantity)]

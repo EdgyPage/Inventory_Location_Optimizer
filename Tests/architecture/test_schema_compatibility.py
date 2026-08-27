@@ -622,7 +622,7 @@ def test_the_schema_package_imports_nothing_above_its_own_layer():
                         or ['<dynamic, non-literal>'])
             for m in mods:
                 if m.split('.')[0] in {'Optimization', 'Warehouse', 'Visualization',
-                                       'Diagnostics'}:
+                                       'Diagnostics', 'Inbound'}:
                     offenders.setdefault(rel, []).append(f'{m} (line {node.lineno})')
 
     assert not offenders, (

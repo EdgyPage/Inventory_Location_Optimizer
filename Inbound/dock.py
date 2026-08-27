@@ -30,7 +30,7 @@ queue one at a time as its crew works through the day. Three consequences worth 
 when the trailer is loaded. If the day boundary re-packed a half-unloaded trailer, the tier
 mix — and therefore `unit_category`, the queue an item routes to, and which bins are legal —
 would become a function of crew size and day length, and a receiving-staffing sweep would
-silently be a packing sweep as well. `Warehouse/operations/inbound.py` measured the effect:
+silently be a packing sweep as well. `Inbound/pack.py` measured the effect:
 halving deliveries re-packed 5 of the first 12 SKUs, in BOTH directions.
 
 **The age stamp is the arrival's, not the unload's.** Items reach the dock through `_admit`,
@@ -70,6 +70,7 @@ from collections import deque
 from dataclasses import dataclass
 
 from Warehouse.kernel import crew_clock
+from Inbound.unload import UnloadCost, unload_cost
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,9 @@ class Dock:
 
     def __init__(self, spec: DockSpec, cost=None):
         self.spec = spec
+        # The default is HERE rather than at the binder: the manager may not import this
+        # package (the broker seam is injection), so the dock must arrive fully priced.
+        cost = cost if cost is not None else UnloadCost()
         self.items: deque = deque()
         # BOUND AT CONSTRUCTION, unlike PutQueue's clocks, which are None until
         # `_bind_put_crews` reaches them. A dock is not a member of `PutQueueSet`, so nothing
@@ -177,6 +181,12 @@ class Dock:
         """Book `dur` to whoever is free earliest; return (start, worker index)."""
         self.seconds += dur
         return crew_clock.charge(self.clocks, dur)
+
+    def unload_seconds(self, weight: float, volume: float, quantity: int) -> float:
+        """Seconds to take ONE storage unit off a trailer, priced by this dock's own cost
+        model — here so the manager needs no import of `unload`; the dock owns its price
+        list."""
+        return unload_cost(weight, volume, quantity, self.cost)
 
     @property
     def finish(self) -> float:

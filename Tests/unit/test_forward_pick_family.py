@@ -131,7 +131,7 @@ def test_no_module_selects_between_the_two_bin_indexes_by_hand():
     root = pathlib.Path(__file__).resolve().parents[2]
     allowed = {'Warehouse/inventory/inventory_common.py'}
     offenders = []
-    for sub in ('Warehouse', 'Optimization'):
+    for sub in ('Warehouse', 'Inbound', 'Optimization'):
         for path in sorted((root / sub).rglob('*.py')):
             rel = path.relative_to(root).as_posix()
             if rel in allowed:

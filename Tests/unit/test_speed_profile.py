@@ -139,7 +139,7 @@ def test_the_hand_conversion_count_only_falls():
     root = pathlib.Path(__file__).resolve().parents[2]
     budget = 21
     n = 0
-    for sub in ('Warehouse', 'Optimization'):
+    for sub in ('Warehouse', 'Inbound', 'Optimization'):
         for path in sorted((root / sub).rglob('*.py')):
             src = path.read_text(encoding='utf-8')
             # The definition and its own docstring do not count as call sites.
@@ -162,5 +162,5 @@ def test_cost_model_still_imports_nothing_from_the_repo():
     for node in ast.walk(tree):
         mod = (node.names[0].name if isinstance(node, ast.Import)
                else (node.module or '') if isinstance(node, ast.ImportFrom) else None)
-        if mod and mod.split('.')[0] in ('Warehouse', 'Optimization', 'Schema'):
+        if mod and mod.split('.')[0] in ('Warehouse', 'Optimization', 'Schema', 'Inbound'):
             pytest.fail(f'cost_model imports {mod}; the kernel may import nothing')

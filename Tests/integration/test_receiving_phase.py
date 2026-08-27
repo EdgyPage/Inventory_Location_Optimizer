@@ -31,9 +31,9 @@ import sys
 
 import pytest
 
-from Warehouse.inventory.dock import Dock, DockSpec
+from Inbound.dock import Dock, DockSpec
 from Warehouse.layout.Storage_Primitive import viable_storage_units
-from Warehouse.operations.unload import UnloadCost, unload_cost
+from Inbound.unload import UnloadCost, unload_cost
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'calltree'))
 import calltree_scenarios as cs                                    # noqa: E402
@@ -42,7 +42,7 @@ import calltree_scenarios as cs                                    # noqa: E402
 def _assets(size=1, n_skus=200):
     a = cs.build_assets(n_skus=n_skus, bins_per_aisle=20, strategy='uni_fifo_norsl',
                         seed=11, coverage=2.0, safety=0.4)
-    a.mgr.enable_receiving(DockSpec(size=size))
+    a.mgr.enable_receiving(Dock(DockSpec(size=size)))
     return a
 
 

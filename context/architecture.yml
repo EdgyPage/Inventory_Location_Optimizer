@@ -24,6 +24,8 @@ layers:
   - {name: warehouse_core, match: "Warehouse/",
      except: ["Warehouse/generation/", "Warehouse/physical.py"]}      # the domain engine
   - {name: generation,     match: "Warehouse/generation/"}            # data-gen CLIs
+  # --- Inbound receiving domain (top-level, beside Warehouse/) -----------------------------
+  - {name: inbound,        match: "Inbound/"}                         # dock, unloading, packing
   # --- Optimization run-harness packages ---------------------------------------------------
   - {name: opt_config,      match: "Optimization/config/"}            # CONFIG + the sweeps
   - {name: opt_persistence, match: "Optimization/persistence/"}       # SQLite read/write
@@ -85,6 +87,29 @@ boundaries:
   - {forbid: [wh_operations, wh_picking],   why: "who does the work must not depend on the pick simulation — the second stream is not a picker"}
   - {forbid: [wh_operations, wh_inventory], why: "an actor must not depend on the placement engine"}
   - {forbid: [wh_operations, wh_placement], why: "an actor must not depend on the assignment functions"}
+  # inbound (top-level Inbound/) is the receiving side of the site: the dock, unloading,
+  # packing, and — to come — the trailer model.  It imports Warehouse VALUE layers only
+  # (wh_kernel, wh_layout, wh_catalog, and wh_operations for the PutawayCost anti-drift
+  # coupling) and meets the warehouse at the Inventory Manager's broker seam by INJECTION:
+  # the driver constructs Dock/packer and binds them (`enable_receiving`, `mgr.packer`), so
+  # neither side imports the other.  The first four rules mirror what wh_operations shed
+  # when inbound.py/unload.py migrated out; the rest fence the opposite direction, so
+  # "no Warehouse module imports Inbound" is checked rather than aspirational.
+  - {forbid: [inbound, optimization],    why: "a dock is built from picklable values handed to a worker, never from CONFIG"}
+  - {forbid: [inbound, wh_picking],      why: "receiving must not depend on the pick simulation"}
+  - {forbid: [inbound, wh_inventory],    why: "receiving must not depend on the placement engine — packs cross the broker seam by injection"}
+  - {forbid: [inbound, wh_placement],    why: "receiving must not depend on the assignment functions"}
+  - {forbid: [warehouse_core, inbound],  why: "no Warehouse module imports Inbound — the broker holds what it is handed"}
+  - {forbid: [wh_inventory, inbound],    why: "the manager brokers by injection (enable_receiving, mgr.packer), never by import"}
+  - {forbid: [wh_picking, inbound],      why: "picking must not know receiving exists"}
+  - {forbid: [wh_placement, inbound],    why: "assignment functions must not know receiving exists"}
+  - {forbid: [wh_operations, inbound],   why: "the actor model predates the split and must not re-import what left it"}
+  - {forbid: [wh_layout, inbound],       why: "geometry is a value layer beneath receiving, never above it"}
+  - {forbid: [wh_catalog, inbound],      why: "the catalogue must not depend on receiving"}
+  - {forbid: [generation, inbound],      why: "data-gen must not depend on receiving"}
+  - {forbid: [inbound, evaluations],     why: "receiving must not import analysis/plotting"}
+  - {forbid: [inbound, diagnostics],     why: "receiving must not import diagnostics"}
+  - {forbid: [inbound, visualization],   why: "receiving must not import the viewer"}
   - {forbid: [opt_persistence, opt_config],  why: "persistence is a leaf: a worker saves results without dragging CONFIG into its process"}
   - {forbid: [opt_persistence, opt_simdriver], why: "storing results must not depend on orchestration"}
   - {forbid: [opt_persistence, opt_runschema], why: "DB IO must not depend on run-tree path resolution"}
@@ -103,6 +128,7 @@ boundaries:
   - {forbid: [schema, evaluations],          why: "shape identity must not depend on analysis"}
   - {forbid: [schema, visualization],        why: "shape identity must not depend on the viewer"}
   - {forbid: [schema, diagnostics],          why: "shape identity must not depend on diagnostics"}
+  - {forbid: [schema, inbound],              why: "shape identity must not depend on receiving"}
 
 # --- Backbone: the caller->callee edges that define the system's call structure.  SCOPE
 #     asserts each exists in graph.json (via = edge kind: calls | ref | dispatch).

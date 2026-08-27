@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbound.unload · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_unload_py" data-id="Inbound/unload.py">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <span class="here"><code>Inbound/unload.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Inbound.unload</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_unload_py.html"><code>Inbound/unload.py</code></a></p>
+
+<pre class="sig"><code>Inbound.unload</code></pre>
+<section class="doc">unload — what it costs to take merchandise off a trailer.
+
+# ── the put-away cost, minus the two terms a dock does not have ───────────────────
+
+`putaway.put_cost` is `travel + per_pick(height_multiplier(...), intercept, handle_var(...),
+quantity)`.  An unload keeps the handling term verbatim and drops both of the others:
+
+**No travel.**  `put_cost`&#x27;s travel is `x_phys * speed.x_pace + y_phys * speed.y_pace`
+against a BIN.  A receive has no bin, and there is no dock coordinate anywhere in the model
+-- grepping `dock|trailer|unload` across `Warehouse/` finds this file and prose.  The
+tempting shortcut is to call `put_cost` with the dock at `(0, 0)`: travel comes out exactly
+0.0 and `height_multiplier(brackets, 0.0)` comes out exactly 1.0, so it returns a plausible
+number while silently asserting that unloading involves no travel at all.  Same for a
+`dock_travel = 0.0` field: it is a slot for a number no layout can validate, and setting it
+to 200 would assert 200 inches of x-travel corresponding to nothing.  So the term is ABSENT,
+and this paragraph is the record that its absence is a decision.
+
+**No height multiplier.**  A trailer floor is one height.  `UnloadCost` therefore has no
+`height_brackets` field at all, rather than one defaulted to a flat bracket -- the field&#x27;s
+absence is what makes the claim checkable.
+
+**No speed, and therefore no mode.**  Without a travel term there is nothing for a speed to
+scale, so `unload_cost` takes no `SpeedProfile`.  The consequence is worth stating plainly
+because someone will want a knob for it: *this model cannot say whether a forklift crew
+unloads faster than a hand crew.*  Only crew SIZE changes a receiving makespan, because size
+is the number of clocks.  A mode knob would label rows without moving a second, and a sweep
+over it would publish &quot;mode makes no difference to receiving&quot;.  When an unload gains a
+travel term, mode arrives with it.
+
+# ── the granularity, which moves the answer by an order of magnitude ──────────────
+
+`per_pick(mult, intercept, var, qty)` is `mult * (intercept + qty * var)`, so the intercept
+is charged ONCE PER CALL.  A 60-unit arrival therefore costs one intercept-second if it is
+costed as one call and sixty if it is costed per pack -- and at the default `intercept=1.0`
+that is a 59-second difference on a single arrival, scaling with the run.
+
+The charge is **per `StorageUnit`**: one call per pack, because a pack is what a person
+lifts, and the fixed grab-orient-set-down charge belongs to the lift.  There is deliberately
+no per-DELIVERY setup term (backing the trailer in, opening the doors): its default would
+have to be invented, and a coefficient defaulted to 0.0 is dead code that rots.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_operations_putaway_py.html"><code>Warehouse.operations.putaway</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nInbound___init___py.html"><code>Inbound</code></a> <span class="dim">Inbound/__init__.py</span></li><li><a href="nInbound_dock_py.html"><code>Inbound.dock</code></a> <span class="dim">Inbound/dock.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nInbound_unload_py__UnloadCost.html"><code>UnloadCost</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nInbound_unload_py__unload_cost.html"><code>unload_cost</code></a> <span class="dim">Inbound/unload.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_unload_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/unload.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -39,7 +39,7 @@ from Warehouse.layout.Aisle_Dimensions import aisle_height_for, aisle_width_for
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units
 from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Warehouse.operations import inbound
+from Inbound import pack as inbound
 
 
 # ── fixtures ──────────────────────────────────────────────────────────────────────
@@ -237,6 +237,7 @@ def test_inbound_split_reshapes_a_real_reorder_arrival():
     mgr._current_quantities[101] = 0
 
     # Halve every arrival -- the trailer circumstance, standing in for a load planner.
+    mgr.packer = inbound.packer   # the rich packer, bound as any inbound-enabled run binds it
     mgr.inbound_split = lambda sku, qty: [qty // 2, qty - qty // 2]
 
     plans = mgr._release_to_stock(101, 6)
@@ -274,6 +275,7 @@ def test_the_arrival_phase_returns_what_came_off_the_trucks():
     phase rather than a rewrite of one. Two arrivals in one batch must both appear, in
     arrival order."""
     mgr = Inventory_Manager(_warehouse())
+    mgr.packer = inbound.packer   # rich plans are the hand-up contract this test pins
     for sku in (101, 102):
         mgr._originals[sku] = _order(sku=sku)
     mgr._lead_queue = [[101, 6, 0], [102, 6, 0]]
@@ -293,6 +295,7 @@ def test_the_trackers_count_the_split_packing():
     """
     mgr = Inventory_Manager(_warehouse())
     mgr._originals[101] = _order(sku=101)
+    mgr.packer = inbound.packer   # the rich packer, bound as any inbound-enabled run binds it
     mgr.inbound_split = lambda sku, qty: [qty // 2, qty - qty // 2]
     mgr._release_to_stock(101, 6)
 
@@ -324,6 +327,7 @@ def test_a_policy_returning_none_is_the_same_as_no_policy():
     which a falsy return would collapse."""
     mgr = Inventory_Manager(_warehouse())
     mgr._originals[101] = _order(sku=101)
+    mgr.packer = inbound.packer
     mgr.inbound_split = lambda sku, qty: None
     mgr._release_to_stock(101, 6)
     assert _mix(_received_units(mgr)) == {inbound.PALLET: 1}

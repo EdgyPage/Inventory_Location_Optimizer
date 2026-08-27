@@ -3,10 +3,10 @@
 The domain's actor model plus the operations themselves, split out from the pick simulation
 so a second work stream can reuse it.  Imports the kernel and the VALUE layers (`wh_layout`,
 `wh_catalog`) but none of the machinery that consumes them -- not the pick simulation, the
-placement engine, the assignment functions or the run harness -- so a future
-`Warehouse/inbound/` needs no dependency inversion to build a crew of unloaders.  (An older
-version of this line said "kernel and nothing else", which no rule enforced and which
-`inbound.receive`'s call to `viable_storage_units` already contradicted.)
+placement engine, the assignment functions or the run harness -- which is what let the
+top-level `Inbound/` package build its crew of unloaders on these same layers with no
+dependency inversion.  (It landed beside `Warehouse/`, not inside it as this line once
+predicted, and took `unload.py` and `inbound.py` -- now `pack.py` -- with it.)
 
     Role     pick | put
     Mode     foot | machine          -- the axis that decides speed

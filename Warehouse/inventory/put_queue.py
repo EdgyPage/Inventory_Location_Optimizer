@@ -20,7 +20,7 @@ drains every queue here into the placement pool, so a dock among them would have
 binned on batch 1; `_cost_putaway` folds `max(x.finish for x in self._put_queues)` into
 `_put_clock`, which offsets every put row on the absolute axis; and a fourth member flips
 `len(self.put_queues) == 1`, swapping `_stock_queue` for `_MultiQueueView`, whose setter
-raises. So `Warehouse/inventory/dock.py` stands alone and shares the one part that genuinely
+raises. So `Inbound/dock.py` stands alone and shares the one part that genuinely
 is the same -- the crew's clock, via `Warehouse.kernel.crew_clock`.
 
 # ── the axes ──────────────────────────────────────────────────────────────────────

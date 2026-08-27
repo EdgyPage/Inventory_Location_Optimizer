@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import pathlib
 import re
 
 import pytest
@@ -190,3 +191,33 @@ def test_every_wrapper_of_the_chokepoint_passes_the_keyword_through():
         assert defs, rel
         assert any('source' in d or '**kw' in d for d in defs), \
             f'{rel} rebinds _execute_placement without accepting its source keyword'
+
+
+# ── the migrated Inbound package stays outside the admission path ────────────────
+
+def test_inbound_package_neither_constructs_nor_enqueues():
+    """`Inbound/` holds stamped items (the dock) and packs units (the packer) but may not
+    CREATE a `PutawayItem` or touch `_stock_queue` — admission stays `_admit`'s alone.
+
+    Extends the single-admission ratchet across the 2026-08 package split: this file scans
+    only the two manager modules, so a module migrated OUT of them would silently escape
+    the guard without this sweep. AST-walked rather than text-scanned because Inbound's
+    docstrings legitimately mention both names in prose.
+    """
+    import Inbound
+    pkg_root = pathlib.Path(inspect.getfile(Inbound)).parent
+    scanned = 0
+    for path in sorted(pkg_root.glob('*.py')):
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+        scanned += 1
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                f = node.func
+                name = f.id if isinstance(f, ast.Name) else getattr(f, 'attr', '')
+                assert name != 'PutawayItem', \
+                    f'{path.name}:{node.lineno} constructs PutawayItem outside _admit'
+            if isinstance(node, ast.Attribute) and node.attr == '_stock_queue':
+                raise AssertionError(f'{path.name}:{node.lineno} touches _stock_queue')
+            if isinstance(node, ast.Name) and node.id == '_stock_queue':
+                raise AssertionError(f'{path.name}:{node.lineno} touches _stock_queue')
+    assert scanned >= 4, f'Inbound package scan found only {scanned} files — glob broken?'

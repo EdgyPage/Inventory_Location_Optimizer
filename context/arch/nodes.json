@@ -479,6 +479,314 @@
       "kind": "function",
       "signature": "()"
     },
+    "Inbound/__init__.py": {
+      "decorators": [],
+      "doc": "Inbound \u2014 the receiving side of the site: trailers, the dock, unloading and packing.\n\nA top-level package beside `Warehouse/`, split out so the two domains meet only at the\nInventory Manager's broker seam (see root `CONTEXT.md` for the vocabulary and\n`.scratch/inbound-groundwork/` while the effort is in flight).\n\n# \u2500\u2500 the import law \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nTwo rules, both enforced by `context/architecture.yml` boundaries:\n\n  * This package imports Warehouse VALUE layers only \u2014 `wh_kernel`, `wh_layout`,\n    `wh_catalog`, and `wh_operations` (for the `PutawayCost` anti-drift coupling in\n    `unload.py`).  Never `wh_inventory`, `wh_picking`, `wh_placement`, or the harness.\n  * NO Warehouse module imports this package \u2014 not even the Inventory Manager.  The driver\n    (`Optimization/`) constructs Inbound's objects from CONFIG specs and binds them on the\n    manager (`enable_receiving`, `mgr.packer`), the way observers and placement functions\n    are already injected.  Hub-ness is injection, not imports.\n\n# \u2500\u2500 what lives here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    dock.py     the Dock: spec, crew clocks, and the merchandise standing on the floor\n    unload.py   what it costs to take one storage unit off a trailer\n    pack.py     packing one delivery into storage units, and the LoadPlan record\n\nThe trailer model (TrailerType/Trailer, load pallets, priorities.py) lands here next \u2014 the\ndecisions are on the wayfinder map; the code is not yet written.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/__init__.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['Dock', 'DockSpec', 'LoadPlan', 'packer', 'receive', 'receive_all', 'shipment_penalty', 'UnloadCost', 'unload_cost']"
+    },
+    "Inbound/dock.py": {
+      "decorators": [],
+      "doc": "dock.py \u2014 the receiving crew and what is standing on their floor.\n\n# \u2500\u2500 why this is not a fourth PutQueue \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`put_queue.py` says, in writing, that a fourth stream should be a row rather than a class.\nFor put-away streams that is right and this file does not change it. A receiving CREW is a\ndifferent thing, and three properties of `PutQueueSet` make membership actively wrong \u2014 each\nverified in the code, not argued from taste:\n\n  1. `Inventory_Manager._stock`'s drain loop iterates EVERY queue in `self.put_queues` and\n     hands its contents to the placement pool. A dock in that set would have its trailers\n     placed into bins on batch 1, which is the entire feature undone.\n  2. `_cost_putaway` recomputes `self._put_clock = max(x.finish for x in self._put_queues)`,\n     and that feeds `_put_base = max(bs.batch_start_time, put_clock)` \u2014 the offset applied to\n     every put row in every later batch. A dock in the set would silently shift the whole\n     put-away stream along the absolute axis with its durations unchanged.\n  3. A fourth member flips `len(self.put_queues) == 1` false, which swaps `_stock_queue` from\n     a bare deque to `_MultiQueueView` \u2014 whose setter raises, and which re-sorts the whole\n     backlog by age on every read. Three consumers outside this package read it.\n\nSo the dock stands alone and shares the part that genuinely IS the same: the crew's clock,\nvia `Warehouse.kernel.crew_clock`. There is exactly one copy of the whistle rule.\n\n# \u2500\u2500 what the dock does and does not model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nIt holds `PutawayItem`s \u2014 ALREADY PACKED and ALREADY STAMPED \u2014 and hands them to the put\nqueue one at a time as its crew works through the day. Three consequences worth stating:\n\n**Packing happens at ARRIVAL, not at unload.** The load plan is the shipper's and is fixed\nwhen the trailer is loaded. If the day boundary re-packed a half-unloaded trailer, the tier\nmix \u2014 and therefore `unit_category`, the queue an item routes to, and which bins are legal \u2014\nwould become a function of crew size and day length, and a receiving-staffing sweep would\nsilently be a packing sweep as well. `Inbound/pack.py` measured the effect:\nhalving deliveries re-packed 5 of the first 12 SKUs, in BOTH directions.\n\n**The age stamp is the arrival's, not the unload's.** Items reach the dock through `_admit`,\nwhich stamps on arrival, so a pallet that waited three batches on the dock is three batches\nold when it finally gets floor space. Stamping at unload would make the longest-waiting\nmerchandise the youngest thing in the warehouse \u2014 the priority inversion `_admit`'s docstring\nexists to forbid.\n\n**The dock exerts backpressure on nothing, and nothing exerts backpressure on the dock.**\n`arrive()` never refuses: there is no floor limit, because a refusal needs somewhere for the\nmerchandise to go and the only candidate is `_held`, which `_admit_held` retries INSIDE\n`_stock` \u2014 so held trailer merchandise would be put away for free, bypassing the crew\nentirely. The only bound on receiving is the crew's hours. The dock's DEPTH is the report.\n(One real coupling is kept: unloading hands the item to the put queue, so if that queue is at\nits staging limit the item goes to `_held` \u2014 unloading and put-away admission are different\nacts, and the unit is legitimately off the trailer either way.)\n\n# \u2500\u2500 two limitations that will produce plausible wrong numbers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n**Arrivals are quantized to BATCHES.** `Inventory_Manager.LEAD_TIME_UNIT` is `'batches'`, so\nevery trailer in a batch arrives at the same instant \u2014 the batch epoch \u2014 and the crew has no\nsub-batch arrival times to schedule against. The direction is knowable: a real day's arrivals\nspread out, so the modelled crew faces its whole day's work at once and its makespan reads\nLONG. Sizing a receiving crew off this model would therefore over-staff it. Converting lead\ntime to seconds moves every restock result on every arm and is a change of its own.\n\n**A put row can carry a smaller `t_abs` than the receive row of the same unit.** Both clocks\nrestart at the batch epoch and the streams are simulated independently and merged, which is\nthe model `work_events` already declares. The overlap is bounded by one batch's receive\nmakespan. Widening `_put_base` to include the dock's finish would over-correct \u2014 it would\nmake the first pallet off the truck wait for the last \u2014 and the honest fix needs a dock\ncoordinate and a per-unit handoff instant, neither of which exists.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/dock.py::Dock": {
+      "decorators": [],
+      "doc": "One spec, one crew clock, and the merchandise standing on the floor.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/dock.py::Dock.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, spec: DockSpec, cost=None)"
+    },
+    "Inbound/dock.py::Dock.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/dock.py::Dock.arrive": {
+      "decorators": [],
+      "doc": "Put one already-stamped item on the floor.\n\nNEVER refuses -- see the module docstring. Appended, so the deque is in arrival order\nand the head is the oldest, which is what makes the unload FIFO and keeps\n`PutawayItem.age` monotonic along it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, item) -> None"
+    },
+    "Inbound/dock.py::Dock.can_start": {
+      "decorators": [],
+      "doc": "Is anyone free to BEGIN an unload before `deadline`? A START gate -- see\n`crew_clock.can_start` for what `deadline` is measured against.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, deadline: float | None) -> bool"
+    },
+    "Inbound/dock.py::Dock.charge": {
+      "decorators": [],
+      "doc": "Book `dur` to whoever is free earliest; return (start, worker index).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, dur: float)"
+    },
+    "Inbound/dock.py::Dock.crew_size": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/dock.py::Dock.depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Storage units on the floor. A LEVEL -- `snapshot()` reports it without resetting.\n\nThe same unit as `Inventory_Manager.queue_depth`, and DISJOINT from it: an item is on\nthe dock or in a put queue, never both. A reader wanting the whole unbinned backlog\nsums them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/dock.py::Dock.drain_records": {
+      "decorators": [],
+      "doc": "This batch's unload records, and start the crew's clock over.\n\nA DRAIN IS A BATCH BOUNDARY, for the same reason `drain_putaway_records` is: the\nrecords carry `t0` on the crew's own clock measured from the start of the batch,\nbecause the batch epoch is not known here -- receiving runs at the TOP of the batch,\nbefore the pickers have been simulated. The runner adds the epoch when it writes the\nrows. Resetting is load-bearing, not tidiness: without it the clock accumulates across\nthe whole arm while the runner still adds the epoch, and every row after batch 0 is\nstamped too late by the total receiving seconds of every preceding batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/dock.py::Dock.finish": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "When the last receiver becomes free, on the batch-local clock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Inbound/dock.py::Dock.name": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Inbound/dock.py::Dock.note_arrivals": {
+      "decorators": [],
+      "doc": "Record that `plans` deliveries reached the dock this batch.\n\nA COUNT, not the plans themselves: a run is hundreds of batches and a `LoadPlan` pins\na tuple of live `StorageUnit`s plus a cloned `Order`, which is precisely the leak\n`drain_inbound` turned out to be.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, plans) -> None"
+    },
+    "Inbound/dock.py::Dock.reset_clocks": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Inbound/dock.py::Dock.snapshot": {
+      "decorators": [],
+      "doc": "`(depth, unloaded, cut, seconds)` \u2014 and reset the three per-batch counters.\n\nTwo of those three are flows; `cut` is not, though it resets like one.  See\n`PutQueue.cut`, which has the same shape and the same warning: it re-counts the\nwhole standing dock every batch, so it must never be summed across them.\n\nDepth is a LEVEL and survives, exactly as `PutQueue.drain_counters` treats its own.\nMust run once per batch: a second call in the same batch reports zeros, and that is\nnot hypothetical \u2014 the put side shipped that defect and persisted an idle-looking\nqueue for every skipped batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Inbound/dock.py::Dock.takes": {
+      "decorators": [],
+      "doc": "Does this dock intercept an admission from `source`?",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, source: str | None) -> bool"
+    },
+    "Inbound/dock.py::Dock.unload_seconds": {
+      "decorators": [],
+      "doc": "Seconds to take ONE storage unit off a trailer, priced by this dock's own cost\nmodel \u2014 here so the manager needs no import of `unload`; the dock owns its price\nlist.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, weight: float, volume: float, quantity: int) -> float"
+    },
+    "Inbound/dock.py::DockSpec": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The configuration of the receiving dock. Frozen, like `PutQueueSpec`: a crew's\nidentity must not drift mid-run, and a sweep varying these has to hash them.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/dock.py::DockSpec.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/pack.py": {
+      "decorators": [],
+      "doc": "pack \u2014 what arrived, how it packed, and what a single delivery would have produced.\n\n(`Warehouse/operations/inbound.py` until the Inbound package split; `LoadPlan` becomes\n`PackPlan` in the convention pass, not before.)\n\n# \u2500\u2500 why packing belongs to the ARRIVAL, not to the order \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`viable_storage_units(order, quantity)` has always taken a quantity, so the packing has\nalways been a function of how much shows up at once. Nothing named that, so nothing could\nask the interesting question: *an order that would be palletized if it came in all at once,\nbut arrives split across two trailers and lands as two singleton packs instead.*\n\nThat is not hypothetical. Measured over the first twelve orders of a planned 200-SKU\ncatalogue, splitting each delivery in half changed the packing for **five of them**:\n\n    sku  52   eq   8    whole  3 pallets    split in two  4 pallets\n    sku 178   eq  14    whole  5 pallets    split in two  6 pallets\n    sku  21   eq 137    whole 34 pallets + 26 singletons  split  40 pallets + 0 singletons\n    sku  51   eq   3    whole  2 pallets    split in two  3 pallets\n    sku  77   eq  44    whole 27 pallets    split in two 24 pallets\n\n**Both directions occur, and they have different causes.** Default packing \u2014 fill pallets,\nroute the remainder to a singleton \u2014 is monotone: splitting it can only produce the same\nunits or more. The negative cases come from `stock_plan`, which overrides the packer with a\nrun-length list of `(is_singleton, per, count)` slots filled from the front. A whole arrival\nthat runs off the end of the pallet slots spills into the plan's singleton tail; each half of\nthe same arrival stops before that tail and stays on pallets. So on a **planned** SKU \u2014 which\nis most of a generated catalogue \u2014 \"splitting is worse\" is not a safe assumption, and the\nnumber has to be looked at rather than signed in advance.\n\n# \u2500\u2500 what this module adds, and what it deliberately does not \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nIt adds a NAME and a RECORD. `receive()` calls `viable_storage_units` unchanged and wraps the\nresult in a `LoadPlan` that knows what it received, what it packed into, and \u2014 on demand \u2014\nwhat the same order would have packed into arriving whole. Nothing about the packing\nbehaviour moves.\n\nIt does NOT model trailers, docks, or how a shipment gets split. That is the caller's\nbusiness: `receive_all()` takes the split as a list of quantities and says nothing about\nwhere the list came from. The point of the seam is that a trailer model can be written\nagainst it without touching the packer.\n\n# \u2500\u2500 the counterfactual is lazy \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`unsplit()` re-packs at the whole quantity, which costs as much as the packing itself. It is\na method rather than a field so the ordinary receive path pays nothing for a comparison\nnobody asked for.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/pack.py::FULFILLMENT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fulfillment'"
+    },
+    "Inbound/pack.py::LoadPlan": {
+      "decorators": [],
+      "doc": "One inbound delivery: what arrived, and the storage units it became.\n\nImmutable in the sense that matters -- the units are packed once at receipt and the plan\nis the record of that. `whole_qty` is the quantity this delivery WOULD have been had the\nshipment not been split, and it is what makes `unsplit()` answerable; it equals\n`received` for a delivery that was not split.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/pack.py::LoadPlan.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, order, received: int, units, whole_qty: int | None=None, index: int=0, of: int=1)"
+    },
+    "Inbound/pack.py::LoadPlan.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/pack.py::LoadPlan.packed_qty": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Units of MERCHANDISE packed. Equals `received` unless the packer could not place\nsome of it, which is worth being able to see rather than assume away.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/pack.py::LoadPlan.sku": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/pack.py::LoadPlan.split_penalty": {
+      "decorators": [],
+      "doc": "Extra storage units this delivery pattern cost, against arriving whole.\n\nNEGATIVE when splitting helped -- which happens on any SKU carrying a `stock_plan`,\nand is the reason this returns a signed number rather than a count of regret. sku 21\nabove packs into 60 units whole and 40 split, because each half stops short of the\nplan's singleton tail.\n\nMeaningful only summed over a whole shipment: one delivery of a split shipment is\nbeing compared against the whole thing, so its individual value is not interesting.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/pack.py::LoadPlan.tier_mix": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "`{unit_category: count}` for this delivery.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Inbound/pack.py::LoadPlan.unit_count": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/pack.py::LoadPlan.unsplit": {
+      "decorators": [],
+      "doc": "The plan the WHOLE shipment would have produced, arriving at once.\n\nRe-packs at `whole_qty`, which costs as much as the original packing -- hence a\nmethod and not a field. For a delivery that was not split this returns an equivalent\nplan, so a caller can compare unconditionally.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> 'LoadPlan'"
+    },
+    "Inbound/pack.py::LoadPlan.was_split": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Inbound/pack.py::PALLET": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'pallet'"
+    },
+    "Inbound/pack.py::SINGLETON": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'singleton'"
+    },
+    "Inbound/pack.py::packer": {
+      "decorators": [],
+      "doc": "The injectable packer the Inventory Manager's broker seam consumes.\n\nOne callable covering both arrival shapes \u2014 `deliveries` is the split (or None for one\nwhole delivery), exactly the contract `_release_to_stock` has always had. The driver\nbinds this as `mgr.packer`; the manager's own default packs the identical unit stream\nwithout producing `LoadPlan`s, so binding this changes RECORDS, never units.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, quantity: int, deliveries=None) -> list"
+    },
+    "Inbound/pack.py::receive": {
+      "decorators": [],
+      "doc": "Pack one inbound delivery. The packer is unchanged; this names the result.\n\n`whole_qty` is the shipment's total when this is one delivery of several, and is what\nthe counterfactual is measured against.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, quantity: int, *, whole_qty: int | None=None, index: int=0, of: int=1) -> LoadPlan"
+    },
+    "Inbound/pack.py::receive_all": {
+      "decorators": [],
+      "doc": "Pack a shipment that arrives as several deliveries.\n\n`deliveries` is a list of quantities -- how the shipment was split, and nothing about\nWHY. Trailers, docks and load planning are the caller's business; this seam exists so\nthey can be written without touching the packer.\n\nEvery returned plan carries the shipment total, so `split_penalty()` is answerable on\neach and meaningful when summed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, deliveries) -> list"
+    },
+    "Inbound/pack.py::shipment_penalty": {
+      "decorators": [],
+      "doc": "Extra storage units a whole shipment's split cost, against arriving at once.\n\nThe number `split_penalty()` is a component of. Positive means the split produced more,\nsmaller packs -- more put-away trips for the same merchandise. Negative means it\nproduced fewer, which is real and happens when the halves fall on cleaner boundaries.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(plans) -> int"
+    },
+    "Inbound/unload.py": {
+      "decorators": [],
+      "doc": "unload \u2014 what it costs to take merchandise off a trailer.\n\n# \u2500\u2500 the put-away cost, minus the two terms a dock does not have \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`putaway.put_cost` is `travel + per_pick(height_multiplier(...), intercept, handle_var(...),\nquantity)`.  An unload keeps the handling term verbatim and drops both of the others:\n\n**No travel.**  `put_cost`'s travel is `x_phys * speed.x_pace + y_phys * speed.y_pace`\nagainst a BIN.  A receive has no bin, and there is no dock coordinate anywhere in the model\n-- grepping `dock|trailer|unload` across `Warehouse/` finds this file and prose.  The\ntempting shortcut is to call `put_cost` with the dock at `(0, 0)`: travel comes out exactly\n0.0 and `height_multiplier(brackets, 0.0)` comes out exactly 1.0, so it returns a plausible\nnumber while silently asserting that unloading involves no travel at all.  Same for a\n`dock_travel = 0.0` field: it is a slot for a number no layout can validate, and setting it\nto 200 would assert 200 inches of x-travel corresponding to nothing.  So the term is ABSENT,\nand this paragraph is the record that its absence is a decision.\n\n**No height multiplier.**  A trailer floor is one height.  `UnloadCost` therefore has no\n`height_brackets` field at all, rather than one defaulted to a flat bracket -- the field's\nabsence is what makes the claim checkable.\n\n**No speed, and therefore no mode.**  Without a travel term there is nothing for a speed to\nscale, so `unload_cost` takes no `SpeedProfile`.  The consequence is worth stating plainly\nbecause someone will want a knob for it: *this model cannot say whether a forklift crew\nunloads faster than a hand crew.*  Only crew SIZE changes a receiving makespan, because size\nis the number of clocks.  A mode knob would label rows without moving a second, and a sweep\nover it would publish \"mode makes no difference to receiving\".  When an unload gains a\ntravel term, mode arrives with it.\n\n# \u2500\u2500 the granularity, which moves the answer by an order of magnitude \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`per_pick(mult, intercept, var, qty)` is `mult * (intercept + qty * var)`, so the intercept\nis charged ONCE PER CALL.  A 60-unit arrival therefore costs one intercept-second if it is\ncosted as one call and sixty if it is costed per pack -- and at the default `intercept=1.0`\nthat is a 59-second difference on a single arrival, scaling with the run.\n\nThe charge is **per `StorageUnit`**: one call per pack, because a pack is what a person\nlifts, and the fixed grab-orient-set-down charge belongs to the lift.  There is deliberately\nno per-DELIVERY setup term (backing the trailer in, opening the doors): its default would\nhave to be invented, and a coefficient defaulted to 0.0 is dead code that rots.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/unload.py::UnloadCost": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The unload time model's coefficients \u2014 the receiving twin of `PutawayCost`.\n\nEvery default is the PUT-AWAY default **by reference**, not by copied literal.  That is\nthe whole point: `PutawayCost`'s own docstring warns against \"a second set of magic\nnumbers to reconcile later (this project has already paid for two default sets that\ndrifted 55x apart)\", and a reference makes the drift structurally impossible rather than\nmerely a diff someone might notice.  Change a put-away coefficient and this moves with\nit, which is right until someone measures a dock and has a reason to separate them.\n\nNo `height_brackets`, and no speed \u2014 see the module docstring for why each is absent\nrather than defaulted.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/unload.py::unload_cost": {
+      "decorators": [],
+      "doc": "Seconds to take ONE storage unit off a trailer.\n\n`weight` and `volume` are PER ITEM \u2014 `order.weight` and `order.volume()`, exactly as\n`put_cost` takes them.  Passing a pack's or a trailer's volume instead inflates the log\nterm by `ln(quantity)` per unit, and `handle_var` clamps its log input to >= 1 so it\nnever raises: a 34-pallet arrival would simply cost as if every item were 34x bigger.\n\n`quantity` is the merchandise in THIS pack (`unit.quantity`), so the intercept is charged\nonce for the pack and the variable term once per item in it.\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(weight: float, volume: float, quantity: int, cost: UnloadCost) -> float"
+    },
     "Optimization/Performance_Evaluations/__init__.py": {
       "decorators": [],
       "doc": "Performance_Evaluations \u2014 registry-driven analysis/graph system.\n\nEach graph/analysis is a small self-registering module under one of the category\nsubpackages (per_strategy/, comparison/, breakdown/, stats/, aggregate/).  A module\ndeclares an Evaluation via the @evaluation decorator (core/registry.py); importing the\npackage walks every submodule so the decorators fire and populate the registry.\n\nThe driver (driver.py) builds an EvalContext once per config (and an AggregateContext\nper cross-profile group), then runs the evaluations named by a preset (presets.py).\nAdding a graph = drop a file here + add its key to a preset; no central script to edit.\n\nmatplotlib's Agg backend is set HERE, before any submodule imports pyplot, so every\nworker process (Windows spawn re-imports this package) is headless-safe.",
@@ -12924,10 +13232,10 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_receiving": {
       "decorators": [],
-      "doc": "Give the warehouse a receiving crew, and a dock for it to work.\n\nFollows `enable_putaway_timing`'s precedent: a binder the harness calls, so the domain\nnever reaches into CONFIG for its own configuration.  There is deliberately no\n`disable_receiving` -- the off state is \"this was never called\", which is what makes\nthe feature's no-op structural rather than a flag nobody can see.\n\nNOT ADDITIVE, unlike put-away timing, and that is the point.  A receiving crew changes\nWHEN merchandise reaches a put queue, so it changes which units are binned in which\nbatch.  It does not change the pick simulation, the packing, or which bin a given unit\nlands in once it is offered.",
+      "doc": "Give the warehouse a receiving crew, and a dock for it to work.\n\nFollows `enable_putaway_timing`'s precedent: a binder the harness calls, so the domain\nnever reaches into CONFIG for its own configuration.  There is deliberately no\n`disable_receiving` -- the off state is \"this was never called\", which is what makes\nthe feature's no-op structural rather than a flag nobody can see.\n\nNOT ADDITIVE, unlike put-away timing, and that is the point.  A receiving crew changes\nWHEN merchandise reaches a put queue, so it changes which units are binned in which\nbatch.  It does not change the pick simulation, the packing, or which bin a given unit\nlands in once it is offered.\n\n`dock` arrives CONSTRUCTED (`Inbound.dock.Dock`, already priced): the broker holds\nwhat it is handed and imports nothing -- `Warehouse/ -> Inbound/` is a forbidden\nedge, so construction is the driver's job, like every other injected policy.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, spec, cost=None) -> None"
+      "signature": "(self, dock) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue": {
       "decorators": [],
@@ -13154,139 +13462,6 @@
       "doc": "Warehouse.inventory \u2014 The Inventory_Manager placement engine and its mixins (planning, optimal, reorder) plus their shared leaf helpers.  This is the composition documented in files.yml: inventory_optimal and inventory_reorder exist only for Inventory_Management.\n\nSee README.md for what does and does not belong here.",
       "kind": "module",
       "signature": null
-    },
-    "Warehouse/inventory/dock.py": {
-      "decorators": [],
-      "doc": "dock.py \u2014 the receiving crew and what is standing on their floor.\n\n# \u2500\u2500 why this is not a fourth PutQueue \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`put_queue.py` says, in writing, that a fourth stream should be a row rather than a class.\nFor put-away streams that is right and this file does not change it. A receiving CREW is a\ndifferent thing, and three properties of `PutQueueSet` make membership actively wrong \u2014 each\nverified in the code, not argued from taste:\n\n  1. `Inventory_Manager._stock`'s drain loop iterates EVERY queue in `self.put_queues` and\n     hands its contents to the placement pool. A dock in that set would have its trailers\n     placed into bins on batch 1, which is the entire feature undone.\n  2. `_cost_putaway` recomputes `self._put_clock = max(x.finish for x in self._put_queues)`,\n     and that feeds `_put_base = max(bs.batch_start_time, put_clock)` \u2014 the offset applied to\n     every put row in every later batch. A dock in the set would silently shift the whole\n     put-away stream along the absolute axis with its durations unchanged.\n  3. A fourth member flips `len(self.put_queues) == 1` false, which swaps `_stock_queue` from\n     a bare deque to `_MultiQueueView` \u2014 whose setter raises, and which re-sorts the whole\n     backlog by age on every read. Three consumers outside this package read it.\n\nSo the dock stands alone and shares the part that genuinely IS the same: the crew's clock,\nvia `Warehouse.kernel.crew_clock`. There is exactly one copy of the whistle rule.\n\n# \u2500\u2500 what the dock does and does not model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nIt holds `PutawayItem`s \u2014 ALREADY PACKED and ALREADY STAMPED \u2014 and hands them to the put\nqueue one at a time as its crew works through the day. Three consequences worth stating:\n\n**Packing happens at ARRIVAL, not at unload.** The load plan is the shipper's and is fixed\nwhen the trailer is loaded. If the day boundary re-packed a half-unloaded trailer, the tier\nmix \u2014 and therefore `unit_category`, the queue an item routes to, and which bins are legal \u2014\nwould become a function of crew size and day length, and a receiving-staffing sweep would\nsilently be a packing sweep as well. `Warehouse/operations/inbound.py` measured the effect:\nhalving deliveries re-packed 5 of the first 12 SKUs, in BOTH directions.\n\n**The age stamp is the arrival's, not the unload's.** Items reach the dock through `_admit`,\nwhich stamps on arrival, so a pallet that waited three batches on the dock is three batches\nold when it finally gets floor space. Stamping at unload would make the longest-waiting\nmerchandise the youngest thing in the warehouse \u2014 the priority inversion `_admit`'s docstring\nexists to forbid.\n\n**The dock exerts backpressure on nothing, and nothing exerts backpressure on the dock.**\n`arrive()` never refuses: there is no floor limit, because a refusal needs somewhere for the\nmerchandise to go and the only candidate is `_held`, which `_admit_held` retries INSIDE\n`_stock` \u2014 so held trailer merchandise would be put away for free, bypassing the crew\nentirely. The only bound on receiving is the crew's hours. The dock's DEPTH is the report.\n(One real coupling is kept: unloading hands the item to the put queue, so if that queue is at\nits staging limit the item goes to `_held` \u2014 unloading and put-away admission are different\nacts, and the unit is legitimately off the trailer either way.)\n\n# \u2500\u2500 two limitations that will produce plausible wrong numbers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n**Arrivals are quantized to BATCHES.** `Inventory_Manager.LEAD_TIME_UNIT` is `'batches'`, so\nevery trailer in a batch arrives at the same instant \u2014 the batch epoch \u2014 and the crew has no\nsub-batch arrival times to schedule against. The direction is knowable: a real day's arrivals\nspread out, so the modelled crew faces its whole day's work at once and its makespan reads\nLONG. Sizing a receiving crew off this model would therefore over-staff it. Converting lead\ntime to seconds moves every restock result on every arm and is a change of its own.\n\n**A put row can carry a smaller `t_abs` than the receive row of the same unit.** Both clocks\nrestart at the batch epoch and the streams are simulated independently and merged, which is\nthe model `work_events` already declares. The overlap is bounded by one batch's receive\nmakespan. Widening `_put_base` to include the dock's finish would over-correct \u2014 it would\nmake the first pallet off the truck wait for the last \u2014 and the honest fix needs a dock\ncoordinate and a per-unit handoff instant, neither of which exists.",
-      "kind": "module",
-      "signature": null
-    },
-    "Warehouse/inventory/dock.py::Dock": {
-      "decorators": [],
-      "doc": "One spec, one crew clock, and the merchandise standing on the floor.",
-      "kind": "class",
-      "signature": ""
-    },
-    "Warehouse/inventory/dock.py::Dock.__init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, spec: DockSpec, cost=None)"
-    },
-    "Warehouse/inventory/dock.py::Dock.__repr__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Warehouse/inventory/dock.py::Dock.arrive": {
-      "decorators": [],
-      "doc": "Put one already-stamped item on the floor.\n\nNEVER refuses -- see the module docstring. Appended, so the deque is in arrival order\nand the head is the oldest, which is what makes the unload FIFO and keeps\n`PutawayItem.age` monotonic along it.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, item) -> None"
-    },
-    "Warehouse/inventory/dock.py::Dock.can_start": {
-      "decorators": [],
-      "doc": "Is anyone free to BEGIN an unload before `deadline`? A START gate -- see\n`crew_clock.can_start` for what `deadline` is measured against.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, deadline: float | None) -> bool"
-    },
-    "Warehouse/inventory/dock.py::Dock.charge": {
-      "decorators": [],
-      "doc": "Book `dur` to whoever is free earliest; return (start, worker index).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, dur: float)"
-    },
-    "Warehouse/inventory/dock.py::Dock.crew_size": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> int"
-    },
-    "Warehouse/inventory/dock.py::Dock.depth": {
-      "decorators": [
-        "property"
-      ],
-      "doc": "Storage units on the floor. A LEVEL -- `snapshot()` reports it without resetting.\n\nThe same unit as `Inventory_Manager.queue_depth`, and DISJOINT from it: an item is on\nthe dock or in a put queue, never both. A reader wanting the whole unbinned backlog\nsums them.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> int"
-    },
-    "Warehouse/inventory/dock.py::Dock.drain_records": {
-      "decorators": [],
-      "doc": "This batch's unload records, and start the crew's clock over.\n\nA DRAIN IS A BATCH BOUNDARY, for the same reason `drain_putaway_records` is: the\nrecords carry `t0` on the crew's own clock measured from the start of the batch,\nbecause the batch epoch is not known here -- receiving runs at the TOP of the batch,\nbefore the pickers have been simulated. The runner adds the epoch when it writes the\nrows. Resetting is load-bearing, not tidiness: without it the clock accumulates across\nthe whole arm while the runner still adds the epoch, and every row after batch 0 is\nstamped too late by the total receiving seconds of every preceding batch.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> list"
-    },
-    "Warehouse/inventory/dock.py::Dock.finish": {
-      "decorators": [
-        "property"
-      ],
-      "doc": "When the last receiver becomes free, on the batch-local clock.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> float"
-    },
-    "Warehouse/inventory/dock.py::Dock.name": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> str"
-    },
-    "Warehouse/inventory/dock.py::Dock.note_arrivals": {
-      "decorators": [],
-      "doc": "Record that `plans` deliveries reached the dock this batch.\n\nA COUNT, not the plans themselves: a run is hundreds of batches and a `LoadPlan` pins\na tuple of live `StorageUnit`s plus a cloned `Order`, which is precisely the leak\n`drain_inbound` turned out to be.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, plans) -> None"
-    },
-    "Warehouse/inventory/dock.py::Dock.reset_clocks": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> None"
-    },
-    "Warehouse/inventory/dock.py::Dock.snapshot": {
-      "decorators": [],
-      "doc": "`(depth, unloaded, cut, seconds)` \u2014 and reset the three per-batch counters.\n\nTwo of those three are flows; `cut` is not, though it resets like one.  See\n`PutQueue.cut`, which has the same shape and the same warning: it re-counts the\nwhole standing dock every batch, so it must never be summed across them.\n\nDepth is a LEVEL and survives, exactly as `PutQueue.drain_counters` treats its own.\nMust run once per batch: a second call in the same batch reports zeros, and that is\nnot hypothetical \u2014 the put side shipped that defect and persisted an idle-looking\nqueue for every skipped batch.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> tuple"
-    },
-    "Warehouse/inventory/dock.py::Dock.takes": {
-      "decorators": [],
-      "doc": "Does this dock intercept an admission from `source`?",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, source: str | None) -> bool"
-    },
-    "Warehouse/inventory/dock.py::DockSpec": {
-      "decorators": [
-        "dataclass(frozen=True)"
-      ],
-      "doc": "The configuration of the receiving dock. Frozen, like `PutQueueSpec`: a crew's\nidentity must not drift mid-run, and a sweep varying these has to hash them.",
-      "kind": "class",
-      "signature": ""
-    },
-    "Warehouse/inventory/dock.py::DockSpec.__post_init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
     },
     "Warehouse/inventory/inventory_common.py": {
       "decorators": [],
@@ -13868,7 +14043,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock": {
       "decorators": [],
-      "doc": "Convert an arrived (sku, qty) order into storage units and append them to the\nstock queue, updating the queued-unit / queued-qty trackers.  Shared by every\nlead-queue arrival (including lead-0 orders released the same batch).\n\nRETURNS the `LoadPlan`s it built, rather than stashing them.  An earlier version kept\nthem on the manager behind a `drain_inbound()` -- which was write-only state with an\nextra method, since nothing ever drained it, and it pinned a tuple of live\n`StorageUnit`s plus a cloned `Order` for every arrival of the whole run.  There is\nexactly one caller, so the return value is the honest shape: nothing to leak, and a\nreceiving crew takes the plans from here rather than from a buffer it must remember\nto empty.\n\nTHE INBOUND SEAM.  Packing has always been a function of how much arrives AT ONCE --\n`viable_storage_units` takes a quantity -- but nothing named that, so nothing could\nexpress an order that would be palletized arriving whole and lands as two singleton\npacks when a trailer splits it.  `deliveries` is that: a list of quantities summing\nto `qty`, each packed on its own.  None means one delivery of the whole amount,\nwhich is what every caller does today and is byte-identical.\n\nThe split is the CALLER's to decide.  Trailers, docks and load planning belong\nupstream of here; this only says that when a shipment arrives in pieces, each piece\npacks as the piece it is.  The `LoadPlan`s are returned by `receive_all` and carry\nthe counterfactual, so the cost of the split is answerable\n(`inbound.shipment_penalty`).\n\nA caller that does not want to thread `deliveries` through every arrival sets\n`inbound_split` instead -- consulted here, so the split is reachable from the\nordinary lead-queue release without `_release_arrivals` knowing about it.",
+      "doc": "Convert an arrived (sku, qty) order into storage units and append them to the\nstock queue, updating the queued-unit / queued-qty trackers.  Shared by every\nlead-queue arrival (including lead-0 orders released the same batch).\n\nRETURNS the `LoadPlan`s it built, rather than stashing them.  An earlier version kept\nthem on the manager behind a `drain_inbound()` -- which was write-only state with an\nextra method, since nothing ever drained it, and it pinned a tuple of live\n`StorageUnit`s plus a cloned `Order` for every arrival of the whole run.  There is\nexactly one caller, so the return value is the honest shape: nothing to leak, and a\nreceiving crew takes the plans from here rather than from a buffer it must remember\nto empty.\n\nTHE INBOUND SEAM.  Packing has always been a function of how much arrives AT ONCE --\n`viable_storage_units` takes a quantity -- but nothing named that, so nothing could\nexpress an order that would be palletized arriving whole and lands as two singleton\npacks when a trailer splits it.  `deliveries` is that: a list of quantities summing\nto `qty`, each packed on its own.  None means one delivery of the whole amount,\nwhich is what every caller does today and is byte-identical.\n\nThe split is the CALLER's to decide.  Trailers, docks and load planning belong\nupstream of here; this only says that when a shipment arrives in pieces, each piece\npacks as the piece it is.  When the driver binds `mgr.packer`\n(`Inbound.pack.packer`), the plans are `LoadPlan`s carrying the counterfactual, so\nthe cost of the split is answerable (`Inbound.pack.shipment_penalty`); unbound, the\ndefault packs the identical unit stream and records nothing.\n\nA caller that does not want to thread `deliveries` through every arrival sets\n`inbound_split` instead -- consulted here, so the split is reachable from the\nordinary lead-queue release without `_release_arrivals` knowing about it.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, sku: int, qty: int, deliveries=None) -> list"
@@ -13907,6 +14082,26 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, bin_: 'Aisle.Bin') -> None"
+    },
+    "Warehouse/inventory/inventory_reorder.py::_PlainDelivery": {
+      "decorators": [],
+      "doc": "The default packer's per-delivery record: the unit stream and nothing else.\n\nWhat `_release_to_stock` observes from a plan when no packer is bound is exactly\n`.units` (a dock that would count the plans only exists when the driver also binds the\nrich packer) \u2014 so this is the whole flag-off contract, and the unit stream is\nbyte-identical to `Inbound.pack.receive`'s by construction: both call\n`viable_storage_units` once per delivery quantity.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/inventory_reorder.py::_PlainDelivery.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, units)"
+    },
+    "Warehouse/inventory/inventory_reorder.py::_pack_plain": {
+      "decorators": [],
+      "doc": "Pack an arrival with no Inbound package in sight: same units, no LoadPlan records.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, quantity: int, deliveries=None) -> list"
     },
     "Warehouse/inventory/put_policy.py": {
       "decorators": [],
@@ -13965,7 +14160,7 @@
     },
     "Warehouse/inventory/put_queue.py": {
       "decorators": [],
-      "doc": "put_queue.py \u2014 one configurable put-away queue, instantiated N times.\n\n# \u2500\u2500 why this is one object and not three \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA store warehouse has at least two put-away streams that share nothing operationally: loose\nsingletons that a person walks into a cart, and pallets that need a forklift. Fulfillment has\na third. They differ in who does the work, how fast, how much can be staged, and how much\nfreedom the assignment policy gets \u2014 pallets go away in arrival order almost regardless of\nwhat a scoring function would prefer, because there is no floor to lay a hundred of them out\non and re-sort them.\n\nWriting three classes would encode today's three streams as the shape of the code. The axes\nabove are the real content, so they are a SPEC and the queue is one object configured by it.\nA fourth put-away stream is a row.\n\nInbound turned out to be half of that. It IS a producer into an existing queue -- receiving\nmerchandise enters through `_admit` exactly like every other source, unchanged. But the\nreceiving CREW is not a member of this set, and could not be: `Inventory_Manager._stock`\ndrains every queue here into the placement pool, so a dock among them would have its trailers\nbinned on batch 1; `_cost_putaway` folds `max(x.finish for x in self._put_queues)` into\n`_put_clock`, which offsets every put row on the absolute axis; and a fourth member flips\n`len(self.put_queues) == 1`, swapping `_stock_queue` for `_MultiQueueView`, whose setter\nraises. So `Warehouse/inventory/dock.py` stands alone and shares the one part that genuinely\nis the same -- the crew's clock, via `Warehouse.kernel.crew_clock`.\n\n# \u2500\u2500 the axes \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`accepts`   which unit categories this queue takes. Routing is on `unit_category`, which is\n            already a BinKey component, so a unit's queue is decided by what it IS and never\n            by where it might go.\n`k_cap`     the assignment policy's ordering tolerance, in units. 1 = strict arrival order.\n            None means INHERIT the manager's `putaway_window`, not \"unbounded\" -- so a queue\n            states a tolerance only when it has a reason to differ, and the manager-wide\n            knob keeps working. See Inventory_Manager._serve_order.\n`staging`   how many items may wait at once. None = unbounded. A full queue REFUSES\n            admission and the producer holds; it never drops. This is the modelling of\n            floor space, and it is what makes pallet FIFO physical rather than stipulated.\n`policy`    which waiting item to work next, from `put_policy.PUT_POLICIES`. Where `k_cap`\n            narrows the placement pool's freedom, this REPLACES its opinion with the floor's\n            own \u2014 \"finish one SKU before starting the next\" is a real rule that no placement\n            objective expresses. The two compose.\n`crew`      who does the work \u2014 role, mode and speeds. Carried here so a queue's throughput\n            is a property of the queue and not a global.\n`cart`      the vehicle, and its VOLUME limit. Same capacity as the channel's picking cart:\n            a store putter and a store picker push the same cart. A load is bounded by\n            volume, not by item count \u2014 `staging` bounds the floor, this bounds the trip.\n\n# \u2500\u2500 what is deliberately NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nReach height. A store singleton bin can sit at y_phys 1416 (SINGLETON_BIN_HEIGHT 48, aisles\nup to 1440 inches), so \"singleton \u21d2 cart \u21d2 walking speed\" charges a walk for something 118\nfeet up. The honest discriminator is a BIN property known only AFTER assignment, while the\nqueue is chosen BEFORE it. Splitting the store singleton family by aisle height at build\ntime \u2014 which is what fulfillment already does with FULFILLMENT_AISLE_HEIGHT \u2014 would fix it\nproperly. Until then `accepts` on `unit_category` is a PROXY, and this paragraph is the\nrecord that it is one.",
+      "doc": "put_queue.py \u2014 one configurable put-away queue, instantiated N times.\n\n# \u2500\u2500 why this is one object and not three \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA store warehouse has at least two put-away streams that share nothing operationally: loose\nsingletons that a person walks into a cart, and pallets that need a forklift. Fulfillment has\na third. They differ in who does the work, how fast, how much can be staged, and how much\nfreedom the assignment policy gets \u2014 pallets go away in arrival order almost regardless of\nwhat a scoring function would prefer, because there is no floor to lay a hundred of them out\non and re-sort them.\n\nWriting three classes would encode today's three streams as the shape of the code. The axes\nabove are the real content, so they are a SPEC and the queue is one object configured by it.\nA fourth put-away stream is a row.\n\nInbound turned out to be half of that. It IS a producer into an existing queue -- receiving\nmerchandise enters through `_admit` exactly like every other source, unchanged. But the\nreceiving CREW is not a member of this set, and could not be: `Inventory_Manager._stock`\ndrains every queue here into the placement pool, so a dock among them would have its trailers\nbinned on batch 1; `_cost_putaway` folds `max(x.finish for x in self._put_queues)` into\n`_put_clock`, which offsets every put row on the absolute axis; and a fourth member flips\n`len(self.put_queues) == 1`, swapping `_stock_queue` for `_MultiQueueView`, whose setter\nraises. So `Inbound/dock.py` stands alone and shares the one part that genuinely\nis the same -- the crew's clock, via `Warehouse.kernel.crew_clock`.\n\n# \u2500\u2500 the axes \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`accepts`   which unit categories this queue takes. Routing is on `unit_category`, which is\n            already a BinKey component, so a unit's queue is decided by what it IS and never\n            by where it might go.\n`k_cap`     the assignment policy's ordering tolerance, in units. 1 = strict arrival order.\n            None means INHERIT the manager's `putaway_window`, not \"unbounded\" -- so a queue\n            states a tolerance only when it has a reason to differ, and the manager-wide\n            knob keeps working. See Inventory_Manager._serve_order.\n`staging`   how many items may wait at once. None = unbounded. A full queue REFUSES\n            admission and the producer holds; it never drops. This is the modelling of\n            floor space, and it is what makes pallet FIFO physical rather than stipulated.\n`policy`    which waiting item to work next, from `put_policy.PUT_POLICIES`. Where `k_cap`\n            narrows the placement pool's freedom, this REPLACES its opinion with the floor's\n            own \u2014 \"finish one SKU before starting the next\" is a real rule that no placement\n            objective expresses. The two compose.\n`crew`      who does the work \u2014 role, mode and speeds. Carried here so a queue's throughput\n            is a property of the queue and not a global.\n`cart`      the vehicle, and its VOLUME limit. Same capacity as the channel's picking cart:\n            a store putter and a store picker push the same cart. A load is bounded by\n            volume, not by item count \u2014 `staging` bounds the floor, this bounds the trip.\n\n# \u2500\u2500 what is deliberately NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nReach height. A store singleton bin can sit at y_phys 1416 (SINGLETON_BIN_HEIGHT 48, aisles\nup to 1440 inches), so \"singleton \u21d2 cart \u21d2 walking speed\" charges a walk for something 118\nfeet up. The honest discriminator is a BIN property known only AFTER assignment, while the\nqueue is chosen BEFORE it. Splitting the store singleton family by aisle height at build\ntime \u2014 which is what fulfillment already does with FULFILLMENT_AISLE_HEIGHT \u2014 would fix it\nproperly. Until then `accepts` on `unit_category` is a PROXY, and this paragraph is the\nrecord that it is one.",
       "kind": "module",
       "signature": null
     },
@@ -15200,7 +15395,7 @@
     },
     "Warehouse/operations/__init__.py": {
       "decorators": [],
-      "doc": "operations \u2014 WHO does the work: roles, modes, workers, crews.\n\nThe domain's actor model plus the operations themselves, split out from the pick simulation\nso a second work stream can reuse it.  Imports the kernel and the VALUE layers (`wh_layout`,\n`wh_catalog`) but none of the machinery that consumes them -- not the pick simulation, the\nplacement engine, the assignment functions or the run harness -- so a future\n`Warehouse/inbound/` needs no dependency inversion to build a crew of unloaders.  (An older\nversion of this line said \"kernel and nothing else\", which no rule enforced and which\n`inbound.receive`'s call to `viable_storage_units` already contradicted.)\n\n    Role     pick | put\n    Mode     foot | machine          -- the axis that decides speed\n    Worker   uid + local_id + role + mode + SpeedProfile\n    Crew     a pool of identical workers, and the uid allocator across pools\n\nThe speed VALUE object (`SpeedProfile`) deliberately lives in `Warehouse/kernel/cost_model`,\nnot here: `cost_model` and the placement scorers consume speeds, and `architecture.yml`\nforbids `wh_kernel -> *`, so the kernel cannot import this package.  The value lives in the\nkernel; whose value it is lives here.",
+      "doc": "operations \u2014 WHO does the work: roles, modes, workers, crews.\n\nThe domain's actor model plus the operations themselves, split out from the pick simulation\nso a second work stream can reuse it.  Imports the kernel and the VALUE layers (`wh_layout`,\n`wh_catalog`) but none of the machinery that consumes them -- not the pick simulation, the\nplacement engine, the assignment functions or the run harness -- which is what let the\ntop-level `Inbound/` package build its crew of unloaders on these same layers with no\ndependency inversion.  (It landed beside `Warehouse/`, not inside it as this line once\npredicted, and took `unload.py` and `inbound.py` -- now `pack.py` -- with it.)\n\n    Role     pick | put\n    Mode     foot | machine          -- the axis that decides speed\n    Worker   uid + local_id + role + mode + SpeedProfile\n    Crew     a pool of identical workers, and the uid allocator across pools\n\nThe speed VALUE object (`SpeedProfile`) deliberately lives in `Warehouse/kernel/cost_model`,\nnot here: `cost_model` and the placement scorers consume speeds, and `architecture.yml`\nforbids `wh_kernel -> *`, so the kernel cannot import this package.  The value lives in the\nkernel; whose value it is lives here.",
       "kind": "module",
       "signature": null
     },
@@ -15210,133 +15405,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "['Mode', 'Role', 'Crew', 'Worker']"
-    },
-    "Warehouse/operations/inbound.py": {
-      "decorators": [],
-      "doc": "inbound \u2014 what arrived, how it packed, and what a single delivery would have produced.\n\n# \u2500\u2500 why packing belongs to the ARRIVAL, not to the order \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`viable_storage_units(order, quantity)` has always taken a quantity, so the packing has\nalways been a function of how much shows up at once. Nothing named that, so nothing could\nask the interesting question: *an order that would be palletized if it came in all at once,\nbut arrives split across two trailers and lands as two singleton packs instead.*\n\nThat is not hypothetical. Measured over the first twelve orders of a planned 200-SKU\ncatalogue, splitting each delivery in half changed the packing for **five of them**:\n\n    sku  52   eq   8    whole  3 pallets    split in two  4 pallets\n    sku 178   eq  14    whole  5 pallets    split in two  6 pallets\n    sku  21   eq 137    whole 34 pallets + 26 singletons  split  40 pallets + 0 singletons\n    sku  51   eq   3    whole  2 pallets    split in two  3 pallets\n    sku  77   eq  44    whole 27 pallets    split in two 24 pallets\n\n**Both directions occur, and they have different causes.** Default packing \u2014 fill pallets,\nroute the remainder to a singleton \u2014 is monotone: splitting it can only produce the same\nunits or more. The negative cases come from `stock_plan`, which overrides the packer with a\nrun-length list of `(is_singleton, per, count)` slots filled from the front. A whole arrival\nthat runs off the end of the pallet slots spills into the plan's singleton tail; each half of\nthe same arrival stops before that tail and stays on pallets. So on a **planned** SKU \u2014 which\nis most of a generated catalogue \u2014 \"splitting is worse\" is not a safe assumption, and the\nnumber has to be looked at rather than signed in advance.\n\n# \u2500\u2500 what this module adds, and what it deliberately does not \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nIt adds a NAME and a RECORD. `receive()` calls `viable_storage_units` unchanged and wraps the\nresult in a `LoadPlan` that knows what it received, what it packed into, and \u2014 on demand \u2014\nwhat the same order would have packed into arriving whole. Nothing about the packing\nbehaviour moves.\n\nIt does NOT model trailers, docks, or how a shipment gets split. That is the caller's\nbusiness: `receive_all()` takes the split as a list of quantities and says nothing about\nwhere the list came from. The point of the seam is that a trailer model can be written\nagainst it without touching the packer.\n\n# \u2500\u2500 the counterfactual is lazy \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`unsplit()` re-packs at the whole quantity, which costs as much as the packing itself. It is\na method rather than a field so the ordinary receive path pays nothing for a comparison\nnobody asked for.",
-      "kind": "module",
-      "signature": null
-    },
-    "Warehouse/operations/inbound.py::FULFILLMENT": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'fulfillment'"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan": {
-      "decorators": [],
-      "doc": "One inbound delivery: what arrived, and the storage units it became.\n\nImmutable in the sense that matters -- the units are packed once at receipt and the plan\nis the record of that. `whole_qty` is the quantity this delivery WOULD have been had the\nshipment not been split, and it is what makes `unsplit()` answerable; it equals\n`received` for a delivery that was not split.",
-      "kind": "class",
-      "signature": ""
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.__init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, order, received: int, units, whole_qty: int | None=None, index: int=0, of: int=1)"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.__repr__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.packed_qty": {
-      "decorators": [
-        "property"
-      ],
-      "doc": "Units of MERCHANDISE packed. Equals `received` unless the packer could not place\nsome of it, which is worth being able to see rather than assume away.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> int"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.sku": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> int"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.split_penalty": {
-      "decorators": [],
-      "doc": "Extra storage units this delivery pattern cost, against arriving whole.\n\nNEGATIVE when splitting helped -- which happens on any SKU carrying a `stock_plan`,\nand is the reason this returns a signed number rather than a count of regret. sku 21\nabove packs into 60 units whole and 40 split, because each half stops short of the\nplan's singleton tail.\n\nMeaningful only summed over a whole shipment: one delivery of a split shipment is\nbeing compared against the whole thing, so its individual value is not interesting.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> int"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.tier_mix": {
-      "decorators": [
-        "property"
-      ],
-      "doc": "`{unit_category: count}` for this delivery.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> dict"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.unit_count": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> int"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.unsplit": {
-      "decorators": [],
-      "doc": "The plan the WHOLE shipment would have produced, arriving at once.\n\nRe-packs at `whole_qty`, which costs as much as the original packing -- hence a\nmethod and not a field. For a delivery that was not split this returns an equivalent\nplan, so a caller can compare unconditionally.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> 'LoadPlan'"
-    },
-    "Warehouse/operations/inbound.py::LoadPlan.was_split": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> bool"
-    },
-    "Warehouse/operations/inbound.py::PALLET": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'pallet'"
-    },
-    "Warehouse/operations/inbound.py::SINGLETON": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'singleton'"
-    },
-    "Warehouse/operations/inbound.py::receive": {
-      "decorators": [],
-      "doc": "Pack one inbound delivery. The packer is unchanged; this names the result.\n\n`whole_qty` is the shipment's total when this is one delivery of several, and is what\nthe counterfactual is measured against.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(order, quantity: int, *, whole_qty: int | None=None, index: int=0, of: int=1) -> LoadPlan"
-    },
-    "Warehouse/operations/inbound.py::receive_all": {
-      "decorators": [],
-      "doc": "Pack a shipment that arrives as several deliveries.\n\n`deliveries` is a list of quantities -- how the shipment was split, and nothing about\nWHY. Trailers, docks and load planning are the caller's business; this seam exists so\nthey can be written without touching the packer.\n\nEvery returned plan carries the shipment total, so `split_penalty()` is answerable on\neach and meaningful when summed.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(order, deliveries) -> list"
-    },
-    "Warehouse/operations/inbound.py::shipment_penalty": {
-      "decorators": [],
-      "doc": "Extra storage units a whole shipment's split cost, against arriving at once.\n\nThe number `split_penalty()` is a component of. Positive means the split produced more,\nsmaller packs -- more put-away trips for the same merchandise. Negative means it\nproduced fewer, which is real and happens when the halves fall on cleaner boundaries.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(plans) -> int"
     },
     "Warehouse/operations/putaway.py": {
       "decorators": [],
@@ -15398,27 +15466,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cls, value)"
-    },
-    "Warehouse/operations/unload.py": {
-      "decorators": [],
-      "doc": "unload \u2014 what it costs to take merchandise off a trailer.\n\n# \u2500\u2500 the put-away cost, minus the two terms a dock does not have \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`putaway.put_cost` is `travel + per_pick(height_multiplier(...), intercept, handle_var(...),\nquantity)`.  An unload keeps the handling term verbatim and drops both of the others:\n\n**No travel.**  `put_cost`'s travel is `x_phys * speed.x_pace + y_phys * speed.y_pace`\nagainst a BIN.  A receive has no bin, and there is no dock coordinate anywhere in the model\n-- grepping `dock|trailer|unload` across `Warehouse/` finds this file and prose.  The\ntempting shortcut is to call `put_cost` with the dock at `(0, 0)`: travel comes out exactly\n0.0 and `height_multiplier(brackets, 0.0)` comes out exactly 1.0, so it returns a plausible\nnumber while silently asserting that unloading involves no travel at all.  Same for a\n`dock_travel = 0.0` field: it is a slot for a number no layout can validate, and setting it\nto 200 would assert 200 inches of x-travel corresponding to nothing.  So the term is ABSENT,\nand this paragraph is the record that its absence is a decision.\n\n**No height multiplier.**  A trailer floor is one height.  `UnloadCost` therefore has no\n`height_brackets` field at all, rather than one defaulted to a flat bracket -- the field's\nabsence is what makes the claim checkable.\n\n**No speed, and therefore no mode.**  Without a travel term there is nothing for a speed to\nscale, so `unload_cost` takes no `SpeedProfile`.  The consequence is worth stating plainly\nbecause someone will want a knob for it: *this model cannot say whether a forklift crew\nunloads faster than a hand crew.*  Only crew SIZE changes a receiving makespan, because size\nis the number of clocks.  A mode knob would label rows without moving a second, and a sweep\nover it would publish \"mode makes no difference to receiving\".  When an unload gains a\ntravel term, mode arrives with it.\n\n# \u2500\u2500 the granularity, which moves the answer by an order of magnitude \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`per_pick(mult, intercept, var, qty)` is `mult * (intercept + qty * var)`, so the intercept\nis charged ONCE PER CALL.  A 60-unit arrival therefore costs one intercept-second if it is\ncosted as one call and sixty if it is costed per pack -- and at the default `intercept=1.0`\nthat is a 59-second difference on a single arrival, scaling with the run.\n\nThe charge is **per `StorageUnit`**: one call per pack, because a pack is what a person\nlifts, and the fixed grab-orient-set-down charge belongs to the lift.  There is deliberately\nno per-DELIVERY setup term (backing the trailer in, opening the doors): its default would\nhave to be invented, and a coefficient defaulted to 0.0 is dead code that rots.",
-      "kind": "module",
-      "signature": null
-    },
-    "Warehouse/operations/unload.py::UnloadCost": {
-      "decorators": [
-        "dataclass(frozen=True)"
-      ],
-      "doc": "The unload time model's coefficients \u2014 the receiving twin of `PutawayCost`.\n\nEvery default is the PUT-AWAY default **by reference**, not by copied literal.  That is\nthe whole point: `PutawayCost`'s own docstring warns against \"a second set of magic\nnumbers to reconcile later (this project has already paid for two default sets that\ndrifted 55x apart)\", and a reference makes the drift structurally impossible rather than\nmerely a diff someone might notice.  Change a put-away coefficient and this moves with\nit, which is right until someone measures a dock and has a reason to separate them.\n\nNo `height_brackets`, and no speed \u2014 see the module docstring for why each is absent\nrather than defaulted.",
-      "kind": "class",
-      "signature": ""
-    },
-    "Warehouse/operations/unload.py::unload_cost": {
-      "decorators": [],
-      "doc": "Seconds to take ONE storage unit off a trailer.\n\n`weight` and `volume` are PER ITEM \u2014 `order.weight` and `order.volume()`, exactly as\n`put_cost` takes them.  Passing a pack's or a trailer's volume instead inflates the log\nterm by `ln(quantity)` per unit, and `handle_var` clamps its log input to >= 1 so it\nnever raises: a 34-pallet arrival would simply cost as if every item were 34x bigger.\n\n`quantity` is the merchandise in THIS pack (`unit.quantity`), so the intercept is charged\nonce for the pack and the variable term once per item in it.\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(weight: float, volume: float, quantity: int, cost: UnloadCost) -> float"
     },
     "Warehouse/operations/worker.py": {
       "decorators": [],

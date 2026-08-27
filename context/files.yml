@@ -41,6 +41,33 @@ files:
       - {name: "trace_strategy", file: "Diagnostics/trace_lifecycle.py", kind: "function"}
       - {name: "main", file: "Diagnostics/trace_lifecycle.py", kind: "function"}
     notes: ""
+  "Inbound/dock.py":
+    purpose: "the receiving crew and what is standing on their floor."
+    layer: "inbound"
+    key_symbols:
+      - {name: "DockSpec", file: "Inbound/dock.py", kind: "class"}
+      - {name: "Dock", file: "Inbound/dock.py", kind: "class"}
+    notes: ""
+  "Inbound/pack.py":
+    purpose: "what arrived, how it packed, and what a single delivery would have produced."
+    layer: "inbound"
+    key_symbols:
+      - {name: "PALLET", file: "Inbound/pack.py", kind: "const"}
+      - {name: "SINGLETON", file: "Inbound/pack.py", kind: "const"}
+      - {name: "FULFILLMENT", file: "Inbound/pack.py", kind: "const"}
+      - {name: "LoadPlan", file: "Inbound/pack.py", kind: "class"}
+      - {name: "receive", file: "Inbound/pack.py", kind: "function"}
+      - {name: "receive_all", file: "Inbound/pack.py", kind: "function"}
+      - {name: "shipment_penalty", file: "Inbound/pack.py", kind: "function"}
+      - {name: "packer", file: "Inbound/pack.py", kind: "function"}
+    notes: ""
+  "Inbound/unload.py":
+    purpose: "what it costs to take merchandise off a trailer."
+    layer: "inbound"
+    key_symbols:
+      - {name: "UnloadCost", file: "Inbound/unload.py", kind: "class"}
+      - {name: "unload_cost", file: "Inbound/unload.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/aggregate/sig.py":
     purpose: "the cross-profile significance FIGURES, the aggregate mirror of the per-config significance suite over steady-state scalar metrics."
     layer: "evaluations"
@@ -3287,6 +3314,7 @@ files:
       - {name: "test_the_recorder_still_separates_intake_from_reorder_by_the_loop_flag", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_the_recorder_forwards_the_source_to_the_real_method", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_every_wrapper_of_the_chokepoint_passes_the_keyword_through", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_inbound_package_neither_constructs_nor_enqueues", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
     notes: ""
   "Tests/unit/test_putaway_timing.py":
     purpose: "put-away costs seconds, and costs nothing else."
@@ -4082,13 +4110,6 @@ files:
     key_symbols:
       - {name: "Inventory_Manager", file: "Warehouse/inventory/Inventory_Management.py", kind: "class"}
     notes: ""
-  "Warehouse/inventory/dock.py":
-    purpose: "the receiving crew and what is standing on their floor."
-    layer: "wh_inventory"
-    key_symbols:
-      - {name: "DockSpec", file: "Warehouse/inventory/dock.py", kind: "class"}
-      - {name: "Dock", file: "Warehouse/inventory/dock.py", kind: "class"}
-    notes: ""
   "Warehouse/inventory/inventory_common.py":
     purpose: "leaf types/constants/helpers shared by the Inventory_Manager"
     layer: "wh_inventory"
@@ -4243,18 +4264,6 @@ files:
       - {name: "Warehouse", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
       - {name: "Warehouse_Builder", file: "Warehouse/layout/Warehouse_Builder.py", kind: "class"}
     notes: ""
-  "Warehouse/operations/inbound.py":
-    purpose: "what arrived, how it packed, and what a single delivery would have produced."
-    layer: "wh_operations"
-    key_symbols:
-      - {name: "PALLET", file: "Warehouse/operations/inbound.py", kind: "const"}
-      - {name: "SINGLETON", file: "Warehouse/operations/inbound.py", kind: "const"}
-      - {name: "FULFILLMENT", file: "Warehouse/operations/inbound.py", kind: "const"}
-      - {name: "LoadPlan", file: "Warehouse/operations/inbound.py", kind: "class"}
-      - {name: "receive", file: "Warehouse/operations/inbound.py", kind: "function"}
-      - {name: "receive_all", file: "Warehouse/operations/inbound.py", kind: "function"}
-      - {name: "shipment_penalty", file: "Warehouse/operations/inbound.py", kind: "function"}
-    notes: ""
   "Warehouse/operations/putaway.py":
     purpose: "what a put-away COSTS, in the same seconds the pick clock counts."
     layer: "wh_operations"
@@ -4268,13 +4277,6 @@ files:
     key_symbols:
       - {name: "Role", file: "Warehouse/operations/roles.py", kind: "class"}
       - {name: "Mode", file: "Warehouse/operations/roles.py", kind: "class"}
-    notes: ""
-  "Warehouse/operations/unload.py":
-    purpose: "what it costs to take merchandise off a trailer."
-    layer: "wh_operations"
-    key_symbols:
-      - {name: "UnloadCost", file: "Warehouse/operations/unload.py", kind: "class"}
-      - {name: "unload_cost", file: "Warehouse/operations/unload.py", kind: "function"}
     notes: ""
   "Warehouse/operations/worker.py":
     purpose: "one actor, and a pool of them, with the two id spaces kept apart."

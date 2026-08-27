@@ -253,6 +253,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # every arrival comes whole, which is every run today.  Trailers, docks and load
         # planning live in the CALLER -- this only asks how the shipment showed up.
         self.inbound_split = None
+        # THE PACKER SEAM, the receiving half of the broker.  A callable
+        # `(order, qty, deliveries) -> [plan]` bound by the driver (`Inbound.pack.packer`);
+        # None = the mixin's own `_pack_plain`, which packs the identical unit stream and
+        # records no LoadPlans.  Injection, never import: `Warehouse/ -> Inbound/` is a
+        # forbidden edge in both directions.
+        self.packer = None
         # THE RECEIVING DOCK.  None = no receiving crew, which is every run that does not ask
         # for one: nothing is constructed, so the no-op is structural rather than a flag test.
         # Bound by `enable_receiving`, the `enable_putaway_timing` precedent -- a binder the
@@ -914,7 +920,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # of its own -- so a manager with the single default queue is unchanged.
         self._bind_put_crews()
 
-    def enable_receiving(self, spec, cost=None) -> None:
+    def enable_receiving(self, dock) -> None:
         """Give the warehouse a receiving crew, and a dock for it to work.
 
         Follows `enable_putaway_timing`'s precedent: a binder the harness calls, so the domain
@@ -926,10 +932,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         WHEN merchandise reaches a put queue, so it changes which units are binned in which
         batch.  It does not change the pick simulation, the packing, or which bin a given unit
         lands in once it is offered.
+
+        `dock` arrives CONSTRUCTED (`Inbound.dock.Dock`, already priced): the broker holds
+        what it is handed and imports nothing -- `Warehouse/ -> Inbound/` is a forbidden
+        edge, so construction is the driver's job, like every other injected policy.
         """
-        from Warehouse.inventory.dock import Dock
-        from Warehouse.operations.unload import UnloadCost
-        self._dock = Dock(spec, cost if cost is not None else UnloadCost())
+        self._dock = dock
 
     @property
     def dock_depth(self) -> int:

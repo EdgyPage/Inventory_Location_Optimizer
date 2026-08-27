@@ -79,7 +79,7 @@ SECTION_MAP: dict[str, str] = {
     'save_worker_checkpoint'          : 't_save',
 }
 
-_DEFAULT_PREFIXES = ('Warehouse', 'Optimization', 'Schema')
+_DEFAULT_PREFIXES = ('Warehouse', 'Inbound', 'Optimization', 'Schema')
 
 
 class Node:

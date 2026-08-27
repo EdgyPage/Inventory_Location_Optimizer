@@ -13,10 +13,30 @@ import random
 
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units
-from Warehouse.operations import inbound as _inbound
-from Warehouse.operations.unload import unload_cost as _unload_cost
 from Warehouse.inventory.inventory_common import (
     PutawayItem, is_forward_pick, _equilibrium_qty)
+
+
+class _PlainDelivery:
+    """The default packer's per-delivery record: the unit stream and nothing else.
+
+    What `_release_to_stock` observes from a plan when no packer is bound is exactly
+    `.units` (a dock that would count the plans only exists when the driver also binds the
+    rich packer) — so this is the whole flag-off contract, and the unit stream is
+    byte-identical to `Inbound.pack.receive`'s by construction: both call
+    `viable_storage_units` once per delivery quantity.
+    """
+    __slots__ = ('units',)
+
+    def __init__(self, units):
+        self.units = tuple(units)
+
+
+def _pack_plain(order, quantity: int, deliveries=None) -> list:
+    """Pack an arrival with no Inbound package in sight: same units, no LoadPlan records."""
+    qtys = [int(q) for q in deliveries if int(q) > 0] if deliveries else [quantity]
+    return [_PlainDelivery(viable_storage_units(order, q)) for q in qtys]
+
 
 
 class ReorderMixin:
@@ -293,9 +313,10 @@ class ReorderMixin:
 
         The split is the CALLER's to decide.  Trailers, docks and load planning belong
         upstream of here; this only says that when a shipment arrives in pieces, each piece
-        packs as the piece it is.  The `LoadPlan`s are returned by `receive_all` and carry
-        the counterfactual, so the cost of the split is answerable
-        (`inbound.shipment_penalty`).
+        packs as the piece it is.  When the driver binds `mgr.packer`
+        (`Inbound.pack.packer`), the plans are `LoadPlan`s carrying the counterfactual, so
+        the cost of the split is answerable (`Inbound.pack.shipment_penalty`); unbound, the
+        default packs the identical unit stream and records nothing.
 
         A caller that does not want to thread `deliveries` through every arrival sets
         `inbound_split` instead -- consulted here, so the split is reachable from the
@@ -304,10 +325,8 @@ class ReorderMixin:
         rc = self._originals[sku].reorder()
         if deliveries is None and self.inbound_split is not None:
             deliveries = self.inbound_split(sku, qty)
-        if deliveries:
-            plans = _inbound.receive_all(rc, deliveries)
-        else:
-            plans = [_inbound.receive(rc, qty)]
+        pack = self.packer if self.packer is not None else _pack_plain
+        plans = pack(rc, qty, deliveries)
         units = [u for p in plans for u in p.units]
         if not units:
             return plans
@@ -485,7 +504,7 @@ class ReorderMixin:
             item = dock.items.popleft()
             unit = item.unit
             order = unit.order
-            dur = _unload_cost(order.weight, order.volume(), unit.quantity, dock.cost)
+            dur = dock.unload_seconds(order.weight, order.volume(), unit.quantity)
             t0, w = dock.charge(dur)
             dock.records.append((t0, dur, order.sku, unit.quantity, w))
             dock.unloaded += 1

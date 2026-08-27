@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin.html"><code>ReorderMixin</code></a> <span class="sep">›</span> <span class="here"><code>_receive</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_receive</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+
 <pre class="sig"><code>def _receive(self, arrivals=(), deadline: float | None=None) -&gt; None</code></pre>
 <section class="doc">Unload what is standing on the dock, until the crew runs out of day.
 
@@ -37,7 +37,7 @@ clock, not an instant -- see `crew_clock.can_start`.
 What the whistle stops stays on the dock and is the first thing tomorrow&#x27;s crew
 touches: the deque is in arrival order, so the rollover is FIFO and no unit can be
 overtaken by merchandise that arrived after it.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_operations_unload_py__unload_cost.html"><code>unload_cost</code></a> <span class="dim">Warehouse/operations/unload.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_receive">Source ↗</a></p>
 </article>
 </main>

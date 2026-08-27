@@ -34,7 +34,7 @@ VALID_TYPES = ('user', 'feedback', 'project', 'reference')
 # verifier that demanded them would fail on day one against real, correct memories.
 REQUIRED_KEYS = ('name', 'description')
 
-_TOP_DIRS = ('Warehouse', 'Optimization', 'Tests', 'Visualization', 'Diagnostics',
+_TOP_DIRS = ('Warehouse', 'Inbound', 'Optimization', 'Tests', 'Visualization', 'Diagnostics',
              'Schema', 'context', 'docs', 'scripts', 'notebooks')
 _EXT = r'py|md|json|yml|yaml|db|ipynb|csv|txt|cfg|toml'
 

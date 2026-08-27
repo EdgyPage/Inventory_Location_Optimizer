@@ -220,7 +220,8 @@ an arrival a full floor cannot take is already `_held` and already retried by th
 drain's `_admit_held`, with `blocked` counting the refusals — that *is* rollover, built with
 the staging limit in step 13. What was genuinely missing on the inbound side was a *name* for
 the arrival, so that a shipment split across trailers packs per delivery rather than as one
-lump; that landed separately as `Warehouse/operations/inbound.py` (`c380a31`). What is left of
+lump; that landed separately as `Warehouse/operations/inbound.py` (`c380a31`; now `Inbound/pack.py`
+since the package split). What is left of
 the row is only the question the day clock actually raises — whether the receiving dock has
 hours of its own, distinct from the put crews' — and that is the inbound feature the approved
 plan deferred, not a step of this sequence. It is listed as 6b so the question is not lost;
@@ -331,7 +332,7 @@ dedicated receiving team. Built over nine commits, `33911b3..71edd16`.
 
 ### What it turned on
 
-`Warehouse/inventory/dock.py` holds the merchandise; `Warehouse/operations/unload.py` costs
+`Inbound/dock.py` (born `Warehouse/inventory/dock.py`) holds the merchandise; `Inbound/unload.py` costs
 it; `_receive` is the sixth of seven phases in `check_reorders`, between the calendar and the
 put-away drain. The design decision everything else follows from is **where the dock
 intercepts**: inside `_admit`, after the arrival stamp and before the put queue.

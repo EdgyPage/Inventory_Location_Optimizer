@@ -50,7 +50,7 @@ from calltree_growth import CONFIGS, _MESO_LADDERS, _fit_loglog, _split_kwargs
 
 _OUT_DIR = os.path.join(_HERE, 'out')
 _PROJECT_PREFIXES = tuple(os.path.join(_REPO_ROOT, p) + os.sep
-                          for p in ('Warehouse', 'Optimization', 'Schema'))
+                          for p in ('Warehouse', 'Inbound', 'Optimization', 'Schema'))
 
 
 class MemTracker:

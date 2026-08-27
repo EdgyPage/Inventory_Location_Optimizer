@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin.html"><code>ReorderMixin</code></a> <span class="sep">›</span> <span class="here"><code>_release_to_stock</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_release_to_stock</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+
 <pre class="sig"><code>def _release_to_stock(self, sku: int, qty: int, deliveries=None) -&gt; list</code></pre>
 <section class="doc">Convert an arrived (sku, qty) order into storage units and append them to the
 stock queue, updating the queued-unit / queued-qty trackers.  Shared by every
@@ -36,14 +36,15 @@ which is what every caller does today and is byte-identical.
 
 The split is the CALLER&#x27;s to decide.  Trailers, docks and load planning belong
 upstream of here; this only says that when a shipment arrives in pieces, each piece
-packs as the piece it is.  The `LoadPlan`s are returned by `receive_all` and carry
-the counterfactual, so the cost of the split is answerable
-(`inbound.shipment_penalty`).
+packs as the piece it is.  When the driver binds `mgr.packer`
+(`Inbound.pack.packer`), the plans are `LoadPlan`s carrying the counterfactual, so
+the cost of the split is answerable (`Inbound.pack.shipment_penalty`); unbound, the
+default packs the identical unit stream and records nothing.
 
 A caller that does not want to thread `deliveries` through every arrival sets
 `inbound_split` instead -- consulted here, so the split is reachable from the
 ordinary lead-queue release without `_release_arrivals` knowing about it.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_operations_inbound_py__receive.html"><code>receive</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li><li><a href="nWarehouse_operations_inbound_py__receive_all.html"><code>receive_all</code></a> <span class="dim">Warehouse/operations/inbound.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_arrivals.html"><code>_release_arrivals</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_arrivals.html"><code>_release_arrivals</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__release_to_stock">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_release_to_stock">Source ↗</a></p>
 </article>
 </main>

@@ -41,7 +41,7 @@ _HINTS_PATH = os.path.join(_HERE, 'resolver_hints.yml')
 
 # Product source roots for the call/import graph.  Tests/ is intentionally excluded from
 # the graph (it is in the file catalog's scope, not the call graph's).
-GRAPH_ROOTS = ('Warehouse', 'Optimization', 'Diagnostics', 'Visualization', 'Schema',
+GRAPH_ROOTS = ('Warehouse', 'Inbound', 'Optimization', 'Diagnostics', 'Visualization', 'Schema',
                'scripts', 'docs')
 
 # Receivers we can type without full inference (repo-specific, kept tiny + explicit).

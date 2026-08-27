@@ -586,6 +586,146 @@
       "src": "Diagnostics/trace_lifecycle.py::trace_strategy._arm"
     },
     {
+      "dst": "Inbound/dock.py",
+      "kind": "imports",
+      "src": "Inbound/__init__.py"
+    },
+    {
+      "dst": "Inbound/pack.py",
+      "kind": "imports",
+      "src": "Inbound/__init__.py"
+    },
+    {
+      "dst": "Inbound/unload.py",
+      "kind": "imports",
+      "src": "Inbound/__init__.py"
+    },
+    {
+      "dst": "Inbound/unload.py",
+      "kind": "imports",
+      "src": "Inbound/dock.py"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py",
+      "kind": "imports",
+      "src": "Inbound/dock.py"
+    },
+    {
+      "dst": "Inbound/unload.py::UnloadCost",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.__init__"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::new_clocks",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.__init__"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::size_of",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.__repr__"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::can_start",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.can_start"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::charge",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.charge"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::size_of",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.crew_size"
+    },
+    {
+      "dst": "Inbound/dock.py::Dock.reset_clocks",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.drain_records"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::finish",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.finish"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::reset",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.reset_clocks"
+    },
+    {
+      "dst": "Inbound/unload.py::unload_cost",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.unload_seconds"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py",
+      "kind": "imports",
+      "src": "Inbound/pack.py"
+    },
+    {
+      "dst": "Inbound/pack.py::LoadPlan.unsplit",
+      "kind": "calls",
+      "src": "Inbound/pack.py::LoadPlan.split_penalty"
+    },
+    {
+      "dst": "Inbound/pack.py::LoadPlan",
+      "kind": "calls",
+      "src": "Inbound/pack.py::LoadPlan.unsplit"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
+      "kind": "calls",
+      "src": "Inbound/pack.py::LoadPlan.unsplit"
+    },
+    {
+      "dst": "Inbound/pack.py::receive",
+      "kind": "calls",
+      "src": "Inbound/pack.py::packer"
+    },
+    {
+      "dst": "Inbound/pack.py::receive_all",
+      "kind": "calls",
+      "src": "Inbound/pack.py::packer"
+    },
+    {
+      "dst": "Inbound/pack.py::LoadPlan",
+      "kind": "calls",
+      "src": "Inbound/pack.py::receive"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
+      "kind": "calls",
+      "src": "Inbound/pack.py::receive"
+    },
+    {
+      "dst": "Inbound/pack.py::receive",
+      "kind": "calls",
+      "src": "Inbound/pack.py::receive_all"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py",
+      "kind": "imports",
+      "src": "Inbound/unload.py"
+    },
+    {
+      "dst": "Warehouse/operations/putaway.py",
+      "kind": "imports",
+      "src": "Inbound/unload.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::handle_var",
+      "kind": "calls",
+      "src": "Inbound/unload.py::unload_cost"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Inbound/unload.py::unload_cost"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/discovery.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/__init__.py"
@@ -8891,6 +9031,16 @@
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
+      "dst": "Inbound/dock.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Inbound/pack.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/config/strategies.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -8932,11 +9082,6 @@
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py",
-      "kind": "imports",
-      "src": "Optimization/simdriver/strategy_runner.py"
-    },
-    {
-      "dst": "Warehouse/inventory/dock.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
     },
@@ -9004,6 +9149,16 @@
       "dst": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+    },
+    {
+      "dst": "Inbound/dock.py::Dock",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Inbound/dock.py::DockSpec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/config/strategies.py::StrategyContext",
@@ -9202,11 +9357,6 @@
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.receiving_snapshot",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
-      "dst": "Warehouse/inventory/dock.py::DockSpec",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -12541,11 +12691,6 @@
       "src": "Warehouse/inventory/Inventory_Management.py"
     },
     {
-      "dst": "Warehouse/inventory/dock.py",
-      "kind": "imports",
-      "src": "Warehouse/inventory/Inventory_Management.py"
-    },
-    {
       "dst": "Warehouse/inventory/inventory_common.py",
       "kind": "imports",
       "src": "Warehouse/inventory/Inventory_Management.py"
@@ -12602,11 +12747,6 @@
     },
     {
       "dst": "Warehouse/operations/putaway.py",
-      "kind": "imports",
-      "src": "Warehouse/inventory/Inventory_Management.py"
-    },
-    {
-      "dst": "Warehouse/operations/unload.py",
       "kind": "imports",
       "src": "Warehouse/inventory/Inventory_Management.py"
     },
@@ -12886,16 +13026,6 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing"
     },
     {
-      "dst": "Warehouse/inventory/dock.py::Dock",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_receiving"
-    },
-    {
-      "dst": "Warehouse/operations/unload.py::UnloadCost",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_receiving"
-    },
-    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue"
@@ -12954,51 +13084,6 @@
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._bind_put_crews",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_queues"
-    },
-    {
-      "dst": "Warehouse/kernel/crew_clock.py",
-      "kind": "imports",
-      "src": "Warehouse/inventory/dock.py"
-    },
-    {
-      "dst": "Warehouse/kernel/crew_clock.py::new_clocks",
-      "kind": "calls",
-      "src": "Warehouse/inventory/dock.py::Dock.__init__"
-    },
-    {
-      "dst": "Warehouse/kernel/crew_clock.py::size_of",
-      "kind": "calls",
-      "src": "Warehouse/inventory/dock.py::Dock.__repr__"
-    },
-    {
-      "dst": "Warehouse/kernel/crew_clock.py::can_start",
-      "kind": "calls",
-      "src": "Warehouse/inventory/dock.py::Dock.can_start"
-    },
-    {
-      "dst": "Warehouse/kernel/crew_clock.py::charge",
-      "kind": "calls",
-      "src": "Warehouse/inventory/dock.py::Dock.charge"
-    },
-    {
-      "dst": "Warehouse/kernel/crew_clock.py::size_of",
-      "kind": "calls",
-      "src": "Warehouse/inventory/dock.py::Dock.crew_size"
-    },
-    {
-      "dst": "Warehouse/inventory/dock.py::Dock.reset_clocks",
-      "kind": "calls",
-      "src": "Warehouse/inventory/dock.py::Dock.drain_records"
-    },
-    {
-      "dst": "Warehouse/kernel/crew_clock.py::finish",
-      "kind": "calls",
-      "src": "Warehouse/inventory/dock.py::Dock.finish"
-    },
-    {
-      "dst": "Warehouse/kernel/crew_clock.py::reset",
-      "kind": "calls",
-      "src": "Warehouse/inventory/dock.py::Dock.reset_clocks"
     },
     {
       "dst": "Warehouse/catalog/Order.py",
@@ -13376,16 +13461,6 @@
       "src": "Warehouse/inventory/inventory_reorder.py"
     },
     {
-      "dst": "Warehouse/operations/inbound.py",
-      "kind": "imports",
-      "src": "Warehouse/inventory/inventory_reorder.py"
-    },
-    {
-      "dst": "Warehouse/operations/unload.py",
-      "kind": "imports",
-      "src": "Warehouse/inventory/inventory_reorder.py"
-    },
-    {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._notify_pick",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._apply_picks_batch"
@@ -13396,11 +13471,6 @@
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._fire_reorders"
     },
     {
-      "dst": "Warehouse/operations/unload.py::unload_cost",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive"
-    },
-    {
       "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._reclaim_empty_bins"
@@ -13409,16 +13479,6 @@
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_arrivals"
-    },
-    {
-      "dst": "Warehouse/operations/inbound.py::receive",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock"
-    },
-    {
-      "dst": "Warehouse/operations/inbound.py::receive_all",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock"
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._advance_lead_queue",
@@ -13469,6 +13529,16 @@
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drop_sku_from_aisle",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.requeue_bin"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_reorder.py::_PlainDelivery",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::_pack_plain"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::_pack_plain"
     },
     {
       "dst": "Warehouse/inventory/put_policy.py::_fifo",
@@ -13791,41 +13861,6 @@
       "src": "Warehouse/operations/__init__.py"
     },
     {
-      "dst": "Warehouse/layout/Storage_Primitive.py",
-      "kind": "imports",
-      "src": "Warehouse/operations/inbound.py"
-    },
-    {
-      "dst": "Warehouse/operations/inbound.py::LoadPlan.unsplit",
-      "kind": "calls",
-      "src": "Warehouse/operations/inbound.py::LoadPlan.split_penalty"
-    },
-    {
-      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
-      "kind": "calls",
-      "src": "Warehouse/operations/inbound.py::LoadPlan.unsplit"
-    },
-    {
-      "dst": "Warehouse/operations/inbound.py::LoadPlan",
-      "kind": "calls",
-      "src": "Warehouse/operations/inbound.py::LoadPlan.unsplit"
-    },
-    {
-      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
-      "kind": "calls",
-      "src": "Warehouse/operations/inbound.py::receive"
-    },
-    {
-      "dst": "Warehouse/operations/inbound.py::LoadPlan",
-      "kind": "calls",
-      "src": "Warehouse/operations/inbound.py::receive"
-    },
-    {
-      "dst": "Warehouse/operations/inbound.py::receive",
-      "kind": "calls",
-      "src": "Warehouse/operations/inbound.py::receive_all"
-    },
-    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/operations/putaway.py"
@@ -13844,26 +13879,6 @@
       "dst": "Warehouse/kernel/cost_model.py::per_pick",
       "kind": "calls",
       "src": "Warehouse/operations/putaway.py::put_cost"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py",
-      "kind": "imports",
-      "src": "Warehouse/operations/unload.py"
-    },
-    {
-      "dst": "Warehouse/operations/putaway.py",
-      "kind": "imports",
-      "src": "Warehouse/operations/unload.py"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::handle_var",
-      "kind": "calls",
-      "src": "Warehouse/operations/unload.py::unload_cost"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::per_pick",
-      "kind": "calls",
-      "src": "Warehouse/operations/unload.py::unload_cost"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py",
@@ -16118,6 +16133,342 @@
       "module": "Diagnostics/trace_lifecycle.py",
       "name": "_arm",
       "public": false
+    },
+    {
+      "file": "Inbound/__init__.py",
+      "id": "Inbound/__init__.py",
+      "kind": "module",
+      "module": "Inbound/__init__.py",
+      "name": "Inbound",
+      "public": true
+    },
+    {
+      "file": "Inbound/__init__.py",
+      "id": "Inbound/__init__.py::__all__",
+      "kind": "const",
+      "module": "Inbound/__init__.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py",
+      "kind": "module",
+      "module": "Inbound/dock.py",
+      "name": "Inbound.dock",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock",
+      "kind": "class",
+      "module": "Inbound/dock.py",
+      "name": "Dock",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.__init__",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.__repr__",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.arrive",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "arrive",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.can_start",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "can_start",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.charge",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "charge",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.crew_size",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "crew_size",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.depth",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "depth",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.drain_records",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "drain_records",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.finish",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "finish",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.name",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "name",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.note_arrivals",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "note_arrivals",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.reset_clocks",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "reset_clocks",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.snapshot",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "snapshot",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.takes",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "takes",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.unload_seconds",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "unload_seconds",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::DockSpec",
+      "kind": "class",
+      "module": "Inbound/dock.py",
+      "name": "DockSpec",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::DockSpec.__post_init__",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py",
+      "kind": "module",
+      "module": "Inbound/pack.py",
+      "name": "Inbound.pack",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::FULFILLMENT",
+      "kind": "const",
+      "module": "Inbound/pack.py",
+      "name": "FULFILLMENT",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan",
+      "kind": "class",
+      "module": "Inbound/pack.py",
+      "name": "LoadPlan",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.__init__",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.__repr__",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.packed_qty",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "packed_qty",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.sku",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "sku",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.split_penalty",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "split_penalty",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.tier_mix",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "tier_mix",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.unit_count",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "unit_count",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.unsplit",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "unsplit",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::LoadPlan.was_split",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "was_split",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::PALLET",
+      "kind": "const",
+      "module": "Inbound/pack.py",
+      "name": "PALLET",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::SINGLETON",
+      "kind": "const",
+      "module": "Inbound/pack.py",
+      "name": "SINGLETON",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::packer",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "packer",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::receive",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "receive",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::receive_all",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "receive_all",
+      "public": true
+    },
+    {
+      "file": "Inbound/pack.py",
+      "id": "Inbound/pack.py::shipment_penalty",
+      "kind": "function",
+      "module": "Inbound/pack.py",
+      "name": "shipment_penalty",
+      "public": true
+    },
+    {
+      "file": "Inbound/unload.py",
+      "id": "Inbound/unload.py",
+      "kind": "module",
+      "module": "Inbound/unload.py",
+      "name": "Inbound.unload",
+      "public": true
+    },
+    {
+      "file": "Inbound/unload.py",
+      "id": "Inbound/unload.py::UnloadCost",
+      "kind": "class",
+      "module": "Inbound/unload.py",
+      "name": "UnloadCost",
+      "public": true
+    },
+    {
+      "file": "Inbound/unload.py",
+      "id": "Inbound/unload.py::unload_cost",
+      "kind": "function",
+      "module": "Inbound/unload.py",
+      "name": "unload_cost",
+      "public": true
     },
     {
       "file": "Optimization/Performance_Evaluations/__init__.py",
@@ -30560,150 +30911,6 @@
       "public": true
     },
     {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py",
-      "kind": "module",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "Warehouse.inventory.dock",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock",
-      "kind": "class",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "Dock",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.__init__",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "__init__",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.__repr__",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "__repr__",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.arrive",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "arrive",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.can_start",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "can_start",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.charge",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "charge",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.crew_size",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "crew_size",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.depth",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "depth",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.drain_records",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "drain_records",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.finish",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "finish",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.name",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "name",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.note_arrivals",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "note_arrivals",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.reset_clocks",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "reset_clocks",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.snapshot",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "snapshot",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::Dock.takes",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "takes",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::DockSpec",
-      "kind": "class",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "DockSpec",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/dock.py",
-      "id": "Warehouse/inventory/dock.py::DockSpec.__post_init__",
-      "kind": "function",
-      "module": "Warehouse/inventory/dock.py",
-      "name": "__post_init__",
-      "public": false
-    },
-    {
       "file": "Warehouse/inventory/inventory_common.py",
       "id": "Warehouse/inventory/inventory_common.py",
       "kind": "module",
@@ -31406,6 +31613,30 @@
       "module": "Warehouse/inventory/inventory_reorder.py",
       "name": "requeue_bin",
       "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::_PlainDelivery",
+      "kind": "class",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "_PlainDelivery",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::_PlainDelivery.__init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::_pack_plain",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "_pack_plain",
+      "public": false
     },
     {
       "file": "Warehouse/inventory/put_policy.py",
@@ -32856,142 +33087,6 @@
       "public": false
     },
     {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py",
-      "kind": "module",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "Warehouse.operations.inbound",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::FULFILLMENT",
-      "kind": "const",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "FULFILLMENT",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan",
-      "kind": "class",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "LoadPlan",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.__init__",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "__init__",
-      "public": false
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.__repr__",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "__repr__",
-      "public": false
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.packed_qty",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "packed_qty",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.sku",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "sku",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.split_penalty",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "split_penalty",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.tier_mix",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "tier_mix",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.unit_count",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "unit_count",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.unsplit",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "unsplit",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::LoadPlan.was_split",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "was_split",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::PALLET",
-      "kind": "const",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "PALLET",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::SINGLETON",
-      "kind": "const",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "SINGLETON",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::receive",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "receive",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::receive_all",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "receive_all",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/inbound.py",
-      "id": "Warehouse/operations/inbound.py::shipment_penalty",
-      "kind": "function",
-      "module": "Warehouse/operations/inbound.py",
-      "name": "shipment_penalty",
-      "public": true
-    },
-    {
       "file": "Warehouse/operations/putaway.py",
       "id": "Warehouse/operations/putaway.py",
       "kind": "module",
@@ -33061,30 +33156,6 @@
       "kind": "function",
       "module": "Warehouse/operations/roles.py",
       "name": "of",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/unload.py",
-      "id": "Warehouse/operations/unload.py",
-      "kind": "module",
-      "module": "Warehouse/operations/unload.py",
-      "name": "Warehouse.operations.unload",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/unload.py",
-      "id": "Warehouse/operations/unload.py::UnloadCost",
-      "kind": "class",
-      "module": "Warehouse/operations/unload.py",
-      "name": "UnloadCost",
-      "public": true
-    },
-    {
-      "file": "Warehouse/operations/unload.py",
-      "id": "Warehouse/operations/unload.py::unload_cost",
-      "kind": "function",
-      "module": "Warehouse/operations/unload.py",
-      "name": "unload_cost",
       "public": true
     },
     {
@@ -36010,6 +36081,7 @@
   ],
   "roots": [
     "Warehouse",
+    "Inbound",
     "Optimization",
     "Diagnostics",
     "Visualization",
