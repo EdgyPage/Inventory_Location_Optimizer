@@ -6296,6 +6296,31 @@
       "src": "Optimization/persistence/runtime_metrics.py::record_precompute"
     },
     {
+      "dst": "Schema/semantics.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/sim_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::ByDiscriminator",
+      "kind": "calls",
+      "src": "Optimization/persistence/sim_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/sim_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::register",
+      "kind": "calls",
+      "src": "Optimization/persistence/sim_semantics.py"
+    },
+    {
+      "dst": "Schema/semantics.py::Col",
+      "kind": "calls",
+      "src": "Optimization/persistence/sim_semantics.py::_KEY"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/__init__.py",
       "kind": "imports",
       "src": "Optimization/run_analysis.py"
@@ -10529,6 +10554,56 @@
       "dst": "Schema/provenance.py::_head_commit",
       "kind": "calls",
       "src": "Schema/provenance.py::repo_provenance"
+    },
+    {
+      "dst": "Schema/semantics.py::SemanticsError",
+      "kind": "calls",
+      "src": "Schema/semantics.py::check_add"
+    },
+    {
+      "dst": "Schema/semantics.py::semantics_for",
+      "kind": "calls",
+      "src": "Schema/semantics.py::check_add"
+    },
+    {
+      "dst": "Schema/semantics.py::semantics_for",
+      "kind": "calls",
+      "src": "Schema/semantics.py::check_completeness"
+    },
+    {
+      "dst": "Schema/semantics.py::SemanticsError",
+      "kind": "calls",
+      "src": "Schema/semantics.py::check_ratio"
+    },
+    {
+      "dst": "Schema/semantics.py::semantics_for",
+      "kind": "calls",
+      "src": "Schema/semantics.py::check_ratio"
+    },
+    {
+      "dst": "Schema/semantics.py::SemanticsError",
+      "kind": "calls",
+      "src": "Schema/semantics.py::resolve"
+    },
+    {
+      "dst": "Schema/semantics.py::semantics_for",
+      "kind": "calls",
+      "src": "Schema/semantics.py::resolve"
+    },
+    {
+      "dst": "Schema/semantics.py::SemanticsError",
+      "kind": "calls",
+      "src": "Schema/semantics.py::sum_of"
+    },
+    {
+      "dst": "Schema/semantics.py::semantics_for",
+      "kind": "calls",
+      "src": "Schema/semantics.py::sum_of"
+    },
+    {
+      "dst": "Schema/semantics.py::semantics_for",
+      "kind": "calls",
+      "src": "Schema/semantics.py::validate_uses"
     },
     {
       "dst": "Schema/shape.py::shape_id",
@@ -23631,6 +23706,22 @@
       "public": true
     },
     {
+      "file": "Optimization/persistence/sim_semantics.py",
+      "id": "Optimization/persistence/sim_semantics.py",
+      "kind": "module",
+      "module": "Optimization/persistence/sim_semantics.py",
+      "name": "Optimization.persistence.sim_semantics",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/sim_semantics.py",
+      "id": "Optimization/persistence/sim_semantics.py::_KEY",
+      "kind": "const",
+      "module": "Optimization/persistence/sim_semantics.py",
+      "name": "_KEY",
+      "public": false
+    },
+    {
       "file": "Optimization/run_analysis.py",
       "id": "Optimization/run_analysis.py",
       "kind": "module",
@@ -27340,6 +27431,118 @@
       "kind": "function",
       "module": "Schema/provenance.py",
       "name": "repo_provenance",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py",
+      "kind": "module",
+      "module": "Schema/semantics.py",
+      "name": "Schema.semantics",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::ByDiscriminator",
+      "kind": "class",
+      "module": "Schema/semantics.py",
+      "name": "ByDiscriminator",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::ByDiscriminator.__post_init__",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::Col",
+      "kind": "class",
+      "module": "Schema/semantics.py",
+      "name": "Col",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::Col.__post_init__",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::SemanticsError",
+      "kind": "class",
+      "module": "Schema/semantics.py",
+      "name": "SemanticsError",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::check_add",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "check_add",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::check_completeness",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "check_completeness",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::check_ratio",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "check_ratio",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::register",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "register",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::resolve",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "resolve",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::semantics_for",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "semantics_for",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::sum_of",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "sum_of",
+      "public": true
+    },
+    {
+      "file": "Schema/semantics.py",
+      "id": "Schema/semantics.py::validate_uses",
+      "kind": "function",
+      "module": "Schema/semantics.py",
+      "name": "validate_uses",
       "public": true
     },
     {

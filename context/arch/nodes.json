@@ -7083,6 +7083,19 @@
       "kind": "function",
       "signature": "(run_root: str) -> str"
     },
+    "Optimization/persistence/sim_semantics.py": {
+      "decorators": [],
+      "doc": "sim_semantics \u2014 the sim_db family's column semantics, declared beside its DDL.\n\nThe structured form of every warning `Picking_Data.py`'s DDL comments carry in prose: kind,\nunit, unit of account, grain, clock, null-meaning and the scar that earned each tag.  Keyed\nexactly as `SIM_DB_FAMILY.declared_shape()['tables']` keys its columns, so the completeness\ngate (`Tests/architecture/test_column_semantics.py`) is a dict diff with nothing to drift.\n\n`COVERED` names the tables whose tagging is COMPLETE and therefore gated.  It starts with\nthe four epicenter tables \u2014 five of the twelve recorded incident classes hit `batch_stats`\nalone \u2014 and grows to the whole family in the convention pass (\"leave no remainder\").\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/sim_semantics.py::_KEY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Col(LABEL, 'id', 'row')"
+    },
     "Optimization/run_analysis.py": {
       "decorators": [],
       "doc": "run_analysis.py \u2014 registry-driven graph generator for completed simulation runs.\n\nReads the sim_meta docs written by run_simulation.py, rebuilds warehouse aisle maps via\nbuild_shared_assets, then runs the graphs/analyses registered under Performance_Evaluations\n(selected by a preset).  Each graph is a self-registering module; add/remove/tune graphs by\nediting Performance_Evaluations/presets.py \u2014 not this file.\n\nPer-leaf filenames (sim_meta / series) and the cross-profile aggregate subtree render through the\nrun-tree contract (`rt.leaf_path` / `rt.aggregate_dir`), never a basename join \u2014 the resolver is\nrooted at the RUN root (this module receives a CELL dir from analyze_run), and\nTests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals.\n\nParallelism is a single FLAT worker pool (mirrors run_simulation): one global job list across\nall pairs \u00d7 configs fed to one ProcessPoolExecutor, then a second flat pool for the\ncross-profile aggregate stage.  `--granularity config` (default) = one job per config (context\nloaded once, shared across its graphs); `--granularity graph` = one job per (config, graph)\nfor maximum core utilization on sparse runs.\n\nUsage:\n  python run_analysis.py <base_dir>                        # default preset BY_INITIAL\n  python run_analysis.py <base_dir> --preset DEFAULT        # uni-only (drops opt_* arms)\n  python run_analysis.py <base_dir> --granularity graph --set labor.delta_topn.top_n=3\n\nThe default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum\n(opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the\ndownstream run_channel_rollup sees the full suite.  Pass --preset DEFAULT for the older\nuniform-only view.",
@@ -10296,6 +10309,104 @@
       "is_async": false,
       "kind": "function",
       "signature": "(repo_root: str=_REPO_ROOT) -> dict"
+    },
+    "Schema/semantics.py": {
+      "decorators": [],
+      "doc": "semantics \u2014 what a column MEANS, declared once, machine-checkable.\n\nThe repo has hit at least twelve distinct classes of column-semantic misread \u2014 a stamp read\nas a span, a level summed as a flow, packs added to pieces, wall-clock seconds ratioed\nagainst sim seconds \u2014 and every one failed silently, because the semantics lived in DDL\ncomment prose that no gate executes (see `.scratch/inbound-groundwork/assets/column-audit.md`\nwhile the effort is in flight; the incident ledger will move to a design doc when it closes).\nThis module is the structured home those facts never had.\n\n# \u2500\u2500 the vocabulary \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nNine KINDS, defined in root `CONTEXT.md`'s Measurement section and repeated here only as\nconstants: STAMP (a point on a clock), SPAN (elapsed), LEVEL (standing, re-measured; never\nsummed across snapshots), FLOW (additive at the row's grain), COUNT (a discrete flow), RATE\n(flow / span; the denominator is part of the meaning), SCORE (policy-relative), SHARE\n(proportion), LABEL (identity / ordinal / enum).\n\nEach column declares kind + unit + grain always; clock, account, per, null-meaning, a\nlogical name and a scar note when they apply.  A column whose kind depends on a sibling's\nVALUE (`carryover.qty` by `reason`) declares a `ByDiscriminator` \u2014 the case no comment\nconvention can check, and the sharpest single argument for this module existing.\n\n# \u2500\u2500 where declarations live \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nBeside the DDL, keyed exactly as `Family.declared_shape()` keys its tables \u2014 so the\ncompleteness gate is a dict diff with nothing to drift.  A family registers its table with\n`register(family_name, semantics, covered)`; `covered` names the tables whose tagging is\nCOMPLETE and therefore gated (`Tests/architecture/test_column_semantics.py`).  The end state\nis every table of every family covered \u2014 \"leave no remainder\" \u2014 reached family by family.\n\n# \u2500\u2500 what this module deliberately does NOT do \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nUnit CONVERSION.  `SECONDS_PER_HOUR` lives in `Warehouse/kernel/timeline` with one blessed\nimport chain through the analysis suite's `common/units.py`, and this module is a\nstdlib-only leaf that imports neither.  The guards here CHECK (may you sum this? are these\nthe same clock? the same unit of account?); turning a checked value into hours stays where\nthe one divisor already lives.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/semantics.py::ByDiscriminator": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "A column whose kind depends on a sibling column's VALUE in the same row.\n\n`carryover.qty` is the canonical case: three `reason` values are re-emitted LEVELS and\nfour are FLOWS, sharing one physical column under one PK.  Row-free aggregation over\nsuch a column is not defined, and every guard here says so rather than guessing.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/semantics.py::ByDiscriminator.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Schema/semantics.py::Col": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One column's declared semantics.  kind + unit + grain are mandatory; the rest are\nconditionally mandatory (the gate demands them when they apply) \u2014 nothing is\noptional-and-silent.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/semantics.py::Col.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Schema/semantics.py::SemanticsError": {
+      "decorators": [],
+      "doc": "A read refused because the declared semantics forbid it. The message carries the\nincident history when the column has one \u2014 that is what makes the refusal auditable.",
+      "kind": "class",
+      "signature": "(Exception)"
+    },
+    "Schema/semantics.py::check_add": {
+      "decorators": [],
+      "doc": "May these two columns be added element-wise? Same unit AND same unit of account.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, table: str, a: str, b: str) -> None"
+    },
+    "Schema/semantics.py::check_completeness": {
+      "decorators": [],
+      "doc": "Problems between a family's declared shape and its declared semantics.\n\n`shape_tables` is `Family.declared_shape()['tables']` verbatim \u2014 {table: {'columns':\n[{'name', 'type', 'notnull', 'pk'}, ...], ...}} \u2014 consumed directly so there is no\nparallel column list to drift.  For every COVERED table: every column tagged, no tag\nnaming a vanished column, null-meaning present wherever the DDL allows NULL, and a\nclock wherever the unit is time.  Empty list = the gate passes.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shape_tables: dict, family: str) -> list"
+    },
+    "Schema/semantics.py::check_ratio": {
+      "decorators": [],
+      "doc": "May a/b form a ratio? Same clock when both are time \u2014 the same word \"seconds\" on\ndifferent instruments cost a day and a wrong committed claim (incident class 11).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, table_a: str, a: str, table_b: str, b: str) -> None"
+    },
+    "Schema/semantics.py::register": {
+      "decorators": [],
+      "doc": "Declare a family's column semantics and which tables are COMPLETELY tagged.\n\n`semantics` is {table: {column: Col | ByDiscriminator}}, keyed exactly as\n`Family.declared_shape()['tables']` keys them.  `covered` is the gate's scope: every\ncolumn of a covered table must be tagged, and every tag must name a real column.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, semantics: dict, covered: tuple) -> None"
+    },
+    "Schema/semantics.py::resolve": {
+      "decorators": [],
+      "doc": "The tag for one column, accepting physical OR logical names.\n\nA `ByDiscriminator` needs `row` (a mapping) to pick its case; without one it raises,\nbecause row-free semantics for such a column do not exist.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, table: str, column: str, row=None)"
+    },
+    "Schema/semantics.py::semantics_for": {
+      "decorators": [],
+      "doc": "(semantics, covered) for a registered family; raises on an unknown one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str) -> tuple"
+    },
+    "Schema/semantics.py::sum_of": {
+      "decorators": [],
+      "doc": "Total `column` across `rows` \u2014 refused unless its kind is additive.\n\nThe additive statistic for a LEVEL is the count of rows non-zero, never the sum: a\nlevel re-counts the whole standing quantity every snapshot.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, family: str, table: str, column: str) -> float"
+    },
+    "Schema/semantics.py::validate_uses": {
+      "decorators": [],
+      "doc": "Refusal clauses for a consumer's declared reads, `Requires`-style.\n\n`uses` is {'table.column': 'sum' | 'ratio' | 'read'}.  Returned clauses are readable\nsentences naming the consumer, so a failure reads like a review comment rather than a\nstack trace.  Empty list = every declared use is legal.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(family: str, label: str, uses: dict) -> list"
     },
     "Schema/shape.py": {
       "decorators": [],

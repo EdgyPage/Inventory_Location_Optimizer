@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.semantics · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_semantics_py" data-id="Schema/semantics.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/semantics.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.semantics</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_semantics_py.html"><code>Schema/semantics.py</code></a></p>
+
+<pre class="sig"><code>Schema.semantics</code></pre>
+<section class="doc">semantics — what a column MEANS, declared once, machine-checkable.
+
+The repo has hit at least twelve distinct classes of column-semantic misread — a stamp read
+as a span, a level summed as a flow, packs added to pieces, wall-clock seconds ratioed
+against sim seconds — and every one failed silently, because the semantics lived in DDL
+comment prose that no gate executes (see `.scratch/inbound-groundwork/assets/column-audit.md`
+while the effort is in flight; the incident ledger will move to a design doc when it closes).
+This module is the structured home those facts never had.
+
+# ── the vocabulary ────────────────────────────────────────────────────────────────
+
+Nine KINDS, defined in root `CONTEXT.md`&#x27;s Measurement section and repeated here only as
+constants: STAMP (a point on a clock), SPAN (elapsed), LEVEL (standing, re-measured; never
+summed across snapshots), FLOW (additive at the row&#x27;s grain), COUNT (a discrete flow), RATE
+(flow / span; the denominator is part of the meaning), SCORE (policy-relative), SHARE
+(proportion), LABEL (identity / ordinal / enum).
+
+Each column declares kind + unit + grain always; clock, account, per, null-meaning, a
+logical name and a scar note when they apply.  A column whose kind depends on a sibling&#x27;s
+VALUE (`carryover.qty` by `reason`) declares a `ByDiscriminator` — the case no comment
+convention can check, and the sharpest single argument for this module existing.
+
+# ── where declarations live ───────────────────────────────────────────────────────
+
+Beside the DDL, keyed exactly as `Family.declared_shape()` keys its tables — so the
+completeness gate is a dict diff with nothing to drift.  A family registers its table with
+`register(family_name, semantics, covered)`; `covered` names the tables whose tagging is
+COMPLETE and therefore gated (`Tests/architecture/test_column_semantics.py`).  The end state
+is every table of every family covered — &quot;leave no remainder&quot; — reached family by family.
+
+# ── what this module deliberately does NOT do ─────────────────────────────────────
+
+Unit CONVERSION.  `SECONDS_PER_HOUR` lives in `Warehouse/kernel/timeline` with one blessed
+import chain through the analysis suite&#x27;s `common/units.py`, and this module is a
+stdlib-only leaf that imports neither.  The guards here CHECK (may you sum this? are these
+the same clock? the same unit of account?); turning a checked value into hours stays where
+the one divisor already lives.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_sim_semantics_py.html"><code>Optimization.persistence.sim_semantics</code></a> <span class="dim">Optimization/persistence/sim_semantics.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(13)</span></h2><ul><li><a href="nSchema_semantics_py__ByDiscriminator.html"><code>ByDiscriminator</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__Col.html"><code>Col</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__SemanticsError.html"><code>SemanticsError</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__ByDiscriminator___post_init__.html"><code>__post_init__</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__Col___post_init__.html"><code>__post_init__</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__check_add.html"><code>check_add</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__check_completeness.html"><code>check_completeness</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__check_ratio.html"><code>check_ratio</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__register.html"><code>register</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__resolve.html"><code>resolve</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__semantics_for.html"><code>semantics_for</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__sum_of.html"><code>sum_of</code></a> <span class="dim">Schema/semantics.py</span></li><li><a href="nSchema_semantics_py__validate_uses.html"><code>validate_uses</code></a> <span class="dim">Schema/semantics.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_semantics_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/semantics.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

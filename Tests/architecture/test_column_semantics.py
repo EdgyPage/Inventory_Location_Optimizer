@@ -1,0 +1,124 @@
+"""test_column_semantics.py — the completeness gate over declared column semantics.
+
+Shape is declared and enforced; semantics were prose until `Schema/semantics.py`.  This
+ratchet makes the declarations load-bearing: every column of every COVERED table tagged,
+every tag naming a real column, null-meaning wherever the DDL allows NULL, a clock wherever
+the unit is time — and the guards refusing exactly the reads that produced the incident
+ledger (a LEVEL summed 101x high, packs added to pieces, row-free aggregation over a
+value-dependent kind).
+
+DELIBERATELY STDLIB-ONLY: six of the thirteen architecture tests importorskip pyyaml and
+vanish without it — the silent-trap CLAUDE.md documents.  This gate imports nothing
+optional, so it cannot vanish.
+
+Run:  python -m pytest Tests/architecture/test_column_semantics.py -q
+"""
+from __future__ import annotations
+
+import pytest
+
+from Optimization.persistence.Picking_Data import SIM_DB_FAMILY
+from Optimization.persistence.sim_semantics import COVERED, SIM_DB_SEMANTICS
+from Schema import semantics as S
+
+
+def _shape_tables() -> dict:
+    return SIM_DB_FAMILY.declared_shape()['tables']
+
+
+# ── 1. completeness: the covered tables leave no remainder ───────────────────────
+
+def test_covered_tables_are_completely_and_validly_tagged():
+    problems = S.check_completeness(_shape_tables(), 'sim_db')
+    assert problems == [], 'declared semantics drifted from the declared shape:\n  ' + \
+        '\n  '.join(problems)
+
+
+def test_the_gate_actually_bites():
+    """Sabotage-checked, the `test_written_columns_are_readable` discipline: a gate that
+    cannot fail proves nothing.  Remove one tag -> caught; invent one -> caught."""
+    sem = {t: dict(cols) for t, cols in SIM_DB_SEMANTICS.items()}
+    del sem['batch_stats']['recv_cut']
+    sem['put_queue_state']['imaginary'] = S.Col(S.FLOW, 'units', 'batch', account=S.PACKS)
+    S.register('sim_db_sabotaged', sem, COVERED)
+    problems = S.check_completeness(_shape_tables(), 'sim_db_sabotaged')
+    assert any('batch_stats.recv_cut: untagged' in p for p in problems)
+    assert any('put_queue_state.imaginary' in p and 'no such column' in p for p in problems)
+
+
+def test_a_time_unit_cannot_be_declared_without_a_clock():
+    with pytest.raises(ValueError):
+        S.Col(S.SPAN, 's', 'batch')          # seconds on WHICH instrument?
+    with pytest.raises(ValueError):
+        S.Col(S.SPAN, 'batches', 'batch')    # the legacy countdown is a clock too
+
+
+# ── 2. the guards refuse the incident ledger ─────────────────────────────────────
+
+ROWS = [{'recv_cut': 3050, 'recv_unloaded': 210, 'queue_depth': 410,
+         'in_transit_qty': 5210, 'recv_depth': 3050},
+        {'recv_cut': 3055, 'recv_unloaded': 195, 'queue_depth': 388,
+         'in_transit_qty': 5002, 'recv_depth': 3055}]
+
+
+def test_summing_a_level_is_refused_with_its_scar():
+    with pytest.raises(S.SemanticsError, match='101x'):
+        S.sum_of(ROWS, 'sim_db', 'batch_stats', 'recv_cut')
+
+
+def test_summing_a_flow_is_allowed():
+    assert S.sum_of(ROWS, 'sim_db', 'batch_stats', 'recv_unloaded') == 405
+
+
+def test_packs_plus_pieces_is_refused_but_packs_plus_packs_is_not():
+    with pytest.raises(S.SemanticsError, match='packs are not pieces'):
+        S.check_add('sim_db', 'batch_stats', 'queue_depth', 'in_transit_qty')
+    S.check_add('sim_db', 'batch_stats', 'queue_depth', 'recv_depth')
+
+
+def test_cross_clock_ratios_are_refused():
+    S.register('two_clocks', {'t': {
+        'sim_s':  S.Col(S.SPAN, 's', 'arm', clock=S.SIM),
+        'wall_s': S.Col(S.SPAN, 's', 'arm', clock=S.WALL),
+    }}, ('t',))
+    with pytest.raises(S.SemanticsError, match='different instruments'):
+        S.check_ratio('two_clocks', 't', 'sim_s', 't', 'wall_s')
+    S.check_ratio('sim_db', 'batch_stats', 'task_makespan', 'batch_stats', 'duration')
+
+
+def test_a_discriminated_column_refuses_row_free_reads():
+    with pytest.raises(S.SemanticsError, match='reason'):
+        S.sum_of([], 'sim_db', 'carryover', 'qty')
+    with pytest.raises(S.SemanticsError, match='row-free'):
+        S.resolve('sim_db', 'carryover', 'qty')
+    tag = S.resolve('sim_db', 'carryover', 'qty', row={'reason': 'unpicked_daycut'})
+    assert tag.kind == S.FLOW and tag.account == S.PIECES
+    tag = S.resolve('sim_db', 'carryover', 'qty', row={'reason': 'dock'})
+    assert tag.kind == S.LEVEL and tag.account == S.PACKS
+
+
+# ── 3. use-assertions: a consumer's declared reads, checked before any query ─────
+
+def test_use_assertions_catch_the_receiving_report_shape():
+    clauses = S.validate_uses('sim_db', 'receiving_report', {
+        'batch_stats.recv_cut':      'sum',
+        'batch_stats.recv_unloaded': 'sum',
+        'carryover.qty':             'sum',
+        'batch_stats.no_such_col':   'read',
+    })
+    assert len(clauses) == 3
+    assert any('recv_cut' in c and 'LEVEL' in c for c in clauses)
+    assert any('carryover.qty' in c and 'per-reason' in c for c in clauses)
+    assert any('no_such_col' in c and 'not a declared column' in c for c in clauses)
+    assert S.validate_uses('sim_db', 'ok', {'batch_stats.recv_unloaded': 'sum'}) == []
+
+
+# ── 4. the logical layer: honest names over frozen physical ones ─────────────────
+
+def test_logical_names_resolve_to_their_physical_tags():
+    assert S.resolve('sim_db', 'batch_stats', 'release_day') is \
+        SIM_DB_SEMANTICS['batch_stats']['work_day']
+    assert S.resolve('sim_db', 'work_events', 'frame_index') is \
+        SIM_DB_SEMANTICS['work_events']['shift_index']
+    with pytest.raises(KeyError):
+        S.resolve('sim_db', 'batch_stats', 'not_a_name')
