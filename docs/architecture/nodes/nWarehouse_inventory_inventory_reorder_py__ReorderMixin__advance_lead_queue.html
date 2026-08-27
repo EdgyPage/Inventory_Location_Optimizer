@@ -21,7 +21,9 @@ Runs BEFORE `_fire_reorders`, which is what stops an order fired this batch from
 being decremented in the same batch it was placed.
 
 The tick is one BATCH, not one second -- see `LEAD_TIME_UNIT` above for why that
-is a decision and what would change it.</section>
+is a decision and what would change it.  The tick itself lives on the TRANSIT
+object (`BatchTransit.advance`): this phase is the wrapper the phase ratchet pins,
+and the trailer transit replaces the body&#x27;s target, never this call site.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__advance_lead_queue">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_advance_lead_queue">Source ↗</a></p>
 </article>

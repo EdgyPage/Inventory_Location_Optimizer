@@ -17,6 +17,65 @@ from Warehouse.inventory.inventory_common import (
     PutawayItem, is_forward_pick, _equilibrium_qty)
 
 
+
+
+class BatchTransit:
+    """The order port's flag-off transit: the legacy lead queue as an object.
+
+    Entries are the same mutable ``[sku, qty, remaining_lead]`` records they always were,
+    ticking one BATCH per ``advance()`` — the unit note further down this module is why that is
+    a decision.  This is the DEFAULT the manager constructs for itself; the trailer
+    pipeline binds its own transit (absolute-clock leads, parking lot, doors) on the same
+    seam, flag-on — injection, never import, like ``packer`` above.
+
+    The manager keeps the SCALAR ledger (``_deferred_qty`` credits and debits) either way:
+    transit owns TIMING, the ledger owns POSITION, and that split is what let the dock land
+    with zero reorder-ledger edits.
+    """
+
+    __slots__ = ('_entries',)
+
+    def __init__(self):
+        self._entries: list[list] = []
+
+    def dispatch(self, sku: int, qty: int, lead: int) -> None:
+        """Accept one fired reorder from the order port."""
+        self._entries.append([sku, qty, lead])
+
+    def advance(self) -> None:
+        """One batch elapsed: every in-transit order moves one tick closer.
+
+        The tick is one BATCH, not one second — the module's unit note is the decision.
+        """
+        for entry in self._entries:
+            entry[2] -= 1
+
+    def release(self) -> list[list]:
+        """Pop and return every arrived entry (remaining_lead <= 0), in queue order.
+
+        Un-arrived entries keep their order; a negative remainder is an order that arrived
+        while nothing drained it — never clamped, because clamping would hide the backlog.
+        """
+        still: list[list] = []
+        released: list[list] = []
+        for entry in self._entries:
+            (released if entry[2] <= 0 else still).append(entry)
+        self._entries = still
+        return released
+
+    @property
+    def depth(self) -> int:
+        return len(self._entries)
+
+    def merchandise(self) -> int:
+        """Total pieces in transit — the in_transit_qty level."""
+        return sum(e[1] for e in self._entries)
+
+    def snapshot(self) -> list:
+        """(sku, qty, remaining_lead) tuples for the replay/reorder_queue rows."""
+        return [tuple(e) for e in self._entries]
+
+
 class _PlainDelivery:
     """The default packer's per-delivery record: the unit stream and nothing else.
 
@@ -378,10 +437,11 @@ class ReorderMixin:
     #:     re-run to gain precision no reader uses is the wrong trade now.
     #:   * Batch quantization is HONEST for a wave-picking model: replenishment lands
     #:     between waves, which is when a real warehouse restocks a pick face.
-    #:   * The feature that makes it wrong is the trailer/dock work, where an arrival IS a
-    #:     scheduled instant and the sorter's whole job is choosing between them.  That
-    #:     feature should pick the representation with the trailer model in hand, not
-    #:     inherit one chosen here.
+    #:   * The feature that makes it wrong is the trailer/dock work, where an arrival IS
+    #:     a scheduled instant — and that feature has now PICKED, with the trailer model
+    #:     in hand: flag-off keeps this batch countdown (`BatchTransit`, byte-identical);
+    #:     flag-on binds a trailer transit whose leads are absolute-clock seconds
+    #:     (minutes-authored, default zero) on the same `transit` seam.
     #:
     #: Until then: a `work_events` row for an inbound arrival would sit at a batch
     #: boundary, and anything reasoning about arrival TIMES must know that.
@@ -394,10 +454,11 @@ class ReorderMixin:
         being decremented in the same batch it was placed.
 
         The tick is one BATCH, not one second -- see `LEAD_TIME_UNIT` above for why that
-        is a decision and what would change it.
+        is a decision and what would change it.  The tick itself lives on the TRANSIT
+        object (`BatchTransit.advance`): this phase is the wrapper the phase ratchet pins,
+        and the trailer transit replaces the body's target, never this call site.
         """
-        for entry in self._lead_queue:
-            entry[2] -= 1
+        self.transit.advance()
 
     def _fire_reorders(self) -> list[int]:
         """Fire Order-Up-To reorders for depleted SKUs into the lead queue.
@@ -442,7 +503,7 @@ class ReorderMixin:
             else:
                 qty = ideal
             lead = max(0, int(round(getattr(rc, 'lead_time_mean', 0.0))))   # deterministic lead
-            self._lead_queue.append([sku, qty, lead])
+            self.transit.dispatch(sku, qty, lead)
             self._deferred_qty[sku] = self._deferred_qty.get(sku, 0) + qty
             self._units_ordered += qty
             triggered.append(sku)
@@ -459,17 +520,10 @@ class ReorderMixin:
         phase is a producer with no consumer today; the return exists so a receiving crew is
         a caller of an existing phase rather than a rewrite of one.
         """
-        if not self._lead_queue:
-            return []
-        still: list[list] = []
         plans: list = []
-        for sku, qty, rem in self._lead_queue:
-            if rem <= 0:
-                self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - qty)
-                plans.extend(self._release_to_stock(sku, qty))
-            else:
-                still.append([sku, qty, rem])
-        self._lead_queue = still
+        for sku, qty, _rem in self.transit.release():
+            self._deferred_qty[sku] = max(0, self._deferred_qty.get(sku, 0) - qty)
+            plans.extend(self._release_to_stock(sku, qty))
         return plans
 
     def _receive(self, arrivals=(), deadline: float | None = None) -> None:

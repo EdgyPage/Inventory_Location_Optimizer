@@ -9451,6 +9451,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.transit_snapshot",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_sigma_fd",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -12951,6 +12956,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.__init__"
     },
     {
+      "dst": "Warehouse/inventory/inventory_reorder.py::BatchTransit",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.__init__"
+    },
+    {
       "dst": "Warehouse/inventory/put_queue.py::HeldItems",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.__init__"
@@ -13064,6 +13074,11 @@
       "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._key"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_reorder.py::BatchTransit",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._lead_queue"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::_windowed",
@@ -30982,6 +30997,22 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._lead_queue",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_lead_queue",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._lead_queue",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_lead_queue",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._queue",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -31282,6 +31313,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "summary",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.transit_snapshot",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "transit_snapshot",
       "public": true
     },
     {
@@ -31962,6 +32001,70 @@
       "kind": "module",
       "module": "Warehouse/inventory/inventory_reorder.py",
       "name": "Warehouse.inventory.inventory_reorder",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::BatchTransit",
+      "kind": "class",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "BatchTransit",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::BatchTransit.__init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::BatchTransit.advance",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "advance",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::BatchTransit.depth",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "depth",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::BatchTransit.dispatch",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "dispatch",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::BatchTransit.merchandise",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "merchandise",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::BatchTransit.release",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "release",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::BatchTransit.snapshot",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "snapshot",
       "public": true
     },
     {

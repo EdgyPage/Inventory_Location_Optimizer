@@ -39,10 +39,15 @@ def test_the_unit_is_declared_and_is_not_the_simulators():
 
 
 def test_the_tick_is_one_batch():
-    src = inspect.getsource(Inventory_Manager._advance_lead_queue)
+    from Warehouse.inventory.inventory_reorder import BatchTransit
+    src = inspect.getsource(BatchTransit.advance)
     assert 'entry[2] -= 1' in src, (
         'the lead tick is no longer a single decrement per batch — if it is now in seconds, '
         'update LEAD_TIME_UNIT, its note, and this test')
+    wrapper = inspect.getsource(Inventory_Manager._advance_lead_queue)
+    assert 'self.transit.advance()' in wrapper, (
+        'the phase wrapper no longer delegates to the transit — the phase ratchet pins the '
+        'call site, this pins the delegation')
 
 
 def test_one_check_reorders_advances_every_in_transit_order_by_exactly_one():

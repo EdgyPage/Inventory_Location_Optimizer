@@ -1,7 +1,7 @@
 # Move transit behind the order port
 
 Type: task
-Status: open
+Status: claimed
 
 ## Question
 

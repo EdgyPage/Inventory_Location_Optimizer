@@ -35,6 +35,7 @@ from Warehouse.inventory.inventory_common import (
 from Warehouse.inventory.inventory_planning import PlanningMixin
 from Warehouse.inventory.inventory_optimal import OptimalLayoutMixin
 from Warehouse.inventory.inventory_reorder import ReorderMixin
+from Warehouse.inventory.inventory_reorder import BatchTransit as _BatchTransit
 
 
 def _apportion(m: int, weights: list, n: int) -> list:
@@ -246,7 +247,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # (sku, qty, remaining_lead) record — even lead 0.  check_reorders decrements remaining_lead
         # by 1 each batch and hands arrivals (remaining_lead <= 0) to the stock queue.
         self._batch_num: int = 0
-        self._lead_queue: list[list] = []   # each entry: [sku, qty, remaining_lead]
+        # THE ORDER PORT'S TRANSIT.  Owns lead-queue TIMING ([sku, qty, remaining_lead]
+        # entries, one batch per tick by default); the manager keeps only the scalar
+        # deferred ledger.  The trailer pipeline binds its own transit here flag-on —
+        # injection, never import, like `packer` below.
+        self.transit = _BatchTransit()
         # THE INBOUND SEAM.  `inbound_split(sku, qty) -> list[int] | None` decides whether an
         # arrival comes in as one delivery or several; packing is per delivery, so a shipment
         # that would palletize whole can land as singletons when a trailer splits it.  None =
@@ -566,12 +571,34 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
     @property
     def lead_queue_depth(self) -> int:
         """Number of in-transit reorders waiting out their lead time (lead queue length)."""
-        return len(self._lead_queue)
+        return len(self._lead_queue)   # via the transit shim below
 
     @property
     def in_transit_qty(self) -> int:
         """Total units currently in transit (sum of lead-queue order quantities)."""
         return sum(entry[1] for entry in self._lead_queue)
+
+    # ── the transit shim ──────────────────────────────────────────────────────────
+    @property
+    def _lead_queue(self) -> list:
+        """The transit's entries, by their historical name.
+
+        A PROPERTY so the many readers (and the tests that build a bare manager and assign
+        directly) survive the transit split unchanged: the entries live on `self.transit`,
+        timing methods live there too, and this name is a window, not a second copy.
+        """
+        return self.transit._entries
+
+    @_lead_queue.setter
+    def _lead_queue(self, entries) -> None:
+        if getattr(self, 'transit', None) is None:      # __new__-built test managers
+            self.transit = _BatchTransit()
+        self.transit._entries = list(entries)
+
+    def transit_snapshot(self) -> list:
+        """(sku, qty, remaining_lead) tuples — the public read the replay viewer uses
+        instead of reaching for a private attribute."""
+        return self.transit.snapshot()
 
     @property
     def units_ordered(self) -> int:

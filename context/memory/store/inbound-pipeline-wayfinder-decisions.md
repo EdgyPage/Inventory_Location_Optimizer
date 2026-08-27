@@ -1,11 +1,11 @@
 ---
 name: inbound-pipeline-wayfinder-decisions
-description: "2026-08-26 wayfinder session — durable DECISIONS for the inbound trailer pipeline (overturns the packing-at-arrival invariant, draws the Inbound/ package boundary, chooses the lead-time denomination, sets the column-semantics conventions, validates the semantic-layer accessor design with a runnable prototype, designs the two-level priority seams, shapes the Cart/Trailer objects, sets the drain-or-cap shift-end rule — the map's LAST open decision) plus one EXECUTED ticket the same day, the Inbound/ package skeleton (move + injection seam only, no trailer/priorities/pack-at-unload/shift code yet)"
+description: "2026-08-26 wayfinder session — durable DECISIONS for the inbound trailer pipeline (overturns the packing-at-arrival invariant, draws the Inbound/ package boundary, chooses the lead-time denomination, sets the column-semantics conventions, validates the semantic-layer accessor design with a runnable prototype, designs the two-level priority seams, shapes the Cart/Trailer objects, sets the drain-or-cap shift-end rule — the map's LAST open decision) plus TWO EXECUTED tickets the same day (Inbound/ package skeleton: move + injection seam; column-semantics layer: Schema/semantics.py BUILT and tagged to zero remainder across all six families) — trailer/priorities/pack-at-unload/shift code still not built"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 6cf27a52-c76a-43c2-a56f-3b7410486717
-  modified: 2026-08-27T03:36:27.274Z
+  modified: 2026-08-27T04:20:00.000Z
 ---
 
 A planning-only session (2026-08-26) resolved five durable decisions for the not-yet-built
@@ -32,9 +32,11 @@ implementation tickets and closing the planning phase entirely. Full record: `.s
 kept as the ticket's asset rather than a branch): `.scratch/inbound-groundwork/assets/prototype_semantics.py`;
 glossary: root `CONTEXT.md` (new, canonical domain glossary — a system distinct from `context/`,
 see `docs/agents/domain.md`); map: `.scratch/inbound-groundwork/map.md`.
-**Skeleton landed later the same day (2026-08-26, uncommitted) — see point 34+ below.** The
-package move and injection seam are code now; the trailer model, transit move, and pack-at-unload
-overturn described in this memory are still decisions, not code. [[putaway-seams-for-inbound]]
+**Skeleton landed later the same day (2026-08-26, commit `aae9033`).** The
+package move and injection seam are code now. **The column-semantics layer also landed the same
+day (commits `c82751a`, `59ff750`, `fc690bd`, `4d9376b`, `f964f60`) — see points 41-43 below.**
+The trailer model, transit move, pack-at-unload overturn, priorities module, and drain-or-cap
+shift are still decisions, not code. [[putaway-seams-for-inbound]]
 and [[receiving-is-its-own-crew]] describe the pre-skeleton behaviour except where they now note
 the move to `Inbound/`.
 
@@ -236,13 +238,15 @@ the legacy batch-denominated lead queue stays byte-identical flag-off (point 12-
 Recording the boundary itself is mechanical and sequenced (files
 first, then `GRAPH_ROOTS` in `context/arch/extract.py:44` — a new top-level package is
 INVISIBLE to the graph until added there — then the `inbound` layer, then the forbid pairs,
-then ~8 hardcoded package rosters listed in the fact digest). The column-semantics conventions
-(points 17-21) are also still a decision, not code — no column yet carries a kind/unit/grain
-tag, and the completeness gate does not exist; the accessor design (points 22-25) is validated
-by a throwaway prototype only — `.scratch/inbound-groundwork/assets/prototype_semantics.py` is
-not production code and ships nothing by itself. Building the real machinery is
-`.scratch/inbound-groundwork/issues/11-build-the-semantic-layer.md`, tagging every family to
-zero is `.scratch/inbound-groundwork/issues/12-run-the-convention-pass.md` (blocked by 11).
+then ~8 hardcoded package rosters listed in the fact digest). **The column-semantics conventions
+(points 17-21) and the accessor design (points 22-25) are NO LONGER a decision-only item — see
+points 41-43 below: `Schema/semantics.py` (kinds/guards/completeness gate), the six per-family
+`*_semantics.py` modules, and `Tests/architecture/test_column_semantics.py`'s stdlib-only ratchet
+are all built and committed** (`.scratch/inbound-groundwork/assets/prototype_semantics.py`
+remains the throwaway prototype and is superseded, not the production code — read
+`Schema/semantics.py` directly). Both graduated tickets
+(`.scratch/inbound-groundwork/issues/11-build-the-semantic-layer.md` and
+`.scratch/inbound-groundwork/issues/12-run-the-convention-pass.md`) are DONE.
 The priority-seam design (points 26-29) is also still a decision, not code — the planned
 priorities module (would-be path Inbound/priorities.py) does not exist yet; when it lands it
 should mirror `Warehouse/inventory/put_policy.py`'s registry shape. The skeleton landing
@@ -290,7 +294,7 @@ built it should mirror `Warehouse/layout/Storage_Primitive.py`'s `StorageCart` t
 split and reuse `StorageCart.add_from_bin`'s perfect-packing volumetric-fit assumption rather
 than re-deriving it.
 
-**Skeleton landed (2026-08-26, eighth ticket, same day, uncommitted as of this writing):**
+**Skeleton landed (2026-08-26, eighth ticket, same day, commit `aae9033`):**
 
 34. **The `Inbound/` package skeleton EXECUTED** —
     `.scratch/inbound-groundwork/issues/09-land-the-inbound-package-skeleton.md`, the first code
@@ -366,10 +370,64 @@ priorities module is the one with a concrete, already-drawn file target.
 
 **How to apply (shift-end rule):** full record
 `.scratch/inbound-groundwork/issues/10-set-the-shift-end-rule.md` `## Answer`. Points 37-40 are
-also still a decision, not code — no drain-or-cap flag exists in `settings.py` yet, and
-`SHIFT_SECONDS` has not yet been renamed to `REPORTING_FRAME_SECONDS` (point 21). This ticket
-closed the map's planning phase entirely; the next work on this effort is one of the five
-graduated execution tickets (11, 12, 13, 14, 15) — none blocked except 12 (by 11) and 14 (by 13).
+also still a decision, not code — no drain-or-cap flag exists in `settings.py` yet. **`SHIFT_SECONDS`
+HAS since been renamed to `REPORTING_FRAME_SECONDS` at the authoring surface as part of ticket 12
+(see points 41-43 below) — the collision this point's parenthetical worried about is resolved,
+"shift" is now free for the drain-or-cap dispatcher.** This ticket
+closed the map's planning phase entirely; tickets 11 and 12 are DONE (points 41-43 below); the
+next work on this effort is one of the three remaining execution tickets — 13, 14 (blocked by 13),
+and 15.
+
+**Column-semantics layer EXECUTED (2026-08-26, tenth and eleventh tickets, same day, commits
+`c82751a`, `59ff750`, `fc690bd`, `4d9376b`, `f964f60`):**
+
+41. **Ticket 11 built** — `Schema/semantics.py` declares nine kinds (STAMP/SPAN/LEVEL/FLOW/COUNT/
+    RATE/SCORE/SHARE/LABEL-ID, point 17 above) via a `Col` dataclass with conditional axes enforced
+    AT CONSTRUCTION (not by a separate lint pass), a `ByDiscriminator` helper for value-dependent
+    kinds, guards whose refusal messages carry each column's incident history (point 24 above,
+    e.g. citing the [[cut-is-a-level-not-a-flow]] 101x headline), and `check_completeness` that
+    diffs declared semantics against `Family.declared_shape()` verbatim (point 22's dict-diff
+    design) so nothing can drift silently. `Optimization/persistence/sim_semantics.py` tags the
+    four epicenter sim_db tables first (`batch_stats`, `carryover`, `put_queue_state`,
+    `work_events` — 62 columns). `Tests/architecture/test_column_semantics.py` is a stdlib-only
+    ratchet (cannot `importorskip`-vanish per CLAUDE.md §3's pyyaml trap) and is sabotage-checked
+    in both directions.
+42. **Ticket 12 built, zero remainder** — every column of all six families now carries semantics
+    (~310 columns): `Optimization/persistence/sim_semantics.py` (remaining eleven sim_db tables),
+    plus new `Optimization/persistence/runtime_semantics.py`,
+    `Optimization/persistence/warehouse_semantics.py`,
+    `Warehouse/generation/affinity_semantics.py`, `Warehouse/generation/inventory_semantics.py`
+    — each declared beside its own family's DDL (point 22). Seven of the audit's eight at-risk
+    readers (`Diagnostics/receiving_report.py`, `Diagnostics/replay_run.py`,
+    `Optimization/Performance_Evaluations/catalog/inventory.py`,
+    `Optimization/Performance_Evaluations/common/frames.py`,
+    `Optimization/persistence/Picking_Data.py`, `Optimization/run_whatif_labor.py`, and one more)
+    carry AST-validated `SEMANTIC_USES` literals; the two bench log-parsers are excluded WITH
+    CAUSE (they parse logs, not declared columns) rather than silently skipped. SPAN joined the
+    additive kinds (spans of work sum to labour — the task_makespan invariant) while LEVEL stays
+    refused. `SHIFT_SECONDS` renamed to `REPORTING_FRAME_SECONDS` at the authoring surface (the
+    `settings.py` CONFIG key `'shift_seconds'` and every already-recorded row stay frozen; the
+    logical name is `frame_index`) — freeing "shift" for the drain-or-cap dispatcher (point 40
+    above). The `put_queue_state.cut` 15-line DDL warning and the `carryover` reason-family prose
+    both collapsed to pointers at `sim_semantics.py` — one home per fact. Schema store resynced,
+    0 outgoing shapes (tags are metadata only — no DDL changed, no shape id moved).
+43. **Two durable lessons from the execution, not present in the planning-phase points above**:
+    (a) a clock tag is required of temporal KINDS (stamp/span/rate) but NOT of a COUNT whose unit
+    happens to say `'batches'` — refines point 17's kind list; (b) the run-tree ratchet
+    (`context/verify_context.py` / `context/arch` tooling) counts hand-written contract tokens
+    wherever they appear, prose included — a semantics note that named the run-manifest filename
+    in a docstring tripped it and had to be reworded (commit `4d9376b`), the same failure mode as
+    [[case-only-rename-deletes-its-own-page]] in spirit (a generator/checker sees literal text, not
+    intent). Final state: 753/753 architecture + integration tests green, 1,345 unit tests green.
+
+**How to apply (column semantics):** the layer is BUILT, not just designed — read
+`Schema/semantics.py` for the `Col`/`ByDiscriminator`/guard API, and any of the six
+`*_semantics.py` modules for a worked example of declaring beside a DDL.
+`Tests/architecture/test_column_semantics.py` is the completeness ratchet: it fails if a new
+column ships untagged, so a schema change that adds a column MUST add its semantics tag in the
+same commit (extends CLAUDE.md §2's "schema changes ride the pipeline" rule with a machine-checked
+consequence). The next consumers of this layer are whatever code the trailer pipeline (tickets 13-
+15) writes — new columns there inherit the same completeness requirement from day one.
 
 See also [[putaway-seams-for-inbound]], [[receiving-is-its-own-crew]],
 [[one-clock-one-speed-one-config]], [[working-day-clock-plan-corrections]],

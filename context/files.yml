@@ -4210,6 +4210,7 @@ files:
     purpose: "churn counters, reload primitive, pick notifications, and"
     layer: "wh_inventory"
     key_symbols:
+      - {name: "BatchTransit", file: "Warehouse/inventory/inventory_reorder.py", kind: "class"}
       - {name: "ReorderMixin", file: "Warehouse/inventory/inventory_reorder.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/put_policy.py":

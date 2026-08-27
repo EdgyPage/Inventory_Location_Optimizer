@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BatchTransit · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_reorder_py__BatchTransit" data-id="Warehouse/inventory/inventory_reorder.py::BatchTransit">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a> <span class="sep">›</span> <span class="here"><code>BatchTransit</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>BatchTransit</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
+
+<pre class="sig"><code>class BatchTransit</code></pre>
+<section class="doc">The order port&#x27;s flag-off transit: the legacy lead queue as an object.
+
+Entries are the same mutable ``[sku, qty, remaining_lead]`` records they always were,
+ticking one BATCH per ``advance()`` — the unit note further down this module is why that is
+a decision.  This is the DEFAULT the manager constructs for itself; the trailer
+pipeline binds its own transit (absolute-clock leads, parking lot, doors) on the same
+seam, flag-on — injection, never import, like ``packer`` above.
+
+The manager keeps the SCALAR ledger (``_deferred_qty`` credits and debits) either way:
+transit owns TIMING, the ledger owns POSITION, and that split is what let the dock land
+with zero reorder-ledger edits.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__lead_queue.html"><code>_lead_queue</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__BatchTransit">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=class%20BatchTransit">Source ↗</a></p>
+</article>
+</main>
+</body></html>

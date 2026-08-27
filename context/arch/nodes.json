@@ -13341,6 +13341,15 @@
       "kind": "function",
       "signature": "(self, bin_: Aisle.Bin) -> BinKey"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._lead_queue": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The transit's entries, by their historical name.\n\nA PROPERTY so the many readers (and the tests that build a bare manager and assign\ndirectly) survive the transit split unchanged: the entries live on `self.transit`,\ntiming methods live there too, and this name is a window, not a second copy.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._queue": {
       "decorators": [],
       "doc": "Route one STAMPED item to its put queue, holding it if the queue is full.\n\nSplit out of `_admit` so the receiving crew has somewhere to hand an item it has\nalready taken off a trailer.  `_admit` stamps and decides WHERE work enters; this\ndecides which put queue takes it.  A dock unload calls this directly -- the item was\nstamped on arrival and must not be re-stamped.",
@@ -13616,6 +13625,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.transit_snapshot": {
+      "decorators": [],
+      "doc": "(sku, qty, remaining_lead) tuples \u2014 the public read the replay viewer uses\ninstead of reaching for a private attribute.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.unavailable": {
       "decorators": [
@@ -14219,6 +14235,63 @@
       "kind": "module",
       "signature": null
     },
+    "Warehouse/inventory/inventory_reorder.py::BatchTransit": {
+      "decorators": [],
+      "doc": "The order port's flag-off transit: the legacy lead queue as an object.\n\nEntries are the same mutable ``[sku, qty, remaining_lead]`` records they always were,\nticking one BATCH per ``advance()`` \u2014 the unit note further down this module is why that is\na decision.  This is the DEFAULT the manager constructs for itself; the trailer\npipeline binds its own transit (absolute-clock leads, parking lot, doors) on the same\nseam, flag-on \u2014 injection, never import, like ``packer`` above.\n\nThe manager keeps the SCALAR ledger (``_deferred_qty`` credits and debits) either way:\ntransit owns TIMING, the ledger owns POSITION, and that split is what let the dock land\nwith zero reorder-ledger edits.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/inventory_reorder.py::BatchTransit.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/inventory/inventory_reorder.py::BatchTransit.advance": {
+      "decorators": [],
+      "doc": "One batch elapsed: every in-transit order moves one tick closer.\n\nThe tick is one BATCH, not one second \u2014 the module's unit note is the decision.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/inventory_reorder.py::BatchTransit.depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/inventory_reorder.py::BatchTransit.dispatch": {
+      "decorators": [],
+      "doc": "Accept one fired reorder from the order port.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sku: int, qty: int, lead: int) -> None"
+    },
+    "Warehouse/inventory/inventory_reorder.py::BatchTransit.merchandise": {
+      "decorators": [],
+      "doc": "Total pieces in transit \u2014 the in_transit_qty level.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/inventory_reorder.py::BatchTransit.release": {
+      "decorators": [],
+      "doc": "Pop and return every arrived entry (remaining_lead <= 0), in queue order.\n\nUn-arrived entries keep their order; a negative remainder is an order that arrived\nwhile nothing drained it \u2014 never clamped, because clamping would hide the backlog.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list[list]"
+    },
+    "Warehouse/inventory/inventory_reorder.py::BatchTransit.snapshot": {
+      "decorators": [],
+      "doc": "(sku, qty, remaining_lead) tuples for the replay/reorder_queue rows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin": {
       "decorators": [],
       "doc": null,
@@ -14227,7 +14300,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._advance_lead_queue": {
       "decorators": [],
-      "doc": "One batch elapsed: decrement pre-existing in-transit orders only.\n\nRuns BEFORE `_fire_reorders`, which is what stops an order fired this batch from\nbeing decremented in the same batch it was placed.\n\nThe tick is one BATCH, not one second -- see `LEAD_TIME_UNIT` above for why that\nis a decision and what would change it.",
+      "doc": "One batch elapsed: decrement pre-existing in-transit orders only.\n\nRuns BEFORE `_fire_reorders`, which is what stops an order fired this batch from\nbeing decremented in the same batch it was placed.\n\nThe tick is one BATCH, not one second -- see `LEAD_TIME_UNIT` above for why that\nis a decision and what would change it.  The tick itself lives on the TRANSIT\nobject (`BatchTransit.advance`): this phase is the wrapper the phase ratchet pins,\nand the trailer transit replaces the body's target, never this call site.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"

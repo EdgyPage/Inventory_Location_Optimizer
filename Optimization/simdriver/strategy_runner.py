@@ -937,7 +937,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # not yet binned (with its bin tier).  Aggregated by (sku, remaining_lead) for lead
         # and (sku, unit_type, storage_size) for stock to keep the table compact.
         _rq: dict = {}
-        for _sku, _qty, _rem in mgr._lead_queue:
+        for _sku, _qty, _rem in mgr.transit_snapshot():
             _k = ('lead', _sku, _rem, None, None, None)   # in transit: no queue yet
             _rq[_k] = _rq.get(_k, 0) + _qty
         # `_stock_queue` holds PutawayItem, not StorageUnit -- `.unit` is the unit.
