@@ -4,6 +4,10 @@ Label: wayfinder:map
 
 ## Destination
 
+**REACHED 2026-08-26.** Every ticket is resolved and every deliverable below is committed on
+`develop`; the fog remnants were handed to the future inbound-optimization effort (see Out of
+scope). This map is closed.
+
 Landed on `develop`: (1) a v1 trailer pipeline — reorders loose-loaded into trailers FIFO at the
 unmodeled ordering site (next-fit), dispatched FIFO, riding the lead queue as the transit leg,
 unloaded and packed dock-side by the receiving crew, packs handed to warehouse putting — its
@@ -53,23 +57,25 @@ cart/trailer objects mirroring the `StorageCart` pattern, knobs authored in
 - [Run the convention pass to zero remainder](issues/12-run-the-convention-pass.md): EXECUTED — every column of all six families tagged (~310 total), the gate enforces no-remainder itself, seven at-risk readers carry AST-validated `SEMANTIC_USES`, SPAN joined the additive kinds (labour sums), `REPORTING_FRAME_SECONDS` freed *shift*, and the two worst DDL prose blocks collapsed to pointers; 753/753 architecture+integration, shape ids unmoved.
 - [Move transit behind the order port](issues/13-move-transit-behind-the-order-port.md): EXECUTED — `BatchTransit` owns lead-queue timing on the `mgr.transit` seam (manager keeps the scalar ledger); phase wrappers delegate, `_lead_queue` is a compatibility property, the replay viewer reads `transit_snapshot()`; the LEAD_TIME_UNIT note records the made pick; byte-identical, 1,740+6 tests green, committed.
 - [Build the trailer pipeline v1](issues/14-build-the-trailer-pipeline-v1.md): EXECUTED — trailer.py/priorities.py/transit.py landed on the order-port seam; FIFO next-fit loads with contiguous lots, per-portion packing (the split realized), absolute-clock leads failing safe, the inert-under-fifo bound, the 'trailer' provenance, and one call-time spec; structurally absent until a type is named; 12 new tests + 1,752 untouched.
+- [Build the drain-or-cap shift](issues/15-build-the-drain-or-cap-shift.md): EXECUTED — one mode flag on the working-day record; cap = day length and FORCES the cut; one site-wide boundary (receiving shares it); `timeline.shift_end` owns the whichever-first arithmetic, the runner's per-day ledger owns the standing-work judgment, reported as a log line; days stay origin-aligned; flag-off byte-identical (1,758 + 6 tests untouched).
 - [Audit the wrong-column incidents](issues/04-audit-the-wrong-column-incidents.md): 12 incident classes (all silent), 8 at-risk read sites; key surprise — every preventing semantic already exists as DDL-comment prose that provably rots, while the attachment hooks (Requires, named-query logical columns, Quantity.Source) are already built.
 
 ## Not yet specified
 
-- **Dock backpressure / floor limit** — the parking lot is unbounded and the dock refuses
-  nothing; the finite DOORS are now the natural backpressure surface, but whether anything
-  upstream feels it is undecided; revisit if the trailer-pipeline build surfaces a need.
-- **The unload seam's warehouse-space signal** — WHERE it arrives is now decided (a named
-  view on the priority seams' frozen `ctx`); WHAT it computes from `_emptied_at` /
-  upcoming-slot knowledge is still undesigned, and belongs to the future feature unless the
-  v1 build needs a stub.
-- **Day-over-day persistence mechanics** — how preserved inbound state (a half-unloaded
-  trailer, parked trailers, dock depth, queued packs) interacts with checkpointing and
-  `--resume` (batch-granular resume already refuses with a dock or carry on); sharpens inside
-  the trailer-pipeline build.
+(Empty — the map is closed. The three fog remnants below were beyond this destination and
+moved to Out of scope as the future effort's starting signposts.)
 
 ## Out of scope
+
+- **Dock backpressure / floor limit** — the finite doors are the natural surface, nothing
+  upstream feels them yet; the v1 build confirmed no need (doors are bookkeeping until
+  policies bite). The future effort decides.
+- **The unload seam's warehouse-space signal** — its arrival point exists (a named view on
+  the priority seams' frozen `ctx`); what it computes from `_emptied_at` is the future
+  optimization's design work.
+- **Day-over-day inbound persistence vs `--resume`** — batch-granular resume already refuses
+  with a dock or carry on (recorded in the skeleton and shift answers); a checkpoint format
+  for standing trailers belongs to the effort that needs mid-run resume with trailers.
 
 - **Inbound decision logic**: the trailer-assignment tradeoff (unit demand x empty-slot
   utilization), forecasting-sorter arm, optimal-split policies beyond FIFO. Seams only.
