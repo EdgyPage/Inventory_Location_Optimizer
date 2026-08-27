@@ -135,6 +135,18 @@ INBOUND_LOCAL_POLICY = 'fifo'    # load-pallet order within a trailer
 INBOUND_TRAILER_BOUND = None     # the dock's k_cap analog, in TRAILERS; None = unbounded
                                  # (inert under fifo -- shipped for the interface, by decision)
 
+SHIFT_DRAIN_OR_CAP = False # the SHIFT: one site-wide working stretch that ends when no
+                           # standing work remains and none is still scheduled to release,
+                           # or at the cap, whichever comes FIRST.  The cap REUSES the day
+                           # length (WORK_DAY_SECONDS, falling back to the reporting frame)
+                           # -- no second duration to reconcile -- and capping IMPLIES the
+                           # cut/carry semantics: work standing at the whistle rolls via the
+                           # existing carryover machinery, because a cap without carry loses
+                           # demand.  One boundary for every crew when on (the receiving
+                           # day's own knobs apply only flag-off); days stay ORIGIN-ALIGNED
+                           # on the absolute clock -- an early drain stops the labour, never
+                           # the calendar.  Off = today's behaviour exactly.
+
 ROLL_OVER_UNPICKED = False # demand a batch did not pick joins the NEXT batch's demand,
                            # whatever the cause: the day cut, a bin that held less than the
                            # plan, or no bin holding the SKU at all.  The largest behaviour

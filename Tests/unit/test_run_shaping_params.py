@@ -283,7 +283,8 @@ def test_the_working_day_reaches_the_worker_payload():
         CONFIG['global'].update(work_day_seconds=3600.0, releases_per_day=4,
                                 cut_at_day_end=True, roll_over_unpicked=True)
         assert work_day_spec() == {'seconds': 3600.0, 'releases_per_day': 4,
-                                   'cut_at_day_end': True, 'roll_over_unpicked': True}
+                                   'cut_at_day_end': True, 'roll_over_unpicked': True,
+                                   'drain_or_cap': False}
     finally:
         CONFIG['global'].update(before)
     # Read at CALL time, not import time — the whole reason this is an accessor.

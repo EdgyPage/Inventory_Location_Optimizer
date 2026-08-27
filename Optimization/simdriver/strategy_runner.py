@@ -52,7 +52,8 @@ from Optimization.metrics import work_events as _work_events
 from Warehouse.kernel.timeline import (
     DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS,
     ReleaseSchedule as _ReleaseSchedule,
-    WorkDay as _WorkDay)
+    WorkDay as _WorkDay,
+    shift_end as _tl_shift_end)
 from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
@@ -427,6 +428,16 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # picked in which batch, so it can never be a silent default.  With it on, work a picker
     # did not reach rolls into the next batch's demand rather than evaporating.
     _cut_at_day_end = bool(_wd.get('cut_at_day_end'))
+    # THE DRAIN-OR-CAP SHIFT.  One site-wide working stretch: the cap is the day length,
+    # and capping IMPLIES the cut -- a cap without carry loses demand -- so the mode forces
+    # `_cut_at_day_end` on rather than trusting two flags to agree.  (`roll_over_unpicked`
+    # stays independent: two of its three causes have no day boundary in sight.)
+    _drain_or_cap = bool(_wd.get('drain_or_cap'))
+    if _drain_or_cap:
+        _cut_at_day_end = True
+    _shift_prev_day = None          # per-day close-out state for the shift log
+    _shift_cut_today = False
+    _shift_last_finish = 0.0
     # Whether unpicked demand joins the next batch.  Independent of the cut: two of the three
     # causes below happen with no day boundary in sight.
     _roll_over = bool(_wd.get('roll_over_unpicked'))
@@ -719,7 +730,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # headline behaviour would only ever be observable in a configuration that also
         # perturbs picking.  None here means no whistle: the dock drains every batch and the
         # crew only costs seconds, which is a clean additive arm on its own.
-        if _recv_spec['day_seconds'] is not None:
+        if _drain_or_cap:
+            # ONE site-wide shift: the receiving crew shares the cap.  Its own
+            # day knobs are the flag-off configuration, by decision.
+            _recv_day = _WorkDay(length=_wd.get('seconds') or _shift_seconds)
+        elif _recv_spec['day_seconds'] is not None:
             _recv_day = _WorkDay(length=_recv_spec['day_seconds'],
                                  origin=_recv_spec['day_origin'])
 
@@ -1313,6 +1328,32 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         last_dur        = bs.duration
         dur_sum_ckpt   += bs.duration
         dur_count_ckpt += 1
+
+        # ── the drain-or-cap shift's ledger ───────────────────────────────────
+        # Per-DAY close-out, decided at the first batch of the NEXT day: a day drained if
+        # nothing was cut in it and no standing work survives it (put queues + held + the
+        # dock floor + carried demand — never the lead queue: transit is calendar, not
+        # labour; and releases are exhausted by construction at a day boundary).  The end
+        # instant is `timeline.shift_end`'s arithmetic; days stay origin-aligned, so this
+        # is a REPORT of when the crews got off the clock, never a scheduler.
+        if _drain_or_cap:
+            _shift_cut_today = (_shift_cut_today or bool(sim.carried)
+                                or bool(bs.recv_cut))
+            _shift_last_finish = max(_shift_last_finish, arm_clock, put_clock, recv_clock)
+            _d = _release.day_of(i)
+            if _shift_prev_day is None:
+                _shift_prev_day = _d
+            elif _d != _shift_prev_day:
+                _standing = (mgr.queue_depth + mgr.dock_depth
+                             + sum(_pending.values()))
+                _drained = (not _shift_cut_today) and _standing == 0
+                _cap_end = _release.day.end_of(_shift_prev_day)
+                _end = _tl_shift_end(_cap_end, _shift_last_finish, _drained)
+                log.info(f'  [shift] day {_shift_prev_day} ended at {_end:,.0f} s '
+                         f'({"drained" if _drained and _end < _cap_end else "capped"}; '
+                         f'standing={_standing})')
+                _shift_prev_day, _shift_cut_today = _d, False
+                _shift_last_finish = 0.0
 
         if len(pb) >= checkpoint:
             t_s0 = time.perf_counter()

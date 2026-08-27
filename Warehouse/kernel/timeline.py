@@ -268,3 +268,19 @@ class ReleaseSchedule:
         if self.per_day is None:
             return 0
         return index // self.per_day
+
+
+def shift_end(cap_end_s: float, last_finish_s: float, drained: bool) -> float:
+    """When the drain-or-cap shift ENDED: the drain instant or the cap, whichever first.
+
+    `drained` is the CALLER's judgment — no standing work remains (released-but-unpicked
+    demand, queued puts and held items, the dock floor; never merchandise in transit) and
+    nothing was cut at the whistle.  This function owns only the arithmetic: a drain that
+    happened before the cap ends the shift there ("off the clock"); anything else — work
+    standing, or a finish past the whistle (START-gate overtime) — ends it at the cap,
+    because the cap came first.  Days stay origin-aligned either way: an early end stops
+    the labour, never the calendar.
+    """
+    if drained and last_finish_s < cap_end_s:
+        return last_finish_s
+    return cap_end_s

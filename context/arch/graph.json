@@ -5186,6 +5186,11 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
+      "dst": "Optimization/config/settings.py::SHIFT_DRAIN_OR_CAP",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
       "dst": "Optimization/config/settings.py::STORE_BATCH_MEAN",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
@@ -9642,6 +9647,11 @@
     },
     {
       "dst": "Warehouse/kernel/timeline.py::WorkDay",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::shift_end",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -21809,6 +21819,14 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::SHIFT_DRAIN_OR_CAP",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "SHIFT_DRAIN_OR_CAP",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::STORE_BATCH_MEAN",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -33541,6 +33559,14 @@
       "kind": "function",
       "module": "Warehouse/kernel/timeline.py",
       "name": "epochs",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::shift_end",
+      "kind": "function",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "shift_end",
       "public": true
     },
     {

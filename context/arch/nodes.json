@@ -5185,6 +5185,13 @@
       "signature": null,
       "value_preview": "42"
     },
+    "Optimization/config/settings.py::SHIFT_DRAIN_OR_CAP": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "False"
+    },
     "Optimization/config/settings.py::STORE_BATCH_MEAN": {
       "decorators": [],
       "doc": null,
@@ -15469,6 +15476,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(durations: Iterable[float]) -> list[float]"
+    },
+    "Warehouse/kernel/timeline.py::shift_end": {
+      "decorators": [],
+      "doc": "When the drain-or-cap shift ENDED: the drain instant or the cap, whichever first.\n\n`drained` is the CALLER's judgment \u2014 no standing work remains (released-but-unpicked\ndemand, queued puts and held items, the dock floor; never merchandise in transit) and\nnothing was cut at the whistle.  This function owns only the arithmetic: a drain that\nhappened before the cap ends the shift there (\"off the clock\"); anything else \u2014 work\nstanding, or a finish past the whistle (START-gate overtime) \u2014 ends it at the cap,\nbecause the cap came first.  Days stay origin-aligned either way: an early end stops\nthe labour, never the calendar.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cap_end_s: float, last_finish_s: float, drained: bool) -> float"
     },
     "Warehouse/kernel/timeline.py::shift_index": {
       "decorators": [],

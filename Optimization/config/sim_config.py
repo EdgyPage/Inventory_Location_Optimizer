@@ -192,6 +192,7 @@ CONFIG = {
         'recv_crew_size' : _s.RECV_CREW_SIZE,
         'recv_day_seconds': _s.RECV_DAY_SECONDS,
         'recv_day_origin': _s.RECV_DAY_ORIGIN,
+        'shift_drain_or_cap': _s.SHIFT_DRAIN_OR_CAP,
         'inbound_trailer_type'  : _s.INBOUND_TRAILER_TYPE,
         'inbound_dock_doors'    : _s.INBOUND_DOCK_DOORS,
         'inbound_lead_minutes'  : _s.INBOUND_TRAILER_LEAD_MINUTES,
@@ -335,6 +336,9 @@ def work_day_spec() -> dict:
         'releases_per_day': g.get('releases_per_day'),
         'cut_at_day_end': bool(g.get('cut_at_day_end')),
         'roll_over_unpicked': bool(g.get('roll_over_unpicked')),
+        # The drain-or-cap shift rides the SAME record: one accessor, one payload
+        # key, so the mode and the day it caps against cannot disagree in a worker.
+        'drain_or_cap': bool(g.get('shift_drain_or_cap')),
     }
 
 

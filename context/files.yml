@@ -598,6 +598,7 @@ files:
       - {name: "INBOUND_GLOBAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_LOCAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_TRAILER_BOUND", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "SHIFT_DRAIN_OR_CAP", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "ROLL_OVER_UNPICKED", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "FF_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
@@ -3721,6 +3722,18 @@ files:
       - {name: "test_the_worker_payload_carries_the_queue_split", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_pick_half_of_the_table_stays_in_the_swept_registry", file: "Tests/unit/test_settings_module.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_shift_end.py":
+    purpose: "the drain-or-cap rule: off the clock, or the whistle, whichever first."
+    layer: "tests"
+    key_symbols:
+      - {name: "CAP", file: "Tests/unit/test_shift_end.py", kind: "const"}
+      - {name: "test_a_drained_shift_ends_when_the_crews_do", file: "Tests/unit/test_shift_end.py", kind: "function"}
+      - {name: "test_standing_work_holds_the_shift_to_the_cap", file: "Tests/unit/test_shift_end.py", kind: "function"}
+      - {name: "test_overtime_past_the_whistle_is_still_a_capped_shift", file: "Tests/unit/test_shift_end.py", kind: "function"}
+      - {name: "test_the_boundary_is_exact", file: "Tests/unit/test_shift_end.py", kind: "function"}
+      - {name: "test_the_cap_implies_the_cut", file: "Tests/unit/test_shift_end.py", kind: "function"}
+      - {name: "test_one_boundary_for_every_crew", file: "Tests/unit/test_shift_end.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_sim_schema_id.py":
     purpose: "the sim DB's derived schema identity."
     layer: "tests"
@@ -4338,6 +4351,7 @@ files:
       - {name: "epochs", file: "Warehouse/kernel/timeline.py", kind: "function"}
       - {name: "WorkDay", file: "Warehouse/kernel/timeline.py", kind: "class"}
       - {name: "ReleaseSchedule", file: "Warehouse/kernel/timeline.py", kind: "class"}
+      - {name: "shift_end", file: "Warehouse/kernel/timeline.py", kind: "function"}
     notes: ""
   "Warehouse/layout/Aisle_Dimensions.py":
     purpose: "physical dimension helpers for warehouse aisle layout."
