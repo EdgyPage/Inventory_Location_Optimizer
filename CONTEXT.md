@@ -47,12 +47,13 @@ A trailer leaving the ordering site. v1 dispatches in strict FIFO reorder priori
 does not fit the open trailer, a new trailer is started (next-fit) so FIFO order is preserved.
 
 **Lead**:
-The delay, possibly zero, between a trailer's dispatch and its arrival in the parking lot.
+The delay, possibly zero, between a trailer's dispatch and its arrival in the yard.
 _Avoid_: lead time (for anything but this), transit time
 
-**Parking lot**:
-Where arrived trailers wait for a dock door. Unbounded.
-_Avoid_: yard, staging area (that is the doors)
+**Yard**:
+Where arrived trailers stand waiting for a dock door. Unbounded in capacity; standing too long
+is what the fee proxy measures.
+_Avoid_: parking lot, staging area (that is the doors)
 
 **Dock door**:
 One of finitely many staging slots at the dock. A trailer must hold a door to be unloaded.
@@ -91,8 +92,15 @@ The inbound workforce. One crew does both unloading and packing, on its own hour
 
 ### Priorities
 
-**Global priority**:
-The order in which arrived trailers are worked at the dock. v1: FIFO by arrival.
+**Yard priority**:
+The order in which standing trailers take a freed dock door. A freed door is always filled —
+the dock cannot see beyond the yard, so holding a door open is never rational. v1: FIFO by
+arrival.
+_Avoid_: global priority (the retired single ranking over both dock moments)
+
+**Dock priority**:
+The order in which staged trailers are unloaded by the crew. The crew never idles while staged
+work stands. v1: FIFO by arrival.
 
 **Local priority**:
 The order in which one trailer's items are unloaded and packed. v1: FIFO.
