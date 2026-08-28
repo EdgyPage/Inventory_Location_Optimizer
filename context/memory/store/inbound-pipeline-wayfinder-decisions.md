@@ -1,11 +1,11 @@
 ---
 name: inbound-pipeline-wayfinder-decisions
-description: "The inbound-groundwork wayfinder map CLOSED 2026-08-26/27 — all fifteen tickets resolved, destination reached, everything committed on develop. Records every decision AND every landing: the Inbound/ package skeleton, the column-semantics layer (zero remainder, six families), BatchTransit behind the order port, the v1 trailer pipeline (Inbound/trailer.py, priorities.py, transit.py), and the drain-or-cap shift (SHIFT_DRAIN_OR_CAP, timeline.shift_end). The future inbound-optimization effort starts from this memory's Out-of-scope list, not from an unbuilt-code list — nothing of this effort remains unbuilt."
+description: "The inbound-groundwork wayfinder map CLOSED 2026-08-26/27 — all fifteen tickets resolved, destination reached, everything committed on develop. Records every decision AND every landing: the Inbound/ package skeleton, the column-semantics layer (zero remainder, six families), BatchTransit behind the order port, the v1 trailer pipeline (Inbound/trailer.py, priorities.py, transit.py), and the drain-or-cap shift (SHIFT_DRAIN_OR_CAP, timeline.shift_end). Nothing of this effort remains unbuilt — the successor effort is now its own map, `.scratch/inbound-optimization/map.md` (charted 2026-08-27, commit `25bfdf7`), which starts from THIS map's Out-of-scope list, not from an unbuilt-code list."
 metadata: 
   node_type: memory
   type: project
   originSessionId: 6cf27a52-c76a-43c2-a56f-3b7410486717
-  modified: 2026-08-27T05:45:00.000Z
+  modified: 2026-08-27T06:00:00.000Z
 ---
 
 A planning-only session (2026-08-26) resolved five durable decisions for the not-yet-built
@@ -61,7 +61,9 @@ the move to `Inbound/`.
    step 6b). **REALIZED in-run by the v1 trailer pipeline (point 30, 46 below): `Trailer`
    instances carry state across the day boundary with no reset.** A CHECKPOINT format for
    standing trailers across `--resume` is the one piece explicitly left to the future
-   inbound-optimization effort (see Out of scope, end of memory).
+   inbound-optimization effort — now chartered as `.scratch/inbound-optimization/map.md`
+   (2026-08-27), which declined it again (refusal-until-clean stays the mechanism; see that
+   map's Out of scope section).
 4. **New code lands in a TOP-LEVEL `Inbound/` package** beside `Warehouse/`, not
    `Warehouse/inbound/` (contradicts the "future `Warehouse/inbound/`" aside in
    [[one-clock-one-speed-one-config]] — that sentence is now superseded). Vocabulary: "site" =
@@ -550,6 +552,12 @@ signposts for the FUTURE inbound-optimization effort — that effort starts ther
 residual build list. Nothing described as "still a decision, not code" anywhere earlier in this
 memory remains true as of 2026-08-27; every such sentence above has been annotated at its
 original location rather than deleted, per this store's own history-preservation rule.
+**That future effort now EXISTS**: charted 2026-08-27 as `.scratch/inbound-optimization/map.md`
+(commit `25bfdf7`) — a new wayfinder map, git-tracked and canonical, so its charter (yard as the
+canonical term replacing parking lot, the yard-priority/dock-priority split, no deferral, real
+doors, drain-quantized decisions over an event-stamped timeline, seeded per-trailer leads,
+standing-demand-only forecasts, arm-local caching, refusal-until-clean resume, the phased
+top-k funnel) lives there, not duplicated here.
 
 See also [[putaway-seams-for-inbound]], [[receiving-is-its-own-crew]],
 [[one-clock-one-speed-one-config]], [[working-day-clock-plan-corrections]],
