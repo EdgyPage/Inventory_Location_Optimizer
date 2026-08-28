@@ -15,3 +15,14 @@ knobs each policy exposes and their `settings.py` names, and how `bounded_order`
 with each. Policies are pure keys over (trailer, frozen ctx) — the no-deferral charter means
 ranking is the entire expressive surface, so the timeliness-vs-space tradeoff must be
 representable in the terms and weights chosen here.
+
+## Comments
+
+2026-08-27, from resolving "Design the standing-dock mechanics" (01): the user wants the arm
+roster to carry the headline contrast "two departments greedily optimizing is worse than a
+globally cost-aware optimization" — frame the fee/age-pressure family as the department-greedy
+pole (inbound minimizing its own yard cost) against the space-aware family as the globally
+aware pole (spending yard time to buy put + pick hours). Also from 01: dock priority is now a
+worker-ALLOCATION preference under the door-team crew (decisive when workers < staged trailers,
+graded otherwise) — score shapes must stay meaningful under that use, not assume an exclusive
+unload sequence.

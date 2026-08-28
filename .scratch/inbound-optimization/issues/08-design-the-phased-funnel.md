@@ -17,3 +17,13 @@ byte-identical determinism throughout, resume at one uniform grain across the op
 in one config surface. The `Cell` NamedTuple already has room for another axis (memory:
 `putaway-seams-for-inbound`); `analyze_run`'s cross-cell what-if writers are the phase-1
 reading surface.
+
+## Comments
+
+2026-08-27, from resolving "Design the standing-dock mechanics" (01): the user named the
+objective — minimize TOTAL PRODUCTION HOURS = unload + put + pick — as the evaluation frame,
+reported beside the fee proxy. A strong candidate answer to this ticket's "selection metric
+(labor cost? which scope?)" question; argue phase 1's selection metric and phase 2's comparison
+surface against it. Per-crew hours are already separable via the work_events queue
+discriminator. Honesty note from 01: total unload hours vary across arms only through the
+reorder feedback loop, so the first-order lever is placement quality buying put + pick hours.

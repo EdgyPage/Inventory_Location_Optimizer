@@ -66,13 +66,23 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
 
 <!-- one line per closed ticket: gist + link -->
 
+- [Design the standing-dock mechanics](issues/01-design-the-standing-dock-mechanics.md):
+  trailer-held remainders behind `INBOUND_STANDING_YARD` (a `YardTransit` subclass; v1 code
+  untouched); plans-at-arrival, deferred-until-unload, yard-arrival stamps; `_receive` owns
+  every door/crew decision over drain-frozen rankings; door-team split crew with a 'merged'
+  lockstep bridge; canonical handoff makes allocation labor-only; additive yard/dock
+  registries; own unload-cost coefficients (by-reference defaults); objective = total
+  production hours (unload + put + pick), the greedy-departments-vs-global contrast.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close:
-  the standing-yard/doors mechanics build; the registry split + policy wiring; the lead
-  distribution build; the space timeline + evaluator + cache build; the yard-metrics build
-  (columns, semantics tags, report surfaces); the resume-guard extension to yard state;
-  the funnel build (if its decision says build).
+  the space-aware policy wiring (the registries and their split are ticket 09's work; the
+  real policy entries wait on the timeline/evaluator/arms tickets); the lead distribution
+  build; the space timeline + evaluator + cache build; the yard-metrics build (columns,
+  semantics tags, report surfaces); the resume-guard extension to yard state; the funnel
+  build (if its decision says build). (The standing-yard/doors mechanics build graduated
+  2026-08-27 as "Build the standing-yard mechanics", ticket 09.)
 - **The funnel campaign** — actually running phase 1 (inbound-off top-k selection) and
   phase 2 (top-k × inbound policies), and publishing the results; specifiable once the
   machinery and the funnel design exist.

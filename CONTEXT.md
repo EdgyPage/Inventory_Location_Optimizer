@@ -58,6 +58,11 @@ _Avoid_: parking lot, staging area (that is the doors)
 **Dock door**:
 One of finitely many staging slots at the dock. A trailer must hold a door to be unloaded.
 
+**Standing yard**:
+The mode where doors bind: a trailer holds its door across drains until fully unloaded, the
+yard genuinely stands, and the yard and dock priorities decide who advances. Off, every
+arrival drains whole the batch it lands.
+
 **Arrival**:
 A trailer reaching the site. Age is stamped at arrival, never at unload.
 
@@ -89,6 +94,15 @@ _Avoid_: load plan
 
 **Receiving crew**:
 The inbound workforce. One crew does both unloading and packing, on its own hours.
+
+**Crew allocation**:
+How the receiving crew spreads across staged trailers: split (door teams) or merged (one gang
+working one trailer at a time in dock-priority order). Changes labor stamps and makespans,
+never placement.
+
+**Door team**:
+The sub-crew dealt to one staged trailer for a drain, in dock-priority order; a freed team
+reassigns to unmanned staged trailers first. What makes several trailers unload at once.
 
 ### Priorities
 
