@@ -26,14 +26,17 @@ Two rules, both enforced by `context/architecture.yml` boundaries:
                    ordering bound
     transit.py     TrailerTransit: order port -> trailers -> yard -> dock doors;
                    YardTransit: the standing yard, where doors become real
+    space.py       the space timeline: per-drain frozen SpaceView (empties + untimed
+                   predicted clears) the standing dock's decisions read via ctx.space
 """
 from Inbound.dock import Dock, DockSpec
 from Inbound.pack import LoadPlan, packer, receive, receive_all, shipment_penalty
+from Inbound.space import SpaceTimeline, SpaceView
 from Inbound.trailer import LoadPallet, Trailer, Trailer28, Trailer53, TRAILER_TYPES
 from Inbound.transit import TrailerTransit, YardTransit
 from Inbound.unload import UnloadCost, unload_cost
 
 __all__ = ['Dock', 'DockSpec', 'LoadPlan', 'LoadPallet', 'packer', 'receive',
-           'receive_all', 'shipment_penalty', 'Trailer', 'Trailer28', 'Trailer53',
-           'TRAILER_TYPES', 'TrailerTransit', 'UnloadCost', 'unload_cost',
-           'YardTransit']
+           'receive_all', 'shipment_penalty', 'SpaceTimeline', 'SpaceView', 'Trailer',
+           'Trailer28', 'Trailer53', 'TRAILER_TYPES', 'TrailerTransit', 'UnloadCost',
+           'unload_cost', 'YardTransit']

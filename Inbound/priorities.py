@@ -14,10 +14,11 @@ degenerates to the SKU lot — and is shared by both paths.
 
 The contract is `put_policy`'s exactly: a policy is a PURE key function, HIGHER served
 first, over (candidate, ctx) where `ctx` is FROZEN for the drain — computed once, reused
-across every decision in it.  `ctx` is also where the warehouse-space signal arrives when
-the future feature builds it ("unloading that takes advantage of space in warehouse"): a
-named view on the context, no signature change.  A LOCAL policy may reorder WORK but never
-pack composition — the pack plan is fixed per trailer.
+across every decision in it.  `ctx` is also where the warehouse-space signal arrives — the
+reserved named view is now REAL: `ctx.space` carries the drain's frozen
+`Inbound.space.SpaceView` whenever the standing yard runs (always on with the flag), None
+otherwise; no signature change, and every seeded 'fifo' key ignores it.  A LOCAL policy may
+reorder WORK but never pack composition — the pack plan is fixed per trailer.
 
 There is deliberately NO `inherit` entry: at the dock there is no placement pool whose
 precedence could stand in, so the default is plain `'fifo'`.
@@ -42,12 +43,17 @@ class DockContext:
     reason, as `put_policy`.
     """
 
-    __slots__ = ('doors', 'free_doors', 'yard_depth')
+    __slots__ = ('doors', 'free_doors', 'yard_depth', 'space')
 
     def __init__(self, doors: int, free_doors: int, yard_depth: int):
         self.doors = doors
         self.free_doors = free_doors
         self.yard_depth = yard_depth
+        # The space arrival point (module docstring): the drain's frozen
+        # `Inbound.space.SpaceView`, assigned at ctx-freeze by `_receive_standing` when
+        # the standing yard runs; None everywhere else — the v1 path and every fifo key
+        # never read it.
+        self.space = None
 
 
 def _fifo_trailer(trailer, ctx) -> float:

@@ -273,6 +273,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # Bound by `enable_receiving`, the `enable_putaway_timing` precedent -- a binder the
         # harness calls, so the domain never reaches into CONFIG for it.
         self._dock = None
+        # THE SPACE TIMELINE, the standing yard's space instrument (`Inbound/space.py`).
+        # None = never constructed, which is every run without INBOUND_STANDING_YARD: the
+        # three hooks that feed it (reclaim-harvest, the fill in _execute_placement, the
+        # ctx-freeze in _receive_standing) are `is None` tests on this one attribute, so
+        # flag-off byte-identity is by construction.  Attached by the driver
+        # (`SpaceTimeline.attach(mgr)`, the BinRecorder rebind precedent): injection,
+        # never import.
+        self.space_timeline = None
         #: Receiving labour, in seconds. Deliberately NOT folded into `_put_seconds`: that
         #: figure has been published, and widening what it counts would move it silently.
         self._recv_seconds: float = 0.0
@@ -284,7 +292,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
         # Bins emptied by picks, pending return to _index at next check_reorders.
         self._pending_reclaim: list[Aisle.Bin] = []
-        # id(bin) -> the picker-local second it ran dry, for the bins in _pending_reclaim.
+        # id(bin) -> the ABSOLUTE second it ran dry (the pick sim's carried clock), for
+        # the bins in _pending_reclaim.
         # Keyed by id because a Bin is owned by the Warehouse for the whole run and is never
         # collected, so the key is stable — the property a StorageUnit does NOT have, which
         # is why put-away provenance rides in a PutawayItem instead of a map like this.
@@ -925,6 +934,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._reorder_placements += 1
         if self._sigma_freq is not None:
             self._sigma_fd += self._sigma_delta(sku, bin_)
+        # The space timeline's FILL event: version bump + clear-stamp expiry for the bin
+        # just occupied.  Observer only -- reads nothing back, changes no placement.
+        if self.space_timeline is not None:
+            self.space_timeline.fill(bin_)
         # Costs the put; changes nothing about it.  See enable_putaway_timing.
         if self._put_speed is not None:
             self._cost_putaway(unit, bin_, source)

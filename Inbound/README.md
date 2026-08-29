@@ -1,16 +1,20 @@
 # Inbound
 
-The receiving side of the site: the dock, unloading, and packing — with the trailer model to
-follow. Split out of `Warehouse/` so the two domains meet only at the Inventory Manager's
-broker seam.
+The receiving side of the site: trailers, the yard and dock doors, unloading, and packing.
+Split out of `Warehouse/` so the two domains meet only at the Inventory Manager's broker
+seam.
 
 ## What belongs here
 
 - **Receiving mechanics**: the `Dock` (spec, crew clocks, standing merchandise), the unload
   cost model, the packer and its `LoadPlan` record.
-- **Coming next** (decided, not yet built): `trailer.py` (`Trailer53`/`Trailer28` config types,
-  stateful `Trailer` instances, load pallets) and `priorities.py` (the global/local policy
-  registries mirroring `put_policy`).
+- **The trailer model**: `trailer.py` (`Trailer53`/`Trailer28` config types, stateful
+  `Trailer` instances, load pallets) and `transit.py` (`TrailerTransit` on the order-port
+  seam; `YardTransit`, the standing yard where doors become real).
+- **The dock's decision surfaces**: `priorities.py` (the global/local + yard/dock policy
+  registries mirroring `put_policy`, the frozen `DockContext`) and `space.py` (the space
+  timeline: the per-drain frozen `SpaceView` — current empties plus untimed predicted
+  clears — that standing decisions read via `ctx.space`).
 
 ## What does NOT belong here
 

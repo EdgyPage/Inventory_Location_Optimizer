@@ -286,6 +286,50 @@ _bin_location = operator.attrgetter('location')
 from Warehouse.inventory.inventory_common import _SortedBins  # noqa: E402
 
 
+def drain_sku(singleton_bins, pallet_bins, qty: int, out) -> int:
+    """THE SIM'S OWN DRAIN RULE for one SKU, extracted so a forecast shares it by
+    construction: singleton bins before pallet bins, each tier in `location` order,
+    take = min(remaining, bin quantity).
+
+    Accumulates per-bin takes into `out` (a `defaultdict(int)` keyed by the bin object)
+    and returns the demand no bin could satisfy.  Two callers, deliberately:
+    `Task.from_batch` builds the pick tasks from it, and the standing yard's space
+    timeline (`Inbound/space.py`) projects predicted-clear bins with it — handed this
+    function by the driver, because the import edge `Inbound -> wh_picking` is forbidden.
+    One body means the projection is exact rather than a re-implementation that can
+    drift; `_rederive_plan` below is explicitly NOT this rule (its own docstring warns
+    its distribution can differ).
+
+    Pure: reads bin state, writes only `out`, consumes no RNG.  A `_SortedBins`
+    container already iterates in `location` order so its sort is skipped; raw
+    sets/lists (test stand-ins, legacy callers) still get the explicit sort — the
+    determinism contract is the ORDER, not the container
+    (see test_task_bin_selection_determinism).
+    """
+    remaining = qty
+    if not isinstance(singleton_bins, _SortedBins):
+        singleton_bins = sorted(singleton_bins, key=_bin_location)
+    for bin_ in singleton_bins:
+        if remaining <= 0:
+            break
+        available = bin_.storage.quantity if bin_.storage is not None else 0
+        take = min(remaining, available)
+        if take > 0:
+            out[bin_] += take
+            remaining -= take
+    if not isinstance(pallet_bins, _SortedBins):
+        pallet_bins = sorted(pallet_bins, key=_bin_location)
+    for bin_ in pallet_bins:
+        if remaining <= 0:
+            break
+        available = bin_.storage.quantity if bin_.storage is not None else 0
+        take = min(remaining, available)
+        if take > 0:
+            out[bin_] += take
+            remaining -= take
+    return remaining
+
+
 def _rederive_plan(path: list, items: dict[int, int]) -> list[int]:
     """Per-bin quantities for a `Task` built without an explicit plan.
 
@@ -433,36 +477,15 @@ class Task:
         bin_pick: defaultdict[Aisle.Bin, int] = defaultdict(int)
 
         if manager is not None:
-            # O(N_batch_skus) — uses maintained index, no full warehouse scan.
-            # A manager's _SortedBins containers iterate in `location` order by
-            # construction, so the per-SKU sort is skipped (it was 2 sorts per batch SKU —
-            # the t_task deep-ladder offender).  Raw sets/lists (test stand-ins, legacy
-            # callers) still get the explicit sort: the determinism contract is the ORDER,
-            # not the container (see test_task_bin_selection_determinism).
+            # O(N_batch_skus) — uses maintained index, no full warehouse scan.  The
+            # per-SKU walk is `drain_sku`, THE drain rule (see its docstring — the space
+            # timeline's projection shares the same body, which is what makes that
+            # forecast exact by construction).
             for sku, qty in batch.items.items():
-                remaining: int = qty
-                sbins = manager._sku_singleton_bins.get(sku, ())
-                if not isinstance(sbins, _SortedBins):
-                    sbins = sorted(sbins, key=_bin_location)
-                for bin_ in sbins:
-                    if remaining <= 0:
-                        break
-                    available: int = bin_.storage.quantity if bin_.storage is not None else 0
-                    take: int = min(remaining, available)
-                    if take > 0:
-                        bin_pick[bin_] += take
-                        remaining -= take
-                pbins = manager._sku_pallet_bins.get(sku, ())
-                if not isinstance(pbins, _SortedBins):
-                    pbins = sorted(pbins, key=_bin_location)
-                for bin_ in pbins:
-                    if remaining <= 0:
-                        break
-                    available = bin_.storage.quantity if bin_.storage is not None else 0
-                    take = min(remaining, available)
-                    if take > 0:
-                        bin_pick[bin_] += take
-                        remaining -= take
+                remaining = drain_sku(
+                    manager._sku_singleton_bins.get(sku, ()),
+                    manager._sku_pallet_bins.get(sku, ()),
+                    qty, bin_pick)
                 # Whatever is still `remaining` is demand no bin could satisfy.
                 if _shortfall is not None and remaining > 0:
                     _shortfall[sku] = _shortfall.get(sku, 0) + remaining

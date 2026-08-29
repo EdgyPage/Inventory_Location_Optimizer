@@ -58,6 +58,7 @@ from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
 from Inbound.pack import packer as _inbound_packer
+from Inbound.space import SpaceTimeline as _SpaceTimeline
 from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
 from Inbound.transit import TrailerTransit as _TrailerTransit, YardTransit as _YardTransit
 from Inbound.unload import UnloadCost as _UnloadCost
@@ -66,7 +67,7 @@ from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
-from Warehouse.picking.Workload_Builder import Batch, Task
+from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
 from Optimization.metrics.bin_recorder import BinRecorder
 from Optimization.metrics.Simulation_Analytics import (
@@ -760,6 +761,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # byte-identically.  When present, the driver BUILDS and BINDS -- the broker holds what
     # it is handed (`mgr.transit`, `mgr.packer`); nothing under Warehouse/ imports Inbound.
     _inb_spec = args.get('inbound')
+    _space_tl = None
     if _inb_spec is not None:
         if _inb_spec.get('standing'):
             # THE STANDING YARD: real doors, split yard/dock priorities, door-team
@@ -774,6 +776,14 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 local_policy=_inb_spec['local_policy'],
                 bound=_inb_spec['bound'],
                 allocation=_inb_spec['allocation'])
+            # THE SPACE TIMELINE rides the standing yard unconditionally -- no policy
+            # gate, no extra knob, by decision: every drain's DockContext carries a
+            # frozen SpaceView even while both policies are 'fifo', which is what keeps
+            # the lockstep proof strong.  The drain rule is INJECTED because the import
+            # edge Inbound -> wh_picking is forbidden; the broker holds what it is
+            # handed.
+            _space_tl = _SpaceTimeline(_drain_sku)
+            _space_tl.attach(mgr)
         else:
             mgr.transit = _TrailerTransit(
                 _TRAILER_TYPES[_inb_spec['trailer_type']],
@@ -983,6 +993,22 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             None if _recv_day is None
             else (_recv_day.end_of(_recv_day.index_of(arm_clock))
                   - max(arm_clock, recv_clock)))
+        # STANDING-DEMAND INJECTION, before check_reorders: the batch about to be
+        # released (a pure function of (inventory, affinity, config, seed_batches+i) --
+        # fetching or sampling it here consumes no shared RNG) plus the rollover carry,
+        # one batch deep.  That is everything released-but-unpicked at the decision
+        # instant, the only demand the charter lets the dock's forecast see.  The batch
+        # is stashed and reused below, so the flag-off path is untouched and the flag-on
+        # path never samples twice.
+        _batch_early = None
+        if _space_tl is not None:
+            _batch_early = (batches[i] if batches is not None
+                            else Batch(batch_cfg, inventory, affinity=affinity,
+                                       rng=random.Random(seed_batches + i)))
+            _inj = dict(_batch_early.items)
+            for _sku, _q in _pending.items():
+                _inj[_sku] = _inj.get(_sku, 0) + _q
+            _space_tl.inject_demand(_inj, released_at=arm_clock)
         if reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.
@@ -1056,7 +1082,10 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # this warehouse family sees the identical sequence.  It is precomputed ONCE per family and
         # shared (see batch_precompute); `batches` is None only when that list is unavailable, in which
         # case we sample inline here — bit-identical, just not deduplicated across arms.
-        batch    = (batches[i] if batches is not None
+        # (`_batch_early` is the same object, fetched above for the standing-demand
+        # injection; reusing it just skips a second inline sample.)
+        batch    = (_batch_early if _batch_early is not None
+                    else batches[i] if batches is not None
                     else Batch(batch_cfg, inventory, affinity=affinity,
                                rng=random.Random(seed_batches + i)))
         _now = time.perf_counter(); _dt = _now - _t; t_sample_ckpt += _dt; t_build_ckpt += _dt; _t = _now

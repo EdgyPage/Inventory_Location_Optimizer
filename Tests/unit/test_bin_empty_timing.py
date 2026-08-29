@@ -6,9 +6,11 @@ re-deriving it from the event stream. Phase 2 makes that worse than it sounds: i
 mutations in PICKER order, not time order, so the order bins empty in tells you nothing
 about when they did.
 
-Recorded, not used — the drain still happens once, at the top of the next batch. What is
-pinned here is that the stamp is *available* and *correct*, because this is the one seam
-that cannot be added later without touching the pick hot path.
+The stamp now has its consumer: the standing yard's space timeline harvests it inside
+`_reclaim_empty_bins` (the one moment the stamps and the bins meet before both are
+wiped) into the frozen `SpaceView` the dock's decisions read. The reclaim itself still
+happens once, at the top of the next batch. What is pinned here is that the stamp is
+*available*, *correct*, and read at exactly that one place.
 
 Both sims are checked. They are kept byte-for-byte in lockstep on timing by
 `test_scheduler` and `test_travel_decomposition`, and a stamp that only one of them
@@ -140,19 +142,24 @@ def test_the_id_key_is_justified_by_bin_lifetime():
         'the id-key justification is no longer recorded beside the declaration'
 
 
-# ── it is genuinely inert ────────────────────────────────────────────────────────
+# ── it is read at exactly one place ──────────────────────────────────────────────
 
-def test_nothing_reads_the_stamp_to_make_a_decision_yet():
-    """Deliberately inert this commit. When something does read it, this test should be
-    replaced by one asserting what it DECIDES — not deleted.
+def test_reclaim_harvest_is_the_one_legal_reader_of_the_stamp():
+    """Replaces `test_nothing_reads_the_stamp_to_make_a_decision_yet`, exactly as that
+    test's docstring said to once something read the stamp. The reader is the space
+    timeline's reclaim-harvest in `_reclaim_empty_bins` — the one moment the stamps and
+    the bins meet before both are wiped. A second read site in `Warehouse/` means
+    someone is consuming the stamp outside the harvest contract (a per-decision rescan,
+    or a decision made from un-harvested state) and must be argued for here.
 
-    Walked with `ast` rather than grepped: the declaration and the two write sites all
+    Walked with `ast` rather than grepped: the declaration and the write sites all
     mention the name in prose as well as in code, and a text scan cannot tell an
     explanatory docstring from a load.
     """
     import pathlib
     root = pathlib.Path(inspect.getfile(Inventory_Manager)).parents[2]
-    reads = []
+    reads_by_function = []
+    reads_anywhere = 0
     for path in sorted((root / 'Warehouse').rglob('*.py')):
         tree = ast.parse(path.read_text(encoding='utf-8'))
         # every write target and every `.clear()` receiver, by node identity
@@ -167,11 +174,21 @@ def test_nothing_reads_the_stamp_to_make_a_decision_yet():
             elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                     and node.func.attr == 'clear' and _is_stamp(node.func.value)):
                 written.add(id(node.func.value))
-        for node in ast.walk(tree):
-            if _is_stamp(node) and id(node) not in written:
-                reads.append(f'{path.name}:{node.lineno}')
-    assert not reads, ('something now reads the stamp to make a decision: '
-                       + ', '.join(reads))
+        reads_anywhere += sum(1 for node in ast.walk(tree)
+                              if _is_stamp(node) and id(node) not in written)
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(fn):
+                if _is_stamp(node) and id(node) not in written:
+                    reads_by_function.append((path.name, fn.name))
+    assert reads_by_function, (
+        'nothing reads the stamp any more — the reclaim-harvest seam is gone')
+    assert set(reads_by_function) == {('inventory_reorder.py', '_reclaim_empty_bins')}, (
+        'the stamp is read outside the reclaim-harvest: '
+        + ', '.join(f'{f}:{fn}' for f, fn in sorted(set(reads_by_function))))
+    assert reads_anywhere == len(reads_by_function), (
+        'a module-level read escaped the per-function attribution above')
 
 
 def _is_stamp(node) -> bool:

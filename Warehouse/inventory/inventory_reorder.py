@@ -233,10 +233,14 @@ class ReorderMixin:
         None — must be O(1).  The bin stays in _unavailable until
         _reclaim_empty_bins processes _pending_reclaim.
 
-        ``at`` is the picker-local second the bin ran dry.  Recorded in `_emptied_at` and
-        read by nothing yet: the drain still happens once, at the top of the next batch, so
-        a slot freed mid-batch is invisible until then.  Knowing WHEN is what a forecast of
-        upcoming bin slots needs, and the pick loop is the only place that knows it.
+        ``at`` is the ABSOLUTE second the bin ran dry -- the pick sim's carried clock, on
+        the same axis as every other event stamp.  Recorded in `_emptied_at` and read at
+        exactly one place: the space timeline's reclaim-harvest in `_reclaim_empty_bins`,
+        the one moment the stamps and the bins meet before both are wiped (pinned by
+        `Tests/unit/test_bin_empty_timing.py`).  The reclaim itself still happens once,
+        at the top of the next batch, so a slot freed mid-batch is invisible to PLACEMENT
+        until then -- what the stamp feeds is the standing dock's space view, not the
+        reclaim cadence.
         ``None`` from a caller that has no clock (a test, the legacy notification path).
         """
         if self._sigma_freq is not None:
@@ -291,6 +295,13 @@ class ReorderMixin:
         """
         if not self._pending_reclaim:
             return
+
+        # THE RECLAIM-HARVEST: hand the space timeline the actual clear stamps before
+        # this drain wipes them -- the one moment the stamps and the bins meet.  The ONE
+        # legal reader of `_emptied_at` (pinned by test_bin_empty_timing); `is None` =
+        # no standing yard = a structural no-op.
+        if self.space_timeline is not None:
+            self.space_timeline.harvest(self._pending_reclaim, self._emptied_at)
 
         has_affinity = self._affinity is not None
         bin_sku          = self._bin_sku
@@ -631,6 +642,13 @@ class ReorderMixin:
         source = getattr(transit, 'SOURCE', 'reorder')
         pack = self.packer if self.packer is not None else _pack_plain
         ctx = transit.freeze_ctx()
+        # CTX-FREEZE IS VIEW-FREEZE: one space projection per drain serves every decision
+        # in it (no per-decision rescans).  `ctx.space` is the named-view arrival point
+        # the priority seams reserved; every seeded 'fifo' key ignores it, so with both
+        # policies 'fifo' the view is pure data -- neutrality rides the degenerate
+        # lockstep (test_space_timeline).
+        if self.space_timeline is not None:
+            ctx.space = self.space_timeline.freeze(self, epoch)
 
         # 1. plans-at-arrival (manager-side: the transit can reach neither _originals nor
         #    the packer).  Stamped in yard order, so ages are monotone with arrival.

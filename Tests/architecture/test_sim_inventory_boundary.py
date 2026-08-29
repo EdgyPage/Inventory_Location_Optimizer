@@ -39,7 +39,7 @@ _PICKING = _ROOT / 'Warehouse' / 'picking'
 #: attribute -> why the pick layer calls it.  THE observation surface.
 NOTIFICATIONS = {
     '_notify_pick': 'a SKU was depleted by qty — the reorder trigger',
-    '_notify_bin_emptied': 'a bin ran dry, with the picker-local second it happened',
+    '_notify_bin_emptied': 'a bin ran dry, with the absolute second it happened',
     '_apply_picks_batch': 'the legacy sim\'s batched form of the two above',
 }
 

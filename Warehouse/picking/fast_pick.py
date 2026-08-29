@@ -47,12 +47,13 @@ class _PickMutation:
     sku:     int
     qty:     int      # quantity as seen by this picker in the Phase-1 snapshot
     time:    float = 0.0
-    """Picker-local seconds at which this pick completed.
+    """The ABSOLUTE second this pick completed: `t` runs from the picker's carried clock
+    (`t0` puts every event on the run's one axis), not from a batch-local zero.
 
     Phase 2 applies mutations in PICKER order, not time order, so without this the instant
     a bin ran dry is unrecoverable from the mutation alone.  Carried so
-    `_notify_bin_emptied` can say WHEN, which is what a forecast of upcoming bin slots is
-    built from.  Recorded and not yet read by anything that changes an outcome."""
+    `_notify_bin_emptied` can say WHEN; the standing yard's space timeline harvests the
+    stamp at reclaim (`_reclaim_empty_bins`) into the view the dock's decisions read."""
 
 
 def _simulate_picker_deferred(
