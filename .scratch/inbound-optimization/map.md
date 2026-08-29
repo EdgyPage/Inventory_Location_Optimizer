@@ -93,6 +93,15 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   `YardTransit.stamps` holds the raw (seq, arrived, staged, emptied) tuples for the
   yard-metrics ticket; CLI flags/run-spec recording deferred to the first sweep, per the
   family precedent.
+- [Build the space timeline](issues/11-build-the-space-timeline.md): BUILT, commit
+  `72bbffb` — everything ticket 03 decided is code: `Inbound/space.py`
+  (`SpaceTimeline`/`SpaceView`) always on with the standing yard, four touchpoints live,
+  `ctx.space` frozen once per drain; the drain rule extracted as
+  `Workload_Builder.drain_sku` and INJECTED by the driver (the `inbound -> wh_picking`
+  forbid — the one deviation from the ticket's letter); every neutrality obligation is a
+  passing test (lockstep with timeline ON, purity, drain-rule equivalence, the AST-guard
+  replacement); the eviction-not-versioned gap is flagged as a comment on
+  [Draw the cache-sharing boundary](issues/06-draw-the-cache-sharing-boundary.md).
 
 ## Not yet specified
 
@@ -103,10 +112,10 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   distribution build; the evaluator + cache builds; the yard-metrics build (columns,
   semantics tags, report surfaces — its raw material, `YardTransit.stamps`, already
   exists); the resume-guard extension to yard state; the funnel build (if its decision
-  says build). (The standing-yard/doors mechanics build is DONE — ticket 09, resolved
-  2026-08-29; the space-timeline build graduated 2026-08-29 as
-  [Build the space timeline](issues/11-build-the-space-timeline.md), unblocked now that
-  09 is done.)
+  says build). (The standing-yard/doors mechanics build — ticket 09 — and the
+  space-timeline build — ticket 11 — are both DONE, resolved 2026-08-29; policy keys now
+  have `ctx.space` to read the moment the objective/evaluator tickets give them a reason
+  to.)
 - **Timed / deeper lookahead views** — predicted-clear timing and demand beyond the released
   batch ("how far ahead can availability reliably be planned"), a future inbound view-arm
   family; parked by the space-timeline resolution (03), which shipped predictions untimed.

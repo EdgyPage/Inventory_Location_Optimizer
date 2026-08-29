@@ -20,3 +20,16 @@ inherit by fork).
 
 Output: a table — computation × sharing grain × invalidation key × cross-check — that the
 build tickets implement verbatim.
+
+## Comments
+
+2026-08-29 (from resolving "Build the space timeline", 11): the version vector is now live —
+`SpaceTimeline.demand_v/reclaim_v/fill_v` in `Inbound/space.py`, per-event-class, equality
+the only legal operation, and this ticket may not add counters of its own (03's contract).
+One gap to account for when composing keys: `requeue_bin` evictions (reloader arms) return a
+bin to the free index through NONE of the three event classes, so two version-equal freezes
+can straddle an eviction-only change; the frozen views themselves are always correct (they
+snapshot live state — staleness is confined to version-keyed reuse), and the evicted unit's
+eventual re-placement does bump `fill_v`. Stated in the module docstring too. Decide here
+whether reloader+standing arms are simply declared out of cache scope or the eviction is
+folded into an existing class.
