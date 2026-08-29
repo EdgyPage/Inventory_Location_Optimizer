@@ -73,16 +73,25 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   lockstep bridge; canonical handoff makes allocation labor-only; additive yard/dock
   registries; own unload-cost coefficients (by-reference defaults); objective = total
   production hours (unload + put + pick), the greedy-departments-vs-global contrast.
+- [Build the standing-yard mechanics](issues/09-build-the-standing-yard-mechanics.md):
+  BUILT, commit `64b2d31` — everything ticket 01 decided is code; all four byte-identity
+  layers proven on the run DB (merged byte-identical, split labor-stamps-only, capped
+  levels relabel with flows conserved); yard/dock registries live, seeded 'fifo';
+  `YardTransit.stamps` holds the raw (seq, arrived, staged, emptied) tuples for the
+  yard-metrics ticket; CLI flags/run-spec recording deferred to the first sweep, per the
+  family precedent.
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close:
-  the space-aware policy wiring (the registries and their split are ticket 09's work; the
-  real policy entries wait on the timeline/evaluator/arms tickets); the lead distribution
-  build; the space timeline + evaluator + cache build; the yard-metrics build (columns,
-  semantics tags, report surfaces); the resume-guard extension to yard state; the funnel
-  build (if its decision says build). (The standing-yard/doors mechanics build graduated
-  2026-08-27 as "Build the standing-yard mechanics", ticket 09.)
+  the space-aware policy wiring (the yard/dock registries and their split LANDED with
+  "Build the standing-yard mechanics"; the real policy entries wait on the
+  timeline/evaluator/arms tickets and arrive as registry entries, not rewiring); the lead
+  distribution build; the space timeline + evaluator + cache build; the yard-metrics
+  build (columns, semantics tags, report surfaces — its raw material,
+  `YardTransit.stamps`, already exists); the resume-guard extension to yard state; the
+  funnel build (if its decision says build). (The standing-yard/doors mechanics build is
+  DONE — ticket 09, resolved 2026-08-29.)
 - **The funnel campaign** — actually running phase 1 (inbound-off top-k selection) and
   phase 2 (top-k × inbound policies), and publishing the results; specifiable once the
   machinery and the funnel design exist.
