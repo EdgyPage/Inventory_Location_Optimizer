@@ -32,10 +32,15 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
     is a cadence change, not a data redesign.
   - **Leads**: per-trailer, drawn from a seeded distribution (minutes-authored); arrivals
     enter the yard ordered by arrival stamp, `seq` as tiebreak. No batch denomination.
-  - **The score** is placement quality: a candidate trailer's load evaluated against current
-    empty bins plus bins predicted to clear within that trailer's unload window. Forecast
-    source is STANDING DEMAND only (released-but-unpicked) — information a real WMS has.
-    Myopic and forecasting are the two real arm families.
+  - **The score — amended 2026-08-29 by the space-timeline resolution (03):** the decision
+    to stage/unload a trailer anchors to IMMEDIATELY AVAILABLE bins (the operationally
+    stable signal); predicted clears are an UNTIMED set — no unload-window gate, no rate or
+    makespan inference. Forecast source stays STANDING DEMAND only (released-but-unpicked,
+    one batch deep) — information a real WMS has. Whether placement quality can rank
+    trailers at all, and what the decision optimizes instead (on-shelf availability; an
+    unload plan), is open in
+    [Define the inbound objective](issues/10-define-the-inbound-objective.md); the
+    myopic/forecasting family pair stands pending that answer.
   - **Fee proxy**: per-trailer overage = max(0, yard_days − threshold), threshold a knob;
     a reported span-derived metric, never converted to dollars, never mixed into labor.
   - **Caching**: staleness is contractual at declared freeze points; within the contract,
@@ -73,6 +78,14 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   lockstep bridge; canonical handoff makes allocation labor-only; additive yard/dock
   registries; own unload-cost coefficients (by-reference defaults); objective = total
   production hours (unload + put + pick), the greedy-departments-vs-global contrast.
+- [Design the space timeline](issues/03-design-the-space-timeline.md): two-tier `SpaceView`
+  on `ctx.space` — `_index`-snapshot empties (reclaim-harvested absolute stamps) plus
+  UNTIMED predicted clears projected from one batch of released demand by the sim's own
+  extracted drain rule; no inferred timing anywhere; per-event-class version counters
+  (`demand_v`/`reclaim_v`/`fill_v`, equality-only); `Inbound/space.py` attached to the
+  manager, always-on with the flag; the staging decision consumes empties only — and the
+  objective question it exposed became
+  [Define the inbound objective](issues/10-define-the-inbound-objective.md).
 - [Build the standing-yard mechanics](issues/09-build-the-standing-yard-mechanics.md):
   BUILT, commit `64b2d31` — everything ticket 01 decided is code; all four byte-identity
   layers proven on the run DB (merged byte-identical, split labor-stamps-only, capped
@@ -86,12 +99,17 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
 - **The builds** — every implementation graduates here once its governing decisions close:
   the space-aware policy wiring (the yard/dock registries and their split LANDED with
   "Build the standing-yard mechanics"; the real policy entries wait on the
-  timeline/evaluator/arms tickets and arrive as registry entries, not rewiring); the lead
-  distribution build; the space timeline + evaluator + cache build; the yard-metrics
-  build (columns, semantics tags, report surfaces — its raw material,
-  `YardTransit.stamps`, already exists); the resume-guard extension to yard state; the
-  funnel build (if its decision says build). (The standing-yard/doors mechanics build is
-  DONE — ticket 09, resolved 2026-08-29.)
+  objective/evaluator/arms tickets and arrive as registry entries, not rewiring); the lead
+  distribution build; the evaluator + cache builds; the yard-metrics build (columns,
+  semantics tags, report surfaces — its raw material, `YardTransit.stamps`, already
+  exists); the resume-guard extension to yard state; the funnel build (if its decision
+  says build). (The standing-yard/doors mechanics build is DONE — ticket 09, resolved
+  2026-08-29; the space-timeline build graduated 2026-08-29 as
+  [Build the space timeline](issues/11-build-the-space-timeline.md), unblocked now that
+  09 is done.)
+- **Timed / deeper lookahead views** — predicted-clear timing and demand beyond the released
+  batch ("how far ahead can availability reliably be planned"), a future inbound view-arm
+  family; parked by the space-timeline resolution (03), which shipped predictions untimed.
 - **The funnel campaign** — actually running phase 1 (inbound-off top-k selection) and
   phase 2 (top-k × inbound policies), and publishing the results; specifiable once the
   machinery and the funnel design exist.

@@ -119,6 +119,23 @@ work stands. v1: FIFO by arrival.
 **Local priority**:
 The order in which one trailer's items are unloaded and packed. v1: FIFO.
 
+### Space
+
+**Space timeline**:
+The dock's continuously maintained view of storage space: bins empty now, with the stamps
+they emptied at, plus the bins standing demand will clear. Read only through frozen views.
+
+**Space view**:
+The per-drain frozen snapshot of the space timeline that yard and dock priorities read.
+
+**Standing demand**:
+Released-but-unpicked pick demand — the batch just released plus any carry. The demand slice
+of standing work, and the only lawful forecast source; never the future demand script.
+
+**Predicted clear**:
+A bin standing demand will empty, identified by the same rule the pick sim plans with. A
+fact about which bins, never about when.
+
 ### Warehouse
 
 **Putting**:

@@ -17,3 +17,11 @@ FLOW), each with kind/unit/grain/clock tags per `Schema/semantics.py`; which tab
 carries them and whether a new family is needed (schema changes ride the pipeline —
 `schema-maintainer` owns the contract); and which analysis/dossier views report them
 (declared quantities, no ad-hoc graphs — the `route-reviewer-finding` discipline).
+
+## Comments
+
+2026-08-29, from resolving "Design the space timeline" (03): a candidate metric surfaced —
+ON-SHELF AVAILABILITY (missed orders: the `unmet` / `_shortfall` counts the sim already
+produces), floated as the inbound objective in "Define the inbound objective" (10). If 10
+adopts it, its columns land here (a FLOW of missed units, plus any share against a stated
+demand whole); coordinate with 10 before resolving.

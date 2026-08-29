@@ -2,7 +2,7 @@
 
 Type: grilling
 Status: open
-Blocked by: 01, 04
+Blocked by: 01, 04, 10
 
 ## Question
 
@@ -26,3 +26,10 @@ aware pole (spending yard time to buy put + pick hours). Also from 01: dock prio
 worker-ALLOCATION preference under the door-team crew (decisive when workers < staged trailers,
 graded otherwise) — score shapes must stay meaningful under that use, not assume an exclusive
 unload sequence.
+
+2026-08-29, from resolving "Design the space timeline" (03): now also blocked by "Define the
+inbound objective" (10) — the user suspects placement-quality scoring is VACUOUS for trailer
+ordering (every SKU benefits from easier picks), so the space-aware families named here must
+be re-argued against 10's objective (on-shelf availability / unload-plan candidates). Score
+terms may gain per-SKU demand (`Order.demand`) as an input; predictions in the SpaceView are
+UNTIMED (no unload-window term exists).

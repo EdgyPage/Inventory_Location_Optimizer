@@ -27,3 +27,7 @@ reported beside the fee proxy. A strong candidate answer to this ticket's "selec
 surface against it. Per-crew hours are already separable via the work_events queue
 discriminator. Honesty note from 01: total unload hours vary across arms only through the
 reorder feedback loop, so the first-order lever is placement quality buying put + pick hours.
+
+2026-08-29, from resolving "Design the space timeline" (03): "Define the inbound objective"
+(10) may add ON-SHELF AVAILABILITY (missed orders) beside total production hours as a
+comparison surface; check its resolution before fixing the selection metric.
