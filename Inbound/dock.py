@@ -182,6 +182,32 @@ class Dock:
         self.seconds += dur
         return crew_clock.charge(self.clocks, dur)
 
+    # ── door teams (the standing yard's 'split' allocation) ───────────────────────
+    # The same crew and the same clock list, dealt into per-trailer teams: `idxs` are
+    # indices into `self.clocks`, so a record's worker field names the same person
+    # whichever team they were on.  A team of everybody IS `charge`/`can_start`, which is
+    # what makes 'merged' the verification bridge rather than a second implementation.
+    def team_next_free(self, idxs) -> float:
+        """When the team's earliest worker frees up; +inf for a team of nobody."""
+        return crew_clock.earliest_subset(self.clocks, idxs)
+
+    def can_start_team(self, idxs, deadline: float | None) -> bool:
+        """Is anyone on this team free to BEGIN before `deadline`? Same START gate."""
+        return crew_clock.can_start_subset(self.clocks, idxs, deadline)
+
+    def charge_team(self, idxs, dur: float):
+        """Book `dur` to the team member free earliest; return (start, worker index).
+
+        Does NOT accrue `seconds`, unlike `charge` — deliberately.  The standing drain
+        charges teams in clock order but accrues `seconds` in the CANONICAL handoff
+        order, so the batch's float sum associates identically whatever the allocation
+        mode — a sum accrued in charge order differs from the merged run's by one ulp,
+        which is exactly the kind of "identical except labor" leak the containment
+        property forbids.  The caller that charges a team also hands off, and accrues
+        there, once per record.
+        """
+        return crew_clock.charge_subset(self.clocks, idxs, dur)
+
     def unload_seconds(self, weight: float, volume: float, quantity: int) -> float:
         """Seconds to take ONE storage unit off a trailer, priced by this dock's own cost
         model — here so the manager needs no import of `unload`; the dock owns its price

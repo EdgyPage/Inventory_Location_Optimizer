@@ -15,6 +15,13 @@ optional lead, the arrival stamp, door state.  Its pack plan is computed once at
 the packs) and dropped when the trailer is fully worked, so nothing pins packs across
 batches — the constraint the removed LoadPlan-retention leak taught.
 
+Under the STANDING YARD (`YardTransit`) a trailer also carries its unload state across
+drains: `pending` is the planned put-away work in canonical order and `taken` is the
+consumed index into it — a remainder is the tail, never a re-pack.  Decisions are
+drain-quantized but the DATA is event-stamped: `arrived_s` (yard entry), `staged_s` (when
+it took its door) and `emptied_s` (when its last unit came off) are absolute-clock
+seconds, so a later event-driven cadence is a cadence change, not a data redesign.
+
 # ── the load pallet, and why it is not a pack ─────────────────────────────────────
 
 A LOAD PALLET is the transport grouping loose items ride on — it may MIX SKUs that fit its
@@ -94,7 +101,8 @@ class Trailer:
     """One vehicle in flight or on the ground.  State matters and persists day over day."""
 
     __slots__ = ('type', 'pallets', 'lead_s', 'dispatched_s', 'seq',
-                 'staged', 'plans')
+                 'staged', 'plans', 'pending', 'taken',
+                 'arrived_s', 'staged_s', 'emptied_s')
 
     def __init__(self, trailer_type: type, seq: int, lead_s: float = 0.0,
                  dispatched_s: float | None = None):
@@ -105,6 +113,18 @@ class Trailer:
         self.seq = int(seq)                # dispatch order — FIFO's arrival tiebreak
         self.staged = False                # holds a dock door
         self.plans = None                  # pack plans, computed once at arrival
+        # Standing-yard unload state (YardTransit only; inert on the v1 drain path).
+        # `pending` is the planned put-away work in canonical order, stamped at yard
+        # arrival; `taken` is the consumed index — the remainder carried across drains is
+        # pending[taken:], never a re-pack.  Both dropped when the trailer fully unloads.
+        self.pending = None                # list of stamped PutawayItems, or None
+        self.taken = 0
+        # Event stamps, absolute-clock seconds.  Decisions are drain-quantized; the DATA
+        # carries the instant, so the fee proxy and a future event-driven cadence read
+        # real times.  None until the event happens (or when no clock reached the drain).
+        self.arrived_s = None              # joined the yard
+        self.staged_s = None               # took its door
+        self.emptied_s = None              # last unit off (epoch + crew-clock offset)
 
     def __repr__(self):
         return (f'Trailer({self.type.__name__}, #{self.seq}, '
@@ -138,8 +158,30 @@ class Trailer:
             out[sku] = out.get(sku, 0) + qty
         return out
 
+    def remaining_qty(self) -> int:
+        """Pieces still aboard: the un-taken planned tail once a plan exists, the whole
+        load before one does.  The standing yard's contribution to the deferred census —
+        planned quantities, so a packing shortfall (already debited from the ledger at
+        arrival) is not counted twice."""
+        if self.pending is None:
+            return sum(qty for _s, qty, _v in self.lots())
+        return sum(it.unit.quantity for it in self.pending[self.taken:])
+
+    def remaining_totals(self) -> dict:
+        """{sku: qty} still aboard — `remaining_qty` with the per-SKU split the
+        replay/reorder_queue rows want."""
+        out: dict = {}
+        if self.pending is None:
+            for sku, qty, _v in self.lots():
+                out[sku] = out.get(sku, 0) + qty
+        else:
+            for it in self.pending[self.taken:]:
+                sku = it.unit.order.sku
+                out[sku] = out.get(sku, 0) + it.unit.quantity
+        return out
+
     def arrived(self, now_s: float | None) -> bool:
-        """Has this trailer reached the parking lot?
+        """Has this trailer reached the yard?
 
         Lead zero (the decided default) arrives instantly.  A positive lead needs the
         absolute clock; when no clock reaches the calendar (`now_s` None — bare test

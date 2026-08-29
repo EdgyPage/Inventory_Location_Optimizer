@@ -1,12 +1,16 @@
-"""priorities — the dock's two policy registries, on `put_policy`'s proven contract.
+"""priorities — the dock's policy registries, on `put_policy`'s proven contract.
 
-# ── two levels, two registries ────────────────────────────────────────────────────
+# ── the registries, and the split the standing yard made real ─────────────────────
 
-GLOBAL ranks TRAILERS, and one ranking serves BOTH dock moments: a freed door goes to the
-top-ranked unstaged trailer, and the crew unloads the top-ranked staged one.  LOCAL ranks a
-trailer's LOAD PALLETS — what a crew actually pulls; on a single-SKU pallet that degenerates
-to the SKU lot.  A separate staging-vs-unload split is a later registry addition if a real
-policy ever needs it (one adapter is a hypothetical seam).
+GLOBAL ranks TRAILERS for the v1 drain-everything path, where one ranking serves both dock
+moments.  The STANDING YARD (`YardTransit`) splits that decision in two, each with its own
+registry and knob: YARD (`INBOUND_YARD_POLICY`) answers "a freed door goes to which
+standing trailer"; DOCK (`INBOUND_DOCK_POLICY`) answers "the crew works which staged
+trailer" — under door-team allocation that is a worker-ALLOCATION preference, decisive when
+workers < staged trailers and graded otherwise.  Both additive, both seeded `'fifo'`; the
+GLOBAL registry and its knob stay untouched and are simply unread in standing mode.  LOCAL
+ranks a trailer's LOAD PALLETS — what a crew actually pulls; on a single-SKU pallet that
+degenerates to the SKU lot — and is shared by both paths.
 
 The contract is `put_policy`'s exactly: a policy is a PURE key function, HIGHER served
 first, over (candidate, ctx) where `ctx` is FROZEN for the drain — computed once, reused
@@ -23,8 +27,9 @@ precedence could stand in, so the default is plain `'fifo'`.
 `bounded_order` is the dock's `k_cap` analog, shipped now by decision: the policy PROPOSES
 an order, the bound limits how far it may depart from arrival order — "of the `bound`
 longest-waiting trailers, take the best".  Denominated in TRAILERS; None = unbounded.  With
-`'fifo'` (v1's only policy) any bound is inert, which is what keeps v1 byte-identical while
-the interface is real.
+`'fifo'` (every seeded policy) any bound is inert, which is what keeps v1 byte-identical
+while the interface is real.  The ONE bound covers the global ranking and both standing
+rankings alike — a per-registry bound waits for an arm that needs them separate.
 """
 from __future__ import annotations
 
@@ -37,17 +42,31 @@ class DockContext:
     reason, as `put_policy`.
     """
 
-    __slots__ = ('doors', 'free_doors', 'lot_depth')
+    __slots__ = ('doors', 'free_doors', 'yard_depth')
 
-    def __init__(self, doors: int, free_doors: int, lot_depth: int):
+    def __init__(self, doors: int, free_doors: int, yard_depth: int):
         self.doors = doors
         self.free_doors = free_doors
-        self.lot_depth = lot_depth
+        self.yard_depth = yard_depth
 
 
 def _fifo_trailer(trailer, ctx) -> float:
     """Strict arrival order: the longest-waiting trailer first."""
     return -float(trailer.seq)
+
+
+def _fifo_standing(trailer, ctx) -> float:
+    """Longest-STANDING first: earliest yard arrival wins.
+
+    The charter's order — arrival stamp, `seq` as tiebreak — needs only the stamp here:
+    both standing collections (the yard, the staged set) are maintained in (stamp, seq)
+    order, and `bounded_order`'s sort is stable, so equal stamps fall back to `seq` for
+    free.  A trailer with no stamp (no clock reached the drain — bare test managers)
+    ranks oldest rather than crashing or silently sorting last: it has been standing
+    since before anything the clock can see.
+    """
+    s = trailer.arrived_s
+    return float('inf') if s is None else -float(s)
 
 
 def _fifo_pallet(indexed_pallet, ctx) -> float:
@@ -58,6 +77,11 @@ def _fifo_pallet(indexed_pallet, ctx) -> float:
 
 GLOBAL_POLICIES: dict = {'fifo': _fifo_trailer}
 LOCAL_POLICIES: dict = {'fifo': _fifo_pallet}
+#: The standing yard's split of the global decision (see the module docstring).  ADDITIVE:
+#: nothing here changes what GLOBAL_POLICIES means to the v1 path.  The space-aware arms
+#: (myopic, standing-demand forecasting) land here as entries, not as rewiring.
+YARD_POLICIES: dict = {'fifo': _fifo_standing}
+DOCK_POLICIES: dict = {'fifo': _fifo_standing}
 
 
 def global_key(policy: str):
@@ -70,6 +94,18 @@ def local_key(policy: str):
     if policy not in LOCAL_POLICIES:
         raise KeyError(f'unknown local priority {policy!r}; known: {sorted(LOCAL_POLICIES)}')
     return LOCAL_POLICIES[policy]
+
+
+def yard_key(policy: str):
+    if policy not in YARD_POLICIES:
+        raise KeyError(f'unknown yard priority {policy!r}; known: {sorted(YARD_POLICIES)}')
+    return YARD_POLICIES[policy]
+
+
+def dock_key(policy: str):
+    if policy not in DOCK_POLICIES:
+        raise KeyError(f'unknown dock priority {policy!r}; known: {sorted(DOCK_POLICIES)}')
+    return DOCK_POLICIES[policy]
 
 
 def bounded_order(candidates: list, key, ctx, bound: int | None) -> list:

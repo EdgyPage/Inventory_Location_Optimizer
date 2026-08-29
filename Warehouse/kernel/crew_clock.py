@@ -90,6 +90,49 @@ def charge(clocks, dur: float):
     return t0, w
 
 
+def earliest_subset(clocks, idxs) -> float:
+    """When the first worker of the TEAM `idxs` becomes free, on the batch-local clock.
+
+    The subset trio (`earliest_subset` / `can_start_subset` / `charge_subset`) exists for
+    door-team crew allocation: one crew's clock list, dealt into teams that each work one
+    trailer, every rule still stated once over the same bare `list[float]`.  `idxs` are
+    indices into `clocks`; an empty team returns +inf — a team of nobody is never free,
+    which is what lets a caller take a global min over teams without special-casing.
+    """
+    if not idxs:
+        return float('inf')
+    return min(clocks[i] for i in idxs)
+
+
+def can_start_subset(clocks, idxs, deadline: float | None) -> bool:
+    """Is anyone on the TEAM `idxs` free to BEGIN before `deadline`?
+
+    Same START-gate contract as `can_start`, restricted to a team: a worker already past
+    the whistle begins nothing new, the job in progress finishes.  False on an empty team
+    (nobody can start), True when `deadline` is None (no whistle today) — note the order:
+    an empty team is not working even on an unbounded day.
+    """
+    if not idxs:
+        return False
+    if deadline is None:
+        return True
+    return min(clocks[i] for i in idxs) < deadline
+
+
+def charge_subset(clocks, idxs, dur: float):
+    """Book `dur` to the team member free earliest; return `(start, worker_index)`.
+
+    The returned index is into `clocks` — the CREW's index space, not the team's — so a
+    record written from it names the same worker whichever team they were dealt to.  Ties
+    break to the lowest crew index, exactly as `charge` does, so a team of one is a serial
+    clock and a team of everybody IS `charge`.
+    """
+    w = min(idxs, key=lambda i: (clocks[i], i))
+    t0 = clocks[w]
+    clocks[w] = t0 + dur
+    return t0, w
+
+
 def reset(clocks) -> None:
     """Restart every worker at 0, IN PLACE.
 

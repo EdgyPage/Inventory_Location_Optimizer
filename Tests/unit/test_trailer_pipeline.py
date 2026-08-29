@@ -140,7 +140,7 @@ def test_the_census_counts_what_has_not_reached_the_dock():
 # ── 3. the ordering bound (the k_cap analog, inert under fifo) ───────────────────
 
 def test_the_bound_is_inert_under_fifo_and_bites_under_a_real_key():
-    ctx = DockContext(doors=4, free_doors=4, lot_depth=3)
+    ctx = DockContext(doors=4, free_doors=4, yard_depth=3)
     trailers = [Trailer(Trailer53, seq=i) for i in range(3)]
     fifo = lambda t, c: -float(t.seq)
     biggest_last = lambda t, c: float(t.seq)          # prefers the NEWEST

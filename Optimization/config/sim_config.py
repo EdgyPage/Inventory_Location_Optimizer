@@ -199,6 +199,16 @@ CONFIG = {
         'inbound_global_policy' : _s.INBOUND_GLOBAL_POLICY,
         'inbound_local_policy'  : _s.INBOUND_LOCAL_POLICY,
         'inbound_trailer_bound' : _s.INBOUND_TRAILER_BOUND,
+        # The standing yard (real doors, split yard/dock priorities, door-team crews,
+        # own unload coefficients).  All riding inbound_spec below, so the whole family
+        # crosses the worker payload as one record.
+        'inbound_standing_yard'    : _s.INBOUND_STANDING_YARD,
+        'inbound_crew_allocation'  : _s.INBOUND_CREW_ALLOCATION,
+        'inbound_yard_policy'      : _s.INBOUND_YARD_POLICY,
+        'inbound_dock_policy'      : _s.INBOUND_DOCK_POLICY,
+        'inbound_unload_intercept' : _s.INBOUND_UNLOAD_INTERCEPT,
+        'inbound_unload_weight_coef': _s.INBOUND_UNLOAD_WEIGHT_COEF,
+        'inbound_unload_volume_coef': _s.INBOUND_UNLOAD_VOLUME_COEF,
         # The SPLIT put-away configuration.  False = one catch-all queue, which is every
         # run before this existed; see put_queues_spec below for why that is a structural
         # no-op rather than a flag test.
@@ -395,11 +405,32 @@ def inbound_spec() -> dict | None:
     Reads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`'s
     settings snapshot).  The lead is authored in MINUTES and converted to the sim's
     seconds exactly once, here -- the minutes-at-the-surface decision.
+
+    THE STANDING YARD'S CONTRADICTIONS FAIL HERE, LOUDLY.  `INBOUND_STANDING_YARD` with
+    no trailer type is a yard with no trailers; with no receiving crew it is a yard
+    nobody can ever unload -- merchandise would stand deferred forever, the run would
+    complete, and nothing would raise.  Both are configuration errors, never a silent
+    no-op: the flag's OFF state is the only inert one.
     """
     g = CONFIG['global']
     ttype = g.get('inbound_trailer_type')
+    standing = bool(g.get('inbound_standing_yard'))
     if not ttype:
+        if standing:
+            raise ValueError(
+                'INBOUND_STANDING_YARD is set but INBOUND_TRAILER_TYPE is None -- a '
+                "standing yard with no trailers is a config contradiction; name a type "
+                "('53'/'28') or clear the flag")
         return None
+    if standing and int(g.get('recv_crew_size') or 0) < 1:
+        raise ValueError(
+            'INBOUND_STANDING_YARD needs a receiving crew (RECV_CREW_SIZE >= 1): '
+            'unloading a staged trailer is crew labour, and with no crew the yard '
+            'would stand forever with nothing raising')
+    allocation = str(g.get('inbound_crew_allocation') or 'split')
+    if allocation not in ('split', 'merged'):
+        raise ValueError(f'unknown INBOUND_CREW_ALLOCATION {allocation!r}; '
+                         f"known: 'split', 'merged'")
     lead_min = float(g.get('inbound_lead_minutes') or 0.0)
     return {
         'trailer_type': str(ttype),
@@ -408,6 +439,17 @@ def inbound_spec() -> dict | None:
         'global_policy': str(g.get('inbound_global_policy') or 'fifo'),
         'local_policy': str(g.get('inbound_local_policy') or 'fifo'),
         'bound': g.get('inbound_trailer_bound'),
+        # The standing yard.  `standing` False keeps every key inert; the driver binds
+        # the v1 transit and none of the rest is read.
+        'standing': standing,
+        'allocation': allocation,
+        'yard_policy': str(g.get('inbound_yard_policy') or 'fifo'),
+        'dock_policy': str(g.get('inbound_dock_policy') or 'fifo'),
+        # The unload cost's own coefficients; None = the put-away default BY REFERENCE
+        # (UnloadCost's field defaults), so unset changes no archive row.
+        'unload_intercept': g.get('inbound_unload_intercept'),
+        'unload_weight_coef': g.get('inbound_unload_weight_coef'),
+        'unload_volume_coef': g.get('inbound_unload_volume_coef'),
     }
 
 

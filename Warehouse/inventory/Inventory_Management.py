@@ -574,13 +574,20 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     @property
     def lead_queue_depth(self) -> int:
-        """Number of in-transit reorders waiting out their lead time (lead queue length)."""
-        return len(self._lead_queue)   # via the transit shim below
+        """In-flight transit ENTRIES: lead-queue records flag-off, trailers flag-on.
+
+        Through the transit's own census, NOT the `_lead_queue` shim below: the shim
+        exposes `BatchTransit`'s entry list and a trailer transit has no such list — the
+        first e2e run with the trailer flag on found exactly that AttributeError here.
+        For `BatchTransit`, `depth` IS `len(entries)`, so flag-off reads are unchanged.
+        """
+        return self.transit.depth
 
     @property
     def in_transit_qty(self) -> int:
-        """Total units currently in transit (sum of lead-queue order quantities)."""
-        return sum(entry[1] for entry in self._lead_queue)
+        """Total pieces on order and not yet released — the transit census's level.
+        For `BatchTransit` this is the historical sum of entry quantities, unchanged."""
+        return self.transit.merchandise()
 
     # ── the transit shim ──────────────────────────────────────────────────────────
     @property
@@ -1495,8 +1502,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         at admission would make it the youngest thing in the warehouse -- turning
         backpressure into a priority inversion.
         """
-        item = PutawayItem(unit, source, self._putaway_seq)
-        self._putaway_seq += 1
+        item = self._stamp(unit, source)
         # THE DOCK INTERCEPTS HERE, after the stamp and before the queue.  After the stamp,
         # so a pallet that waits three batches on the dock is three batches old when it
         # finally gets floor space -- the inversion the paragraph above forbids.  And here
@@ -1510,6 +1516,18 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             self._dock.arrive(item)
             return item
         return self._queue(item)
+
+    def _stamp(self, unit: StorageUnit, source: str) -> 'PutawayItem':
+        """Wrap one unit as a stamped `PutawayItem` -- the ONE place the age stamp is
+        taken.  Split out of `_admit` for the standing yard, whose units are stamped at
+        YARD ARRIVAL (their age is the trailer's, not the unload's) but enter no queue
+        until the crew pulls them -- `_admit` routes as well as stamps, and routing a
+        deferred unit would put it away for free.  Every stamp still comes from here, so
+        no producer can invent its own and quietly enter as age -1.
+        """
+        item = PutawayItem(unit, source, self._putaway_seq)
+        self._putaway_seq += 1
+        return item
 
     def _queue(self, item: 'PutawayItem') -> 'PutawayItem':
         """Route one STAMPED item to its put queue, holding it if the queue is full.

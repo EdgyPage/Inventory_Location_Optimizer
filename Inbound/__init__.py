@@ -22,15 +22,18 @@ Two rules, both enforced by `context/architecture.yml` boundaries:
     unload.py      what it costs to take one storage unit off a trailer
     pack.py        packing one delivery into storage units, and the LoadPlan record
     trailer.py     TrailerType (53/28), stateful Trailers, and the load pallets they carry
-    priorities.py  the global/local policy registries, frozen DockContext, ordering bound
-    transit.py     TrailerTransit: order port -> trailers -> parking lot -> dock doors
+    priorities.py  the policy registries (global/local + yard/dock), frozen DockContext,
+                   ordering bound
+    transit.py     TrailerTransit: order port -> trailers -> yard -> dock doors;
+                   YardTransit: the standing yard, where doors become real
 """
 from Inbound.dock import Dock, DockSpec
 from Inbound.pack import LoadPlan, packer, receive, receive_all, shipment_penalty
 from Inbound.trailer import LoadPallet, Trailer, Trailer28, Trailer53, TRAILER_TYPES
-from Inbound.transit import TrailerTransit
+from Inbound.transit import TrailerTransit, YardTransit
 from Inbound.unload import UnloadCost, unload_cost
 
 __all__ = ['Dock', 'DockSpec', 'LoadPlan', 'LoadPallet', 'packer', 'receive',
            'receive_all', 'shipment_penalty', 'Trailer', 'Trailer28', 'Trailer53',
-           'TRAILER_TYPES', 'TrailerTransit', 'UnloadCost', 'unload_cost']
+           'TRAILER_TYPES', 'TrailerTransit', 'UnloadCost', 'unload_cost',
+           'YardTransit']

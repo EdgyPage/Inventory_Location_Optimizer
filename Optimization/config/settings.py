@@ -135,6 +135,32 @@ INBOUND_LOCAL_POLICY = 'fifo'    # load-pallet order within a trailer
 INBOUND_TRAILER_BOUND = None     # the dock's k_cap analog, in TRAILERS; None = unbounded
                                  # (inert under fifo -- shipped for the interface, by decision)
 
+# ── the standing yard ────────────────────────────────────────────────────────────
+# Doors become REAL: at most INBOUND_DOCK_DOORS trailers staged, a trailer holds its door
+# across drains until fully unloaded, the yard-pull fires when a door frees, and the split
+# yard/dock priorities replace the single global ranking.  OFF = v1's drain-everything
+# release(), byte-identical by construction (the v1 transit class binds untouched).
+# Requires a trailer type AND a receiving crew -- either missing FAILS LOUDLY at spec
+# build (inbound_spec), never silently inert: a standing yard nobody can unload would
+# defer its merchandise forever without one error message.
+INBOUND_STANDING_YARD = False    # the one flag gating the whole standing model
+INBOUND_CREW_ALLOCATION = 'split'  # 'split' = door teams (the standing physics: workers
+                                 # dealt across staged trailers in dock-priority order,
+                                 # doors free staggered); 'merged' = v1's pooled gang,
+                                 # kept as honest physics and the lockstep bridge.
+                                 # A mechanics MODE, not a policy registry.
+INBOUND_YARD_POLICY = 'fifo'     # freed door <- which standing trailer (YARD_POLICIES)
+INBOUND_DOCK_POLICY = 'fifo'     # crew <- which staged trailer     (DOCK_POLICIES);
+                                 # under door teams this is a worker-ALLOCATION preference
+# The unload cost's own coefficients -- the independent inbound price lever.  None = the
+# put-away value BY REFERENCE (Inbound/unload.py's UnloadCost defaults), so every existing
+# run is byte-identical and no era splits; a number = this dock's own price.  Same
+# functional form either way: a second invented shape is the drift this repo paid for
+# twice (see UnloadCost's docstring).
+INBOUND_UNLOAD_INTERCEPT = None
+INBOUND_UNLOAD_WEIGHT_COEF = None
+INBOUND_UNLOAD_VOLUME_COEF = None
+
 SHIFT_DRAIN_OR_CAP = False # the SHIFT: one site-wide working stretch that ends when no
                            # standing work remains and none is still scheduled to release,
                            # or at the cap, whichever comes FIRST.  The cap REUSES the day

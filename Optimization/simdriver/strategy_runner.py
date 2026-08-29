@@ -59,7 +59,8 @@ from collections import namedtuple as _namedtuple
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
 from Inbound.pack import packer as _inbound_packer
 from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
-from Inbound.transit import TrailerTransit as _TrailerTransit
+from Inbound.transit import TrailerTransit as _TrailerTransit, YardTransit as _YardTransit
+from Inbound.unload import UnloadCost as _UnloadCost
 from Warehouse.inventory.put_queue import store_and_fulfillment as _store_and_fulfillment
 from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
@@ -720,8 +721,23 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         _uid = _recv_crew.next_uid(_uid)
         _recv_sources = ('reorder', 'trailer') if args.get('inbound') is not None \
             else ('reorder',)
+        # The unload cost's own coefficients (the independent inbound price lever).
+        # Unset keys leave UnloadCost's by-reference put-away defaults in place, so the
+        # archive is untouched at defaults; _ucost None hands Dock its own default.
+        _ucost = None
+        _inb_cost = args.get('inbound')
+        if _inb_cost is not None:
+            _ckw = {}
+            if _inb_cost.get('unload_intercept') is not None:
+                _ckw['intercept'] = float(_inb_cost['unload_intercept'])
+            if _inb_cost.get('unload_weight_coef') is not None:
+                _ckw['weight_coef'] = float(_inb_cost['unload_weight_coef'])
+            if _inb_cost.get('unload_volume_coef') is not None:
+                _ckw['volume_coef'] = float(_inb_cost['unload_volume_coef'])
+            if _ckw:
+                _ucost = _UnloadCost(**_ckw)
         mgr.enable_receiving(_Dock(_DockSpec(size=_recv_spec['size'],
-                                             sources=_recv_sources)))
+                                             sources=_recv_sources), cost=_ucost))
         # The rich packer rides with the crew: LoadPlans exist so the dock can count
         # deliveries; unbound (every store-only run) the mixin's default packs the same units.
         mgr.packer = _inbound_packer
@@ -745,13 +761,27 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # it is handed (`mgr.transit`, `mgr.packer`); nothing under Warehouse/ imports Inbound.
     _inb_spec = args.get('inbound')
     if _inb_spec is not None:
-        mgr.transit = _TrailerTransit(
-            _TRAILER_TYPES[_inb_spec['trailer_type']],
-            lead_s=_inb_spec['lead_s'],
-            doors=_inb_spec['doors'],
-            global_policy=_inb_spec['global_policy'],
-            local_policy=_inb_spec['local_policy'],
-            bound=_inb_spec['bound'])
+        if _inb_spec.get('standing'):
+            # THE STANDING YARD: real doors, split yard/dock priorities, door-team
+            # allocation.  The v1 global policy is deliberately not passed -- it is
+            # unread in standing mode, by decision.
+            mgr.transit = _YardTransit(
+                _TRAILER_TYPES[_inb_spec['trailer_type']],
+                lead_s=_inb_spec['lead_s'],
+                doors=_inb_spec['doors'],
+                yard_policy=_inb_spec['yard_policy'],
+                dock_policy=_inb_spec['dock_policy'],
+                local_policy=_inb_spec['local_policy'],
+                bound=_inb_spec['bound'],
+                allocation=_inb_spec['allocation'])
+        else:
+            mgr.transit = _TrailerTransit(
+                _TRAILER_TYPES[_inb_spec['trailer_type']],
+                lead_s=_inb_spec['lead_s'],
+                doors=_inb_spec['doors'],
+                global_policy=_inb_spec['global_policy'],
+                local_policy=_inb_spec['local_policy'],
+                bound=_inb_spec['bound'])
         mgr.packer = _inbound_packer   # per-trailer portions pack as the pieces they are
 
     # ── static per-run scores (saved once, before the loop) ────────────────────
