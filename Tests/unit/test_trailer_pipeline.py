@@ -16,7 +16,7 @@ import random
 import pytest
 
 from Inbound.pack import packer
-from Inbound.priorities import DockContext, bounded_order
+from Inbound.priorities import DockContext, bounded_order, ordering, yard_key
 from Inbound.trailer import (
     LoadPallet, POSITION_VOLUME, Trailer, Trailer28, Trailer53)
 from Inbound.transit import TrailerTransit
@@ -150,6 +150,90 @@ def test_the_bound_is_inert_under_fifo_and_bites_under_a_real_key():
     assert [t.seq for t in bounded_order(trailers, biggest_last, ctx, 1)] == [0, 1, 2], (
         'bound=1 is strict arrival order whatever the policy prefers — k_cap semantics')
     assert [t.seq for t in bounded_order(trailers, biggest_last, ctx, 2)] == [1, 2, 0]
+
+
+# ── 3b. the generalized seam: @ordering entries beside pure keys ─────────────────
+
+def test_the_generalized_path_reproduces_key_sort_on_the_seeded_fifo_entry():
+    """Ticket 12's pin: an @ordering proposal that IS the fifo key-sort comes back
+    element-for-element identical to the key path — the stamp tie, the no-stamp
+    infinity case and all — so pure keys are provably the degenerate case, not a
+    parallel code path."""
+    fifo = yard_key('fifo')
+
+    @ordering
+    def keysort(cands, c):
+        return sorted(cands, key=lambda t: -fifo(t, c))
+
+    ctx = DockContext(doors=4, free_doors=4, yard_depth=4)
+    trailers = [Trailer(Trailer53, seq=i) for i in range(4)]
+    for t, s in zip(trailers, (300.0, 100.0, 100.0, None)):
+        t.arrived_s = s
+    via_key = bounded_order(trailers, fifo, ctx, None)
+    via_ord = bounded_order(trailers, keysort, ctx, None)
+    assert [id(t) for t in via_ord] == [id(t) for t in via_key], (
+        'the ordering branch must reproduce key-sort, same objects, same order')
+    assert [t.seq for t in via_ord] == [3, 1, 2, 0], (
+        'no stamp ranks oldest; the 100.0 tie falls back to input order (stable)')
+    # On YARD-ORDERED input — the system invariant: the yard is kept in (stamp, seq)
+    # order — every bound is inert through BOTH branches, exactly like seeded fifo.
+    yardlike = sorted(trailers, key=lambda t: (
+        t.arrived_s if t.arrived_s is not None else float('-inf'), t.seq))
+    for bound in (None, 1, 2, 10):
+        for entry in (fifo, keysort):
+            assert [t.seq for t in bounded_order(yardlike, entry, ctx, bound)] == \
+                [t.seq for t in yardlike], f'bound={bound} must be inert on yard order'
+
+
+def test_the_bound_composes_bound_first_with_an_ordering_entry():
+    ctx = DockContext(doors=4, free_doors=4, yard_depth=3)
+    trailers = [Trailer(Trailer53, seq=i) for i in range(3)]
+
+    @ordering
+    def newest_first(cands, c):
+        return list(reversed(cands))
+
+    assert [t.seq for t in bounded_order(trailers, newest_first, ctx, None)] == [2, 1, 0]
+    assert [t.seq for t in bounded_order(trailers, newest_first, ctx, 1)] == [0, 1, 2], (
+        'bound=1 is strict arrival order whatever the proposal — k_cap semantics')
+    assert [t.seq for t in bounded_order(trailers, newest_first, ctx, 2)] == [1, 0, 2], (
+        'the entry orders the bound longest-waiting; the rest follow in arrival order')
+
+
+def test_an_ordering_entry_gets_a_copy_and_the_seam_consumes_no_rng():
+    ctx = DockContext(doors=4, free_doors=4, yard_depth=3)
+    trailers = [Trailer(Trailer53, seq=i) for i in range(3)]
+
+    @ordering
+    def vandal(cands, c):
+        out = list(cands)
+        cands.clear()               # in-place mutation must never reach the caller
+        return out
+
+    random.seed(7)
+    state = random.getstate()
+    got = bounded_order(trailers, vandal, ctx, None)
+    assert [t.seq for t in got] == [0, 1, 2]
+    assert len(trailers) == 3, 'the entry mutated the CALLER list — the copy guard broke'
+    assert random.getstate() == state, 'the seam itself must consume no RNG'
+
+
+def test_a_non_permutation_proposal_fails_loudly():
+    ctx = DockContext(doors=4, free_doors=4, yard_depth=2)
+    trailers = [Trailer(Trailer53, seq=i) for i in range(2)]
+
+    @ordering
+    def drops_one(cands, c):
+        return cands[:1]
+
+    @ordering
+    def duplicates(cands, c):
+        return [cands[0], cands[0]]
+
+    with pytest.raises(ValueError, match='permutation'):
+        bounded_order(trailers, drops_one, ctx, None)
+    with pytest.raises(ValueError, match='permutation'):
+        bounded_order(trailers, duplicates, ctx, None)
 
 
 # ── 4. through the manager: provenance, conservation, per-portion packing ────────

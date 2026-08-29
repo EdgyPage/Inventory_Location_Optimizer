@@ -12,9 +12,16 @@ GLOBAL registry and its knob stay untouched and are simply unread in standing mo
 ranks a trailer's LOAD PALLETS — what a crew actually pulls; on a single-SKU pallet that
 degenerates to the SKU lot — and is shared by both paths.
 
-The contract is `put_policy`'s exactly: a policy is a PURE key function, HIGHER served
-first, over (candidate, ctx) where `ctx` is FROZEN for the drain — computed once, reused
-across every decision in it.  `ctx` is also where the warehouse-space signal arrives — the
+The contract is `put_policy`'s, generalized ONE step ("Define the inbound objective",
+decision 4): an entry is EITHER a pure key function — HIGHER served first, over
+(candidate, ctx), the degenerate case every seeded `'fifo'` entry rides — OR an ORDERING
+function `(candidates, ctx) -> ordered list`, tagged `@ordering`, for policies whose
+whole proposal is the value (a gain plan that virtually consumes space as it picks has no
+per-candidate key).  `bounded_order` resolves either kind, so the registries, the
+accessors, `transit.py` and the manager are all kind-blind.  Both kinds are PURE over a
+`ctx` FROZEN for the drain — computed once, reused across every decision in it; an entry
+mutates no manager state (an ordering entry is handed a COPY of its candidates) and
+consumes no RNG.  `ctx` is also where the warehouse-space signal arrives — the
 reserved named view is now REAL: `ctx.space` carries the drain's frozen
 `Inbound.space.SpaceView` whenever the standing yard runs (always on with the flag), None
 otherwise; no signature change, and every seeded 'fifo' key ignores it.  A LOCAL policy may
@@ -31,6 +38,12 @@ longest-waiting trailers, take the best".  Denominated in TRAILERS; None = unbou
 `'fifo'` (every seeded policy) any bound is inert, which is what keeps v1 byte-identical
 while the interface is real.  The ONE bound covers the global ranking and both standing
 rankings alike — a per-registry bound waits for an arm that needs them separate.
+
+With an ORDERING entry the bound composes BOUND-FIRST — bound the candidate set, then
+order: the entry is called ONCE per drain, on the `bound` longest-waiting candidates
+only, and the remainder follows its proposal in arrival order.  Never re-run per pick — a
+plan is one call, however deep the drain consumes it.  Inert exactly when the proposal is
+arrival order, the same degenerate case that keeps `'fifo'` keys inert.
 """
 from __future__ import annotations
 
@@ -81,11 +94,26 @@ def _fifo_pallet(indexed_pallet, ctx) -> float:
     return -float(indexed_pallet[0])
 
 
+def ordering(fn):
+    """Tag `fn` as an ORDERING entry: `(candidates, ctx) -> ordered list`.
+
+    The registries hold both kinds; this attribute — probed via getattr, the `STANDING`
+    idiom — is how `bounded_order` tells a whole-order proposal from a per-candidate
+    key.  The return must be a PERMUTATION of the candidates handed in (the same
+    objects): `bounded_order` raises on anything else, because a silently dropped
+    trailer would stand in the yard forever and a duplicated one would stage twice —
+    neither with an error.
+    """
+    fn.ORDERING = True
+    return fn
+
+
 GLOBAL_POLICIES: dict = {'fifo': _fifo_trailer}
 LOCAL_POLICIES: dict = {'fifo': _fifo_pallet}
 #: The standing yard's split of the global decision (see the module docstring).  ADDITIVE:
 #: nothing here changes what GLOBAL_POLICIES means to the v1 path.  The space-aware arms
-#: (myopic, standing-demand forecasting) land here as entries, not as rewiring.
+#: (myopic, standing-demand forecasting) land here as entries — pure keys or `@ordering`
+#: functions alike — not as rewiring.
 YARD_POLICIES: dict = {'fifo': _fifo_standing}
 DOCK_POLICIES: dict = {'fifo': _fifo_standing}
 
@@ -114,18 +142,35 @@ def dock_key(policy: str):
     return DOCK_POLICIES[policy]
 
 
-def bounded_order(candidates: list, key, ctx, bound: int | None) -> list:
-    """The policy's order, bounded: repeatedly take the best-keyed of the `bound`
-    longest-waiting remaining candidates (arrival order = input order).  None = the
-    policy's order stands unbounded.  Stable on key ties, like the put drain."""
+def bounded_order(candidates: list, entry, ctx, bound: int | None) -> list:
+    """The entry's order, bounded.  A KEY entry: repeatedly take the best-keyed of the
+    `bound` longest-waiting remaining candidates (arrival order = input order) — stable
+    on key ties, like the put drain.  An `@ordering` entry: bound FIRST, then order —
+    one call, on a copy of the `bound` longest-waiting candidates, the remainder
+    following in arrival order.  None = the entry's order stands unbounded, either
+    kind."""
     if not candidates:
         return []
+    if getattr(entry, 'ORDERING', False):
+        cut = len(candidates) if bound is None else max(1, bound)
+        window, rest = candidates[:cut], candidates[cut:]
+        out = list(entry(list(window), ctx))
+        if sorted(map(id, out)) != sorted(map(id, window)):
+            name = getattr(entry, '__name__', repr(entry))
+            detail = (f'returned {len(out)} of {len(window)}'
+                      if len(out) != len(window) else
+                      f'{len(out)} returned, but duplicated or foreign objects stand in')
+            raise ValueError(
+                f'ordering entry {name!r} must return a permutation of its candidates '
+                f'({detail}) — a dropped trailer stands in the yard forever and a '
+                f'duplicated one stages twice, neither with an error')
+        return out + rest
     if bound is None or bound >= len(candidates):
-        return sorted(candidates, key=lambda c: -key(c, ctx))
+        return sorted(candidates, key=lambda c: -entry(c, ctx))
     remaining = list(candidates)
     out = []
     while remaining:
         window = remaining[:max(1, bound)]
-        best = max(range(len(window)), key=lambda i: (key(window[i], ctx), -i))
+        best = max(range(len(window)), key=lambda i: (entry(window[i], ctx), -i))
         out.append(remaining.pop(best))
     return out

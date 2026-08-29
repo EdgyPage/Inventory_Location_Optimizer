@@ -234,6 +234,60 @@ def test_the_yard_is_ordered_by_arrival_stamp_with_seq_as_tiebreak():
         'FIFO ranks by arrival stamp, not dispatch order')
 
 
+def test_the_registries_resolve_an_ordering_entry_through_both_frozen_rankings():
+    """The seam end-to-end: an @ordering entry registered under YARD/DOCK resolves
+    through the accessors and reproduces the seeded 'fifo' rankings on the frozen ctx —
+    `yard_order` and `dock_order` untouched, kind-blind by construction."""
+    from Inbound.priorities import DOCK_POLICIES, YARD_POLICIES, ordering, yard_key
+    fifo = yard_key('fifo')
+
+    @ordering
+    def keysort(cands, ctx):
+        return sorted(cands, key=lambda t: -fifo(t, ctx))
+
+    @ordering
+    def reversed_keysort(cands, ctx):
+        return sorted(cands, key=lambda t: fifo(t, ctx))
+
+    for reg in (YARD_POLICIES, DOCK_POLICIES):
+        reg['keysort-fifo'] = keysort
+        reg['keysort-reversed'] = reversed_keysort
+    try:
+        tr_key = YardTransit(Trailer28, lead_s=0.0)
+        tr_ord = YardTransit(Trailer28, lead_s=0.0,
+                             yard_policy='keysort-fifo', dock_policy='keysort-fifo')
+        tr_rev = YardTransit(Trailer28, lead_s=0.0, yard_policy='keysort-reversed',
+                             dock_policy='keysort-reversed')
+        for tr in (tr_key, tr_ord, tr_rev):
+            # seq 0 dispatched (and arriving) LATER than seq 1 — a real out-of-seq
+            # arrival through the legit machinery, so fifo has something to reorder.
+            tr.dispatch(1, 12, 0, unit_volume=POSITION_VOLUME, now_s=100.0)
+            tr.dispatch(2, 12, 0, unit_volume=POSITION_VOLUME, now_s=0.0)
+            tr.release(now_s=200.0)
+        ranks = []
+        for tr in (tr_key, tr_ord, tr_rev):
+            ctx = tr.freeze_ctx()
+            ranks.append([t.seq for t in tr.yard_order(ctx)])
+        assert ranks[0] == ranks[1] == [1, 0], (
+            'the ordering entry must reproduce the seeded fifo YARD ranking')
+        assert ranks[2] == [0, 1], (
+            'a REVERSING entry must actually differ — the registered proposal drives '
+            'the ranking; an identity pass-through would ride the pre-sorted yard')
+        docks = []
+        for tr in (tr_key, tr_ord, tr_rev):
+            ctx = tr.freeze_ctx()
+            for t in tr.yard_order(ctx):
+                tr.stage(t, 200.0)
+            docks.append([t.seq for t in tr.dock_order(tr.freeze_ctx())])
+        assert docks[0] == docks[1] == [1, 0], (
+            'the ordering entry must reproduce the seeded fifo DOCK ranking')
+        assert docks[2] == [0, 1], 'the reversing entry must differ at the DOCK too'
+    finally:
+        for reg in (YARD_POLICIES, DOCK_POLICIES):
+            reg.pop('keysort-fifo', None)
+            reg.pop('keysort-reversed', None)
+
+
 # ── 3. the degenerate lockstep: merged == the v1 drain, stream for stream ─────────
 
 def test_the_degenerate_lockstep_merged_is_byte_identical_to_v1():
