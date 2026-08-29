@@ -119,6 +119,14 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   (w=∞ absorbs the oracle) is a declared-unlawful reference with settled plumbing; regime
   acceptance criteria for the leads ticket (yard contention + binding cuts under FIFO,
   rollover off).
+- [Generalize the ordering seam](issues/12-generalize-the-ordering-seam.md): BUILT, commit
+  `7e26a4c` — a yard/dock entry may be an `@ordering` function `(candidates, ctx) ->
+  ordered list` (tag probed getattr-style, the `STANDING` idiom); `bounded_order` resolves
+  both kinds, so `transit.py` and the manager stayed untouched — kind-blind by
+  construction; the bound composes bound-first, one entry call per drain; a
+  non-permutation proposal raises loudly; the seeded fifo key path kept its exact former
+  body, pinned by seam tests plus a registry end-to-end where a reversing entry provably
+  differs.
 
 ## Not yet specified
 
@@ -128,11 +136,11 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   distribution build; the evaluator + cache builds; the yard-metrics build (columns,
   semantics tags, report surfaces — its raw material, `YardTransit.stamps`, already
   exists); the resume-guard extension to yard state; the funnel build (if its decision
-  says build). (Done or ticketed: the standing-yard mechanics — 09 — and the
-  space-timeline build — 11 — are both DONE, resolved 2026-08-29; the objective
-  resolution (10) graduated
-  [Generalize the ordering seam](issues/12-generalize-the-ordering-seam.md) and
-  [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md).)
+  says build). (Done or ticketed: the standing-yard mechanics — 09 —, the space-timeline
+  build — 11 — and the ordering-seam generalization — 12 — are DONE, all resolved
+  2026-08-29; the objective resolution (10) also graduated
+  [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md),
+  open behind the arm roster (05).)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
