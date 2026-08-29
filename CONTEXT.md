@@ -119,6 +119,21 @@ work stands. v1: FIFO by arrival.
 **Local priority**:
 The order in which one trailer's items are unloaded and packed. v1: FIFO.
 
+**Future work**:
+The expected put and pick hours a drain's placements will generate — what inbound ordering
+minimizes. Unload hours are order-invariant and excluded.
+
+**Unload plan**:
+The ordered list a yard or dock policy emits for one drain: a priority over which standing
+loads meet this drain's bin pool. The clocks cut it into the served set; within the served
+set the arm's own placement machinery assigns bins. A pure key is the degenerate plan.
+_Avoid_: unload sequence (seats are not the plan's to give)
+
+**Futuresight window**:
+A declared-unlawful forecast: a policy arm reading w future batches of the precomputed
+demand script, as an upper-bound reference only. w=∞ is the oracle. No real WMS has this,
+so no recommendable policy may.
+
 ### Space
 
 **Space timeline**:

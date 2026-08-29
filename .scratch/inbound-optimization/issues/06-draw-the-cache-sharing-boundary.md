@@ -33,3 +33,11 @@ snapshot live state — staleness is confined to version-keyed reuse), and the e
 eventual re-placement does bump `fill_v`. Stated in the module docstring too. Decide here
 whether reloader+standing arms are simply declared out of cache scope or the eviction is
 folded into an existing class.
+
+2026-08-29, from resolving "Define the inbound objective" (10): the three-counter contract
+survives futuresight — the window slot (ticket 13) changes in the same event that bumps
+`demand_v` and is a pure function of the batch index, so it shares `demand_v`; no fourth
+counter. Sharing-grain hints for this ticket's table: the window FEED is batch-script-bound
+(the `_batches_*.pkl` precedent — cell-shareable); the GAIN evaluations (04's evaluator) are
+downstream of pick state and the per-arm trailer stream — arm-local, per the charter's
+precompute trap.

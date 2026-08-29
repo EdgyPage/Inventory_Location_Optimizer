@@ -31,3 +31,11 @@ reorder feedback loop, so the first-order lever is placement quality buying put 
 2026-08-29, from resolving "Design the space timeline" (03): "Define the inbound objective"
 (10) may add ON-SHELF AVAILABILITY (missed orders) beside total production hours as a
 comparison surface; check its resolution before fixing the selection metric.
+
+2026-08-29, from resolving "Define the inbound objective" (10): resolved — the selection
+metric stays TOTAL PRODUCTION HOURS; missed share is REPORTED beside hours and the fee proxy
+in the phase-2 comparison surface, never a selection metric (if a future-work arm beats FIFO
+on hours while missed share degrades, the funnel must surface it, not average it away).
+Expectation to carry into the design: inbound gradients concentrate on pool-arm rows
+(order-blind restock arms — fifo, cmax/cmin — have no bin-quality channel), so phase 1's
+top-k must not be read as "the k most inbound-sensitive arms".

@@ -25,3 +25,13 @@ ON-SHELF AVAILABILITY (missed orders: the `unmet` / `_shortfall` counts the sim 
 produces), floated as the inbound objective in "Define the inbound objective" (10). If 10
 adopts it, its columns land here (a FLOW of missed units, plus any share against a stated
 demand whole); coordinate with 10 before resolving.
+
+2026-08-29, from resolving "Define the inbound objective" (10): availability was NOT adopted
+as the objective (future work won) but IS adopted as a reported axis — its columns land
+here. Missed pieces = the `unpicked_unstocked` + `unpicked_unavailable` FLOWs (account
+PIECES, per batch; never `unpicked_daycut`, a labor artifact), plus missed share, a SHARE of
+the stated whole `items_demanded`. Also wanted here: the regime measurables backing the
+lead-distribution acceptance criteria (02) — yard contention (standing trailers vs free
+doors at drain start, a LEVEL) and binding cuts (drains ending with unserved standing
+trailers or partial unloads, per-drain FLOWs), both derivable from `YardTransit.stamps` and
+staged remainders.

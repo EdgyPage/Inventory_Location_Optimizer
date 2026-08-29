@@ -24,7 +24,9 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
     (crew ← best staged trailer); knobs `INBOUND_YARD_POLICY` / `INBOUND_DOCK_POLICY`.
   - **No deferral anywhere.** The dock's information horizon is the yard (in-transit trailers
     are invisible to policies); a freed door is always filled, the crew never idles. The
-    timeliness-vs-space tradeoff is embodied purely in ORDERING; pure-key registries suffice.
+    timeliness-vs-space tradeoff is embodied purely in ORDERING; the registries carry
+    ordering functions, pure keys the degenerate case (amended 2026-08-29 by the objective
+    resolution, 10).
   - **Doors become real**: at most `doors` trailers staged; a trailer holds its door across
     drains until fully unloaded; the yard-pull fires when a door frees.
   - **Decisions are drain-quantized; data is event-stamped.** The frozen-`ctx` purity contract
@@ -32,15 +34,20 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
     is a cadence change, not a data redesign.
   - **Leads**: per-trailer, drawn from a seeded distribution (minutes-authored); arrivals
     enter the yard ordered by arrival stamp, `seq` as tiebreak. No batch denomination.
-  - **The score — amended 2026-08-29 by the space-timeline resolution (03):** the decision
-    to stage/unload a trailer anchors to IMMEDIATELY AVAILABLE bins (the operationally
-    stable signal); predicted clears are an UNTIMED set — no unload-window gate, no rate or
-    makespan inference. Forecast source stays STANDING DEMAND only (released-but-unpicked,
-    one batch deep) — information a real WMS has. Whether placement quality can rank
-    trailers at all, and what the decision optimizes instead (on-shelf availability; an
-    unload plan), is open in
-    [Define the inbound objective](issues/10-define-the-inbound-objective.md); the
-    myopic/forecasting family pair stands pending that answer.
+  - **The objective — resolved 2026-08-29 by
+    [Define the inbound objective](issues/10-define-the-inbound-objective.md):** yard/dock
+    ordering minimizes EXPECTED FUTURE WORK — the put + pick hours the drain's placements
+    will generate (cost-model weights, no new knobs; unload hours are order-invariant and
+    drop out). The output is an UNLOAD PLAN with set-composition semantics: the order is a
+    priority over which loads meet this drain's bin pool, the clocks cut it into the served
+    set, and the arm's own placement machinery assigns seats; the gain evaluator is
+    FAITHFUL-TO-ARM. Placement-quality-vs-space scoring is dropped (verified vacuous — bins
+    rank SKU-agnostically); on-shelf availability is a REPORTED missed-share axis, never a
+    target or selection metric; JIT is emergent, no timing mechanism. Staging still anchors
+    to IMMEDIATELY AVAILABLE bins; predicted clears are the next drain's pool gain, untimed
+    by design. Forecast sources: STANDING DEMAND for WMS-realistic arms; the FUTURESIGHT
+    WINDOW family (w script batches ahead, w=∞ the oracle) is a declared-unlawful
+    upper-bound reference.
   - **Fee proxy**: per-trailer overage = max(0, yard_days − threshold), threshold a knob;
     a reported span-derived metric, never converted to dollars, never mixed into labor.
   - **Caching**: staleness is contractual at declared freeze points; within the contract,
@@ -102,30 +109,40 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   passing test (lockstep with timeline ON, purity, drain-rule equivalence, the AST-guard
   replacement); the eviction-not-versioned gap is flagged as a comment on
   [Draw the cache-sharing boundary](issues/06-draw-the-cache-sharing-boundary.md).
+- [Define the inbound objective](issues/10-define-the-inbound-objective.md): the objective
+  is EXPECTED FUTURE WORK — the put + pick hours a drain's placements will generate
+  (availability demoted to a reported missed-share axis; placement-quality scoring dropped
+  as verified-vacuous; JIT declared emergent); the output is an UNLOAD PLAN with
+  set-composition semantics (ordering-function registries, pure keys degenerate — the
+  within-drain seats belong to the arm's own pool, so the lever is who meets this drain's
+  pool vs the next); the gain evaluator is faithful-to-arm; the FUTURESIGHT WINDOW family
+  (w=∞ absorbs the oracle) is a declared-unlawful reference with settled plumbing; regime
+  acceptance criteria for the leads ticket (yard contention + binding cuts under FIFO,
+  rollover off).
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close:
-  the space-aware policy wiring (the yard/dock registries and their split LANDED with
-  "Build the standing-yard mechanics"; the real policy entries wait on the
-  objective/evaluator/arms tickets and arrive as registry entries, not rewiring); the lead
+  the real policy entries (the gain-plan and futuresight arms — wait on the evaluator (04)
+  and arm roster (05), arriving as registry entries on the generalized seam); the lead
   distribution build; the evaluator + cache builds; the yard-metrics build (columns,
   semantics tags, report surfaces — its raw material, `YardTransit.stamps`, already
   exists); the resume-guard extension to yard state; the funnel build (if its decision
-  says build). (The standing-yard/doors mechanics build — ticket 09 — and the
-  space-timeline build — ticket 11 — are both DONE, resolved 2026-08-29; policy keys now
-  have `ctx.space` to read the moment the objective/evaluator tickets give them a reason
-  to.)
-- **Timed / deeper lookahead views** — predicted-clear timing and demand beyond the released
-  batch ("how far ahead can availability reliably be planned"), a future inbound view-arm
-  family; parked by the space-timeline resolution (03), which shipped predictions untimed.
+  says build). (Done or ticketed: the standing-yard mechanics — 09 — and the
+  space-timeline build — 11 — are both DONE, resolved 2026-08-29; the objective
+  resolution (10) graduated
+  [Generalize the ordering seam](issues/12-generalize-the-ordering-seam.md) and
+  [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md).)
+- **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
+  released batch ("how far ahead can availability reliably be planned"), a future inbound
+  view-arm family; parked by the space-timeline resolution (03), which shipped predictions
+  untimed. (The unlawful version — reading the future script — is no longer fog: it is the
+  futuresight window reference family, decided by the objective resolution, 10.)
 - **The funnel campaign** — actually running phase 1 (inbound-off top-k selection) and
   phase 2 (top-k × inbound policies), and publishing the results; specifiable once the
   machinery and the funnel design exist.
 - **Weight-knob sweep design** — which weight grids the space-aware arms sweep; needs the
   arms to exist first.
-- **The oracle upper-bound arm** — a forecast that reads the full future demand script;
-  optional, only if the funnel results demand a reference ceiling.
 
 ## Out of scope
 
