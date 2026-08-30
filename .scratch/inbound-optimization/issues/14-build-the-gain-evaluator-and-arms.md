@@ -41,3 +41,12 @@ pattern). Scores never blend hours with days — the gate is the only legal comp
 (05's two-separate-scores rule). The `futuresight` entry is NOT here — it rides ticket
 13 (blocked by this one). Every arm sets both registry knobs to the same name; all run
 with `INBOUND_TRAILER_BOUND = None`.
+
+2026-08-29, from resolving "Draw the cache-sharing boundary" (06): this build carries
+Tier 1 of the cross-check contract — one unit equivalence test, structured plan
+(sort-once / slice-under-consumption) ≡ naive rebuild-per-candidate plan on seeded
+scenarios, plus a sabotage assertion in the same test (perturb the sorted structure,
+assert the comparison catches it). NO cross-drain result cache: the sorted-D arrays live
+and die inside one frozen ctx, no invalidation key exists there at all; gain evaluations
+are arm-local ONLY (never cell-shared), and any future version-keyed cache is Tier-2
+bound (paired-run byte-identity) per 06's table.

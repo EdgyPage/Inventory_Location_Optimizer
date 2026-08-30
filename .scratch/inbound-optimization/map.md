@@ -6,8 +6,8 @@ Label: wayfinder:map
 
 Inbound optimization landed on `develop`: heterogeneous seeded leads, a standing yard whose
 finite doors bind, the split yard-/dock-priority seams filled by space-aware policy arms
-(myopic + standing-demand forecasting) under the yard-overage fee proxy, behavior-neutral
-caching at declared freeze points — all flag-off byte-identical — and the phased funnel
+(myopic + standing-demand forecasting) under the yard-overage fee proxy, a behavior-neutral
+caching contract at declared freeze points — all flag-off byte-identical — and the phased funnel
 (inbound-off top-k selection → top-k × inbound policies) decided and ready, so the campaign
 "does space-aware inbound beat FIFO, and at what fee cost" can run.
 
@@ -164,11 +164,23 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   sort); machinery only — defaults inert, pilot values (first probe: median ≈ one working
   day, σ ≈ 0.7) belong to the funnel (08); build graduated as
   [Build the lead distribution](issues/15-build-the-lead-distribution.md).
+- [Draw the cache-sharing boundary](issues/06-draw-the-cache-sharing-boundary.md):
+  legality-first — 04's modest stakes earn NO cache machinery; the table (computation ×
+  grain × key × cross-check) binds the builds verbatim: gain work arm-local ONLY, the
+  futuresight feed cell-shared by inheritance (no artifact, read-ahead on the in-memory
+  script), freeze inputs legal-keyed-not-built (the projection's `demand_v` key makes
+  recompute the keyed behavior); the vector versions the free index + demand stream, never
+  bin quantities — a quantity-reading, demand-blind computation reopens 03; the
+  `requeue_bin` eviction FOLDS into `reclaim_v` ("+1 per bin returned to the free index",
+  graduated as [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md));
+  two-tier cross-checks (equivalence + sabotage with 14, paired-run byte-identity for any
+  future cache); spawn rule: cell-shared = file re-opened per worker, arm-local = rebuilt
+  in-worker, cache knobs ride all five seams.
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close:
-  the cache build (waits on 06); the yard-metrics build
+  the yard-metrics build
   (columns, semantics tags, report surfaces — its raw material, `YardTransit.stamps`,
   already exists); the resume-guard extension to yard state; the funnel build (if its
   decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
@@ -178,7 +190,10 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   are on the FRONTIER now that the arm roster (05) and the lead distribution (02) are
   resolved, and
   [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md)
-  follows behind it — 13 also builds the `futuresight` entry, so it is blocked by 14.)
+  follows behind it — 13 also builds the `futuresight` entry, so it is blocked by 14;
+  [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md) is on
+  the frontier too — the cache boundary (06) resolved to NO cache build beyond that fold
+  and the Tier-1 equivalence test riding 14.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions

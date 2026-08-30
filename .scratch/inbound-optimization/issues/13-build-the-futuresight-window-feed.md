@@ -37,3 +37,10 @@ or the precomputed script is missing. Scope change: this ticket now ALSO builds 
 `futuresight` registry entry itself (`gain_forecast` over the window slot, both
 registries), so it is additionally blocked by "Build the gain evaluator and the gain-plan
 arms" (14), which supplies the evaluator the entry calls. The feed half is unchanged.
+
+2026-08-29, from resolving "Draw the cache-sharing boundary" (06): the window feed gets
+NO artifact — it is cell-shared by INHERITANCE from `_batches_*.pkl` (already one file per
+pair, re-opened per worker), so the feed is read-ahead over the worker's in-memory batch
+list, a pure function of (script, batch index) riding `demand_v`. Do not materialize a
+feed file, do not add a sharing mechanism; the ticket's copy-the-dicts rule stands (copies
+guard the shared pickle objects, they are not a cache).
