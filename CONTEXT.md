@@ -71,6 +71,37 @@ arrival drains whole the batch it lands.
 **Arrival**:
 A trailer reaching the site. Age is stamped at arrival, never at unload.
 
+**Yard wait**:
+The span from a trailer's arrival to its staging at a door.
+
+**Door span**:
+The span a trailer holds a dock door, staging to emptied.
+
+**Detention span**:
+The whole span a trailer is held on site — arrival to emptied, yard wait plus door span. What
+the fee proxy accrues over: a policy cannot shed it by staging early and unloading slowly. A
+trailer still standing when the run ends has a censored detention, counted to the run-end
+clock and reported as such.
+_Avoid_: yard days (that is detention denominated in days, not a separate quantity)
+
+**Overage**:
+The days a trailer's detention runs past the fee threshold: max(0, detention days − threshold).
+Span-derived and reported, never converted to dollars, never mixed into labor hours; summed
+over trailers it is the fee axis.
+
+**Binding cut**:
+A drain ending with inbound work still standing — unserved trailers in the yard, or staged
+trailers with a remainder. Evidence the regime binds; across policy arms, fewer is better.
+
+**Yard contention**:
+Standing trailers versus free doors, read at drain start. Whether doors were the scarce
+resource.
+
+**Door utilization**:
+The share of available door-time occupied — summed door spans against doors times the run's
+span. An inspection read-out with no better direction: high can mean smooth flow or a choked
+yard.
+
 **Dock**:
 The receiving area — its doors and the crew working them. Its depth is the report; it refuses
 nothing.

@@ -50,3 +50,12 @@ depth) — decide their grids HERE as part of the phase-2 cell design (this abso
 map's former "weight-knob sweep design" fog item). Two standing exclusions to respect:
 `futuresight` never enters the recommendable set, and `lifo` is a control row, not a
 candidate.
+
+2026-08-30, from resolving "Define the yard metrics" (07): two items land here. (a) The
+threshold calibration probe: `INBOUND_FEE_THRESHOLD_DAYS` ships as a 2.0-day placeholder;
+the rule — the default sits where FIFO under the chosen pilot leads (median ≈ one working
+day, σ ≈ 0.7) shows nonzero, NON-SATURATED overage. Because overage derives at analysis
+from raw stamps with the run's recorded threshold (07's derive-late decision), the probe is
+an analysis re-report over one FIFO run, not a sweep. (b) A presentation call: whether the
+fee axis (`yard_overage_days`) ALSO earns a `headline`-family slot for the phase-2
+comparison surface, or reports only from the `yard` family beside hours and missed share.

@@ -176,13 +176,23 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   two-tier cross-checks (equivalence + sabotage with 14, paired-run byte-identity for any
   future cache); spawn rule: cell-shared = file re-opened per worker, arm-local = rebuilt
   in-worker, cache knobs ride all five seams.
+- [Define the yard metrics](issues/07-define-the-yard-metrics.md): the fee accrues over the
+  DETENTION span (arrived→emptied; glossary gained yard wait / door span / detention span /
+  overage / binding cut / yard contention / door utilization); two new sim_db tables —
+  `yard_trailers` (raw stamps + `status`, censored standing trailers flushed at run end so
+  `lifo` reads concentrated, not clipped) and `yard_drains` (contention + binding-cut
+  LEVELs from `freeze_ctx`) — raw stamps only, spans/overage derived at analysis with the
+  run's recorded threshold (the fee axis is re-reportable under a new threshold without
+  re-simulating); `INBOUND_FEE_THRESHOLD_DAYS` defaults 2.0 placeholder, calibration rides
+  the funnel; a new `yard` leaf figure family (five `'yard'`-gated Quantities + a
+  no-direction scorecard; availability lands in `throughput`, ungated — inbound's FIRST
+  figure coverage); build graduated as
+  [Build the yard metrics](issues/17-build-the-yard-metrics.md).
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close:
-  the yard-metrics build
-  (columns, semantics tags, report surfaces — its raw material, `YardTransit.stamps`,
-  already exists); the resume-guard extension to yard state; the funnel build (if its
+  the resume-guard extension to yard state; the funnel build (if its
   decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
   space-timeline build — 11 — and the ordering-seam generalization — 12 — are DONE;
   [Build the gain evaluator and the gain-plan arms](issues/14-build-the-gain-evaluator-and-arms.md)
@@ -193,7 +203,9 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   follows behind it — 13 also builds the `futuresight` entry, so it is blocked by 14;
   [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md) is on
   the frontier too — the cache boundary (06) resolved to NO cache build beyond that fold
-  and the Tier-1 equivalence test riding 14.)
+  and the Tier-1 equivalence test riding 14; and
+  [Build the yard metrics](issues/17-build-the-yard-metrics.md) joined the frontier when
+  the yard metrics (07) resolved.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
