@@ -34,6 +34,11 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
     is a cadence change, not a data redesign.
   - **Leads**: per-trailer, drawn from a seeded distribution (minutes-authored); arrivals
     enter the yard ordered by arrival stamp, `seq` as tiebreak. No batch denomination.
+    (Resolved 2026-08-29 by
+    [Choose the lead distribution](issues/02-choose-the-lead-distribution.md): ONE family,
+    lognormal — median `INBOUND_LEAD_MINUTES` × spread `INBOUND_LEAD_SPREAD`, σ=0 the
+    no-RNG byte-identical degenerate; seq-keyed stateless draws derived from `SEED_WORLD`,
+    no new seed knob; spread > 0 requires the standing yard, loudly.)
   - **The objective — resolved 2026-08-29 by
     [Define the inbound objective](issues/10-define-the-inbound-objective.md):** yard/dock
     ordering minimizes EXPECTED FUTURE WORK — the put + pick hours the drain's placements
@@ -149,17 +154,29 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   `INBOUND_URGENCY_HORIZON_DAYS`, `INBOUND_FUTURESIGHT_BATCHES` (`'all'` = oracle); no
   weight grids exist — the swept scalars are H and w, their grids folded into the
   funnel (08); bound stays outside the roster.
+- [Choose the lead distribution](issues/02-choose-the-lead-distribution.md): ONE family,
+  no selector — lognormal, median `INBOUND_LEAD_MINUTES` (renamed now, window cheap) ×
+  dimensionless `INBOUND_LEAD_SPREAD`, σ=0 constructs no RNG and is byte-identical by
+  construction; draws are seq-keyed stateless (`SeedSequence([SEED_WORLD, TAG, seq])` —
+  common random numbers across arms, nothing to pickle or resume), seed derived from
+  `SEED_WORLD`, no new knob; spread > 0 without the standing yard (or with a zero median)
+  raises loudly; arrival integration already built (`YardTransit`'s `(arrived_s, seq)`
+  sort); machinery only — defaults inert, pilot values (first probe: median ≈ one working
+  day, σ ≈ 0.7) belong to the funnel (08); build graduated as
+  [Build the lead distribution](issues/15-build-the-lead-distribution.md).
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close:
-  the lead distribution build; the cache build (waits on 06); the yard-metrics build
+  the cache build (waits on 06); the yard-metrics build
   (columns, semantics tags, report surfaces — its raw material, `YardTransit.stamps`,
   already exists); the resume-guard extension to yard state; the funnel build (if its
   decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
   space-timeline build — 11 — and the ordering-seam generalization — 12 — are DONE;
   [Build the gain evaluator and the gain-plan arms](issues/14-build-the-gain-evaluator-and-arms.md)
-  is on the FRONTIER now that the arm roster (05) is resolved, and
+  and [Build the lead distribution](issues/15-build-the-lead-distribution.md)
+  are on the FRONTIER now that the arm roster (05) and the lead distribution (02) are
+  resolved, and
   [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md)
   follows behind it — 13 also builds the `futuresight` entry, so it is blocked by 14.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the

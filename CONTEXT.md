@@ -50,6 +50,11 @@ does not fit the open trailer, a new trailer is started (next-fit) so FIFO order
 The delay, possibly zero, between a trailer's dispatch and its arrival in the yard.
 _Avoid_: lead time (for anything but this), transit time
 
+**Lead distribution**:
+The seeded per-trailer draw every lead comes from: lognormal, authored as a median with a
+dimensionless spread. Zero spread is the constant-lead degenerate case; same seeds, same
+lead schedule. Heterogeneous leads are what make arrival order differ from dispatch order.
+
 **Yard**:
 Where arrived trailers stand waiting for a dock door. Unbounded in capacity; standing too long
 is what the fee proxy measures.
