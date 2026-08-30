@@ -129,6 +129,13 @@ loads meet this drain's bin pool. The clocks cut it into the served set; within 
 set the arm's own placement machinery assigns bins. A pure key is the degenerate plan.
 _Avoid_: unload sequence (seats are not the plan's to give)
 
+**Urgent set**:
+The standing trailers close enough to crossing the fee threshold that a gated policy
+serves them first, in arrival order, ahead of its plan. How close is the policy's one
+dial (a horizon in days). The only lawful meeting point of fee pressure and future work:
+scores never blend hours with days — a policy weighs both by gating, not by mixing.
+_Avoid_: hybrid score (the rejected blended-scalar shape)
+
 **Futuresight window**:
 A declared-unlawful forecast: a policy arm reading w future batches of the precomputed
 demand script, as an upper-bound reference only. w=∞ is the oracle. No real WMS has this,

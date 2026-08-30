@@ -27,3 +27,17 @@ the build's spill rule.
 Neutrality obligations: flag-off byte-identical as always; with the arms ON but the entry
 proposing arrival order, the plan must be inert (the seam's degenerate case); purity —
 no manager mutation, no RNG — pinned the way ticket 12's seam tests pin the fifo path.
+
+## Comments
+
+2026-08-29, from resolving "Name the policy arms and their knobs" (05) — UNBLOCKED, and
+the concrete scope is now fixed. This ticket builds, in both `YARD_POLICIES` and
+`DOCK_POLICIES`: `lifo` (pure key, the adversarial control), `gain_myopic` (plan over
+`empties` only), `gain_forecast` (empties + `predicted`), and `gain_gated`
+(`gain_forecast` behind the FIFO urgency gate: the URGENT SET — trailers within
+`INBOUND_URGENCY_HORIZON_DAYS` of crossing `INBOUND_FEE_THRESHOLD_DAYS` — is served FIFO
+ahead of the plan; both knobs land here, days-denominated, on the `inbound_spec()`
+pattern). Scores never blend hours with days — the gate is the only legal composition
+(05's two-separate-scores rule). The `futuresight` entry is NOT here — it rides ticket
+13 (blocked by this one). Every arm sets both registry knobs to the same name; all run
+with `INBOUND_TRAILER_BOUND = None`.

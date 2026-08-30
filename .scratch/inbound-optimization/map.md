@@ -49,7 +49,9 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
     WINDOW family (w script batches ahead, w=∞ the oracle) is a declared-unlawful
     upper-bound reference.
   - **Fee proxy**: per-trailer overage = max(0, yard_days − threshold), threshold a knob;
-    a reported span-derived metric, never converted to dollars, never mixed into labor.
+    a reported span-derived metric, never converted to dollars, never mixed into labor —
+    and never blended with gain into one score: hours and days meet only through the
+    urgency GATE (amended 2026-08-29 by the arm roster, 05).
   - **Caching**: staleness is contractual at declared freeze points; within the contract,
     caches are pure memoization keyed by version stamps, provably behavior-neutral
     (cached ≡ recomputed, cross-checked). Trailer loads are NOT cell-precomputable:
@@ -137,6 +139,16 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   (driver-injected arm bundle, two-tier gain, no new knobs) and graduated as
   [Build the gain evaluator and the gain-plan arms](issues/14-build-the-gain-evaluator-and-arms.md),
   blocked by the arm roster (05).
+- [Name the policy arms and their knobs](issues/05-name-the-policy-arms.md): SIX arms,
+  each setting both registry knobs to one name — `fifo` (baseline AND the
+  department-greedy fee pole: with one shared threshold, fee-greedy ordering IS
+  arrival order), `lifo` (adversarial control), `gain_myopic`, `gain_forecast`,
+  `gain_gated` (the FIFO urgency gate over the plan — the two-separate-scores rule:
+  hours and days NEVER blend into one scalar, the gate is the only composition),
+  `futuresight` (unlawful reference); knobs `INBOUND_FEE_THRESHOLD_DAYS`,
+  `INBOUND_URGENCY_HORIZON_DAYS`, `INBOUND_FUTURESIGHT_BATCHES` (`'all'` = oracle); no
+  weight grids exist — the swept scalars are H and w, their grids folded into the
+  funnel (08); bound stays outside the roster.
 
 ## Not yet specified
 
@@ -145,12 +157,11 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   (columns, semantics tags, report surfaces — its raw material, `YardTransit.stamps`,
   already exists); the resume-guard extension to yard state; the funnel build (if its
   decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
-  space-timeline build — 11 — and the ordering-seam generalization — 12 — are DONE, all
-  resolved 2026-08-29; the objective resolution (10) graduated
-  [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md) and
-  the evaluator resolution (04) graduated
+  space-timeline build — 11 — and the ordering-seam generalization — 12 — are DONE;
   [Build the gain evaluator and the gain-plan arms](issues/14-build-the-gain-evaluator-and-arms.md)
-  — both open behind the arm roster (05).)
+  is on the FRONTIER now that the arm roster (05) is resolved, and
+  [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md)
+  follows behind it — 13 also builds the `futuresight` entry, so it is blocked by 14.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -159,8 +170,6 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
 - **The funnel campaign** — actually running phase 1 (inbound-off top-k selection) and
   phase 2 (top-k × inbound policies), and publishing the results; specifiable once the
   machinery and the funnel design exist.
-- **Weight-knob sweep design** — which weight grids the space-aware arms sweep; needs the
-  arms to exist first.
 
 ## Out of scope
 

@@ -39,3 +39,14 @@ on hours while missed share degrades, the funnel must surface it, not average it
 Expectation to carry into the design: inbound gradients concentrate on pool-arm rows
 (order-blind restock arms — fifo, cmax/cmin — have no bin-quality channel), so phase 1's
 top-k must not be read as "the k most inbound-sensitive arms".
+
+2026-08-29, from resolving "Name the policy arms and their knobs" (05): the phase-2 inbound
+axis is FIXED at six named arms — `fifo`, `lifo`, `gain_myopic`, `gain_forecast`,
+`gain_gated`, `futuresight` — each setting both registry knobs to one name, all unbounded.
+Scope this ticket inherits from 05: the roster has NO weight grids (scores never blend
+hours with days), so the only swept scalars are `INBOUND_URGENCY_HORIZON_DAYS` (the
+gate's fee-vs-hours frontier) and `INBOUND_FUTURESIGHT_BATCHES` (the unlawful reference's
+depth) — decide their grids HERE as part of the phase-2 cell design (this absorbs the
+map's former "weight-knob sweep design" fog item). Two standing exclusions to respect:
+`futuresight` never enters the recommendable set, and `lifo` is a control row, not a
+candidate.

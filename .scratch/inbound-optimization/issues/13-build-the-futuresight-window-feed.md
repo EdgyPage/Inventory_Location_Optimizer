@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 05
+Blocked by: 05, 14
 
 ## Question
 
@@ -27,3 +27,13 @@ entries that read it are the arm roster's (05). The pieces:
   sampling (refusal-until-clean, the effort's own precedent).
 - The window knob (name, per-arm declaration, `w` denomination in batches) lands with the
   arm roster (05) — build to whatever it names; blocked on it for exactly that reason.
+
+## Comments
+
+2026-08-29, from resolving "Name the policy arms and their knobs" (05): the knob is
+`INBOUND_FUTURESIGHT_BATCHES` — int, `'all'` = the oracle w=∞ (a string sentinel that
+survives a run spec), default None = inert; the arm refuses loudly when the knob is unset
+or the precomputed script is missing. Scope change: this ticket now ALSO builds the
+`futuresight` registry entry itself (`gain_forecast` over the window slot, both
+registries), so it is additionally blocked by "Build the gain evaluator and the gain-plan
+arms" (14), which supplies the evaluator the entry calls. The feed half is unchanged.

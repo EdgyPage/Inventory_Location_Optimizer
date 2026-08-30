@@ -35,3 +35,12 @@ lead-distribution acceptance criteria (02) — yard contention (standing trailer
 doors at drain start, a LEVEL) and binding cuts (drains ending with unserved standing
 trailers or partial unloads, per-drain FLOWs), both derivable from `YardTransit.stamps` and
 staged remainders.
+
+2026-08-29, from resolving "Name the policy arms and their knobs" (05): the threshold knob
+is named — `INBOUND_FEE_THRESHOLD_DAYS` (float, days; supersedes this question's
+`INBOUND_YARD_FEE_THRESHOLD_DAYS` sketch), ONE knob shared by the fee columns here and the
+`gain_gated` arm's urgency test (built by ticket 14). Its default value is this ticket's
+and 02's business — it should sit where FIFO runs under the chosen lead distribution show
+a nonzero but non-saturated overage, or the fee axis reports nothing. Also relevant to the
+"which quantities" list: the roster includes `lifo` as an adversarial control, so the fee
+columns should read sensibly at its extreme (overage concentrated, not clipped).
