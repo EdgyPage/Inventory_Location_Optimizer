@@ -41,3 +41,16 @@ counter. Sharing-grain hints for this ticket's table: the window FEED is batch-s
 (the `_batches_*.pkl` precedent — cell-shareable); the GAIN evaluations (04's evaluator) are
 downstream of pick state and the per-arm trailer stream — arm-local, per the charter's
 precompute trap.
+
+2026-08-29, from resolving "Prototype the load-score evaluator" (04) — THE MEASURED
+CACHING STAKES this ticket was waiting on: one plan (= one drain) costs 19–156 ms at the
+recommended fidelity across realistic-to-stressed scale (6×30×120 to 24×300×600 trailers ×
+units/load × bins/class), so an arm-run's evaluator overhead is single-digit-to-low-tens
+of SECONDS against a sim arm measured in minutes. The stakes are MODEST: nothing here
+justifies a cross-drain result cache on its own. The 4–6× that a naive
+rebuild-the-pool-per-candidate implementation wastes is recovered by an
+EVALUATOR-INTERNAL structure (sort each class's candidate Ds once per drain, slice under
+consumption) — inside one frozen ctx, so no invalidation key is needed at all. What
+remains for this ticket's table is the per-drain FREEZE inputs (predicted projection,
+sorted-D arrays over `empties`), which are version-vector-keyable per 03's contract; weigh
+them against these numbers before adding any machinery.

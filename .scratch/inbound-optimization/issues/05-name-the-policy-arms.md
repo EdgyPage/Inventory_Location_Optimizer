@@ -46,3 +46,14 @@ on this one. Entries may be ordering functions (pure keys degenerate — ticket 
 seam), so the roster can carry the plan policy directly. Corollary to carry into the
 roster's claims: on order-blind restock arms (fifo, cmax/cmin) the bin-quality channel is
 zero — inbound gradients concentrate on the pool arms.
+
+2026-08-29, from resolving "Prototype the load-score evaluator" (04): the evaluator's cost
+does NOT constrain this roster — a full gain plan is 19–156 ms per drain at realistic
+scale (arm-run overhead in seconds), so name arms on merit, not on evaluator budget. The
+contract is recommended in 04's `## Answer` and its build is graduated as ticket 14,
+blocked by THIS one. Two facts the roster should respect: the fidelity seam is per arm
+FAMILY (extremal-D arms get a proven-equal cheap path; selector arms need the arm's own
+pool, and rank_random's virtual pool must price by expectation — no RNG in an ordering
+entry), so a roster restricted to D-pool arms for phase 2 keeps the evaluator simplest;
+and the gain evaluations sit on frozen per-drain state, so weight knobs (05's grids)
+change gains only through the score terms — no recompute-cost asymmetry between arms.

@@ -127,20 +127,30 @@ caching at declared freeze points — all flag-off byte-identical — and the ph
   non-permutation proposal raises loudly; the seeded fifo key path kept its exact former
   body, pinned by seam tests plus a registry end-to-end where a reversing entry provably
   differs.
+- [Prototype the load-score evaluator](issues/04-prototype-the-load-score-evaluator.md):
+  the ordering stops changing at CONTENTION-AWARE SET CONSUMPTION, not pool machinery —
+  a k-cheapest merge with priority pairing reproduced the full `_RankedAssignPool` plan
+  in 28/29 comparisons (the residue is the co-occurrence term moving near-ties;
+  membership never moved), while dropping within-load contention flips the argmax
+  routinely; cost is O(T²·(U log B + A)), 19–156 ms per drain at realistic scale — arm-run
+  overhead seconds, caching stakes MODEST (posted on 06); evaluator contract recommended
+  (driver-injected arm bundle, two-tier gain, no new knobs) and graduated as
+  [Build the gain evaluator and the gain-plan arms](issues/14-build-the-gain-evaluator-and-arms.md),
+  blocked by the arm roster (05).
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close:
-  the real policy entries (the gain-plan and futuresight arms — wait on the evaluator (04)
-  and arm roster (05), arriving as registry entries on the generalized seam); the lead
-  distribution build; the evaluator + cache builds; the yard-metrics build (columns,
-  semantics tags, report surfaces — its raw material, `YardTransit.stamps`, already
-  exists); the resume-guard extension to yard state; the funnel build (if its decision
-  says build). (Done or ticketed: the standing-yard mechanics — 09 —, the space-timeline
-  build — 11 — and the ordering-seam generalization — 12 — are DONE, all resolved
-  2026-08-29; the objective resolution (10) also graduated
-  [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md),
-  open behind the arm roster (05).)
+  the lead distribution build; the cache build (waits on 06); the yard-metrics build
+  (columns, semantics tags, report surfaces — its raw material, `YardTransit.stamps`,
+  already exists); the resume-guard extension to yard state; the funnel build (if its
+  decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
+  space-timeline build — 11 — and the ordering-seam generalization — 12 — are DONE, all
+  resolved 2026-08-29; the objective resolution (10) graduated
+  [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md) and
+  the evaluator resolution (04) graduated
+  [Build the gain evaluator and the gain-plan arms](issues/14-build-the-gain-evaluator-and-arms.md)
+  — both open behind the arm roster (05).)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
