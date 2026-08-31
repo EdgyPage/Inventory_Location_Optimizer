@@ -188,6 +188,51 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
         f'for this family, or run it with a non-gain inbound policy')
 
 
+def _futuresight_window_w(spec, batches):
+    """The futuresight window width — `int` batches or `'all'` — or None when neither
+    standing policy names the arm.  This is the arm's REFUSAL-UNTIL-CLEAN gate
+    ("Define the inbound objective" decision 6), checked once at worker startup:
+
+    * the knob unset is a config error, never a silent default — an unlawful
+      reference arm must be run on purpose, with its window stated;
+    * `batches` None means this worker fell back to INLINE batch sampling
+      (fingerprint miss / missing script), and a window sampled inline would be a
+      silently different future than the one the run releases.  The script is
+      REQUIRED; the run refuses before simulating a single batch.
+    """
+    if 'futuresight' not in (spec['yard_policy'], spec['dock_policy']):
+        return None
+    w = spec.get('futuresight_batches')
+    if w is None:
+        raise ValueError(
+            "a futuresight inbound policy needs INBOUND_FUTURESIGHT_BATCHES set (an "
+            "int window in script batches, or 'all' for the oracle w=inf); its "
+            'default None keeps the knob inert so the unlawful reference arm can '
+            'never run with an unstated window')
+    if batches is None:
+        raise ValueError(
+            'a futuresight inbound policy REQUIRES the precomputed batch script, and '
+            'this worker fell back to inline sampling (fingerprint miss or missing '
+            '_batches_*.pkl).  Sampling a future window inline is refused by decision '
+            '(refusal-until-clean): rebuild the shared script, or drop the '
+            'futuresight arm from this run')
+    return w
+
+
+def _futuresight_window(batches, i: int, w, n_batches: int) -> tuple:
+    """Batch i's futuresight window: the demand of script batches `i+1 .. i+w`
+    ('all' = to the run's end), each `.items` dict COPIED — `batches[j]` is the
+    SHARED pickle every arm of the family reads, and a reference travelling into
+    the frozen view would let any downstream mutation corrupt every sibling arm's
+    demand silently.  The copies guard the shared objects; they are not a cache.
+
+    Clamped at `n_batches`, not `len(batches)`: past the run's end nothing
+    releases, so the tail — and w=0 — yield `()`, an empty window, never an
+    error."""
+    hi = n_batches if w == 'all' else min(n_batches, i + 1 + w)
+    return tuple(dict(b.items) for b in batches[i + 1:hi])
+
+
 def _map_lap_pct(mgr) -> float | None:
     """Share of assigned UNITS the optimal map solved exactly, or None for a non-map arm.
 
@@ -828,6 +873,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # it is handed (`mgr.transit`, `mgr.packer`); nothing under Warehouse/ imports Inbound.
     _inb_spec = args.get('inbound')
     _space_tl = None
+    _fs_w = None      # futuresight window width; not-None only when the arm is named
     if _inb_spec is not None:
         if _inb_spec.get('standing'):
             # THE STANDING YARD: real doors, split yard/dock priorities, door-team
@@ -856,6 +902,10 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             if {_inb_spec['yard_policy'], _inb_spec['dock_policy']} & _GAIN_POLICIES:
                 mgr.transit.gain_bundle = _gain_bundle_for(
                     strat, mgr, ctx, wp, _put_crew.speed, _inb_spec)
+            # THE FUTURESIGHT GATE, at startup: raises when the arm is named with the
+            # knob unset or the script unavailable; None for every lawful arm, which
+            # keeps the injection below from ever building a window nothing reads.
+            _fs_w = _futuresight_window_w(_inb_spec, batches)
         else:
             mgr.transit = _TrailerTransit(
                 _TRAILER_TYPES[_inb_spec['trailer_type']],
@@ -1080,7 +1130,16 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             _inj = dict(_batch_early.items)
             for _sku, _q in _pending.items():
                 _inj[_sku] = _inj.get(_sku, 0) + _q
-            _space_tl.inject_demand(_inj, released_at=arm_clock)
+            # THE FUTURESIGHT WINDOW, on its own view slot ("Build the futuresight
+            # window feed", 13): sliced from the in-memory script by
+            # `_futuresight_window` (read-ahead, no artifact — the feed is
+            # cell-shared by inheriting the batch pickle; the copy rule and the
+            # clamp live on the helper).  `_fs_w` is None for every lawful arm, so
+            # no window is ever built that nothing reads.
+            _window = None
+            if _fs_w is not None:
+                _window = _futuresight_window(batches, i, _fs_w, n_batches)
+            _space_tl.inject_demand(_inj, released_at=arm_clock, window=_window)
         if reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.

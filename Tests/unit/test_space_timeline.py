@@ -16,7 +16,9 @@ neutrality obligations, each pinned here:
 
 Plus the mechanics the cache ticket will key on: per-event-class version counters
 (equality-only), the clear-stamp lifecycle (harvest keeps only stamped bins, fill
-expires), and the frozen-copy contract of the view itself.
+expires), and the frozen-copy contract of the view itself — and the futuresight
+window slot ("Build the futuresight window feed", 13): its own slot, riding the
+`demand_v` event, never read by the projection.
 
 The `_emptied_at` read-site pin (reclaim-harvest is the ONE legal reader) lives in
 `Tests/unit/test_bin_empty_timing.py`, beside the stamp's other pins.
@@ -331,6 +333,30 @@ def test_versions_bump_per_event_class_and_demand_replaces():
     tl.fill(b2)                       # no stamp to expire — still a fill event
     assert tl.fill_v == 2
     assert tl.emptied_at == {}, 'a filled bin is no longer empty; its stamp expires'
+
+
+def test_the_window_rides_the_injection_and_replaces():
+    """The futuresight feed ("Build the futuresight window feed", 13): the window is
+    its OWN slot, set by the same injection that bumps `demand_v` — one event, no
+    fourth counter — replaced wholesale each batch, and invisible to the projection
+    (a merged window would silently redefine "Predicted clear")."""
+    mgr = _stocked_manager()
+    tl = SpaceTimeline(drain_sku).attach(mgr)
+    tl.inject_demand({102: 5}, released_at=1.0, window=({101: 6}, {102: 2}))
+    assert tl.demand_v == 1, 'the window rides the demand event — no extra bump'
+    view = tl.freeze(mgr, 1.0)
+    assert view.window == ({101: 6}, {102: 2})
+    skey = ('conveyable', 'food', 'singleton', 'singleton')
+    assert list(view.predicted) == [skey], (
+        'the projection reads the standing demand ONLY: 101 appears solely in the '
+        'window, and predicting its pallets would break the one-batch-deep pin')
+    tl.inject_demand({101: 3}, released_at=2.0)
+    assert tl.freeze(mgr, 2.0).window is None, (
+        'a lawful injection (no window) leaves the slot EMPTY — replaced wholesale, '
+        'never carried over from the previous batch')
+    tl.inject_demand({101: 3}, released_at=3.0, window=())
+    assert tl.freeze(mgr, 3.0).window == (), (
+        'the end of the script is an EMPTY window, not None and not an error')
 
 
 # ── 6. the view is a frozen copy ──────────────────────────────────────────────────

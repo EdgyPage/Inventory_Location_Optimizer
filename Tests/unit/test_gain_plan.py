@@ -20,6 +20,12 @@ arms", 14) and the cache boundary's Tier-1 contract (06):
   6. PURITY through the real seam: an entry called via `yard_order`/`bounded_order`
      consumes no RNG, mutates neither the yard, the frozen view, nor the live aisle
      dicts a pool bundle references (the pool adapter works on copies).
+  7. THE FUTURESIGHT WINDOW ("Build the futuresight window feed", 13): the entry
+     refuses a missing feed (None) and accepts an empty one (`()`); pricing swaps
+     the static rates for the window's realized demand (absent = put only, visits
+     capped at the event count), and rates that MATCH the static ones reproduce
+     `gain_forecast` exactly — knowledge changed, machinery not; the driver's
+     startup gate refuses the arm with the knob unset or the script missing.
 
 Run:  python -m pytest Tests/unit/test_gain_plan.py -q
 """
@@ -89,12 +95,12 @@ def _trailer(seq, arrived, units):
     return t
 
 
-def _view(empties, predicted=None, frozen_at=0.0):
+def _view(empties, predicted=None, frozen_at=0.0, window=None):
     return SpaceView(
         empties={k: tuple(v) for k, v in empties.items()},
         emptied_at={},
         predicted={k: tuple(v) for k, v in (predicted or {}).items()},
-        released_at=None, versions=(0, 0, 0), frozen_at=frozen_at)
+        released_at=None, versions=(0, 0, 0), frozen_at=frozen_at, window=window)
 
 
 def _bundle(**kw):
@@ -125,8 +131,11 @@ def test_registry_carries_the_roster():
     # name would run bundleless (loud at runtime, but the static pin is free).
     assert GAIN_POLICIES <= set(YARD_POLICIES)
     assert GAIN_POLICIES <= set(DOCK_POLICIES)
+    assert 'futuresight' in GAIN_POLICIES, (
+        'futuresight needs the driver-injected bundle like any gain entry — '
+        'unlisted, it would run bundleless')
     for resolve in (yard_key, dock_key):
-        for name in ('gain_myopic', 'gain_forecast', 'gain_gated'):
+        for name in ('gain_myopic', 'gain_forecast', 'gain_gated', 'futuresight'):
             entry = resolve(name)
             assert getattr(entry, 'ORDERING', False), (
                 f'{name} must be an @ordering entry — a gain plan has no '
@@ -268,6 +277,110 @@ def test_gate_plan_prices_space_after_the_urgent_load_consumes():
         'the urgent load consumed the cheap bin, so the plan pair now contends over '
         'the bracket step and the heavy-handling load jumps — the prefix visibly '
         'consumed space')
+
+
+# ── the futuresight window (the declared-unlawful reference, ticket 13) ───────────
+
+def test_futuresight_refuses_a_missing_feed_and_accepts_an_empty_window():
+    entry = yard_key('futuresight')
+    t = _trailer(0, 0.0, [_Unit(_Order(1), 1)])
+    ctx = _ctx(_view({_KEY_M: [_Bin(0, 10.0)]}), _bundle())      # window: None
+    with pytest.raises(RuntimeError, match='window feed'):
+        entry([t], ctx)
+    empty = _ctx(_view({_KEY_M: [_Bin(0, 10.0)]}, window=()), _bundle())
+    assert _seqs(entry([t], empty)) == [0], (
+        'an empty window — a run at the end of its script — is legal, not an error')
+    # And the hook latch: a pre-built evaluator carries its own pricing, so pairing
+    # it with window_rates would silently drop the window — refused instead.
+    view = _view({_KEY_M: [_Bin(0, 10.0)]})
+    with pytest.raises(ValueError, match='window_rates'):
+        plan_order([t], _bundle(), view, predicted=True,
+                   window_rates={1: (1, 1)}, _ev=_Evaluator(_bundle(), view))
+
+
+def test_futuresight_reads_the_window_and_forecast_does_not():
+    """Two loads identical under the static rates (gains tie -> arrival order); the
+    window says only B's SKU actually lands.  Futuresight prices A's load put-only,
+    so B — whose deferral to the far bin costs a real visit — jumps the tie;
+    gain_forecast, blind to the slot, keeps arrival order on the same ctx."""
+    cheap, far = _Bin(0, 10.0), _Bin(0, 2000.0)
+    a = _trailer(0, 0.0, [_Unit(_Order(1, qty_rate=1.0), 50)])
+    b = _trailer(1, 50.0, [_Unit(_Order(2, qty_rate=1.0), 50)])
+    ctx = _ctx(_view({_KEY_M: [cheap, far]}, window=({2: 1},)), _bundle())
+    assert _seqs(yard_key('gain_forecast')([a, b], ctx)) == [0, 1], (
+        'under the static rates the pair is identical: the tie keeps arrival order')
+    assert _seqs(yard_key('futuresight')([a, b], ctx)) == [1, 0], (
+        'realized knowledge breaks the tie: only B still carries pick work')
+
+
+def test_a_sku_absent_from_the_window_pays_put_travel_only():
+    """The window stands where the static rate stands: absent = not picked in the
+    visible future, put still paid.  The static path on the SAME unit prices real
+    visits — the guard that keeps this test from passing vacuously."""
+    b = _Bin(0, 480.0, 96.0)
+    unit = _Unit(_Order(1, qty_rate=5.0), 30)
+    view = _view({_KEY_M: [b]})
+    put_only = _PUT.x_pace * b.x_phys + _PUT.y_pace * b.y_phys
+    cost, takes = _Evaluator(_bundle(), view, window_rates={9: (4, 2)}).place_load(
+        [unit], set(), False)
+    assert takes == [b]
+    assert cost == pytest.approx(put_only)
+    static_cost, _ = _Evaluator(_bundle(), view).place_load([unit], set(), False)
+    assert static_cost > put_only, 'statically the unit IS picked — rates differ'
+
+
+def test_window_visits_cap_at_the_event_count():
+    """A unit cannot be visited more often than the window holds demand events for
+    its SKU — the cap that makes w=inf honestly the oracle.  Both windows draw
+    total/events = 1 per event, so the pick terms scale exactly with the cap."""
+    b = _Bin(0, 480.0, 0.0)
+    unit = _Unit(_Order(1, qty_rate=1.0), 30)
+    view = _view({_KEY_M: [b]})
+    put_only = _PUT.x_pace * b.x_phys + _PUT.y_pace * b.y_phys
+    c2, _ = _Evaluator(_bundle(), view, window_rates={1: (2, 2)}).place_load(
+        [unit], set(), False)
+    c5, _ = _Evaluator(_bundle(), view, window_rates={1: (5, 5)}).place_load(
+        [unit], set(), False)
+    assert c2 < c5, 'fewer remaining demand events, less future pick work'
+    assert (c2 - put_only) * 5 == pytest.approx((c5 - put_only) * 2), (
+        'same per-visit price, visits 2 vs 5 — the cap binds, quantity/draw (30) '
+        'does not')
+
+
+def test_window_matching_the_static_rates_reproduces_forecast_exactly():
+    """The window swaps KNOWLEDGE, not machinery: realized rates that agree with the
+    static ones (per-event draw == quantity_rate, more events than any quantity can
+    use) price every pair identically, so the plan IS gain_forecast's.  128 is a
+    power of two, so total/events reproduces quantity_rate to the exact float.  And
+    `_window_rates` aggregates (total, events) per SKU."""
+    from Inbound.gain import _window_rates
+    assert _window_rates(({1: 3, 2: 1}, {1: 2})) == {1: (5, 2), 2: (1, 1)}
+    for seed in range(3):
+        trailers, view = _random_scene(seed)
+        orders = {it.unit.order for t in trailers for it in t.pending}
+        wr = {o.sku: (o.demand.quantity_rate * 128.0, 128) for o in orders}
+        bundle = _bundle()
+        assert (_seqs(plan_order(trailers, bundle, view, predicted=True,
+                                 window_rates=wr))
+                == _seqs(plan_order(trailers, bundle, view, predicted=True))), (
+            f'seed {seed}: matching rates must leave the plan untouched')
+
+
+def test_futuresight_entry_with_matching_rates_is_forecast_through_the_seam():
+    """The same invariance, through `yard_key('futuresight')` itself: a broken
+    entry that ignored the window (or reordered wholesale) could still pass the
+    tie-flip test, so this pins entry -> `_window_rates` -> evaluator end to end.
+    Integer per-batch quantities, so 128 of them sum exactly back to the static
+    rate."""
+    cheap, far = _Bin(0, 10.0), _Bin(0, 2000.0)
+    cold = _trailer(0, 0.0, [_Unit(_Order(1, qty_rate=1.0), 1)])
+    hot = _trailer(1, 100.0, [_Unit(_Order(2, qty_rate=1.0), 50)])
+    win = tuple({1: 1, 2: 1} for _ in range(128))
+    ctx = _ctx(_view({_KEY_M: [cheap, far]}, window=win), _bundle())
+    assert (_seqs(yard_key('futuresight')([cold, hot], ctx))
+            == _seqs(yard_key('gain_forecast')([cold, hot], ctx)) == [1, 0]), (
+        'a window whose realized rates equal the static ones must reproduce the '
+        'forecast plan — nontrivially (contention decides, not arrival order)')
 
 
 # ── exhaustion: the spill rule's two docstring claims, pinned directly ────────────
@@ -511,6 +624,91 @@ def test_driver_bundle_carries_the_spec_knobs_and_refuses_unserved_arms():
         _gain_bundle_for(SimpleNamespace(restock='cluster_map',
                                          key='uni_cluster_map_norsl'),
                          mgr, None, _WP, _PUT, spec)
+
+
+def test_spec_carries_the_futuresight_knob_and_zero_and_all_survive(monkeypatch):
+    from Optimization.config.sim_config import CONFIG, inbound_spec
+    g = CONFIG['global']
+    monkeypatch.setitem(g, 'inbound_trailer_type', '28')
+    assert inbound_spec()['futuresight_batches'] is None, 'default: the knob is inert'
+    monkeypatch.setitem(g, 'inbound_futuresight_batches', 0)
+    assert inbound_spec()['futuresight_batches'] == 0, (
+        'w=0 (a futuresight arm that sees nothing ahead) is a legal pole — an `or` '
+        'default would swallow it')
+    monkeypatch.setitem(g, 'inbound_futuresight_batches', 'all')
+    assert inbound_spec()['futuresight_batches'] == 'all', (
+        "the oracle sentinel survives the spec as the string 'all'")
+    for bad in (-1, 2.5, 'oracle', True):
+        monkeypatch.setitem(g, 'inbound_futuresight_batches', bad)
+        with pytest.raises(ValueError, match='INBOUND_FUTURESIGHT_BATCHES'):
+            inbound_spec()   # every bad shape raises the KNOB-NAMED error, not
+        #                      whatever int() says — the signpost is the contract
+
+
+def test_spec_refuses_standing_policies_without_the_standing_yard(monkeypatch):
+    """The fake-arm hazard worn as configuration: the yard/dock knobs are UNREAD
+    without the standing yard, so naming a policy there must fail at spec build —
+    not complete as v1 fifo under the policy's name."""
+    from Optimization.config.sim_config import CONFIG, inbound_spec
+    g = CONFIG['global']
+    monkeypatch.setitem(g, 'inbound_trailer_type', '28')
+    monkeypatch.setitem(g, 'inbound_yard_policy', 'futuresight')
+    with pytest.raises(ValueError, match='UNREAD without INBOUND_STANDING_YARD'):
+        inbound_spec()
+    monkeypatch.setitem(g, 'inbound_yard_policy', 'fifo')
+    monkeypatch.setitem(g, 'inbound_dock_policy', 'gain_forecast')
+    with pytest.raises(ValueError, match='UNREAD without INBOUND_STANDING_YARD'):
+        inbound_spec()
+
+
+def test_driver_gate_refuses_futuresight_without_knob_or_script():
+    """The startup half of refusal-until-clean: the arm never runs with an unstated
+    window or an inline-sampled future (10 decision 6)."""
+    from Optimization.simdriver.strategy_runner import _futuresight_window_w
+    lawful = {'yard_policy': 'gain_forecast', 'dock_policy': 'fifo',
+              'futuresight_batches': None}
+    assert _futuresight_window_w(lawful, None) is None, (
+        'no futuresight named: no gate, whatever the script situation')
+    spec = {'yard_policy': 'futuresight', 'dock_policy': 'fifo',
+            'futuresight_batches': None}
+    with pytest.raises(ValueError, match='INBOUND_FUTURESIGHT_BATCHES'):
+        _futuresight_window_w(spec, ['scripted'])
+    spec['futuresight_batches'] = 3
+    with pytest.raises(ValueError, match='precomputed batch script'):
+        _futuresight_window_w(spec, None)
+    assert _futuresight_window_w(spec, ['scripted']) == 3
+    spec['futuresight_batches'] = 0
+    assert _futuresight_window_w(spec, ['scripted']) == 0, (
+        'w=0 is the legal blind pole: the gate tests `is None`, and a truthiness '
+        'rewrite would refuse it with every other case green')
+    other = {'yard_policy': 'fifo', 'dock_policy': 'futuresight',
+             'futuresight_batches': 'all'}
+    assert _futuresight_window_w(other, ['scripted']) == 'all', (
+        'either registry knob names the arm; the oracle sentinel passes through')
+
+
+def test_driver_window_slice_clamps_and_copies():
+    """The feed half of the ticket, pinned at the slice that produces it: exact
+    membership (an off-by-one would ship a subtly wrong future with no error), the
+    n_batches clamp, the empty tail, and the shared-pickle copy rule."""
+    from Optimization.simdriver.strategy_runner import _futuresight_window
+    script = [SimpleNamespace(items={j: 10 + j}) for j in range(6)]
+    assert _futuresight_window(script, 1, 2, n_batches=6) == ({2: 12}, {3: 13}), (
+        'w=2 at batch 1 is EXACTLY batches 2 and 3 — never batch 1, never batch 4')
+    assert _futuresight_window(script, 1, 'all', n_batches=5) == (
+        {2: 12}, {3: 13}, {4: 14}), (
+        "'all' reaches n_batches, not len(batches): past the run's end nothing "
+        'releases, so the longer script must not leak in')
+    assert _futuresight_window(script, 4, 3, n_batches=5) == (), (
+        'the last released batch has nothing lawful ahead: an empty tail')
+    assert _futuresight_window(script, 4, 'all', n_batches=5) == ()
+    assert _futuresight_window(script, 2, 0, n_batches=6) == (), (
+        'w=0 sees nothing ahead — an empty window, not an error')
+    window = _futuresight_window(script, 0, 1, n_batches=6)
+    window[0][1] = 999
+    assert script[1].items == {1: 11}, (
+        'the window must be COPIES: a reference would let downstream mutation '
+        'corrupt the shared pickle every sibling arm reads')
 
 
 # ── the bound composes bound-first with a gain entry (the 12 seam, real entry) ────

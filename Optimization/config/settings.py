@@ -163,6 +163,14 @@ INBOUND_URGENCY_HORIZON_DAYS = 0.0  # gain_gated's only dial: trailers within th
                                     # days of crossing the threshold are served FIFO ahead
                                     # of the plan.  0 ~ pure gain (only already-overdue
                                     # trailers jump); >= threshold = pure FIFO
+INBOUND_FUTURESIGHT_BATCHES = None  # the futuresight arm's window, in SCRIPT BATCHES ahead
+                                    # of the one being released; 'all' = the oracle w=inf (a
+                                    # string sentinel that survives a run spec honestly);
+                                    # None = inert.  The arm REQUIRES it set and requires the
+                                    # precomputed batch script -- refusal-until-clean on both
+                                    # ("Define the inbound objective", 10; the entry itself
+                                    # is a declared-unlawful upper-bound REFERENCE, never in
+                                    # the recommendable set)
 # The unload cost's own coefficients -- the independent inbound price lever.  None = the
 # put-away value BY REFERENCE (Inbound/unload.py's UnloadCost defaults), so every existing
 # run is byte-identical and no era splits; a number = this dock's own price.  Same

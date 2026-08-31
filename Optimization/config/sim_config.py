@@ -208,6 +208,7 @@ CONFIG = {
         'inbound_dock_policy'      : _s.INBOUND_DOCK_POLICY,
         'inbound_fee_threshold_days'   : _s.INBOUND_FEE_THRESHOLD_DAYS,
         'inbound_urgency_horizon_days' : _s.INBOUND_URGENCY_HORIZON_DAYS,
+        'inbound_futuresight_batches'  : _s.INBOUND_FUTURESIGHT_BATCHES,
         'inbound_unload_intercept' : _s.INBOUND_UNLOAD_INTERCEPT,
         'inbound_unload_weight_coef': _s.INBOUND_UNLOAD_WEIGHT_COEF,
         'inbound_unload_volume_coef': _s.INBOUND_UNLOAD_VOLUME_COEF,
@@ -396,6 +397,28 @@ def recv_crew_spec() -> dict | None:
     }
 
 
+def _futuresight_batches(raw):
+    """Normalize INBOUND_FUTURESIGHT_BATCHES for the spec: None | 'all' | int >= 0.
+
+    Anything else raises here, at spec build, rather than reaching a worker: the knob
+    denominates a batch COUNT, so a negative, fractional, bool, or unrecognized-string
+    value is a config error, never a silent clamp — and the error names the knob
+    (a bare `int('oracle')` message would refuse loudly but signpost nothing)."""
+    if raw is None or raw == 'all':
+        return raw
+    try:
+        if isinstance(raw, bool):        # int(True) == 1 would pass the checks below
+            raise ValueError
+        w = int(raw)
+        if w != raw or w < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"INBOUND_FUTURESIGHT_BATCHES must be None, 'all', or a non-negative "
+            f'integer count of script batches; got {raw!r}') from None
+    return w
+
+
 def inbound_spec() -> dict | None:
     """The trailer pipeline's configuration as a picklable record, or **None** for off.
 
@@ -411,8 +434,11 @@ def inbound_spec() -> dict | None:
     THE STANDING YARD'S CONTRADICTIONS FAIL HERE, LOUDLY.  `INBOUND_STANDING_YARD` with
     no trailer type is a yard with no trailers; with no receiving crew it is a yard
     nobody can ever unload -- merchandise would stand deferred forever, the run would
-    complete, and nothing would raise.  Both are configuration errors, never a silent
-    no-op: the flag's OFF state is the only inert one.
+    complete, and nothing would raise.  And a non-fifo yard/dock policy WITHOUT the
+    standing yard is a policy nothing reads: the run would complete as v1 fifo under
+    the policy's name -- the fake-arm hazard, worn as configuration.  All are
+    configuration errors, never a silent no-op: the flag's OFF state is the only
+    inert one.
     """
     g = CONFIG['global']
     ttype = g.get('inbound_trailer_type')
@@ -433,6 +459,15 @@ def inbound_spec() -> dict | None:
     if allocation not in ('split', 'merged'):
         raise ValueError(f'unknown INBOUND_CREW_ALLOCATION {allocation!r}; '
                          f"known: 'split', 'merged'")
+    yard_policy = str(g.get('inbound_yard_policy') or 'fifo')
+    dock_policy = str(g.get('inbound_dock_policy') or 'fifo')
+    if not standing and (yard_policy, dock_policy) != ('fifo', 'fifo'):
+        raise ValueError(
+            f'INBOUND_YARD_POLICY/INBOUND_DOCK_POLICY '
+            f'({yard_policy!r}/{dock_policy!r}) are the standing yard\'s knobs and '
+            f'are UNREAD without INBOUND_STANDING_YARD: the run would complete as '
+            f'v1 fifo under the policy\'s name, nothing raising.  Set the flag or '
+            f'clear the knobs')
     lead_min = float(g.get('inbound_lead_minutes') or 0.0)
     return {
         'trailer_type': str(ttype),
@@ -445,8 +480,8 @@ def inbound_spec() -> dict | None:
         # the v1 transit and none of the rest is read.
         'standing': standing,
         'allocation': allocation,
-        'yard_policy': str(g.get('inbound_yard_policy') or 'fifo'),
-        'dock_policy': str(g.get('inbound_dock_policy') or 'fifo'),
+        'yard_policy': yard_policy,
+        'dock_policy': dock_policy,
         # The gate's two days-denominated knobs.  Explicit None tests, not `or`:
         # a 0.0 threshold (everything overdue from arrival) is a legal sweep point
         # that `or` would silently revert to the default.
@@ -454,6 +489,14 @@ def inbound_spec() -> dict | None:
                                else float(g['inbound_fee_threshold_days'])),
         'urgency_horizon_days': (0.0 if g.get('inbound_urgency_horizon_days') is None
                                  else float(g['inbound_urgency_horizon_days'])),
+        # The futuresight window, in script batches: None = inert, 'all' = the oracle
+        # w=inf (the string sentinel a run spec records honestly), else a non-negative
+        # int -- 0 is a legal pole (a futuresight arm that sees nothing ahead), so the
+        # None test is explicit like the days-knobs above.  int() would silently
+        # truncate a fractional value, so a non-integral number raises instead: a
+        # window is a COUNT of batches, and 2.5 of them is a config error.
+        'futuresight_batches': _futuresight_batches(
+            g.get('inbound_futuresight_batches')),
         # The unload cost's own coefficients; None = the put-away default BY REFERENCE
         # (UnloadCost's field defaults), so unset changes no archive row.
         'unload_intercept': g.get('inbound_unload_intercept'),

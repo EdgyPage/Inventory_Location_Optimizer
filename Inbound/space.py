@@ -41,7 +41,10 @@ race: `demand_v` +1 per injection (once per batch), `reclaim_v` +1 per harvested
 `fill_v` +1 per placement.  EQUALITY is the only legal operation — magnitudes and
 cross-class comparisons are meaningless by contract.  The predicted set is a pure
 function of the other three states, so it carries no fourth counter, and the cache
-layer composes keys from this vector and may not add counters of its own.
+layer composes keys from this vector and may not add counters of its own.  The
+futuresight window rides the same rule from the other side: a pure function of
+(batch script, batch index), replaced by the injection that bumps `demand_v`, so it
+too adds no counter (see `SpaceView.window`).
 
 One honest gap, stated for that cache layer: `requeue_bin` evictions (reloader arms)
 return a bin to the free index through NONE of the three event classes, so two version-
@@ -70,10 +73,10 @@ class SpaceView:
     """
 
     __slots__ = ('empties', 'emptied_at', 'predicted', 'released_at', 'versions',
-                 'frozen_at')
+                 'frozen_at', 'window')
 
     def __init__(self, empties, emptied_at, predicted, released_at, versions,
-                 frozen_at):
+                 frozen_at, window=None):
         #: dict[BinKey, tuple[Bin, ...]] — bins free NOW, per tier (snapshot of _index).
         self.empties = empties
         #: dict[id(bin), float] — the ACTUAL absolute second a bin ran dry.  Harvested
@@ -90,6 +93,15 @@ class SpaceView:
         self.versions = versions
         #: float — the drain epoch this view froze at.
         self.frozen_at = frozen_at
+        #: tuple[dict, ...] | None — the FUTURESIGHT WINDOW ("Build the futuresight
+        #: window feed", inbound-optimization 13): the flat `{sku: qty}` demand dicts of
+        #: the next w script batches, driver-copied at the injection site.  Its OWN slot
+        #: by charter — never merged into `demand`, which would silently redefine
+        #: "Predicted clear" and break the one-batch-deep pin.  None = no feed runs
+        #: (every lawful arm); `()` = a futuresight run at the end of its script, which
+        #: is an empty window, not an error.  Only the declared-unlawful `futuresight`
+        #: entry reads it.
+        self.window = window
 
 
 class SpaceTimeline:
@@ -103,7 +115,7 @@ class SpaceTimeline:
     """
 
     __slots__ = ('_drain', 'demand', 'released_at', 'emptied_at',
-                 'demand_v', 'reclaim_v', 'fill_v', 'views_built')
+                 'demand_v', 'reclaim_v', 'fill_v', 'views_built', 'window')
 
     def __init__(self, drain_rule):
         #: The injected drain rule — `Workload_Builder.drain_sku`'s signature:
@@ -118,6 +130,11 @@ class SpaceTimeline:
         self.demand_v = 0
         self.reclaim_v = 0
         self.fill_v = 0
+        #: The futuresight window (see `SpaceView.window`); replaced wholesale by each
+        #: injection, so it carries NO counter of its own — a pure function of the
+        #: batch index, changing in the same event that bumps `demand_v` (10's
+        #: no-fourth-counter rule, which keeps the cache ticket's key vector intact).
+        self.window: tuple | None = None
         #: Freeze count — non-vacuity handle for the neutrality tests, nothing more.
         self.views_built = 0
 
@@ -129,13 +146,21 @@ class SpaceTimeline:
         return self
 
     # ── the event feeds ───────────────────────────────────────────────────────────
-    def inject_demand(self, items, released_at: float | None) -> None:
+    def inject_demand(self, items, released_at: float | None,
+                      window: tuple | None = None) -> None:
         """The driver's per-batch injection, BEFORE check_reorders: the batch about to
         be released plus the rollover carry.  REPLACES the standing demand — it is one
         batch deep by charter, never an accumulation.  `released_at` is the batch's
-        release instant on the absolute clock (a fact the view carries verbatim)."""
+        release instant on the absolute clock (a fact the view carries verbatim).
+
+        `window` is the futuresight feed (see `SpaceView.window`): already-copied
+        per-batch `{sku: qty}` dicts, replaced wholesale like the demand and riding
+        the SAME `demand_v` bump — one event, no fourth counter.  None (the default,
+        and every lawful run) keeps the slot empty; the projection below never reads
+        it, so `predicted` keeps meaning one batch deep regardless."""
         self.demand = dict(items)
         self.released_at = released_at
+        self.window = window
         self.demand_v += 1
 
     def harvest(self, bins, stamps) -> None:
@@ -190,4 +215,8 @@ class SpaceTimeline:
             predicted={key: tuple(bins) for key, bins in predicted.items()},
             released_at=self.released_at,
             versions=(self.demand_v, self.reclaim_v, self.fill_v),
-            frozen_at=frozen_at)
+            frozen_at=frozen_at,
+            # Carried by reference, not re-copied: the driver's feed already copied
+            # the dicts off the shared pickle, the tuple is immutable, and entries
+            # are pure over the frozen ctx — nothing downstream may mutate them.
+            window=self.window)

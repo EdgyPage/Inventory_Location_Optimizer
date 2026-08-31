@@ -67,6 +67,24 @@ ahead of everyone; the rest follow the plan, which prices its space AFTER the ur
 loads consume.  Hours and days never combine into one scalar — the gate IS the only
 legal composition (05's two-separate-scores rule).  The horizon spans the poles: 0 ~
 pure gain (only already-overdue trailers jump), >= threshold = pure FIFO.
+
+# ── the futuresight window (`futuresight`) ────────────────────────────────────────
+
+`gain_forecast` reading `ctx.space.window` — the declared-unlawful upper-bound
+REFERENCE ("Define the inbound objective" decision 6): a real WMS cannot see
+undispatched orders, so this arm never enters the recommendable set.  The window is
+the next `INBOUND_FUTURESIGHT_BATCHES` script batches' realized demand ('all' = the
+oracle w=inf), driver-fed on its own view slot; the batch script is i.i.d. draws from
+the static rates, so the edge is exactly SAMPLING-NOISE knowledge — which SKUs land,
+and their counts.  The build reads it where the static rates otherwise stand, the
+PRICING: a SKU absent from the window is not picked in the visible future (put
+travel only); a present one prices at its realized per-event draw (window total /
+window events) with visits capped at the event count, which is what makes w=inf
+honestly the oracle.  The placement MACHINERY stays the arm's own, static rates and
+all (faithful-to-arm, 10 decision 5: the real pool cannot see the future, so a
+clairvoyant virtual pool would price placements the arm will never make).  The
+deferral pool is `gain_forecast`'s — predicted stays one batch deep by charter; the
+window never projects bins.
 """
 from __future__ import annotations
 
@@ -77,9 +95,12 @@ from Inbound.priorities import DOCK_POLICIES, YARD_POLICIES, ordering
 
 from Warehouse.kernel.cost_model import height_multiplier, per_pick
 
-#: The entry names that need a driver-injected `GainBundle` on the transit.  The
-#: `futuresight` entry is NOT here — it rides its own ticket (13) with its own feed.
-GAIN_POLICIES: frozenset = frozenset({'gain_myopic', 'gain_forecast', 'gain_gated'})
+#: The entry names that need a driver-injected `GainBundle` on the transit.
+#: `futuresight` ADDITIONALLY needs the window feed — the driver refuses at startup
+#: when its knob is unset or the precomputed script is missing (never silent inline
+#: window sampling), so membership here covers only the bundle half.
+GAIN_POLICIES: frozenset = frozenset({'gain_myopic', 'gain_forecast', 'gain_gated',
+                                      'futuresight'})
 
 _SECONDS_PER_DAY = 86400.0
 
@@ -137,11 +158,15 @@ class _Evaluator:
     """
 
     __slots__ = ('b', 'space', 'taken', 'unseated',
-                 '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst')
+                 '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
+                 '_wr')
 
-    def __init__(self, bundle: GainBundle, space):
+    def __init__(self, bundle: GainBundle, space, window_rates=None):
         self.b = bundle
         self.space = space
+        #: {sku: (window total, window events)} for the futuresight entry, None for
+        #: every lawful arm — swaps the static rates out of `_pair_cost` only.
+        self._wr = window_rates
         #: id(bin) -> consumed by a chosen (or forced) load's now-placement.
         self.taken: set = set()
         #: units priced past total exhaustion — observability, nothing reads it back.
@@ -184,14 +209,29 @@ class _Evaluator:
     def _pair_cost(self, unit, bin_, wp, xk, yk) -> float:
         """put travel (paid once) + E[visits] x (pick travel + per_pick at height).
         A zero demand rate means the unit is never picked: its pick term is ZERO
-        (not quantity visits, the maximum possible reading); put is still paid."""
+        (not quantity visits, the maximum possible reading); put is still paid.
+
+        Under window rates (the futuresight entry) the SKU's REALIZED window demand
+        stands where the static rate stands: absent from the window = not picked in
+        the visible future, put only; present = per-event draw total/events, visits
+        capped at the event count (a unit cannot be visited more often than demand
+        events exist — the cap is what makes w=inf honestly the oracle)."""
         ps = self.b.put_speed
         put = ps.x_pace * bin_.x_phys + ps.y_pace * bin_.y_phys
         order = unit.order
-        q = order.demand.quantity_rate
-        if q <= 0:
-            return put
-        visits = max(1.0, unit.quantity / q)
+        wr = self._wr
+        if wr is not None:
+            got = wr.get(order.sku)
+            if got is None:
+                return put
+            total, hits = got
+            q = total / hits          # >= 1 by construction: batch draws floor at 1
+            visits = max(1.0, min(unit.quantity / q, float(hits)))
+        else:
+            q = order.demand.quantity_rate
+            if q <= 0:
+                return put
+            visits = max(1.0, unit.quantity / q)
         hm = height_multiplier(wp.height_brackets, bin_.y_phys)
         at_bin = per_pick(hm, wp.pick_intercept, order.handle_var, q)
         return put + visits * (xk * bin_.x_phys + yk * bin_.y_phys + at_bin)
@@ -383,13 +423,34 @@ def _load_units(trailer) -> list:
     return [item.unit for item in pend[trailer.taken:]]
 
 
+def _window_rates(window) -> dict:
+    """Aggregate the view's window into `{sku: (total qty, events)}` — the realized
+    demand mass and the number of window batches that carry the SKU.  Once per entry
+    call, so the pricing loop reads a dict, not w of them."""
+    agg: dict = {}
+    for d in window:
+        for sku, q in d.items():
+            got = agg.get(sku)
+            agg[sku] = (q, 1) if got is None else (got[0] + q, got[1] + 1)
+    return agg
+
+
 def plan_order(candidates, bundle, space, *, predicted: bool,
-               forced_prefix=(), _ev: _Evaluator | None = None) -> list:
+               forced_prefix=(), window_rates=None,
+               _ev: _Evaluator | None = None) -> list:
     """10's greedy over the frozen view.  `forced_prefix` is the urgency gate's FIFO
-    head — consumed first, unscored.  `_ev` exists ONLY for the Tier-1 sabotage test
-    (a pre-warmed evaluator whose sorted structure the test perturbs); production
-    callers never pass it."""
-    ev = _ev if _ev is not None else _Evaluator(bundle, space)
+    head — consumed first, unscored.  `window_rates` is the futuresight entry's
+    aggregated window (see `_window_rates`), None for every lawful arm.  `_ev` exists
+    ONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure
+    the test perturbs); production callers never pass it."""
+    if _ev is not None and window_rates is not None:
+        raise ValueError(
+            'plan_order got both a pre-built evaluator and window_rates: the hook '
+            'evaluator carries its own pricing, so the window would be silently '
+            'dropped (the fake-arm hazard) — build the evaluator with window_rates '
+            'instead')
+    ev = _ev if _ev is not None else _Evaluator(bundle, space,
+                                                window_rates=window_rates)
     loads: dict = {}          # id(trailer) -> remaining planned units, derived once
 
     def _load(t):
@@ -480,6 +541,25 @@ def gain_gated(candidates, ctx) -> list:
                       forced_prefix=urgent)
 
 
+@ordering
+def futuresight(candidates, ctx) -> list:
+    """`gain_forecast` reading the window slot (module note) — the declared-unlawful
+    upper-bound reference, never recommendable.  An EMPTY window (a run at the end
+    of its script) is legal and prices every pick term zero; a MISSING one (None)
+    means no feed ran, and ranking anyway would silently be `gain_forecast` under
+    this arm's name — the same fake-arm hazard `_require` exists for."""
+    bundle, space = _require(ctx, 'futuresight')
+    window = space.window
+    if window is None:
+        raise RuntimeError(
+            'futuresight needs the window feed on ctx.space.window — the driver '
+            'slices it from the precomputed batch script when the arm is named '
+            '(INBOUND_FUTURESIGHT_BATCHES set, script present).  None means no feed '
+            'ran; an empty window at the end of the script is (), which is legal')
+    return plan_order(candidates, bundle, space, predicted=True,
+                      window_rates=_window_rates(window))
+
+
 # ── registration ──────────────────────────────────────────────────────────────────
 # Into BOTH standing registries: an arm sets both knobs to one name (05).  Import-time
 # registration rides the package __init__, so any consumer that can name a policy has
@@ -488,4 +568,5 @@ for _registry in (YARD_POLICIES, DOCK_POLICIES):
     _registry['gain_myopic'] = gain_myopic
     _registry['gain_forecast'] = gain_forecast
     _registry['gain_gated'] = gain_gated
+    _registry['futuresight'] = futuresight
 del _registry

@@ -130,7 +130,8 @@ LOCAL_POLICIES: dict = {'fifo': _fifo_pallet}
 #: nothing here changes what GLOBAL_POLICIES means to the v1 path.  The space-aware arms
 #: land here as entries — pure keys or `@ordering` functions alike — not as rewiring:
 #: `lifo` is seeded below; the gain family (`gain_myopic` / `gain_forecast` /
-#: `gain_gated`) registers itself from `Inbound/gain.py` at package import.
+#: `gain_gated` / `futuresight`) registers itself from `Inbound/gain.py` at package
+#: import.
 YARD_POLICIES: dict = {'fifo': _fifo_standing, 'lifo': _lifo_standing}
 DOCK_POLICIES: dict = {'fifo': _fifo_standing, 'lifo': _lifo_standing}
 
