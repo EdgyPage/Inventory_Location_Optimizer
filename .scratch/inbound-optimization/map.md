@@ -187,6 +187,17 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   reading makes `gain_myopic` a fifo in disguise, the LOO form makes its signal
   contention; 06's Tier-1 equivalence + sabotage and every neutrality obligation are
   passing tests (unit tier 1413 green); pool-family drain cost flagged to the funnel.
+- [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md):
+  BUILT, commit `dd44d8a` — the window slot rides `inject_demand`/`freeze` on the
+  `demand_v` event (no fourth counter, projection-blind, `()` legal at script end), the
+  driver slices copies via `_futuresight_window` (clamped at n_batches) only when the arm
+  is named; the `futuresight` entry is `gain_forecast` with PRICING swapped to realized
+  window demand (absent = put-only; per-event draw, visits capped at the event count —
+  the cap makes w=∞ the honest oracle), machinery faithful-to-arm — the one designed
+  decision, from 10's "edge = sampling-noise knowledge"; refusals at all three layers
+  incl. a new spec guard: non-fifo yard/dock policies without the standing yard now
+  refuse loudly (the fake-arm hole a reviewer found); O(n²) 'all'-window cost flagged to
+  the funnel (t_reord reads inflated for this arm).
 - [Define the yard metrics](issues/07-define-the-yard-metrics.md): the fee accrues over the
   DETENTION span (arrived→emptied; glossary gained yard wait / door span / detention span /
   overage / binding cut / yard contention / door utilization); two new sim_db tables —
@@ -205,12 +216,11 @@ caching contract at declared freeze points — all flag-off byte-identical — a
 - **The builds** — every implementation graduates here once its governing decisions close:
   the resume-guard extension to yard state; the funnel build (if its
   decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
-  space-timeline build — 11 —, the ordering-seam generalization — 12 — and the gain
-  evaluator + gain-plan arms — 14 — are DONE;
+  space-timeline build — 11 —, the ordering-seam generalization — 12 —, the gain
+  evaluator + gain-plan arms — 14 — and the futuresight window feed + entry — 13 —
+  are DONE;
   [Build the lead distribution](issues/15-build-the-lead-distribution.md) is on the
-  FRONTIER, and
-  [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md)
-  joined it when the evaluator (14) landed — 13 builds the `futuresight` entry on it;
+  FRONTIER;
   [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md) is on
   the frontier too — the cache boundary (06) resolved to NO cache build beyond that fold
   and the Tier-1 equivalence test that landed with 14; and

@@ -1,7 +1,7 @@
 # Design the phased funnel
 
 Type: grilling
-Status: open
+Status: claimed
 
 ## Question
 
@@ -59,3 +59,11 @@ from raw stamps with the run's recorded threshold (07's derive-late decision), t
 an analysis re-report over one FIFO run, not a sweep. (b) A presentation call: whether the
 fee axis (`yard_overage_days`) ALSO earns a `headline`-family slot for the phase-2
 comparison surface, or reports only from the `yard` family beside hours and missed share.
+
+2026-08-30, from resolving "Build the futuresight window feed" (13): a cost fact for the
+`INBOUND_FUTURESIGHT_BATCHES` grid decision. The window feed re-copies and re-aggregates
+the remaining script every batch, so `'all'` on a deep run is O(n²·|batch|) over the run —
+deliberately unmitigated (06: no cache machinery) — and the cost lands inside `t_reord`,
+so the futuresight arm's deep-tier reorder seconds read inflated, worst at run start.
+Take a bench number before putting `'all'` (or a large w) in the grid at depth, and read
+that arm's `t_*` with this caveat. Finite small w is cheap.
