@@ -67,3 +67,40 @@ deliberately unmitigated (06: no cache machinery) — and the cost lands inside 
 so the futuresight arm's deep-tier reorder seconds read inflated, worst at run start.
 Take a bench number before putting `'all'` (or a large w) in the grid at depth, and read
 that arm's `t_*` with this caveat. Finite small w is cheap.
+
+2026-08-31, from resolving "Build the lead distribution" (15), commit `50149dc` — four
+facts the phase design depends on:
+
+(a) **Phase 1's byte-identity holds.** Spread zero is not a degenerate draw, it is the
+absence of one: no generator is constructed and the median is returned as the same float,
+so an inbound-off (or spread-off) run is bit-identical to the historical shape. Proven by
+test three ways, including a drain-by-drain manager lockstep whose target is precisely the
+subtle case — a seed leaking entropy while the spread is nominally off. Phase-1 rows are
+row-comparable with the pre-inbound archive on this axis. (Only this axis: the sampler-era
+and placement-pool boundaries still apply.)
+
+(b) **The domain TAG is `0x1EAD`.** Recorded because it is un-re-derivable: changing it
+re-rolls every lead schedule ever run, so any phase-1/phase-2 comparison spanning a TAG
+change would be silently incomparable.
+
+(c) **The pilot leads are free to fix, but no seed knob exists.** `lead_seed` is
+`seed_world()`, by decision — a lead schedule is a world fact, so "same `--seed-world` =
+same warehouse, catalogue and leads" is one sentence and every arm of a cell sees the
+identical lead schedule (common random numbers across arms; the funnel gets paired
+comparisons for free). A lead-REALIZATION axis would therefore be a new
+`INBOUND_LEAD_SEED` knob, not a reuse of `--seed-world`, which also moves the warehouse.
+
+(d) **The knobs are not sweepable from the CLI yet.** `INBOUND_LEAD_MINUTES` (renamed from
+`INBOUND_TRAILER_LEAD_MINUTES`) and `INBOUND_LEAD_SPREAD` are declared and threaded into
+`CONFIG`/`inbound_spec`, but seams 3 and 4 — the CLI flag and the run-spec record + its two
+restore sites — stay DEFERRED to the first sweep, per ticket 09's precedent. That deferral
+is now shared by the whole standing-yard family (09, 14, 13, 15), so "the first sweep wires
+the flags" is a concrete task this ticket's design should either schedule or graduate: a
+phase-2 cell that cannot record the lead shape it ran under is not re-analysable, and 07's
+derive-late fee report reads the threshold off the run spec.
+
+Also worth having when the acceptance probe is specified: at median = one working day,
+σ = 0.7, seed 42, eight trailers dispatched at one epoch land in yard order
+`[1, 2, 6, 5, 0, 4, 7, 3]`. That is criterion (a) of 10's acceptance test — arrival order
+is no longer dispatch order — demonstrated at unit scale. Criterion (b), binding cuts,
+needs a real run and remains this ticket's to specify.

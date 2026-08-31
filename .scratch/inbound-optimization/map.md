@@ -210,6 +210,19 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   no-direction scorecard; availability lands in `throughput`, ungated — inbound's FIRST
   figure coverage); build graduated as
   [Build the yard metrics](issues/17-build-the-yard-metrics.md).
+- [Build the lead distribution](issues/15-build-the-lead-distribution.md): BUILT, commit
+  `50149dc` — everything 02 resolved is code: `INBOUND_LEAD_MINUTES` (renamed) +
+  `INBOUND_LEAD_SPREAD`, `lead_sigma`/`lead_seed` on `inbound_spec()` (seed = `seed_world()`,
+  no knob of its own), and `TrailerTransit.lead_for(seq)` drawing
+  `median · exp(σ · Z)` from `SeedSequence([seed, 0x1EAD, seq])` at trailer creation — TAG
+  literal `0x1EAD`, never derived. Spread zero constructs NO generator and returns the
+  median as the same float, proven three ways (exact-equality seam, a booby-trapped
+  `default_rng` never reached, and a drain-by-drain manager lockstep whose real target is a
+  seed leaking entropy while the spread is off). One refusal beyond the two the ticket
+  named: both guards sit ABOVE the trailer-type early return, or a spread with no trailer
+  type is discarded by a silent `None`. Gradient confirmed — eight trailers at one epoch
+  with σ=0.7 land `[1,2,6,5,0,4,7,3]`, `[0..7]` at σ=0. CLI/run-spec deferred, values
+  unpicked (defaults inert); the derived arch layer is owed to the maintainer, as at 09/13.
 
 ## Not yet specified
 
@@ -217,10 +230,8 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   the resume-guard extension to yard state; the funnel build (if its
   decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
   space-timeline build — 11 —, the ordering-seam generalization — 12 —, the gain
-  evaluator + gain-plan arms — 14 — and the futuresight window feed + entry — 13 —
-  are DONE;
-  [Build the lead distribution](issues/15-build-the-lead-distribution.md) is on the
-  FRONTIER;
+  evaluator + gain-plan arms — 14 —, the futuresight window feed + entry — 13 — and the
+  lead distribution — 15 — are DONE;
   [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md) is on
   the frontier too — the cache boundary (06) resolved to NO cache build beyond that fold
   and the Tier-1 equivalence test that landed with 14; and
