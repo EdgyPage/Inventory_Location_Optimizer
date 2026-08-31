@@ -128,8 +128,22 @@ INBOUND_DOCK_DOORS = 4           # staging slots at the dock; BOOKKEEPING in v1 
                                  # arrival lands at the batch epoch and every policy is
                                  # FIFO, so a throttle here would invent staffing physics.
                                  # The knob exists for the policies that make doors bite.
-INBOUND_TRAILER_LEAD_MINUTES = 0.0   # per-trailer transit delay, authored in MINUTES
+INBOUND_LEAD_MINUTES = 0.0       # the MEDIAN per-trailer transit delay, authored in MINUTES
                                  # (converted once at the spec seam); 0 = arrives instantly
+INBOUND_LEAD_SPREAD = 0.0        # sigma of the lognormal around that median, DIMENSIONLESS:
+                                 # lead_i = median * exp(sigma * Z_i), one stateless draw per
+                                 # trailer keyed by (SEED_WORLD, tag, seq).  Leads are a WORLD
+                                 # fact every arm shares, like aisle geometry -- hence no seed
+                                 # knob of its own, and trailer #N draws the same lead in every
+                                 # arm of a run (common random numbers, for free).
+                                 # 0.0 = NO draw at all: no RNG is constructed and the scalar
+                                 # path runs verbatim, so the default is byte-identical by
+                                 # CONSTRUCTION rather than by argument.
+                                 # > 0 REQUIRES INBOUND_STANDING_YARD and a non-zero median;
+                                 # both refuse loudly at inbound_spec, because v1's dock ranks
+                                 # by dispatch seq (a spread would half-work -- arrival-batch
+                                 # shifts visible, order scrambling invisible) and a spread
+                                 # over a zero median degenerates to constant zero.
 INBOUND_GLOBAL_POLICY = 'fifo'   # trailer order at BOTH dock moments (Inbound/priorities.py)
 INBOUND_LOCAL_POLICY = 'fifo'    # load-pallet order within a trailer
 INBOUND_TRAILER_BOUND = None     # the dock's k_cap analog, in TRAILERS; None = unbounded

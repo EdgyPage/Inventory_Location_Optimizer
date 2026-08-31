@@ -882,6 +882,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             mgr.transit = _YardTransit(
                 _TRAILER_TYPES[_inb_spec['trailer_type']],
                 lead_s=_inb_spec['lead_s'],
+                lead_sigma=_inb_spec['lead_sigma'],
+                lead_seed=_inb_spec['lead_seed'],
                 doors=_inb_spec['doors'],
                 yard_policy=_inb_spec['yard_policy'],
                 dock_policy=_inb_spec['dock_policy'],
@@ -907,9 +909,16 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # keeps the injection below from ever building a window nothing reads.
             _fs_w = _futuresight_window_w(_inb_spec, batches)
         else:
+            # The spread rides here too, though `inbound_spec` guarantees it is 0.0 on
+            # this branch (a spread without the standing yard refuses there): the transit
+            # then behaves as the SPEC says rather than as the branch assumes, so the
+            # guard is a belt over a working brace and not the only thing holding v1's
+            # homogeneous leads in place.
             mgr.transit = _TrailerTransit(
                 _TRAILER_TYPES[_inb_spec['trailer_type']],
                 lead_s=_inb_spec['lead_s'],
+                lead_sigma=_inb_spec['lead_sigma'],
+                lead_seed=_inb_spec['lead_seed'],
                 doors=_inb_spec['doors'],
                 global_policy=_inb_spec['global_policy'],
                 local_policy=_inb_spec['local_policy'],

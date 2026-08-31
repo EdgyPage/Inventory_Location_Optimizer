@@ -195,7 +195,8 @@ CONFIG = {
         'shift_drain_or_cap': _s.SHIFT_DRAIN_OR_CAP,
         'inbound_trailer_type'  : _s.INBOUND_TRAILER_TYPE,
         'inbound_dock_doors'    : _s.INBOUND_DOCK_DOORS,
-        'inbound_lead_minutes'  : _s.INBOUND_TRAILER_LEAD_MINUTES,
+        'inbound_lead_minutes'  : _s.INBOUND_LEAD_MINUTES,
+        'inbound_lead_spread'   : _s.INBOUND_LEAD_SPREAD,
         'inbound_global_policy' : _s.INBOUND_GLOBAL_POLICY,
         'inbound_local_policy'  : _s.INBOUND_LOCAL_POLICY,
         'inbound_trailer_bound' : _s.INBOUND_TRAILER_BOUND,
@@ -428,21 +429,44 @@ def inbound_spec() -> dict | None:
     constructed for itself, byte-identically.
 
     Reads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`'s
-    settings snapshot).  The lead is authored in MINUTES and converted to the sim's
-    seconds exactly once, here -- the minutes-at-the-surface decision.
+    settings snapshot).  The lead MEDIAN is authored in MINUTES and converted to the sim's
+    seconds exactly once, here -- the minutes-at-the-surface decision.  The SPREAD is
+    dimensionless and crosses as-is; the draw itself lives at trailer creation
+    (`Inbound.transit.TrailerTransit.lead_for`), keyed by the world seed carried below,
+    so no RNG object ever has to cross the worker payload.
 
     THE STANDING YARD'S CONTRADICTIONS FAIL HERE, LOUDLY.  `INBOUND_STANDING_YARD` with
     no trailer type is a yard with no trailers; with no receiving crew it is a yard
     nobody can ever unload -- merchandise would stand deferred forever, the run would
     complete, and nothing would raise.  And a non-fifo yard/dock policy WITHOUT the
     standing yard is a policy nothing reads: the run would complete as v1 fifo under
-    the policy's name -- the fake-arm hazard, worn as configuration.  All are
-    configuration errors, never a silent no-op: the flag's OFF state is the only
+    the policy's name -- the fake-arm hazard, worn as configuration.  So is a lead
+    SPREAD without the standing yard, or over a zero median (see the guard below).  All
+    are configuration errors, never a silent no-op: the flag's OFF state is the only
     inert one.
     """
     g = CONFIG['global']
     ttype = g.get('inbound_trailer_type')
     standing = bool(g.get('inbound_standing_yard'))
+    lead_min = float(g.get('inbound_lead_minutes') or 0.0)
+    lead_sigma = float(g.get('inbound_lead_spread') or 0.0)
+    # The lead guards sit ABOVE the trailer-type return: with no type there is no standing
+    # yard either (the next branch enforces that), so a spread here is unread by definition
+    # -- and returning None on it would be the exact silent no-op the doctrine refuses.
+    if lead_sigma > 0.0:
+        if not standing:
+            raise ValueError(
+                f'INBOUND_LEAD_SPREAD ({lead_sigma}) is the standing yard\'s knob and is '
+                f'half-read without INBOUND_STANDING_YARD: v1\'s dock ranks by dispatch '
+                f'seq, so the arrival-batch shifts would land and the order scrambling '
+                f'-- the whole point of a spread -- would not.  Set the flag or clear '
+                f'the spread')
+        if lead_min <= 0.0:
+            raise ValueError(
+                f'INBOUND_LEAD_SPREAD ({lead_sigma}) over a zero INBOUND_LEAD_MINUTES: '
+                f'the lognormal is median * exp(sigma * Z), so a zero median makes every '
+                f'draw zero and the spread silently degenerates to no spread at all.  '
+                f'Set a median or clear the spread')
     if not ttype:
         if standing:
             raise ValueError(
@@ -468,11 +492,17 @@ def inbound_spec() -> dict | None:
             f'are UNREAD without INBOUND_STANDING_YARD: the run would complete as '
             f'v1 fifo under the policy\'s name, nothing raising.  Set the flag or '
             f'clear the knobs')
-    lead_min = float(g.get('inbound_lead_minutes') or 0.0)
     return {
         'trailer_type': str(ttype),
         'doors': int(g.get('inbound_dock_doors') or 4),
         'lead_s': lead_min * 60.0,
+        # The lognormal's shape and its key.  `lead_seed` is the WORLD seed, not a knob of
+        # its own: a lead schedule is a fact about the world all arms share, so "same
+        # --seed-world = same warehouse, catalogue and leads" stays one sentence.  A
+        # lead-realization sweep, if ever wanted, adds INBOUND_LEAD_SEED here and nowhere
+        # else -- the draw is stateless, so there is no generator to re-plumb.
+        'lead_sigma': lead_sigma,
+        'lead_seed': int(seed_world()),
         'global_policy': str(g.get('inbound_global_policy') or 'fifo'),
         'local_policy': str(g.get('inbound_local_policy') or 'fifo'),
         'bound': g.get('inbound_trailer_bound'),
