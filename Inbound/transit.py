@@ -200,7 +200,8 @@ class YardTransit(TrailerTransit):
     #: What `_receive` probes (via getattr, default False) to find the standing surfaces.
     STANDING = True
 
-    __slots__ = ('allocation', '_yard_key', '_dock_key', '_staged', 'stamps')
+    __slots__ = ('allocation', '_yard_key', '_dock_key', '_staged', 'stamps',
+                 'gain_bundle')
 
     def __init__(self, trailer_type: type = None, *, lead_s: float = 0.0,
                  doors: int = 4, yard_policy: str = 'fifo', dock_policy: str = 'fifo',
@@ -219,6 +220,10 @@ class YardTransit(TrailerTransit):
         self.allocation = allocation
         self._staged: list = []       # holding a door, in staging order
         self.stamps: list = []        # (seq, arrived_s, staged_s, emptied_s) per finished
+        # The gain arms' machinery (`Inbound.gain.GainBundle`), assigned by the DRIVER
+        # after construction when a gain policy is named — injected, never imported
+        # (the broker rule); None otherwise, and the seeded keys never read it.
+        self.gain_bundle = None
 
     # ── the calendar (all that release() does here) ───────────────────────────────
     def release(self, now_s: float | None = None) -> list:
@@ -280,10 +285,14 @@ class YardTransit(TrailerTransit):
 
     # ── the frozen rankings and the door lifecycle ────────────────────────────────
     def freeze_ctx(self) -> DockContext:
-        """The drain's frozen context: computed once, before any staging or unload."""
-        return DockContext(doors=self.doors,
-                           free_doors=self.doors - len(self._staged),
-                           yard_depth=len(self._yard))
+        """The drain's frozen context: computed once, before any staging or unload.
+        `ctx.gain` rides here the way `ctx.space` rides the manager's freeze — the
+        injected bundle if a gain policy runs, None otherwise."""
+        ctx = DockContext(doors=self.doors,
+                          free_doors=self.doors - len(self._staged),
+                          yard_depth=len(self._yard))
+        ctx.gain = self.gain_bundle
+        return ctx
 
     def yard_order(self, ctx: DockContext) -> list:
         """The drain-frozen YARD ranking: which standing trailer takes the next freed

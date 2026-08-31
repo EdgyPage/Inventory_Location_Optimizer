@@ -28,15 +28,20 @@ Two rules, both enforced by `context/architecture.yml` boundaries:
                    YardTransit: the standing yard, where doors become real
     space.py       the space timeline: per-drain frozen SpaceView (empties + untimed
                    predicted clears) the standing dock's decisions read via ctx.space
+    gain.py        the unload-plan evaluator (expected future work, faithful-to-arm)
+                   and the gain-family ordering entries it registers
 """
 from Inbound.dock import Dock, DockSpec
+# Imported for its registration side effect too: gain.py lands the gain-family
+# entries in the yard/dock registries at package import.
+from Inbound.gain import GAIN_POLICIES, GainBundle
 from Inbound.pack import LoadPlan, packer, receive, receive_all, shipment_penalty
 from Inbound.space import SpaceTimeline, SpaceView
 from Inbound.trailer import LoadPallet, Trailer, Trailer28, Trailer53, TRAILER_TYPES
 from Inbound.transit import TrailerTransit, YardTransit
 from Inbound.unload import UnloadCost, unload_cost
 
-__all__ = ['Dock', 'DockSpec', 'LoadPlan', 'LoadPallet', 'packer', 'receive',
-           'receive_all', 'shipment_penalty', 'SpaceTimeline', 'SpaceView', 'Trailer',
-           'Trailer28', 'Trailer53', 'TRAILER_TYPES', 'TrailerTransit', 'UnloadCost',
-           'unload_cost', 'YardTransit']
+__all__ = ['Dock', 'DockSpec', 'GAIN_POLICIES', 'GainBundle', 'LoadPlan', 'LoadPallet',
+           'packer', 'receive', 'receive_all', 'shipment_penalty', 'SpaceTimeline',
+           'SpaceView', 'Trailer', 'Trailer28', 'Trailer53', 'TRAILER_TYPES',
+           'TrailerTransit', 'UnloadCost', 'unload_cost', 'YardTransit']

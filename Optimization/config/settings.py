@@ -152,6 +152,17 @@ INBOUND_CREW_ALLOCATION = 'split'  # 'split' = door teams (the standing physics:
 INBOUND_YARD_POLICY = 'fifo'     # freed door <- which standing trailer (YARD_POLICIES)
 INBOUND_DOCK_POLICY = 'fifo'     # crew <- which staged trailer     (DOCK_POLICIES);
                                  # under door teams this is a worker-ALLOCATION preference
+# The two days-denominated knobs ("Name the policy arms", 05).  Labor-hours and fee-days
+# never blend into one scalar anywhere: the fee side is only ever the yes/no urgency test
+# these two express, and the SAME threshold feeds the yard fee report -- one knob, two
+# readers, so the gate and the metric can never disagree about "overdue".
+INBOUND_FEE_THRESHOLD_DAYS = 2.0    # free yard days before a trailer accrues overage;
+                                    # 2.0 is a stated placeholder -- calibration rides the
+                                    # funnel, not this default
+INBOUND_URGENCY_HORIZON_DAYS = 0.0  # gain_gated's only dial: trailers within this many
+                                    # days of crossing the threshold are served FIFO ahead
+                                    # of the plan.  0 ~ pure gain (only already-overdue
+                                    # trailers jump); >= threshold = pure FIFO
 # The unload cost's own coefficients -- the independent inbound price lever.  None = the
 # put-away value BY REFERENCE (Inbound/unload.py's UnloadCost defaults), so every existing
 # run is byte-identical and no era splits; a number = this dock's own price.  Same

@@ -57,11 +57,15 @@ from Warehouse.kernel.timeline import (
 from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
+from Inbound.gain import GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle
 from Inbound.pack import packer as _inbound_packer
 from Inbound.space import SpaceTimeline as _SpaceTimeline
 from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
 from Inbound.transit import TrailerTransit as _TrailerTransit, YardTransit as _YardTransit
 from Inbound.unload import UnloadCost as _UnloadCost
+from Warehouse.inventory.inventory_common import (
+    _wp_for, binkey_of as _binkey_of, tier_ranks_for as _tier_ranks_for)
+from Warehouse.placement import Assignment_Functions as _af
 from Warehouse.inventory.put_queue import store_and_fulfillment as _store_and_fulfillment
 from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
@@ -120,6 +124,68 @@ def _timed_build(strat, mgr, ctx) -> float:
     t0 = time.perf_counter()
     strat.build(mgr, ctx)
     return time.perf_counter() - t0
+
+
+def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
+    """The gain evaluator's faithful-to-arm bundle — driver-built, driver-injected
+    (`mgr.transit.gain_bundle`), because `Inbound -> wh_inventory / wh_placement` are
+    forbidden edges: the broker holds what it is handed (the `drain_sku` precedent).
+
+    The fidelity seam per arm FAMILY (prototype ticket 04): tmin/tmax ride the proven
+    k-cheapest merge; rank_popularity gets its own pool rebuilt over aisle-state
+    copies (its selector must read the COPY of aisle_demand_sum, not the live dict);
+    rank_random gets the pool with a deterministic stand-in selector and expectation
+    pricing over the aisle heads (an ordering entry may consume no RNG — the decided
+    deviation 04 recorded).  Any other placement family FAILS LOUDLY: an evaluator
+    that cannot rebuild the arm's pool over copies would price a fiction under that
+    arm's name, and phase 2's top-k should extend this map consciously, not silently.
+    """
+    if getattr(mgr, '_zoning_enabled', False):
+        raise ValueError(
+            'a gain inbound policy under velocity zoning is not implemented: the '
+            'virtual pool ignores the band filter, so its gains would price bins the '
+            'arm cannot actually grant — extend _gain_bundle_for before sweeping this')
+    kw = dict(
+        put_speed=put_speed,
+        wp_of=lambda unit: _wp_for(wp, unit),
+        binkey_of=_binkey_of,
+        tier_ranks_for=_tier_ranks_for,
+        aisle_sku_sets=mgr._aisle_sku_sets,
+        aisle_idx_sets=mgr._aisle_idx_sets,
+        aisle_demand_sum=mgr._aisle_demand_sum,
+        fee_threshold_days=spec['fee_threshold_days'],
+        urgency_horizon_days=spec['urgency_horizon_days'],
+    )
+    restock = strat.restock
+    if restock in ('tmin', 'tmax'):
+        return _GainBundle(minimize=(restock == 'tmin'), **kw)
+    if restock == 'rank_popularity':
+        def _factory(cands, ass, ais, ads, wp_local):
+            # The arm's OWN builder over the copies — its selector then closes over
+            # the copied aisle_demand_sum exactly as the production pool closes over
+            # the live one, so a future tiebreak change cannot leave the evaluator
+            # pricing a stale policy under the arm's name.
+            return _af.build_ranked_popularity_pool_fn(
+                sctx.affinity, wp_local, ass, ais, ads,
+                sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
+                beta=sctx.beta)(cands)
+        return _GainBundle(pool_factory=_factory, **kw)
+    if restock == 'rank_random':
+        def _factory(cands, ass, ais, ads, wp_local):
+            # First-live-aisle stand-in for the RNG draw: deterministic consumption
+            # under expectation pricing (head-key insertion order is first-appearance
+            # in cands — the pool's own documented, stable order).
+            return _af._RankedAssignPool(
+                cands, sctx.affinity, wp_local, ass, ais, ads,
+                sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku, sctx.beta,
+                True, aisle_selector=lambda head_D, head_bin: next(iter(head_bin)))
+        return _GainBundle(pool_factory=_factory, expect_heads=True,
+                           heads_of=lambda pool: pool._head_bin, **kw)
+    raise ValueError(
+        f'no faithful gain bundle for placement arm {strat.key!r} (restock '
+        f'{restock!r}): the gain evaluator serves tmin/tmax (k-cheapest merge) and '
+        f'rank_popularity/rank_random (pool over copies).  Extend _gain_bundle_for '
+        f'for this family, or run it with a non-gain inbound policy')
 
 
 def _map_lap_pct(mgr) -> float | None:
@@ -784,6 +850,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # handed.
             _space_tl = _SpaceTimeline(_drain_sku)
             _space_tl.attach(mgr)
+            # THE GAIN BUNDLE rides only when a gain policy is named (unlike the
+            # timeline, which is always on): the seeded fifo/lifo keys never read it,
+            # so building arm machinery nothing consumes would be unconsumed infra.
+            if {_inb_spec['yard_policy'], _inb_spec['dock_policy']} & _GAIN_POLICIES:
+                mgr.transit.gain_bundle = _gain_bundle_for(
+                    strat, mgr, ctx, wp, _put_crew.speed, _inb_spec)
         else:
             mgr.transit = _TrailerTransit(
                 _TRAILER_TYPES[_inb_spec['trailer_type']],

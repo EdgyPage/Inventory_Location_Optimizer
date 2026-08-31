@@ -56,7 +56,7 @@ class DockContext:
     reason, as `put_policy`.
     """
 
-    __slots__ = ('doors', 'free_doors', 'yard_depth', 'space')
+    __slots__ = ('doors', 'free_doors', 'yard_depth', 'space', 'gain')
 
     def __init__(self, doors: int, free_doors: int, yard_depth: int):
         self.doors = doors
@@ -67,6 +67,11 @@ class DockContext:
         # the standing yard runs; None everywhere else — the v1 path and every fifo key
         # never read it.
         self.space = None
+        # The gain arms' machinery: the driver-injected `Inbound.gain.GainBundle`,
+        # assigned at ctx-freeze by `YardTransit.freeze_ctx` when a gain policy was
+        # named; None everywhere else — the seeded keys never read it, and a gain
+        # entry finding None raises rather than quietly ranking as fifo.
+        self.gain = None
 
 
 def _fifo_trailer(trailer, ctx) -> float:
@@ -86,6 +91,17 @@ def _fifo_standing(trailer, ctx) -> float:
     """
     s = trailer.arrived_s
     return float('inf') if s is None else -float(s)
+
+
+def _lifo_standing(trailer, ctx) -> float:
+    """Newest-STANDING first — the adversarial control ("Name the policy arms", 05):
+    anchors the fee axis's bad end and null-checks whether trailer ordering moves
+    labor at all.  The exact sign-flip of `_fifo_standing` on stamped trailers; a
+    stampless trailer (no clock reached the drain) is the OLDEST standing, so here it
+    ranks last — symmetric with fifo ranking it first.  Equal stamps keep arrival
+    order (the stable sort), which only ever matters to zero-lead test rigs."""
+    s = trailer.arrived_s
+    return float('-inf') if s is None else float(s)
 
 
 def _fifo_pallet(indexed_pallet, ctx) -> float:
@@ -112,10 +128,11 @@ GLOBAL_POLICIES: dict = {'fifo': _fifo_trailer}
 LOCAL_POLICIES: dict = {'fifo': _fifo_pallet}
 #: The standing yard's split of the global decision (see the module docstring).  ADDITIVE:
 #: nothing here changes what GLOBAL_POLICIES means to the v1 path.  The space-aware arms
-#: (myopic, standing-demand forecasting) land here as entries — pure keys or `@ordering`
-#: functions alike — not as rewiring.
-YARD_POLICIES: dict = {'fifo': _fifo_standing}
-DOCK_POLICIES: dict = {'fifo': _fifo_standing}
+#: land here as entries — pure keys or `@ordering` functions alike — not as rewiring:
+#: `lifo` is seeded below; the gain family (`gain_myopic` / `gain_forecast` /
+#: `gain_gated`) registers itself from `Inbound/gain.py` at package import.
+YARD_POLICIES: dict = {'fifo': _fifo_standing, 'lifo': _lifo_standing}
+DOCK_POLICIES: dict = {'fifo': _fifo_standing, 'lifo': _lifo_standing}
 
 
 def global_key(policy: str):

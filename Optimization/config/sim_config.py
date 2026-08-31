@@ -206,6 +206,8 @@ CONFIG = {
         'inbound_crew_allocation'  : _s.INBOUND_CREW_ALLOCATION,
         'inbound_yard_policy'      : _s.INBOUND_YARD_POLICY,
         'inbound_dock_policy'      : _s.INBOUND_DOCK_POLICY,
+        'inbound_fee_threshold_days'   : _s.INBOUND_FEE_THRESHOLD_DAYS,
+        'inbound_urgency_horizon_days' : _s.INBOUND_URGENCY_HORIZON_DAYS,
         'inbound_unload_intercept' : _s.INBOUND_UNLOAD_INTERCEPT,
         'inbound_unload_weight_coef': _s.INBOUND_UNLOAD_WEIGHT_COEF,
         'inbound_unload_volume_coef': _s.INBOUND_UNLOAD_VOLUME_COEF,
@@ -445,6 +447,13 @@ def inbound_spec() -> dict | None:
         'allocation': allocation,
         'yard_policy': str(g.get('inbound_yard_policy') or 'fifo'),
         'dock_policy': str(g.get('inbound_dock_policy') or 'fifo'),
+        # The gate's two days-denominated knobs.  Explicit None tests, not `or`:
+        # a 0.0 threshold (everything overdue from arrival) is a legal sweep point
+        # that `or` would silently revert to the default.
+        'fee_threshold_days': (2.0 if g.get('inbound_fee_threshold_days') is None
+                               else float(g['inbound_fee_threshold_days'])),
+        'urgency_horizon_days': (0.0 if g.get('inbound_urgency_horizon_days') is None
+                                 else float(g['inbound_urgency_horizon_days'])),
         # The unload cost's own coefficients; None = the put-away default BY REFERENCE
         # (UnloadCost's field defaults), so unset changes no archive row.
         'unload_intercept': g.get('inbound_unload_intercept'),
