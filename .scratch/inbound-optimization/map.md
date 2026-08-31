@@ -176,6 +176,17 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   two-tier cross-checks (equivalence + sabotage with 14, paired-run byte-identity for any
   future cache); spawn rule: cell-shared = file re-opened per worker, arm-local = rebuilt
   in-worker, cache knobs ride all five seams.
+- [Build the gain evaluator and the gain-plan arms](issues/14-build-the-gain-evaluator-and-arms.md):
+  BUILT — `Inbound/gain.py` (bundle + evaluator + 10's greedy) with the three
+  `@ordering` entries in both registries, `lifo` seeded as a pure key, `ctx.gain`
+  delivered at freeze, `_gain_bundle_for` in the driver (tmin/tmax k-cheapest merge;
+  rank_popularity/rank_random pool-over-copies, rank_random by no-RNG expectation;
+  every other family and zoning refuse loudly), the two days-knobs on `inbound_spec()`
+  with 0.0 surviving; ONE recorded deviation: the deferral pool prices leftovers
+  leave-one-out over the other candidates' takes — the prototype's current-pool
+  reading makes `gain_myopic` a fifo in disguise, the LOO form makes its signal
+  contention; 06's Tier-1 equivalence + sabotage and every neutrality obligation are
+  passing tests (unit tier 1413 green); pool-family drain cost flagged to the funnel.
 - [Define the yard metrics](issues/07-define-the-yard-metrics.md): the fee accrues over the
   DETENTION span (arrived→emptied; glossary gained yard wait / door span / detention span /
   overage / binding cut / yard contention / door utilization); two new sim_db tables —
@@ -194,16 +205,15 @@ caching contract at declared freeze points — all flag-off byte-identical — a
 - **The builds** — every implementation graduates here once its governing decisions close:
   the resume-guard extension to yard state; the funnel build (if its
   decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
-  space-timeline build — 11 — and the ordering-seam generalization — 12 — are DONE;
-  [Build the gain evaluator and the gain-plan arms](issues/14-build-the-gain-evaluator-and-arms.md)
-  and [Build the lead distribution](issues/15-build-the-lead-distribution.md)
-  are on the FRONTIER now that the arm roster (05) and the lead distribution (02) are
-  resolved, and
+  space-timeline build — 11 —, the ordering-seam generalization — 12 — and the gain
+  evaluator + gain-plan arms — 14 — are DONE;
+  [Build the lead distribution](issues/15-build-the-lead-distribution.md) is on the
+  FRONTIER, and
   [Build the futuresight window feed](issues/13-build-the-futuresight-window-feed.md)
-  follows behind it — 13 also builds the `futuresight` entry, so it is blocked by 14;
+  joined it when the evaluator (14) landed — 13 builds the `futuresight` entry on it;
   [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md) is on
   the frontier too — the cache boundary (06) resolved to NO cache build beyond that fold
-  and the Tier-1 equivalence test riding 14; and
+  and the Tier-1 equivalence test that landed with 14; and
   [Build the yard metrics](issues/17-build-the-yard-metrics.md) joined the frontier when
   the yard metrics (07) resolved.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
