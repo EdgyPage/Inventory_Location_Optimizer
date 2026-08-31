@@ -228,7 +228,14 @@ caching contract at declared freeze points — all flag-off byte-identical — a
 
 - **The builds** — every implementation graduates here once its governing decisions close:
   the resume-guard extension to yard state; the funnel build (if its
-  decision says build). (Done or ticketed: the standing-yard mechanics — 09 —, the
+  decision says build); and the DEFERRED CLI/RUN-SPEC SEAMS — every knob this effort has
+  added (09, 13, 14, 15) declared seams 1–2 and deferred seams 3–4 to "the first sweep"
+  per ticket 09's precedent, so the family now owes one wiring job: flags, the run-spec
+  record, and its two restore sites (`_apply_run_spec` + `run_analysis._apply_run_shape`).
+  Its governing decision is the funnel (08), which decides what the first sweep is; a
+  phase-2 cell that cannot record the lead shape and threshold it ran under is not
+  re-analysable, and 07's derive-late fee report reads the threshold off the run spec.
+  (Done or ticketed: the standing-yard mechanics — 09 —, the
   space-timeline build — 11 —, the ordering-seam generalization — 12 —, the gain
   evaluator + gain-plan arms — 14 —, the futuresight window feed + entry — 13 — and the
   lead distribution — 15 — are DONE;
