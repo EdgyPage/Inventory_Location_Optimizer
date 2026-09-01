@@ -60,6 +60,13 @@ from Inbound.trailer import Trailer, Trailer53
 #: is to be stable, because changing it re-rolls every lead schedule in the archive.
 _LEAD_TAG: int = 0x1EAD
 
+#: How a trailer left the yard — the `yard_trailers.status` LABEL, declared beside the two
+#: methods that stamp it.  Three values and no fourth: a trailer either emptied through a
+#: door, was dropped before it ever needed one, or is still on site when the run stops.
+DONE = 'done'              # unloaded to the last unit; `emptied_s` is its true end
+DISCARDED = 'discarded'    # its plan packed nothing — dropped from the yard unstaged
+STANDING = 'standing'      # still on site at run end; detention CENSORED, never zero
+
 
 class TrailerTransit:
     """Trailers from the order port to the dock doors, in one object."""
@@ -249,9 +256,13 @@ class YardTransit(TrailerTransit):
       widening the dock.
     * Decisions are drain-quantized, data is event-stamped: `stage`/`door_freed` take the
       ABSOLUTE instant the caller derived (drain epoch, or epoch + crew-clock offset for
-      a mid-drain refill), and `stamps` keeps one `(seq, arrived_s, staged_s, emptied_s)`
-      tuple per finished trailer — the raw material the yard-metrics ticket reports from,
-      kept here because the trailer object itself is dropped when it empties.
+      a mid-drain refill), and `stamps` keeps one
+      `(seq, arrived_s, staged_s, emptied_s, status)` tuple per finished trailer — the raw
+      material the `yard_trailers` table reports from, kept here because the trailer object
+      itself is dropped when it empties.  The STATUS is stamped by whichever door the
+      trailer left through rather than re-derived downstream from the null pattern: the
+      two producers know which they are, and a reader inferring `discarded` from "never
+      staged" would silently reclassify the day someone stages a trailer they then drop.
     * `INBOUND_GLOBAL_POLICY` and the parent's global registry are UNREAD here — the
       yard/dock registries are the standing model's split of that decision.
     """
@@ -280,7 +291,7 @@ class YardTransit(TrailerTransit):
         # pooled gang, kept as honest physics and as the lockstep verification bridge.
         self.allocation = allocation
         self._staged: list = []       # holding a door, in staging order
-        self.stamps: list = []        # (seq, arrived_s, staged_s, emptied_s) per finished
+        self.stamps: list = []        # (seq, arrived, staged, emptied, status) per finished
         # The gain arms' machinery (`Inbound.gain.GainBundle`), assigned by the DRIVER
         # after construction when a gain policy is named — injected, never imported
         # (the broker rule); None otherwise, and the seeded keys never read it.
@@ -342,7 +353,8 @@ class YardTransit(TrailerTransit):
         shortfall was measured; this only keeps the yard free of undrainable entries."""
         self._yard.remove(trailer)
         trailer.emptied_s = at_s
-        self.stamps.append((trailer.seq, trailer.arrived_s, trailer.staged_s, at_s))
+        self.stamps.append((trailer.seq, trailer.arrived_s, trailer.staged_s, at_s,
+                            DISCARDED))
 
     # ── the frozen rankings and the door lifecycle ────────────────────────────────
     def freeze_ctx(self) -> DockContext:
@@ -368,6 +380,13 @@ class YardTransit(TrailerTransit):
     @property
     def free_doors(self) -> int:
         return self.doors - len(self._staged)
+
+    @property
+    def yard_depth(self) -> int:
+        """Trailers standing in the yard RIGHT NOW — the live twin of the frozen
+        `DockContext.yard_depth`.  Read at drain end, where the frozen one is stale by
+        exactly the staging this drain did, which is the whole measurement."""
+        return len(self._yard)
 
     def staged(self) -> list:
         return list(self._staged)
@@ -395,7 +414,33 @@ class YardTransit(TrailerTransit):
         trailer.plans = None
         trailer.pending = None
         trailer.taken = 0
-        self.stamps.append((trailer.seq, trailer.arrived_s, trailer.staged_s, at_s))
+        self.stamps.append((trailer.seq, trailer.arrived_s, trailer.staged_s, at_s, DONE))
+
+    # ── the censored tail (what the run END owes the fee report) ─────────────────
+    def drain_stamps(self) -> list:
+        """Hand over the finished-trailer stamps and start the list over.
+
+        Drained rather than read for `drain_putaway_records`' reason: the caller takes
+        ownership once per batch, so this object never holds a run's worth of rows.
+        """
+        out, self.stamps = self.stamps, []
+        return out
+
+    def standing_stamps(self) -> list:
+        """Rows for every trailer still on site — the CENSORED detention the run ends in.
+
+        Non-destructive, and deliberately: nothing has finished, so nothing may be
+        forgotten.  `emptied_s` is NULL here and that null is the whole point — the
+        detention span of these trailers is right-censored at the run end, not zero.
+        Under an adversarial ordering (`lifo`) this is exactly where the concentrated
+        overage sits, so a table that dropped these rows would report `lifo`'s fee as
+        CLIPPED rather than concentrated, which is the opposite of its signal.
+
+        Yard and staged alike: a trailer at a door with units still on it has been held
+        just as long as one that never reached one.  `staged_s` tells them apart.
+        """
+        return [(t.seq, t.arrived_s, t.staged_s, None, STANDING)
+                for t in self._yard + self._staged]
 
     # ── the census (yard + staged remainders, so conservation reads true) ─────────
     @property

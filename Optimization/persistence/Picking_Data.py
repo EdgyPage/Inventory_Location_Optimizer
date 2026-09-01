@@ -763,6 +763,71 @@ _CREATE_BIN_EVICTION_IDX = """
         ON bin_eviction (run_id, aisle_id, bayX, bayY, batch_id)
 """
 
+# ── the yard: RAW STAMPS ONLY ─────────────────────────────────────────────────
+# Both tables are always created and hold rows only when the standing yard is on
+# (`INBOUND_STANDING_YARD`), so the declared shape stays flag-independent and an
+# inbound-off run is an empty table rather than a missing one.
+#
+# NOTHING HERE IS DERIVED, and that is the decision rather than an omission.  The fee proxy
+# is `max(0, detention_days - INBOUND_FEE_THRESHOLD_DAYS)` and the threshold is a KNOB: a
+# column holding pre-divided overage days would pin a finished run to the threshold it
+# happened to run under, and the calibration probe -- "where does the threshold sit for a
+# nonzero, non-saturated overage" -- is an analysis re-report over one FIFO run precisely
+# because these are stamps.  Only `gain_gated`'s urgency test reads the threshold in-sim.
+# Seconds->days conversion happens at the analysis units seam, once.
+
+_CREATE_YARD_TRAILERS = """
+    CREATE TABLE IF NOT EXISTS yard_trailers (
+        run_id    INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        seq       INTEGER NOT NULL,   -- the trailer's dispatch ordinal: run-scoped, dense,
+                                      -- and the SAME trailer in every arm of a run (leads
+                                      -- are seq-keyed draws), which is what makes a
+                                      -- per-trailer comparison across arms meaningful
+        arrived_s REAL    NOT NULL,   -- STAMP: the lead elapsed here, on the arm's absolute
+                                      -- clock.  The EVENT instant, not the drain's -- a
+                                      -- trailer that arrived at four o'clock arrived at
+                                      -- four o'clock however late a drain observed it
+        staged_s  REAL,               -- STAMP: took a door.  NULL = NEVER STAGED, which is
+                                      -- a real outcome (a plan that packed nothing), not a
+                                      -- missing measurement
+        emptied_s REAL,               -- STAMP: last unit off.  NULL = still on site at run
+                                      -- end, so the detention span is RIGHT-CENSORED.  Not
+                                      -- zero, and not a gap: under an adversarial ordering
+                                      -- the concentrated overage sits exactly in these rows
+        status    TEXT    NOT NULL,   -- 'done' | 'discarded' | 'standing'.  Stamped by the
+                                      -- door the trailer left through, never re-derived
+                                      -- from the null pattern downstream (Inbound/transit.py
+                                      -- owns the three literals)
+        PRIMARY KEY (run_id, seq)
+    ) WITHOUT ROWID
+"""
+
+_CREATE_YARD_DRAINS = """
+    CREATE TABLE IF NOT EXISTS yard_drains (
+        run_id            INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch             INTEGER NOT NULL,  -- pairs 1:1 with batch_stats.batch_id.  Its own
+                                             -- table rather than four more batch_stats
+                                             -- columns, so an inbound-off run has ZERO rows
+                                             -- instead of a run's worth of NULL-padded ones
+        -- THE CONTENTION PAIR, read off the drain-frozen ctx BEFORE anything was staged.
+        -- "Did the yard bind" is a question about the moment of choice, and after the door
+        -- fill there is nothing left to choose.
+        yard_start        INTEGER NOT NULL,  -- LEVEL: trailers standing, at freeze
+        free_doors_start  INTEGER NOT NULL,  -- LEVEL: doors free, at freeze
+        -- THE BINDING-CUT PAIR, at drain end.  A drain with either of these above zero left
+        -- inbound work undone; the derived indicator is `either > 0` and its additive
+        -- statistic is a COUNT OF DRAINS.  The levels themselves never sum -- they
+        -- re-measure the same standing trailers every batch, which is the scar `recv_cut`
+        -- wears (101x on one published headline).
+        yard_end          INTEGER NOT NULL,  -- LEVEL: trailers never reached this drain
+        staged_remainder_end INTEGER NOT NULL, -- LEVEL: storage units left on staged
+                                             -- trailers.  A different noun from `yard_end`
+                                             -- on purpose: one counts vehicles, the other
+                                             -- counts what is still on them
+        PRIMARY KEY (run_id, batch)
+    ) WITHOUT ROWID
+"""
+
 
 def _apply_run_schema(con: sqlite3.Connection) -> None:
     """Issue every CREATE for the run DB on an already-open connection.
@@ -799,6 +864,8 @@ def _apply_run_schema(con: sqlite3.Connection) -> None:
     con.execute(_CREATE_BIN_PLACEMENT_IDX)
     con.execute(_CREATE_BIN_EVICTION)
     con.execute(_CREATE_BIN_EVICTION_IDX)
+    con.execute(_CREATE_YARD_TRAILERS)
+    con.execute(_CREATE_YARD_DRAINS)
     _migrate_run_columns(con)
 
 
@@ -935,6 +1002,12 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 NOT NULL DEFAULT 0 -- so every pick row in such a file claims to have
     #                 taken no time, and SUM(duration) over one is put+receive only.  A
     #                 short window (2026-08-25) -- no published run used it.
+    #   ce01ca0095b2  work_events.duration became nullable, before the yard tables: the
+    #                 whole standing-yard build (the yard, its policies, the gain arms and
+    #                 the lead distribution) ran on this shape and recorded no yard
+    #                 measurement at all.  2026-08-25 .. 2026-08-31.  A run of this vintage
+    #                 answers nothing under the `yard` capability -- which is the honest
+    #                 outcome, and why the quantities reading those tables name it.
     known_ids=('ce01ca0095b2',
               '31cb7d1b1199',
               '8af17e7d417e',
@@ -1033,6 +1106,12 @@ CONDITIONAL_READS = {
     'load_bin_placements': 'bin_placement',    # added 2026-08-13
     'load_bin_evictions':  'bin_eviction',     # added 2026-08-13
     'run_identity':        'simulation_runs.sim_schema_id',
+    # The yard pair, added 2026-08-31.  Negotiated rather than guarded: both go through the
+    # named-query registry, so a vintage without the table raises `UnsupportedQuery` inside
+    # `_query_rows` and the loader returns [] — the caller cannot receive a plausible zero.
+    'load_yard_trailers':  'yard_trailers',
+    'load_yard_drains':    'yard_drains',
+    'load_carryover':      'carryover',      # written since 2026-08-24, read from here on
 }
 
 # ── the sim DB's capabilities: what a consumer may NEGOTIATE for ────────────────────────────
@@ -1055,6 +1134,8 @@ CAP_REORDER_QUEUE = 'reorder_queue'
 CAP_WORK_EVENTS = 'work_events'      # the merged cross-stream timeline
 CAP_KEYFRAMES = 'keyframes'          # a sibling .keyframes.db — not table-probed
 CAP_VIZ_CACHE = 'viz_cache'          # a FRESH derived sidecar — not table-probed
+CAP_YARD = 'yard'                    # the standing yard's stamps + per-drain levels
+CAP_CARRYOVER = 'carryover'          # what did not get done this batch, and why
 
 SIM_CAPABILITIES = {c.name: c for c in (
     _capability.Capability(
@@ -1117,6 +1198,38 @@ SIM_CAPABILITIES = {c.name: c for c in (
     _capability.Capability(
         name=CAP_VIZ_CACHE, table=None, exact=True,
         phase='derived (rebuildable)', caveat=''),
+    _capability.Capability(
+        name=CAP_CARRYOVER, table='carryover', exact=True,
+        phase='end-of-batch, once per (batch, reason, sku)',
+        caveat='THREE REASON FAMILIES UNDER ONE PK, and they do not mix: the put-side '
+               "reasons ('dock', 'unplaced', 'held') are LEVELS re-emitted every batch, "
+               'the four pick-side ones are FLOWS. Never SUM(qty) across the table -- 500 '
+               'units once vanished when two producers shared a reason. The demand-service '
+               "read is the two SUPPLY reasons only ('unpicked_unstocked', "
+               "'unpicked_unavailable'); 'unpicked_daycut' is a labour artifact and "
+               'including it would let a longer shift read as better inbound. A share '
+               'against `batch_stats.items_demanded` needs that column too, which arrived '
+               'in the same era and is likewise outside the guaranteed surface.',
+        columns=('run_id', 'batch_id', 'reason', 'sku', 'qty')),
+    _capability.Capability(
+        name=CAP_YARD, table='yard_trailers', exact=True,
+        phase='per-batch for finished trailers and drain levels; the CENSORED tail is '
+              'flushed once at run end',
+        caveat='THE STANDING YARD ONLY. Both tables exist in every run of this vintage and '
+               'hold rows only when INBOUND_STANDING_YARD is on, so the probe is for ROWS: '
+               'an inbound-off run legitimately answers nothing here, and that is an '
+               'absence of a yard, not an empty one. Stamps are RAW -- the detention span '
+               '(arrived->emptied) and its overage against INBOUND_FEE_THRESHOLD_DAYS '
+               'derive at analysis, so a run is re-reportable under a different threshold '
+               'without re-simulating. emptied_s NULL is RIGHT-CENSORED detention, not '
+               'zero: a run that stops with trailers standing held them at least that '
+               'long, and under an adversarial ordering the concentrated overage sits '
+               'exactly in those rows. The four yard_drains columns are LEVELS re-measured '
+               'per drain and never sum -- the additive statistic over the binding-cut '
+               'pair is a count of drains, the same discipline recv_cut earned the hard '
+               'way. Fee days are a REPORTED span-derived proxy: never converted to '
+               'dollars, never added to labour hours.',
+        columns=('run_id', 'seq', 'arrived_s', 'staged_s', 'emptied_s', 'status')),
 )}
 
 #: Occupancy sources, BEST FIRST.  Ordering is a property of the QUESTION, not of the sources, so
@@ -1196,6 +1309,40 @@ _dataset.register_query(_dataset.Query(
     columns=_EVENT_COLS,
     tables={'picker_events': _EVENT_COLS},
     optional=_EVENT_OPTIONAL))
+
+# The yard's two reads.  No `optional` on either: these tables are absent WHOLE from every
+# vintage before them, and an absent TABLE is not an optional-fill case -- `Dataset.query`
+# raises `UnsupportedQuery`, `_query_rows` turns that into None, and the loaders below
+# return `[]`.  That is the conditional surface working as designed, and it is why both
+# appear in `CONDITIONAL_READS` and why the quantities reading them name a capability.
+_YARD_TRAILER_COLS = ('seq', 'arrived_s', 'staged_s', 'emptied_s', 'status')
+_dataset.register_query(_dataset.Query(
+    name='yard_trailer_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_YARD_TRAILER_COLS)
+         + ' FROM yard_trailers WHERE run_id = :run_id ORDER BY seq'),
+    columns=_YARD_TRAILER_COLS,
+    tables={'yard_trailers': ('run_id', *_YARD_TRAILER_COLS)}))
+
+# Demand service reads the same conditional-table story: `carryover` postdates most of the
+# archive.  The reason SELECTION stays in the consumer, not here — the three reason
+# families under this one PK mean different things, and a query that folded them would be
+# the collision that once lost 500 units, written into the read layer.
+_CARRYOVER_COLS = ('batch_id', 'reason', 'sku', 'qty')
+_dataset.register_query(_dataset.Query(
+    name='carryover_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_CARRYOVER_COLS)
+         + ' FROM carryover WHERE run_id = :run_id ORDER BY batch_id, reason, sku'),
+    columns=_CARRYOVER_COLS,
+    tables={'carryover': ('run_id', *_CARRYOVER_COLS)}))
+
+_YARD_DRAIN_COLS = ('batch', 'yard_start', 'free_doors_start', 'yard_end',
+                    'staged_remainder_end')
+_dataset.register_query(_dataset.Query(
+    name='yard_drain_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_YARD_DRAIN_COLS)
+         + ' FROM yard_drains WHERE run_id = :run_id ORDER BY batch'),
+    columns=_YARD_DRAIN_COLS,
+    tables={'yard_drains': ('run_id', *_YARD_DRAIN_COLS)}))
 
 
 # ── the VIEWER's named queries (publisher side) ─────────────────────────────────────────────
@@ -2222,6 +2369,51 @@ def _insert_bin_evictions(con: sqlite3.Connection, run_id: int, records: list) -
          for r in records])
 
 
+def _insert_yard_trailers(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    """`(seq, arrived_s, staged_s, emptied_s, status)` tuples, as the transit stamps them.
+
+    A trailer reaches this table exactly once in a clean run — the finished stamps are
+    DRAINED per batch and the censored tail is read once, at run end, from trailers the
+    drain never saw.  OR REPLACE is therefore idempotency insurance, matching the other log
+    tables: it makes re-running an arm over an existing DB a correction rather than a PK
+    collision.
+    """
+    con.executemany(
+        'INSERT OR REPLACE INTO yard_trailers '
+        '(run_id, seq, arrived_s, staged_s, emptied_s, status) VALUES (?,?,?,?,?,?)',
+        [(run_id, seq, arrived, staged, emptied, status)
+         for seq, arrived, staged, emptied, status in records])
+
+
+def _insert_yard_drains(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    """`(batch, yard_start, free_doors_start, yard_end, staged_remainder_end)` tuples."""
+    con.executemany(
+        'INSERT OR REPLACE INTO yard_drains '
+        '(run_id, batch, yard_start, free_doors_start, yard_end, staged_remainder_end) '
+        'VALUES (?,?,?,?,?,?)',
+        [(run_id, batch, ys, fd, ye, sr)
+         for batch, ys, fd, ye, sr in records])
+
+
+def save_yard_trailers(path: str, run_id: int, records: list) -> None:
+    """Write trailer stamps on their own connection — the RUN-END flush's writer.
+
+    Separate from `save_checkpoint_bundle` because the censored tail is not a checkpoint
+    product: the bundle only fires when a batch window is unflushed, and a run whose batch
+    count divides evenly by its checkpoint interval has no such window. The trailers still
+    standing then are exactly the rows an adversarial ordering concentrates its overage in,
+    so they cannot ride a conditional.
+    """
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        _insert_yard_trailers(con, run_id, records)
+        con.commit()
+    finally:
+        con.close()
+
+
 def save_checkpoint_bundle(
     path           : str,
     run_id         : int,
@@ -2237,11 +2429,14 @@ def save_checkpoint_bundle(
     work_events    : list | None = None,
     put_queue_state: list | None = None,
     carryover      : list | None = None,
+    yard_trailers  : list | None = None,
+    yard_drains    : list | None = None,
 ) -> None:
     """All per-checkpoint writers on ONE connection with ONE commit.
 
-    `work_events`, `put_queue_state` and `carryover` are keyword-OPTIONAL, so a caller that
-    predates them -- a test, a Diagnostics harness -- is unchanged and writes no rows.
+    `work_events`, `put_queue_state`, `carryover` and the two `yard_*` lists are
+    keyword-OPTIONAL, so a caller that predates them -- a test, a Diagnostics harness -- is
+    unchanged and writes no rows.
 
     A bundle argument that is accepted and never inserted is this function's characteristic
     failure: `work_events` was one for a while, and the reconciliation that was supposed to
@@ -2277,6 +2472,10 @@ def save_checkpoint_bundle(
             _insert_put_queue_state(con, run_id, put_queue_state)
         if carryover:
             _insert_carryover(con, run_id, carryover)
+        if yard_trailers:
+            _insert_yard_trailers(con, run_id, yard_trailers)
+        if yard_drains:
+            _insert_yard_drains(con, run_id, yard_drains)
         con.commit()
     finally:
         con.close()
@@ -2295,6 +2494,38 @@ def load_bin_placements(path: str, run_id: int, batch_id: int | None = None) -> 
         return [dict(r) for r in con.execute(sql + ' ORDER BY batch_id, seq', args)]
     finally:
         con.close()
+
+
+def load_carryover(path: str, run_id: int) -> list:
+    """Every carryover row this run recorded.  `[]` on a vintage without the table.
+
+    RAW ROWS, reasons unfolded.  The three reason families are LEVELS and FLOWS sharing one
+    physical column, so there is no legal `SUM(qty)` over the whole table and this loader
+    deliberately does not offer one: the caller selects its reasons and knows which kind it
+    then holds (`sim_semantics`' ByDiscriminator on `reason` is the declaration).
+    """
+    return _query_rows('carryover_frame', path, run_id=run_id) or []
+
+
+def load_yard_trailers(path: str, run_id: int) -> list:
+    """Every trailer row this run recorded, in dispatch order.  `[]` on a pre-yard vintage.
+
+    RAW STAMPS.  No span, no detention day, no overage — those derive at analysis against
+    the run's recorded threshold, which is what makes a finished run's fee axis
+    re-reportable without re-simulating.  An empty list is also the honest answer for an
+    inbound-off run: the table exists, and nothing stood in a yard.
+    """
+    return _query_rows('yard_trailer_frame', path, run_id=run_id) or []
+
+
+def load_yard_drains(path: str, run_id: int) -> list:
+    """Every drain's yard levels, in batch order.  `[]` on a pre-yard vintage.
+
+    All four columns are LEVELS re-measured per drain: `sum()` over any of them restates
+    the same standing trailers once per batch.  The additive statistic over the binding-cut
+    pair is a COUNT OF DRAINS with either above zero.
+    """
+    return _query_rows('yard_drain_frame', path, run_id=run_id) or []
 
 
 def load_bin_evictions(path: str, run_id: int, batch_id: int | None = None) -> list:

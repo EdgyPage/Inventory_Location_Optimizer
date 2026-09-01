@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.yard.fee · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_yard_fee_py" data-id="Optimization/Performance_Evaluations/yard/fee.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/yard/fee.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.yard.fee</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_yard_fee_py.html"><code>Optimization/Performance_Evaluations/yard/fee.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.yard.fee</code></pre>
+<section class="doc">yard.fee — what the inbound ordering cost the carrier, per arm.
+
+Two quantities, one ranked mark, and they are deliberately reported side by side:
+
+  `yard_overage_days`            Σ max(0, detention − threshold) over every trailer. A
+                                 carrier charges per trailer per day held, so this is the
+                                 quantity that is actually billed, and it SUMS.
+  `yard_over_threshold_trailers` how many trailers accrued any overage at all.
+
+One trailer held a fortnight and a fortnight of trailers each held a day are the same
+number of trailer-days and are not the same operational problem — the first is one carrier
+relationship in trouble, the second is a systemic dwell. The total alone cannot tell them
+apart, so the count rides beside it rather than being derivable-in-principle from a chart
+nobody will do the arithmetic on.
+
+CENSORED TRAILERS ARE IN BOTH. A trailer still standing when the run stops has been held
+at least until the run ended, and under an adversarial ordering (`lifo`) that is exactly
+where the concentrated overage sits. Dropping those rows would report `lifo`&#x27;s fee as
+clipped rather than concentrated, which inverts the signal the arm exists to produce; the
+subtitle says how many rows are bounded rather than observed.</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_marks_py.html"><code>Optimization.Performance_Evaluations.common.marks</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py.html"><code>Optimization.Performance_Evaluations.core.quantities</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_yard_fee_py___PANELS.html"><code>_PANELS</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/fee.py</span></li><li><a href="nOptimization_Performance_Evaluations_yard_fee_py___TITLES.html"><code>_TITLES</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/fee.py</span></li><li><a href="nOptimization_Performance_Evaluations_yard_fee_py___censored_note.html"><code>_censored_note</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/fee.py</span></li><li><a href="nOptimization_Performance_Evaluations_yard_fee_py___entries.html"><code>_entries</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/fee.py</span></li><li><a href="nOptimization_Performance_Evaluations_yard_fee_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/fee.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_yard_fee_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/yard/fee.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

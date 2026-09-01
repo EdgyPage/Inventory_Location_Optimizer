@@ -26,9 +26,13 @@ _TABLES   = ['config.series', 'tables.per_run', 'tables.tidy',
 _HEADLINE = ['headline.top_vs_baseline', 'headline.all_arms', 'headline.rollup',
              'headline.throughput_vs_labor']
 _TRENDS   = ['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch',
-             'labor.delta_grid', 'throughput.volume']
+             'labor.delta_grid', 'throughput.volume', 'throughput.missed']
 _DETAIL   = ['task_time.duration', 'task_time.breakdown',
              'layout.travel', 'layout.churn',
+             # The yard family renders only where a yard ran; its request is DENIED on
+             # every inbound-off run, which is every run in the archive, and the driver
+             # logs that rather than drawing four figures of zero.
+             'yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard',
              'diagnostics.metric_grids', 'diagnostics.scorecards']
 _AGG      = ['agg.traj', 'agg.tables', 'agg.sig']
 # Run scope: the whole run root, across cells.  These answer the questions the pages keep

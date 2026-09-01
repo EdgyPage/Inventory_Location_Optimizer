@@ -93,6 +93,12 @@ BESPOKE: dict = {
                              'stack is the point, and a ranked mark draws one value per row',
     'cost.compute:delta': 'the same stack, expressed as seconds more or less than the '
                           'do-nothing rule, section by section',
+    'yard.detention:absolute': 'the detention DISTRIBUTION — one box per arm over its own '
+                               'trailers, where the library draws one value per arm. The '
+                               'mean beside it IS drawn through the ranked mark; only the '
+                               'box panel is bespoke, and it exists because the '
+                               'adversarial ordering concentrates detention rather than '
+                               'raising it, which no single value can show',
     'cost.compute:percent': 'a multiple of the do-nothing floor — a ratio stance, not the '
                             'improvement-percent every other percent view in the suite '
                             'uses; merging the two would be the same assert-do-not-derive '

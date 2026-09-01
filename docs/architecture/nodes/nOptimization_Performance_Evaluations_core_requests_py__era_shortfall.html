@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>era_shortfall · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_requests_py__era_shortfall" data-id="Optimization/Performance_Evaluations/core/requests.py::era_shortfall">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a> <span class="sep">›</span> <span class="here"><code>era_shortfall</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>era_shortfall</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a></p>
+
+<pre class="sig"><code>def era_shortfall(ctx, ev)</code></pre>
+<section class="doc">`EraUnmet` when this run cannot answer a quantity this evaluation draws, else None.
+
+THE RUNTIME HALF OF THE ERA GATE. `core/era.py` proves statically that every quantity&#x27;s
+read is either version-free or names a capability; this asks the far narrower question
+that only a file can answer — does THIS run carry it. The gap between the two is a
+vetted vintage that has the table and no rows, which is common enough to have been
+measured (`reorder_queue`: 68 of 166 arms) and which nothing else would notice: the
+figure would simply not appear, with an INFO line either way.
+
+Only config-scope evaluations are checked, because only they read a sim DB — the
+aggregate scope consumes series documents this same analysis wrote, and the run scope
+reads the run root. A scope with no capability probe available answers None rather than
+guessing, which is the same rule `_deny_absent` follows for a file it cannot see.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__EraUnmet.html"><code>EraUnmet</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__resolve_needs.html"><code>resolve_needs</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_requests_py__era_shortfall">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/requests.py#:~:text=def%20era_shortfall">Source ↗</a></p>
+</article>
+</main>
+</body></html>

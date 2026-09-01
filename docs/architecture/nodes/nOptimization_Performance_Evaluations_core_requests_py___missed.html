@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_missed · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_requests_py___missed" data-id="Optimization/Performance_Evaluations/core/requests.py::_missed">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a> <span class="sep">›</span> <span class="here"><code>_missed</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_missed</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a></p>
+
+<pre class="sig"><code>@request(&amp;#x27;missed&amp;#x27;, &amp;#x27;config&amp;#x27;)
+def _missed(ctx)</code></pre>
+<section class="doc">Per-arm demand-service frames.  Granted with ZEROS in them, unlike `yard`.
+
+An arm with no missed rows genuinely served all its demand, and that is a result rather
+than an absence — so a frame of zeros is a grant, and `_cdf` builds one row per BATCH
+rather than one per carryover row precisely so a perfectly-served batch is present at
+zero instead of missing.
+
+That is also why this compose cannot be the era check. A pre-`carryover` vintage
+produces the identical frame of zeros — `load_carryover` returns `[]` for &quot;no table&quot; and
+for &quot;nothing missed&quot; alike — so row-emptiness cannot tell a perfect run from an old one,
+and reading zeros off the old one would publish a plausible wrong number. The
+CAPABILITY does tell them apart (it probes the table for rows), both quantities name it,
+and `era_shortfall` runs before this. The check below therefore only ever fires when no
+arm recorded a batch at all.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__Denied.html"><code>Denied</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py___deny_absent.html"><code>_deny_absent</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py__missed_frame.html"><code>missed_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py__request_c71accc4.html"><code>request</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_requests_py___missed">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/requests.py#:~:text=def%20_missed">Source ↗</a></p>
+</article>
+</main>
+</body></html>

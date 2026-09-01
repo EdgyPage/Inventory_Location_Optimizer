@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbound.space · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_space_py" data-id="Inbound/space.py">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <span class="here"><code>Inbound/space.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Inbound.space</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_space_py.html"><code>Inbound/space.py</code></a></p>
+
+<pre class="sig"><code>Inbound.space</code></pre>
+<section class="doc">space — the event-stamped space timeline the standing dock&#x27;s decisions read.
+
+Two tiers against the absolute clock, and nothing inferred between them: bins that are
+empty NOW (with the actual second each ran dry, where a pick produced one), and bins
+PREDICTED to clear from the standing demand — the released-but-unpicked batch, one batch
+deep, which is information a real WMS has.  Predictions are deliberately UNTIMED: no
+makespan estimates, no pick rates against the clock.  The only times carried are facts —
+actual clear stamps, and the release instant of the demand.  (&quot;How far ahead can
+availability reliably be planned&quot; is a future view-arm family, parked in the
+inbound-optimization map&#x27;s fog.)
+
+# ── how it attaches, and why flag-off is byte-identical by construction ───────────
+
+`SpaceTimeline` is constructed by the DRIVER when `INBOUND_STANDING_YARD` is on — always
+on with the flag, no policy gate, no extra knob — and attached to the manager instance
+(`attach(mgr)`, the `BinRecorder.attach` rebind precedent: one attribute, no listener
+registry).  Flag-off it is never constructed, and every manager-side hook is an
+`is None` no-op, so the store-only path cannot be perturbed.
+
+The drain rule is INJECTED at construction (`Warehouse.picking.Workload_Builder.
+drain_sku`, handed over by the driver) because the import edge `Inbound -&gt; wh_picking`
+is forbidden — the broker holds what it is handed.  This module imports nothing from
+Warehouse at all.
+
+# ── the five touchpoints (decisions are drain-quantized; data is event-stamped) ───
+
+    inject_demand   driver, BEFORE check_reorders: the batch about to be released plus
+                    the rollover carry — everything released-but-unpicked at the
+                    decision instant
+    harvest         `_reclaim_empty_bins`: the actual `_emptied_at` stamps, captured at
+                    the one moment the stamps and the bins meet before both are wiped
+    evict           `requeue_bin`: the reloader&#x27;s eviction returned a bin to the free
+                    index — the OTHER door into `_index`, and the one that runs with
+                    the standing yard off
+    fill            `_execute_placement`: a bin was occupied — version bump, stamp expiry
+    freeze          ctx-freeze inside `_receive_standing`: ONE projection per drain
+                    serves every decision in it (no per-decision rescans), delivered as
+                    `ctx.space`, the named view the priority seams reserved
+
+# ── the version contract (what the cache ticket keys on) ──────────────────────────
+
+Three per-event-class counters, so tables can be processed in parallel without an I/O
+race: `demand_v` +1 per injection (once per batch), `reclaim_v` +1 PER BIN RETURNED TO
+THE FREE INDEX (harvest or eviction — see below), `fill_v` +1 per placement.  The
+counters partition by what CHANGED, not by which function ran: `_index` grows through
+exactly two doors and both bump the same counter, which is what makes the vector a
+complete description of the free index rather than a log of call sites.  EQUALITY is
+the only legal operation — magnitudes and
+cross-class comparisons are meaningless by contract.  The predicted set is a pure
+function of the other three states, so it carries no fourth counter, and the cache
+layer composes keys from this vector and may not add counters of its own.  The
+futuresight window rides the same rule from the other side: a pure function of
+(batch script, batch index), replaced by the injection that bumps `demand_v`, so it
+too adds no counter (see `SpaceView.window`).
+
+That completeness was not free.  `requeue_bin` evictions (reloader arms) originally
+returned a bin to the free index through none of the three classes, so two version-equal
+freezes could straddle an eviction-only change and a cache keyed on the vector alone
+went stale until the evicted unit re-placed.  &quot;Draw the cache-sharing boundary&quot;
+(inbound-optimization 06) closed it by GENERALIZING `reclaim_v` rather than adding a
+fourth counter: an eviction is a reclaim by every property the vector exists to express.
+Note the eviction hook is the one touchpoint reachable with the standing yard OFF (the
+reloader gates on `reslot_frac` alone), so its `is None` guard is load-bearing, not
+ceremonial.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nInbound___init___py.html"><code>Inbound</code></a> <span class="dim">Inbound/__init__.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(10)</span></h2><ul><li><a href="nInbound_space_py__SpaceTimeline.html"><code>SpaceTimeline</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceView.html"><code>SpaceView</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceTimeline___init__.html"><code>__init__</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceView___init__.html"><code>__init__</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceTimeline_attach.html"><code>attach</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceTimeline_evict.html"><code>evict</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceTimeline_fill.html"><code>fill</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceTimeline_freeze.html"><code>freeze</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceTimeline_harvest.html"><code>harvest</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nInbound_space_py__SpaceTimeline_inject_demand.html"><code>inject_demand</code></a> <span class="dim">Inbound/space.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_space_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/space.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

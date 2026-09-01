@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>evict · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_space_py__SpaceTimeline_evict" data-id="Inbound/space.py::SpaceTimeline.evict">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_space_py.html"><code>Inbound/space.py</code></a> <span class="sep">›</span> <a href="nInbound_space_py__SpaceTimeline.html"><code>SpaceTimeline</code></a> <span class="sep">›</span> <span class="here"><code>evict</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>evict</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_space_py.html"><code>Inbound/space.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def evict(self, bin_) -&gt; None</code></pre>
+<section class="doc">A reloader eviction returned `bin_` to the free index (`requeue_bin`, the
+second and last door into `_index`): bump `reclaim_v`, whose meaning is &quot;+1 per
+bin returned to the free index&quot;.  No fourth counter — an eviction changes the
+free index in exactly the way a harvest does, and 03&#x27;s equality-only contract
+cannot tell the two apart, nor should it.
+
+NO stamp is written, and none is expired.  An evicted bin was OCCUPIED an
+instant ago, so it never ran dry — `emptied_at` carries actual clear stamps
+only, exactly as it treats the harvest&#x27;s stampless notifications.  Nor can a
+stale stamp survive here: occupancy has a single site (`_execute_placement`),
+and the `fill` that put this unit in the bin already popped it.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_space_py__SpaceTimeline_evict">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/space.py#:~:text=def%20evict">Source ↗</a></p>
+</article>
+</main>
+</body></html>

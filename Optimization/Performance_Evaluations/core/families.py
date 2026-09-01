@@ -64,6 +64,12 @@ FAMILIES: dict = {
                          charter='what the placement rule did to the warehouse itself'),
     'significance': dict(scope='leaf',
                          charter='effect sizes and their intervals — is a gap separable'),
+    'yard':         dict(scope='leaf',
+                         charter='did the yard bind, and what did the inbound policy cost '
+                                 'in trailer-days. The FIRST family whose folder is '
+                                 'legitimately empty on most runs: a run without the '
+                                 'standing yard has no yard to report on, which is an '
+                                 'absence of a model rather than a result of zero'),
     'diagnostics':  dict(scope='leaf',
                          charter='raw operational read-outs for inspection. THE deliberate '
                                  'exemption from comparison work: a grid or a scorecard is '

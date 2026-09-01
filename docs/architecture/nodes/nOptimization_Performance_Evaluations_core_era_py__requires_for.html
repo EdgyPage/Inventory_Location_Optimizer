@@ -20,7 +20,11 @@
 DERIVED, not declared: the table comes from the frame builder the source names and the
 columns from the source itself, so a quantity cannot describe a read it does not make.
 A quantity with no per-batch source reads no database — its numbers come from a series
-document the analysis wrote, or from the run&#x27;s own cost rows.</section>
+document the analysis wrote, or from the run&#x27;s own cost rows.
+
+`all_db_reads`, not `db_reads`: a quantity whose denominator lives in another table
+(`missed_share`) makes two reads, and validating only the first would let the second
+slip past the gate — which is the whole failure this module is the guard against.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_compat_py__Requires.html"><code>Requires</code></a> <span class="dim">Schema/compat.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_era_py__findings.html"><code>findings</code></a> <span class="dim">Optimization/Performance_Evaluations/core/era.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_era_py__requires_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/era.py#:~:text=def%20requires_for">Source ↗</a></p>
 </article>

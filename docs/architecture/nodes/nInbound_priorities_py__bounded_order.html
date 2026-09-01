@@ -14,11 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>bounded_order</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_priorities_py.html"><code>Inbound/priorities.py</code></a></p>
 
-<pre class="sig"><code>def bounded_order(candidates: list, key, ctx, bound: int | None) -&gt; list</code></pre>
-<section class="doc">The policy&#x27;s order, bounded: repeatedly take the best-keyed of the `bound`
-longest-waiting remaining candidates (arrival order = input order).  None = the
-policy&#x27;s order stands unbounded.  Stable on key ties, like the put drain.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_transit_py__TrailerTransit_release.html"><code>release</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section>
+<pre class="sig"><code>def bounded_order(candidates: list, entry, ctx, bound: int | None) -&gt; list</code></pre>
+<section class="doc">The entry&#x27;s order, bounded.  A KEY entry: repeatedly take the best-keyed of the
+`bound` longest-waiting remaining candidates (arrival order = input order) — stable
+on key ties, like the put drain.  An `@ordering` entry: bound FIRST, then order —
+one call, on a copy of the `bound` longest-waiting candidates, the remainder
+following in arrival order.  None = the entry&#x27;s order stands unbounded, either
+kind.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nInbound_transit_py__TrailerTransit_release.html"><code>release</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nInbound_transit_py__YardTransit_dock_order.html"><code>dock_order</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nInbound_transit_py__YardTransit_planned_lots.html"><code>planned_lots</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nInbound_transit_py__YardTransit_yard_order.html"><code>yard_order</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_priorities_py__bounded_order">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/priorities.py#:~:text=def%20bounded_order">Source ↗</a></p>
 </article>
 </main>

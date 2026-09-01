@@ -46,27 +46,44 @@ from Schema import compat
 from Optimization.Performance_Evaluations.core import quantities as _q
 
 
-def _table_columns() -> dict:
-    """{table: (columns,)} — every sim-DB read the whole quantity table amounts to."""
+def _table_columns(gated: bool) -> dict:
+    """{table: (columns,)} over the quantities that do (or do not) name a capability."""
     tables: dict = {}
     for q in _q.QUANTITIES:
-        reads = q.source.db_reads
-        if not reads:
+        if bool(q.capability) is not gated:
             continue
-        table, columns = reads
-        tables.setdefault(table, set()).update(columns)
+        for table, columns in q.source.all_db_reads:
+            tables.setdefault(table, set()).update(columns)
     return {t: tuple(sorted(c)) for t, c in sorted(tables.items())}
 
 
 #: THE declaration, at module level so the schema-compatibility sweep can see and validate
-#: it.  The union of every quantity's sim-DB read: if this is inside the guaranteed surface
-#: then so is each part, which is what makes the whole quantity table version-free by
-#: construction rather than by inspection.  `era_findings()` re-checks per quantity, so the
-#: MESSAGE can name which one, but the property is this one object.
+#: it.  The union of every UNCONDITIONAL sim-DB read the quantity table makes: if this is
+#: inside the guaranteed surface then so is each part, which is what makes that half of the
+#: table version-free by construction rather than by inspection.
+#:
+#: The capability-gated reads are deliberately NOT here, and the split is the mechanism
+#: rather than a loophole.  A declared consumer is a promise that EVERY vetted vintage can
+#: serve it; a gated read is the opposite promise — that some cannot, said out loud, with a
+#: capability naming what is needed and a runtime probe refusing the render when the run
+#: lacks it (`requests.era_shortfall`).  Folding the two into one object would mean either
+#: weakening the sweep for every consumer in the repo, or refusing to measure anything the
+#: archive predates.  `GATED_READS` below keeps the other half visible; `findings()`
+#: re-checks per quantity, so the MESSAGE can name which one.
 QUANTITY_READS = compat.Requires(
     family='sim_db',
     label='Performance_Evaluations quantity table',
-    tables=_table_columns())
+    tables=_table_columns(gated=False))
+
+#: The other half: reads that some vetted vintage cannot serve, each behind a named
+#: capability.  Declared as data — not validated against the guaranteed surface, because
+#: being outside it is the whole point — so a reader can see the conditional surface the
+#: suite depends on without deriving it, and so a test can assert it is non-empty rather
+#: than letting the split quietly collapse back into one.
+GATED_READS = compat.Requires(
+    family='sim_db',
+    label='Performance_Evaluations quantity table (capability-gated)',
+    tables=_table_columns(gated=True))
 
 
 def requires_for(q):
@@ -76,13 +93,19 @@ def requires_for(q):
     columns from the source itself, so a quantity cannot describe a read it does not make.
     A quantity with no per-batch source reads no database — its numbers come from a series
     document the analysis wrote, or from the run's own cost rows.
+
+    `all_db_reads`, not `db_reads`: a quantity whose denominator lives in another table
+    (`missed_share`) makes two reads, and validating only the first would let the second
+    slip past the gate — which is the whole failure this module is the guard against.
     """
-    reads = q.source.db_reads
+    reads = q.source.all_db_reads
     if not reads:
         return None
-    table, columns = reads
+    tables: dict = {}
+    for table, columns in reads:
+        tables.setdefault(table, set()).update(columns)
     return compat.Requires(family='sim_db', label=f'quantity {q.key}',
-                           tables={table: tuple(columns)})
+                           tables={t: tuple(sorted(c)) for t, c in tables.items()})
 
 
 def findings() -> list:

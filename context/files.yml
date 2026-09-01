@@ -50,6 +50,17 @@ files:
       - {name: "DockSpec", file: "Inbound/dock.py", kind: "class"}
       - {name: "Dock", file: "Inbound/dock.py", kind: "class"}
     notes: ""
+  "Inbound/gain.py":
+    purpose: "the unload-plan evaluator: EXPECTED FUTURE WORK, faithful-to-arm."
+    layer: "inbound"
+    key_symbols:
+      - {name: "GainBundle", file: "Inbound/gain.py", kind: "class"}
+      - {name: "plan_order", file: "Inbound/gain.py", kind: "function"}
+      - {name: "gain_myopic", file: "Inbound/gain.py", kind: "function"}
+      - {name: "gain_forecast", file: "Inbound/gain.py", kind: "function"}
+      - {name: "gain_gated", file: "Inbound/gain.py", kind: "function"}
+      - {name: "futuresight", file: "Inbound/gain.py", kind: "function"}
+    notes: ""
   "Inbound/pack.py":
     purpose: "what arrived, how it packed, and what a single delivery would have produced."
     layer: "inbound"
@@ -68,9 +79,19 @@ files:
     layer: "inbound"
     key_symbols:
       - {name: "DockContext", file: "Inbound/priorities.py", kind: "class"}
+      - {name: "ordering", file: "Inbound/priorities.py", kind: "function"}
       - {name: "global_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "local_key", file: "Inbound/priorities.py", kind: "function"}
+      - {name: "yard_key", file: "Inbound/priorities.py", kind: "function"}
+      - {name: "dock_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "bounded_order", file: "Inbound/priorities.py", kind: "function"}
+    notes: ""
+  "Inbound/space.py":
+    purpose: "the event-stamped space timeline the standing dock's decisions read."
+    layer: "inbound"
+    key_symbols:
+      - {name: "SpaceView", file: "Inbound/space.py", kind: "class"}
+      - {name: "SpaceTimeline", file: "Inbound/space.py", kind: "class"}
     notes: ""
   "Inbound/trailer.py":
     purpose: "the vehicle, its load pallets, and the FIFO loading that fills them."
@@ -86,7 +107,11 @@ files:
     purpose: "the trailer model on the manager's order-port seam."
     layer: "inbound"
     key_symbols:
+      - {name: "DONE", file: "Inbound/transit.py", kind: "const"}
+      - {name: "DISCARDED", file: "Inbound/transit.py", kind: "const"}
+      - {name: "STANDING", file: "Inbound/transit.py", kind: "const"}
       - {name: "TrailerTransit", file: "Inbound/transit.py", kind: "class"}
+      - {name: "YardTransit", file: "Inbound/transit.py", kind: "class"}
     notes: ""
   "Inbound/unload.py":
     purpose: "what it costs to take merchandise off a trailer."
@@ -180,6 +205,7 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "SEMANTIC_USES", file: "Optimization/Performance_Evaluations/common/frames.py", kind: "const"}
+      - {name: "MISSED_REASONS", file: "Optimization/Performance_Evaluations/common/frames.py", kind: "const"}
     notes: ""
   "Optimization/Performance_Evaluations/common/io.py":
     purpose: "Figure-save + fresh-directory helpers (deduped from the two retired monoliths)."
@@ -236,12 +262,14 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "TIME_UNITS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "SECONDS_PER_DAY", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "PER_HOUR", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "KINDS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "Unit", file: "Optimization/Performance_Evaluations/common/units.py", kind: "class"}
       - {name: "DURATION", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "RATE_PER_HOUR", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "NONE", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
+      - {name: "DAYS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "time_units", file: "Optimization/Performance_Evaluations/common/units.py", kind: "function"}
       - {name: "resolve", file: "Optimization/Performance_Evaluations/common/units.py", kind: "function"}
       - {name: "axis_label", file: "Optimization/Performance_Evaluations/common/units.py", kind: "function"}
@@ -291,6 +319,7 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "QUANTITY_READS", file: "Optimization/Performance_Evaluations/core/era.py", kind: "const"}
+      - {name: "GATED_READS", file: "Optimization/Performance_Evaluations/core/era.py", kind: "const"}
       - {name: "requires_for", file: "Optimization/Performance_Evaluations/core/era.py", kind: "function"}
       - {name: "findings", file: "Optimization/Performance_Evaluations/core/era.py", kind: "function"}
     notes: ""
@@ -312,6 +341,7 @@ files:
       - {name: "STANCES", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
       - {name: "DIRECTIONS", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
       - {name: "FRAME_TABLE", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "PAIRED_KINDS", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
       - {name: "Source", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "class"}
       - {name: "Quantity", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "class"}
       - {name: "quantity_for", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "function"}
@@ -343,13 +373,18 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "Denied", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
+      - {name: "EraUnmet", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
       - {name: "Request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
       - {name: "request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "batch_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "task_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "yard_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "drain_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "missed_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "series_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "breakdown_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "record_error", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "era_shortfall", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "resolve_needs", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "tally_snapshot", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "sql", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -530,6 +565,12 @@ files:
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/task_time/duration.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/throughput/missed.py":
+    purpose: "demand the floor was asked for and could not pick."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/throughput/missed.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/throughput/volume.py":
     purpose: "cumulative pick volume against elapsed time, in two views."
     layer: "evaluations"
@@ -544,6 +585,33 @@ files:
     key_symbols:
       - {name: "SERIES_QUANTITIES", file: "Optimization/Performance_Evaluations/trajectories/overtime.py", kind: "const"}
       - {name: "render", file: "Optimization/Performance_Evaluations/trajectories/overtime.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/yard/binding.py":
+    purpose: "did the yard actually bind, and how often did a drain leave work behind."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "DEPTH", file: "Optimization/Performance_Evaluations/yard/binding.py", kind: "const"}
+      - {name: "CUTS", file: "Optimization/Performance_Evaluations/yard/binding.py", kind: "const"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/yard/binding.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/yard/detention.py":
+    purpose: "how long the site held each trailer, and how that time is spread."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "QUANTITY", file: "Optimization/Performance_Evaluations/yard/detention.py", kind: "const"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/yard/detention.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/yard/fee.py":
+    purpose: "what the inbound ordering cost the carrier, per arm."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/yard/fee.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/yard/scorecard.py":
+    purpose: "the read-outs that have no honest direction, in one table."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/yard/scorecard.py", kind: "function"}
     notes: ""
   "Optimization/analyze_run.py":
     purpose: "Post-sim analysis hub \u2014 analyze_run() iterates every cell of a run (per-cell registry graphs + whole-warehouse rollup) then the cross-cell what-if summaries; run_simulation calls it in-process so one command runs sim + analysis, and `python -m Optimization.analyze_run` re-analyzes a finished run."
@@ -594,10 +662,21 @@ files:
       - {name: "RECV_DAY_ORIGIN", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_TRAILER_TYPE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_DOCK_DOORS", file: "Optimization/config/settings.py", kind: "const"}
-      - {name: "INBOUND_TRAILER_LEAD_MINUTES", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_LEAD_MINUTES", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_LEAD_SPREAD", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_GLOBAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_LOCAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_TRAILER_BOUND", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_STANDING_YARD", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_CREW_ALLOCATION", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_YARD_POLICY", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_DOCK_POLICY", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_FEE_THRESHOLD_DAYS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_URGENCY_HORIZON_DAYS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_FUTURESIGHT_BATCHES", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_UNLOAD_INTERCEPT", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_UNLOAD_WEIGHT_COEF", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_UNLOAD_VOLUME_COEF", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "SHIFT_DRAIN_OR_CAP", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "ROLL_OVER_UNPICKED", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
@@ -777,6 +856,8 @@ files:
       - {name: "CAP_WORK_EVENTS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_KEYFRAMES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_VIZ_CACHE", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_YARD", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_CARRYOVER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "SIM_CAPABILITIES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "OCCUPANCY_LADDER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "KEYFRAME_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
@@ -809,8 +890,12 @@ files:
       - {name: "BinEvictionRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "save_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_checkpoint_bundle", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_carryover", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_yard_drains", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
     notes: ""
   "Optimization/persistence/Warehouse_Data.py":
@@ -1361,7 +1446,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_no_quantity_reads_outside_the_guaranteed_surface_unnamed", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
-      - {name: "test_the_module_level_declaration_is_the_union_of_every_quantity_read", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_the_two_module_level_declarations_partition_every_quantity_read", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
       - {name: "test_the_gate_is_not_vacuous", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
       - {name: "test_a_capability_that_does_not_exist_is_refused", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
       - {name: "test_a_real_capability_satisfies_the_gate", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
@@ -1369,7 +1454,10 @@ files:
       - {name: "test_every_declared_db_column_actually_exists_in_the_surface", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
       - {name: "test_a_quantity_with_no_database_source_asks_the_gate_nothing", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
       - {name: "test_the_frame_table_map_covers_every_source_kind_in_use", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
-      - {name: "test_no_quantity_names_a_capability_yet_and_that_is_why_there_is_no_probe", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_every_named_capability_is_a_real_registry_key", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_a_capability_gated_quantity_is_refused_when_the_run_cannot_answer_it", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_an_ungated_evaluation_never_pays_for_the_probe", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
+      - {name: "test_the_run_end_summary_counts_era_skips_separately", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_docref_guard.py":
     purpose: "Locks the doc section-reference guard: every '<doc>.md section N' in the repo still resolves, the checker catches renumbered and retitled headings, and CLAUDE.md's numbering stays contiguous."
@@ -1517,6 +1605,7 @@ files:
     key_symbols:
       - {name: "MULTI_VINTAGE", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
       - {name: "DECLARED_CONSUMERS", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
+      - {name: "GATED_CONSUMERS", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
       - {name: "COMPLETENESS_TARGET", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
       - {name: "LEGACY_COLUMN_ALIASES", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
       - {name: "MAX_UNATTRIBUTED_READS", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
@@ -1539,6 +1628,7 @@ files:
       - {name: "test_check_requirements_names_the_column_the_file_cannot_serve", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_a_declared_consumer_stays_inside_the_guaranteed_surface", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_every_consumer_that_declares_requirements_is_validated_here", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_a_gated_consumer_is_outside_the_surface_and_says_which_capability", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_every_loader_that_reads_a_conditional_table_is_declared", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_a_declared_conditional_read_is_still_conditional", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_has_rows_separates_absent_from_empty_from_populated", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
@@ -1929,6 +2019,15 @@ files:
       - {name: "test_a_short_day_leaves_work_on_the_dock", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
       - {name: "test_the_receive_rows_carry_the_right_role_and_type", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
       - {name: "test_the_reconciliation_is_not_vacuous", file: "Tests/e2e/test_receiving_e2e.py", kind: "function"}
+    notes: ""
+  "Tests/e2e/test_standing_yard_e2e.py":
+    purpose: "the standing yard's byte-identity layers, on the real DB."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_degenerate_merged_run_writes_a_byte_identical_db", file: "Tests/e2e/test_standing_yard_e2e.py", kind: "function"}
+      - {name: "test_the_split_run_differs_only_in_receive_labor_stamps", file: "Tests/e2e/test_standing_yard_e2e.py", kind: "function"}
+      - {name: "test_the_trailers_still_standing_at_run_end_reach_the_file", file: "Tests/e2e/test_standing_yard_e2e.py", kind: "function"}
+      - {name: "test_the_yard_family_renders_from_a_standing_run", file: "Tests/e2e/test_standing_yard_e2e.py", kind: "function"}
     notes: ""
   "Tests/gpu/bench_gpu_all.py":
     purpose: "run the full CPU-vs-GPU benchmark suite (sampling / placement / picksim),"
@@ -2827,7 +2926,7 @@ files:
       - {name: "test_the_stamps_expire_with_the_bins_they_describe", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
       - {name: "test_the_reclaim_loop_still_iterates_bare_bins", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
       - {name: "test_the_id_key_is_justified_by_bin_lifetime", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
-      - {name: "test_nothing_reads_the_stamp_to_make_a_decision_yet", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+      - {name: "test_reclaim_harvest_is_the_one_legal_reader_of_the_stamp", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
     notes: ""
   "Tests/unit/test_cell_overrides.py":
     purpose: "a cell changes the run, not the declaration."
@@ -3075,6 +3174,41 @@ files:
       - {name: "test_mixed_plan_fraction_regime_and_weights", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
       - {name: "test_zero_fraction_gives_no_fulfillment", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_gain_plan.py":
+    purpose: "the gain-family ordering entries and their evaluator."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_registry_carries_the_roster", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_gain_entry_refuses_without_machinery", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_lifo_reverses_fifo_and_ranks_stampless_last", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_myopic_serves_the_contended_hot_load_first", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_identical_loads_tie_to_arrival_order", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_forecast_reads_predicted_and_myopic_does_not", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_gate_serves_overdue_fifo_ahead_of_the_plan", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_gate_with_large_horizon_is_pure_fifo_and_stampless_is_never_urgent", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_gate_plan_prices_space_after_the_urgent_load_consumes", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_futuresight_refuses_a_missing_feed_and_accepts_an_empty_window", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_futuresight_reads_the_window_and_forecast_does_not", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_sku_absent_from_the_window_pays_put_travel_only", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_window_visits_cap_at_the_event_count", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_window_matching_the_static_rates_reproduces_forecast_exactly", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_futuresight_entry_with_matching_rates_is_forecast_through_the_seam", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_seats_next_drain_but_not_now_defers_correctly", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_never_demanded_unit_pays_put_travel_only", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_load_seatable_nowhere_prices_zero_and_cancels", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_structured_plan_equals_naive_rebuild_per_candidate", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_sabotaged_sort_structure_is_caught", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_entry_through_yard_order_is_pure_and_permutes", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_pool_adapter_agrees_on_contention_and_never_mutates_live_state", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_expectation_pricing_consumes_no_rng_and_permutes", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_spec_carries_the_gate_knobs_and_zero_survives", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_driver_bundle_carries_the_spec_knobs_and_refuses_unserved_arms", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_spec_carries_the_futuresight_knob_and_zero_and_all_survive", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_spec_refuses_standing_policies_without_the_standing_yard", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_driver_gate_refuses_futuresight_without_knob_or_script", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_driver_window_slice_clamps_and_copies", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_bound_composes_bound_first_with_a_gain_entry", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_inbound_load_plan.py":
     purpose: "packing is a property of the ARRIVAL, not of the order."
     layer: "tests"
@@ -3115,6 +3249,34 @@ files:
       - {name: "test_absent_scipy_reports_itself_distinctly", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
       - {name: "test_the_probe_is_off_by_default_and_changes_no_result", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
       - {name: "test_stats_are_populated_without_a_probe", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_lead_distribution.py":
+    purpose: "per-trailer leads, and why spread zero is not a distribution."
+    layer: "tests"
+    key_symbols:
+      - {name: "DAY_S", file: "Tests/unit/test_lead_distribution.py", kind: "const"}
+      - {name: "test_spread_zero_returns_the_median_as_the_same_float", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_spread_zero_constructs_no_generator", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_seed_is_inert_while_the_spread_is_zero", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_seeded_spreadless_transit_is_lockstep_with_the_pre_spread_one", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_drawn_lead_is_the_lognormal_of_its_own_key", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_the_draws_are_positive_and_centred_on_the_median", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_bigger_spread_spreads_more", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_the_same_seed_draws_the_same_schedule", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_different_world_seed_draws_a_different_schedule", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_seqs_lead_does_not_depend_on_how_many_trailers_preceded_it", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_every_arm_of_a_run_sees_the_same_lead_schedule", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_spread_reorders_the_yard_against_the_dispatch_order", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_the_yard_stays_sorted_by_arrival_then_seq", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_without_a_spread_the_yard_is_dispatch_order", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_spread_without_the_standing_yard_refuses", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_spread_with_no_trailer_type_refuses", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_spread_over_a_zero_median_refuses", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_a_zero_spread_over_a_zero_median_is_the_default_and_passes", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_the_spec_converts_the_median_and_carries_the_spread_dimensionless", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_the_spec_keys_the_draw_on_the_world_seed", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_the_settings_names_are_the_config_sources", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
+      - {name: "test_the_driver_hands_both_transits_the_lead_shape", file: "Tests/unit/test_lead_distribution.py", kind: "function"}
     notes: ""
   "Tests/unit/test_lead_time_unit.py":
     purpose: "the one stream still quantized to batches, on purpose."
@@ -3770,6 +3932,24 @@ files:
       - {name: "test_duplicate_add_rejected", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
       - {name: "test_discard_absent_is_noop_and_empty_is_falsy", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_space_timeline.py":
+    purpose: "the standing dock's space view, and its neutrality."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_degenerate_lockstep_holds_with_the_timeline_on", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_the_timeline_changes_nothing_on_the_standing_path_end_to_end", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_freeze_is_pure", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_the_extracted_drain_rule_reproduces_from_batch", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_predicted_clears_are_exact_and_untimed", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_versions_bump_per_event_class_and_demand_replaces", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_the_window_rides_the_injection_and_replaces", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_the_eviction_bumps_reclaim_v_once_per_bin", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_an_eviction_alone_moves_the_version_vector", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_the_eviction_hook_is_silent_without_a_timeline", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_the_view_is_a_frozen_copy_of_live_state", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_ctx_space_arrives_at_ctx_freeze", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+      - {name: "test_without_a_timeline_ctx_space_stays_none", file: "Tests/unit/test_space_timeline.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_speed_profile.py":
     purpose: "one name for the ft/s \u2192 s/inch boundary."
     layer: "tests"
@@ -3788,6 +3968,28 @@ files:
       - {name: "test_neither_pick_simulation_converts_by_hand_any_more", file: "Tests/unit/test_speed_profile.py", kind: "function"}
       - {name: "test_the_hand_conversion_count_only_falls", file: "Tests/unit/test_speed_profile.py", kind: "function"}
       - {name: "test_cost_model_still_imports_nothing_from_the_repo", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_standing_yard.py":
+    purpose: "doors become real, and flag-off stays byte-identical."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_standing_without_a_trailer_type_fails_loudly", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_standing_without_a_receiving_crew_fails_loudly", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_a_wellformed_standing_spec_carries_the_whole_family", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_an_unknown_allocation_fails_at_both_seams", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_flag_off_spec_is_unchanged", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_the_unload_coefficients_default_by_reference_and_override_cleanly", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_release_is_pure_calendar_and_stamps_the_event_not_the_drain", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_the_yard_is_ordered_by_arrival_stamp_with_seq_as_tiebreak", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_the_registries_resolve_an_ordering_entry_through_both_frozen_rankings", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_the_degenerate_lockstep_merged_is_byte_identical_to_v1", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_split_allocation_is_labor_only_against_v1", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_the_freed_team_takes_the_staged_trailer_with_no_workers", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_with_no_replacement_the_freed_team_joins_the_fewest_workers", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_a_zero_budget_drain_still_fills_the_doors", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_the_remainder_carries_as_a_consumed_index_and_the_ledger_flips_per_unit", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_capped_levels_relabel_between_the_models_and_flows_conserve", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_the_census_extends_over_yard_and_staged_remainders", file: "Tests/unit/test_standing_yard.py", kind: "function"}
     notes: ""
   "Tests/unit/test_stats_intervals.py":
     purpose: "a published interval must belong to the number beside it."
@@ -3882,6 +4084,10 @@ files:
       - {name: "test_a_lead_elapses_against_the_absolute_clock", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
       - {name: "test_the_census_counts_what_has_not_reached_the_dock", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
       - {name: "test_the_bound_is_inert_under_fifo_and_bites_under_a_real_key", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_the_generalized_path_reproduces_key_sort_on_the_seeded_fifo_entry", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_the_bound_composes_bound_first_with_an_ordering_entry", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_an_ordering_entry_gets_a_copy_and_the_seam_consumes_no_rng", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
+      - {name: "test_a_non_permutation_proposal_fails_loudly", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
       - {name: "test_trailer_admissions_carry_the_fourth_source_and_conserve_merchandise", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
       - {name: "test_per_trailer_portions_pack_as_the_pieces_they_are", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
       - {name: "test_the_ledger_debits_every_portion_of_a_split_reorder", file: "Tests/unit/test_trailer_pipeline.py", kind: "function"}
@@ -4034,6 +4240,30 @@ files:
       - {name: "test_the_tie_at_one_instant_is_broken_by_role_not_by_arrival", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_the_view_and_the_in_memory_merge_declare_the_same_order", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_the_merge_orders_a_batch_boundary_by_emission_not_backwards", file: "Tests/unit/test_work_events.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_yard_metrics.py":
+    purpose: "the yard's measurement surface, end to end and at its edges."
+    layer: "tests"
+    key_symbols:
+      - {name: "DAY", file: "Tests/unit/test_yard_metrics.py", kind: "const"}
+      - {name: "test_a_finished_trailer_carries_the_door_it_left_through", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_trailer_whose_plan_packs_nothing_is_discarded_unstaged", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_the_censored_tail_is_read_and_never_drained", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_transit_without_a_yard_answers_both_row_sources_with_nothing", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_every_standing_drain_records_its_two_pairs", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_the_start_pair_is_frozen_before_the_door_fill", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_the_tables_exist_on_every_run_and_hold_rows_only_with_a_yard", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_the_bundle_writes_both_yard_tables_and_reads_them_back", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_standing_trailer_later_emptied_corrects_its_own_row", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_the_same_rows_report_a_different_fee_under_a_different_threshold", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_censored_trailer_is_bounded_by_the_run_end_not_dropped", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_the_spans_a_never_staged_trailer_cannot_have_are_nan_not_zero", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_an_empty_trailer_frame_still_has_its_columns", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_binding_cut_counts_drains_and_never_sums_levels", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_remainder_alone_is_a_binding_cut", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_day_cut_is_not_a_missed_sale", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_batch_that_demanded_nothing_is_unmeasured_not_perfect", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
+      - {name: "test_a_batch_with_no_missed_rows_scores_zero_rather_than_vanishing", file: "Tests/unit/test_yard_metrics.py", kind: "function"}
     notes: ""
   "Visualization/cache_schema.py":
     purpose: "DDL for the derived viewer sidecar (`_viz/**/<arm>.viz.db`)."
@@ -4330,6 +4560,9 @@ files:
       - {name: "can_start", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
       - {name: "finish", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
       - {name: "charge", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+      - {name: "earliest_subset", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+      - {name: "can_start_subset", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+      - {name: "charge_subset", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
       - {name: "reset", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
     notes: ""
   "Warehouse/kernel/regime.py":
@@ -4440,6 +4673,7 @@ files:
     key_symbols:
       - {name: "BatchConfig", file: "Warehouse/picking/Workload_Builder.py", kind: "class"}
       - {name: "Batch", file: "Warehouse/picking/Workload_Builder.py", kind: "class"}
+      - {name: "drain_sku", file: "Warehouse/picking/Workload_Builder.py", kind: "function"}
       - {name: "Task", file: "Warehouse/picking/Workload_Builder.py", kind: "class"}
     notes: ""
   "Warehouse/picking/fast_pick.py":

@@ -79,7 +79,7 @@ from Optimization.metrics.Simulation_Analytics import (
     fused_pre_snapshot, snapshot_aisle_metrics,
 )
 from Optimization.persistence.Picking_Data import (
-    save_checkpoint_bundle,
+    save_checkpoint_bundle, save_yard_trailers,
     save_bin_scores, save_sku_scores,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
@@ -984,6 +984,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     pq: list = []   # reorder-queue contents per batch (lead + stock + held), per queue
     pqs: list = []  # per-(batch, queue) stream STATE: depth/oldest age + the flow counters
     cov: list = []  # carryover: what did not get placed this batch, and why
+    yt: list = []   # yard: FINISHED trailer stamps (the censored tail flushes after the loop)
+    yd: list = []   # yard: per-drain levels — the contention pair and the binding-cut pair
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
     demand_breaks  = 0   # batches that picked MORE than was demanded (see the ledger)
@@ -1198,6 +1200,14 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # no receiving crew, which keeps the row shape identical either way rather than
         # leaving a NULL every consumer has to special-case.
         _rcv = mgr.receiving_snapshot()
+        # The yard's two row sources, drained here for `queue_state_rows`' reason: both
+        # RESET, so exactly one call per batch, above the skip guard so a skipped batch
+        # records its drain too (a batch that picked nothing still received trailers).
+        # Both are `[]` on any run without the standing yard, which is what keeps an
+        # inbound-off run's tables EMPTY rather than zero-filled -- "the yard was empty"
+        # and "there was no yard" are different claims and only one of them is true.
+        yt.extend(mgr.drain_yard_trailers())
+        yd.extend((i, *_lv) for _lv in mgr.drain_yard_drains())
         # THE RECEIVE FLUSH, in the block both branches pass through -- so
         # `close_skipped_batch` is untouched.  That matters: it has two early returns of its
         # own, and a drain appended after its put block would be silently skipped whenever
@@ -1562,7 +1572,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
                 bin_placements=_bp, bin_evictions=_be,
                 aisle_metrics=pm, reorder_queue=pq, work_events=we,
-                put_queue_state=pqs, carryover=cov)
+                put_queue_state=pqs, carryover=cov,
+                yard_trailers=yt, yard_drains=yd)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -1613,6 +1624,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
             pqs.clear(); cov.clear()
+            yt.clear(); yd.clear()
             we.clear()
             reorders_ckpt      = 0
             units_ordered_ckpt = 0
@@ -1653,8 +1665,22 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
             bin_placements=_bp, bin_evictions=_be,
             aisle_metrics=pm, reorder_queue=pq, work_events=we,
-            put_queue_state=pqs, carryover=cov)
+            put_queue_state=pqs, carryover=cov,
+            yard_trailers=yt, yard_drains=yd)
         t_save_run += time.perf_counter() - _ts_final
+
+    # THE CENSORED TAIL, and it is deliberately OUTSIDE the `if pb:` above.  That flush is
+    # conditional on there being an unflushed batch window, which there is not when
+    # `n_batches` divides evenly by `checkpoint` -- and the trailers still standing when the
+    # run stops are exactly the rows an adversarial ordering concentrates its overage in.
+    # Losing them on a round batch count would report `lifo`'s fee as CLIPPED rather than
+    # concentrated, which inverts the signal the arm exists to produce.  `[]` on every run
+    # without the standing yard, so the call is free rather than guarded.
+    _yard_standing = mgr.standing_yard_trailers()
+    if _yard_standing:
+        log.info(f'  [yard] {len(_yard_standing)} trailer(s) still on site at run end — '
+                 f'detention censored')
+        save_yard_trailers(db_path, run_id, _yard_standing)
 
     # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
     # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was

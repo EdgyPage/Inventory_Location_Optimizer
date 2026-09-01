@@ -15,22 +15,34 @@
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_priorities_py.html"><code>Inbound/priorities.py</code></a></p>
 
 <pre class="sig"><code>Inbound.priorities</code></pre>
-<section class="doc">priorities — the dock&#x27;s two policy registries, on `put_policy`&#x27;s proven contract.
+<section class="doc">priorities — the dock&#x27;s policy registries, on `put_policy`&#x27;s proven contract.
 
-# ── two levels, two registries ────────────────────────────────────────────────────
+# ── the registries, and the split the standing yard made real ─────────────────────
 
-GLOBAL ranks TRAILERS, and one ranking serves BOTH dock moments: a freed door goes to the
-top-ranked unstaged trailer, and the crew unloads the top-ranked staged one.  LOCAL ranks a
-trailer&#x27;s LOAD PALLETS — what a crew actually pulls; on a single-SKU pallet that degenerates
-to the SKU lot.  A separate staging-vs-unload split is a later registry addition if a real
-policy ever needs it (one adapter is a hypothetical seam).
+GLOBAL ranks TRAILERS for the v1 drain-everything path, where one ranking serves both dock
+moments.  The STANDING YARD (`YardTransit`) splits that decision in two, each with its own
+registry and knob: YARD (`INBOUND_YARD_POLICY`) answers &quot;a freed door goes to which
+standing trailer&quot;; DOCK (`INBOUND_DOCK_POLICY`) answers &quot;the crew works which staged
+trailer&quot; — under door-team allocation that is a worker-ALLOCATION preference, decisive when
+workers &lt; staged trailers and graded otherwise.  Both additive, both seeded `&#x27;fifo&#x27;`; the
+GLOBAL registry and its knob stay untouched and are simply unread in standing mode.  LOCAL
+ranks a trailer&#x27;s LOAD PALLETS — what a crew actually pulls; on a single-SKU pallet that
+degenerates to the SKU lot — and is shared by both paths.
 
-The contract is `put_policy`&#x27;s exactly: a policy is a PURE key function, HIGHER served
-first, over (candidate, ctx) where `ctx` is FROZEN for the drain — computed once, reused
-across every decision in it.  `ctx` is also where the warehouse-space signal arrives when
-the future feature builds it (&quot;unloading that takes advantage of space in warehouse&quot;): a
-named view on the context, no signature change.  A LOCAL policy may reorder WORK but never
-pack composition — the pack plan is fixed per trailer.
+The contract is `put_policy`&#x27;s, generalized ONE step (&quot;Define the inbound objective&quot;,
+decision 4): an entry is EITHER a pure key function — HIGHER served first, over
+(candidate, ctx), the degenerate case every seeded `&#x27;fifo&#x27;` entry rides — OR an ORDERING
+function `(candidates, ctx) -&gt; ordered list`, tagged `@ordering`, for policies whose
+whole proposal is the value (a gain plan that virtually consumes space as it picks has no
+per-candidate key).  `bounded_order` resolves either kind, so the registries, the
+accessors, `transit.py` and the manager are all kind-blind.  Both kinds are PURE over a
+`ctx` FROZEN for the drain — computed once, reused across every decision in it; an entry
+mutates no manager state (an ordering entry is handed a COPY of its candidates) and
+consumes no RNG.  `ctx` is also where the warehouse-space signal arrives — the
+reserved named view is now REAL: `ctx.space` carries the drain&#x27;s frozen
+`Inbound.space.SpaceView` whenever the standing yard runs (always on with the flag), None
+otherwise; no signature change, and every seeded &#x27;fifo&#x27; key ignores it.  A LOCAL policy may
+reorder WORK but never pack composition — the pack plan is fixed per trailer.
 
 There is deliberately NO `inherit` entry: at the dock there is no placement pool whose
 precedence could stand in, so the default is plain `&#x27;fifo&#x27;`.
@@ -40,9 +52,16 @@ precedence could stand in, so the default is plain `&#x27;fifo&#x27;`.
 `bounded_order` is the dock&#x27;s `k_cap` analog, shipped now by decision: the policy PROPOSES
 an order, the bound limits how far it may depart from arrival order — &quot;of the `bound`
 longest-waiting trailers, take the best&quot;.  Denominated in TRAILERS; None = unbounded.  With
-`&#x27;fifo&#x27;` (v1&#x27;s only policy) any bound is inert, which is what keeps v1 byte-identical while
-the interface is real.</section>
-<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nInbound_transit_py.html"><code>Inbound.transit</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nInbound_priorities_py__DockContext.html"><code>DockContext</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__DockContext___init__.html"><code>__init__</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py___fifo_pallet.html"><code>_fifo_pallet</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py___fifo_trailer.html"><code>_fifo_trailer</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__bounded_order.html"><code>bounded_order</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__global_key.html"><code>global_key</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__local_key.html"><code>local_key</code></a> <span class="dim">Inbound/priorities.py</span></li></ul></section>
+`&#x27;fifo&#x27;` (every seeded policy) any bound is inert, which is what keeps v1 byte-identical
+while the interface is real.  The ONE bound covers the global ranking and both standing
+rankings alike — a per-registry bound waits for an arm that needs them separate.
+
+With an ORDERING entry the bound composes BOUND-FIRST — bound the candidate set, then
+order: the entry is called ONCE per drain, on the `bound` longest-waiting candidates
+only, and the remainder follows its proposal in arrival order.  Never re-run per pick — a
+plan is one call, however deep the drain consumes it.  Inert exactly when the proposal is
+arrival order, the same degenerate case that keeps `&#x27;fifo&#x27;` keys inert.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nInbound_gain_py.html"><code>Inbound.gain</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_transit_py.html"><code>Inbound.transit</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(12)</span></h2><ul><li><a href="nInbound_priorities_py__DockContext.html"><code>DockContext</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__DockContext___init__.html"><code>__init__</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py___fifo_pallet.html"><code>_fifo_pallet</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py___fifo_standing.html"><code>_fifo_standing</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py___fifo_trailer.html"><code>_fifo_trailer</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py___lifo_standing.html"><code>_lifo_standing</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__bounded_order.html"><code>bounded_order</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__dock_key.html"><code>dock_key</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__global_key.html"><code>global_key</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__local_key.html"><code>local_key</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__ordering.html"><code>ordering</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__yard_key.html"><code>yard_key</code></a> <span class="dim">Inbound/priorities.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_priorities_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/priorities.py">Source ↗</a></p>
 </article>
 </main>

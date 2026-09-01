@@ -284,6 +284,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         #: Receiving labour, in seconds. Deliberately NOT folded into `_put_seconds`: that
         #: figure has been published, and widening what it counts would move it silently.
         self._recv_seconds: float = 0.0
+        #: One `(yard_start, free_doors_start, yard_end, staged_remainder_end)` per STANDING
+        #: drain — the `yard_drains` row, appended by `_receive_standing` and drained per
+        #: batch.  Empty on every run without the standing yard, which is what makes the
+        #: table have zero rows there rather than a batch's worth of honest-looking zeros:
+        #: a v1 or dockless run has no yard, and "the yard was empty" is a different claim
+        #: from "there was no yard".
+        self._yard_drains: list = []
         # Seed for the reorder-quantity noise.  check_reorders draws qty from a per-reorder
         # random.Random((_seed, sku, _batch_num)) so the quantity is a pure function of the
         # seed (reproducible, off the global stream) rather than global call order.  The
@@ -1021,6 +1028,41 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         every consumer then has to special-case.
         """
         return self._dock.snapshot() if self._dock is not None else (0, 0, 0, 0.0)
+
+    # ── the yard's raw material (RAW STAMPS ONLY — every span derives at analysis) ──
+    # Three accessors, one per row source, and none of them computes a span, a detention
+    # day or an overage.  That altitude is the yard-metrics decision itself: the fee
+    # threshold is a knob, and a run whose DB held pre-divided overage days could never be
+    # re-reported under a different one without re-simulating.
+
+    def drain_yard_drains(self) -> list:
+        """This batch's per-drain yard levels, and start the list over.
+
+        `[]` when the standing yard is not bound, which is not the same as a row of zeros —
+        see the field's own note.  Drained per batch for `drain_putaway_records`' reason.
+        """
+        out, self._yard_drains = self._yard_drains, []
+        return out
+
+    def drain_yard_trailers(self) -> list:
+        """This batch's FINISHED trailer stamps, and start the transit's list over.
+
+        `[]` on any transit without the standing surfaces (`BatchTransit`, `TrailerTransit`)
+        — probed the way `_receive` probes for `STANDING`, so neither is edited to satisfy
+        a reader neither has anything to say to.
+        """
+        drain = getattr(self.transit, 'drain_stamps', None)
+        return drain() if drain is not None else []
+
+    def standing_yard_trailers(self) -> list:
+        """Stamps for trailers STILL ON SITE — read at run end, and never drained.
+
+        The censored tail.  A run that stops with trailers standing has held them for at
+        least as long as it ran, and dropping those rows would report the adversarial arm's
+        fee as clipped rather than concentrated.
+        """
+        standing = getattr(self.transit, 'standing_stamps', None)
+        return standing() if standing is not None else []
 
     @property
     def putaway_seconds(self) -> float:

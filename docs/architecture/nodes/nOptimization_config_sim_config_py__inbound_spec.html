@@ -23,9 +23,22 @@ TrailerTransit, no trailer objects, and the manager keeps the batch lead queue i
 constructed for itself, byte-identically.
 
 Reads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`&#x27;s
-settings snapshot).  The lead is authored in MINUTES and converted to the sim&#x27;s
-seconds exactly once, here -- the minutes-at-the-surface decision.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+settings snapshot).  The lead MEDIAN is authored in MINUTES and converted to the sim&#x27;s
+seconds exactly once, here -- the minutes-at-the-surface decision.  The SPREAD is
+dimensionless and crosses as-is; the draw itself lives at trailer creation
+(`Inbound.transit.TrailerTransit.lead_for`), keyed by the world seed carried below,
+so no RNG object ever has to cross the worker payload.
+
+THE STANDING YARD&#x27;S CONTRADICTIONS FAIL HERE, LOUDLY.  `INBOUND_STANDING_YARD` with
+no trailer type is a yard with no trailers; with no receiving crew it is a yard
+nobody can ever unload -- merchandise would stand deferred forever, the run would
+complete, and nothing would raise.  And a non-fifo yard/dock policy WITHOUT the
+standing yard is a policy nothing reads: the run would complete as v1 fifo under
+the policy&#x27;s name -- the fake-arm hazard, worn as configuration.  So is a lead
+SPREAD without the standing yard, or over a zero median (see the guard below).  All
+are configuration errors, never a silent no-op: the flag&#x27;s OFF state is the only
+inert one.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_sim_config_py___futuresight_batches.html"><code>_futuresight_batches</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_config_sim_config_py__seed_world.html"><code>seed_world</code></a> <span class="dim">Optimization/config/sim_config.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__inbound_spec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20inbound_spec">Source ↗</a></p>
 </article>
 </main>

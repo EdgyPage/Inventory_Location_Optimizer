@@ -36,13 +36,17 @@ def test_no_quantity_reads_outside_the_guaranteed_surface_unnamed():
     assert not findings, '\n'.join(findings)
 
 
-def test_the_module_level_declaration_is_the_union_of_every_quantity_read():
+def test_the_two_module_level_declarations_partition_every_quantity_read():
     """`QUANTITY_READS` exists so the schema-compatibility sweep can SEE the declaration.
 
     A `Requires` reached only through a factory is invisible to that sweep and therefore
-    never validated — the exact gap the sweep's own docstring describes. The union has to
-    actually be the union, or the object CI validates and the objects the gate checks are
-    different things.
+    never validated — the exact gap the sweep's own docstring describes.
+
+    Since the first capability-gated quantity there are TWO objects, split on exactly the
+    line the layer is built on: `QUANTITY_READS` is the unconditional half and must stay
+    inside the guaranteed surface (the sweep enforces that), `GATED_READS` is the half that
+    deliberately does not. Together they must still be the whole union — a read in neither
+    is a read nothing validates, which is the failure both objects exist to prevent.
     """
     union: dict = {}
     for q in Q.QUANTITIES:
@@ -51,8 +55,22 @@ def test_the_module_level_declaration_is_the_union_of_every_quantity_read():
             continue
         for table, cols in req.tables.items():
             union.setdefault(table, set()).update(cols)
-    assert {t: set(c) for t, c in era.QUANTITY_READS.tables.items()} == union
+    declared: dict = {}
+    for obj in (era.QUANTITY_READS, era.GATED_READS):
+        for table, cols in obj.tables.items():
+            declared.setdefault(table, set()).update(cols)
+    assert declared == union, 'a quantity read is in neither declaration'
+    # The unconditional half is version-free, and must stay that way.
     assert compat.validate(era.QUANTITY_READS) == []
+    # The gated half is outside the surface BY DESIGN — if it ever validates clean the
+    # vintages have converged, which is good news and means the capability names and the
+    # runtime probe can be retired rather than left as machinery nobody needs.
+    assert era.GATED_READS.tables, 'the gated half is empty; fold it back into one object'
+    assert compat.validate(era.GATED_READS), (
+        'every gated read is now inside the guaranteed surface — the vintages converged, '
+        'so retire the capability names rather than keeping a probe that always passes')
+    # And the RULE over the whole table: every gap is covered by a named capability.
+    assert era.findings() == []
 
 
 def test_the_gate_is_not_vacuous():
@@ -129,17 +147,23 @@ def test_a_derived_frame_column_declares_the_columns_it_is_built_from():
 
 def test_every_declared_db_column_actually_exists_in_the_surface():
     """The reverse of the gate: a `db_columns` entry naming nothing real would make the
-    gate pass by describing a read that is not the read being made."""
-    surface = compat.guaranteed_surface('sim_db')
+    gate pass by describing a read that is not the read being made.
+
+    Checked against the DECLARED shape, not the guaranteed surface.  The guaranteed one is
+    the intersection over every vetted vintage, so a column added today is absent from it
+    by construction — asserting against it would forbid measuring anything new, which is
+    the opposite of what this test is for.  Whether a run can SERVE the read is the gate's
+    own question (guaranteed, or a named capability); whether the column EXISTS at all is
+    this one's, and only the declared shape can answer it.
+    """
+    declared = picking_data.declared_sim_schema_shape()['tables']
+    shape = {t: {c['name'] for c in spec['columns']} for t, spec in declared.items()}
     for q in Q.QUANTITIES:
-        reads = q.source.db_reads
-        if not reads:
-            continue
-        table, cols = reads
-        assert table in surface, f'{q.key} reads unknown table {table!r}'
-        for col in cols:
-            assert col in surface[table], \
-                f'{q.key} declares {table}.{col}, which is not in the guaranteed surface'
+        for table, cols in q.source.all_db_reads:
+            assert table in shape, f'{q.key} reads unknown table {table!r}'
+            for col in cols:
+                assert col in shape[table], \
+                    f'{q.key} declares {table}.{col}, which this build does not write'
 
 
 def test_a_quantity_with_no_database_source_asks_the_gate_nothing():
@@ -157,27 +181,70 @@ def test_the_frame_table_map_covers_every_source_kind_in_use():
     assert kinds, 'no quantity reads a frame at all — the gate would be vacuous'
 
 
-# ── the runtime half, and why it is not here yet ─────────────────────────────────
+# ── the runtime half ─────────────────────────────────────────────────────────────
+# It opened on 2026-08-31, when the yard and demand-service quantities became the first to
+# name capabilities.  The predecessor of these tests asserted that no quantity did, with
+# the design for the probe in its docstring, and it fired exactly as written.
+#
+# The gap it covers is narrow and real: a VETTED vintage that carries a conditional table
+# and no rows in it.  The static gate above cannot see that — it is a statement about the
+# quantity table, not about a file — and nothing else would notice, because the only
+# symptom is a figure that does not appear.
 
-def test_no_quantity_names_a_capability_yet_and_that_is_why_there_is_no_probe():
-    """A runtime probe with no consumer is validated infrastructure nobody calls.
 
-    The static gate above is the COMPLETE mechanism for today's quantity table, and the
-    reason is structural rather than lucky: `EvalContext._verify_sim_dbs` already hard-
-    fails on a sim DB whose schema is not vetted, so an archived run is either vetted (and
-    every read above is inside the guaranteed surface, so it can answer) or unvetted (and
-    the analysis refuses to start). The gap the runtime half would cover — a VETTED
-    vintage missing a non-guaranteed column — opens the moment a quantity names a
-    capability, and not before.
+def test_every_named_capability_is_a_real_registry_key():
+    """A capability naming nothing is worse than none: `era.findings` would pass it and the
+    runtime probe would refuse the quantity forever, on every run."""
+    for q in Q.QUANTITIES:
+        if q.capability:
+            assert q.capability in picking_data.SIM_CAPABILITIES, \
+                f'{q.key} names capability {q.capability!r}, which no registry entry defines'
 
-    So this test fails on that day, deliberately, with the design note attached. Do not
-    delete it to make the build green: implement the probe (fold `capability.probe` into
-    `_verify_sim_dbs`, memoise `ctx.capabilities`, check it in `requests.resolve_needs`
-    behind an `EraUnmet` distinct from `Denied`, and surface an `[era] run summary` beside
-    the `[access]` one), then rewrite this test to assert the probe runs.
+
+def test_a_capability_gated_quantity_is_refused_when_the_run_cannot_answer_it():
+    """The probe REFUSES, and refuses under its own kind of sentinel.
+
+    `EraUnmet` is distinct from `Denied` because the two call for different actions: a
+    denial says a file was missing (re-run the stage), while this says the file is present
+    and older than the measurement (re-run the SWEEP, or report the degraded form). One
+    bucket for both would print the wrong instruction on every archived run.
     """
-    named = [q.key for q in Q.QUANTITIES if q.capability]
-    assert not named, (
-        f'{named} now name capabilities, so the RUNTIME half of the era gate is needed: a '
-        f'vetted vintage can lack a non-guaranteed column, and today nothing would notice '
-        f'except as a missing figure. See this test\'s docstring for the design.')
+    from Optimization.Performance_Evaluations.core import requests as R
+    from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
+
+    class _Ctx:
+        def __init__(self, have):
+            self._have = frozenset(have)
+
+        def capabilities(self):
+            return self._have
+
+    ev = EVAL_BY_KEY['yard.fee']
+    assert any(Q.BY_KEY[k].capability for k in ev.quantities), \
+        'yard.fee no longer draws a capability-gated quantity; pick another evaluation'
+    got = R.era_shortfall(_Ctx(()), ev)
+    assert isinstance(got, R.EraUnmet) and isinstance(got, R.Denied)
+    assert not got, 'the sentinel must stay FALSY — every caller truth-tests it'
+    assert 'yard' in got.missing
+    # ...and grants it the moment the run can answer.
+    assert R.era_shortfall(_Ctx(('yard',)), ev) is None
+
+
+def test_an_ungated_evaluation_never_pays_for_the_probe():
+    """A preset of version-free quantities must not open a connection to learn nothing."""
+    from Optimization.Performance_Evaluations.core import requests as R
+    from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
+
+    class _Exploding:
+        def capabilities(self):
+            raise AssertionError('an ungated evaluation probed the run for capabilities')
+
+    assert R.era_shortfall(_Exploding(), EVAL_BY_KEY['layout.travel']) is None
+
+
+def test_the_run_end_summary_counts_era_skips_separately():
+    """`[access]` counts INPUTS. An era shortfall arriving in that column would read as a
+    pipeline fault on a run that is simply older than the measurement."""
+    from Optimization.Performance_Evaluations.core import requests as R
+    snap = R.tally_snapshot()
+    assert 'era' in snap and 'denied' in snap and 'granted' in snap

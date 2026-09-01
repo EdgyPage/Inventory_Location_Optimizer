@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>load_yard_drains · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_persistence_Picking_Data_py__load_yard_drains" data-id="Optimization/persistence/Picking_Data.py::load_yard_drains">
+<nav class="crumbs"><a href="../layers.html">opt_persistence</a> <span class="sep">›</span> <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a> <span class="sep">›</span> <span class="here"><code>load_yard_drains</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>load_yard_drains</code></h1>
+<p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def load_yard_drains(path: str, run_id: int) -&gt; list</code></pre>
+<section class="doc">Every drain&#x27;s yard levels, in batch order.  `[]` on a pre-yard vintage.
+
+All four columns are LEVELS re-measured per drain: `sum()` over any of them restates
+the same standing trailers once per batch.  The additive statistic over the binding-cut
+pair is a COUNT OF DRAINS with either above zero.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___query_rows.html"><code>_query_rows</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__drain_frame.html"><code>drain_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__load_yard_drains">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20load_yard_drains">Source ↗</a></p>
+</article>
+</main>
+</body></html>

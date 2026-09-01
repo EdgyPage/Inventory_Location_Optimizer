@@ -379,7 +379,7 @@ def test_the_freed_team_takes_the_staged_trailer_with_no_workers():
         'worker 0 touched the heavy trailer while its own work still stood')
     # doors freed STAGGERED, and the data is event-stamped: T2 staged at the exact
     # instant T0 emptied (epoch + crew-clock offset), not at the drain boundary.
-    stamps = {seq: (a, s, e) for seq, a, s, e in tr.stamps}
+    stamps = {seq: (a, s, e) for seq, a, s, e, _status in tr.stamps}
     t0_emptied = stamps[0][2]
     t2_staged = stamps[2][1]
     assert t2_staged == pytest.approx(t0_emptied)

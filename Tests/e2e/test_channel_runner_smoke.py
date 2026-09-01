@@ -177,12 +177,27 @@ def test_mixed_analysis_replicates_per_channel(tmp_path, monkeypatch):
         f'figures saved outside their declared out_subdir: {sorted(pe_io._MAP_WARNINGS)}')
 
     # THE access gate: with every resource present, every request is granted — no denials.
+    #
+    # `[era]` lines are a different claim and are NOT counted here, deliberately. This run
+    # is inbound-off, so the yard family genuinely cannot be answered — the files are all
+    # present and simply carry no yard — and that is the correct outcome rather than a
+    # missing resource. Counting it as a denial would make "every resource present" and
+    # "every measurement recorded" the same assertion, and they are not: the second is a
+    # property of the run's CONFIGURATION, which this smoke test does not set.
     access = [m for m in cap.lines if m.startswith('[access]')]
     assert access, 'the broker logged no [access] lines at all — the choke point is unwired'
     denied = [m for m in access if 'DENIED' in m]
     assert not denied, f'unexpected denials on a complete run: {denied}'
     granted_evals = {m.split()[1] for m in access if '-> granted' in m}
     assert granted_evals, 'no granted lines recorded'
+
+    # ...and the era half, asserted rather than merely excluded: an inbound-off run must
+    # SAY it cannot answer the yard, or the exclusion above would also hide a yard family
+    # that silently rendered zeros.
+    era = [m for m in cap.lines if m.startswith('[era]')]
+    assert any('yard.' in m for m in era), (
+        f'an inbound-off run drew the yard family instead of reporting it unanswerable; '
+        f'[era] lines were {era}')
 
 
 def _mixed_inventory(num_skus=120, seed=2):

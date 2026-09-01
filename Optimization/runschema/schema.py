@@ -106,7 +106,7 @@ AXES = ('cell', 'pair', 'config', 'channel', 'strategy')
 # into a per-leaf one, which is why there are nine families and eight globs here.  A
 # generator that iterated all nine would move `schema_id`.
 _LEAF_FIGURE_FAMILIES = ('headline', 'trajectories', 'labor', 'throughput',
-                         'task_time', 'layout', 'significance', 'diagnostics')
+                         'task_time', 'layout', 'significance', 'yard', 'diagnostics')
 
 #: The folder pre-pass that guarantees every family directory exists, empty or not.  It is
 #: the honest writer for a GLOB: the individual figures come from many evaluations, and
@@ -130,10 +130,11 @@ _FIGURE_FAMILY_EVALUATIONS: dict = {
                      'headline.throughput_vs_labor', 'headline.top_vs_baseline'],
     'trajectories': ['trajectories.overtime'],
     'labor':        ['labor.delta_grid', 'labor.delta_topn', 'labor.per_batch'],
-    'throughput':   ['throughput.volume'],
+    'throughput':   ['throughput.missed', 'throughput.volume'],
     'task_time':    ['task_time.breakdown', 'task_time.duration'],
     'layout':       ['layout.churn', 'layout.travel'],
     'significance': ['sig.by_initial', 'sig.suite'],
+    'yard':         ['yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard'],
     'diagnostics':  ['diagnostics.metric_grids', 'diagnostics.scorecards'],
 }
 
@@ -143,6 +144,12 @@ _FIGURE_FAMILY_EXTRAS: dict = {
         'optional': True,
         'condition': 'presets that run a stats fork; NO_STATS writes no significance '
                      'figures.'},
+    'yard': {
+        'optional': True,
+        'condition': 'runs with INBOUND_STANDING_YARD on. The folder is created either '
+                     'way and is legitimately EMPTY otherwise: the yard request is DENIED '
+                     'when no arm has a trailer row, because a run without the standing '
+                     'yard has no yard rather than an empty one.'},
 }
 
 

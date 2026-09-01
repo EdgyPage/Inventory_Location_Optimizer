@@ -207,7 +207,7 @@ def _find(root, name):
 _FIGURE_DIR_PREFERENCE = (
     'figures/diagnostics', 'figures/headline', 'figures/labor', 'figures/layout',
     'figures/significance', 'figures/task_time', 'figures/throughput',
-    'figures/trajectories', 'tables',
+    'figures/trajectories', 'figures/yard', 'tables',
 )
 
 

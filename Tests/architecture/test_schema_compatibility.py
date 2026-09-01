@@ -125,6 +125,21 @@ DECLARED_CONSUMERS = {
     ('Visualization/db_reader.py', 'REQUIRES_DISCOVERY'): viz_db_reader.REQUIRES_DISCOVERY,
 }
 
+#: Declarations that are deliberately OUTSIDE the guaranteed surface, each covered by a named
+#: capability and a runtime probe instead.
+#:
+#: A second category rather than an exemption, and the difference matters: an exemption inside
+#: `DECLARED_CONSUMERS` would weaken the sweep's one invariant for every consumer in the repo,
+#: which is the invariant that turns "safe by accident" into "safe by design". These are held to
+#: a DIFFERENT and equally checkable rule (below): outside the surface, non-empty, and every gap
+#: named by a capability the registry defines. A `Requires` in neither dict still fails
+#: `test_every_consumer_that_declares_requirements_is_validated_here`, so the split adds a
+#: category without adding a hiding place.
+GATED_CONSUMERS = {
+    ('Optimization/Performance_Evaluations/core/era.py', 'GATED_READS'):
+        eval_era.GATED_READS,
+}
+
 #: The declaration is a constructor call, which makes it greppable — and worth keeping that way.
 _REQUIRES_CALL = re.compile(r'\bRequires\s*\(')
 
@@ -299,9 +314,30 @@ def _functions_selecting(relpath: str, table: str) -> set:
     comment-ish mention could over-match — but for a CONDITIONAL table a false positive fails
     loudly toward declaring, which is the safe direction; invisibility failed silently away
     from it.
+
+    A loader that goes through the NAMED-QUERY REGISTRY carries no SQL of its own and was
+    invisible to both forms — which is backwards, because the registry is now the preferred
+    route and a raw `SELECT` the legacy one.  So the module's own `Query(name=..., sql=...)`
+    registrations are read first (they sit at module level, outside any function, so they
+    never self-match), and a function naming one of the queries that touch `table` counts as
+    a reader of it.  Still source-only: no import, so this cannot share a bug with the
+    registry it is checking.
     """
     with open(os.path.join(_ROOT, *relpath.split('/')), encoding='utf-8') as fh:
         tree = ast.parse(fh.read(), filename=relpath)
+    # {query name} for every registered query whose canonical SQL names this table.
+    named = set()
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and _call_name(node.func) == 'Query'):
+            continue
+        kw = {k.arg: k.value for k in node.keywords}
+        name, sql = kw.get('name'), kw.get('sql')
+        if not isinstance(name, ast.Constant) or not isinstance(name.value, str):
+            continue
+        pieces = [lit.value for lit in ast.walk(sql)
+                  if isinstance(lit, ast.Constant) and isinstance(lit.value, str)] if sql else []
+        if table in '\n'.join(pieces):
+            named.add(name.value)
     out = set()
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -310,6 +346,8 @@ def _functions_selecting(relpath: str, table: str) -> set:
                   if isinstance(lit, ast.Constant) and isinstance(lit.value, str)]
         blob = '\n'.join(pieces)
         if 'SELECT' in blob.upper() and table in blob:
+            out.add(node.name)
+        elif named & set(pieces):
             out.add(node.name)
     return out
 
@@ -990,10 +1028,37 @@ def test_a_declared_consumer_stays_inside_the_guaranteed_surface(key):
 def test_every_consumer_that_declares_requirements_is_validated_here():
     """A `Requires` that nothing validates in CI is a comment with a dataclass around it."""
     declared = _requires_declaration_sites()
-    assert declared == set(DECLARED_CONSUMERS), (
-        f'unvalidated declarations: {sorted(declared - set(DECLARED_CONSUMERS))}; stale entries: '
-        f'{sorted(set(DECLARED_CONSUMERS) - declared)}. Every production `Requires` belongs in '
-        f'DECLARED_CONSUMERS so `validate()` runs against it on every suite.')
+    known = set(DECLARED_CONSUMERS) | set(GATED_CONSUMERS)
+    assert declared == known, (
+        f'unvalidated declarations: {sorted(declared - known)}; stale entries: '
+        f'{sorted(known - declared)}. Every production `Requires` belongs in '
+        f'DECLARED_CONSUMERS (version-free) or GATED_CONSUMERS (capability-gated) so a '
+        f'check runs against it on every suite.')
+    assert not (set(DECLARED_CONSUMERS) & set(GATED_CONSUMERS)), (
+        'a declaration is in both dicts, so it is claimed to be version-free and gated at '
+        'once; exactly one rule applies to any given read')
+
+
+@pytest.mark.parametrize('key', sorted(GATED_CONSUMERS), ids=lambda k: f'{k[0]}::{k[1]}')
+def test_a_gated_consumer_is_outside_the_surface_and_says_which_capability(key):
+    """The other rule, and it is not a weaker one — it is a different claim.
+
+    `DECLARED_CONSUMERS` promises every vetted vintage can serve the read. This promises the
+    opposite, deliberately: some cannot, a capability names what is needed, and a runtime probe
+    refuses the render on a run that lacks it. Both halves are asserted, because a gated
+    declaration that turns out to be version-free is machinery nobody needs, and one whose gap
+    no capability covers is exactly the silent-absence failure the era gate exists to end.
+    """
+    from Optimization.Performance_Evaluations.core import era as _era
+    relpath = '::'.join(key)
+    req = GATED_CONSUMERS[key]
+    assert req.tables, f'{relpath} declares an empty Requires and proves nothing'
+    assert req.family in EXPECTED_FAMILIES, f'{relpath} declares an unregistered family'
+    assert compat.validate(req), (
+        f'{relpath} is entirely inside the guaranteed surface, so the gating is machinery '
+        f'that can never fire. Move it to DECLARED_CONSUMERS and drop the capability names.')
+    assert _era.findings() == [], (
+        'a gated read names no capability, or names one the registry does not define')
 
 
 def test_every_loader_that_reads_a_conditional_table_is_declared():

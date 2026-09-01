@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YardTransit · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_transit_py__YardTransit" data-id="Inbound/transit.py::YardTransit">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_transit_py.html"><code>Inbound/transit.py</code></a> <span class="sep">›</span> <span class="here"><code>YardTransit</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>YardTransit</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_transit_py.html"><code>Inbound/transit.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>class YardTransit(TrailerTransit)</code></pre>
+<section class="doc">The standing yard: doors become real, and a trailer keeps its door until empty.
+
+What changes against the parent, and nothing else: `release()` is PURE CALENDAR —
+departs loaders, lands arrivals in the yard, returns NO deliveries — and every door
+and crew decision moves to `_receive`, which drives the standing surfaces below over
+DRAIN-FROZEN rankings.  The parent&#x27;s `release()` body is not edited; flag-off binds
+the parent untouched, which is the first of the four byte-identity layers.
+
+# ── the standing surfaces (what `_receive` drives) ────────────────────────────
+
+The manager owns `_originals`, the packer and the crew, so it cannot live here — and
+this class may not reach any of those, so the split is: THIS object holds trailer,
+yard and door STATE (`unplanned`/`planned_lots` for plans-at-arrival, `freeze_ctx`/
+`yard_order`/`dock_order` for the frozen rankings, `stage`/`door_freed`/`discard` for
+the door lifecycle, `staged`/`free_doors` for the census) and the MANAGER makes every
+decision over them.  The other transits satisfy these surfaces trivially — no
+`STANDING` attribute, no standing work — which is why neither is edited.
+
+# ── invariants worth naming ───────────────────────────────────────────────────
+
+* The yard is kept in (arrival stamp, `seq`) order — the charter&#x27;s entry order — so
+  the stable ranking sort breaks stamp ties by seq for free.
+* At most `doors` trailers are staged; `stage` raises past that rather than quietly
+  widening the dock.
+* Decisions are drain-quantized, data is event-stamped: `stage`/`door_freed` take the
+  ABSOLUTE instant the caller derived (drain epoch, or epoch + crew-clock offset for
+  a mid-drain refill), and `stamps` keeps one
+  `(seq, arrived_s, staged_s, emptied_s, status)` tuple per finished trailer — the raw
+  material the `yard_trailers` table reports from, kept here because the trailer object
+  itself is dropped when it empties.  The STATUS is stamped by whichever door the
+  trailer left through rather than re-derived downstream from the null pattern: the
+  two producers know which they are, and a reader inferring `discarded` from &quot;never
+  staged&quot; would silently reclassify the day someone stages a trailer they then drop.
+* `INBOUND_GLOBAL_POLICY` and the parent&#x27;s global registry are UNREAD here — the
+  yard/dock registries are the standing model&#x27;s split of that decision.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_transit_py__YardTransit">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/transit.py#:~:text=class%20YardTransit">Source ↗</a></p>
+</article>
+</main>
+</body></html>

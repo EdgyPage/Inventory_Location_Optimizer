@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>save_yard_trailers · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_persistence_Picking_Data_py__save_yard_trailers" data-id="Optimization/persistence/Picking_Data.py::save_yard_trailers">
+<nav class="crumbs"><a href="../layers.html">opt_persistence</a> <span class="sep">›</span> <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a> <span class="sep">›</span> <span class="here"><code>save_yard_trailers</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>save_yard_trailers</code></h1>
+<p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def save_yard_trailers(path: str, run_id: int, records: list) -&gt; None</code></pre>
+<section class="doc">Write trailer stamps on their own connection — the RUN-END flush&#x27;s writer.
+
+Separate from `save_checkpoint_bundle` because the censored tail is not a checkpoint
+product: the bundle only fires when a batch window is unflushed, and a run whose batch
+count divides evenly by its checkpoint interval has no such window. The trailers still
+standing then are exactly the rows an adversarial ordering concentrates its overage in,
+so they cannot ride a conditional.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___insert_yard_trailers.html"><code>_insert_yard_trailers</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___open_db.html"><code>_open_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__save_yard_trailers">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20save_yard_trailers">Source ↗</a></p>
+</article>
+</main>
+</body></html>

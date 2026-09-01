@@ -21,10 +21,14 @@ Called by PickSimulation immediately after bin_.storage is set to
 None — must be O(1).  The bin stays in _unavailable until
 _reclaim_empty_bins processes _pending_reclaim.
 
-``at`` is the picker-local second the bin ran dry.  Recorded in `_emptied_at` and
-read by nothing yet: the drain still happens once, at the top of the next batch, so
-a slot freed mid-batch is invisible until then.  Knowing WHEN is what a forecast of
-upcoming bin slots needs, and the pick loop is the only place that knows it.
+``at`` is the ABSOLUTE second the bin ran dry -- the pick sim&#x27;s carried clock, on
+the same axis as every other event stamp.  Recorded in `_emptied_at` and read at
+exactly one place: the space timeline&#x27;s reclaim-harvest in `_reclaim_empty_bins`,
+the one moment the stamps and the bins meet before both are wiped (pinned by
+`Tests/unit/test_bin_empty_timing.py`).  The reclaim itself still happens once,
+at the top of the next batch, so a slot freed mid-batch is invisible to PLACEMENT
+until then -- what the stamp feeds is the standing dock&#x27;s space view, not the
+reclaim cadence.
 ``None`` from a caller that has no clock (a test, the legacy notification path).</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_fast_pick_py__DeferredPickSimulation_run.html"><code>run</code></a> <span class="dim">Warehouse/picking/fast_pick.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__notify_bin_emptied">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_notify_bin_emptied">Source ↗</a></p>

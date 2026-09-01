@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_ydf · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_frames_py___ydf" data-id="Optimization/Performance_Evaluations/common/frames.py::_ydf">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a> <span class="sep">›</span> <span class="here"><code>_ydf</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_ydf</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a></p>
+
+<pre class="sig"><code>def _ydf(rows, run_end_s, threshold_days)</code></pre>
+<section class="doc">Per-TRAILER frame: raw stamps in, spans and the fee proxy out.
+
+`run_end_s` closes the CENSORED rows.  A trailer still on site when the run stops has
+`emptied_s` NULL, and its detention is right-censored rather than absent: it has been
+held at least until the run ended, so the run end is the honest lower bound and the
+`censored` column is what keeps that visible.  Dropping those rows instead would report
+an adversarial ordering&#x27;s fee as CLIPPED rather than concentrated, which inverts the
+signal that arm exists to produce.
+
+`threshold_days` is the run&#x27;s own `INBOUND_FEE_THRESHOLD_DAYS`.  It enters HERE and
+nowhere else, which is what makes a finished run re-reportable under a different
+threshold without re-simulating.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_units_py__SECONDS_PER_DAY.html"><code>SECONDS_PER_DAY</code></a> <span class="dim">Optimization/Performance_Evaluations/common/units.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__yard_frame.html"><code>yard_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_frames_py___ydf">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/frames.py#:~:text=def%20_ydf">Source ↗</a></p>
+</article>
+</main>
+</body></html>

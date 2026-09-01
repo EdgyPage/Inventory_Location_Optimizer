@@ -15,7 +15,12 @@
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_quantities_py.html"><code>Optimization/Performance_Evaluations/core/quantities.py</code></a></p>
 
 <pre class="sig"><code>def metric_specs() -&gt; list</code></pre>
-<section class="doc">`stats_core._METRICS` — (name, source_kind, column, lower_is_better).</section>
+<section class="doc">`stats_core._METRICS` — (name, source_kind, column, lower_is_better).
+
+Filtered to `PAIRED_KINDS`: the significance suite pairs batch i of one arm against
+batch i of another, and a per-trailer or per-drain frame has no such pairing to offer.
+A kind that is in neither list raises rather than being dropped, because &quot;silently
+absent from every published CSV&quot; is the exact failure mode this table was built to end.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_stats_core_py___METRICS.html"><code>_METRICS</code></a> <span class="dim">Optimization/Performance_Evaluations/common/stats_core.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_quantities_py__metric_specs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/quantities.py#:~:text=def%20metric_specs">Source ↗</a></p>
 </article>

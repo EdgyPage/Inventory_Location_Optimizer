@@ -16,7 +16,12 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@property
 def lead_queue_depth(self) -&gt; int</code></pre>
-<section class="doc">Number of in-transit reorders waiting out their lead time (lead queue length).</section>
+<section class="doc">In-flight transit ENTRIES: lead-queue records flag-off, trailers flag-on.
+
+Through the transit&#x27;s own census, NOT the `_lead_queue` shim below: the shim
+exposes `BatchTransit`&#x27;s entry list and a trailer transit has no such list — the
+first e2e run with the trailer flag on found exactly that AttributeError here.
+For `BatchTransit`, `depth` IS `len(entries)`, so flag-off reads are unchanged.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_lead_queue_depth">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20lead_queue_depth">Source ↗</a></p>
 </article>

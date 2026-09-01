@@ -36,8 +36,15 @@ clock, not an instant -- see `crew_clock.can_start`.
 
 What the whistle stops stays on the dock and is the first thing tomorrow&#x27;s crew
 touches: the deque is in arrival order, so the rollover is FIFO and no unit can be
-overtaken by merchandise that arrived after it.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
+overtaken by merchandise that arrived after it.
+
+THE STANDING YARD REROUTES THIS PHASE WHOLE.  When the bound transit carries the
+standing surfaces (`STANDING` — `YardTransit`; the other transits satisfy them
+trivially by not having them), every door and crew decision happens here instead:
+plans-at-arrival, the whistle-independent door fill, the budget-gated unload off
+staged trailers, mid-drain refills, and the canonical handoff.  The dock-floor
+deque below stays EMPTY in that mode — the standing buffer is the trailer itself.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive_standing.html"><code>_receive_standing</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_check_reorders.html"><code>check_reorders</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_receive">Source ↗</a></p>
 </article>
 </main>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbound.gain · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_py" data-id="Inbound/gain.py">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <span class="here"><code>Inbound/gain.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Inbound.gain</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
+
+<pre class="sig"><code>Inbound.gain</code></pre>
+<section class="doc">gain — the unload-plan evaluator: EXPECTED FUTURE WORK, faithful-to-arm.
+
+The gain arms (&quot;Name the policy arms&quot;, 05) order standing trailers by the put + pick
+hours their placements will generate (&quot;Define the inbound objective&quot;, 10): serve first
+the load whose DEFERRAL to the next drain&#x27;s pool costs the most.  One `@ordering` entry
+per family, called once per drain on the frozen ctx; the entries land in BOTH standing
+registries, so an arm sets `INBOUND_YARD_POLICY` and `INBOUND_DOCK_POLICY` to one name.
+
+    gain(t) = E[put + pick work if t&#x27;s load places from the deferral pool]
+            − E[same if it places from the pool NOW]
+    take argmax gain (ties -&gt; the handed order, which is arrival order); virtually
+    consume what the chosen load would take; repeat.
+
+# ── the deferral pool (the one recorded deviation from the prototype&#x27;s letter) ────
+
+Decision 4 of the objective names the deferral pool &quot;the NEXT drain&#x27;s pool (leftovers +
+predicted)&quot;.  The prototype (ticket 04) approximated leftovers as the CURRENT virtual
+pool — which is exact only when the standing loads do not contend, and makes the myopic
+arm&#x27;s gain identically zero (no predicted tier, same pool on both sides: a fake arm,
+`fifo` in disguise).  The build therefore prices leftovers as what the OTHER remaining
+candidates leave behind: each greedy step first places every remaining load against the
+current pool (the now side), then each candidate&#x27;s deferral pool excludes every bin some
+OTHER candidate&#x27;s now-placement took.  Zero extra placements, symmetric across
+candidates (two identical loads still tie -&gt; FIFO), degenerates to the prototype&#x27;s shape
+exactly when takes do not overlap — and gives the myopic arm its real signal, which is
+CONTENTION for today&#x27;s space.  Recorded on the build ticket (14), the 11 precedent.
+
+# ── faithful-to-arm: the fidelity seam ────────────────────────────────────────────
+
+`gain` estimates the bins THIS arm&#x27;s pool would grant, never an idealized best-bin cost
+(10 decision 5).  The seam is `GainBundle`, built and injected by the DRIVER (the
+`drain_sku` precedent — the import edges `Inbound -&gt; wh_inventory / wh_placement` are
+forbidden, so the broker holds what it is handed):
+
+  * extremal-D arms (tmin / tmax) get the K-CHEAPEST MERGE structure: per BinKey class
+    the bins sorted ONCE per plan by the arm&#x27;s own D, consumed by slicing — proven
+    order-equal to the full pool up to co-occurrence near-ties and ~5x cheaper (04
+    finding 1/2).  The merge orders units by freq x labor_cost (the pool&#x27;s priority
+    minus the co term — exactly the proven residue).
+  * selector arms get `pool_factory`: the arm&#x27;s own pool class, rebuilt per evaluation
+    over COPIES of the aisle bookkeeping (purity: live state is never mutated).
+    rank_random&#x27;s virtual pool must consume no RNG (the seam purity pin), so it prices
+    by EXPECTATION over the pool&#x27;s current aisle heads and consumes via a deterministic
+    stand-in selector — the deviation 04 decided and this docstring records.
+
+Exhaustion resolves tiers over the `SpaceView` keys the way `_candidates_raw` does:
+smallest non-empty fitting tier first, spilling UP (the injected `tier_ranks_for`
+carries the tier tables).  Only past total exhaustion does a unit price at the worst
+bin of its whole spill chain x 1.5 — a deterministic, knob-free penalty that makes
+&quot;seats next drain but not now&quot; defer correctly and cancels when nothing seats anywhere.
+
+# ── purity, and where the pieces come from ────────────────────────────────────────
+
+An entry reads ONLY the frozen ctx: `ctx.space` (the drain&#x27;s SpaceView) and `ctx.gain`
+(the driver-injected bundle, put there by `YardTransit.freeze_ctx`).  It mutates no
+manager state, consumes no RNG, and returns a permutation (`bounded_order` raises
+otherwise).  Cost-model pricing imports from `wh_kernel` — a legal edge: put travel is
+paid once at the put crew&#x27;s speeds; pick pays E[visits] x (travel + per_pick at height),
+E[visits] = quantity / per-visit draw.  No new knobs anywhere in the score; the two
+days-denominated knobs below belong to the GATE, which never blends them into hours.
+
+# ── the urgency gate (`gain_gated`) ───────────────────────────────────────────────
+
+`gain_forecast` behind a FIFO gate: trailers within `INBOUND_URGENCY_HORIZON_DAYS` of
+crossing `INBOUND_FEE_THRESHOLD_DAYS` of yard time form the URGENT SET, served FIFO
+ahead of everyone; the rest follow the plan, which prices its space AFTER the urgent
+loads consume.  Hours and days never combine into one scalar — the gate IS the only
+legal composition (05&#x27;s two-separate-scores rule).  The horizon spans the poles: 0 ~
+pure gain (only already-overdue trailers jump), &gt;= threshold = pure FIFO.
+
+# ── the futuresight window (`futuresight`) ────────────────────────────────────────
+
+`gain_forecast` reading `ctx.space.window` — the declared-unlawful upper-bound
+REFERENCE (&quot;Define the inbound objective&quot; decision 6): a real WMS cannot see
+undispatched orders, so this arm never enters the recommendable set.  The window is
+the next `INBOUND_FUTURESIGHT_BATCHES` script batches&#x27; realized demand (&#x27;all&#x27; = the
+oracle w=inf), driver-fed on its own view slot; the batch script is i.i.d. draws from
+the static rates, so the edge is exactly SAMPLING-NOISE knowledge — which SKUs land,
+and their counts.  The build reads it where the static rates otherwise stand, the
+PRICING: a SKU absent from the window is not picked in the visible future (put
+travel only); a present one prices at its realized per-event draw (window total /
+window events) with visits capped at the event count, which is what makes w=inf
+honestly the oracle.  The placement MACHINERY stays the arm&#x27;s own, static rates and
+all (faithful-to-arm, 10 decision 5: the real pool cannot see the future, so a
+clairvoyant virtual pool would price placements the arm will never make).  The
+deferral pool is `gain_forecast`&#x27;s — predicted stays one batch deep by charter; the
+window never projects bins.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nInbound_priorities_py.html"><code>Inbound.priorities</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nInbound___init___py.html"><code>Inbound</code></a> <span class="dim">Inbound/__init__.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(24)</span></h2><ul><li><a href="nInbound_gain_py__GainBundle.html"><code>GainBundle</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___SECONDS_PER_DAY.html"><code>_SECONDS_PER_DAY</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__GainBundle___init__.html"><code>__init__</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator___init__.html"><code>__init__</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__avail.html"><code>_avail</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__chain.html"><code>_chain</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__plan_order__load.html"><code>_load</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___load_units.html"><code>_load_units</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__make_pool.html"><code>_make_pool</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__pair_cost.html"><code>_pair_cost</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__params.html"><code>_params</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_merge.html"><code>_place_merge</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_pool.html"><code>_place_pool</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___require.html"><code>_require</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__tier_sorted.html"><code>_tier_sorted</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__unseated_cost.html"><code>_unseated_cost</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___window_rates.html"><code>_window_rates</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__futuresight.html"><code>futuresight</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__gain_forecast.html"><code>gain_forecast</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__gain_gated.html"><code>gain_gated</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__gain_myopic.html"><code>gain_myopic</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator_place_load.html"><code>place_load</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__plan_order.html"><code>plan_order</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

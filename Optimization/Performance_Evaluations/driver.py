@@ -74,8 +74,15 @@ def _run_one(ctx, ev, overrides, cli_set):
         denials = requests.resolve_needs(ctx, ev)
         if denials:
             reasons = '; '.join(f'{need}: {d.reason}' for need, d in denials.items())
-            ctx.log.info(f"[access] {ev.key} requested {','.join(ev.needs)} -> "
-                         f"DENIED ({reasons}); render skipped")
+            # An ERA shortfall is not an access failure and must not read as one: the file
+            # is present and simply older than the measurement, which no re-run of this
+            # stage can fix.  Its own tag, so the two are separable in the log and in the
+            # run-end summary.
+            if any(isinstance(d, requests.EraUnmet) for d in denials.values()):
+                ctx.log.info(f'[era] {ev.key} -> UNAVAILABLE ({reasons}); render skipped')
+            else:
+                ctx.log.info(f"[access] {ev.key} requested {','.join(ev.needs)} -> "
+                             f"DENIED ({reasons}); render skipped")
             return
         if ev.needs:
             ctx.log.info(f"[access] {ev.key} requested {','.join(ev.needs)} -> granted")

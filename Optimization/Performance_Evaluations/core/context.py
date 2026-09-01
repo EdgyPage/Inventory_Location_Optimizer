@@ -94,6 +94,44 @@ REQUIRES = _compat.Requires(
     })
 
 
+def _probe_capabilities(strategies, log: logging.Logger) -> frozenset:
+    """Which optional sources EVERY arm of this context can actually answer from.
+
+    The runtime half of the era gate, and it opened the day a quantity first named a
+    capability. `core/era.py`'s static rule proves a declared read is either inside the
+    guaranteed surface or named as a capability; that is a statement about the QUANTITY
+    TABLE and says nothing about the file in front of you. A vetted vintage can carry a
+    conditional table and no rows in it — measured across two archived cells,
+    `aisle_metrics` has rows in 52 of 60 arms and `reorder_queue` in 68 of 166 — and
+    without this probe the only symptom would be a figure that silently does not appear.
+
+    INTERSECTED across arms, not unioned. A comparison figure draws every arm on one axis,
+    so a capability one arm cannot answer is a capability the figure cannot use: the union
+    would license a chart that silently omits an arm, which reads as that arm scoring zero.
+
+    Absent files are skipped rather than counted as answering nothing — `requests` already
+    denies on those, with a better message, and folding the two would report a missing file
+    as a data-era problem.
+    """
+    from Optimization.persistence.Picking_Data import SIM_CAPABILITIES
+    from Schema import capability as _capability
+    from Schema import connect as _connect
+    per_arm = []
+    for s in strategies:
+        path = s.get('db_path')
+        if not (path and os.path.exists(path)):
+            continue
+        con = _connect.read_only(path, immutable=True)
+        try:
+            per_arm.append(_capability.probe(con, SIM_CAPABILITIES.values(),
+                                             run_id=s.get('run_id')))
+        finally:
+            con.close()
+    have = frozenset.intersection(*per_arm) if per_arm else frozenset()
+    log.debug(f'  [era] capabilities on every arm: {sorted(have) or "none"}')
+    return have
+
+
 def _verify_sim_dbs(strategies, log: logging.Logger) -> None:
     """Refuse to build a context over an unvetted sim DB.  Raises `UnsupportedSchema`.
 
@@ -148,9 +186,14 @@ class EvalContext:
 
         self._bcache: dict = {}
         self._tcache: dict = {}
+        self._ycache: dict = {}     # per-trailer yard frames
+        self._dcache: dict = {}     # per-drain yard frames
+        self._mcache: dict = {}     # per-batch demand-service frames
         self._series = None
         self._breakdown = None
         self._maxb = None
+        self._fee_days = None
+        self._caps = None
 
     @classmethod
     def from_job(cls, job: dict, focus: str) -> 'EvalContext':
@@ -187,6 +230,15 @@ class EvalContext:
     def task_df(self, key):
         return _requests.task_frame(self, key)
 
+    def yard_df(self, key):
+        return _requests.yard_frame(self, key)
+
+    def drain_df(self, key):
+        return _requests.drain_frame(self, key)
+
+    def missed_df(self, key):
+        return _requests.missed_frame(self, key)
+
     def batch_frames(self) -> dict:
         return {s['key']: self.batch_df(s['key']) for s in self.strategies}
 
@@ -211,6 +263,46 @@ class EvalContext:
         """{key: (travel, handling)} from picker_events over a steady-state sample.
         Memoized; returns {} (logged) on failure so dependent graphs degrade gracefully."""
         return _requests.breakdown_dict(self)
+
+    def capabilities(self) -> frozenset:
+        """The optional sources every arm here can answer from — memoised, probed once.
+
+        One probe per DISTINCT arm, each a `SELECT 1 ... LIMIT 1` per capability, paid once
+        per context because `run_analysis` memoises contexts per (config, focus). Lazy on
+        purpose: a preset with no capability-gated evaluation never opens a connection for
+        this at all.
+        """
+        if self._caps is None:
+            self._caps = _probe_capabilities(self.strategies, self.log)
+        return self._caps
+
+    def fee_threshold_days(self) -> float:
+        """The free yard days this run's overage accrues past — RECORDED, else HEAD's.
+
+        The whole reason the DB holds raw stamps: the fee is derived here, so a finished
+        run can be re-reported under a different threshold without re-simulating. Which
+        also means the threshold has to be the RUN's, not this checkout's, or the number
+        is quietly about the wrong configuration.
+
+        Recording it is `Build the run-shape layer`'s job (the run spec does not carry
+        `inbound_fee_threshold_days` yet, and neither restore site touches inbound). Until
+        then this falls back to the default in `Optimization.config.settings`, which is
+        correct for every run that predates recording and WRONG the moment someone sweeps
+        the threshold — so the fallback says so in the log rather than resolving silently.
+        The campaign must never exercise it, which is what makes that ticket a prerequisite
+        of phase 1 rather than of phase 2.
+        """
+        if self._fee_days is None:
+            from Optimization.config import settings as _settings
+            recorded = self.sim_result.get('inbound_fee_threshold_days')
+            if recorded is None:
+                self._fee_days = float(_settings.INBOUND_FEE_THRESHOLD_DAYS)
+                self.log.info(
+                    f'  [yard] {self.name}: no recorded fee threshold; falling back to '
+                    f"this build's default of {self._fee_days:g} d")
+            else:
+                self._fee_days = float(recorded)
+        return self._fee_days
 
 
 class AggregateContext:

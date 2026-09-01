@@ -18,10 +18,15 @@
 <section class="doc">Load one fired reorder, item-by-item, FIFO next-fit across trailers.
 
 `lead` (batches) is the LEGACY denomination and is deliberately ignored here: a
-trailer&#x27;s lead is `lead_s` on the absolute clock (ticket: &quot;Choose the lead-time
-denomination&quot;).  `unit_volume` None falls back to one item per position-volume
-share of nothing — callers on this seam pass `order.volume()`.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nInbound_trailer_py__Trailer.html"><code>Trailer</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__depart.html"><code>_depart</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+trailer&#x27;s lead is seconds on the absolute clock, drawn per trailer by `lead_for`
+(ticket: &quot;Choose the lead-time denomination&quot;).  `unit_volume` None falls back to
+one item per position-volume share of nothing — callers on this seam pass
+`order.volume()`.
+
+The draw happens HERE, at creation, and never again: the lead is a property of the
+trailer from the instant it exists, so `dispatched_s + lead_s` is a fixed arrival
+the yard can be sorted by however many drains later it is observed.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_trailer_py__Trailer.html"><code>Trailer</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__depart.html"><code>_depart</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nInbound_transit_py__TrailerTransit_lead_for.html"><code>lead_for</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_transit_py__TrailerTransit_dispatch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/transit.py#:~:text=def%20dispatch">Source ↗</a></p>
 </article>
 </main>

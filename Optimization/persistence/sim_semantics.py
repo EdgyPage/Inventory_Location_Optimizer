@@ -362,6 +362,48 @@ SIM_DB_SEMANTICS: dict = {
                                    note='the batch-denominated lead the trailer feature '
                                         'replaces flag-on'),
     },
+    'yard_trailers': {
+        'run_id':    _KEY,
+        'seq':       Col(LABEL, 'id', 'row',
+                         note='the dispatch ordinal — the SAME trailer in every arm of a '
+                              'run, because leads are seq-keyed draws'),
+        'arrived_s': Col(STAMP, 's', 'arm', clock=SIM,
+                         note='per-ARM axis, like batch_start_time: two arms’ stamps are '
+                              'not comparable, and the SPAN between two of these columns '
+                              'is the only thing that is'),
+        'staged_s':  Col(STAMP, 's', 'arm', clock=SIM,
+                         null_means='the trailer was NEVER staged — its plan packed '
+                                    'nothing, so no door was ever held for it'),
+        'emptied_s': Col(STAMP, 's', 'arm', clock=SIM,
+                         null_means='still on site at run end: the detention span is '
+                                    'RIGHT-CENSORED, not zero and not missing',
+                         note='detention = emptied_s - arrived_s, derived at analysis; a '
+                              'censored row bounds it below by the run end'),
+        'status':    Col(LABEL, 'enum', 'row',
+                         note="'done' | 'discarded' | 'standing', stamped by the door the "
+                              'trailer left through. Re-deriving it from the null pattern '
+                              'is the read this tag exists to stop: "never staged" and '
+                              '"dropped" are the same nulls today and would not be the day '
+                              'a staged trailer is dropped'),
+    },
+    'yard_drains': {
+        'run_id':               _KEY,
+        'batch':                _KEY,
+        'yard_start':           Col(LEVEL, 'trailers', 'batch',
+                                    note='standing at ctx-freeze, BEFORE the door fill — '
+                                         'the contention question is about the moment of '
+                                         'choice; with free_doors_start it is the pair'),
+        'free_doors_start':     Col(LEVEL, 'doors', 'batch'),
+        'yard_end':             Col(LEVEL, 'trailers', 'batch',
+                                    note='trailers this drain never reached; with '
+                                         'staged_remainder_end it is the BINDING CUT pair, '
+                                         'whose additive statistic is a COUNT OF DRAINS '
+                                         'with either above zero — never a sum of levels '
+                                         '(the recv_cut scar, 101x on one headline)'),
+        'staged_remainder_end': Col(LEVEL, 'units', 'batch', account=PACKS,
+                                    note='units left on staged trailers — a different noun '
+                                         'from yard_end, which counts vehicles'),
+    },
     'task_stats': {
         'id':               _KEY,
         'run_id':           _KEY,

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>inject_demand · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_space_py__SpaceTimeline_inject_demand" data-id="Inbound/space.py::SpaceTimeline.inject_demand">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_space_py.html"><code>Inbound/space.py</code></a> <span class="sep">›</span> <a href="nInbound_space_py__SpaceTimeline.html"><code>SpaceTimeline</code></a> <span class="sep">›</span> <span class="here"><code>inject_demand</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>inject_demand</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_space_py.html"><code>Inbound/space.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def inject_demand(self, items, released_at: float | None, window: tuple | None=None) -&gt; None</code></pre>
+<section class="doc">The driver&#x27;s per-batch injection, BEFORE check_reorders: the batch about to
+be released plus the rollover carry.  REPLACES the standing demand — it is one
+batch deep by charter, never an accumulation.  `released_at` is the batch&#x27;s
+release instant on the absolute clock (a fact the view carries verbatim).
+
+`window` is the futuresight feed (see `SpaceView.window`): already-copied
+per-batch `{sku: qty}` dicts, replaced wholesale like the demand and riding
+the SAME `demand_v` bump — one event, no fourth counter.  None (the default,
+and every lawful run) keeps the slot empty; the projection below never reads
+it, so `predicted` keeps meaning one batch deep regardless.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_space_py__SpaceTimeline_inject_demand">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/space.py#:~:text=def%20inject_demand">Source ↗</a></p>
+</article>
+</main>
+</body></html>

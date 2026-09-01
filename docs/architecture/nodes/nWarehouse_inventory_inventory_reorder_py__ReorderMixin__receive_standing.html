@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_receive_standing · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive_standing" data-id="Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive_standing">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin.html"><code>ReorderMixin</code></a> <span class="sep">›</span> <span class="here"><code>_receive_standing</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_receive_standing</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
+
+<pre class="sig"><code>def _receive_standing(self, dock, transit, deadline: float | None) -&gt; None</code></pre>
+<section class="doc">One drain of the standing dock: plan arrivals, fill doors, unload, hand off.
+
+Four steps, and their order is the design:
+
+1. PLANS-AT-ARRIVAL.  Every trailer that joined the yard gets its pack plan NOW,
+   per contiguous lot — the same portions the v1 drain packs — and its units are
+   stamped immediately, so a pallet that stands three batches in the yard is three
+   batches old when it finally reaches floor space.  The merchandise stays in
+   `_deferred_qty`: nothing is queued until a crew actually pulls it.
+2. THE DOOR FILL, NOT budget-gated.  Staging is yard-jockey work, not receiving
+   labour, so even a zero-budget drain fills every free door from the drain-frozen
+   yard ranking.
+3. THE UNLOAD, budget-gated, per the crew-allocation mode (&#x27;split&#x27; door teams or
+   the &#x27;merged&#x27; pooled gang).  The whistle is a START gate, one unload of overtime
+   per worker, exactly as the v1 path&#x27;s.  Same-drain refills consume the frozen
+   rankings; no mid-drain re-scoring.
+4. THE CANONICAL HANDOFF.  Whatever the allocation, unloaded units reach `_queue`
+   in merged order — trailers by dock rank, units by local rank, filtered to what
+   actually unloaded — never in labor-completion order.  That is the containment
+   property: crew allocation moves labor stamps and makespans ONLY, never
+   placement physics.  The deferred→queued flip rides the handoff, per unit, so
+   `position = on_hand + queued + deferred` never wobbles.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__unload_merged.html"><code>_unload_merged</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__unload_split.html"><code>_unload_split</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive.html"><code>_receive</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive_standing">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_receive_standing">Source ↗</a></p>
+</article>
+</main>
+</body></html>

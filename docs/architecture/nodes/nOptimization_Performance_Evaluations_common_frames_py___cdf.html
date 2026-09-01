@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_cdf · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_frames_py___cdf" data-id="Optimization/Performance_Evaluations/common/frames.py::_cdf">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a> <span class="sep">›</span> <span class="here"><code>_cdf</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_cdf</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a></p>
+
+<pre class="sig"><code>def _cdf(rows, df_b)</code></pre>
+<section class="doc">Per-BATCH demand service, folded from carryover rows over the two supply reasons.
+
+The fold is reason-SELECTIVE, and that is the whole design: three reason families share
+`carryover.qty` under one PK — the put-side ones are LEVELS re-emitted every batch and
+the pick-side ones are FLOWS — so a total over the table is not defined.  Filtering to
+two FLOWS first makes the sum legal; `sim_semantics`&#x27; ByDiscriminator on `reason` is
+the declaration that says so.
+
+The denominator is the STATED whole `items_demanded`, not what was picked: a
+denominator that shrinks as service degrades would flatter exactly the arms this
+quantity exists to expose.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__missed_frame.html"><code>missed_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_frames_py___cdf">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/frames.py#:~:text=def%20_cdf">Source ↗</a></p>
+</article>
+</main>
+</body></html>

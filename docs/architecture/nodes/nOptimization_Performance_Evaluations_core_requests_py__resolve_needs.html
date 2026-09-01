@@ -17,8 +17,11 @@
 <pre class="sig"><code>def resolve_needs(ctx, ev) -&gt; dict</code></pre>
 <section class="doc">Resolve every request `ev.needs` declares against `ctx`.  Returns {} when all granted
 (resources are materialized into the context&#x27;s caches as a side effect), else
-{need: Denied} for exactly the requests that could not be served.  Tallies either way.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__Denied.html"><code>Denied</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_driver_py___run_one.html"><code>_run_one</code></a> <span class="dim">Optimization/Performance_Evaluations/driver.py</span></li></ul></section>
+{need: Denied} for exactly the requests that could not be served.  Tallies either way.
+
+The ERA check runs first and short-circuits: composing a resource this run cannot answer
+would pay for every arm&#x27;s frames to discover what the capability probe already knows.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__Denied.html"><code>Denied</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py__era_shortfall.html"><code>era_shortfall</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_driver_py___run_one.html"><code>_run_one</code></a> <span class="dim">Optimization/Performance_Evaluations/driver.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_requests_py__resolve_needs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/requests.py#:~:text=def%20resolve_needs">Source ↗</a></p>
 </article>
 </main>

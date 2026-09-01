@@ -57,7 +57,7 @@ from dataclasses import dataclass, field
 
 from Optimization.Performance_Evaluations.common import units
 from Optimization.Performance_Evaluations.common.units import (
-    DURATION, NONE, RATE_PER_HOUR, Unit)
+    DAYS, DURATION, NONE, RATE_PER_HOUR, Unit)
 
 #: The stances a quantity can be measured in.
 #:
@@ -96,7 +96,29 @@ DIRECTIONS = ('lower', 'higher')
 #: so this mapping is a property of those two builders and nothing else.
 FRAME_TABLE = {'batch': 'batch_stats',
                'task_mean': 'task_stats',
-               'task_sum': 'task_stats'}
+               'task_sum': 'task_stats',
+               # The yard's two frames.  `trailer` rows are per TRAILER and `drain` rows
+               # per drain (1:1 with batches) — see PAIRED_KINDS below for why neither is
+               # a per-batch metric despite `drain` lining up with the batch index.
+               'trailer': 'yard_trailers',
+               'drain': 'yard_drains',
+               # Demand service.  Its rows are per (batch, reason, sku), so a per-arm
+               # number is a FOLD over reasons rather than a column, and the fold is
+               # reason-selective — which is exactly why it is its own frame and not two
+               # more `batch_stats` columns.
+               'carryover': 'carryover'}
+
+#: The frame kinds `stats_core._metric_series` can actually pair batch-for-batch, and
+#: therefore the only ones `metric_specs()` hands to the significance suite.
+#:
+#: This split is not bookkeeping.  `_metric_series` is written as "batch, else the TASK
+#: frame", so a kind added to `FRAME_TABLE` and left out of here would silently be read
+#: out of `df_t` — a per-trailer column looked up in a per-task frame, found absent, and
+#: returned as an empty Series.  Every downstream test would then report the quantity as
+#: unmeasurable rather than as misrouted.  `drain` is excluded on meaning as well as on
+#: mechanics: its rows are LEVELS re-measured per drain, and the significance suite's whole
+#: apparatus is paired differences of per-batch values, which a level does not support.
+PAIRED_KINDS = ('batch', 'task_mean', 'task_sum')
 
 
 @dataclass(frozen=True)
@@ -112,14 +134,34 @@ class Source:
     #: frame name as if it were a column is how a quantity comes to claim a read the
     #: schema layer cannot check.  Empty means "the frame column IS the DB column".
     db_columns: tuple = ()
+    #: ((table, columns), ...) — sim-DB reads the frame makes BESIDE its primary one.
+    #:
+    #: `db_reads` names one table because a frame is built from one, which was true of
+    #: every quantity until `missed_share`: its numerator is a `carryover` fold and its
+    #: denominator is `batch_stats.items_demanded`, and declaring either alone would hide
+    #: a real read from the era gate — the one thing that gate exists to prevent.  A
+    #: single-table quantity leaves this empty and nothing changes for it.
+    db_also: tuple = ()
 
     @property
     def db_reads(self) -> tuple:
-        """(table, columns) this quantity reads out of a sim database, or ()."""
+        """(table, columns) this quantity's PRIMARY frame reads, or ().
+
+        Deliberately still one pair: every consumer of this property unpacks it, and a
+        second table is the exception rather than the shape.  `all_db_reads` is the
+        complete answer and is what the era gate validates against.
+        """
         if not self.per_batch:
             return ()
         kind, column = self.per_batch
         return (FRAME_TABLE[kind], tuple(self.db_columns) or (column,))
+
+    @property
+    def all_db_reads(self) -> tuple:
+        """Every (table, columns) pair this quantity amounts to — primary plus `db_also`."""
+        primary = self.db_reads
+        return ((primary,) if primary else ()) + tuple(
+            (t, tuple(c)) for t, c in self.db_also)
 
     @property
     def readable(self) -> bool:
@@ -130,6 +172,11 @@ class Source:
         construction rather than in a linter.
         """
         return bool(self.per_batch or self.steady_state or self.series or self.runtime)
+
+    @property
+    def frame_kind(self) -> str:
+        """The frame this quantity is read out of ('batch', 'trailer', ...), or ''."""
+        return self.per_batch[0] if self.per_batch else ''
 
     @property
     def agg_name(self) -> str | None:
@@ -341,6 +388,107 @@ QUANTITIES: tuple = (
         notes='The honest unit for compute cost: absolute seconds are contended, '
               'machine-specific, and put a 10-second difference on a 210-second bar.'),
 
+    # ── demand service: what the floor could NOT pick, and why it matters here ───
+    # Adopted as a REPORTED AXIS, never a target and never a selection metric — the
+    # inbound objective is expected future WORK, and availability was weighed against it
+    # and lost. It is here because a policy that wins hours by starving the shelf has to
+    # show that somewhere, and this is the somewhere.
+    #
+    # Ungated by the yard capability on purpose: demand service is meaningful with no
+    # inbound model at all, so these two draw on every run. They name `carryover` instead,
+    # which is a different and real gate — the table postdates most of the archive.
+    Quantity(
+        key='missed_pieces', label='Demand missed',
+        axis_stem='items demanded and not picked', unit=Unit('count', 'items'),
+        direction='lower',
+        source=Source(per_batch=('carryover', 'missed_pieces'),
+                      db_columns=('batch_id', 'reason', 'qty')),
+        capability='carryover',
+        notes='The two SUPPLY reasons only — `unpicked_unstocked` (nothing on the shelf) '
+              'and `unpicked_unavailable` (stock exists, the bin could not be reached). '
+              'NEVER `unpicked_daycut`, which is a labour artifact: the whistle stopping a '
+              'picker is a staffing fact, and folding it in here would let a longer shift '
+              'read as better inbound.'),
+    Quantity(
+        key='missed_share', label='Missed share of demand',
+        axis_stem='% of demanded items missed', unit=_SHARE, direction='lower',
+        source=Source(per_batch=('carryover', 'missed_share'),
+                      db_columns=('batch_id', 'reason', 'qty'),
+                      db_also=(('batch_stats', ('items_demanded',)),)),
+        capability='carryover',
+        notes='missed_pieces over the STATED whole `items_demanded`, so the share is of '
+              'what was asked for rather than of what was picked — a denominator that '
+              'shrinks when service degrades would flatter exactly the arms it should '
+              'expose.'),
+
+    # ── the yard: did it bind, and what did the policy cost in trailer-days ──────
+    # All five read tables that exist only from the yard vintage on, so all five name the
+    # `yard` capability: an older run does not answer them, and says so.
+    #
+    # The fee quantities are a SPAN-DERIVED PROXY. They are never converted to money and
+    # never added to labour hours — hours and days meet in exactly one place in this
+    # effort, the `gain_gated` arm's urgency GATE, and nowhere in a report.
+    Quantity(
+        key='yard_overage_days', label='Yard overage',
+        axis_stem='trailer-days past the free threshold', unit=DAYS, direction='lower',
+        source=Source(per_batch=('trailer', 'overage_days'),
+                      # derived in `frames._ydf` from the detention span and the run's
+                      # recorded threshold — no such column exists, and deliberately:
+                      # a stored overage would pin a finished run to one threshold
+                      db_columns=('arrived_s', 'staged_s', 'emptied_s', 'status')),
+        capability='yard',
+        notes='THE fee axis: Σ max(0, detention_days - INBOUND_FEE_THRESHOLD_DAYS) over '
+              'every trailer, censored rows included. A carrier charges per trailer per '
+              'day held, so this sums where the detention MEAN does not.'),
+    Quantity(
+        key='yard_over_threshold_trailers', label='Trailers over the threshold',
+        axis_stem='trailers that accrued any overage', unit=Unit('count', 'trailers'),
+        direction='lower',
+        source=Source(per_batch=('trailer', 'over_threshold'),
+                      db_columns=('arrived_s', 'staged_s', 'emptied_s', 'status')),
+        capability='yard',
+        notes='The COUNT beside the fee total, because one trailer held a fortnight and a '
+              'fortnight of trailers held a day are the same number of trailer-days and '
+              'not the same operational problem.'),
+    Quantity(
+        key='yard_detention_days', label='Detention per trailer',
+        axis_stem='detention per trailer', unit=DAYS, direction='lower',
+        source=Source(per_batch=('trailer', 'detention_days'),
+                      db_columns=('arrived_s', 'emptied_s', 'status')),
+        capability='yard',
+        notes='arrived -> emptied, the whole time the carrier\'s trailer is held on site '
+              'INCLUDING its time at a door. Monotone under any ordering — staging a '
+              'trailer early and unloading it slowly sheds nothing — which is what makes '
+              'it a fair substrate for a fee. The mean is reported beside a distribution '
+              'because an adversarial ordering concentrates rather than raises it.'),
+    Quantity(
+        key='yard_depth', label='Trailers standing',
+        axis_stem='trailers standing at drain start', unit=Unit('count', 'trailers'),
+        direction='lower',
+        source=Source(per_batch=('drain', 'yard_start'),
+                      series=('batch', 'yard_start', None, None)),
+        stem='yard_depth', series_title='Trailers standing in the yard',
+        capability='yard',
+        notes='Read at ctx-freeze, BEFORE the door fill: "did the yard bind" is a question '
+              'about the moment of choice, and after the fill there is nothing left to '
+              'choose. A LEVEL — never summed across drains.'),
+    Quantity(
+        key='binding_cuts', label='Drains that left inbound work',
+        axis_stem='drains ending with a trailer or a remainder unserved',
+        unit=Unit('count', 'drains'), direction='lower',
+        source=Source(per_batch=('drain', 'binding_cut'),
+                      # `binding_cut` is the OR of the two end levels, computed in
+                      # `frames._ddf` and stored nowhere — the `completion_rate` case.
+                      # Declaring the frame name as if it were a column would claim a read
+                      # the schema layer cannot check.
+                      db_columns=('yard_end', 'staged_remainder_end')),
+        capability='yard',
+        notes='A drain counts once when it ends with either an unreached trailer or units '
+              'still on a staged one. A COUNT OF DRAINS rather than a sum of the levels '
+              'themselves, which would re-count the same standing trailer every batch it '
+              'waits — the mistake `recv_cut` made at 101x on a published headline. Read '
+              'as the FIFO arm\'s ABSOLUTE value by the pilot gate, not as a ranking.'),
+
     # ── series-only quantities: no per-batch scalar, so no significance row ──────
     Quantity(
         key='pick_volume', label='Cumulative items picked',
@@ -381,7 +529,16 @@ for _q in QUANTITIES:
 AGGREGATE_ORDER: tuple = ('makespan', 'throughput', 'throughput_task',
                           'task_mean_duration', 'production_time')
 
-#: panel order of the headline top-vs-baseline figure
+#: panel order of the headline top-vs-baseline figure.
+#:
+#: `yard_overage_days` is OWED a slot at the END of this tuple and does not have one yet.
+#: The funnel decided it earns one — the campaign's question is "does space-aware inbound
+#: beat FIFO, AND AT WHAT FEE COST", so a headline without the fee answers half of it —
+#: but a slot here reads a STEADY-STATE scalar out of the series document, and the yard's
+#: numbers are per-trailer and per-drain rather than per-batch. Building that scalar is
+#: what "Build total production hours" is already opening the series builder to do, and
+#: adding the panel before then would put an empty sixth panel on every inbound-off
+#: publish, which is every run in the archive.
 HEADLINE_ORDER: tuple = ('production_time', 'makespan', 'throughput',
                          'throughput_task', 'sigma_fd')
 
@@ -396,6 +553,9 @@ SERIES_ORDER: tuple = ('task_duration', 'task_mean_duration', 'throughput',
 SERIES_ELSEWHERE: dict = {
     'pick_volume': 'drawn by throughput.volume against elapsed hours as a cumulative '
                    'curve, which is a different x axis and a different mark',
+    'yard_depth':  'drawn by yard.binding over DRAINS, out of the per-drain frame — the '
+                   'over-time painter reads the series document, which is built from the '
+                   'batch and task frames and has never seen a yard',
 }
 
 
@@ -436,9 +596,25 @@ def quantity_for(name: str) -> Quantity:
 # ── derived: the tables the consumers already iterate ────────────────────────────
 
 def metric_specs() -> list:
-    """`stats_core._METRICS` — (name, source_kind, column, lower_is_better)."""
-    return [(q.key, q.source.per_batch[0], q.source.per_batch[1], q.lower_is_better)
-            for q in QUANTITIES if q.source.per_batch is not None]
+    """`stats_core._METRICS` — (name, source_kind, column, lower_is_better).
+
+    Filtered to `PAIRED_KINDS`: the significance suite pairs batch i of one arm against
+    batch i of another, and a per-trailer or per-drain frame has no such pairing to offer.
+    A kind that is in neither list raises rather than being dropped, because "silently
+    absent from every published CSV" is the exact failure mode this table was built to end.
+    """
+    out = []
+    for q in QUANTITIES:
+        if q.source.per_batch is None:
+            continue
+        kind, column = q.source.per_batch
+        if kind in PAIRED_KINDS:
+            out.append((q.key, kind, column, q.lower_is_better))
+        elif kind not in FRAME_TABLE:
+            raise AssertionError(
+                f'{q.key} names frame kind {kind!r}, which is in neither FRAME_TABLE nor '
+                f'PAIRED_KINDS — nothing can read it and nothing would have said so')
+    return out
 
 
 def aggregate_specs() -> list:

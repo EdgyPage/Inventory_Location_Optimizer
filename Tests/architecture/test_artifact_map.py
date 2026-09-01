@@ -52,7 +52,12 @@ def test_config_dirs_derive_exactly_the_family_tree():
     tops, nested = artifact_map.config_dirs()
     assert set(tops) == {'figures', 'tables'}
     assert set(nested) == {figures_subdir(f) for f in LEAF_FAMILIES}
-    assert len(nested) == 8, 'the leaf family count changed; that is an adoption decision'
+    # Nine since 2026-08-31: `yard` joined as the tenth family overall and the ninth at
+    # leaf scope.  The literal is here to make a family arriving a DECISION rather than a
+    # side effect, so it moves in the same commit that adds one — and this one also moved
+    # `figures_yard_pngs` into the run-tree contract, which is where the folder becomes
+    # declared rather than merely created.
+    assert len(nested) == 9, 'the leaf family count changed; that is an adoption decision'
     assert 'figures/cost' not in nested, 'cost renders at run scope, not per leaf'
 
 

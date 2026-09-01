@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.yard.scorecard · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_yard_scorecard_py" data-id="Optimization/Performance_Evaluations/yard/scorecard.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/yard/scorecard.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.yard.scorecard</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_yard_scorecard_py.html"><code>Optimization/Performance_Evaluations/yard/scorecard.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.yard.scorecard</code></pre>
+<section class="doc">yard.scorecard — the read-outs that have no honest direction, in one table.
+
+Three numbers the yard produces that a reader needs and that must NOT be ranked:
+
+  DOOR UTILIZATION       Σ door spans ÷ (doors × the arm&#x27;s span). Neither high nor low is
+                         good. Low says the doors were never the constraint; high says they
+                         were saturated and adding one would change the answer. Both are
+                         findings about the CONFIGURATION, not scores for the policy.
+  THE CONTENTION PAIR    trailers standing and doors free at each drain&#x27;s freeze. The
+                         licence for the whole comparison — with doors free and nothing
+                         standing, every ordering rule picks the same trailers and the arms
+                         are byte-identical by construction.
+  THE CENSORED SHARE     what fraction of trailer rows are bounded rather than observed. A
+                         provenance fact about the other figures, not a result.
+
+`DIRECTIONS` admits only &#x27;lower&#x27; and &#x27;higher&#x27;, so declaring any of these as a Quantity
+would force a direction none of them has — and a false direction is worse than no
+declaration, because every derived view downstream would then assert it. They live here
+instead, in an INSPECTION mark, which is the family grammar&#x27;s own slot for a read-out with
+no baseline in it. The column semantics they are built from are declared where the reads
+actually happen, in `common/frames.py`.
+
+## The door count is DERIVED, and exactly
+
+Nothing records `INBOUND_DOCK_DOORS` where the analysis can see it (that is the run-shape
+layer&#x27;s job). But `free_doors_start = doors − staged`, and the first drain of a run always
+freezes with nothing staged, so `max(free_doors_start)` IS the door count whenever the
+run&#x27;s first drain is in the frame. On a resumed arm whose early drains are missing it
+becomes a lower bound, which makes utilization an UPPER bound — stated in the table rather
+than left for a reader to assume away.</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_units_py.html"><code>Optimization.Performance_Evaluations.common.units</code></a> <span class="dim">Optimization/Performance_Evaluations/common/units.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_yard_scorecard_py___COLS.html"><code>_COLS</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/scorecard.py</span></li><li><a href="nOptimization_Performance_Evaluations_yard_scorecard_py___arm_span_days.html"><code>_arm_span_days</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/scorecard.py</span></li><li><a href="nOptimization_Performance_Evaluations_yard_scorecard_py___row.html"><code>_row</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/scorecard.py</span></li><li><a href="nOptimization_Performance_Evaluations_yard_scorecard_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/yard/scorecard.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_yard_scorecard_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/yard/scorecard.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

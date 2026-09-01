@@ -16,7 +16,11 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@property
 def db_reads(self) -&gt; tuple</code></pre>
-<section class="doc">(table, columns) this quantity reads out of a sim database, or ().</section>
+<section class="doc">(table, columns) this quantity&#x27;s PRIMARY frame reads, or ().
+
+Deliberately still one pair: every consumer of this property unpacks it, and a
+second table is the exception rather than the shape.  `all_db_reads` is the
+complete answer and is what the era gate validates against.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_quantities_py__Source_db_reads">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/quantities.py#:~:text=def%20db_reads">Source ↗</a></p>
 </article>

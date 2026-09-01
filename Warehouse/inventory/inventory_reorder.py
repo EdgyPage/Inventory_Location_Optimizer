@@ -726,11 +726,22 @@ class ReorderMixin:
         # What the whistle cost: the remainders standing on STAGED trailers, in storage
         # units, counted once.  The yard is never cut — waiting there is calendar, the
         # fee proxy's domain, not a labour boundary's.
-        if deadline is not None:
-            left = sum(len(t.pending) - t.taken for t in transit.staged()
-                       if t.pending is not None)
-            if left:
-                dock.cut += left
+        left = sum(len(t.pending) - t.taken for t in transit.staged()
+                   if t.pending is not None)
+        if deadline is not None and left:
+            dock.cut += left
+
+        # THE DRAIN'S ROW.  Two pairs, and they answer two different questions.  The START
+        # pair is CONTENTION — standing trailers against free doors at freeze, which is
+        # what "did the yard bind" means before anything was served.  The END pair is the
+        # BINDING CUT — trailers this drain never reached and units it left on a door.
+        # Both are LEVELS: they are re-measured every drain and summing either across
+        # drains restates the same standing trailers once per batch (the `recv_cut` scar).
+        # `left` is computed above the whistle test, not inside it: a drain that ran out of
+        # WORK leaves the same remainder as one that ran out of DAY, and only one of those
+        # is a cut — the level says what was standing either way.
+        self._yard_drains.append(
+            (ctx.yard_depth, ctx.free_doors, transit.yard_depth, left))
 
     def _unload_merged(self, dock, transit, deadline, epoch, work_order, yard_next):
         """The 'merged' pooled gang: v1's physics kept as the verification bridge.

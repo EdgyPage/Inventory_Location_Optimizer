@@ -37,9 +37,10 @@ from typing import Callable
 import numpy as np
 
 from Optimization.persistence.Picking_Data import (load_batch_stats, load_task_stats,
-                                                   load_picker_events)
+                                                   load_picker_events, load_carryover,
+                                                   load_yard_drains, load_yard_trailers)
 from Optimization.metrics.Simulation_Analytics import task_time_breakdown
-from Optimization.Performance_Evaluations.common.frames import _bdf, _tdf
+from Optimization.Performance_Evaluations.common.frames import _bdf, _cdf, _ddf, _tdf, _ydf
 from Optimization.Performance_Evaluations.common.series import _build_series
 
 
@@ -57,6 +58,30 @@ class Denied:
 
     def __repr__(self) -> str:                                 # pragma: no cover - debug aid
         return f'Denied({self.reason!r})'
+
+
+class EraUnmet(Denied):
+    """A refusal about the DATA ERA, not about a missing resource.
+
+    Kept distinct from a plain `Denied` because the two call for different actions and a
+    single bucket taught the reader the wrong one. A denial says a file was not there —
+    re-run the stage, fix the path. This says the file IS there and cannot answer the
+    question, because the run predates the column or never wrote the rows. There is no
+    fixing that from the analysis side: the only honest routes are a new sweep on a vintage
+    that records it, or the degraded form with the caveat said out loud.
+
+    It reports under its own `[era]` summary line for the same reason. `[access]` counts
+    INPUTS, and an era shortfall arriving in that column would read as a pipeline fault on
+    a run that is simply older than the measurement.
+    """
+    __slots__ = ('missing',)
+
+    def __init__(self, reason: str, missing=()) -> None:
+        super().__init__(reason)
+        self.missing = tuple(missing)
+
+    def __repr__(self) -> str:                                 # pragma: no cover - debug aid
+        return f'EraUnmet({self.reason!r}, missing={self.missing!r})'
 
 
 # ── the registry ─────────────────────────────────────────────────────────────────
@@ -104,6 +129,51 @@ def task_frame(ctx, key):
         df = _tdf(load_task_stats(s['db_path'], s['run_id']),
                   ctx.aisle_unittype_map, ctx.aisle_handling_map)
         ctx._tcache[key] = df
+    return df
+
+
+def _arm_end_s(ctx, key) -> float:
+    """When this arm stopped, on its own absolute axis — the CENSORING bound.
+
+    `max(batch_start_time + duration)` rather than the last row's, because DB order is not
+    guaranteed sorted (the same reason `_elapsed` argsorts).  0.0 on an empty frame, which
+    makes every censored detention 0 — honest for a run with no batches at all, and the
+    only case where it can happen.
+    """
+    df = batch_frame(ctx, key)
+    if df.empty:
+        return 0.0
+    return float((df['batch_start_time'] + df['duration']).max())
+
+
+def yard_frame(ctx, key):
+    """One strategy's per-trailer frame, memoised — spans and the fee proxy derived here."""
+    df = ctx._ycache.get(key)
+    if df is None:
+        s = ctx._by_key[key]
+        df = _ydf(load_yard_trailers(s['db_path'], s['run_id']),
+                  _arm_end_s(ctx, key), ctx.fee_threshold_days())
+        ctx._ycache[key] = df
+    return df
+
+
+def drain_frame(ctx, key):
+    """One strategy's per-drain yard frame, memoised."""
+    df = ctx._dcache.get(key)
+    if df is None:
+        s = ctx._by_key[key]
+        df = _ddf(load_yard_drains(s['db_path'], s['run_id']))
+        ctx._dcache[key] = df
+    return df
+
+
+def missed_frame(ctx, key):
+    """One strategy's per-batch demand-service frame, memoised."""
+    df = ctx._mcache.get(key)
+    if df is None:
+        s = ctx._by_key[key]
+        df = _cdf(load_carryover(s['db_path'], s['run_id']), batch_frame(ctx, key))
+        ctx._mcache[key] = df
     return df
 
 
@@ -186,6 +256,60 @@ def _series(ctx):
     if denied is not None:       # Denied is deliberately FALSY - never truth-test it
         return denied
     return series_dict(ctx)
+
+
+@request('yard', 'config')
+def _yard(ctx):
+    """Both yard frames for every arm — `{key: (trailers_df, drains_df)}`.
+
+    DENIED when no arm has a single yard row, and that denial is the honest one: an
+    inbound-off run is not a run whose yard was empty, it is a run with no yard, and a
+    family of figures asserting zero trailer-days would be a claim about a model that did
+    not exist. The driver logs it and skips the render, which is exactly what should
+    happen to every run in the archive.
+    """
+    denied = _deny_absent(ctx)
+    if denied is not None:       # Denied is deliberately FALSY - never truth-test it
+        return denied
+    got = {s['key']: (yard_frame(ctx, s['key']), drain_frame(ctx, s['key']))
+           for s in ctx.strategies}
+    if not any(not t.empty or not d.empty for t, d in got.values()):
+        # EraUnmet, not Denied: nothing is missing. The files were opened and read and
+        # simply have no yard in them, which no re-run of this stage can change. The
+        # `yard.scorecard` evaluation reaches this path rather than the capability probe
+        # because it declares no quantity to be gated ON — its read-outs have no honest
+        # DIRECTION, so none of them may be a Quantity — and it must still land in the
+        # same bucket as its three siblings or the log tells a reader to fix a pipeline
+        # that is working correctly.
+        return EraUnmet('no yard rows on any arm (the run predates the yard tables, or '
+                        'ran with INBOUND_STANDING_YARD off)', missing=('yard',))
+    return got
+
+
+@request('missed', 'config')
+def _missed(ctx):
+    """Per-arm demand-service frames.  Granted with ZEROS in them, unlike `yard`.
+
+    An arm with no missed rows genuinely served all its demand, and that is a result rather
+    than an absence — so a frame of zeros is a grant, and `_cdf` builds one row per BATCH
+    rather than one per carryover row precisely so a perfectly-served batch is present at
+    zero instead of missing.
+
+    That is also why this compose cannot be the era check. A pre-`carryover` vintage
+    produces the identical frame of zeros — `load_carryover` returns `[]` for "no table" and
+    for "nothing missed" alike — so row-emptiness cannot tell a perfect run from an old one,
+    and reading zeros off the old one would publish a plausible wrong number. The
+    CAPABILITY does tell them apart (it probes the table for rows), both quantities name it,
+    and `era_shortfall` runs before this. The check below therefore only ever fires when no
+    arm recorded a batch at all.
+    """
+    denied = _deny_absent(ctx)
+    if denied is not None:       # Denied is deliberately FALSY - never truth-test it
+        return denied
+    got = {s['key']: missed_frame(ctx, s['key']) for s in ctx.strategies}
+    if all(df.empty for df in got.values()):
+        return Denied('no arm recorded a batch, so there is no demand to have served')
+    return got
 
 
 @request('breakdown', 'config')
@@ -271,7 +395,7 @@ def _run_catalogue(ctx):
 #: publish run of this suite, produced not one of its declared figures, appeared in no log,
 #: and the summary line printed "all 82 evaluation requests granted, 0 denials".  A grant
 #: is a statement about the INPUTS; it says nothing about whether anything came out.
-_TALLY: dict = {'granted': {}, 'denied': {}, 'errors': {}}
+_TALLY: dict = {'granted': {}, 'denied': {}, 'errors': {}, 'era': {}}
 
 
 def record_error(eval_key: str, exc: BaseException) -> None:
@@ -283,11 +407,59 @@ def record_error(eval_key: str, exc: BaseException) -> None:
     _TALLY['errors'][eval_key] = (n + 1, repr(exc))
 
 
+def era_shortfall(ctx, ev):
+    """`EraUnmet` when this run cannot answer a quantity this evaluation draws, else None.
+
+    THE RUNTIME HALF OF THE ERA GATE. `core/era.py` proves statically that every quantity's
+    read is either version-free or names a capability; this asks the far narrower question
+    that only a file can answer — does THIS run carry it. The gap between the two is a
+    vetted vintage that has the table and no rows, which is common enough to have been
+    measured (`reorder_queue`: 68 of 166 arms) and which nothing else would notice: the
+    figure would simply not appear, with an INFO line either way.
+
+    Only config-scope evaluations are checked, because only they read a sim DB — the
+    aggregate scope consumes series documents this same analysis wrote, and the run scope
+    reads the run root. A scope with no capability probe available answers None rather than
+    guessing, which is the same rule `_deny_absent` follows for a file it cannot see.
+    """
+    if not ev.quantities or not hasattr(ctx, 'capabilities'):
+        return None
+    from Optimization.Performance_Evaluations.core import quantities as _quantities
+    # WHAT IS GATED FIRST, then the probe.  An evaluation drawing only version-free
+    # quantities must not open a connection per arm to be told what its own declaration
+    # already says, and the ordering is what makes that structural rather than incidental.
+    gated = {}
+    for key in ev.quantities:
+        q = _quantities.BY_KEY.get(key)
+        if q is not None and q.capability:
+            gated.setdefault(q.capability, []).append(key)
+    if not gated:
+        return None
+    have = ctx.capabilities()
+    want = {cap: keys for cap, keys in gated.items() if cap not in have}
+    if not want:
+        return None
+    parts = ', '.join(f'{cap} (for {", ".join(sorted(ks))})'
+                      for cap, ks in sorted(want.items()))
+    return EraUnmet(
+        f'this run cannot answer {parts} — the vintage predates those tables, or the arms '
+        f'wrote no rows into them. Not fixable from here: re-run on a vintage that records '
+        f'it, or report the degraded form with the caveat',
+        missing=sorted(want))
+
+
 def resolve_needs(ctx, ev) -> dict:
     """Resolve every request `ev.needs` declares against `ctx`.  Returns {} when all granted
     (resources are materialized into the context's caches as a side effect), else
     {need: Denied} for exactly the requests that could not be served.  Tallies either way.
+
+    The ERA check runs first and short-circuits: composing a resource this run cannot answer
+    would pay for every arm's frames to discover what the capability probe already knows.
     """
+    era = era_shortfall(ctx, ev)
+    if era is not None:
+        _TALLY['era'][ev.key] = _TALLY['era'].get(ev.key, 0) + 1
+        return {'era': era}
     scope = ev.scope if ev.scope in ('aggregate', 'run') else 'config'
     denials = {}
     for need in ev.needs:
@@ -298,7 +470,13 @@ def resolve_needs(ctx, ev) -> dict:
         got = req.compose(ctx)
         if isinstance(got, Denied):
             denials[need] = got
-    bucket = 'denied' if denials else 'granted'
+    # A compose can raise the era flag too — a table present with no rows in it is an era
+    # fact a static capability list cannot see, and it must be counted as one wherever it
+    # is discovered rather than by which code path found it.
+    if any(isinstance(d, EraUnmet) for d in denials.values()):
+        bucket = 'era'
+    else:
+        bucket = 'denied' if denials else 'granted'
     _TALLY[bucket][ev.key] = _TALLY[bucket].get(ev.key, 0) + 1
     return denials
 
@@ -310,11 +488,12 @@ def tally_snapshot(reset: bool = False) -> dict:
     without it every later job re-reports the earlier jobs' counts.
     """
     snap = {'granted': dict(_TALLY['granted']), 'denied': dict(_TALLY['denied']),
-            'errors': dict(_TALLY['errors'])}
+            'errors': dict(_TALLY['errors']), 'era': dict(_TALLY['era'])}
     if reset:
         _TALLY['granted'] = {}
         _TALLY['denied'] = {}
         _TALLY['errors'] = {}
+        _TALLY['era'] = {}
     return snap
 
 

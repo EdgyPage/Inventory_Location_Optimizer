@@ -56,6 +56,13 @@ _LITERALS = {
     'labor.per_batch':                ('figures', 'labor'),
     'labor.delta_grid':               ('figures', 'labor'),
     'throughput.volume':              ('figures', 'throughput'),
+    'throughput.missed':              ('figures', 'throughput'),
+    # The yard family: one folder, four evaluations, and it is legitimately EMPTY on a run
+    # without the standing yard — the request is denied rather than drawing zeros.
+    'yard.fee':                       ('figures', 'yard'),
+    'yard.detention':                 ('figures', 'yard'),
+    'yard.binding':                   ('figures', 'yard'),
+    'yard.scorecard':                 ('figures', 'yard'),
     'task_time.duration':             ('figures', 'task_time'),
     'task_time.breakdown':            ('figures', 'task_time'),
     'layout.churn':                   ('figures', 'layout'),

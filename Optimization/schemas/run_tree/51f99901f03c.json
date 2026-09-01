@@ -1,0 +1,639 @@
+{
+  "schema_id": "sha256:51f99901f03cfd27934d18442db78d170cf46dd9f6ff498d217d11d32cb45a58",
+  "generated_by": "Optimization/runschema/contract.py",
+  "generator_source": "Optimization/runschema/schema.py",
+  "description": "Machine-readable contract for a simulation run directory, identified by the sha256 of its own shape. Levels marked optional are ABSENT under the stated condition \u2014 consumers must handle both shapes. Path templates use {name} for a required segment and {name?} for an optional one (dropped with its separator when that part is None).",
+  "features": [
+    "optional-segments",
+    "globs",
+    "resolves-via",
+    "strategy-capture"
+  ],
+  "root_prefixes": [
+    "comparison_",
+    "comparison_whatif_"
+  ],
+  "reserved_prefix": "_",
+  "axes": [
+    "cell",
+    "pair",
+    "config",
+    "channel",
+    "strategy"
+  ],
+  "levels": [
+    {
+      "name": "cell",
+      "optional": false,
+      "note": "what-if cell: aisle-split x zoning x scheduler. Every run is a cell matrix; a plain run is the single cell k1_off."
+    },
+    {
+      "name": "pair",
+      "optional": false,
+      "note": "inventory+affinity pair label (the warehouse) \u2014 <profile_run>__<profile>."
+    },
+    {
+      "name": "config",
+      "optional": false,
+      "note": "pick-config name (store, store_high_height, ful_calibrated, ...)."
+    },
+    {
+      "name": "channel",
+      "optional": true,
+      "condition": "present only on a MIXED catalog (store + fulfillment); absent on a store-only run, where sim_*.db sits directly under <config>/."
+    }
+  ],
+  "artifacts": {
+    "aggregate_by_initial_csv": {
+      "evaluation": "agg.tables",
+      "path": "{cell}/_aggregate/{config}/{channel?}/tables/by_initial_summary.csv",
+      "format": "csv",
+      "scope": "cell",
+      "writer": "render@Optimization/Performance_Evaluations/aggregate/tables.py"
+    },
+    "aggregate_by_initial_tests_json": {
+      "evaluation": "agg.tables",
+      "path": "{cell}/_aggregate/{config}/{channel?}/tables/by_initial_tests.json",
+      "format": "json",
+      "scope": "cell",
+      "note": "one consolidated document keyed by assignment fn (same shape rule as the per-leaf twin).",
+      "writer": "render@Optimization/Performance_Evaluations/aggregate/tables.py"
+    },
+    "aggregate_dir": {
+      "path": "{cell}/_aggregate/{config}/{channel?}",
+      "format": "dir",
+      "scope": "cell",
+      "writer": "_aggregate_jobs@Optimization/run_analysis.py",
+      "note": "the group subtree; <config> alone on a store-only run, <config>/<channel> mixed."
+    },
+    "aggregate_pngs": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/figures/**/*.png",
+      "format": "png",
+      "scope": "cell",
+      "group": "figures",
+      "writer": "run_aggregate@Optimization/Performance_Evaluations/driver.py",
+      "note": "the aggregate stage mirrors the leaf families minimally: trajectories (percent overlays of \u00d7-baseline curves) and significance."
+    },
+    "aggregate_stats_summary_csv": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/tables/aggregate_summary.csv",
+      "format": "csv",
+      "scope": "cell",
+      "optional": true,
+      "evaluation": "agg.tables",
+      "condition": "flat aggregate stats suite only (not BY_INITIAL).",
+      "writer": "render@Optimization/Performance_Evaluations/aggregate/tables.py"
+    },
+    "aggregate_stats_tests_json": {
+      "path": "{cell}/_aggregate/{config}/{channel?}/tables/aggregate_tests.json",
+      "format": "json",
+      "scope": "cell",
+      "optional": true,
+      "evaluation": "agg.tables",
+      "condition": "flat aggregate stats suite only (not BY_INITIAL).",
+      "writer": "render@Optimization/Performance_Evaluations/aggregate/tables.py"
+    },
+    "analysis_log": {
+      "path": "analysis.log",
+      "format": "text",
+      "scope": "run",
+      "optional": true,
+      "condition": "standalone re-analysis only \u2014 analyze_run opens its own log file when run as a CLI; the in-process path after a simulation reuses run.log, which is why the preflight canaries never produce this.",
+      "writer": "main@Optimization/analyze_run.py"
+    },
+    "batch_metrics_csv": {
+      "evaluation": "tables.tidy",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/batch_metrics.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "note": "tidy long (strategy, batch_id, metric, value, is_outlier) \u2014 replaces the retired MultiIndex pivot pair.",
+      "writer": "render@Optimization/Performance_Evaluations/tables/tidy.py"
+    },
+    "batches_cache": {
+      "path": "{cell}/{pair}/_batches_*.pkl",
+      "format": "pickle",
+      "scope": "pair",
+      "optional": true,
+      "condition": "the batch-precompute dedup; absent when a channel samples inline.",
+      "writer": "write_batches@Optimization/simdriver/batch_precompute.py"
+    },
+    "batches_long_csv": {
+      "evaluation": "tables.per_run",
+      "path": "{cell}/{pair}/{config}/{channel?}/batches_long.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "writer": "render@Optimization/Performance_Evaluations/tables/per_run.py"
+    },
+    "by_initial_summary_csv": {
+      "evaluation": "tables.by_initial",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/by_initial_summary.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "writer": "render_by_initial@Optimization/Performance_Evaluations/tables/stats_csv.py"
+    },
+    "by_initial_tests_json": {
+      "evaluation": "tables.by_initial",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/by_initial_tests.json",
+      "format": "json",
+      "scope": "channel_run",
+      "note": "ONE consolidated document keyed by assignment fn \u2014 replaces the retired per-assignment subtree of test documents.",
+      "writer": "render_by_initial@Optimization/Performance_Evaluations/tables/stats_csv.py"
+    },
+    "cell_analysis_log": {
+      "path": "{cell}/analysis.log",
+      "format": "text",
+      "scope": "cell",
+      "optional": true,
+      "condition": "standalone re-analysis only (see analysis_log).",
+      "writer": "main@Optimization/run_analysis.py"
+    },
+    "channel_rollup_csv": {
+      "path": "{cell}/channel_rollup.csv",
+      "format": "csv",
+      "scope": "cell",
+      "writer": "rollup@Optimization/run_channel_rollup.py"
+    },
+    "channel_rollup_summary_csv": {
+      "path": "{cell}/channel_rollup_summary.csv",
+      "format": "csv",
+      "scope": "cell",
+      "writer": "rollup@Optimization/run_channel_rollup.py"
+    },
+    "checkpoint_pkl": {
+      "path": "{cell}/{pair}/{config}/{channel?}/_ckpt_{strategy}.pkl",
+      "format": "pickle",
+      "scope": "channel_run",
+      "optional": true,
+      "condition": "present only while an arm is in flight; removed on finalize.",
+      "writer": "save_worker_checkpoint@Optimization/simdriver/strategy_runner.py"
+    },
+    "comparison_census_json": {
+      "group": "dossier",
+      "path": "_dossier/comparison_census.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only \u2014 a same-rule comparison needs a second cell to compare against (same rule as the whatif group).",
+      "evaluation": "tables.census",
+      "writer": "render@Optimization/Performance_Evaluations/tables/census.py"
+    },
+    "config_json": {
+      "path": "{cell}/{pair}/{config}/config.json",
+      "format": "json",
+      "scope": "config",
+      "writer": "_prepare_channel_run@Optimization/simdriver/workunits.py"
+    },
+    "dossier_cost_pngs": {
+      "group": "dossier",
+      "path": "_dossier/figures/cost/*.png",
+      "format": "png",
+      "scope": "run",
+      "optional": true,
+      "condition": "needs the run root runtime metrics DB; absent on a run that predates it.",
+      "evaluation": "cost.compute",
+      "writer": "render@Optimization/Performance_Evaluations/cost/compute.py"
+    },
+    "dossier_dir": {
+      "path": "_dossier",
+      "format": "dir",
+      "scope": "run",
+      "optional": true,
+      "condition": "present once the analysis has run; absent on a run analyzed before the run scope existed, or one whose analysis never completed.",
+      "writer": "prepare_run_dir@Optimization/Performance_Evaluations/driver.py",
+      "note": "the run-scope stage root; wiped and recreated on every analysis pass."
+    },
+    "dossier_json": {
+      "group": "dossier",
+      "path": "_dossier/dossier.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true,
+      "condition": "needs the run root runtime metrics DB.",
+      "evaluation": "dossier.index",
+      "writer": "render@Optimization/Performance_Evaluations/dossier/index.py",
+      "note": "the index a page loads first: run identity, contention, and the cost rows. Its own ROOT-scope evaluation: cost.rollup wrote it by reaching the parent of its declared tables/ subdir, which put the file outside the bounds artifact_map checks against."
+    },
+    "dossier_tables_csv": {
+      "group": "dossier",
+      "path": "_dossier/tables/*.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true,
+      "condition": "one file per run-scope table evaluation whose `needs` the run can serve; the set therefore varies with what the run carries.",
+      "writer": "run_at_root@Optimization/Performance_Evaluations/driver.py",
+      "note": "ONE glob for a directory THREE evaluations write into, so no single one may be named its owner \u2014 and so a future dossier table costs no new declaration and no new forbidden filename token."
+    },
+    "figures_diagnostics_pngs": {
+      "evaluation": [
+        "diagnostics.metric_grids",
+        "diagnostics.scorecards"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/diagnostics/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
+    },
+    "figures_headline_pngs": {
+      "evaluation": [
+        "headline.all_arms",
+        "headline.rollup",
+        "headline.throughput_vs_labor",
+        "headline.top_vs_baseline"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/headline/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
+    },
+    "figures_labor_pngs": {
+      "evaluation": [
+        "labor.delta_grid",
+        "labor.delta_topn",
+        "labor.per_batch"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/labor/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
+    },
+    "figures_layout_pngs": {
+      "evaluation": [
+        "layout.churn",
+        "layout.travel"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/layout/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
+    },
+    "figures_significance_pngs": {
+      "evaluation": [
+        "sig.by_initial",
+        "sig.suite"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/significance/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py",
+      "optional": true,
+      "condition": "presets that run a stats fork; NO_STATS writes no significance figures."
+    },
+    "figures_task_time_pngs": {
+      "evaluation": [
+        "task_time.breakdown",
+        "task_time.duration"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/task_time/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
+    },
+    "figures_throughput_pngs": {
+      "evaluation": [
+        "throughput.missed",
+        "throughput.volume"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/throughput/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
+    },
+    "figures_trajectories_pngs": {
+      "evaluation": [
+        "trajectories.overtime"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/trajectories/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py"
+    },
+    "figures_yard_pngs": {
+      "evaluation": [
+        "yard.binding",
+        "yard.detention",
+        "yard.fee",
+        "yard.scorecard"
+      ],
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/yard/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "group": "figures",
+      "writer": "prepare_config_dirs@Optimization/Performance_Evaluations/driver.py",
+      "optional": true,
+      "condition": "runs with INBOUND_STANDING_YARD on. The folder is created either way and is legitimately EMPTY otherwise: the yard request is DENIED when no arm has a trailer row, because a run without the standing yard has no yard rather than an empty one."
+    },
+    "frozen_inventory_db": {
+      "family": "inventory_db",
+      "path": "_frozen/{pair}/planned_inventory.db",
+      "format": "sqlite",
+      "scope": "run",
+      "optional": true,
+      "condition": "MULTI-cell runs only \u2014 a single-cell run writes planned_inventory.db under <cell>/<pair>/ instead.",
+      "writer": "_run_whatif_matrix@Optimization/simdriver/scenario.py"
+    },
+    "frozen_warehouse_db": {
+      "family": "warehouse_db",
+      "path": "_frozen/{pair}/warehouse.db",
+      "format": "sqlite",
+      "scope": "run",
+      "optional": true,
+      "condition": "MULTI-cell runs only (see frozen_inventory_db).",
+      "writer": "_run_whatif_matrix@Optimization/simdriver/scenario.py"
+    },
+    "held_fixed_json": {
+      "group": "dossier",
+      "path": "_dossier/held_fixed.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true,
+      "condition": "derived from the run tree alone, so present whenever the dossier is.",
+      "evaluation": "catalog.fixed",
+      "writer": "render@Optimization/Performance_Evaluations/catalog/fixed.py"
+    },
+    "inventory_model_json": {
+      "group": "dossier",
+      "path": "_dossier/inventory_model.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true,
+      "condition": "needs a readable planned inventory (frozen on a multi-cell run, per-cell on a single-cell one).",
+      "evaluation": "catalog.inventory",
+      "writer": "render@Optimization/Performance_Evaluations/catalog/inventory.py"
+    },
+    "keyframes_db": {
+      "family": "keyframes_db",
+      "path": "{cell}/{pair}/{config}/{channel?}/sim_{strategy}.keyframes.db",
+      "format": "sqlite",
+      "scope": "channel_run",
+      "tables": [
+        "bin_keyframe"
+      ],
+      "optional": true,
+      "condition": "keyframe_interval > 0.",
+      "writer": "save_bin_keyframe@Optimization/persistence/Picking_Data.py"
+    },
+    "per_run_summary_csv": {
+      "evaluation": "tables.per_run",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/per_run_summary.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "writer": "render@Optimization/Performance_Evaluations/tables/per_run.py"
+    },
+    "planned_inventory": {
+      "path": null,
+      "format": "sqlite",
+      "scope": "pair",
+      "resolves_via": [
+        "frozen_inventory_db",
+        "planned_inventory_db"
+      ],
+      "note": "alias: first candidate that exists on disk wins."
+    },
+    "planned_inventory_db": {
+      "family": "inventory_db",
+      "path": "{cell}/{pair}/planned_inventory.db",
+      "format": "sqlite",
+      "scope": "pair",
+      "optional": true,
+      "condition": "SINGLE-cell runs only \u2014 a multi-cell run shares _frozen/<pair>/planned_inventory.db across cells.",
+      "writer": "build_shared_assets@Optimization/simdriver/sim_assets.py"
+    },
+    "resume_pkl": {
+      "path": "{cell}/{pair}/{config}/{channel?}/resume.pkl",
+      "format": "pickle",
+      "scope": "channel_run",
+      "optional": true,
+      "condition": "present only while a config run is in flight; removed on finalize.",
+      "writer": "_save_resume@Optimization/runschema/sim_manifest.py"
+    },
+    "rule_catalog_json": {
+      "group": "dossier",
+      "path": "_dossier/rule_catalog.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true,
+      "condition": "needs the run root runtime metrics DB (it reports which rules actually ran, not which are registered).",
+      "evaluation": "catalog.rules",
+      "writer": "render@Optimization/Performance_Evaluations/catalog/rules.py"
+    },
+    "run_layout": {
+      "path": "run_layout.json",
+      "format": "json",
+      "scope": "run",
+      "writer": "write_run_layout@Optimization/runschema/sim_manifest.py",
+      "note": "the cell-tree descriptor; carries schema_id, which selects THIS contract."
+    },
+    "run_log": {
+      "path": "run.log",
+      "format": "text",
+      "scope": "run",
+      "writer": "_setup_logging@Optimization/config/sim_config.py"
+    },
+    "run_manifest": {
+      "path": "{cell}/run_manifest.json",
+      "format": "json",
+      "scope": "cell",
+      "writer": "write_run_manifest@Optimization/runschema/sim_manifest.py",
+      "note": "written PER CELL (_run_scenario receives the cell dir), not at the run root."
+    },
+    "run_spec": {
+      "path": "run_spec.json",
+      "format": "json",
+      "scope": "run",
+      "writer": "_write_run_spec@Optimization/runschema/sim_manifest.py"
+    },
+    "runtime_metrics_db": {
+      "family": "runtime_metrics_db",
+      "path": "runtime_metrics.db",
+      "format": "sqlite",
+      "scope": "run",
+      "tables": [
+        "runtime"
+      ],
+      "writer": "record_arm@Optimization/persistence/runtime_metrics.py",
+      "note": "the ONLY DB carrying a `cell` column; sim_*.db knows its cell only by path."
+    },
+    "series_json": {
+      "evaluation": "config.series",
+      "path": "{cell}/{pair}/{config}/{channel?}/series.json",
+      "format": "json",
+      "scope": "channel_run",
+      "writer": "_dump_series@Optimization/Performance_Evaluations/common/series.py"
+    },
+    "sim_db": {
+      "family": "sim_db",
+      "path": "{cell}/{pair}/{config}/{channel?}/sim_{strategy}.db",
+      "format": "sqlite",
+      "scope": "channel_run",
+      "tables": [
+        "simulation_runs",
+        "batch_stats",
+        "task_stats",
+        "picker_events",
+        "picks",
+        "aisle_metrics",
+        "reorder_queue",
+        "bin_scores",
+        "sku_scores",
+        "bin_placement",
+        "bin_eviction",
+        "work_events",
+        "put_queue_state",
+        "carryover"
+      ],
+      "writer": "_run_strategy_worker@Optimization/simdriver/strategy_runner.py"
+    },
+    "sim_meta": {
+      "path": "{cell}/{pair}/{config}/{channel?}/sim_meta.json",
+      "format": "json",
+      "scope": "channel_run",
+      "writer": "_finalize_config_run@Optimization/simdriver/supervisor.py",
+      "note": "the completeness marker iter_channel_runs walks on."
+    },
+    "stats_summary_csv": {
+      "evaluation": "tables.stats",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/stats_summary.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": true,
+      "condition": "flat stats suite only (DEFAULT/NO_STATS presets; BY_INITIAL runs the by-initial fork instead).",
+      "writer": "render_stats@Optimization/Performance_Evaluations/tables/stats_csv.py"
+    },
+    "stats_tests_json": {
+      "evaluation": "tables.stats",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/tests.json",
+      "format": "json",
+      "scope": "channel_run",
+      "optional": true,
+      "condition": "flat stats suite only (see stats_summary_csv).",
+      "writer": "render_stats@Optimization/Performance_Evaluations/tables/stats_csv.py"
+    },
+    "task_metrics_csv": {
+      "evaluation": "tables.tidy",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/task_metrics.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "writer": "render@Optimization/Performance_Evaluations/tables/tidy.py"
+    },
+    "viz_cache_db": {
+      "family": "viz_cache_db",
+      "path": "_viz/{cell}/{pair}/{config}/{channel?}/{strategy}.viz.db",
+      "format": "sqlite",
+      "scope": "channel_run",
+      "optional": true,
+      "tables": [
+        "cache_meta",
+        "bin_span",
+        "sku_rank",
+        "sku_series",
+        "final_home",
+        "aisle_batch_rollup"
+      ],
+      "condition": "built on demand by the viewer, so it is absent from every simulation run (the preflight canaries never produce it) until someone opens that run in Visualization/. Deleting _viz/ costs time, never data.",
+      "writer": "build_one@Visualization/precompute.py",
+      "note": "lives under the reserved `_` prefix (RESERVED_PREFIX) so every tree walker skips it; named sim_{strategy}.viz.db beside the sim DB it would instead satisfy all three predicates of runlayout._sim_dbs_in and surface as an extra ARM."
+    },
+    "vs_baseline_csv": {
+      "evaluation": "tables.vs_baseline",
+      "path": "{cell}/{pair}/{config}/{channel?}/tables/vs_baseline.csv",
+      "format": "csv",
+      "scope": "channel_run",
+      "optional": true,
+      "condition": "needs at least 3 batches shared with the baseline arm \u2014 every real run has them; the 2-batch preflight canaries do not, and a paired statistic over two observations would be worse than absent.",
+      "note": "every arm against the baseline with effect size, bootstrap interval and corrected p \u2014 the numbers the headline figure prints, in a form a reader (and the docs site) can cite.",
+      "writer": "render@Optimization/Performance_Evaluations/tables/vs_baseline.py"
+    },
+    "warehouse_db": {
+      "family": "warehouse_db",
+      "path": "{cell}/{pair}/warehouse.db",
+      "format": "sqlite",
+      "scope": "pair",
+      "tables": [
+        "warehouse_stats",
+        "aisle_type_stats",
+        "aisle_layout"
+      ],
+      "writer": "build_shared_assets@Optimization/simdriver/sim_assets.py"
+    },
+    "whatif_delta_csv": {
+      "group": "whatif",
+      "path": "whatif_delta.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only (a cross-cell delta needs >1 cell).",
+      "writer": "run@Optimization/run_whatif_delta.py"
+    },
+    "whatif_delta_json": {
+      "group": "whatif",
+      "path": "whatif_delta.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only.",
+      "writer": "run@Optimization/run_whatif_delta.py"
+    },
+    "whatif_delta_png": {
+      "group": "whatif",
+      "path": "whatif_delta.png",
+      "format": "png",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only.",
+      "writer": "run@Optimization/run_whatif_delta.py"
+    },
+    "whatif_labor_csv": {
+      "group": "whatif",
+      "path": "whatif_labor.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only.",
+      "writer": "run@Optimization/run_whatif_labor.py"
+    },
+    "whatif_labor_json": {
+      "group": "whatif",
+      "path": "whatif_labor.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only.",
+      "writer": "run@Optimization/run_whatif_labor.py"
+    },
+    "whatif_labor_pngs": {
+      "group": "whatif",
+      "path": "whatif_*.png",
+      "format": "png",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only; the glob also covers whatif_volume_*.png.",
+      "writer": "run@Optimization/run_whatif_labor.py"
+    },
+    "whatif_volume_csv": {
+      "group": "whatif",
+      "path": "whatif_volume.csv",
+      "format": "csv",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only.",
+      "note": "per-arm cumulative-volume metrics (throughput, area gain, shape index); the numbers the docs pages cite. labor_hours here equals whatif_labor.csv exactly.",
+      "writer": "run@Optimization/run_whatif_volume.py"
+    },
+    "whatif_volume_json": {
+      "group": "whatif",
+      "path": "whatif_volume.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true,
+      "condition": "multi-cell runs only.",
+      "writer": "run@Optimization/run_whatif_volume.py"
+    }
+  }
+}

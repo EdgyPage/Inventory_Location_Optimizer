@@ -124,7 +124,7 @@ def _run_job(job: dict):
 
 
 def _merge_tally(total: dict, part: dict) -> None:
-    for bucket in ('granted', 'denied'):
+    for bucket in ('granted', 'denied', 'era'):
         for key, n in part.get(bucket, {}).items():
             total[bucket][key] = total[bucket].get(key, 0) + n
     # errors carry (count, last_repr), not a bare count
@@ -136,7 +136,7 @@ def _merge_tally(total: dict, part: dict) -> None:
 def _drain(pool, jobs, log) -> dict:
     """Run jobs on the flat pool (or inline if no pool); log per-job errors.  Returns the
     merged access tally {'granted': {eval: n}, 'denied': {eval: n}} across all jobs."""
-    tally = {'granted': {}, 'denied': {}, 'errors': {}}
+    tally = {'granted': {}, 'denied': {}, 'errors': {}, 'era': {}}
     if pool is None:
         for job in jobs:
             tgt, err, part = _run_job(job)
@@ -367,7 +367,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
     max_skus = _apply_run_shape(base_dir, log)
     pool = (concurrent.futures.ProcessPoolExecutor(max_workers=workers)
             if workers and workers > 1 else None)
-    tally = {'granted': {}, 'denied': {}}
+    tally = {'granted': {}, 'denied': {}, 'errors': {}, 'era': {}}
     try:
         if only:
             log.info(f'  PARTIAL re-render: only {sorted(only)} — output dirs are NOT '
@@ -396,6 +396,19 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
                     f'({per_eval}) — see the DENIED lines above for reasons')
     else:
         log.info(f'[access] run summary: all {n_granted} evaluation requests granted, 0 denials')
+
+    # Run-end ERA summary, beside the access one and deliberately NOT inside it.  An era
+    # shortfall is a fact about the RUN's vintage, not about this pipeline: the file was
+    # found and read and simply does not carry the measurement, so "re-run the stage" is
+    # the wrong instruction and a DENIED line would give it.  Reported at INFO because it
+    # is the expected outcome on every archived run — the yard family answers nothing
+    # before the yard existed, and saying so is the honest result, not a fault.
+    n_era = sum(tally.get('era', {}).values())
+    if n_era:
+        per_eval = ', '.join(f'{k} x{n}' for k, n in sorted(tally['era'].items()))
+        log.info(f'[era] run summary: {n_era} evaluation(s) skipped — this run cannot '
+                 f'answer them ({per_eval}); see the [era] lines above for which '
+                 f'capability each needed')
 
     # Run-end RENDER summary — the other half, and the one that was missing.  A grant says
     # an evaluation got its inputs; it says nothing about whether it produced anything.

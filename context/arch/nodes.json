@@ -495,7 +495,7 @@
     },
     "Inbound/__init__.py": {
       "decorators": [],
-      "doc": "Inbound \u2014 the receiving side of the site: trailers, the dock, unloading and packing.\n\nA top-level package beside `Warehouse/`, split out so the two domains meet only at the\nInventory Manager's broker seam (see root `CONTEXT.md` for the vocabulary and\n`.scratch/inbound-groundwork/` while the effort is in flight).\n\n# \u2500\u2500 the import law \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nTwo rules, both enforced by `context/architecture.yml` boundaries:\n\n  * This package imports Warehouse VALUE layers only \u2014 `wh_kernel`, `wh_layout`,\n    `wh_catalog`, and `wh_operations` (for the `PutawayCost` anti-drift coupling in\n    `unload.py`).  Never `wh_inventory`, `wh_picking`, `wh_placement`, or the harness.\n  * NO Warehouse module imports this package \u2014 not even the Inventory Manager.  The driver\n    (`Optimization/`) constructs Inbound's objects from CONFIG specs and binds them on the\n    manager (`enable_receiving`, `mgr.packer`), the way observers and placement functions\n    are already injected.  Hub-ness is injection, not imports.\n\n# \u2500\u2500 what lives here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    dock.py        the Dock: spec, crew clocks, and the merchandise standing on the floor\n    unload.py      what it costs to take one storage unit off a trailer\n    pack.py        packing one delivery into storage units, and the LoadPlan record\n    trailer.py     TrailerType (53/28), stateful Trailers, and the load pallets they carry\n    priorities.py  the global/local policy registries, frozen DockContext, ordering bound\n    transit.py     TrailerTransit: order port -> trailers -> parking lot -> dock doors",
+      "doc": "Inbound \u2014 the receiving side of the site: trailers, the dock, unloading and packing.\n\nA top-level package beside `Warehouse/`, split out so the two domains meet only at the\nInventory Manager's broker seam (see root `CONTEXT.md` for the vocabulary and\n`.scratch/inbound-groundwork/` while the effort is in flight).\n\n# \u2500\u2500 the import law \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nTwo rules, both enforced by `context/architecture.yml` boundaries:\n\n  * This package imports Warehouse VALUE layers only \u2014 `wh_kernel`, `wh_layout`,\n    `wh_catalog`, and `wh_operations` (for the `PutawayCost` anti-drift coupling in\n    `unload.py`).  Never `wh_inventory`, `wh_picking`, `wh_placement`, or the harness.\n  * NO Warehouse module imports this package \u2014 not even the Inventory Manager.  The driver\n    (`Optimization/`) constructs Inbound's objects from CONFIG specs and binds them on the\n    manager (`enable_receiving`, `mgr.packer`), the way observers and placement functions\n    are already injected.  Hub-ness is injection, not imports.\n\n# \u2500\u2500 what lives here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    dock.py        the Dock: spec, crew clocks, and the merchandise standing on the floor\n    unload.py      what it costs to take one storage unit off a trailer\n    pack.py        packing one delivery into storage units, and the LoadPlan record\n    trailer.py     TrailerType (53/28), stateful Trailers, and the load pallets they carry\n    priorities.py  the policy registries (global/local + yard/dock), frozen DockContext,\n                   ordering bound\n    transit.py     TrailerTransit: order port -> trailers -> yard -> dock doors;\n                   YardTransit: the standing yard, where doors become real\n    space.py       the space timeline: per-drain frozen SpaceView (empties + untimed\n                   predicted clears) the standing dock's decisions read via ctx.space\n    gain.py        the unload-plan evaluator (expected future work, faithful-to-arm)\n                   and the gain-family ordering entries it registers",
       "kind": "module",
       "signature": null
     },
@@ -504,7 +504,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['Dock', 'DockSpec', 'LoadPlan', 'LoadPallet', 'packer', 'receive', 'receive_all', 'shipment_penalty', 'Trailer', 'Trailer28', 'Trailer53', 'TRAILER_TYPES', 'TrailerTransit', 'UnloadCost', 'unload_..."
+      "value_preview": "['Dock', 'DockSpec', 'GAIN_POLICIES', 'GainBundle', 'LoadPlan', 'LoadPallet', 'packer', 'receive', 'receive_all', 'shipment_penalty', 'SpaceTimeline', 'SpaceView', 'Trailer', 'Trailer28', 'Trailer5..."
     },
     "Inbound/dock.py": {
       "decorators": [],
@@ -546,12 +546,26 @@
       "kind": "function",
       "signature": "(self, deadline: float | None) -> bool"
     },
+    "Inbound/dock.py::Dock.can_start_team": {
+      "decorators": [],
+      "doc": "Is anyone on this team free to BEGIN before `deadline`? Same START gate.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, idxs, deadline: float | None) -> bool"
+    },
     "Inbound/dock.py::Dock.charge": {
       "decorators": [],
       "doc": "Book `dur` to whoever is free earliest; return (start, worker index).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, dur: float)"
+    },
+    "Inbound/dock.py::Dock.charge_team": {
+      "decorators": [],
+      "doc": "Book `dur` to the team member free earliest; return (start, worker index).\n\nDoes NOT accrue `seconds`, unlike `charge` \u2014 deliberately.  The standing drain\ncharges teams in clock order but accrues `seconds` in the CANONICAL handoff\norder, so the batch's float sum associates identically whatever the allocation\nmode \u2014 a sum accrued in charge order differs from the merged run's by one ulp,\nwhich is exactly the kind of \"identical except labor\" leak the containment\nproperty forbids.  The caller that charges a team also hands off, and accrues\nthere, once per record.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, idxs, dur: float)"
     },
     "Inbound/dock.py::Dock.crew_size": {
       "decorators": [
@@ -624,6 +638,13 @@
       "kind": "function",
       "signature": "(self, source: str | None) -> bool"
     },
+    "Inbound/dock.py::Dock.team_next_free": {
+      "decorators": [],
+      "doc": "When the team's earliest worker frees up; +inf for a team of nobody.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, idxs) -> float"
+    },
     "Inbound/dock.py::Dock.unload_seconds": {
       "decorators": [],
       "doc": "Seconds to take ONE storage unit off a trailer, priced by this dock's own cost\nmodel \u2014 here so the manager needs no import of `unload`; the dock owns its price\nlist.",
@@ -645,6 +666,186 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
+    },
+    "Inbound/gain.py": {
+      "decorators": [],
+      "doc": "gain \u2014 the unload-plan evaluator: EXPECTED FUTURE WORK, faithful-to-arm.\n\nThe gain arms (\"Name the policy arms\", 05) order standing trailers by the put + pick\nhours their placements will generate (\"Define the inbound objective\", 10): serve first\nthe load whose DEFERRAL to the next drain's pool costs the most.  One `@ordering` entry\nper family, called once per drain on the frozen ctx; the entries land in BOTH standing\nregistries, so an arm sets `INBOUND_YARD_POLICY` and `INBOUND_DOCK_POLICY` to one name.\n\n    gain(t) = E[put + pick work if t's load places from the deferral pool]\n            \u2212 E[same if it places from the pool NOW]\n    take argmax gain (ties -> the handed order, which is arrival order); virtually\n    consume what the chosen load would take; repeat.\n\n# \u2500\u2500 the deferral pool (the one recorded deviation from the prototype's letter) \u2500\u2500\u2500\u2500\n\nDecision 4 of the objective names the deferral pool \"the NEXT drain's pool (leftovers +\npredicted)\".  The prototype (ticket 04) approximated leftovers as the CURRENT virtual\npool \u2014 which is exact only when the standing loads do not contend, and makes the myopic\narm's gain identically zero (no predicted tier, same pool on both sides: a fake arm,\n`fifo` in disguise).  The build therefore prices leftovers as what the OTHER remaining\ncandidates leave behind: each greedy step first places every remaining load against the\ncurrent pool (the now side), then each candidate's deferral pool excludes every bin some\nOTHER candidate's now-placement took.  Zero extra placements, symmetric across\ncandidates (two identical loads still tie -> FIFO), degenerates to the prototype's shape\nexactly when takes do not overlap \u2014 and gives the myopic arm its real signal, which is\nCONTENTION for today's space.  Recorded on the build ticket (14), the 11 precedent.\n\n# \u2500\u2500 faithful-to-arm: the fidelity seam \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain` estimates the bins THIS arm's pool would grant, never an idealized best-bin cost\n(10 decision 5).  The seam is `GainBundle`, built and injected by the DRIVER (the\n`drain_sku` precedent \u2014 the import edges `Inbound -> wh_inventory / wh_placement` are\nforbidden, so the broker holds what it is handed):\n\n  * extremal-D arms (tmin / tmax) get the K-CHEAPEST MERGE structure: per BinKey class\n    the bins sorted ONCE per plan by the arm's own D, consumed by slicing \u2014 proven\n    order-equal to the full pool up to co-occurrence near-ties and ~5x cheaper (04\n    finding 1/2).  The merge orders units by freq x labor_cost (the pool's priority\n    minus the co term \u2014 exactly the proven residue).\n  * selector arms get `pool_factory`: the arm's own pool class, rebuilt per evaluation\n    over COPIES of the aisle bookkeeping (purity: live state is never mutated).\n    rank_random's virtual pool must consume no RNG (the seam purity pin), so it prices\n    by EXPECTATION over the pool's current aisle heads and consumes via a deterministic\n    stand-in selector \u2014 the deviation 04 decided and this docstring records.\n\nExhaustion resolves tiers over the `SpaceView` keys the way `_candidates_raw` does:\nsmallest non-empty fitting tier first, spilling UP (the injected `tier_ranks_for`\ncarries the tier tables).  Only past total exhaustion does a unit price at the worst\nbin of its whole spill chain x 1.5 \u2014 a deterministic, knob-free penalty that makes\n\"seats next drain but not now\" defer correctly and cancels when nothing seats anywhere.\n\n# \u2500\u2500 purity, and where the pieces come from \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nAn entry reads ONLY the frozen ctx: `ctx.space` (the drain's SpaceView) and `ctx.gain`\n(the driver-injected bundle, put there by `YardTransit.freeze_ctx`).  It mutates no\nmanager state, consumes no RNG, and returns a permutation (`bounded_order` raises\notherwise).  Cost-model pricing imports from `wh_kernel` \u2014 a legal edge: put travel is\npaid once at the put crew's speeds; pick pays E[visits] x (travel + per_pick at height),\nE[visits] = quantity / per-visit draw.  No new knobs anywhere in the score; the two\ndays-denominated knobs below belong to the GATE, which never blends them into hours.\n\n# \u2500\u2500 the urgency gate (`gain_gated`) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain_forecast` behind a FIFO gate: trailers within `INBOUND_URGENCY_HORIZON_DAYS` of\ncrossing `INBOUND_FEE_THRESHOLD_DAYS` of yard time form the URGENT SET, served FIFO\nahead of everyone; the rest follow the plan, which prices its space AFTER the urgent\nloads consume.  Hours and days never combine into one scalar \u2014 the gate IS the only\nlegal composition (05's two-separate-scores rule).  The horizon spans the poles: 0 ~\npure gain (only already-overdue trailers jump), >= threshold = pure FIFO.\n\n# \u2500\u2500 the futuresight window (`futuresight`) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain_forecast` reading `ctx.space.window` \u2014 the declared-unlawful upper-bound\nREFERENCE (\"Define the inbound objective\" decision 6): a real WMS cannot see\nundispatched orders, so this arm never enters the recommendable set.  The window is\nthe next `INBOUND_FUTURESIGHT_BATCHES` script batches' realized demand ('all' = the\noracle w=inf), driver-fed on its own view slot; the batch script is i.i.d. draws from\nthe static rates, so the edge is exactly SAMPLING-NOISE knowledge \u2014 which SKUs land,\nand their counts.  The build reads it where the static rates otherwise stand, the\nPRICING: a SKU absent from the window is not picked in the visible future (put\ntravel only); a present one prices at its realized per-event draw (window total /\nwindow events) with visits capped at the event count, which is what makes w=inf\nhonestly the oracle.  The placement MACHINERY stays the arm's own, static rates and\nall (faithful-to-arm, 10 decision 5: the real pool cannot see the future, so a\nclairvoyant virtual pool would price placements the arm will never make).  The\ndeferral pool is `gain_forecast`'s \u2014 predicted stays one batch deep by charter; the\nwindow never projects bins.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/gain.py::GainBundle": {
+      "decorators": [],
+      "doc": "Everything arm-specific the evaluator needs, injected by the driver.\n\n`pool_factory` None selects the merge adapter (extremal-D family, direction\n`minimize`); otherwise the pool adapter calls\n`pool_factory(candidates, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, wp)`\nwith FRESH copies of the three aisle dicts per evaluation.  `expect_heads` prices\neach unit at the mean over `heads_of(pool)` before consuming (rank_random's no-RNG\nexpectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because\ntheir home (`wh_inventory`) is a forbidden import \u2014 the broker rule.\n\nThe two days-denominated knobs ride here because the gate entry has no other\nchannel to CONFIG (`inbound_spec()` -> driver -> bundle, the five-seam path).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain.py::GainBundle.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, aisle_sku_sets=None, aisle_idx_sets=None, aisle_demand_sum=None, fee_threshold_days: float=2.0, urgency_horizon_days: float=0.0)"
+    },
+    "Inbound/gain.py::_Evaluator": {
+      "decorators": [],
+      "doc": "One plan's virtual placement state \u2014 built per entry call, dies with it.\n\nOwns the sort-once structures (per-key bins in arm-D order, computed lazily the\nfirst time a key is touched and NEVER rebuilt \u2014 the structure the Tier-1 sabotage\ntest perturbs), the consumed-bin set the greedy advances, and the pricing.  Reads\nthe frozen `SpaceView` and the bundle; its only writes are its own bookkeeping.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain.py::_Evaluator.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bundle: GainBundle, space, window_rates=None)"
+    },
+    "Inbound/gain.py::_Evaluator._avail": {
+      "decorators": [],
+      "doc": "One placement's view of a tier: the pre-sorted arrays filtered by the\nexcluded set, plus a cursor \u2014 shared across the placement's groups so spill\ninto an already-touched tier continues where consumption left off.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key, excluded, xk, yk, predicted, cache)"
+    },
+    "Inbound/gain.py::_Evaluator._chain": {
+      "decorators": [],
+      "doc": "The unit's tier spill chain, smallest fitting tier first \u2014 exactly\n`_candidates_raw`'s walk, over the injected tier tables.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit, own_key)"
+    },
+    "Inbound/gain.py::_Evaluator._make_pool": {
+      "decorators": [],
+      "doc": "The arm's own pool over COPIES of the aisle bookkeeping \u2014 the purity rule:\na virtual placement may never advance the live dicts.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cands, wp)"
+    },
+    "Inbound/gain.py::_Evaluator._pair_cost": {
+      "decorators": [],
+      "doc": "put travel (paid once) + E[visits] x (pick travel + per_pick at height).\nA zero demand rate means the unit is never picked: its pick term is ZERO\n(not quantity visits, the maximum possible reading); put is still paid.\n\nUnder window rates (the futuresight entry) the SKU's REALIZED window demand\nstands where the static rate stands: absent from the window = not picked in\nthe visible future, put only; present = per-event draw total/events, visits\ncapped at the event count (a unit cannot be visited more often than demand\nevents exist \u2014 the cap is what makes w=inf honestly the oracle).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit, bin_, wp, xk, yk) -> float"
+    },
+    "Inbound/gain.py::_Evaluator._params": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit, own_key)"
+    },
+    "Inbound/gain.py::_Evaluator._place_merge": {
+      "decorators": [],
+      "doc": "The k-cheapest merge: units in freq x labor_cost priority order take the\nclass's extremal-D available bins in order (the pool's priority minus the\nco-occurrence term \u2014 the proven residue).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, gunits, chain, wp, xk, yk, excluded, predicted, cache)"
+    },
+    "Inbound/gain.py::_Evaluator._place_pool": {
+      "decorators": [],
+      "doc": "The pool adapter: per tier, the arm's pool (over copies) serves the units\nin its own precedence; a unit the pool cannot seat spills up the chain.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, gunits, chain, wp, xk, yk, excluded, predicted, cache)"
+    },
+    "Inbound/gain.py::_Evaluator._tier_sorted": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key, xk, yk, predicted: bool) -> list"
+    },
+    "Inbound/gain.py::_Evaluator._unseated_cost": {
+      "decorators": [],
+      "doc": "Past total exhaustion: worst bin over the WHOLE spill chain (both tiers,\navailability-blind so both gain terms price it identically) x 1.5; zero when\nthe chain offers no bin anywhere, which then cancels out of the gain.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit, chain, wp, xk, yk) -> float"
+    },
+    "Inbound/gain.py::_Evaluator.place_load": {
+      "decorators": [],
+      "doc": "(cost, takes) of placing `units` against the availability that `excluded`\nleaves standing; `predicted` merges the deferral tier in.  Groups by the\nunit's OWN BinKey in load order (the canonical pack order is deterministic),\nspilling up the chain per group.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, units, excluded, predicted: bool)"
+    },
+    "Inbound/gain.py::_SECONDS_PER_DAY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "86400.0"
+    },
+    "Inbound/gain.py::_load_units": {
+      "decorators": [],
+      "doc": "The candidate's remaining planned load \u2014 pending[taken:], the plans-at-arrival\ncontract.  A candidate with no plan is a wiring error, never a silent zero: in\nproduction every yard/staged trailer was planned (or discarded) before any\nranking runs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(trailer) -> list"
+    },
+    "Inbound/gain.py::_require": {
+      "decorators": [],
+      "doc": "A gain entry without its machinery is a wiring error, loudly \u2014 a silently\ninert arm would sweep as `fifo` and publish under its own name.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, name: str)"
+    },
+    "Inbound/gain.py::_window_rates": {
+      "decorators": [],
+      "doc": "Aggregate the view's window into `{sku: (total qty, events)}` \u2014 the realized\ndemand mass and the number of window batches that carry the SKU.  Once per entry\ncall, so the pricing loop reads a dict, not w of them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(window) -> dict"
+    },
+    "Inbound/gain.py::futuresight": {
+      "decorators": [
+        "ordering"
+      ],
+      "doc": "`gain_forecast` reading the window slot (module note) \u2014 the declared-unlawful\nupper-bound reference, never recommendable.  An EMPTY window (a run at the end\nof its script) is legal and prices every pick term zero; a MISSING one (None)\nmeans no feed ran, and ranking anyway would silently be `gain_forecast` under\nthis arm's name \u2014 the same fake-arm hazard `_require` exists for.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, ctx) -> list"
+    },
+    "Inbound/gain.py::gain_forecast": {
+      "decorators": [
+        "ordering"
+      ],
+      "doc": "The unload plan with the deferral pool including `predicted` \u2014 the standing\ndemand's projected clears, the next drain's pool gain.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, ctx) -> list"
+    },
+    "Inbound/gain.py::gain_gated": {
+      "decorators": [
+        "ordering"
+      ],
+      "doc": "`gain_forecast` behind the FIFO urgency gate (module note): the URGENT SET is\nserved FIFO ahead of the plan; hours and days meet ONLY here.  A stampless\ntrailer (no clock reached the drain) accrues no yard days and is never urgent.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, ctx) -> list"
+    },
+    "Inbound/gain.py::gain_myopic": {
+      "decorators": [
+        "ordering"
+      ],
+      "doc": "The unload plan over `ctx.space.empties` only \u2014 the predicted tier is\ninvisible, so the arm's whole signal is contention for today's space.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, ctx) -> list"
+    },
+    "Inbound/gain.py::plan_order": {
+      "decorators": [],
+      "doc": "10's greedy over the frozen view.  `forced_prefix` is the urgency gate's FIFO\nhead \u2014 consumed first, unscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, _ev: _Evaluator | None=None) -> list"
+    },
+    "Inbound/gain.py::plan_order._load": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(t)"
     },
     "Inbound/pack.py": {
       "decorators": [],
@@ -782,7 +983,7 @@
     },
     "Inbound/priorities.py": {
       "decorators": [],
-      "doc": "priorities \u2014 the dock's two policy registries, on `put_policy`'s proven contract.\n\n# \u2500\u2500 two levels, two registries \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nGLOBAL ranks TRAILERS, and one ranking serves BOTH dock moments: a freed door goes to the\ntop-ranked unstaged trailer, and the crew unloads the top-ranked staged one.  LOCAL ranks a\ntrailer's LOAD PALLETS \u2014 what a crew actually pulls; on a single-SKU pallet that degenerates\nto the SKU lot.  A separate staging-vs-unload split is a later registry addition if a real\npolicy ever needs it (one adapter is a hypothetical seam).\n\nThe contract is `put_policy`'s exactly: a policy is a PURE key function, HIGHER served\nfirst, over (candidate, ctx) where `ctx` is FROZEN for the drain \u2014 computed once, reused\nacross every decision in it.  `ctx` is also where the warehouse-space signal arrives when\nthe future feature builds it (\"unloading that takes advantage of space in warehouse\"): a\nnamed view on the context, no signature change.  A LOCAL policy may reorder WORK but never\npack composition \u2014 the pack plan is fixed per trailer.\n\nThere is deliberately NO `inherit` entry: at the dock there is no placement pool whose\nprecedence could stand in, so the default is plain `'fifo'`.\n\n# \u2500\u2500 the ordering bound \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`bounded_order` is the dock's `k_cap` analog, shipped now by decision: the policy PROPOSES\nan order, the bound limits how far it may depart from arrival order \u2014 \"of the `bound`\nlongest-waiting trailers, take the best\".  Denominated in TRAILERS; None = unbounded.  With\n`'fifo'` (v1's only policy) any bound is inert, which is what keeps v1 byte-identical while\nthe interface is real.",
+      "doc": "priorities \u2014 the dock's policy registries, on `put_policy`'s proven contract.\n\n# \u2500\u2500 the registries, and the split the standing yard made real \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nGLOBAL ranks TRAILERS for the v1 drain-everything path, where one ranking serves both dock\nmoments.  The STANDING YARD (`YardTransit`) splits that decision in two, each with its own\nregistry and knob: YARD (`INBOUND_YARD_POLICY`) answers \"a freed door goes to which\nstanding trailer\"; DOCK (`INBOUND_DOCK_POLICY`) answers \"the crew works which staged\ntrailer\" \u2014 under door-team allocation that is a worker-ALLOCATION preference, decisive when\nworkers < staged trailers and graded otherwise.  Both additive, both seeded `'fifo'`; the\nGLOBAL registry and its knob stay untouched and are simply unread in standing mode.  LOCAL\nranks a trailer's LOAD PALLETS \u2014 what a crew actually pulls; on a single-SKU pallet that\ndegenerates to the SKU lot \u2014 and is shared by both paths.\n\nThe contract is `put_policy`'s, generalized ONE step (\"Define the inbound objective\",\ndecision 4): an entry is EITHER a pure key function \u2014 HIGHER served first, over\n(candidate, ctx), the degenerate case every seeded `'fifo'` entry rides \u2014 OR an ORDERING\nfunction `(candidates, ctx) -> ordered list`, tagged `@ordering`, for policies whose\nwhole proposal is the value (a gain plan that virtually consumes space as it picks has no\nper-candidate key).  `bounded_order` resolves either kind, so the registries, the\naccessors, `transit.py` and the manager are all kind-blind.  Both kinds are PURE over a\n`ctx` FROZEN for the drain \u2014 computed once, reused across every decision in it; an entry\nmutates no manager state (an ordering entry is handed a COPY of its candidates) and\nconsumes no RNG.  `ctx` is also where the warehouse-space signal arrives \u2014 the\nreserved named view is now REAL: `ctx.space` carries the drain's frozen\n`Inbound.space.SpaceView` whenever the standing yard runs (always on with the flag), None\notherwise; no signature change, and every seeded 'fifo' key ignores it.  A LOCAL policy may\nreorder WORK but never pack composition \u2014 the pack plan is fixed per trailer.\n\nThere is deliberately NO `inherit` entry: at the dock there is no placement pool whose\nprecedence could stand in, so the default is plain `'fifo'`.\n\n# \u2500\u2500 the ordering bound \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`bounded_order` is the dock's `k_cap` analog, shipped now by decision: the policy PROPOSES\nan order, the bound limits how far it may depart from arrival order \u2014 \"of the `bound`\nlongest-waiting trailers, take the best\".  Denominated in TRAILERS; None = unbounded.  With\n`'fifo'` (every seeded policy) any bound is inert, which is what keeps v1 byte-identical\nwhile the interface is real.  The ONE bound covers the global ranking and both standing\nrankings alike \u2014 a per-registry bound waits for an arm that needs them separate.\n\nWith an ORDERING entry the bound composes BOUND-FIRST \u2014 bound the candidate set, then\norder: the entry is called ONCE per drain, on the `bound` longest-waiting candidates\nonly, and the remainder follows its proposal in arrival order.  Never re-run per pick \u2014 a\nplan is one call, however deep the drain consumes it.  Inert exactly when the proposal is\narrival order, the same degenerate case that keeps `'fifo'` keys inert.",
       "kind": "module",
       "signature": null
     },
@@ -797,7 +998,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, doors: int, free_doors: int, lot_depth: int)"
+      "signature": "(self, doors: int, free_doors: int, yard_depth: int)"
     },
     "Inbound/priorities.py::_fifo_pallet": {
       "decorators": [],
@@ -806,6 +1007,13 @@
       "kind": "function",
       "signature": "(indexed_pallet, ctx) -> float"
     },
+    "Inbound/priorities.py::_fifo_standing": {
+      "decorators": [],
+      "doc": "Longest-STANDING first: earliest yard arrival wins.\n\nThe charter's order \u2014 arrival stamp, `seq` as tiebreak \u2014 needs only the stamp here:\nboth standing collections (the yard, the staged set) are maintained in (stamp, seq)\norder, and `bounded_order`'s sort is stable, so equal stamps fall back to `seq` for\nfree.  A trailer with no stamp (no clock reached the drain \u2014 bare test managers)\nranks oldest rather than crashing or silently sorting last: it has been standing\nsince before anything the clock can see.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(trailer, ctx) -> float"
+    },
     "Inbound/priorities.py::_fifo_trailer": {
       "decorators": [],
       "doc": "Strict arrival order: the longest-waiting trailer first.",
@@ -813,12 +1021,26 @@
       "kind": "function",
       "signature": "(trailer, ctx) -> float"
     },
-    "Inbound/priorities.py::bounded_order": {
+    "Inbound/priorities.py::_lifo_standing": {
       "decorators": [],
-      "doc": "The policy's order, bounded: repeatedly take the best-keyed of the `bound`\nlongest-waiting remaining candidates (arrival order = input order).  None = the\npolicy's order stands unbounded.  Stable on key ties, like the put drain.",
+      "doc": "Newest-STANDING first \u2014 the adversarial control (\"Name the policy arms\", 05):\nanchors the fee axis's bad end and null-checks whether trailer ordering moves\nlabor at all.  The exact sign-flip of `_fifo_standing` on stamped trailers; a\nstampless trailer (no clock reached the drain) is the OLDEST standing, so here it\nranks last \u2014 symmetric with fifo ranking it first.  Equal stamps keep arrival\norder (the stable sort), which only ever matters to zero-lead test rigs.",
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates: list, key, ctx, bound: int | None) -> list"
+      "signature": "(trailer, ctx) -> float"
+    },
+    "Inbound/priorities.py::bounded_order": {
+      "decorators": [],
+      "doc": "The entry's order, bounded.  A KEY entry: repeatedly take the best-keyed of the\n`bound` longest-waiting remaining candidates (arrival order = input order) \u2014 stable\non key ties, like the put drain.  An `@ordering` entry: bound FIRST, then order \u2014\none call, on a copy of the `bound` longest-waiting candidates, the remainder\nfollowing in arrival order.  None = the entry's order stands unbounded, either\nkind.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates: list, entry, ctx, bound: int | None) -> list"
+    },
+    "Inbound/priorities.py::dock_key": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(policy: str)"
     },
     "Inbound/priorities.py::global_key": {
       "decorators": [],
@@ -834,9 +1056,97 @@
       "kind": "function",
       "signature": "(policy: str)"
     },
+    "Inbound/priorities.py::ordering": {
+      "decorators": [],
+      "doc": "Tag `fn` as an ORDERING entry: `(candidates, ctx) -> ordered list`.\n\nThe registries hold both kinds; this attribute \u2014 probed via getattr, the `STANDING`\nidiom \u2014 is how `bounded_order` tells a whole-order proposal from a per-candidate\nkey.  The return must be a PERMUTATION of the candidates handed in (the same\nobjects): `bounded_order` raises on anything else, because a silently dropped\ntrailer would stand in the yard forever and a duplicated one would stage twice \u2014\nneither with an error.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(fn)"
+    },
+    "Inbound/priorities.py::yard_key": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(policy: str)"
+    },
+    "Inbound/space.py": {
+      "decorators": [],
+      "doc": "space \u2014 the event-stamped space timeline the standing dock's decisions read.\n\nTwo tiers against the absolute clock, and nothing inferred between them: bins that are\nempty NOW (with the actual second each ran dry, where a pick produced one), and bins\nPREDICTED to clear from the standing demand \u2014 the released-but-unpicked batch, one batch\ndeep, which is information a real WMS has.  Predictions are deliberately UNTIMED: no\nmakespan estimates, no pick rates against the clock.  The only times carried are facts \u2014\nactual clear stamps, and the release instant of the demand.  (\"How far ahead can\navailability reliably be planned\" is a future view-arm family, parked in the\ninbound-optimization map's fog.)\n\n# \u2500\u2500 how it attaches, and why flag-off is byte-identical by construction \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`SpaceTimeline` is constructed by the DRIVER when `INBOUND_STANDING_YARD` is on \u2014 always\non with the flag, no policy gate, no extra knob \u2014 and attached to the manager instance\n(`attach(mgr)`, the `BinRecorder.attach` rebind precedent: one attribute, no listener\nregistry).  Flag-off it is never constructed, and every manager-side hook is an\n`is None` no-op, so the store-only path cannot be perturbed.\n\nThe drain rule is INJECTED at construction (`Warehouse.picking.Workload_Builder.\ndrain_sku`, handed over by the driver) because the import edge `Inbound -> wh_picking`\nis forbidden \u2014 the broker holds what it is handed.  This module imports nothing from\nWarehouse at all.\n\n# \u2500\u2500 the five touchpoints (decisions are drain-quantized; data is event-stamped) \u2500\u2500\u2500\n\n    inject_demand   driver, BEFORE check_reorders: the batch about to be released plus\n                    the rollover carry \u2014 everything released-but-unpicked at the\n                    decision instant\n    harvest         `_reclaim_empty_bins`: the actual `_emptied_at` stamps, captured at\n                    the one moment the stamps and the bins meet before both are wiped\n    evict           `requeue_bin`: the reloader's eviction returned a bin to the free\n                    index \u2014 the OTHER door into `_index`, and the one that runs with\n                    the standing yard off\n    fill            `_execute_placement`: a bin was occupied \u2014 version bump, stamp expiry\n    freeze          ctx-freeze inside `_receive_standing`: ONE projection per drain\n                    serves every decision in it (no per-decision rescans), delivered as\n                    `ctx.space`, the named view the priority seams reserved\n\n# \u2500\u2500 the version contract (what the cache ticket keys on) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThree per-event-class counters, so tables can be processed in parallel without an I/O\nrace: `demand_v` +1 per injection (once per batch), `reclaim_v` +1 PER BIN RETURNED TO\nTHE FREE INDEX (harvest or eviction \u2014 see below), `fill_v` +1 per placement.  The\ncounters partition by what CHANGED, not by which function ran: `_index` grows through\nexactly two doors and both bump the same counter, which is what makes the vector a\ncomplete description of the free index rather than a log of call sites.  EQUALITY is\nthe only legal operation \u2014 magnitudes and\ncross-class comparisons are meaningless by contract.  The predicted set is a pure\nfunction of the other three states, so it carries no fourth counter, and the cache\nlayer composes keys from this vector and may not add counters of its own.  The\nfuturesight window rides the same rule from the other side: a pure function of\n(batch script, batch index), replaced by the injection that bumps `demand_v`, so it\ntoo adds no counter (see `SpaceView.window`).\n\nThat completeness was not free.  `requeue_bin` evictions (reloader arms) originally\nreturned a bin to the free index through none of the three classes, so two version-equal\nfreezes could straddle an eviction-only change and a cache keyed on the vector alone\nwent stale until the evicted unit re-placed.  \"Draw the cache-sharing boundary\"\n(inbound-optimization 06) closed it by GENERALIZING `reclaim_v` rather than adding a\nfourth counter: an eviction is a reclaim by every property the vector exists to express.\nNote the eviction hook is the one touchpoint reachable with the standing yard OFF (the\nreloader gates on `reslot_frac` alone), so its `is None` guard is load-bearing, not\nceremonial.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/space.py::SpaceTimeline": {
+      "decorators": [],
+      "doc": "The incrementally-maintained timeline; one per arm, riding the standing yard.\n\nOwns the standing-demand injection, the harvested clear stamps and the three version\ncounters; builds one frozen `SpaceView` per drain.  `freeze` is PURE with respect to\nthe manager: it mutates no manager state and consumes no RNG (pinned by\n`Tests/unit/test_space_timeline.py`); its only writes are this object's own\nbookkeeping (`views_built`).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/space.py::SpaceTimeline.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, drain_rule)"
+    },
+    "Inbound/space.py::SpaceTimeline.attach": {
+      "decorators": [],
+      "doc": "Bind onto the manager instance \u2014 rebind, no listener registry (the\n`BinRecorder.attach` precedent).  The manager's hooks are `is None` tests on\nthis one attribute, so detaching is unbinding and flag-off is never-bound.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr) -> 'SpaceTimeline'"
+    },
+    "Inbound/space.py::SpaceTimeline.evict": {
+      "decorators": [],
+      "doc": "A reloader eviction returned `bin_` to the free index (`requeue_bin`, the\nsecond and last door into `_index`): bump `reclaim_v`, whose meaning is \"+1 per\nbin returned to the free index\".  No fourth counter \u2014 an eviction changes the\nfree index in exactly the way a harvest does, and 03's equality-only contract\ncannot tell the two apart, nor should it.\n\nNO stamp is written, and none is expired.  An evicted bin was OCCUPIED an\ninstant ago, so it never ran dry \u2014 `emptied_at` carries actual clear stamps\nonly, exactly as it treats the harvest's stampless notifications.  Nor can a\nstale stamp survive here: occupancy has a single site (`_execute_placement`),\nand the `fill` that put this unit in the bin already popped it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bin_) -> None"
+    },
+    "Inbound/space.py::SpaceTimeline.fill": {
+      "decorators": [],
+      "doc": "A placement occupied `bin_` (`_execute_placement`, the chokepoint every\nput-away funnels through): bump `fill_v` and expire the bin's clear stamp \u2014\n`emptied_at` describes bins that are empty, and this one no longer is.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bin_) -> None"
+    },
+    "Inbound/space.py::SpaceTimeline.freeze": {
+      "decorators": [],
+      "doc": "Build the drain's frozen view: snapshot the empties, project the predicted\nclears, stamp the version vector.  ONE projection per drain serves every\ndecision in it.\n\nThe projection runs the injected drain rule over the manager's live per-SKU bin\nindexes \u2014 the exact walk `Task.from_batch` will do when this demand is picked \u2014\nand a bin is predicted-clear when its projected take equals its quantity.\nPer-SKU projections are independent (a bin holds one SKU), so demand order\ncannot change the set.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, frozen_at: float) -> SpaceView"
+    },
+    "Inbound/space.py::SpaceTimeline.harvest": {
+      "decorators": [],
+      "doc": "The reclaim-harvest: called by `_reclaim_empty_bins` with `_pending_reclaim`\nand `_emptied_at` at the one moment they meet before both are wiped.  Every\nreclaimed bin bumps `reclaim_v` (the index changed for each); only bins with an\nactual stamp enter `emptied_at` (a stampless notification \u2014 a caller with no\nclock \u2014 frees the bin without asserting when).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bins, stamps) -> None"
+    },
+    "Inbound/space.py::SpaceTimeline.inject_demand": {
+      "decorators": [],
+      "doc": "The driver's per-batch injection, BEFORE check_reorders: the batch about to\nbe released plus the rollover carry.  REPLACES the standing demand \u2014 it is one\nbatch deep by charter, never an accumulation.  `released_at` is the batch's\nrelease instant on the absolute clock (a fact the view carries verbatim).\n\n`window` is the futuresight feed (see `SpaceView.window`): already-copied\nper-batch `{sku: qty}` dicts, replaced wholesale like the demand and riding\nthe SAME `demand_v` bump \u2014 one event, no fourth counter.  None (the default,\nand every lawful run) keeps the slot empty; the projection below never reads\nit, so `predicted` keeps meaning one batch deep regardless.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, items, released_at: float | None, window: tuple | None=None) -> None"
+    },
+    "Inbound/space.py::SpaceView": {
+      "decorators": [],
+      "doc": "One drain's frozen view of warehouse space \u2014 pure data, copied at freeze.\n\nPolicy keys read it as `ctx.space` (None when no standing yard runs).  The staging\ndecision anchors to `empties` \u2014 immediately available bins, the operationally stable\nsignal; `predicted` rides as data for the planning formulation still being designed\n(\"Define the inbound objective\").  NO aggregates live here: what gets derived from\nthe tiers is the evaluator's business.\n\nThe container sets are FROZEN copies (the live `_index` lists swap-remove mid-drain,\nso a held reference would violate the frozen-ctx contract); the `Bin` objects inside\nare the live ones \u2014 a key that reads `bin.storage` mid-drain is reading stale-by-\ndesign data, exactly as the `put_policy` purity contract states.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/space.py::SpaceView.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, empties, emptied_at, predicted, released_at, versions, frozen_at, window=None)"
+    },
     "Inbound/trailer.py": {
       "decorators": [],
-      "doc": "trailer \u2014 the vehicle, its load pallets, and the FIFO loading that fills them.\n\n# \u2500\u2500 the two-level object model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`TrailerType` is stateless class-as-config on the `StorageCart` pattern\n(`Warehouse/layout/Storage_Primitive.py`): capacity read off the TYPE, one subclass per\nreal vehicle.  Positions come from footprint arithmetic at the 48-inch square pallet\n(`Warehouse.physical.PALLET_FOOTPRINT`), single-stacked: a 53-foot trailer is 13 rows x 2\nacross = 26 positions; a 28-foot pup is 6 x 2 = 12.  Both are overridable class attributes,\nand a mixed fleet is a future policy the type seam permits \u2014 one run uses one type today.\n\n`Trailer` is the stateful half and persists day over day: contents, remaining volume, an\noptional lead, the arrival stamp, door state.  Its pack plan is computed once at arrival\n(fixed by its full per-SKU contents \u2014 crew interruption pauses packing WORK, never changes\nthe packs) and dropped when the trailer is fully worked, so nothing pins packs across\nbatches \u2014 the constraint the removed LoadPlan-retention leak taught.\n\n# \u2500\u2500 the load pallet, and why it is not a pack \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA LOAD PALLET is the transport grouping loose items ride on \u2014 it may MIX SKUs that fit its\n48-cubed volume, and it is what the receiving crew pulls.  It is NOT a pack: packing has\nnot happened yet (root `CONTEXT.md` carries both entries with cross-avoid notes).  Fit is\nvolumetric with the perfect-packing assumption verbatim from `StorageCart.add_from_bin`;\nnext-fit closes a pallet, pallets fill positions, and an item that fits no remaining\nposition starts a NEW trailer \u2014 which is what keeps loading strictly FIFO (\"placed\nperfectly in FIFO order into a trailer if it fits\").\n\nFIFO loading makes SKU lots CONTIGUOUS by construction: all of one reorder loads before the\nnext begins, so \"three pallets of x\" sit together and the local-priority key's candidate is\nthe load pallet, degenerating to the SKU lot on single-SKU pallets.",
+      "doc": "trailer \u2014 the vehicle, its load pallets, and the FIFO loading that fills them.\n\n# \u2500\u2500 the two-level object model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`TrailerType` is stateless class-as-config on the `StorageCart` pattern\n(`Warehouse/layout/Storage_Primitive.py`): capacity read off the TYPE, one subclass per\nreal vehicle.  Positions come from footprint arithmetic at the 48-inch square pallet\n(`Warehouse.physical.PALLET_FOOTPRINT`), single-stacked: a 53-foot trailer is 13 rows x 2\nacross = 26 positions; a 28-foot pup is 6 x 2 = 12.  Both are overridable class attributes,\nand a mixed fleet is a future policy the type seam permits \u2014 one run uses one type today.\n\n`Trailer` is the stateful half and persists day over day: contents, remaining volume, an\noptional lead, the arrival stamp, door state.  Its pack plan is computed once at arrival\n(fixed by its full per-SKU contents \u2014 crew interruption pauses packing WORK, never changes\nthe packs) and dropped when the trailer is fully worked, so nothing pins packs across\nbatches \u2014 the constraint the removed LoadPlan-retention leak taught.\n\nUnder the STANDING YARD (`YardTransit`) a trailer also carries its unload state across\ndrains: `pending` is the planned put-away work in canonical order and `taken` is the\nconsumed index into it \u2014 a remainder is the tail, never a re-pack.  Decisions are\ndrain-quantized but the DATA is event-stamped: `arrived_s` (yard entry), `staged_s` (when\nit took its door) and `emptied_s` (when its last unit came off) are absolute-clock\nseconds, so a later event-driven cadence is a cadence change, not a data redesign.\n\n# \u2500\u2500 the load pallet, and why it is not a pack \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA LOAD PALLET is the transport grouping loose items ride on \u2014 it may MIX SKUs that fit its\n48-cubed volume, and it is what the receiving crew pulls.  It is NOT a pack: packing has\nnot happened yet (root `CONTEXT.md` carries both entries with cross-avoid notes).  Fit is\nvolumetric with the perfect-packing assumption verbatim from `StorageCart.add_from_bin`;\nnext-fit closes a pallet, pallets fill positions, and an item that fits no remaining\nposition starts a NEW trailer \u2014 which is what keeps loading strictly FIFO (\"placed\nperfectly in FIFO order into a trailer if it fits\").\n\nFIFO loading makes SKU lots CONTIGUOUS by construction: all of one reorder loads before the\nnext begins, so \"three pallets of x\" sit together and the local-priority key's candidate is\nthe load pallet, degenerating to the SKU lot on single-SKU pallets.",
       "kind": "module",
       "signature": null
     },
@@ -891,7 +1201,7 @@
     },
     "Inbound/trailer.py::Trailer.arrived": {
       "decorators": [],
-      "doc": "Has this trailer reached the parking lot?\n\nLead zero (the decided default) arrives instantly.  A positive lead needs the\nabsolute clock; when no clock reaches the calendar (`now_s` None \u2014 bare test\nmanagers), a positive lead simply has not arrived, which fails safe: merchandise\nwaits rather than teleports.",
+      "doc": "Has this trailer reached the yard?\n\nLead zero (the decided default) arrives instantly.  A positive lead needs the\nabsolute clock; when no clock reaches the calendar (`now_s` None \u2014 bare test\nmanagers), a positive lead simply has not arrived, which fails safe: merchandise\nwaits rather than teleports.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, now_s: float | None) -> bool"
@@ -909,6 +1219,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
+    },
+    "Inbound/trailer.py::Trailer.remaining_qty": {
+      "decorators": [],
+      "doc": "Pieces still aboard: the un-taken planned tail once a plan exists, the whole\nload before one does.  The standing yard's contribution to the deferred census \u2014\nplanned quantities, so a packing shortfall (already debited from the ledger at\narrival) is not counted twice.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/trailer.py::Trailer.remaining_totals": {
+      "decorators": [],
+      "doc": "{sku: qty} still aboard \u2014 `remaining_qty` with the per-SKU split the\nreplay/reorder_queue rows want.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
     },
     "Inbound/trailer.py::Trailer.sku_totals": {
       "decorators": [],
@@ -946,9 +1270,30 @@
     },
     "Inbound/transit.py": {
       "decorators": [],
-      "doc": "transit \u2014 the trailer model on the manager's order-port seam.\n\n`TrailerTransit` binds where `BatchTransit` (the flag-off default in\n`Warehouse/inventory/inventory_reorder.py`) sits: same seam, same phase wrappers, injected\nby the driver and never imported by anything under `Warehouse/` \u2014 the broker rule.  What\nchanges flag-on is the SHAPE of transit: fired reorders load item-by-item into trailers\n(FIFO next-fit \u2014 a lot that outgrows the open trailer continues in a fresh one, which is\n`inbound_split` realized structurally: each trailer's portion packs as its own delivery),\ntrailers dispatch when loading passes them by and arrive per their lead (seconds on the\nabsolute clock, minutes-authored, default ZERO = instantly), stand in the PARKING LOT,\nstage to DOCK DOORS, and are worked in priority order \u2014 global over trailers at both dock\nmoments, local over load pallets, both `'fifo'` in v1.\n\n# \u2500\u2500 what the doors do in v1, and deliberately do not \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nDoors are BOOKKEEPING in v1: every arrival lands at the batch epoch and every policy is\nFIFO, so a per-batch door throttle would invent staffing physics the shift-end decision\nalready declined \u2014 the crew's hours are the bound on receiving, exactly as the dock's\nno-backpressure note says.  The door count, free-door census and staging order are all\nreal and reported through `DockContext`, so the policies that make doors bite (arrival\nspread, non-FIFO staging) arrive as registry entries, not as rewiring.\n\n# \u2500\u2500 the seam contract \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nMirrors `BatchTransit` exactly \u2014 `SOURCE`, `dispatch`, `advance`, `release`, `depth`,\n`merchandise()`, `snapshot()` \u2014 so the manager's phase bodies cannot tell which transit is\nbound.  `release()` returns `[sku, qty, remaining]` DELIVERIES (one per contiguous trailer\nlot, in unload order); the manager's ledger debit, packer and admission flow are untouched,\nand admissions carry `SOURCE = 'trailer'`, the fourth `PutawayItem` provenance.",
+      "doc": "transit \u2014 the trailer model on the manager's order-port seam.\n\n`TrailerTransit` binds where `BatchTransit` (the flag-off default in\n`Warehouse/inventory/inventory_reorder.py`) sits: same seam, same phase wrappers, injected\nby the driver and never imported by anything under `Warehouse/` \u2014 the broker rule.  What\nchanges flag-on is the SHAPE of transit: fired reorders load item-by-item into trailers\n(FIFO next-fit \u2014 a lot that outgrows the open trailer continues in a fresh one, which is\n`inbound_split` realized structurally: each trailer's portion packs as its own delivery),\ntrailers dispatch when loading passes them by and arrive per their lead (seconds on the\nabsolute clock, minutes-authored, default ZERO = instantly), stand in the YARD,\nstage to DOCK DOORS, and are worked in priority order \u2014 global over trailers at both dock\nmoments, local over load pallets, both `'fifo'` in v1.\n\n# \u2500\u2500 the lead, and why it is drawn here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA lead is PER TRAILER, drawn at creation from one lognormal \u2014 median `lead_s` \u00d7 spread\n`lead_sigma` \u2014 and homogeneous leads are that distribution's \u03c3 = 0 case, taken literally:\nno generator is constructed and `lead_s` is returned as-is, so \"the default is\nbyte-identical\" is a property of the code path rather than a claim about a distribution.\nThe draw is stateless and SEQ-KEYED (`SeedSequence([seed, tag, seq])`, one draw,\ndiscarded), which is what makes it survive this repo's constraints for free: nothing to\npickle across the spawn boundary, nothing to restore on a resume, and trailer #N drawing\nthe same lead in every arm of a run \u2014 common random numbers across arms.  Heterogeneity\nis the standing yard's alone (`inbound_spec` refuses a spread without it): v1 ranks by\ndispatch seq, so a spread there would shift arrival batches without scrambling any order.\n\n# \u2500\u2500 what the doors do in v1, and deliberately do not \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nDoors are BOOKKEEPING in v1: every arrival lands at the batch epoch and every policy is\nFIFO, so a per-batch door throttle would invent staffing physics the shift-end decision\nalready declined \u2014 the crew's hours are the bound on receiving, exactly as the dock's\nno-backpressure note says.  The door count, free-door census and staging order are all\nreal and reported through `DockContext`, so the policies that make doors bite (arrival\nspread, non-FIFO staging) arrive as registry entries, not as rewiring.\n\n`YardTransit` below is where doors BECOME real: at most `doors` trailers staged, a trailer\nholds its door across drains until fully unloaded, and the yard-pull fires when a door\nfrees.  Gated by `INBOUND_STANDING_YARD`; flag-off binds this class untouched.\n\n# \u2500\u2500 the seam contract \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nMirrors `BatchTransit` exactly \u2014 `SOURCE`, `dispatch`, `advance`, `release`, `depth`,\n`merchandise()`, `snapshot()` \u2014 so the manager's phase bodies cannot tell which transit is\nbound.  `release()` returns `[sku, qty, remaining]` DELIVERIES (one per contiguous trailer\nlot, in unload order); the manager's ledger debit, packer and admission flow are untouched,\nand admissions carry `SOURCE = 'trailer'`, the fourth `PutawayItem` provenance.",
       "kind": "module",
       "signature": null
+    },
+    "Inbound/transit.py::DISCARDED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'discarded'"
+    },
+    "Inbound/transit.py::DONE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'done'"
+    },
+    "Inbound/transit.py::STANDING": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'standing'"
     },
     "Inbound/transit.py::TrailerTransit": {
       "decorators": [],
@@ -961,7 +1306,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, doors: int=4, global_policy: str='fifo', local_policy: str='fifo', bound: int | None=None)"
+      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=4, global_policy: str='fifo', local_policy: str='fifo', bound: int | None=None)"
     },
     "Inbound/transit.py::TrailerTransit._depart": {
       "decorators": [],
@@ -981,17 +1326,24 @@
       "decorators": [
         "property"
       ],
-      "doc": "In-flight ENTRIES: trailers loading, in transit, or parked.",
+      "doc": "In-flight ENTRIES: trailers loading, in transit, or standing in the yard.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
     },
     "Inbound/transit.py::TrailerTransit.dispatch": {
       "decorators": [],
-      "doc": "Load one fired reorder, item-by-item, FIFO next-fit across trailers.\n\n`lead` (batches) is the LEGACY denomination and is deliberately ignored here: a\ntrailer's lead is `lead_s` on the absolute clock (ticket: \"Choose the lead-time\ndenomination\").  `unit_volume` None falls back to one item per position-volume\nshare of nothing \u2014 callers on this seam pass `order.volume()`.",
+      "doc": "Load one fired reorder, item-by-item, FIFO next-fit across trailers.\n\n`lead` (batches) is the LEGACY denomination and is deliberately ignored here: a\ntrailer's lead is seconds on the absolute clock, drawn per trailer by `lead_for`\n(ticket: \"Choose the lead-time denomination\").  `unit_volume` None falls back to\none item per position-volume share of nothing \u2014 callers on this seam pass\n`order.volume()`.\n\nThe draw happens HERE, at creation, and never again: the lead is a property of the\ntrailer from the instant it exists, so `dispatched_s + lead_s` is a fixed arrival\nthe yard can be sorted by however many drains later it is observed.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, sku: int, qty: int, lead: int, unit_volume: int | None=None, now_s: float | None=None) -> None"
+    },
+    "Inbound/transit.py::TrailerTransit.lead_for": {
+      "decorators": [],
+      "doc": "Trailer `seq`'s transit lead, in absolute-clock seconds.\n\nSpread 0 \u2014 the default, and every run before this existed \u2014 returns the median\nUNTOUCHED, constructing no generator and consuming no entropy.  The scalar path is\nnot re-derived through a degenerate distribution; it is the same expression it\nalways was, which is why the byte-identity claim here is a property of the code\nrather than a tolerance on a comparison.\n\nOtherwise `median \u00b7 exp(\u03c3 \u00b7 Z_seq)`, lognormal: strictly positive, so nothing needs\nclamping, and with the right tail that does the work \u2014 stragglers overtaken by\nlater dispatches (the ordering lever's gradient) and trailers at risk of crossing\nthe fee threshold while they stand.\n\nA PURE FUNCTION of `(seed, tag, seq)`, deliberately: no generator object exists to\npickle across the spawn boundary or restore on a resume, drawing lead #7 never\ndepends on whether #0..#6 were drawn first, and trailer #N gets the same lead in\nevery arm of a run \u2014 common random numbers across arms, at no cost.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, seq: int) -> float"
     },
     "Inbound/transit.py::TrailerTransit.merchandise": {
       "decorators": [],
@@ -1002,17 +1354,155 @@
     },
     "Inbound/transit.py::TrailerTransit.release": {
       "decorators": [],
-      "doc": "Everything the dock can start on this batch, as [sku, qty, 0] deliveries.\n\nOrder of operations IS the model: (1) anything still loading departs \u2014 a trailer\nwaits for nothing in v1; (2) arrivals (lead elapsed against `now_s`) join the\nparking lot; (3) the lot stages to doors and staged trailers are worked in\nGLOBAL-priority order, each trailer's pallets in LOCAL-priority order, emitting one\ndelivery per contiguous SKU lot \u2014 so a split shipment packs as the pieces it\narrived in.  Worked trailers free their doors within the drain (v1: doors are\nbookkeeping; see the module note).",
+      "doc": "Everything the dock can start on this batch, as [sku, qty, 0] deliveries.\n\nOrder of operations IS the model: (1) anything still loading departs \u2014 a trailer\nwaits for nothing in v1; (2) arrivals (lead elapsed against `now_s`) join the\nyard; (3) the yard stages to doors and staged trailers are worked in\nGLOBAL-priority order, each trailer's pallets in LOCAL-priority order, emitting one\ndelivery per contiguous SKU lot \u2014 so a split shipment packs as the pieces it\narrived in.  Worked trailers free their doors within the drain (v1: doors are\nbookkeeping; see the module note).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, now_s: float | None=None) -> list"
     },
     "Inbound/transit.py::TrailerTransit.snapshot": {
       "decorators": [],
-      "doc": "(sku, qty, remaining_lead) tuples for the replay rows; remaining is 1 for\nanything still riding a lead, 0 for parked \u2014 batches were never its unit.",
+      "doc": "(sku, qty, remaining_lead) tuples for the replay rows; remaining is 1 for\nanything still riding a lead, 0 for standing \u2014 batches were never its unit.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
+    },
+    "Inbound/transit.py::YardTransit": {
+      "decorators": [],
+      "doc": "The standing yard: doors become real, and a trailer keeps its door until empty.\n\nWhat changes against the parent, and nothing else: `release()` is PURE CALENDAR \u2014\ndeparts loaders, lands arrivals in the yard, returns NO deliveries \u2014 and every door\nand crew decision moves to `_receive`, which drives the standing surfaces below over\nDRAIN-FROZEN rankings.  The parent's `release()` body is not edited; flag-off binds\nthe parent untouched, which is the first of the four byte-identity layers.\n\n# \u2500\u2500 the standing surfaces (what `_receive` drives) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe manager owns `_originals`, the packer and the crew, so it cannot live here \u2014 and\nthis class may not reach any of those, so the split is: THIS object holds trailer,\nyard and door STATE (`unplanned`/`planned_lots` for plans-at-arrival, `freeze_ctx`/\n`yard_order`/`dock_order` for the frozen rankings, `stage`/`door_freed`/`discard` for\nthe door lifecycle, `staged`/`free_doors` for the census) and the MANAGER makes every\ndecision over them.  The other transits satisfy these surfaces trivially \u2014 no\n`STANDING` attribute, no standing work \u2014 which is why neither is edited.\n\n# \u2500\u2500 invariants worth naming \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n* The yard is kept in (arrival stamp, `seq`) order \u2014 the charter's entry order \u2014 so\n  the stable ranking sort breaks stamp ties by seq for free.\n* At most `doors` trailers are staged; `stage` raises past that rather than quietly\n  widening the dock.\n* Decisions are drain-quantized, data is event-stamped: `stage`/`door_freed` take the\n  ABSOLUTE instant the caller derived (drain epoch, or epoch + crew-clock offset for\n  a mid-drain refill), and `stamps` keeps one\n  `(seq, arrived_s, staged_s, emptied_s, status)` tuple per finished trailer \u2014 the raw\n  material the `yard_trailers` table reports from, kept here because the trailer object\n  itself is dropped when it empties.  The STATUS is stamped by whichever door the\n  trailer left through rather than re-derived downstream from the null pattern: the\n  two producers know which they are, and a reader inferring `discarded` from \"never\n  staged\" would silently reclassify the day someone stages a trailer they then drop.\n* `INBOUND_GLOBAL_POLICY` and the parent's global registry are UNREAD here \u2014 the\n  yard/dock registries are the standing model's split of that decision.",
+      "kind": "class",
+      "signature": "(TrailerTransit)"
+    },
+    "Inbound/transit.py::YardTransit.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=4, yard_policy: str='fifo', dock_policy: str='fifo', local_policy: str='fifo', bound: int | None=None, allocation: str='split')"
+    },
+    "Inbound/transit.py::YardTransit.depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "In-flight ENTRIES: loading, in transit, standing in the yard, or staged with\na remainder \u2014 a trailer leaves the census only when its last unit comes off.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/transit.py::YardTransit.discard": {
+      "decorators": [],
+      "doc": "Drop a yard trailer whose plan packed NOTHING (shortfall to zero) \u2014 there is\nno work to stage a door for.  The ledger debit is the manager's, done where the\nshortfall was measured; this only keeps the yard free of undrainable entries.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer: Trailer, at_s: float | None) -> None"
+    },
+    "Inbound/transit.py::YardTransit.dock_order": {
+      "decorators": [],
+      "doc": "The drain-frozen DOCK ranking over staged trailers: the crew-allocation\npreference, and the canonical handoff order's first key.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, ctx: DockContext) -> list"
+    },
+    "Inbound/transit.py::YardTransit.door_freed": {
+      "decorators": [],
+      "doc": "A trailer came up empty: stamp it, free its door, and drop its plan.\n\nThe pack plan and pending list die here (the LoadPlan-retention lesson \u2014 nothing\nmay pin a run's worth of live StorageUnits); the stamps survive in `stamps`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer: Trailer, at_s: float | None) -> None"
+    },
+    "Inbound/transit.py::YardTransit.drain_stamps": {
+      "decorators": [],
+      "doc": "Hand over the finished-trailer stamps and start the list over.\n\nDrained rather than read for `drain_putaway_records`' reason: the caller takes\nownership once per batch, so this object never holds a run's worth of rows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/transit.py::YardTransit.free_doors": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/transit.py::YardTransit.freeze_ctx": {
+      "decorators": [],
+      "doc": "The drain's frozen context: computed once, before any staging or unload.\n`ctx.gain` rides here the way `ctx.space` rides the manager's freeze \u2014 the\ninjected bundle if a gain policy runs, None otherwise.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> DockContext"
+    },
+    "Inbound/transit.py::YardTransit.merchandise": {
+      "decorators": [],
+      "doc": "Pieces not yet handed to the put queue \u2014 mirrors the deferred ledger: full\nloads before arrival, PLANNED quantities once a plan exists (a packing shortfall\nwas already debited at arrival), remainders only on staged trailers.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/transit.py::YardTransit.planned_lots": {
+      "decorators": [],
+      "doc": "(sku, qty) per contiguous lot, in canonical LOCAL-priority order \u2014 the exact\nportions the parent's `release()` would have emitted as deliveries, so the pack\nplan is v1's, fixed at loading, whatever later interrupts the unload.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer: Trailer, ctx: DockContext) -> list"
+    },
+    "Inbound/transit.py::YardTransit.release": {
+      "decorators": [],
+      "doc": "Pure calendar: departs loaders, lands arrivals in the yard, delivers NOTHING.\n\nThe unload pull lives in `_receive` because it is LABOUR \u2014 a lead elapses whether\nor not anyone is at work, but nothing comes off a trailer without a crew.  An\nempty return keeps `_release_arrivals` a structural no-op: no ledger debit, no\npacking, no admission \u2014 the deferred-until-unload contract.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, now_s: float | None=None) -> list"
+    },
+    "Inbound/transit.py::YardTransit.snapshot": {
+      "decorators": [],
+      "doc": "(sku, qty, remaining_lead) rows: 1 riding a lead, 0 standing \u2014 yard trailers\nwhole, staged trailers by their remainders.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/transit.py::YardTransit.stage": {
+      "decorators": [],
+      "doc": "Move one yard trailer to a door.  `at_s` is the event instant: the drain epoch\nfor the whistle-independent fill, epoch + crew-clock offset for a refill.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer: Trailer, at_s: float | None) -> None"
+    },
+    "Inbound/transit.py::YardTransit.staged": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/transit.py::YardTransit.standing_stamps": {
+      "decorators": [],
+      "doc": "Rows for every trailer still on site \u2014 the CENSORED detention the run ends in.\n\nNon-destructive, and deliberately: nothing has finished, so nothing may be\nforgotten.  `emptied_s` is NULL here and that null is the whole point \u2014 the\ndetention span of these trailers is right-censored at the run end, not zero.\nUnder an adversarial ordering (`lifo`) this is exactly where the concentrated\noverage sits, so a table that dropped these rows would report `lifo`'s fee as\nCLIPPED rather than concentrated, which is the opposite of its signal.\n\nYard and staged alike: a trailer at a door with units still on it has been held\njust as long as one that never reached one.  `staged_s` tells them apart.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/transit.py::YardTransit.unplanned": {
+      "decorators": [],
+      "doc": "Yard trailers with no pack plan yet \u2014 arrived this drain, in yard order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/transit.py::YardTransit.yard_depth": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Trailers standing in the yard RIGHT NOW \u2014 the live twin of the frozen\n`DockContext.yard_depth`.  Read at drain end, where the frozen one is stale by\nexactly the staging this drain did, which is the whole measurement.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/transit.py::YardTransit.yard_order": {
+      "decorators": [],
+      "doc": "The drain-frozen YARD ranking: which standing trailer takes the next freed\ndoor.  Consumed front-first by every same-drain refill \u2014 no mid-drain re-score.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, ctx: DockContext) -> list"
     },
     "Inbound/unload.py": {
       "decorators": [],
@@ -1694,6 +2184,13 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/common/frames.py::MISSED_REASONS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('unpicked_unstocked', 'unpicked_unavailable')"
+    },
     "Optimization/Performance_Evaluations/common/frames.py::SEMANTIC_USES": {
       "decorators": [],
       "doc": null,
@@ -1714,6 +2211,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(stats)"
+    },
+    "Optimization/Performance_Evaluations/common/frames.py::_cdf": {
+      "decorators": [],
+      "doc": "Per-BATCH demand service, folded from carryover rows over the two supply reasons.\n\nThe fold is reason-SELECTIVE, and that is the whole design: three reason families share\n`carryover.qty` under one PK \u2014 the put-side ones are LEVELS re-emitted every batch and\nthe pick-side ones are FLOWS \u2014 so a total over the table is not defined.  Filtering to\ntwo FLOWS first makes the sum legal; `sim_semantics`' ByDiscriminator on `reason` is\nthe declaration that says so.\n\nThe denominator is the STATED whole `items_demanded`, not what was picked: a\ndenominator that shrinks as service degrades would flatter exactly the arms this\nquantity exists to expose.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, df_b)"
+    },
+    "Optimization/Performance_Evaluations/common/frames.py::_ddf": {
+      "decorators": [],
+      "doc": "Per-DRAIN frame: the contention pair, the binding-cut pair, and the indicator.\n\nEvery column here is a LEVEL.  `binding_cut` is the one derived value and it is a\nBOOLEAN per drain, never a magnitude: the additive statistic over the pair is the count\nof drains where inbound work was left, and summing the levels themselves would re-count\nthe same standing trailer once per batch it waits (the `recv_cut` scar, 101x on a\npublished headline).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows)"
     },
     "Optimization/Performance_Evaluations/common/frames.py::_elapsed": {
       "decorators": [],
@@ -1742,6 +2253,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(stats, aisle_unittype_map, aisle_handling_map)"
+    },
+    "Optimization/Performance_Evaluations/common/frames.py::_ydf": {
+      "decorators": [],
+      "doc": "Per-TRAILER frame: raw stamps in, spans and the fee proxy out.\n\n`run_end_s` closes the CENSORED rows.  A trailer still on site when the run stops has\n`emptied_s` NULL, and its detention is right-censored rather than absent: it has been\nheld at least until the run ended, so the run end is the honest lower bound and the\n`censored` column is what keeps that visible.  Dropping those rows instead would report\nan adversarial ordering's fee as CLIPPED rather than concentrated, which inverts the\nsignal that arm exists to produce.\n\n`threshold_days` is the run's own `INBOUND_FEE_THRESHOLD_DAYS`.  It enters HERE and\nnowhere else, which is what makes a finished run re-reportable under a different\nthreshold without re-simulating.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, run_end_s, threshold_days)"
     },
     "Optimization/Performance_Evaluations/common/io.py": {
       "decorators": [],
@@ -2343,6 +2861,13 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/common/units.py::DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('dimensionless', 'days')"
+    },
     "Optimization/Performance_Evaluations/common/units.py::DURATION": {
       "decorators": [],
       "doc": null,
@@ -2377,6 +2902,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "Unit('rate_per_s', 'items / hour', PER_HOUR)"
+    },
+    "Optimization/Performance_Evaluations/common/units.py::SECONDS_PER_DAY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "24.0 * SECONDS_PER_HOUR"
     },
     "Optimization/Performance_Evaluations/common/units.py::TIME_UNITS": {
       "decorators": [],
@@ -2621,6 +3153,27 @@
       "kind": "function",
       "signature": "(self) -> dict"
     },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.capabilities": {
+      "decorators": [],
+      "doc": "The optional sources every arm here can answer from \u2014 memoised, probed once.\n\nOne probe per DISTINCT arm, each a `SELECT 1 ... LIMIT 1` per capability, paid once\nper context because `run_analysis` memoises contexts per (config, focus). Lazy on\npurpose: a preset with no capability-gated evaluation never opens a connection for\nthis at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> frozenset"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.drain_df": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.fee_threshold_days": {
+      "decorators": [],
+      "doc": "The free yard days this run's overage accrues past \u2014 RECORDED, else HEAD's.\n\nThe whole reason the DB holds raw stamps: the fee is derived here, so a finished\nrun can be re-reported under a different threshold without re-simulating. Which\nalso means the threshold has to be the RUN's, not this checkout's, or the number\nis quietly about the wrong configuration.\n\nRecording it is `Build the run-shape layer`'s job (the run spec does not carry\n`inbound_fee_threshold_days` yet, and neither restore site touches inbound). Until\nthen this falls back to the default in `Optimization.config.settings`, which is\ncorrect for every run that predates recording and WRONG the moment someone sweeps\nthe threshold \u2014 so the fallback says so in the log rather than resolving silently.\nThe campaign must never exercise it, which is what makes that ticket a prerequisite\nof phase 1 rather than of phase 2.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.footer": {
       "decorators": [],
       "doc": "Provenance line stamped on every figure: origin sim folder + inventory.\n\nrun_dir is `<run>/<cell>/<pair>/<config>` on a store-only run and\n`<run>/<cell>/<pair>/<config>/<channel>` on a mixed one, so a FIXED number of dirname hops\nmislabels one of the two \u2014 the old three-hop version rendered the config name in the \"run\"\nslot for every channelized run.  Walk up to the run root (the dir holding run_layout.json)\ninstead, so the label is right at either depth.",
@@ -2650,6 +3203,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.missed_df": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
     },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.series": {
       "decorators": [],
@@ -2687,6 +3247,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.yard_df": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
     },
     "Optimization/Performance_Evaluations/core/context.py::REQUIRES": {
       "decorators": [],
@@ -2789,6 +3356,13 @@
       "kind": "function",
       "signature": "(self, artifact: str) -> list"
     },
+    "Optimization/Performance_Evaluations/core/context.py::_probe_capabilities": {
+      "decorators": [],
+      "doc": "Which optional sources EVERY arm of this context can actually answer from.\n\nThe runtime half of the era gate, and it opened the day a quantity first named a\ncapability. `core/era.py`'s static rule proves a declared read is either inside the\nguaranteed surface or named as a capability; that is a statement about the QUANTITY\nTABLE and says nothing about the file in front of you. A vetted vintage can carry a\nconditional table and no rows in it \u2014 measured across two archived cells,\n`aisle_metrics` has rows in 52 of 60 arms and `reorder_queue` in 68 of 166 \u2014 and\nwithout this probe the only symptom would be a figure that silently does not appear.\n\nINTERSECTED across arms, not unioned. A comparison figure draws every arm on one axis,\nso a capability one arm cannot answer is a capability the figure cannot use: the union\nwould license a chart that silently omits an arm, which reads as that arm scoring zero.\n\nAbsent files are skipped rather than counted as answering nothing \u2014 `requests` already\ndenies on those, with a better message, and folding the two would report a missing file\nas a data-era problem.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strategies, log: logging.Logger) -> frozenset"
+    },
     "Optimization/Performance_Evaluations/core/context.py::_provenance_parts": {
       "decorators": [],
       "doc": "Directory names from the RUN ROOT down to `leaf_dir`, for a figure's provenance footer.\n\nThe run root is the dir holding run_layout.json (the run-tree descriptor).  Anchoring on that\nmarker keeps the label correct whether the leaf is `<cell>/<pair>/<config>` (store-only) or\n`<cell>/<pair>/<config>/<channel>` (mixed) \u2014 a fixed dirname-hop count cannot be right for both.\nFalls back to the last three components when no descriptor is found (e.g. an ad-hoc dir under\ntest), so this never raises inside a plotting call.",
@@ -2822,19 +3396,26 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/core/era.py::GATED_READS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "compat.Requires(family='sim_db', label='Performance_Evaluations quantity table (capability-gated)', tables=_table_columns(gated=True))"
+    },
     "Optimization/Performance_Evaluations/core/era.py::QUANTITY_READS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "compat.Requires(family='sim_db', label='Performance_Evaluations quantity table', tables=_table_columns())"
+      "value_preview": "compat.Requires(family='sim_db', label='Performance_Evaluations quantity table', tables=_table_columns(gated=False))"
     },
     "Optimization/Performance_Evaluations/core/era.py::_table_columns": {
       "decorators": [],
-      "doc": "{table: (columns,)} \u2014 every sim-DB read the whole quantity table amounts to.",
+      "doc": "{table: (columns,)} over the quantities that do (or do not) name a capability.",
       "is_async": false,
       "kind": "function",
-      "signature": "() -> dict"
+      "signature": "(gated: bool) -> dict"
     },
     "Optimization/Performance_Evaluations/core/era.py::findings": {
       "decorators": [],
@@ -2845,7 +3426,7 @@
     },
     "Optimization/Performance_Evaluations/core/era.py::requires_for": {
       "decorators": [],
-      "doc": "The `Requires` one quantity's sim-DB read amounts to, or None for no read.\n\nDERIVED, not declared: the table comes from the frame builder the source names and the\ncolumns from the source itself, so a quantity cannot describe a read it does not make.\nA quantity with no per-batch source reads no database \u2014 its numbers come from a series\ndocument the analysis wrote, or from the run's own cost rows.",
+      "doc": "The `Requires` one quantity's sim-DB read amounts to, or None for no read.\n\nDERIVED, not declared: the table comes from the frame builder the source names and the\ncolumns from the source itself, so a quantity cannot describe a read it does not make.\nA quantity with no per-batch source reads no database \u2014 its numbers come from a series\ndocument the analysis wrote, or from the run's own cost rows.\n\n`all_db_reads`, not `db_reads`: a quantity whose denominator lives in another table\n(`missed_share`) makes two reads, and validating only the first would let the second\nslip past the gate \u2014 which is the whole failure this module is the guard against.",
       "is_async": false,
       "kind": "function",
       "signature": "(q)"
@@ -2944,7 +3525,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'batch': 'batch_stats', 'task_mean': 'task_stats', 'task_sum': 'task_stats'}"
+      "value_preview": "{'batch': 'batch_stats', 'task_mean': 'task_stats', 'task_sum': 'task_stats', 'trailer': 'yard_trailers', 'drain': 'yard_drains', 'carryover': 'carryover'}"
     },
     "Optimization/Performance_Evaluations/core/quantities.py::INSPECTION": {
       "decorators": [],
@@ -2952,6 +3533,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "Shape('inspection', fixed=frozenset({'absolute'}))"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::PAIRED_KINDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('batch', 'task_mean', 'task_sum')"
     },
     "Optimization/Performance_Evaluations/core/quantities.py::Quantity": {
       "decorators": [
@@ -3053,14 +3641,32 @@
       "kind": "function",
       "signature": "(self) -> str | None"
     },
+    "Optimization/Performance_Evaluations/core/quantities.py::Source.all_db_reads": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Every (table, columns) pair this quantity amounts to \u2014 primary plus `db_also`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
     "Optimization/Performance_Evaluations/core/quantities.py::Source.db_reads": {
       "decorators": [
         "property"
       ],
-      "doc": "(table, columns) this quantity reads out of a sim database, or ().",
+      "doc": "(table, columns) this quantity's PRIMARY frame reads, or ().\n\nDeliberately still one pair: every consumer of this property unpacks it, and a\nsecond table is the exception rather than the shape.  `all_db_reads` is the\ncomplete answer and is what the era gate validates against.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> tuple"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::Source.frame_kind": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The frame this quantity is read out of ('batch', 'trailer', ...), or ''.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
     },
     "Optimization/Performance_Evaluations/core/quantities.py::Source.readable": {
       "decorators": [
@@ -3143,7 +3749,7 @@
     },
     "Optimization/Performance_Evaluations/core/quantities.py::metric_specs": {
       "decorators": [],
-      "doc": "`stats_core._METRICS` \u2014 (name, source_kind, column, lower_is_better).",
+      "doc": "`stats_core._METRICS` \u2014 (name, source_kind, column, lower_is_better).\n\nFiltered to `PAIRED_KINDS`: the significance suite pairs batch i of one arm against\nbatch i of another, and a per-trailer or per-drain frame has no such pairing to offer.\nA kind that is in neither list raises rather than being dropped, because \"silently\nabsent from every published CSV\" is the exact failure mode this table was built to end.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> list"
@@ -3237,6 +3843,26 @@
       "kind": "function",
       "signature": "(self) -> str"
     },
+    "Optimization/Performance_Evaluations/core/requests.py::EraUnmet": {
+      "decorators": [],
+      "doc": "A refusal about the DATA ERA, not about a missing resource.\n\nKept distinct from a plain `Denied` because the two call for different actions and a\nsingle bucket taught the reader the wrong one. A denial says a file was not there \u2014\nre-run the stage, fix the path. This says the file IS there and cannot answer the\nquestion, because the run predates the column or never wrote the rows. There is no\nfixing that from the analysis side: the only honest routes are a new sweep on a vintage\nthat records it, or the degraded form with the caveat said out loud.\n\nIt reports under its own `[era]` summary line for the same reason. `[access]` counts\nINPUTS, and an era shortfall arriving in that column would read as a pipeline fault on\na run that is simply older than the measurement.",
+      "kind": "class",
+      "signature": "(Denied)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::EraUnmet.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, reason: str, missing=()) -> None"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::EraUnmet.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
     "Optimization/Performance_Evaluations/core/requests.py::Request": {
       "decorators": [
         "dataclass(frozen=True)"
@@ -3261,6 +3887,13 @@
       "kind": "function",
       "signature": "(ctx)"
     },
+    "Optimization/Performance_Evaluations/core/requests.py::_arm_end_s": {
+      "decorators": [],
+      "doc": "When this arm stopped, on its own absolute axis \u2014 the CENSORING bound.\n\n`max(batch_start_time + duration)` rather than the last row's, because DB order is not\nguaranteed sorted (the same reason `_elapsed` argsorts).  0.0 on an empty frame, which\nmakes every censored detention 0 \u2014 honest for a run with no batches at all, and the\nonly case where it can happen.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key) -> float"
+    },
     "Optimization/Performance_Evaluations/core/requests.py::_batch": {
       "decorators": [
         "request('batch', 'config')"
@@ -3282,6 +3915,15 @@
     "Optimization/Performance_Evaluations/core/requests.py::_deny_absent": {
       "decorators": [],
       "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_missed": {
+      "decorators": [
+        "request('missed', 'config')"
+      ],
+      "doc": "Per-arm demand-service frames.  Granted with ZEROS in them, unlike `yard`.\n\nAn arm with no missed rows genuinely served all its demand, and that is a result rather\nthan an absence \u2014 so a frame of zeros is a grant, and `_cdf` builds one row per BATCH\nrather than one per carryover row precisely so a perfectly-served batch is present at\nzero instead of missing.\n\nThat is also why this compose cannot be the era check. A pre-`carryover` vintage\nproduces the identical frame of zeros \u2014 `load_carryover` returns `[]` for \"no table\" and\nfor \"nothing missed\" alike \u2014 so row-emptiness cannot tell a perfect run from an old one,\nand reading zeros off the old one would publish a plausible wrong number. The\nCAPABILITY does tell them apart (it probes the table for rows), both quantities name it,\nand `era_shortfall` runs before this. The check below therefore only ever fires when no\narm recorded a batch at all.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx)"
@@ -3338,6 +3980,15 @@
       "kind": "function",
       "signature": "(ctx)"
     },
+    "Optimization/Performance_Evaluations/core/requests.py::_yard": {
+      "decorators": [
+        "request('yard', 'config')"
+      ],
+      "doc": "Both yard frames for every arm \u2014 `{key: (trailers_df, drains_df)}`.\n\nDENIED when no arm has a single yard row, and that denial is the honest one: an\ninbound-off run is not a run whose yard was empty, it is a run with no yard, and a\nfamily of figures asserting zero trailer-days would be a claim about a model that did\nnot exist. The driver logs it and skips the render, which is exactly what should\nhappen to every run in the archive.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
     "Optimization/Performance_Evaluations/core/requests.py::batch_frame": {
       "decorators": [],
       "doc": "One strategy's batch frame, memoised in ctx._bcache \u2014 EvalContext.batch_df delegates here.",
@@ -3351,6 +4002,27 @@
       "is_async": false,
       "kind": "function",
       "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::drain_frame": {
+      "decorators": [],
+      "doc": "One strategy's per-drain yard frame, memoised.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::era_shortfall": {
+      "decorators": [],
+      "doc": "`EraUnmet` when this run cannot answer a quantity this evaluation draws, else None.\n\nTHE RUNTIME HALF OF THE ERA GATE. `core/era.py` proves statically that every quantity's\nread is either version-free or names a capability; this asks the far narrower question\nthat only a file can answer \u2014 does THIS run carry it. The gap between the two is a\nvetted vintage that has the table and no rows, which is common enough to have been\nmeasured (`reorder_queue`: 68 of 166 arms) and which nothing else would notice: the\nfigure would simply not appear, with an INFO line either way.\n\nOnly config-scope evaluations are checked, because only they read a sim DB \u2014 the\naggregate scope consumes series documents this same analysis wrote, and the run scope\nreads the run root. A scope with no capability probe available answers None rather than\nguessing, which is the same rule `_deny_absent` follows for a file it cannot see.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, ev)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::missed_frame": {
+      "decorators": [],
+      "doc": "One strategy's per-batch demand-service frame, memoised.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key)"
     },
     "Optimization/Performance_Evaluations/core/requests.py::record_error": {
       "decorators": [],
@@ -3375,7 +4047,7 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::resolve_needs": {
       "decorators": [],
-      "doc": "Resolve every request `ev.needs` declares against `ctx`.  Returns {} when all granted\n(resources are materialized into the context's caches as a side effect), else\n{need: Denied} for exactly the requests that could not be served.  Tallies either way.",
+      "doc": "Resolve every request `ev.needs` declares against `ctx`.  Returns {} when all granted\n(resources are materialized into the context's caches as a side effect), else\n{need: Denied} for exactly the requests that could not be served.  Tallies either way.\n\nThe ERA check runs first and short-circuits: composing a resource this run cannot answer\nwould pay for every arm's frames to discover what the capability probe already knows.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, ev) -> dict"
@@ -3404,6 +4076,13 @@
     "Optimization/Performance_Evaluations/core/requests.py::task_frame": {
       "decorators": [],
       "doc": "One strategy's task frame, memoised in ctx._tcache \u2014 EvalContext.task_df delegates here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::yard_frame": {
+      "decorators": [],
+      "doc": "One strategy's per-trailer frame, memoised \u2014 spans and the fee proxy derived here.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
@@ -4196,7 +4875,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['task_time.duration', 'task_time.breakdown', 'layout.travel', 'layout.churn', 'diagnostics.metric_grids', 'diagnostics.scorecards']"
+      "value_preview": "['task_time.duration', 'task_time.breakdown', 'layout.travel', 'layout.churn', 'yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard', 'diagnostics.metric_grids', 'diagnostics.scorecards']"
     },
     "Optimization/Performance_Evaluations/presets.py::_GROUPS": {
       "decorators": [],
@@ -4245,7 +4924,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch', 'labor.delta_grid', 'throughput.volume']"
+      "value_preview": "['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch', 'labor.delta_grid', 'throughput.volume', 'throughput.missed']"
     },
     "Optimization/Performance_Evaluations/presets.py::_keys": {
       "decorators": [],
@@ -4625,6 +5304,35 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/throughput/missed.py": {
+      "decorators": [],
+      "doc": "throughput.missed \u2014 demand the floor was asked for and could not pick.\n\nThe availability axis. It was floated as the inbound OBJECTIVE and lost to expected future\nwork, and it is here on the terms of that decision: a REPORTED axis, never a target and\nnever a selection metric. Nothing ranks arms by it and nothing optimises toward it. It\nexists because a policy that wins hours by starving the shelf has to show that somewhere,\nand this is the somewhere.\n\n## Two supply reasons, and one that is not\n\n`unpicked_unstocked` (nothing on the shelf) and `unpicked_unavailable` (stock exists, the\nbin could not be reached) are what inbound can move. `unpicked_daycut` is NOT included and\nis not an oversight: the whistle stopping a picker mid-shift is a staffing fact, so folding\nit in would let a longer working day read as better inbound. `unpicked_notasks` is out for\nthe same kind of reason \u2014 no task was built for it, which is scheduling.\n\n## Ungated by the yard, gated by carryover\n\nDemand service is meaningful with no inbound model at all, so these draw on every run that\nCAN answer them. What they cannot outrun is the `carryover` table, which postdates most of\nthe archive \u2014 hence the `carryover` capability on both quantities and the broker's denial\nwhen the table is absent. An arm with no missed rows served all its demand, which is a\nresult and renders normally.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/throughput/missed.py::_PANELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('missed_pieces', lambda df: float(df['missed_pieces'].sum())), ('missed_share', lambda df: float(np.nanmean(df['missed_share'].values))))"
+    },
+    "Optimization/Performance_Evaluations/throughput/missed.py::_entries": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, frames, fold)"
+    },
+    "Optimization/Performance_Evaluations/throughput/missed.py::render": {
+      "decorators": [
+        "evaluation(key='throughput.missed', label='Demand missed, per arm', scope='config', needs=('missed',), family='throughput', shape='ranked', quantities=tuple((k for k, _f in _PANELS)))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
     "Optimization/Performance_Evaluations/throughput/volume.py": {
       "decorators": [],
       "doc": "throughput.volume \u2014 cumulative pick volume against elapsed time, in two views.\n\nWHY A CURVE AND NOT A BAR.  Throughput as a single number hides *when* the work\nhappened.  Plotting running items against running elapsed hours makes the rate itself\nthe visible thing: the SLOPE of the curve IS throughput, so a steeper line that\nterminates further left finished the same demand sooner.  That is the whole \"better\nthroughput at equal labor\" story in one picture \u2014 the arms do not do less work, they do\nit in less elapsed time.\n\nTHE TIME AXIS IS SYNTHESIZED, AND HAS TO BE.  There is no global clock in the data:\nevery batch's sim clock restarts at zero, so elapsed time is the running sum of batch\nmakespans \u2014 exactly the quantity run_whatif_labor calls `batch_hours`, converted with\nthe same `chartkit.to_hours`, so numbers reconcile across the suite.  These are modeled\npick-time hours, not wall-clock; the axis label carries the qualifier.  HOURS IS FIXED\non this x-axis, not chosen from the data like the duration axes elsewhere in the suite:\nelapsed run time is the one quantity the whole comparison is denominated in \u2014 the\nwhat-if layer, the finish annotations and the site all say \"hours\" \u2014 and a cumulative\naxis that renamed its unit per run would stop reconciling with them.\n\nTHE PRIMARY VIEW IS THE PERCENT LEAD.  The cumulative curves are near-identical straight\nlines (measured shape index ~1.0007 on a real 100-batch arm), so overlaying them shows\nalmost nothing, and the retired companion panel plotted the lead in absolute items \u2014\n\u00b1150k reads as huge while being a few percent.  The percent view interpolates each arm\nand FIFO onto a shared hour grid spanning only the hours BOTH actually cover (never\nextrapolating past the shorter run) and plots the lead as a % of FIFO's cumulative at\nthat same moment \u2014 FIFO is the zero line, and each arm's finish dot is annotated with\nits finish hour, because the finish point is where arms genuinely differ.  The absolute\nview keeps the raw curves as the honest-units companion, decluttered: names in the\nlegend, the per-arm rate/finish numbers in one compact subtitle block, and x-limits\nidentical across both files so the views superimpose mentally.\n\nParams: top_n (int), top_by ('global' | 'initial' | 'assignment' | 'reslot').",
@@ -4704,6 +5412,177 @@
     "Optimization/Performance_Evaluations/trajectories/overtime.py::render": {
       "decorators": [
         "evaluation(key='trajectories.overtime', label='Over-time trajectories, absolute + % vs baseline', scope='config', needs=('series',), family='trajectories', shape='serial', quantities=SERIES_QUANTITIES)"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/yard/__init__.py": {
+      "decorators": [],
+      "doc": "yard \u2014 did the yard bind, and what did the inbound policy cost in trailer-days.\n\nThe tenth chart family, and inbound's FIRST figure coverage of any kind: the receiving\nsurface (`batch_stats.recv_*`) has been carried into frames and one diagnostics report\nsince it landed and is declared by zero quantities.\n\n## What this family answers, and what it deliberately does not\n\nThe campaign behind it asks one two-part question \u2014 does space-aware inbound beat FIFO,\nand at what fee cost \u2014 so this folder holds the second half. The first half is hours, and\nhours live in `labor`/`headline` where they always have. **The two never meet in a\nnumber.** Labour seconds and detention days are different instruments; the only place they\ncompose in this whole effort is the `gain_gated` arm's urgency GATE, which is a yes/no\ntest inside the simulation and not a report. A single score blending them would be exactly\nthe arithmetic the fee proxy was designed to avoid.\n\n## The fee is a PROXY, and the stamps are raw\n\nNothing in the database is a fee. `yard_trailers` holds arrival, staging and emptying\nstamps; the detention span, the overage past `INBOUND_FEE_THRESHOLD_DAYS` and the door\nutilization are all derived here, at read time, against the threshold the RUN recorded.\nThat is what makes a finished run re-reportable under a different threshold without\nre-simulating \u2014 and it is why the calibration probe (\"where does the threshold sit for a\nnonzero, non-saturated overage?\") is an analysis pass over one FIFO run rather than a\nsweep. Overage days are never converted to money.\n\n## An empty folder here is a result\n\nA run without `INBOUND_STANDING_YARD` has no yard \u2014 not an empty one. The `yard` request\nis DENIED when no arm carries a trailer row, so these evaluations render nothing and the\ndriver logs why. Zeroed bars would be a claim about a model that did not run.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/yard/binding.py": {
+      "decorators": [],
+      "doc": "yard.binding \u2014 did the yard actually bind, and how often did a drain leave work behind.\n\nThe prior question of the whole effort. A policy that reorders trailers can only matter\nwhere there is contention: with doors free and nothing standing, every ordering rule picks\nthe same trailers in the same drain and the arms are byte-identical by construction. So\nthis family's first figure is not a comparison at all \u2014 it is the evidence that the\ncomparison is licensed.\n\nTwo marks, one question:\n\n  `yard_depth`    trailers standing at each drain's ctx-freeze, over the run. Read BEFORE\n                  the door fill, because \"did the yard bind\" is a question about the moment\n                  of choice and after the fill there is nothing left to choose.\n  `binding_cuts`  how many drains ENDED with a trailer unreached or units still on a staged\n                  one. A COUNT OF DRAINS, never a sum of the levels: summing them would\n                  re-count the same standing trailer once per batch it waits, which is the\n                  mistake `recv_cut` made at 101x on a published headline.\n\nTHE PILOT GATE READS THIS FIGURE'S ABSOLUTE VALUE UNDER `fifo`, not its ranking. A config\nthat shows neither contention nor binding cuts is a declared stop for the campaign \u2014 the\narms would be measuring nothing \u2014 so the absolute panel is the load-bearing one here and\nthe comparison views are secondary.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/yard/binding.py::CUTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'binding_cuts'"
+    },
+    "Optimization/Performance_Evaluations/yard/binding.py::DEPTH": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'yard_depth'"
+    },
+    "Optimization/Performance_Evaluations/yard/binding.py::_contention_note": {
+      "decorators": [],
+      "doc": "One sentence on whether the yard bound at all \u2014 the pilot gate's own reading.\n\nDeliberately computed over every arm rather than the baseline alone: an arm-specific\nabsence would be a policy result, and a universal one is a configuration that cannot\nanswer the question at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(frames) -> str"
+    },
+    "Optimization/Performance_Evaluations/yard/binding.py::_cut_entries": {
+      "decorators": [],
+      "doc": "[(strategy, drains that left inbound work)] \u2014 a COUNT of drains, not of trailers.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, frames)"
+    },
+    "Optimization/Performance_Evaluations/yard/binding.py::_series": {
+      "decorators": [],
+      "doc": "{key: {'batch': [...], 'yard_start': [...]}} \u2014 the shape `marks.serial` takes.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, frames)"
+    },
+    "Optimization/Performance_Evaluations/yard/binding.py::render": {
+      "decorators": [
+        "evaluation(key='yard.binding', label='Yard depth over drains, and binding cuts per arm', scope='config', needs=('yard', 'batch'), family='yard', shape=('serial', 'ranked'), quantities=(DEPTH, CUTS))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/yard/detention.py": {
+      "decorators": [],
+      "doc": "yard.detention \u2014 how long the site held each trailer, and how that time is spread.\n\nDETENTION IS arrived -> emptied: the whole time the carrier's trailer is on site,\nINCLUDING its hours at a door. That definition is what makes it a fair substrate for a\nfee \u2014 it is monotone under any ordering, so staging a trailer early and then unloading it\nslowly sheds nothing, and no policy can win the fee axis by shuffling where the waiting\nhappens rather than shortening it.\n\n## Why a distribution, not just a mean\n\nThe adversarial control arm (`lifo`) does not RAISE mean detention much \u2014 it serves the\nsame trailers with the same crew \u2014 it CONCENTRATES it, holding a few trailers a very long\ntime while the rest move normally. A mean beside a mean would show that arm as roughly\ntied and the fee total as mysteriously worse. The box per arm is where the mechanism\nbecomes visible, and the threshold is drawn on it as a fixed mark so a reader can see the\ntail crossing the line rather than infer it from a number elsewhere.\n\nThe mean is still reported, because it is the quantity the ranked comparison is defined\non and the one a percent view can be taken of. The two figures answer different halves.\n\n## Censored rows are IN, and marked\n\nA trailer still standing when the run ends contributes its lower bound. Excluding it would\nremove exactly the longest-held trailers \u2014 the ones the fee is about \u2014 and understate the\narm that produced them. Each arm's censored share is annotated so the bound is legible.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/yard/detention.py::QUANTITY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'yard_detention_days'"
+    },
+    "Optimization/Performance_Evaluations/yard/detention.py::_distribution": {
+      "decorators": [],
+      "doc": "The box-per-arm figure: THE view of concentration, and a bespoke mark.\n\n`marks.ranked` draws one value per arm; this draws a whole sample per arm, which is a\ndifferent mark and is why it is in the bespoke ledger rather than routed through the\nlibrary. Everything else is the house style \u2014 the same category axis, the same\nbaseline shading, the quantity's own converter for the axis label.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, frames, threshold, out)"
+    },
+    "Optimization/Performance_Evaluations/yard/detention.py::_entries": {
+      "decorators": [],
+      "doc": "[(strategy, mean detention in days)] over arms with at least one trailer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, frames)"
+    },
+    "Optimization/Performance_Evaluations/yard/detention.py::render": {
+      "decorators": [
+        "evaluation(key='yard.detention', label='Detention per trailer, mean and distribution', scope='config', needs=('yard', 'batch'), family='yard', shape='ranked', quantities=(QUANTITY,))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/yard/fee.py": {
+      "decorators": [],
+      "doc": "yard.fee \u2014 what the inbound ordering cost the carrier, per arm.\n\nTwo quantities, one ranked mark, and they are deliberately reported side by side:\n\n  `yard_overage_days`            \u03a3 max(0, detention \u2212 threshold) over every trailer. A\n                                 carrier charges per trailer per day held, so this is the\n                                 quantity that is actually billed, and it SUMS.\n  `yard_over_threshold_trailers` how many trailers accrued any overage at all.\n\nOne trailer held a fortnight and a fortnight of trailers each held a day are the same\nnumber of trailer-days and are not the same operational problem \u2014 the first is one carrier\nrelationship in trouble, the second is a systemic dwell. The total alone cannot tell them\napart, so the count rides beside it rather than being derivable-in-principle from a chart\nnobody will do the arithmetic on.\n\nCENSORED TRAILERS ARE IN BOTH. A trailer still standing when the run stops has been held\nat least until the run ended, and under an adversarial ordering (`lifo`) that is exactly\nwhere the concentrated overage sits. Dropping those rows would report `lifo`'s fee as\nclipped rather than concentrated, which inverts the signal the arm exists to produce; the\nsubtitle says how many rows are bounded rather than observed.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/yard/fee.py::_PANELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('yard_overage_days', lambda df: float(df['overage_days'].sum())), ('yard_over_threshold_trailers', lambda df: float(df['over_threshold'].sum())))"
+    },
+    "Optimization/Performance_Evaluations/yard/fee.py::_TITLES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'absolute': ('Yard overage per arm', 'trailer-days held past the free threshold, censored trailers included'), 'percent': ('Yard overage vs baseline', 'improvement against the baseline arm; an arm..."
+    },
+    "Optimization/Performance_Evaluations/yard/fee.py::_censored_note": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(frames) -> str"
+    },
+    "Optimization/Performance_Evaluations/yard/fee.py::_entries": {
+      "decorators": [],
+      "doc": "[(strategy, per-arm scalar)] over the arms that have any trailer at all.\n\nNo `paired` companion, and that is a decision rather than an omission: the fee's\ninstances are TRAILERS, and trailer `seq` n of one arm is the same physical trailer as\n`seq` n of another (leads are seq-keyed draws, common random numbers across arms) \u2014 but\nonly when both arms ran the same catalogue to the same depth. Pairing on that\nassumption without checking it would put a bootstrap interval on a comparison that may\nbe lining up different shipments. A ranked mark without `paired` draws points with no\ninterval, which is honest about what it does not know.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, frames, fold)"
+    },
+    "Optimization/Performance_Evaluations/yard/fee.py::render": {
+      "decorators": [
+        "evaluation(key='yard.fee', label='Yard overage and over-threshold trailers per arm', scope='config', needs=('yard', 'batch'), family='yard', shape='ranked', quantities=tuple((k for k, _f in _PANELS)))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py": {
+      "decorators": [],
+      "doc": "yard.scorecard \u2014 the read-outs that have no honest direction, in one table.\n\nThree numbers the yard produces that a reader needs and that must NOT be ranked:\n\n  DOOR UTILIZATION       \u03a3 door spans \u00f7 (doors \u00d7 the arm's span). Neither high nor low is\n                         good. Low says the doors were never the constraint; high says they\n                         were saturated and adding one would change the answer. Both are\n                         findings about the CONFIGURATION, not scores for the policy.\n  THE CONTENTION PAIR    trailers standing and doors free at each drain's freeze. The\n                         licence for the whole comparison \u2014 with doors free and nothing\n                         standing, every ordering rule picks the same trailers and the arms\n                         are byte-identical by construction.\n  THE CENSORED SHARE     what fraction of trailer rows are bounded rather than observed. A\n                         provenance fact about the other figures, not a result.\n\n`DIRECTIONS` admits only 'lower' and 'higher', so declaring any of these as a Quantity\nwould force a direction none of them has \u2014 and a false direction is worse than no\ndeclaration, because every derived view downstream would then assert it. They live here\ninstead, in an INSPECTION mark, which is the family grammar's own slot for a read-out with\nno baseline in it. The column semantics they are built from are declared where the reads\nactually happen, in `common/frames.py`.\n\n## The door count is DERIVED, and exactly\n\nNothing records `INBOUND_DOCK_DOORS` where the analysis can see it (that is the run-shape\nlayer's job). But `free_doors_start = doors \u2212 staged`, and the first drain of a run always\nfreezes with nothing staged, so `max(free_doors_start)` IS the door count whenever the\nrun's first drain is in the frame. On a resumed arm whose early drains are missing it\nbecomes a lower bound, which makes utilization an UPPER bound \u2014 stated in the table rather\nthan left for a reader to assume away.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('arm', 'trailers', 'censored', 'doors', 'door util', 'yard depth (mean/max)', 'free doors (mean)', 'drains bound')"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_arm_span_days": {
+      "decorators": [],
+      "doc": "The arm's own wall of sim time, in days \u2014 utilization's denominator.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key) -> float"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_row": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, s, tdf, ddf)"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::render": {
+      "decorators": [
+        "evaluation(key='yard.scorecard', label='Yard read-outs with no direction', scope='config', needs=('yard', 'batch'), family='yard', shape='inspection')"
       ],
       "doc": null,
       "is_async": false,
@@ -4961,12 +5840,40 @@
       "signature": null,
       "value_preview": "'foot'"
     },
+    "Optimization/config/settings.py::INBOUND_CREW_ALLOCATION": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'split'"
+    },
     "Optimization/config/settings.py::INBOUND_DOCK_DOORS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "4"
+    },
+    "Optimization/config/settings.py::INBOUND_DOCK_POLICY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fifo'"
+    },
+    "Optimization/config/settings.py::INBOUND_FEE_THRESHOLD_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "2.0"
+    },
+    "Optimization/config/settings.py::INBOUND_FUTURESIGHT_BATCHES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
     },
     "Optimization/config/settings.py::INBOUND_GLOBAL_POLICY": {
       "decorators": [],
@@ -4975,12 +5882,33 @@
       "signature": null,
       "value_preview": "'fifo'"
     },
+    "Optimization/config/settings.py::INBOUND_LEAD_MINUTES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.0"
+    },
+    "Optimization/config/settings.py::INBOUND_LEAD_SPREAD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.0"
+    },
     "Optimization/config/settings.py::INBOUND_LOCAL_POLICY": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "'fifo'"
+    },
+    "Optimization/config/settings.py::INBOUND_STANDING_YARD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "False"
     },
     "Optimization/config/settings.py::INBOUND_TRAILER_BOUND": {
       "decorators": [],
@@ -4989,19 +5917,47 @@
       "signature": null,
       "value_preview": "None"
     },
-    "Optimization/config/settings.py::INBOUND_TRAILER_LEAD_MINUTES": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "0.0"
-    },
     "Optimization/config/settings.py::INBOUND_TRAILER_TYPE": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "None"
+    },
+    "Optimization/config/settings.py::INBOUND_UNLOAD_INTERCEPT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/settings.py::INBOUND_UNLOAD_VOLUME_COEF": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/settings.py::INBOUND_UNLOAD_WEIGHT_COEF": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/settings.py::INBOUND_URGENCY_HORIZON_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.0"
+    },
+    "Optimization/config/settings.py::INBOUND_YARD_POLICY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fifo'"
     },
     "Optimization/config/settings.py::KEYFRAME_INTERVAL": {
       "decorators": [],
@@ -5394,6 +6350,13 @@
       "kind": "function",
       "signature": "(cfg: dict) -> str"
     },
+    "Optimization/config/sim_config.py::_futuresight_batches": {
+      "decorators": [],
+      "doc": "Normalize INBOUND_FUTURESIGHT_BATCHES for the spec: None | 'all' | int >= 0.\n\nAnything else raises here, at spec build, rather than reaching a worker: the knob\ndenominates a batch COUNT, so a negative, fractional, bool, or unrecognized-string\nvalue is a config error, never a silent clamp \u2014 and the error names the knob\n(a bare `int('oracle')` message would refuse loudly but signpost nothing).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(raw)"
+    },
     "Optimization/config/sim_config.py::_load_env": {
       "decorators": [],
       "doc": null,
@@ -5417,7 +6380,7 @@
     },
     "Optimization/config/sim_config.py::inbound_spec": {
       "decorators": [],
-      "doc": "The trailer pipeline's configuration as a picklable record, or **None** for off.\n\nNone rather than a dict with a flag, for the same reason `recv_crew_spec` returns None:\nthe worker tests `args.get('inbound') is None` and skips the whole build -- no\nTrailerTransit, no trailer objects, and the manager keeps the batch lead queue it\nconstructed for itself, byte-identically.\n\nReads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`'s\nsettings snapshot).  The lead is authored in MINUTES and converted to the sim's\nseconds exactly once, here -- the minutes-at-the-surface decision.",
+      "doc": "The trailer pipeline's configuration as a picklable record, or **None** for off.\n\nNone rather than a dict with a flag, for the same reason `recv_crew_spec` returns None:\nthe worker tests `args.get('inbound') is None` and skips the whole build -- no\nTrailerTransit, no trailer objects, and the manager keeps the batch lead queue it\nconstructed for itself, byte-identically.\n\nReads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`'s\nsettings snapshot).  The lead MEDIAN is authored in MINUTES and converted to the sim's\nseconds exactly once, here -- the minutes-at-the-surface decision.  The SPREAD is\ndimensionless and crosses as-is; the draw itself lives at trailer creation\n(`Inbound.transit.TrailerTransit.lead_for`), keyed by the world seed carried below,\nso no RNG object ever has to cross the worker payload.\n\nTHE STANDING YARD'S CONTRADICTIONS FAIL HERE, LOUDLY.  `INBOUND_STANDING_YARD` with\nno trailer type is a yard with no trailers; with no receiving crew it is a yard\nnobody can ever unload -- merchandise would stand deferred forever, the run would\ncomplete, and nothing would raise.  And a non-fifo yard/dock policy WITHOUT the\nstanding yard is a policy nothing reads: the run would complete as v1 fifo under\nthe policy's name -- the fake-arm hazard, worn as configuration.  So is a lead\nSPREAD without the standing yard, or over a zero median (see the guard below).  All\nare configuration errors, never a silent no-op: the flag's OFF state is the only\ninert one.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict | None"
@@ -6393,6 +7356,13 @@
       "signature": null,
       "value_preview": "'bin_scores'"
     },
+    "Optimization/persistence/Picking_Data.py::CAP_CARRYOVER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'carryover'"
+    },
     "Optimization/persistence/Picking_Data.py::CAP_KEYFRAMES": {
       "decorators": [],
       "doc": null,
@@ -6428,12 +7398,19 @@
       "signature": null,
       "value_preview": "'work_events'"
     },
+    "Optimization/persistence/Picking_Data.py::CAP_YARD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'yard'"
+    },
     "Optimization/persistence/Picking_Data.py::CONDITIONAL_READS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'load_bin_inventory': 'bin_inventory', 'load_bin_placements': 'bin_placement', 'load_bin_evictions': 'bin_eviction', 'run_identity': 'simulation_runs.sim_schema_id'}"
+      "value_preview": "{'load_bin_inventory': 'bin_inventory', 'load_bin_placements': 'bin_placement', 'load_bin_evictions': 'bin_eviction', 'run_identity': 'simulation_runs.sim_schema_id', 'load_yard_trailers': 'yard_tr..."
     },
     "Optimization/persistence/Picking_Data.py::KEYFRAME_DB_FAMILY": {
       "decorators": [],
@@ -6528,6 +7505,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "('aisle_id', 'bayX', 'bayY', 'travel_d', 'height_mult', 'layout_score', 'map_pref')"
+    },
+    "Optimization/persistence/Picking_Data.py::_CARRYOVER_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('batch_id', 'reason', 'sku', 'qty')"
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_AISLE_METRICS": {
       "decorators": [],
@@ -6739,6 +7723,20 @@
       "signature": null,
       "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_we_run_tabs\\n ON work_events (run_id, t_abs)\\n'"
     },
+    "Optimization/persistence/Picking_Data.py::_CREATE_YARD_DRAINS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS yard_drains (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch INTEGER NOT NULL, -- pairs 1:1 with batch_stats.batch_id. Its own\\n -- table rathe..."
+    },
+    "Optimization/persistence/Picking_Data.py::_CREATE_YARD_TRAILERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS yard_trailers (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n seq INTEGER NOT NULL, -- the trailer's dispatch ordinal: run-scoped, dense,\\n -- and t..."
+    },
     "Optimization/persistence/Picking_Data.py::_EVENT_COLS": {
       "decorators": [],
       "doc": null,
@@ -6815,6 +7813,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "('batch_id', 'seq', 't_abs', 't_local', 'shift_index', 'actor_uid', 'actor_local', 'role', 'mode', 'event_type', 'aisle_id', 'sku', 'qty', 'duration', 'source')"
+    },
+    "Optimization/persistence/Picking_Data.py::_YARD_DRAIN_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('batch', 'yard_start', 'free_doors_start', 'yard_end', 'staged_remainder_end')"
+    },
+    "Optimization/persistence/Picking_Data.py::_YARD_TRAILER_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('seq', 'arrived_s', 'staged_s', 'emptied_s', 'status')"
     },
     "Optimization/persistence/Picking_Data.py::_apply_run_schema": {
       "decorators": [],
@@ -6899,6 +7911,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(con: sqlite3.Connection, run_id: int, rows: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_yard_drains": {
+      "decorators": [],
+      "doc": "`(batch, yard_start, free_doors_start, yard_end, staged_remainder_end)` tuples.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_yard_trailers": {
+      "decorators": [],
+      "doc": "`(seq, arrived_s, staged_s, emptied_s, status)` tuples, as the transit stamps them.\n\nA trailer reaches this table exactly once in a clean run \u2014 the finished stamps are\nDRAINED per batch and the censored tail is read once, at run end, from trailers the\ndrain never saw.  OR REPLACE is therefore idempotency insurance, matching the other log\ntables: it makes re-running an arm over an existing DB a correction rather than a PK\ncollision.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
     },
     "Optimization/persistence/Picking_Data.py::_migrate_run_columns": {
       "decorators": [],
@@ -7019,6 +8045,13 @@
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list[dict]"
     },
+    "Optimization/persistence/Picking_Data.py::load_carryover": {
+      "decorators": [],
+      "doc": "Every carryover row this run recorded.  `[]` on a vintage without the table.\n\nRAW ROWS, reasons unfolded.  The three reason families are LEVELS and FLOWS sharing one\nphysical column, so there is no legal `SUM(qty)` over the whole table and this loader\ndeliberately does not offer one: the caller selects its reasons and knows which kind it\nthen holds (`sim_semantics`' ByDiscriminator on `reason` is the declaration).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list"
+    },
     "Optimization/persistence/Picking_Data.py::load_picker_events": {
       "decorators": [],
       "doc": "Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.\n\nReturns records ordered by (batch_id, picker_id, time) for sequential replay.\nVersion-adaptive; see `load_batch_stats`.",
@@ -7053,6 +8086,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list[TaskStats]"
+    },
+    "Optimization/persistence/Picking_Data.py::load_yard_drains": {
+      "decorators": [],
+      "doc": "Every drain's yard levels, in batch order.  `[]` on a pre-yard vintage.\n\nAll four columns are LEVELS re-measured per drain: `sum()` over any of them restates\nthe same standing trailers once per batch.  The additive statistic over the binding-cut\npair is a COUNT OF DRAINS with either above zero.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list"
+    },
+    "Optimization/persistence/Picking_Data.py::load_yard_trailers": {
+      "decorators": [],
+      "doc": "Every trailer row this run recorded, in dispatch order.  `[]` on a pre-yard vintage.\n\nRAW STAMPS.  No span, no detention day, no overage \u2014 those derive at analysis against\nthe run's recorded threshold, which is what makes a finished run's fee axis\nre-reportable without re-simulating.  An empty list is also the honest answer for an\ninbound-off run: the table exists, and nothing stood in a yard.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list"
     },
     "Optimization/persistence/Picking_Data.py::run_identity": {
       "decorators": [],
@@ -7112,10 +8159,10 @@
     },
     "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle": {
       "decorators": [],
-      "doc": "All per-checkpoint writers on ONE connection with ONE commit.\n\n`work_events`, `put_queue_state` and `carryover` are keyword-OPTIONAL, so a caller that\npredates them -- a test, a Diagnostics harness -- is unchanged and writes no rows.\n\nA bundle argument that is accepted and never inserted is this function's characteristic\nfailure: `work_events` was one for a while, and the reconciliation that was supposed to\ncatch it passed over 68 databases holding zero rows. Every new argument here needs a\ntest that reads the FILE back.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
+      "doc": "All per-checkpoint writers on ONE connection with ONE commit.\n\n`work_events`, `put_queue_state`, `carryover` and the two `yard_*` lists are\nkeyword-OPTIONAL, so a caller that predates them -- a test, a Diagnostics harness -- is\nunchanged and writes no rows.\n\nA bundle argument that is accepted and never inserted is this function's characteristic\nfailure: `work_events` was one for a while, and the reconciliation that was supposed to\ncatch it passed over 68 databases holding zero rows. Every new argument here needs a\ntest that reads the FILE back.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
       "is_async": false,
       "kind": "function",
-      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list, work_events: list | None=None, put_queue_state: list | None=None, carryover: list | None=None) -> None"
+      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list, work_events: list | None=None, put_queue_state: list | None=None, carryover: list | None=None, yard_trailers: list | None=None, yard_drains: list | None=None) -> None"
     },
     "Optimization/persistence/Picking_Data.py::save_picker_events": {
       "decorators": [],
@@ -7165,6 +8212,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, rows: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_yard_trailers": {
+      "decorators": [],
+      "doc": "Write trailer stamps on their own connection \u2014 the RUN-END flush's writer.\n\nSeparate from `save_checkpoint_bundle` because the censored tail is not a checkpoint\nproduct: the bundle only fires when a batch window is unflushed, and a run whose batch\ncount divides evenly by its checkpoint interval has no such window. The trailers still\nstanding then are exactly the rows an adversarial ordering concentrates its overage in,\nso they cannot ride a conditional.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
     },
     "Optimization/persistence/Picking_Data.py::sim_schema_id": {
       "decorators": [],
@@ -9104,7 +10158,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('headline', 'trajectories', 'labor', 'throughput', 'task_time', 'layout', 'significance', 'diagnostics')"
+      "value_preview": "('headline', 'trajectories', 'labor', 'throughput', 'task_time', 'layout', 'significance', 'yard', 'diagnostics')"
     },
     "Optimization/runschema/schema.py::_figure_globs": {
       "decorators": [],
@@ -9588,6 +10642,34 @@
       "is_async": false,
       "kind": "function",
       "signature": "(run_dir: str) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_futuresight_window": {
+      "decorators": [],
+      "doc": "Batch i's futuresight window: the demand of script batches `i+1 .. i+w`\n('all' = to the run's end), each `.items` dict COPIED \u2014 `batches[j]` is the\nSHARED pickle every arm of the family reads, and a reference travelling into\nthe frozen view would let any downstream mutation corrupt every sibling arm's\ndemand silently.  The copies guard the shared objects; they are not a cache.\n\nClamped at `n_batches`, not `len(batches)`: past the run's end nothing\nreleases, so the tail \u2014 and w=0 \u2014 yield `()`, an empty window, never an\nerror.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batches, i: int, w, n_batches: int) -> tuple"
+    },
+    "Optimization/simdriver/strategy_runner.py::_futuresight_window_w": {
+      "decorators": [],
+      "doc": "The futuresight window width \u2014 `int` batches or `'all'` \u2014 or None when neither\nstanding policy names the arm.  This is the arm's REFUSAL-UNTIL-CLEAN gate\n(\"Define the inbound objective\" decision 6), checked once at worker startup:\n\n* the knob unset is a config error, never a silent default \u2014 an unlawful\n  reference arm must be run on purpose, with its window stated;\n* `batches` None means this worker fell back to INLINE batch sampling\n  (fingerprint miss / missing script), and a window sampled inline would be a\n  silently different future than the one the run releases.  The script is\n  REQUIRED; the run refuses before simulating a single batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spec, batches)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_gain_bundle_for": {
+      "decorators": [],
+      "doc": "The gain evaluator's faithful-to-arm bundle \u2014 driver-built, driver-injected\n(`mgr.transit.gain_bundle`), because `Inbound -> wh_inventory / wh_placement` are\nforbidden edges: the broker holds what it is handed (the `drain_sku` precedent).\n\nThe fidelity seam per arm FAMILY (prototype ticket 04): tmin/tmax ride the proven\nk-cheapest merge; rank_popularity gets its own pool rebuilt over aisle-state\ncopies (its selector must read the COPY of aisle_demand_sum, not the live dict);\nrank_random gets the pool with a deterministic stand-in selector and expectation\npricing over the aisle heads (an ordering entry may consume no RNG \u2014 the decided\ndeviation 04 recorded).  Any other placement family FAILS LOUDLY: an evaluator\nthat cannot rebuild the arm's pool over copies would price a fiction under that\narm's name, and phase 2's top-k should extend this map consciously, not silently.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle'"
+    },
+    "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cands, ass, ais, ads, wp_local)"
     },
     "Optimization/simdriver/strategy_runner.py::_gc_cb": {
       "decorators": [],
@@ -13668,6 +14750,13 @@
       "kind": "function",
       "signature": "(self, target: int)"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stamp": {
+      "decorators": [],
+      "doc": "Wrap one unit as a stamped `PutawayItem` -- the ONE place the age stamp is\ntaken.  Split out of `_admit` for the standing yard, whose units are stamped at\nYARD ARRIVAL (their age is the trailer's, not the unload's) but enter no queue\nuntil the crew pulls them -- `_admit` routes as well as stamps, and routing a\ndeferred unit would put it away for free.  Every stamp still comes from here, so\nno producer can invent its own and quietly enter as age -1.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, source: str) -> 'PutawayItem'"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock": {
       "decorators": [],
       "doc": "Dispatch the queued wave to the placement policy: a ranked wave if the\npolicy carries a ``place_wave``, otherwise the per-unit path.  Single entry\nused by enqueue/enqueue_all (initial stock) and check_reorders (reorders).\n\n``budget`` caps how many units may be PLACED in this call; whatever is left stays\nqueued for the next one, which is the deferral the queue already does for a unit\nno bin can hold.  ``None`` (the default, and every caller today) means place\neverything, exactly as before.\n\nA budget is what a finite crew and a finite number of dock doors impose: the\nparameter exists so that constraint has somewhere to go without the drain being\nrewritten around it.\n\n``deadline`` is the WHISTLE, in seconds on the crews' batch-local clocks: a putter\nalready past it starts nothing new, and what is left rolls into the next call.  The\ntwo constraints are independent and both are checked -- a budget is people, a\ndeadline is the clock, and a warehouse can run out of either first.  ``None`` is\nevery run that does not ask for a day cut.\n\nRuns the coupling guard first \u2014 even on an empty queue \u2014 so an armed/fn\nmismatch fails loudly before any placement: when travel costs are armed,\ncandidates is passed as None and place_one MUST read mgr._aisle_index instead;\na mismatch (index armed but fn scans, or vice-versa) silently returns None for\nevery placement.",
@@ -13767,6 +14856,20 @@
       "kind": "function",
       "signature": "(self) -> list"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_drains": {
+      "decorators": [],
+      "doc": "This batch's per-drain yard levels, and start the list over.\n\n`[]` when the standing yard is not bound, which is not the same as a row of zeros \u2014\nsee the field's own note.  Drained per batch for `drain_putaway_records`' reason.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_trailers": {
+      "decorators": [],
+      "doc": "This batch's FINISHED trailer stamps, and start the transit's list over.\n\n`[]` on any transit without the standing surfaces (`BatchTransit`, `TrailerTransit`)\n\u2014 probed the way `_receive` probes for `STANDING`, so neither is edited to satisfy\na reader neither has anything to say to.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.empty_bins": {
       "decorators": [
         "property"
@@ -13817,7 +14920,7 @@
       "decorators": [
         "property"
       ],
-      "doc": "Total units currently in transit (sum of lead-queue order quantities).",
+      "doc": "Total pieces on order and not yet released \u2014 the transit census's level.\nFor `BatchTransit` this is the historical sum of entry quantities, unchanged.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
@@ -13847,7 +14950,7 @@
       "decorators": [
         "property"
       ],
-      "doc": "Number of in-transit reorders waiting out their lead time (lead queue length).",
+      "doc": "In-flight transit ENTRIES: lead-queue records flag-off, trailers flag-on.\n\nThrough the transit's own census, NOT the `_lead_queue` shim below: the shim\nexposes `BatchTransit`'s entry list and a trailer transit has no such list \u2014 the\nfirst e2e run with the trailer flag on found exactly that AttributeError here.\nFor `BatchTransit`, `depth` IS `len(entries)`, so flag-off reads are unchanged.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
@@ -13908,6 +15011,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> tuple"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.standing_yard_trailers": {
+      "decorators": [],
+      "doc": "Stamps for trailers STILL ON SITE \u2014 read at run end, and never drained.\n\nThe censored tail.  A run that stops with trailers standing has held them for at\nleast as long as it ran, and dropping those rows would report the adversarial arm's\nfee as clipped rather than concentrated.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.summary": {
       "decorators": [],
@@ -14527,7 +15637,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::BatchTransit": {
       "decorators": [],
-      "doc": "The order port's flag-off transit: the legacy lead queue as an object.\n\nEntries are the same mutable ``[sku, qty, remaining_lead]`` records they always were,\nticking one BATCH per ``advance()`` \u2014 the unit note further down this module is why that is\na decision.  This is the DEFAULT the manager constructs for itself; the trailer\npipeline binds its own transit (absolute-clock leads, parking lot, doors) on the same\nseam, flag-on \u2014 injection, never import, like ``packer`` above.\n\nThe manager keeps the SCALAR ledger (``_deferred_qty`` credits and debits) either way:\ntransit owns TIMING, the ledger owns POSITION, and that split is what let the dock land\nwith zero reorder-ledger edits.",
+      "doc": "The order port's flag-off transit: the legacy lead queue as an object.\n\nEntries are the same mutable ``[sku, qty, remaining_lead]`` records they always were,\nticking one BATCH per ``advance()`` \u2014 the unit note further down this module is why that is\na decision.  This is the DEFAULT the manager constructs for itself; the trailer\npipeline binds its own transit (absolute-clock leads, yard, doors) on the same\nseam, flag-on \u2014 injection, never import, like ``packer`` above.\n\nThe manager keeps the SCALAR ledger (``_deferred_qty`` credits and debits) either way:\ntransit owns TIMING, the ledger owns POSITION, and that split is what let the dock land\nwith zero reorder-ledger edits.",
       "kind": "class",
       "signature": ""
     },
@@ -14625,7 +15735,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._notify_bin_emptied": {
       "decorators": [],
-      "doc": "Queue an emptied bin for reclaim at the next check_reorders call.\n\nCalled by PickSimulation immediately after bin_.storage is set to\nNone \u2014 must be O(1).  The bin stays in _unavailable until\n_reclaim_empty_bins processes _pending_reclaim.\n\n``at`` is the picker-local second the bin ran dry.  Recorded in `_emptied_at` and\nread by nothing yet: the drain still happens once, at the top of the next batch, so\na slot freed mid-batch is invisible until then.  Knowing WHEN is what a forecast of\nupcoming bin slots needs, and the pick loop is the only place that knows it.\n``None`` from a caller that has no clock (a test, the legacy notification path).",
+      "doc": "Queue an emptied bin for reclaim at the next check_reorders call.\n\nCalled by PickSimulation immediately after bin_.storage is set to\nNone \u2014 must be O(1).  The bin stays in _unavailable until\n_reclaim_empty_bins processes _pending_reclaim.\n\n``at`` is the ABSOLUTE second the bin ran dry -- the pick sim's carried clock, on\nthe same axis as every other event stamp.  Recorded in `_emptied_at` and read at\nexactly one place: the space timeline's reclaim-harvest in `_reclaim_empty_bins`,\nthe one moment the stamps and the bins meet before both are wiped (pinned by\n`Tests/unit/test_bin_empty_timing.py`).  The reclaim itself still happens once,\nat the top of the next batch, so a slot freed mid-batch is invisible to PLACEMENT\nuntil then -- what the stamp feeds is the standing dock's space view, not the\nreclaim cadence.\n``None`` from a caller that has no clock (a test, the legacy notification path).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, bin_: Aisle.Bin, at: float | None=None) -> None"
@@ -14639,10 +15749,17 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive": {
       "decorators": [],
-      "doc": "Unload what is standing on the dock, until the crew runs out of day.\n\nReturns immediately when there is no receiving crew, which is every run that does not\nask for one -- the dock is not constructed at all, so this is one `is None` test and\nnot a flag.\n\nWHERE THIS SITS IS THE DESIGN. Above it, steps 0-3 are the CALENDAR: a lead time\nelapses whether or not anyone is at work, and a trailer that arrives at four o'clock\nhas still arrived. Below it, `_drain_putaway` is the put crew's labour. Receiving is\nlabour too, and it must run BEFORE the put drain, or a unit unloaded at nine in the\nmorning would wait a whole batch for a bin -- a latency that would be an artifact of\nwhere the hook sits rather than anything about a warehouse.\n\nTHE WHISTLE IS A START GATE, exactly as put-away's is: a receiver already past\n`deadline` begins nothing new, and the unload in progress when it blows finishes. So\novertime is bounded by one unload per worker, which is what someone carrying a pallet\noff a tail lift actually does. `deadline` is a REMAINDER on the crew's batch-local\nclock, not an instant -- see `crew_clock.can_start`.\n\nWhat the whistle stops stays on the dock and is the first thing tomorrow's crew\ntouches: the deque is in arrival order, so the rollover is FIFO and no unit can be\novertaken by merchandise that arrived after it.",
+      "doc": "Unload what is standing on the dock, until the crew runs out of day.\n\nReturns immediately when there is no receiving crew, which is every run that does not\nask for one -- the dock is not constructed at all, so this is one `is None` test and\nnot a flag.\n\nWHERE THIS SITS IS THE DESIGN. Above it, steps 0-3 are the CALENDAR: a lead time\nelapses whether or not anyone is at work, and a trailer that arrives at four o'clock\nhas still arrived. Below it, `_drain_putaway` is the put crew's labour. Receiving is\nlabour too, and it must run BEFORE the put drain, or a unit unloaded at nine in the\nmorning would wait a whole batch for a bin -- a latency that would be an artifact of\nwhere the hook sits rather than anything about a warehouse.\n\nTHE WHISTLE IS A START GATE, exactly as put-away's is: a receiver already past\n`deadline` begins nothing new, and the unload in progress when it blows finishes. So\novertime is bounded by one unload per worker, which is what someone carrying a pallet\noff a tail lift actually does. `deadline` is a REMAINDER on the crew's batch-local\nclock, not an instant -- see `crew_clock.can_start`.\n\nWhat the whistle stops stays on the dock and is the first thing tomorrow's crew\ntouches: the deque is in arrival order, so the rollover is FIFO and no unit can be\novertaken by merchandise that arrived after it.\n\nTHE STANDING YARD REROUTES THIS PHASE WHOLE.  When the bound transit carries the\nstanding surfaces (`STANDING` \u2014 `YardTransit`; the other transits satisfy them\ntrivially by not having them), every door and crew decision happens here instead:\nplans-at-arrival, the whistle-independent door fill, the budget-gated unload off\nstaged trailers, mid-drain refills, and the canonical handoff.  The dock-floor\ndeque below stays EMPTY in that mode \u2014 the standing buffer is the trailer itself.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, arrivals=(), deadline: float | None=None) -> None"
+    },
+    "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive_standing": {
+      "decorators": [],
+      "doc": "One drain of the standing dock: plan arrivals, fill doors, unload, hand off.\n\nFour steps, and their order is the design:\n\n1. PLANS-AT-ARRIVAL.  Every trailer that joined the yard gets its pack plan NOW,\n   per contiguous lot \u2014 the same portions the v1 drain packs \u2014 and its units are\n   stamped immediately, so a pallet that stands three batches in the yard is three\n   batches old when it finally reaches floor space.  The merchandise stays in\n   `_deferred_qty`: nothing is queued until a crew actually pulls it.\n2. THE DOOR FILL, NOT budget-gated.  Staging is yard-jockey work, not receiving\n   labour, so even a zero-budget drain fills every free door from the drain-frozen\n   yard ranking.\n3. THE UNLOAD, budget-gated, per the crew-allocation mode ('split' door teams or\n   the 'merged' pooled gang).  The whistle is a START gate, one unload of overtime\n   per worker, exactly as the v1 path's.  Same-drain refills consume the frozen\n   rankings; no mid-drain re-scoring.\n4. THE CANONICAL HANDOFF.  Whatever the allocation, unloaded units reach `_queue`\n   in merged order \u2014 trailers by dock rank, units by local rank, filtered to what\n   actually unloaded \u2014 never in labor-completion order.  That is the containment\n   property: crew allocation moves labor stamps and makespans ONLY, never\n   placement physics.  The deferred\u2192queued flip rides the handoff, per unit, so\n   `position = on_hand + queued + deferred` never wobbles.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, dock, transit, deadline: float | None) -> None"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._reclaim_empty_bins": {
       "decorators": [],
@@ -14671,6 +15788,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_merged": {
+      "decorators": [],
+      "doc": "The 'merged' pooled gang: v1's physics kept as the verification bridge.\n\nOne crew works trailers strictly in dock-rank order, completing the top-ranked\nfirst; a freed door pulls the frozen-ranking-next trailer, which joins the END of\nthe work list.  In the degenerate configuration (FIFO, doors >= every trailer, no\ncap) the charge sequence is exactly the v1 drain's \u2014 the lockstep pin.\nReturns [(trailer, [(item, t0, dur, worker), ...])] in canonical drain order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, dock, transit, deadline, epoch, work_order, yard_next)"
+    },
+    "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_split": {
+      "decorators": [],
+      "doc": "The 'split' door teams: the standing model's own physics.\n\nAt ctx-freeze the workers are DEALT across staged trailers in dock-priority\norder, cycling, so the top ranks take the extras when the division is uneven\n(`allocation.partition`, round-robin).  Each team charges earliest-free WITHIN\nthe team.  Doors therefore free STAGGERED \u2014 the realistic dynamic the fee and\nspace signals need \u2014 and when one does, the yard-pull stages the frozen-next\ntrailer and the freed team reassigns: (1) to the top-ranked staged trailer with\nNO workers \u2014 the one-worker-many-doors inversion's guard \u2014 (2) else to its own\ndoor's replacement, (3) else to the top-ranked trailer with the fewest workers.\nA worker idles only when nothing staged has units.  Dock priority is thereby a\nworker-ALLOCATION preference: decisive when workers < staged trailers, graded\notherwise.\n\nThe loop advances whichever team can start soonest, so charges interleave in\ntrue clock order and a reassignment always sees every earlier emptying's effect.\nReturns the same shape as `_unload_merged`, in the same canonical order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, dock, transit, deadline, epoch, work_order, yard_next)"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders": {
       "decorators": [],
@@ -15253,12 +16384,33 @@
       "kind": "function",
       "signature": "(clocks, deadline: float | None) -> bool"
     },
+    "Warehouse/kernel/crew_clock.py::can_start_subset": {
+      "decorators": [],
+      "doc": "Is anyone on the TEAM `idxs` free to BEGIN before `deadline`?\n\nSame START-gate contract as `can_start`, restricted to a team: a worker already past\nthe whistle begins nothing new, the job in progress finishes.  False on an empty team\n(nobody can start), True when `deadline` is None (no whistle today) \u2014 note the order:\nan empty team is not working even on an unbounded day.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks, idxs, deadline: float | None) -> bool"
+    },
     "Warehouse/kernel/crew_clock.py::charge": {
       "decorators": [],
       "doc": "Book `dur` to whoever is free earliest; return `(start, worker_index)`.\n\nGreedy list scheduling. Ties break to the lowest index, so a crew of one is exactly a\nserial clock -- which is what makes a size-1 stream byte-identical to the single-clock\nmodel that preceded this.",
       "is_async": false,
       "kind": "function",
       "signature": "(clocks, dur: float)"
+    },
+    "Warehouse/kernel/crew_clock.py::charge_subset": {
+      "decorators": [],
+      "doc": "Book `dur` to the team member free earliest; return `(start, worker_index)`.\n\nThe returned index is into `clocks` \u2014 the CREW's index space, not the team's \u2014 so a\nrecord written from it names the same worker whichever team they were dealt to.  Ties\nbreak to the lowest crew index, exactly as `charge` does, so a team of one is a serial\nclock and a team of everybody IS `charge`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks, idxs, dur: float)"
+    },
+    "Warehouse/kernel/crew_clock.py::earliest_subset": {
+      "decorators": [],
+      "doc": "When the first worker of the TEAM `idxs` becomes free, on the batch-local clock.\n\nThe subset trio (`earliest_subset` / `can_start_subset` / `charge_subset`) exists for\ndoor-team crew allocation: one crew's clock list, dealt into teams that each work one\ntrailer, every rule still stated once over the same bare `list[float]`.  `idxs` are\nindices into `clocks`; an empty team returns +inf \u2014 a team of nobody is never free,\nwhich is what lets a caller take a global min over teams without special-casing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks, idxs) -> float"
     },
     "Warehouse/kernel/crew_clock.py::finish": {
       "decorators": [],
@@ -16459,6 +17611,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: list, items: dict[int, int]) -> list[int]"
+    },
+    "Warehouse/picking/Workload_Builder.py::drain_sku": {
+      "decorators": [],
+      "doc": "THE SIM'S OWN DRAIN RULE for one SKU, extracted so a forecast shares it by\nconstruction: singleton bins before pallet bins, each tier in `location` order,\ntake = min(remaining, bin quantity).\n\nAccumulates per-bin takes into `out` (a `defaultdict(int)` keyed by the bin object)\nand returns the demand no bin could satisfy.  Two callers, deliberately:\n`Task.from_batch` builds the pick tasks from it, and the standing yard's space\ntimeline (`Inbound/space.py`) projects predicted-clear bins with it \u2014 handed this\nfunction by the driver, because the import edge `Inbound -> wh_picking` is forbidden.\nOne body means the projection is exact rather than a re-implementation that can\ndrift; `_rederive_plan` below is explicitly NOT this rule (its own docstring warns\nits distribution can differ).\n\nPure: reads bin state, writes only `out`, consumes no RNG.  A `_SortedBins`\ncontainer already iterates in `location` order so its sort is skipped; raw\nsets/lists (test stand-ins, legacy callers) still get the explicit sort \u2014 the\ndeterminism contract is the ORDER, not the container\n(see test_task_bin_selection_determinism).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(singleton_bins, pallet_bins, qty: int, out) -> int"
     },
     "Warehouse/picking/__init__.py": {
       "decorators": [],
@@ -17716,7 +18875,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('figures/diagnostics', 'figures/headline', 'figures/labor', 'figures/layout', 'figures/significance', 'figures/task_time', 'figures/throughput', 'figures/trajectories', 'tables')"
+      "value_preview": "('figures/diagnostics', 'figures/headline', 'figures/labor', 'figures/layout', 'figures/significance', 'figures/task_time', 'figures/throughput', 'figures/trajectories', 'figures/yard', 'tables')"
     },
     "docs/experiments/ingest.py::_GROUP_PROBE": {
       "decorators": [],

@@ -143,7 +143,10 @@ def test_tally_counts_grants_and_denials_per_eval_and_resets(tmp_path):
     # Resolving needs never touches it: a grant is about INPUTS, and an evaluation whose
     # inputs were all granted can still render nothing at all.
     assert snap['errors'] == {}
-    assert requests.tally_snapshot() == {'granted': {}, 'denied': {}, 'errors': {}}
+    # `era` is the fourth bucket, and it asks yet another question: not "did the inputs
+    # arrive" but "can this run's VINTAGE answer it at all". Reset clears every bucket.
+    assert requests.tally_snapshot() == {'granted': {}, 'denied': {}, 'errors': {},
+                                         'era': {}}
 
 
 # ── the composed-SQL half ────────────────────────────────────────────────────────
