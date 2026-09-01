@@ -38,9 +38,11 @@ import numpy as np
 
 from Optimization.persistence.Picking_Data import (load_batch_stats, load_task_stats,
                                                    load_picker_events, load_carryover,
+                                                   load_work_hours,
                                                    load_yard_drains, load_yard_trailers)
 from Optimization.metrics.Simulation_Analytics import task_time_breakdown
-from Optimization.Performance_Evaluations.common.frames import _bdf, _cdf, _ddf, _tdf, _ydf
+from Optimization.Performance_Evaluations.common.frames import (_bdf, _cdf, _ddf, _tdf,
+                                                                _wdf, _ydf)
 from Optimization.Performance_Evaluations.common.series import _build_series
 
 
@@ -151,8 +153,15 @@ def yard_frame(ctx, key):
     df = ctx._ycache.get(key)
     if df is None:
         s = ctx._by_key[key]
-        df = _ydf(load_yard_trailers(s['db_path'], s['run_id']),
-                  _arm_end_s(ctx, key), ctx.fee_threshold_days())
+        rows = load_yard_trailers(s['db_path'], s['run_id'])
+        # The threshold is consulted only when there is a span to apply it to. `_ydf`
+        # returns its empty frame before reading the argument, so 0.0 is inert here — and
+        # the saving is not cycles but the LOG: `fee_threshold_days` says out loud when it
+        # is falling back to this build's default, and every inbound-off run would
+        # otherwise carry that notice about a configuration it never had. A warning that
+        # fires on runs it cannot apply to is one readers learn to skip.
+        df = _ydf(rows, _arm_end_s(ctx, key),
+                  ctx.fee_threshold_days() if rows else 0.0)
         ctx._ycache[key] = df
     return df
 
@@ -177,12 +186,44 @@ def missed_frame(ctx, key):
     return df
 
 
+def work_frame(ctx, key):
+    """One strategy's per-batch production-labour frame, memoised.
+
+    Takes BOTH sibling frames: the batch frame states which batches happened (so a batch
+    that put nothing away is present at zero rather than missing) and the task frame
+    carries the pick leg, which `work_events` structurally cannot — a pick row is an
+    instant with a NULL duration, and the work is the span between two of them.
+    """
+    df = ctx._wcache.get(key)
+    if df is None:
+        s = ctx._by_key[key]
+        df = _wdf(load_work_hours(s['db_path'], s['run_id']),
+                  batch_frame(ctx, key), task_frame(ctx, key))
+        ctx._wcache[key] = df
+    return df
+
+
+def metric_frames(ctx, key) -> dict:
+    """The {kind: frame} mapping `frames._metric_series` resolves a metric source against.
+
+    One place builds it, so a consumer iterating `_METRICS` cannot serve some kinds and
+    silently starve another — which is what a positional frame list did until a fourth
+    frame made the omission likely rather than merely possible.
+    """
+    return {'batch': batch_frame(ctx, key),
+            'task': task_frame(ctx, key),
+            'work': work_frame(ctx, key)}
+
+
 def series_dict(ctx):
     """The composed series dict, memoised in ctx._series — EvalContext.series delegates here."""
     if ctx._series is None:
-        ctx._series = _build_series(ctx.strategies,
-                                    {s['key']: batch_frame(ctx, s['key']) for s in ctx.strategies},
-                                    {s['key']: task_frame(ctx, s['key']) for s in ctx.strategies})
+        ctx._series = _build_series(
+            ctx.strategies,
+            {s['key']: batch_frame(ctx, s['key']) for s in ctx.strategies},
+            {s['key']: task_frame(ctx, s['key']) for s in ctx.strategies},
+            {s['key']: work_frame(ctx, s['key']) for s in ctx.strategies},
+            {s['key']: yard_frame(ctx, s['key']) for s in ctx.strategies})
     return ctx._series
 
 
@@ -283,6 +324,36 @@ def _yard(ctx):
         # that is working correctly.
         return EraUnmet('no yard rows on any arm (the run predates the yard tables, or '
                         'ran with INBOUND_STANDING_YARD off)', missing=('yard',))
+    return got
+
+
+@request('work', 'config')
+def _work(ctx):
+    """Every arm's per-batch production-labour frame — `{key: work_df}`.
+
+    ERA-UNMET, not Denied, when no arm has a single work-event row. The files were opened
+    and read and simply have no production timeline in them, which no re-run of this stage
+    can change: the run predates `work_events`, or predates the 2026-08-24 refactor that
+    gave put-away a duration at all. A `total_production_time` figure built on that would
+    read exactly the pick leg while claiming to be the sum of three — which is the
+    substitution this whole quantity exists to prevent.
+
+    The `_METRICS` consumers (`tables.stats`, `tables.vs_baseline`, `sig.suite`) do NOT
+    declare this need, and that is deliberate rather than an oversight in their `needs=`
+    tuples. They iterate every declared metric and already drop the ones whose series
+    cannot be aligned, so an era shortfall costs them three rows; declaring the need would
+    cost them the whole CSV, on every run in the archive, to protect rows that degrade
+    correctly on their own. Figure evaluations, which cannot degrade a panel that way,
+    declare it.
+    """
+    denied = _deny_absent(ctx)
+    if denied is not None:       # Denied is deliberately FALSY - never truth-test it
+        return denied
+    got = {s['key']: work_frame(ctx, s['key']) for s in ctx.strategies}
+    if all(df.empty for df in got.values()):
+        return EraUnmet('no work-event rows on any arm (the run predates `work_events`), '
+                        'so put-away and unload hours were never recorded',
+                        missing=('work_events',))
     return got
 
 

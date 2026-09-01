@@ -37,8 +37,7 @@ from Optimization.Performance_Evaluations.tables.stats_csv import (
             scope='config', needs=('batch', 'task', 'breakdown'),
             family='significance', shape='effect')
 def render_suite(ctx, params):
-    _, per_metric = compute_config_stats(
-        ctx.strategies, ctx.batch_frames(), ctx.task_frames(), 0)
+    _, per_metric = compute_config_stats(ctx.strategies, ctx.metric_frames(), 0)
     keys = [s['key'] for s in ctx.strategies]
     colors = [s.get('color', '#888888') for s in ctx.strategies]
     out = io.out_dir(ctx)
@@ -62,8 +61,7 @@ def render_suite(ctx, params):
             scope='config', needs=('batch', 'task', 'breakdown'),
             family='significance', shape='effect', by_initial=True)
 def render_by_initial(ctx, params):
-    _, per_fn = compute_by_initial(
-        ctx.strategies, ctx.batch_frames(), ctx.task_frames(), 0)
+    _, per_fn = compute_by_initial(ctx.strategies, ctx.metric_frames(), 0)
     if not per_fn:
         ctx.log.warning(f'  by-initial significance: no uni/opt pairs in {ctx.name}')
         return

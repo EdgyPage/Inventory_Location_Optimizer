@@ -250,7 +250,8 @@
       "evaluation": [
         "labor.delta_grid",
         "labor.delta_topn",
-        "labor.per_batch"
+        "labor.per_batch",
+        "labor.production_legs"
       ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/labor/*.png",
       "format": "png",

@@ -14,16 +14,43 @@ import numpy as np
 from Optimization.Performance_Evaluations.common.style import _WIN, _SMOOTH, _TOP_DIMS
 
 
-def _build_series(strategies, df_b, df_t):
+def _ss_mean(df, ssb, col):
+    """Mean of a per-batch column over the steady-state batches, or NaN.
+
+    `ssb` is the batch frame already cut to the window, so the cut is stated once and the
+    production scalars cannot drift onto a different window from `ss_dur` beside them.
+    NaN whenever the frame is absent or empty: an unmeasured leg is not a leg measured at
+    zero, and every consumer here treats NaN as "this run cannot answer that".
+    """
+    if df is None or df.empty or col not in df:
+        return float('nan')
+    d = df[df['batch_id'].isin(ssb['batch_id'])]
+    return float(d[col].mean()) if len(d) else float('nan')
+
+
+def _build_series(strategies, df_b, df_t, df_w=None, df_y=None):
     """Per-strategy time series + steady-state scalars for the comparison suite.
 
     Returns {key: dict | None}.  Task metrics carry their own x ('task_batch')
     because some batches may have no surviving (non-outlier) tasks.
+
+    `df_w` (production labour) and `df_y` (the yard's trailers) were the third and fourth
+    frames to reach this builder, and they arrived together for a structural reason: a slot
+    in `quantities.HEADLINE_ORDER` is validated at import to name a steady-state scalar,
+    and this function is the only thing that writes one.  Until it could see a frame other
+    than batch and task, the total-production-hours objective and the yard fee were both
+    unheadlineable no matter how well either was measured.
+
+    Both default to None so a caller with only the two original frames still gets the
+    original document — the scalars they feed come out absent rather than zero, which is
+    the same distinction `_wdf`'s empty frame draws and for the same reason.
     """
     S = {}
     for s in strategies:
         b = df_b[s['key']]
         t = df_t[s['key']]
+        w = (df_w or {}).get(s['key'])
+        y = (df_y or {}).get(s['key'])
         if b.empty:
             S[s['key']] = None
             continue
@@ -74,6 +101,19 @@ def _build_series(strategies, df_b, df_t):
             ss_task_mean=float(sst['duration'].mean()) if len(sst) else float('nan'),
             ss_prod_hours=(float(sst.groupby('batch_id')['duration'].sum().mean())
                            if len(sst) else float('nan')),
+            # The objective: unload + put + pick, meaned over the same steady-state window
+            # as its pick-only sibling above so the two are read on one footing. NaN — not
+            # zero — when the run wrote no work events, because a run that never recorded
+            # put-away hours did not record them as nothing.
+            ss_prod_total=_ss_mean(w, ssb, 'production_seconds'),
+            ss_putaway=_ss_mean(w, ssb, 'put_seconds'),
+            ss_unload=_ss_mean(w, ssb, 'unload_seconds'),
+            # The fee, and the ONE scalar here that is not a steady-state mean — hence the
+            # name. Its instances are trailers, which have no batch index to take a
+            # trailing window over, so it is the whole run's accrued trailer-days: the
+            # number a carrier actually bills, and the one `yard.fee` already draws.
+            yard_overage_total=(float(y['overage_days'].sum())
+                                if y is not None and not y.empty else float('nan')),
             picking_pct=float(ssb['picking_pct'].mean()),
             traveling_pct=float(ssb['traveling_pct'].mean()),
             initial=s.get('initial', ''), assignment=s.get('assignment', ''),

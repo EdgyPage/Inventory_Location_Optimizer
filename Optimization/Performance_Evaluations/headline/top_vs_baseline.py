@@ -48,8 +48,16 @@ from Optimization.Performance_Evaluations.common.stats_core import (
 # and batch makespan (b), the throughput off each (c, d), plus the layout travel
 # objective.  The ORDER is the panel order of a published figure, so it is declared
 # (`quantities.HEADLINE_ORDER`) rather than inferred.
+#
+# The tuple gained a fifth element when the funnel appended `yard_overage_days`: whether
+# the group's per-batch source can be PAIRED at all.  The effect annotation beneath each
+# group is a paired statistic over shared batches, and the fee's instances are trailers —
+# there is no batch i of one arm to line up against batch i of another.  Without the flag
+# `_paired` would ask `_metric_series` for a 'trailer' kind, which now raises rather than
+# quietly returning an empty Series out of the task frame.
 _METRIC_GROUPS = [
-    (q.label, q.source.steady_state, q.lower_is_better, *q.source.per_batch)
+    (q.label, q.source.steady_state, q.lower_is_better, *q.source.per_batch,
+     q.source.per_batch[0] in _quantities.PAIRED_KINDS)
     for q in (_quantities.BY_KEY[k] for k in _quantities.HEADLINE_ORDER)
 ]
 
@@ -74,8 +82,8 @@ def _paired(ctx, s, source, col):
     reorient it through the one improvement convention before display.
     """
     base = ctx.base
-    pb = _metric_series(ctx.batch_df(base['key']), ctx.task_df(base['key']), source, col, 0)
-    ps = _metric_series(ctx.batch_df(s['key']),    ctx.task_df(s['key']),    source, col, 0)
+    pb = _metric_series(ctx.metric_frames_for(base['key']), source, col, 0)
+    ps = _metric_series(ctx.metric_frames_for(s['key']),    source, col, 0)
     common = sorted(set(pb.index) & set(ps.index))
     if len(common) < 3:
         return float('nan'), float('nan'), 0, np.array([]), np.array([])
@@ -98,13 +106,42 @@ def _pair_diffs(b, v, lower):
 
 # ── the percent view ────────────────────────────────────────────────────────────
 
+def _drawable(vals):
+    """({label: values} the figure can draw, [labels dropped]) — ORDER PRESERVED.
+
+    A group with nothing finite in it is dropped, not drawn empty.  Every group could once
+    be relied on to produce numbers, so this was unreachable code; the funnel's two
+    appended entries (ticket 08) make it the normal case — an inbound-off run has no yard,
+    so the fee's scalar is NaN on every arm, and an archived run predating `work_events`
+    has no put-away hours.  Both are the overwhelming majority of what gets re-analysed.
+
+    Rendering those as a blank labelled panel would put an unanswered question on published
+    evidence, and a reader who sees a labelled group with no bar in it concludes the wrong
+    thing: not "this run cannot answer that" but "it was measured, and it was nothing".
+    That is the same substitution the era gate exists to prevent, arriving one layer lower
+    where the gate cannot see it — this figure survives its optional quantities on purpose,
+    so nothing else is going to refuse on its behalf.
+    """
+    keep = {lbl: v for lbl, v in vals.items()
+            if np.any(np.isfinite(np.asarray(v, float)))}
+    return keep, [lbl for lbl in vals if lbl not in keep]
+
+
 def _percent_figure(ctx, selected, S, baseline, out, top_n, top_by):
     bd = S[baseline['key']]
     # improvement value per (group, arm), the improvement-oriented sign throughout
     vals = {}
-    for (label, field, lower, _src, _col) in _METRIC_GROUPS:
+    for (label, field, lower, _src, _col, _pairable) in _METRIC_GROUPS:
         vals[label] = [_impr(S[s['key']].get(field), bd.get(field), lower)
                        for s in selected]
+
+    vals, empty = _drawable(vals)
+    if empty:
+        ctx.log.info(f'  headline: {len(empty)} metric group(s) not answerable on this '
+                     f'run, omitted rather than drawn empty: {", ".join(empty)}')
+    if not vals:
+        ctx.log.warning('  headline: no metric group has a finite value on any arm')
+        return
 
     # split off groups whose swings dwarf the rest (they crushed the old chart)
     gmax = {lbl: (np.nanmax(np.abs(v)) if np.any(np.isfinite(v)) else 0.0)
@@ -117,12 +154,20 @@ def _percent_figure(ctx, selected, S, baseline, out, top_n, top_by):
     panels = ([lbl for lbl in vals if lbl not in big], big)
     panels = tuple(p for p in panels if p)
 
-    # per-group effect annotation: best arm vs FIFO, Holm-corrected across groups
+    # per-group effect annotation: best arm vs FIFO, Holm-corrected across groups.
+    # Two groups are skipped rather than annotated, for two different reasons: one whose
+    # bars were dropped above has nothing left to annotate, and one whose quantity is not
+    # PAIRABLE has no paired statistic to report — the fee's instances are trailers, so
+    # there are no shared batches to difference. Both append NaN so the Holm correction is
+    # still zipped against the full group list in order.
     ann = {}
     pvals = []
-    for (label, _field, lower, src, col) in _METRIC_GROUPS:
+    for (label, _field, lower, src, col, pairable) in _METRIC_GROUPS:
+        if label not in vals:
+            pvals.append(np.nan)
+            continue
         v = np.asarray(vals[label], float)
-        if not np.any(np.isfinite(v)):
+        if not pairable or not np.any(np.isfinite(v)):
             pvals.append(np.nan)
             continue
         s_best = selected[int(np.nanargmax(v))]
@@ -286,6 +331,12 @@ def _table_figure(ctx, selected, S, baseline, out):
             family='headline', shape=('ranked', 'table'),
             quantities=('production_time', 'makespan', 'throughput',
                         'throughput_task', 'sigma_fd'),
+            # The funnel's two appended groups (ticket 08). OPTIONAL, because this figure
+            # degrades per group — `_percent_figure` drops a group with no finite value on
+            # any arm and logs which — and taking the era refusal instead would delete the
+            # entire headline from every archived run over two panels that correctly do not
+            # apply to it. Both are still DRAWN and still derive their views from here.
+            quantities_optional=('total_production_time', 'yard_overage_days'),
             views_pending=(
                 ('absolute', 'the top-N arms\' own steady-state levels beside the '
                              'baseline\'s, which is what a reader asks for after '

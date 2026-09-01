@@ -281,6 +281,26 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   deferred to 19 — it needs a steady-state scalar that does not exist, and adding it now
   would put an empty panel on every archived publish.
 
+- [Build total production hours](issues/19-build-total-production-hours.md): BUILT — the
+  objective is reportable. ONE recorded deviation, forced by the era gate: the ticket
+  specified the unload leg as `batch_stats.recv_seconds`, which is NOT in the guaranteed
+  sim-DB surface and POSTDATES `work_events`, so no capability honestly covers it and an
+  unguarded read fills every pre-dock vintage's leg with a plausible zero — BOTH inbound
+  legs therefore read `work_events`, and the licence for that (the two surfaces agree
+  seconds-for-seconds) is now a test on a real run rather than a claim. `work` is the
+  fourth metric-source kind (SQL fold + `_wdf`), EMPTY-never-zeros when the table has no
+  rows, and IS in `PAIRED_KINDS` because 08's decision rule is a moving-block CI over
+  paired batches; `_metric_series` became a kind dispatch that RAISES, ending the "batch,
+  else the task frame" fallthrough. `_build_series` opened to two more frames, paying both
+  owed headline slots — `yard_overage_total` is a run TOTAL, not a steady-state mean
+  (trailers have no batch index), and `_METRIC_GROUPS` gained a PAIRABLE flag for it. The
+  new `quantities_optional=` seam lets the headline draw a quantity it survives without,
+  paid for by `_drawable` dropping an all-NaN group rather than printing a blank panel that
+  reads as "measured, and it was nothing". Plus `labor.production_legs`, the stacked
+  three-leg decomposition. No schema event (both ids held; both fingerprints re-recorded
+  through the pipeline). Flagged to 18: rank on summed `ss_prod_total`, NEVER the
+  cross-profile CSV, which is normalized to ratios.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -295,11 +315,13 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   space-timeline build — 11 —, the ordering-seam generalization — 12 —, the gain
   evaluator + gain-plan arms — 14 —, the futuresight window feed + entry — 13 — and the
   lead distribution — 15 —, the eviction fold — 16 — and the yard metrics — 17 — are
-  DONE; and the funnel resolution (08) graduated three more —
-  [Build the run-shape layer](issues/18-build-the-run-shape-layer.md) which finally pays
-  the seams 3–4 debt every knob deferred to "the first sweep",
-  [Build total production hours](issues/19-build-total-production-hours.md), and
-  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md), gated on phase 1.)
+  DONE, as is the total-production-hours build — 19 —; and the funnel resolution (08)
+  graduated three more, of which
+  [Build the run-shape layer](issues/18-build-the-run-shape-layer.md) — which finally pays
+  the seams 3–4 debt every knob deferred to "the first sweep" — is now the frontier
+  (blocked by 19 as well as 08: its selection artifact ranks on 19's metric, a dependency
+  its body always stated and nothing had wired), and
+  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md) stays gated on phase 1.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -307,9 +329,10 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   futuresight window reference family, decided by the objective resolution, 10.)
 - **The funnel campaign** — no longer a design gap: 08 specified it end to end (pilot →
   phase 1 → selection → phase 2 → publish), so what remains is EXECUTION, gated on 18 and
-  19 (17 is DONE). The order is load-bearing: the builds land first (phase 1 cannot rank on
-  a metric that does not exist, and a run whose spec cannot record its threshold is not
-  re-analysable), then the throwaway pilot decides whether the campaign runs at all — a
+  19 (17 and 19 are DONE, so 18 is the last build in the way). The order is load-bearing:
+  the builds land first (phase 1 cannot rank on a metric that does not exist — which is now
+  fixed — and a run whose spec cannot record its threshold is not re-analysable), then the
+  throwaway pilot decides whether the campaign runs at all — a
   config showing neither yard contention nor binding cuts is a DECLARED STOP, not a knob to
   keep turning. The pilot's two criteria are now READABLE: `yard.binding` prints the
   contention sentence on the figure itself and `binding_cuts` is a declared quantity, so

@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 08
+Blocked by: 08, 19
 
 ## Question
 
@@ -75,6 +75,31 @@ resume-guarded.
   writer depends on [Build total production hours](19-build-total-production-hours.md).
 
 ## Comments
+
+2026-08-31, from resolving [Build total production hours](19-build-total-production-hours.md):
+the `Blocked by:` line above gained 19. It was always there in the body — part 3 says this
+writer "depends on" it — but never wired, so this ticket sat on the frontier ahead of the
+ticket it needs.
+
+Three things 19 settled that change part 3:
+
+- **The ranking metric now exists**, and is `total_production_time` (unload + put + pick),
+  reachable per batch, per arm, in the significance CSVs and as `ss_prod_total` in every
+  profile's series document.
+- **Do NOT rank off the cross-profile summary CSV.** `total_production_time` is
+  deliberately absent from `AGGREGATE_ORDER`, and the decisive reason is not the pinned
+  oracle: `_aggregate_series` NORMALIZES each profile to its own baseline, so that CSV
+  holds RATIOS. 08 ranks on hours SUMMED ACROSS PROFILES, so this writer sums
+  `ss_prod_total` over the profiles' series documents itself.
+- **Absence must be loud.** A run without `work_events` produces no
+  `total_production_time` row at all — correctly, since the metric is capability-gated —
+  and a selector that reads a missing row as a tie would rank all seventeen rules on
+  nothing. Phase 1 is a fresh run so it will have the rows; the guard is for the re-run.
+
+Part 2 is unaffected, except that `fee_threshold_days`' fallback notice now fires only on
+runs that actually have trailer rows (19 stopped `yard_frame` consulting the threshold when
+there are none), so the log line this ticket must make unnecessary is no longer buried under
+one per inbound-off arm.
 
 2026-08-31, from resolving "Design the phased funnel" (08): the mandatory `fifo` rider is
 not a style choice. `run_channel_rollup._baseline_entry` prefers `uni_fifo`, falls back to

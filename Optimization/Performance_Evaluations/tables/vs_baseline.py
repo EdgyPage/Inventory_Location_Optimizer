@@ -41,7 +41,7 @@ _FIELDS = ('strategy', 'initial', 'assignment', 'reslot', 'metric', 'n_batches',
 
 
 def _paired_values(ctx, key, source, col):
-    return _metric_series(ctx.batch_df(key), ctx.task_df(key), source, col, 0)
+    return _metric_series(ctx.metric_frames_for(key), source, col, 0)
 
 
 def compute_vs_baseline(ctx):

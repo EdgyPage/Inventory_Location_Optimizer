@@ -36,7 +36,7 @@ from Optimization.Performance_Evaluations.common.stats_core import (
 
 # ── shared computation (also imported by the significance panels) ───────────────────
 
-def compute_config_stats(strategies, df_b, df_t, ss_lo, travel_handling=None):
+def compute_config_stats(strategies, frames, ss_lo, travel_handling=None):
     """The full per-config suite over all strategies, computed once.
 
     Returns (summary_rows, per_metric):
@@ -53,7 +53,7 @@ def compute_config_stats(strategies, df_b, df_t, ss_lo, travel_handling=None):
     keys = [s['key'] for s in strategies]
     summary_rows, per_metric = [], {}
     for name, source, col, lower in _METRICS:
-        series_by_key = {k: _metric_series(df_b[k], df_t[k], source, col, ss_lo)
+        series_by_key = {k: _metric_series(frames[k], source, col, ss_lo)
                          for k in keys}
         box_values = [series_by_key[k].values for k in keys]
         for k, vals in zip(keys, box_values):
@@ -77,7 +77,7 @@ def compute_config_stats(strategies, df_b, df_t, ss_lo, travel_handling=None):
     return summary_rows, per_metric
 
 
-def compute_by_initial(strategies, df_b, df_t, ss_lo):
+def compute_by_initial(strategies, frames, ss_lo):
     """The uni-vs-opt contrast per assignment function, computed once.
 
     Returns (combined, per_fn):
@@ -97,8 +97,8 @@ def compute_by_initial(strategies, df_b, df_t, ss_lo):
             continue
         fn_metrics = {}
         for name, source, col, lower in _METRICS:
-            su = _metric_series(df_b[pair['uni']], df_t[pair['uni']], source, col, ss_lo)
-            so = _metric_series(df_b[pair['opt']], df_t[pair['opt']], source, col, ss_lo)
+            su = _metric_series(frames[pair['uni']], source, col, ss_lo)
+            so = _metric_series(frames[pair['opt']], source, col, ss_lo)
             common = sorted(set(su.index) & set(so.index))
             if len(common) < 3:
                 continue
@@ -142,8 +142,7 @@ def by_initial_tests_doc(per_fn, ss_lo):
             scope='config', needs=('batch', 'task', 'breakdown'), out_subdir='tables')
 def render_stats(ctx, params):
     summary_rows, per_metric = compute_config_stats(
-        ctx.strategies, ctx.batch_frames(), ctx.task_frames(), 0,
-        travel_handling=ctx.breakdown())
+        ctx.strategies, ctx.metric_frames(), 0, travel_handling=ctx.breakdown())
     out = io.out_dir(ctx)
     pd.DataFrame(summary_rows).to_csv(os.path.join(out, 'stats_summary.csv'),
                                       index=False)
@@ -159,8 +158,7 @@ def render_stats(ctx, params):
             scope='config', needs=('batch', 'task', 'breakdown'), out_subdir='tables',
             by_initial=True)
 def render_by_initial(ctx, params):
-    combined, per_fn = compute_by_initial(
-        ctx.strategies, ctx.batch_frames(), ctx.task_frames(), 0)
+    combined, per_fn = compute_by_initial(ctx.strategies, ctx.metric_frames(), 0)
     out = io.out_dir(ctx)
     pd.DataFrame(combined).to_csv(os.path.join(out, 'by_initial_summary.csv'),
                                   index=False)

@@ -41,6 +41,13 @@ SEMANTIC_USES = {'sim_db': {
     'yard_drains.batch': 'read', 'yard_drains.yard_start': 'read',
     'yard_drains.free_doors_start': 'read', 'yard_drains.yard_end': 'read',
     'yard_drains.staged_remainder_end': 'read',
+    # Production labour.  `duration` is a SPAN and SPAN is additive, so the SUM is legal —
+    # but only once `role` has selected the rows, which is why `role` is READ here and the
+    # fold lives in `_wdf` rather than in a total over the table.  A row-free
+    # `SUM(duration)` would add put intervals to pick instants, and before 2026-08-25 it
+    # silently did exactly that with every pick row defaulting to zero seconds.
+    'work_events.batch_id': 'read', 'work_events.role': 'read',
+    'work_events.duration': 'sum',
 }}
 
 
@@ -279,22 +286,139 @@ def _cdf(rows, df_b):
     return df
 
 
+# ── production labour: the three legs of the objective, per batch ────────────────
+#: The roles whose `work_events` rows are INTERVALS, and the frame column each becomes.
+#:
+#: 'pick' is absent and that is the design, not an omission.  A pick row is a state change
+#: stamped at an instant (task_start / arrive / pick / done / cut) and carries a NULL
+#: duration; a picker's work is the span BETWEEN two rows, which `task_stats.duration`
+#: already measures and which `production_time` already publishes.  Reading the pick leg
+#: out of this table instead would re-derive a number the task frame states directly, and
+#: would have read ZERO on every vintage before `duration` became nullable.
+_WORK_ROLES = {'put': 'put_seconds', 'receive': 'unload_seconds'}
+
+
+def _wdf(rows, df_b, df_t):
+    """Per-BATCH production labour: put + unload from `work_events`, pick from the tasks.
+
+    THE OBJECTIVE'S FRAME.  `total_production_seconds` is the quantity the whole inbound
+    effort selects on — put-away hours and picking hours move in OPPOSITE directions under
+    a placement rule, so a comparison on either leg alone systematically favours arms that
+    buy one with the other.
+
+    An EMPTY frame when `rows` is empty, never a frame of zeros.  This is the same rule
+    `_ydf` and `_ddf` follow and it is the load-bearing one here: a run predating
+    `work_events` and a run whose crews did no work are indistinguishable by row count, and
+    filling the missing legs with 0.0 would publish `total = pick` as if the put leg had
+    been measured and found to be nothing.  Empty makes the metric ABSENT instead, which is
+    what the capability gate and every downstream `_aligned` are written to handle.
+
+    Zeros WITHIN a populated frame are honest and are filled deliberately: once the table
+    has rows, a batch with no put row genuinely put nothing away, and dropping it would
+    make the batch index of this frame disagree with the batch frame's for no reason a
+    reader could recover.
+    """
+    if not rows:
+        return pd.DataFrame(columns=['batch_id', 'put_seconds', 'unload_seconds',
+                                     'pick_seconds', 'production_seconds',
+                                     'untimed_rows'])
+    per_batch: dict = {}
+    for r in rows:
+        b = int(r['batch_id'])
+        rec = per_batch.setdefault(b, {'put_seconds': 0.0, 'unload_seconds': 0.0,
+                                       'untimed_rows': 0})
+        column = _WORK_ROLES.get(r['role'])
+        if column is None:
+            continue
+        # `n_rows - n_timed` counts rows the SUM silently skipped, and it counts them ONLY
+        # among the roles this frame folds.  A pick row carrying no duration is the
+        # contract, not a loss — its leg comes from the task frame — and counting those
+        # would report tens of thousands of correctly-untimed rows as work excluded from
+        # the total, which is a louder and more alarming claim than the one it replaced.
+        # A PUT or RECEIVE row with no duration is the real thing worth surfacing: an
+        # interval that went missing, so a leg reads short with nothing else to say so.
+        rec['untimed_rows'] += int(r['n_rows']) - int(r['n_timed'])
+        # NULL when every row of this (batch, role) is an instant — 0.0 seconds of
+        # interval work, which for put and receive means the role did nothing here.
+        rec[column] += float(r['seconds'] or 0.0)
+    # The batch INDEX comes from the batch frame: it is the run's own statement of which
+    # batches happened, and a batch that picked without putting anything away belongs in
+    # this frame at zero rather than being invisible.  Falling back to the work rows' own
+    # batches keeps the frame buildable in a test that has no batch frame to hand.
+    if df_b is not None and not df_b.empty and 'batch_id' in df_b:
+        index = sorted(int(b) for b in df_b['batch_id'].unique())
+    else:
+        index = sorted(per_batch)
+    picked = (df_t.groupby('batch_id')['duration'].sum()
+              if df_t is not None and not df_t.empty and 'duration' in df_t
+              else pd.Series(dtype=float))
+    recs = []
+    for b in index:
+        rec = per_batch.get(b, {'put_seconds': 0.0, 'unload_seconds': 0.0,
+                                'untimed_rows': 0})
+        pick = float(picked.get(b, 0.0))
+        recs.append({'batch_id': b,
+                     'put_seconds': rec['put_seconds'],
+                     'unload_seconds': rec['unload_seconds'],
+                     'pick_seconds': pick,
+                     'production_seconds': (rec['put_seconds'] + rec['unload_seconds']
+                                            + pick),
+                     'untimed_rows': rec['untimed_rows']})
+    return pd.DataFrame(recs)
+
+
 def _roll(df, col, win=50):
     return df.sort_values('batch_id')[col].rolling(win, min_periods=1).mean().values
 
 
-def _metric_series(df_b_k, df_t_k, source, col, ss_lo):
-    """Per-batch steady-state Series (indexed by batch_id) for one strategy/metric."""
-    if source == 'batch':
-        d = df_b_k[df_b_k['batch_id'] >= ss_lo]
-        if d.empty or col not in d:
-            return pd.Series(dtype=float)
-        return d.set_index('batch_id')[col]
-    d = df_t_k[df_t_k['batch_id'] >= ss_lo]
-    if d.empty or col not in d:
+#: metric-source kind -> (which frame serves it, how it reduces to one value per batch).
+#:
+#: This table replaced an `if source == 'batch': ... else: <the task frame>` fallthrough,
+#: and the replacement is the point.  Under the fallthrough a kind added to
+#: `quantities.FRAME_TABLE` and forgotten here was looked up in the TASK frame — a
+#: per-trailer column asked of a per-task frame, found absent, and returned as an empty
+#: Series — so the quantity reported as unmeasurable rather than as misrouted, on every
+#: arm, silently.  An unknown kind now raises.
+_SOURCE_FRAME = {
+    'batch':     ('batch', None),
+    'task_mean': ('task',  'mean'),
+    'task_sum':  ('task',  'sum'),
+    # Already one row per batch, like 'batch' — the fold happened in SQL and again in
+    # `_wdf`, because the rows underneath are events and there are ~30k of them per arm.
+    'work':      ('work',  None),
+}
+
+
+def _metric_series(frames, source, col, ss_lo):
+    """Per-batch steady-state Series (indexed by batch_id) for one strategy/metric.
+
+    `frames` is {'batch': df_b, 'task': df_t, 'work': df_w} for ONE strategy.  A mapping
+    rather than positional frames because the set grows: each new per-batch source used to
+    mean a new positional argument threaded through six call sites, and the one that was
+    missed would have fallen through to the task frame rather than failing.
+    """
+    try:
+        which, fold = _SOURCE_FRAME[source]
+    except KeyError:
+        raise KeyError(
+            f'{source!r} is not a metric source ({sorted(_SOURCE_FRAME)}). A frame kind '
+            f'declared in quantities.FRAME_TABLE must be routed here too, or nothing can '
+            f'read it.') from None
+    df = frames.get(which)
+    if df is None:
+        raise KeyError(f'metric source {source!r} needs the {which!r} frame and the '
+                       f'caller passed none (has: {sorted(frames)})')
+    # Guarded before the filter: an arm whose DB holds no batch rows builds a frame with no
+    # COLUMNS at all, and `df['batch_id']` on that is a KeyError rather than an empty read.
+    if df.empty or 'batch_id' not in df or col not in df:
         return pd.Series(dtype=float)
+    d = df[df['batch_id'] >= ss_lo]
+    if d.empty:
+        return pd.Series(dtype=float)
+    if fold is None:
+        return d.set_index('batch_id')[col]
     g = d.groupby('batch_id')[col]
-    return g.mean() if source == 'task_mean' else g.sum()
+    return g.mean() if fold == 'mean' else g.sum()
 
 
 def _aligned(series_by_key, keys):

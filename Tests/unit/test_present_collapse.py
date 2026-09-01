@@ -153,15 +153,46 @@ def test_every_recorded_move_carries_a_real_reason():
         assert len(why.split()) >= 10, f'{key}: the reason is too short to be one'
 
 
+#: The five panels as published, plus the flag `_METRIC_GROUPS` gained when a group that
+#: cannot be PAIRED joined it.  All five original sources are per-batch, so all five are
+#: pairable and the flag is True throughout — which is exactly why it had to be added for
+#: the sixth and seventh rather than inferred.
+_PUBLISHED_GROUPS = [
+    ('Task makespan',        'ss_prod_hours', True,  'task_sum', 'duration', True),
+    ('Batch makespan',       'ss_dur',        True,  'batch',    'duration', True),
+    ('Thr / batch makespan', 'ss_thr',        False, 'batch',    'completion_rate', True),
+    ('Thr / task makespan',  'ss_thr_task',   False, 'batch',    'thr_task', True),
+    ('Layout total f·D',     'ss_sigma',      True,  'batch',    'sigma_fd', True),
+]
+
+#: Appended by the inbound funnel (ticket 08), which granted both a headline slot: the
+#: campaign asks "does space-aware inbound beat FIFO, AND AT WHAT FEE COST", and a headline
+#: carrying only hours answers half of it.  Recorded here for the same reason
+#: `test_quantities._ADDED_METRICS` exists — growth is legitimate, a reorder of what has
+#: already been published is not, and the two failures must be told apart.
+_APPENDED_GROUPS = [
+    ('Total production time', 'ss_prod_total', True, 'work', 'production_seconds', True),
+    # NOT pairable: the fee's instances are TRAILERS, so there is no batch i of one arm to
+    # difference against batch i of another, and the group renders without the paired
+    # effect annotation its five neighbours carry.
+    ('Yard overage', 'yard_overage_total', True, 'trailer', 'overage_days', False),
+]
+
+
 def test_the_headline_metric_groups_did_not_move_at_all():
-    """These are the panel labels of a published headline figure."""
-    assert [tuple(g) for g in _METRIC_GROUPS] == [
-        ('Task makespan',        'ss_prod_hours', True,  'task_sum', 'duration'),
-        ('Batch makespan',       'ss_dur',        True,  'batch',    'duration'),
-        ('Thr / batch makespan', 'ss_thr',        False, 'batch',    'completion_rate'),
-        ('Thr / task makespan',  'ss_thr_task',   False, 'batch',    'thr_task'),
-        ('Layout total f·D',     'ss_sigma',      True,  'batch',    'sigma_fd'),
-    ]
+    """These are the panel labels of a published headline figure.
+
+    The prefix is asserted first and separately: a rename or a reorder of the five
+    published panels renumbers a figure that is already committed evidence, while an
+    append leaves every one of them where it was.  Collapsing the two into one equality
+    would report both as the same diff.
+    """
+    got = [tuple(g) for g in _METRIC_GROUPS]
+    assert got[:len(_PUBLISHED_GROUPS)] == _PUBLISHED_GROUPS, (
+        'a published headline panel was renamed, reordered or dropped')
+    assert got == _PUBLISHED_GROUPS + _APPENDED_GROUPS, (
+        'a headline group was added without being recorded in _APPENDED_GROUPS, or was '
+        'inserted somewhere other than the end')
 
 
 # ── the structural properties, not just the strings ──────────────────────────────

@@ -38,6 +38,10 @@ class Evaluation:
     family:     str | None = None            # chart family (core/families.py); None for
                                              # non-figure evals (series/tables writers)
     quantities: tuple = ()                   # keys into core.quantities.BY_KEY
+    quantities_optional: tuple = ()          # ALSO drawn, but the figure survives without
+                                             #   them. Same input to the view derivation;
+                                             #   excluded from the era gate. See the
+                                             #   decorator for when this is legitimate.
     shape:      tuple = ()                   # the mark(s): core.quantities.SHAPES by
                                              #   name.  A tuple when one evaluation draws
                                              #   more than one KIND of mark — a ranked bar
@@ -110,8 +114,8 @@ def _derive_views(key, family, quantities, shape, suppressed, pending):
 
 
 def evaluation(*, key, label, scope, needs=(), defaults=None, out_subdir=None,
-               family=None, quantities=(), shape=None, views_suppressed=(),
-               views_pending=(), views=(), by_initial=False):
+               family=None, quantities=(), quantities_optional=(), shape=None,
+               views_suppressed=(), views_pending=(), views=(), by_initial=False):
     """Decorator: register the wrapped render fn as an Evaluation.
 
     A figure eval declares `family=` and its out_subdir is DERIVED (figures/<family>) —
@@ -122,6 +126,21 @@ def evaluation(*, key, label, scope, needs=(), defaults=None, out_subdir=None,
     its `views` are derived from those.  `views=` may still be passed, but ONLY by an
     evaluation listed in `families.LEGACY_VIEWS` with the reason it has not moved — a debt
     with a name, not a permission.
+
+    ## `quantities_optional=`
+
+    A quantity the figure draws WHEN THE RUN CAN ANSWER IT and omits when it cannot.  It
+    feeds the view derivation exactly like `quantities=` — it is drawn, so it must be
+    drawable — but `requests.era_shortfall` ignores it, so a capability the run lacks costs
+    the figure that quantity rather than the whole render.
+
+    This is a narrow permission, not a softer `quantities=`.  It is only honest when the
+    render genuinely degrades per quantity and SAYS SO — `headline.top_vs_baseline`, whose
+    two funnel-appended groups (total production hours, yard overage) are dropped from the
+    panel with a log line when no arm has a finite value, so the reader sees five groups
+    rather than seven blank-panelled ones.  An evaluation whose figure would be a lie
+    without the quantity declares it in `quantities=` and takes the refusal: that is what
+    the whole `yard` family does, and correctly.
 
     Returns the plain function unchanged so it stays directly unit-testable.
     """
@@ -151,15 +170,24 @@ def evaluation(*, key, label, scope, needs=(), defaults=None, out_subdir=None,
                         f'{key}: declares both shape= and views=. Views are DERIVED from '
                         f'the quantities and the mark; a hand-written set beside them is '
                         f'the drift this replaced.')
-                derived = _derive_views(key, family, quantities, marks,
-                                        tuple(views_suppressed), tuple(views_pending))
+                overlap = set(quantities) & set(quantities_optional)
+                if overlap:
+                    raise ValueError(
+                        f'{key}: {sorted(overlap)} is declared both required and '
+                        f'optional. A quantity is one or the other — the difference is '
+                        f'whether the era gate refuses the render for it.')
+                derived = _derive_views(key, family,
+                                        tuple(quantities) + tuple(quantities_optional),
+                                        marks, tuple(views_suppressed),
+                                        tuple(views_pending))
             sub = figures_subdir(family)
-        elif marks or quantities:
+        elif marks or quantities or quantities_optional:
             raise ValueError(f'{key}: shape=/quantities= describe a FIGURE evaluation, '
                              f'but this one declares no family')
         ev = Evaluation(key=key, label=label, scope=scope, needs=tuple(needs),
                         defaults=dict(defaults or {}), out_subdir=sub or '',
-                        family=family, quantities=tuple(quantities), shape=marks,
+                        family=family, quantities=tuple(quantities),
+                        quantities_optional=tuple(quantities_optional), shape=marks,
                         views_suppressed=tuple(views_suppressed),
                         views_pending=tuple(views_pending), views=derived,
                         by_initial=by_initial, render=fn)

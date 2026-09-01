@@ -189,6 +189,7 @@ class EvalContext:
         self._ycache: dict = {}     # per-trailer yard frames
         self._dcache: dict = {}     # per-drain yard frames
         self._mcache: dict = {}     # per-batch demand-service frames
+        self._wcache: dict = {}     # per-batch production-labour frames
         self._series = None
         self._breakdown = None
         self._maxb = None
@@ -239,11 +240,30 @@ class EvalContext:
     def missed_df(self, key):
         return _requests.missed_frame(self, key)
 
+    def work_df(self, key):
+        return _requests.work_frame(self, key)
+
     def batch_frames(self) -> dict:
         return {s['key']: self.batch_df(s['key']) for s in self.strategies}
 
     def task_frames(self) -> dict:
         return {s['key']: self.task_df(s['key']) for s in self.strategies}
+
+    def work_frames(self) -> dict:
+        return {s['key']: self.work_df(s['key']) for s in self.strategies}
+
+    def metric_frames_for(self, key) -> dict:
+        """{kind: frame} for one arm, as `frames._metric_series` expects it.
+
+        The one place a metric-source frame set is assembled: every consumer that iterates
+        `stats_core._METRICS` goes through here, so none of them can serve three kinds and
+        starve the fourth.
+        """
+        return _requests.metric_frames(self, key)
+
+    def metric_frames(self) -> dict:
+        """{key: {kind: frame}} for every arm — what the `_METRICS` consumers iterate."""
+        return {s['key']: self.metric_frames_for(s['key']) for s in self.strategies}
 
     # ── memoized derived products (broker facade, continued) ──────────────────
     def series(self) -> dict:

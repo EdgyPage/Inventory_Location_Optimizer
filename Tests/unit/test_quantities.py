@@ -69,6 +69,14 @@ _ADDED_METRICS = [
     # separate under a paced release schedule, where a crew that finishes early waits and
     # that idle gap is elapsed time the makespan cannot see.
     ('throughput_elapsed',    'batch',     'thr_elapsed',        False),
+    # 2026-08-31, the inbound funnel's selection metric. The objective is unload + put +
+    # pick, and the put leg had never been read: `putaway_seconds` is an in-sim property
+    # that reaches no table, so the hours live only in `work_events`, which this suite had
+    # never opened. `work` is the fourth metric-source kind and the first to arrive since
+    # the source dispatch stopped falling through to the task frame.
+    ('total_production_time', 'work',      'production_seconds', True),
+    ('putaway_time',          'work',      'put_seconds',        True),
+    ('unload_time',           'work',      'unload_seconds',     True),
 ]
 
 

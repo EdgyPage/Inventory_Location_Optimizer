@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:d37f33da72290fbf53ef4e5682b99db0d860adb3c6820e03557604b0f98dada6",
-  "schema_short": "d37f33da7229",
+  "schema_id": "sha256:51f99901f03cfd27934d18442db78d170cf46dd9f6ff498d217d11d32cb45a58",
+  "schema_short": "51f99901f03c",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -211,6 +211,12 @@
       "format": "png",
       "scope": "channel_run",
       "optional": false
+    },
+    "figures_yard_pngs": {
+      "path": "{cell}/{pair}/{config}/{channel?}/figures/yard/*.png",
+      "format": "png",
+      "scope": "channel_run",
+      "optional": true
     },
     "frozen_inventory_db": {
       "path": "_frozen/{pair}/planned_inventory.db",

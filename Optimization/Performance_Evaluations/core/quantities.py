@@ -106,7 +106,13 @@ FRAME_TABLE = {'batch': 'batch_stats',
                # number is a FOLD over reasons rather than a column, and the fold is
                # reason-selective — which is exactly why it is its own frame and not two
                # more `batch_stats` columns.
-               'carryover': 'carryover'}
+               'carryover': 'carryover',
+               # Production labour.  Its rows are per EVENT — ~30k an arm — and the fold to
+               # one value per (batch, role) happens in SQL, so what reaches `_wdf` is
+               # already an aggregate.  A frame of its own rather than columns on
+               # `batch_stats` because put-away hours were never written there at all:
+               # `putaway_seconds` is an in-sim property and this table is its only record.
+               'work': 'work_events'}
 
 #: The frame kinds `stats_core._metric_series` can actually pair batch-for-batch, and
 #: therefore the only ones `metric_specs()` hands to the significance suite.
@@ -118,7 +124,13 @@ FRAME_TABLE = {'batch': 'batch_stats',
 #: unmeasurable rather than as misrouted.  `drain` is excluded on meaning as well as on
 #: mechanics: its rows are LEVELS re-measured per drain, and the significance suite's whole
 #: apparatus is paired differences of per-batch values, which a level does not support.
-PAIRED_KINDS = ('batch', 'task_mean', 'task_sum')
+#:
+#: `work` IS here, and it has to be: the funnel's pre-registered decision rule (ticket 08)
+#: is a moving-block bootstrap CI on the total-production-hours gain over the `fifo` cell,
+#: which is the significance suite's paired machinery and nothing else.  Its rows are one
+#: per batch and its values are FLOWS of seconds, so batch i of one arm pairs with batch i
+#: of another exactly as `batch` does.
+PAIRED_KINDS = ('batch', 'task_mean', 'task_sum', 'work')
 
 
 @dataclass(frozen=True)
@@ -435,7 +447,14 @@ QUANTITIES: tuple = (
                       # derived in `frames._ydf` from the detention span and the run's
                       # recorded threshold — no such column exists, and deliberately:
                       # a stored overage would pin a finished run to one threshold
-                      db_columns=('arrived_s', 'staged_s', 'emptied_s', 'status')),
+                      db_columns=('arrived_s', 'staged_s', 'emptied_s', 'status'),
+                      # The headline slot ticket 08 granted, paid here. NOT a steady-state
+                      # mean despite sitting in the `ss_*` neighbourhood, and named so it
+                      # cannot be read as one: the fee's instances are TRAILERS, which have
+                      # no batch index to take a trailing window over. It is the whole
+                      # run's accrued trailer-days, which is also the number a carrier
+                      # bills — the quantity that sums, as `yard.fee` already draws it.
+                      steady_state='yard_overage_total'),
         capability='yard',
         notes='THE fee axis: Σ max(0, detention_days - INBOUND_FEE_THRESHOLD_DAYS) over '
               'every trailer, censored rows included. A carrier charges per trailer per '
@@ -489,6 +508,66 @@ QUANTITIES: tuple = (
               'waits — the mistake `recv_cut` made at 101x on a published headline. Read '
               'as the FIFO arm\'s ABSOLUTE value by the pilot gate, not as a ranking.'),
 
+    # ── production labour: the objective, and the two legs that were never reported ──
+    # THE SELECTION METRIC. Ticket 10 fixed the inbound objective as expected future WORK —
+    # put + pick hours — and ticket 08 made total production hours phase 1's selection
+    # metric. Until these three, one of its legs was not persisted as a scalar anywhere:
+    # `putaway_seconds` is an in-sim property on `Inventory_Management` and reaches no
+    # table, so the hours live only in `work_events`, which the analysis suite had never
+    # read a single row of.
+    #
+    # Selecting on `production_time` instead — the pick leg, which does exist — would
+    # systematically favour arms that buy pick time with put-away time, which is precisely
+    # the trade this effort exists to measure.
+    #
+    # All three name the `work_events` capability. The UNLOAD leg is here rather than on
+    # `batch_stats.recv_seconds`, which carries the same measurement, and the reason is the
+    # era gate: that column sits outside the guaranteed sim-DB surface AND postdates
+    # `work_events`, so no honest capability covers it — `work_events` being present does
+    # not imply the dock columns are. Read here, the whole objective sits behind one
+    # capability that is true when it says it is. The two surfaces are reconciled
+    # seconds-for-seconds by `Diagnostics/receiving_report.py`'s first check.
+    Quantity(
+        key='total_production_time', label='Total production time',
+        axis_stem='Σ production time per batch', unit=DURATION, direction='lower',
+        source=Source(per_batch=('work', 'production_seconds'),
+                      steady_state='ss_prod_total',
+                      # derived in `frames._wdf` and stored in no column: the put and
+                      # unload legs are a role-selective fold of `work_events`, the pick
+                      # leg is the task frame's own sum. Naming `production_seconds` as if
+                      # it were a column would claim a read the schema layer cannot check.
+                      db_columns=('batch_id', 'role', 'duration'),
+                      db_also=(('task_stats', ('batch_id', 'duration')),)),
+        capability='work_events',
+        notes='PRIMARY for the inbound funnel: unload + put + pick, the three legs of the '
+              'objective. Distinct from `production_time`, which is the PICK leg alone and '
+              'was named before the other two were measurable — the two are not '
+              'alternative spellings and must never be joined as one quantity. Unload '
+              'hours vary across arms only through the reorder feedback loop, so the '
+              'first-order lever is placement quality trading put against pick; '
+              'inbound-off the metric is effectively put + pick.'),
+    Quantity(
+        key='putaway_time', label='Put-away time',
+        axis_stem='Σ put-away time per batch', unit=DURATION, direction='lower',
+        source=Source(per_batch=('work', 'put_seconds'),
+                      db_columns=('batch_id', 'role', 'duration')),
+        capability='work_events',
+        notes='The leg that did not exist. `queue_depth` was the only honesty metric on '
+              'the put side and it is a LEVEL — a rule deferring put-away shows there as a '
+              'growing queue, but the hours it deferred were never counted. Untimed before '
+              'the 2026-08-24 one-clock refactor, so a pre-refactor vintage reads zero '
+              'here; the capability is what stops that being published as a result.'),
+    Quantity(
+        key='unload_time', label='Unload time',
+        axis_stem='Σ unload time per batch', unit=DURATION, direction='lower',
+        source=Source(per_batch=('work', 'unload_seconds'),
+                      db_columns=('batch_id', 'role', 'duration')),
+        capability='work_events',
+        notes='Receiving labour, DISJOINT from put-away: a unit is unloaded from a trailer '
+              'or put into a bin, never both in one row, and the two crews are separate. '
+              'Near-absent inbound-off, which is what makes it the leg that only the '
+              'campaign moves.'),
+
     # ── series-only quantities: no per-batch scalar, so no significance row ──────
     Quantity(
         key='pick_volume', label='Cumulative items picked',
@@ -531,16 +610,20 @@ AGGREGATE_ORDER: tuple = ('makespan', 'throughput', 'throughput_task',
 
 #: panel order of the headline top-vs-baseline figure.
 #:
-#: `yard_overage_days` is OWED a slot at the END of this tuple and does not have one yet.
-#: The funnel decided it earns one — the campaign's question is "does space-aware inbound
-#: beat FIFO, AND AT WHAT FEE COST", so a headline without the fee answers half of it —
-#: but a slot here reads a STEADY-STATE scalar out of the series document, and the yard's
-#: numbers are per-trailer and per-drain rather than per-batch. Building that scalar is
-#: what "Build total production hours" is already opening the series builder to do, and
-#: adding the panel before then would put an empty sixth panel on every inbound-off
-#: publish, which is every run in the archive.
+#: The last two were appended together, and they had to be: `yard_overage_days`' slot was
+#: owed from the funnel (ticket 08 — the campaign asks "does space-aware inbound beat FIFO,
+#: AND AT WHAT FEE COST", so a headline without the fee answers half of it) but could not
+#: be paid until something opened `_build_series` to a frame other than batch and task.
+#: `total_production_time` is what opened it.
+#:
+#: Neither draws on a run that cannot answer it. A group whose values are non-finite for
+#: every arm is DROPPED by `headline.top_vs_baseline` rather than rendered as an empty
+#: panel — which is what an inbound-off publish, meaning every run in the archive, gets for
+#: the fee. That drop is the mechanism that made appending these safe; without it the two
+#: entries would put blank panels on published evidence.
 HEADLINE_ORDER: tuple = ('production_time', 'makespan', 'throughput',
-                         'throughput_task', 'sigma_fd')
+                         'throughput_task', 'sigma_fd',
+                         'total_production_time', 'yard_overage_days')
 
 #: render order of the over-time (trajectories) family.  `pick_volume` has a series
 #: source but is NOT here: it is drawn against elapsed hours by `throughput.volume`, not

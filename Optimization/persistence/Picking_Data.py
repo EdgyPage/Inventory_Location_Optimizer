@@ -1112,6 +1112,9 @@ CONDITIONAL_READS = {
     'load_yard_trailers':  'yard_trailers',
     'load_yard_drains':    'yard_drains',
     'load_carryover':      'carryover',      # written since 2026-08-24, read from here on
+    # The production-labour fold, added 2026-08-31 — `work_events` had no consumer outside
+    # Diagnostics until the objective needed the put leg.  Negotiated like the yard pair.
+    'load_work_hours':     'work_events',
 }
 
 # ── the sim DB's capabilities: what a consumer may NEGOTIATE for ────────────────────────────
@@ -1343,6 +1346,28 @@ _dataset.register_query(_dataset.Query(
          + ' FROM yard_drains WHERE run_id = :run_id ORDER BY batch'),
     columns=_YARD_DRAIN_COLS,
     tables={'yard_drains': ('run_id', *_YARD_DRAIN_COLS)}))
+
+# Production labour, folded per (batch, role).  `work_events` is another whole-table
+# absence before its vintage, so it takes the same no-`optional` treatment as the yard
+# pair above: `Dataset.query` raises, `_query_rows` returns None, the loader returns [].
+#
+# THE NULL COUNT IS PART OF THE ANSWER, not diagnostics.  `duration` is nullable BY DESIGN
+# -- an interval for a put or an unload, NULL for a pick row, which is a state change
+# stamped at an instant -- and `SUM` skips NULLs silently.  A caller therefore cannot tell
+# "this role did no timed work" from "this role's rows carry no durations at all", and the
+# difference matters: the column was `NOT NULL DEFAULT 0` until 2026-08-25, so on an older
+# vintage every pick row claims zero seconds and `SUM(duration)` looks like a total while
+# being put+receive labour only.  `n_rows` and `n_timed` make that visible in the frame
+# instead of leaving it to a docstring nobody reads at the call site.
+_WORK_HOURS_COLS = ('batch_id', 'role', 'seconds', 'n_rows', 'n_timed')
+_dataset.register_query(_dataset.Query(
+    name='work_hours_frame', family='sim_db',
+    sql=('SELECT batch_id, role, SUM(duration) AS seconds, COUNT(*) AS n_rows,'
+         ' COUNT(duration) AS n_timed'
+         ' FROM work_events WHERE run_id = :run_id'
+         ' GROUP BY batch_id, role ORDER BY batch_id, role'),
+    columns=_WORK_HOURS_COLS,
+    tables={'work_events': ('run_id', 'batch_id', 'role', 'duration')}))
 
 
 # ── the VIEWER's named queries (publisher side) ─────────────────────────────────────────────
@@ -2526,6 +2551,32 @@ def load_yard_drains(path: str, run_id: int) -> list:
     pair is a COUNT OF DRAINS with either above zero.
     """
     return _query_rows('yard_drain_frame', path, run_id=run_id) or []
+
+
+def load_work_hours(path: str, run_id: int) -> list:
+    """Seconds of production labour per (batch, role).  `[]` on a pre-`work_events` vintage.
+
+    THE PUT LEG'S ONLY ROUTE.  Put-away hours exist nowhere else: `putaway_seconds` is an
+    in-sim property on `Inventory_Management` and was never written to `batch_stats`, so
+    every consumer that wanted them had to read this table -- and until now none did.
+
+    The unload leg is here too, deliberately, even though `batch_stats.recv_seconds`
+    carries the same measurement.  That column sits OUTSIDE the guaranteed sim-DB surface
+    and postdates `work_events`, so a quantity reading it would need a capability that
+    `work_events` cannot honestly supply, while an unguarded read would fill a pre-dock
+    vintage's unload leg with a plausible zero.  Reading both legs here puts the whole
+    objective behind one capability that is true when it says it is.  The two surfaces are
+    written by different code from different state and are reconciled seconds-for-seconds
+    by `Diagnostics/receiving_report.py`'s first check, which is what makes them
+    substitutable rather than merely similar.
+
+    Rows are aggregates, not events, so the fold happens in SQL: a 200-batch arm holds
+    ~30k rows and the consumer wants ~3 numbers a batch.  `role` selection stays with the
+    caller for the same reason `load_carryover` leaves `reason` there -- 'pick' rows carry
+    NULL durations by design and summing across every role would produce a number with no
+    meaning.
+    """
+    return _query_rows('work_hours_frame', path, run_id=run_id) or []
 
 
 def load_bin_evictions(path: str, run_id: int, batch_id: int | None = None) -> list:

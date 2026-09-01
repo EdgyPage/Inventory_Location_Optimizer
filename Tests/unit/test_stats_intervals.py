@@ -183,6 +183,15 @@ def test_vs_baseline_rows_are_auditable_and_self_consistent():
             return pd.DataFrame({'batch_id': f['batch_id'], 'duration': f['duration'],
                                  'W': f['W']})
 
+        def metric_frames_for(self, key):
+            # An EMPTY work frame, which is what a stub with no `work_events` honestly
+            # has: the three production-labour metrics are then skipped for want of an
+            # alignable series, exactly as they are on an archived run. Handing over a
+            # frame of zeros would put a fabricated `total_production_time` row into a
+            # test about interval correctness.
+            return {'batch': self.batch_df(key), 'task': self.task_df(key),
+                    'work': pd.DataFrame()}
+
     rows = compute_vs_baseline(_Ctx())
     assert rows, 'no rows produced'
     keys = {r['strategy'] for r in rows}
@@ -237,6 +246,11 @@ def test_vs_baseline_effect_sizes_point_the_same_way_as_the_percentage():
             f = self._frame(key)
             return pd.DataFrame({'batch_id': f['batch_id'], 'duration': f['duration'],
                                  'W': f['W']})
+
+        def metric_frames_for(self, key):
+            # Empty work frame — see the sibling stub above for why not zeros.
+            return {'batch': self.batch_df(key), 'task': self.task_df(key),
+                    'work': pd.DataFrame()}
 
     for r in compute_vs_baseline(_Ctx()):
         if abs(r['pct_median']) < 0.5:

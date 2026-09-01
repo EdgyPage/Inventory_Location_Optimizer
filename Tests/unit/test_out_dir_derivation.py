@@ -55,6 +55,7 @@ _LITERALS = {
     'labor.delta_topn':               ('figures', 'labor'),
     'labor.per_batch':                ('figures', 'labor'),
     'labor.delta_grid':               ('figures', 'labor'),
+    'labor.production_legs':          ('figures', 'labor'),
     'throughput.volume':              ('figures', 'throughput'),
     'throughput.missed':              ('figures', 'throughput'),
     # The yard family: one folder, four evaluations, and it is legitimately EMPTY on a run

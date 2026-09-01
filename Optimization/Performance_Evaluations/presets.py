@@ -28,6 +28,12 @@ _HEADLINE = ['headline.top_vs_baseline', 'headline.all_arms', 'headline.rollup',
 _TRENDS   = ['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch',
              'labor.delta_grid', 'throughput.volume', 'throughput.missed']
 _DETAIL   = ['task_time.duration', 'task_time.breakdown',
+             # Grouped by CHARACTER, not by family: a static stacked decomposition belongs
+             # beside `task_time.breakdown` (the other composite) rather than with the
+             # over-time `labor.*` entries in _TRENDS. Like the yard family below, it does
+             # not render on a run that predates its source — all three of its quantities
+             # name the `work_events` capability, so the era gate refuses with a reason.
+             'labor.production_legs',
              'layout.travel', 'layout.churn',
              # The yard family renders only where a yard ran; its request is DENIED on
              # every inbound-off run, which is every run in the archive, and the driver
