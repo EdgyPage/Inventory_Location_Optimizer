@@ -240,7 +240,9 @@ def _choose(ranking, k: int, extension_cap: int, log) -> dict:
     # gain policy was chosen for -- so a phase-2 gain cell refuses the `fifo` rider at worker
     # startup unless the evaluator serves it.  The cap governs which OPTIONAL families are worth
     # extending; this one is not optional, so it is reported separately rather than counted
-    # against it.  (Verified 2026-08-31: `_gain_bundle_for` raises for both fifo arms.)
+    # against it.  Served since ticket 21 (the uniform adapter), so this reports empty today --
+    # it stays because the rider is the one arm whose absence from the faithful set kills every
+    # gain cell, and a future BASELINE_RULE change must be caught here, not at worker startup.
     rider_ext = [BASELINE_RULE] if BASELINE_RULE not in FAITHFUL_GAIN_FAMILIES else []
     if rider_ext:
         log(f'    !! the mandatory {BASELINE_RULE} rider has NO faithful gain bundle: every '

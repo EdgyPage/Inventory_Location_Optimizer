@@ -189,20 +189,24 @@ def test_the_extension_cap_backfills_from_the_faithful_set(tmp_path):
     assert any('extension cap' in m for m in said)
 
 
-def test_the_mandatory_rider_is_reported_as_needing_a_bundle_of_its_own(run_root):
+def test_the_mandatory_rider_needs_no_extension(run_root):
     """A gain cell builds a bundle for EVERY arm in the set, not only for the arms a gain
-    policy was chosen for — so the `fifo` rider, which is not optional, refuses at worker
-    startup unless the evaluator serves it. It sits OUTSIDE the extension cap because the cap
-    governs which optional families are worth extending, and this one has no opt-out."""
+    policy was chosen for — so the `fifo` rider, which is not optional, would refuse at worker
+    startup unless the evaluator serves it. It does since ticket 21 (the uniform adapter), so
+    this field reports empty; it stays because a future BASELINE_RULE change must surface here
+    and not 480 work units into phase 2. The rider is outside the extension cap either way."""
     store = sel.select(run_root, k=2, log=lambda *_a: None)['channels']['store']
-    assert 'fifo' not in FAITHFUL_GAIN_FAMILIES, 'the premise of this test'
-    assert store['rider_needs_bundle_extension'] == ['fifo']
+    assert 'fifo' in FAITHFUL_GAIN_FAMILIES, 'the rider must have a faithful bundle'
+    assert store['rider_needs_bundle_extension'] == []
     assert 'fifo' not in store['needs_bundle_extension'], 'the rider must not eat the cap'
+    assert sel.BASELINE_RULE == 'fifo', (
+        'the two assertions above only cover the rider while it IS fifo')
 
 
-def test_a_gain_bundle_really_is_refused_for_the_rider():
-    """The finding itself, not a restatement of it: phase 2 cannot run a gain cell over an arm
-    set containing `fifo` until `_gain_bundle_for` serves it."""
+def test_a_gain_bundle_really_is_built_for_the_rider():
+    """The thing itself, not a restatement of it: a gain cell over an arm set containing
+    `fifo` gets a bundle for BOTH fifo arms, and the refusal still fires for a family the
+    evaluator genuinely cannot price."""
     from types import SimpleNamespace
 
     from Optimization.config.strategies import STRATEGY_BY_KEY
@@ -210,10 +214,14 @@ def test_a_gain_bundle_really_is_refused_for_the_rider():
     mgr = SimpleNamespace(_zoning_enabled=False, _aisle_sku_sets={}, _aisle_idx_sets={},
                           _aisle_demand_sum={})
     spec = {'fee_threshold_days': 2.0, 'urgency_horizon_days': 0.0}
+    for key in ('uni_fifo_norsl', 'opt_fifo_norsl'):
+        bundle = _gain_bundle_for(STRATEGY_BY_KEY[key], mgr, None, {}, 1.0, spec)
+        assert bundle.uniform, f'{key} must take the uniform adapter, not the merge default'
+        assert bundle.pool_factory is None
+    # ...and an unfaithful family still refuses, so the branch above is about fifo and not a
+    # gate that stopped gating.
     with pytest.raises(ValueError, match='no faithful gain bundle'):
-        _gain_bundle_for(STRATEGY_BY_KEY['uni_fifo_norsl'], mgr, None, {}, 1.0, spec)
-    # ...and a faithful family still builds, so the refusal is about the family, not the stub.
-    assert _gain_bundle_for(STRATEGY_BY_KEY['uni_tmin_norsl'], mgr, None, {}, 1.0, spec)
+        _gain_bundle_for(STRATEGY_BY_KEY['uni_rank_labor_norsl'], mgr, None, {}, 1.0, spec)
 
 
 def test_the_faithful_set_is_the_one_the_driver_actually_accepts():

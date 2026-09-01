@@ -137,9 +137,10 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
     copies (its selector must read the COPY of aisle_demand_sum, not the live dict);
     rank_random gets the pool with a deterministic stand-in selector and expectation
     pricing over the aisle heads (an ordering entry may consume no RNG — the decided
-    deviation 04 recorded).  Any other placement family FAILS LOUDLY: an evaluator
-    that cannot rebuild the arm's pool over copies would price a fiction under that
-    arm's name, and phase 2's top-k should extend this map consciously, not silently.
+    deviation 04 recorded); fifo gets the uniform adapter, which needs nothing from
+    here at all.  Any other placement family FAILS LOUDLY: an evaluator that cannot
+    rebuild the arm's pool over copies would price a fiction under that arm's name,
+    and phase 2's top-k should extend this map consciously, not silently.
     """
     if getattr(mgr, '_zoning_enabled', False):
         raise ValueError(
@@ -158,6 +159,12 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
         urgency_horizon_days=spec['urgency_horizon_days'],
     )
     restock = strat.restock
+    if restock == 'fifo':
+        # The mandatory phase-2 rider (08), and the one family with no pool at all:
+        # `_build_uniform` sets only `place_one`, a uniform draw over the whole tier.
+        # Nothing arm-specific has to cross this seam — the draw's expectation is a
+        # closed form over the tier's own geometry (`Inbound.gain._place_uniform`).
+        return _GainBundle(uniform=True, **kw)
     if restock in ('tmin', 'tmax'):
         return _GainBundle(minimize=(restock == 'tmin'), **kw)
     if restock == 'rank_popularity':
@@ -185,9 +192,9 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
     raise ValueError(
         f'no faithful gain bundle for placement arm {strat.key!r} (restock '
         f'{restock!r}): the gain evaluator serves {"/".join(FAITHFUL_GAIN_FAMILIES)} '
-        f'(tmin/tmax by the k-cheapest merge, the other two by a pool over copies).  '
-        f'Extend _gain_bundle_for for this family, or run it with a non-gain inbound '
-        f'policy')
+        f'(fifo by the uniform expectation, tmin/tmax by the k-cheapest merge, the '
+        f'ranked two by a pool over copies).  Extend _gain_bundle_for for this '
+        f'family, or run it with a non-gain inbound policy')
 
 
 def _futuresight_window_w(spec, batches):

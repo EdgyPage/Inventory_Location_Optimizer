@@ -329,6 +329,23 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   rather than sitting unreachable inside [20](issues/20-extend-the-gain-bundles.md), which
   stays genuinely gated on the ranking.
 
+- [Give the fifo rider a faithful gain bundle](issues/21-give-fifo-a-faithful-gain-bundle.md):
+  BUILT — phase 2's gain cells accept the rider. The faithfulness question resolves FOR an
+  evaluator and more strongly than the ticket hoped: a uniform draw's expectation is EXACT, not
+  a defensible approximation, because sequential draws without replacement leave every unit's
+  bin marginally uniform over the frozen tier and `_pair_cost` is AFFINE in a bin's (x, y,
+  height multiplier). `rank_random` does NOT carry the answer — its adapter's whole argument is
+  "call the arm's own builder", and `fifo` has no pool to call — so this is a THIRD adapter
+  (`_place_uniform`), checked against brute-force enumeration, with the height moment the mean
+  OF the steps and never the step at the mean. Exact pricing is what empties a take's identity:
+  consumption becomes a SEAT COUNT and capacity is the arm's only lever, which forced the one
+  shared-machinery change — a per-round block allocator, WRAPPING not truncating (truncating
+  was tried: it hands the win to whoever swept LAST on an oversubscribed tier). THE FINDING:
+  with seats for everyone `gain_myopic` over `fifo` gains exactly zero and plans arrival order —
+  a property of the arm, which is what makes the rider a clean order-blind control rather than
+  an inert one; forecast/gated/futuresight all still move it. Cheapest adapter in the suite.
+  Owed: the derived arch layer (as at 09/13/15); no schema event, fingerprint refreshed.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -342,14 +359,13 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   (Done: the standing-yard mechanics — 09 —, the space-timeline build — 11 —, the
   ordering-seam generalization — 12 —, the gain evaluator + gain-plan arms — 14 —, the
   futuresight window feed + entry — 13 —, the lead distribution — 15 —, the eviction
-  fold — 16 —, the yard metrics — 17 —, the total-production-hours build — 19 — and the
+  fold — 16 —, the yard metrics — 17 —, the total-production-hours build — 19 —, the
   run-shape layer — 18 —, which paid the seams 3–4 debt every knob deferred to "the first
-  sweep". Two tickets remain, and 18 SPLIT them apart:
-  [Give the fifo rider a faithful gain bundle](issues/21-give-fifo-a-faithful-gain-bundle.md)
-  is the FRONTIER — unblocked, mandatory, and the last thing between the builds and the
-  pilot, because every phase-2 gain cell refuses the rider until it lands;
+  sweep", and the fifo rider's gain bundle — 21 —, which was the last build standing between
+  the funnel and the pilot. ONE ticket remains and it is NOT on the frontier:
   [Extend the gain bundles](issues/20-extend-the-gain-bundles.md) stays gated on phase 1,
-  since which OTHER families need extending is phase 1's output.)
+  since which OTHER families need extending is phase 1's output. So the frontier is empty by
+  design: the next act is the pilot, not a ticket.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions

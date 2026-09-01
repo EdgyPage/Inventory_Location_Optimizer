@@ -42,6 +42,14 @@ forbidden, so the broker holds what it is handed):
     rank_random's virtual pool must consume no RNG (the seam purity pin), so it prices
     by EXPECTATION over the pool's current aisle heads and consumes via a deterministic
     stand-in selector — the deviation 04 decided and this docstring records.
+  * `fifo` gets the UNIFORM adapter.  It is the mandatory phase-2 rider (08) and it has
+    no pool at ALL — `_build_uniform` sets only `place_one`, a uniform draw over the
+    whole tier `_candidates_raw` returns — so neither adapter above fits.  It needs
+    neither: the draw's expectation is EXACT in closed form, because `_pair_cost` is
+    affine in a bin's (x, y, height multiplier) and sequential draws without
+    replacement leave every unit's bin marginally uniform over the tier as frozen.
+    Price = the tier's mean; consumption = a SEAT COUNT, since which bin a uniform
+    draw got is worth nothing to the next unit.  See `_place_uniform` (ticket 21).
 
 Exhaustion resolves tiers over the `SpaceView` keys the way `_candidates_raw` does:
 smallest non-empty fitting tier first, spilling UP (the injected `tier_ranks_for`
@@ -111,7 +119,12 @@ GAIN_POLICIES: frozenset = frozenset({'gain_myopic', 'gain_forecast', 'gain_gate
 #: importing the simulation, and so there is one list rather than a dispatch chain and a
 #: remembered copy.  `Tests/unit/test_restock_selection.py` pins it against what the driver
 #: actually accepts.
-FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('tmin', 'tmax', 'rank_popularity', 'rank_random')
+#:
+#: `fifo` leads because it is the one entry that is not optional: 08 makes it a mandatory
+#: phase-2 rider, and a gain cell builds a bundle for EVERY arm in its set, so without it
+#: all five gain cells refuse at worker startup (ticket 21).
+FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('fifo', 'tmin', 'tmax',
+                                           'rank_popularity', 'rank_random')
 
 _SECONDS_PER_DAY = 86400.0
 
@@ -119,6 +132,8 @@ _SECONDS_PER_DAY = 86400.0
 class GainBundle:
     """Everything arm-specific the evaluator needs, injected by the driver.
 
+    Three adapters, and the bundle picks exactly one.  `uniform` selects the uniform
+    adapter (`fifo`: no pool, no direction — the tier's mean and a seat count).  Else
     `pool_factory` None selects the merge adapter (extremal-D family, direction
     `minimize`); otherwise the pool adapter calls
     `pool_factory(candidates, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, wp)`
@@ -127,23 +142,33 @@ class GainBundle:
     expectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because
     their home (`wh_inventory`) is a forbidden import — the broker rule.
 
+    `minimize` is INERT under `uniform`: a uniform draw has no extremal direction to
+    sort a tier by, so nothing reads it.  It is left at its default rather than
+    refused, because the merge adapter's default is the same value.
+
     The two days-denominated knobs ride here because the gate entry has no other
     channel to CONFIG (`inbound_spec()` -> driver -> bundle, the five-seam path).
     """
 
-    __slots__ = ('minimize', 'pool_factory', 'expect_heads', 'heads_of',
+    __slots__ = ('minimize', 'pool_factory', 'expect_heads', 'heads_of', 'uniform',
                  'aisle_sku_sets', 'aisle_idx_sets', 'aisle_demand_sum',
                  'put_speed', 'wp_of', 'binkey_of', 'tier_ranks_for',
                  'fee_threshold_days', 'urgency_horizon_days')
 
     def __init__(self, *, put_speed, wp_of, binkey_of, tier_ranks_for,
                  minimize: bool = True, pool_factory=None, expect_heads: bool = False,
-                 heads_of=None, aisle_sku_sets=None, aisle_idx_sets=None,
-                 aisle_demand_sum=None, fee_threshold_days: float = 2.0,
+                 heads_of=None, uniform: bool = False, aisle_sku_sets=None,
+                 aisle_idx_sets=None, aisle_demand_sum=None,
+                 fee_threshold_days: float = 2.0,
                  urgency_horizon_days: float = 0.0):
         if expect_heads and (pool_factory is None or heads_of is None):
             raise ValueError('expect_heads prices over the pool\'s aisle heads — it '
                              'needs both pool_factory and heads_of')
+        if uniform and (pool_factory is not None or expect_heads):
+            raise ValueError('the uniform adapter serves a family with NO pool (fifo); '
+                             'pool_factory / expect_heads belong to the pool adapter '
+                             'and would be silently ignored here')
+        self.uniform = bool(uniform)
         self.minimize = bool(minimize)
         self.pool_factory = pool_factory
         self.expect_heads = bool(expect_heads)
@@ -170,7 +195,7 @@ class _Evaluator:
 
     __slots__ = ('b', 'space', 'taken', 'unseated',
                  '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
-                 '_wr')
+                 '_wr', '_mom')
 
     def __init__(self, bundle: GainBundle, space, window_rates=None):
         self.b = bundle
@@ -187,6 +212,7 @@ class _Evaluator:
         self._wp: dict = {}             # own BinKey -> (wp, x_pace, y_pace)
         self._chain_cache: dict = {}    # own BinKey -> spill chain (ascending tiers)
         self._worst: dict = {}          # chain head -> worst bin over the whole chain
+        self._mom: dict = {}            # (key, predicted, brackets) -> tier means
 
     # ── per-key parameters ────────────────────────────────────────────────────────
     def _params(self, unit, own_key):
@@ -217,8 +243,9 @@ class _Evaluator:
         return got
 
     # ── pricing ───────────────────────────────────────────────────────────────────
-    def _pair_cost(self, unit, bin_, wp, xk, yk) -> float:
-        """put travel (paid once) + E[visits] x (pick travel + per_pick at height).
+    def _cost_at(self, unit, x, y, hm, wp, xk, yk) -> float:
+        """put travel (paid once) + E[visits] x (pick travel + per_pick at height),
+        read at a LOCATION (x, y) with height multiplier `hm`.
         A zero demand rate means the unit is never picked: its pick term is ZERO
         (not quantity visits, the maximum possible reading); put is still paid.
 
@@ -226,9 +253,18 @@ class _Evaluator:
         stands where the static rate stands: absent from the window = not picked in
         the visible future, put only; present = per-event draw total/events, visits
         capped at the event count (a unit cannot be visited more often than demand
-        events exist — the cap is what makes w=inf honestly the oracle)."""
+        events exist — the cap is what makes w=inf honestly the oracle).
+
+        `hm` None reads the bracket step at `y` — a real bin, the only caller that
+        existed before the uniform adapter.  A VALUE is a tier's MEAN multiplier, and
+        passing one is exactly why the expectation below is exact: this expression is
+        AFFINE in x, y and hm, so its mean over a bin set equals its value at the
+        set's means.  The step function is evaluated per bin when the moments are
+        taken, never on an averaged y (which would be a different, wrong number).
+        The sentinel keeps the bracket walk off the put-only path, where it would be
+        computed and thrown away for every never-picked unit."""
         ps = self.b.put_speed
-        put = ps.x_pace * bin_.x_phys + ps.y_pace * bin_.y_phys
+        put = ps.x_pace * x + ps.y_pace * y
         order = unit.order
         wr = self._wr
         if wr is not None:
@@ -243,9 +279,38 @@ class _Evaluator:
             if q <= 0:
                 return put
             visits = max(1.0, unit.quantity / q)
-        hm = height_multiplier(wp.height_brackets, bin_.y_phys)
+        if hm is None:
+            hm = height_multiplier(wp.height_brackets, y)
         at_bin = per_pick(hm, wp.pick_intercept, order.handle_var, q)
-        return put + visits * (xk * bin_.x_phys + yk * bin_.y_phys + at_bin)
+        return put + visits * (xk * x + yk * y + at_bin)
+
+    def _pair_cost(self, unit, bin_, wp, xk, yk) -> float:
+        """`_cost_at` read at one real bin — the merge and pool adapters' pricing."""
+        return self._cost_at(unit, bin_.x_phys, bin_.y_phys, None, wp, xk, yk)
+
+    def _moments(self, key, predicted: bool, brackets):
+        """(mean x, mean y, mean height multiplier) over a tier as FROZEN — the three
+        numbers the uniform expectation reads, computed once per (tier, source,
+        brackets) and never rebuilt.
+
+        Over the FULL frozen tier, never the excluded-filtered one.  The bins another
+        load consumed are a uniformly random subset under this arm, so what is left
+        has the same mean in expectation; filtering them out would bias the price by
+        exactly the thing the arm does not choose on.  Only the COUNT is filtered
+        (`_useat`).  Keyed by the height brackets because the multiplier is the one
+        moment that is regime-specific.  Callers only ask for a tier they know is
+        non-empty, so there is no empty-set division here."""
+        ck = (key, predicted, brackets)
+        got = self._mom.get(ck)
+        if got is None:
+            src = (self.space.predicted if predicted
+                   else self.space.empties).get(key, ())
+            inv = 1.0 / len(src)
+            got = self._mom[ck] = (
+                sum(b.x_phys for b in src) * inv,
+                sum(b.y_phys for b in src) * inv,
+                sum(height_multiplier(brackets, b.y_phys) for b in src) * inv)
+        return got
 
     def _unseated_cost(self, unit, chain, wp, xk, yk) -> float:
         """Past total exhaustion: worst bin over the WHOLE spill chain (both tiers,
@@ -297,14 +362,22 @@ class _Evaluator:
         return got
 
     # ── one virtual placement ─────────────────────────────────────────────────────
-    def place_load(self, units, excluded, predicted: bool):
+    def place_load(self, units, excluded, predicted: bool, *, alloc=None):
         """(cost, takes) of placing `units` against the availability that `excluded`
         leaves standing; `predicted` merges the deferral tier in.  Groups by the
         unit's OWN BinKey in load order (the canonical pack order is deterministic),
-        spilling up the chain per group."""
+        spilling up the chain per group.
+
+        `alloc` is the sweep's shared block allocator, read by the uniform adapter
+        ONLY (see `_place_uniform`) and inert for the other two.  None gives this
+        placement its own, which is what the forced prefix and the deferral side
+        want: each of those stands alone, against an `excluded` that already carries
+        whatever went before it."""
         cost = 0.0
         takes: list = []
         avail_cache: dict = {}
+        if alloc is None:
+            alloc = {}
         groups: dict = {}
         order: list = []
         for u in units:
@@ -318,7 +391,10 @@ class _Evaluator:
             gunits = groups[k]
             wp, xk, yk = self._params(gunits[0], k)
             chain = self._chain(gunits[0], k)
-            if self.b.pool_factory is not None:
+            if self.b.uniform:
+                c, tk = self._place_uniform(gunits, chain, wp, xk, yk,
+                                            excluded, predicted, avail_cache, alloc)
+            elif self.b.pool_factory is not None:
                 c, tk = self._place_pool(gunits, chain, wp, xk, yk,
                                          excluded, predicted, avail_cache)
             else:
@@ -357,6 +433,106 @@ class _Evaluator:
                 takes.append(b)
                 cost += self._pair_cost(u, b, wp, xk, yk)
         return cost, takes
+
+    def _useat(self, key, excluded, predicted, cache):
+        """One placement's view of a tier for the uniform adapter:
+        `[seats, predicted weight, the now-list]`.
+
+        Both numbers are fixed at first touch and never recomputed as the tier is
+        consumed.  The units draw from ONE pool — the empties merged with whatever
+        predicted clears the arm may see — and drawing uniformly from a mixed pool
+        leaves its mix proportional in expectation, so the weight does not drift.
+        What consumption changes is the SEAT COUNT, and that is the whole mechanism:
+        it is the only way an inbound ordering can move a uniform arm's cost."""
+        got = cache.get(('unif', key))
+        if got is None:
+            nowl = [b for b in self.space.empties.get(key, ())
+                    if id(b) not in excluded]
+            n_pred = 0
+            if predicted:
+                n_pred = sum(1 for b in self.space.predicted.get(key, ())
+                             if id(b) not in excluded)
+            total = len(nowl) + n_pred
+            got = cache[('unif', key)] = [total,
+                                          (n_pred / total) if total else 0.0,
+                                          nowl]
+        return got
+
+    def _place_uniform(self, gunits, chain, wp, xk, yk, excluded, predicted, cache,
+                       alloc):
+        """The uniform adapter: `fifo`'s draw, priced by its EXACT expectation and
+        consumed as a seat count.
+
+        `_uniform_assignment` picks uniformly from the whole tier `_candidates_raw`
+        hands it, so (a) every unit's bin is marginally uniform over that tier as
+        frozen — sequential draws WITHOUT replacement leave the marginal untouched,
+        which is what makes this an expectation rather than an approximation — and
+        (b) which bin a unit got is worth nothing to the next one.  Units therefore
+        keep LOAD order here: a uniform draw has no precedence to sort by (contrast
+        `_place_merge`, which sorts by the pool's priority).
+
+        The reported takes come from `alloc`, the sweep's shared block allocator, so
+        two candidates claim the same bin only once a tier is oversubscribed.  That is
+        not bookkeeping taste: the cost above is identity-blind, so identities exist
+        ONLY to feed `plan_order`'s leftover model, which unions the OTHER candidates'
+        takes.  Independent uniform draws essentially never collide, so hand every
+        candidate the same front-of-list bins and that union collapses to one load's
+        worth — pricing a whole yard's contention as a single trailer's.  Past the end
+        the allocator WRAPS rather than truncating: an oversubscribed tier then marks
+        its bins as shared (`n > 1`) for everyone, instead of leaving the last
+        candidates empty-handed and making a later arrival look starved purely because
+        an earlier one drew its block first.
+
+        RESIDUE, named: the union is exact while a tier's demand fits in it, and exact
+        again once every bin is claimed twice; between those it under-excludes,
+        because the leftover model hands a candidate back the bins no OTHER
+        candidate's block happened to name.  Uniform contention wants a COUNT and the
+        seam speaks in identities; this is as close as that seam gets."""
+        brackets = wp.height_brackets
+        cost = 0.0
+        takes: list = []
+        idx = 0
+        for u in gunits:
+            slot = None
+            while idx < len(chain):
+                slot = self._useat(chain[idx], excluded, predicted, cache)
+                if slot[0] > 0:
+                    break
+                slot, idx = None, idx + 1
+            if slot is None:
+                cost += self._unseated_cost(u, chain, wp, xk, yk)
+                continue
+            key = chain[idx]
+            slot[0] -= 1
+            w = slot[1]
+            if w < 1.0:
+                price = self._mean_cost(u, self._moments(key, False, brackets),
+                                        wp, xk, yk)
+                if w:
+                    price = (1.0 - w) * price + w * self._mean_cost(
+                        u, self._moments(key, True, brackets), wp, xk, yk)
+            else:
+                # Nothing empty NOW: the seat can only come from a predicted clear.
+                price = self._mean_cost(u, self._moments(key, True, brackets),
+                                        wp, xk, yk)
+            cost += price
+            # Takes are drawn from the now-list alone.  A seat the blend attributes to
+            # a predicted clear has no bin to name yet, and it never needs one: only a
+            # now-side placement's takes are ever read back (`plan_order` advances
+            # `taken` from `predicted=False` calls and discards the deferral side's),
+            # and on that side the predicted tier is not in the pool at all.
+            nowl = slot[2]
+            if nowl:
+                cur = alloc.get(key, 0)
+                takes.append(nowl[cur % len(nowl)])
+                alloc[key] = cur + 1
+        return cost, takes
+
+    def _mean_cost(self, unit, mom, wp, xk, yk) -> float:
+        """`_cost_at` read at a tier's means — the exact expectation of `_pair_cost`
+        over that tier, by the affineness `_cost_at` documents."""
+        ex, ey, ehm = mom
+        return self._cost_at(unit, ex, ey, ehm, wp, xk, yk)
 
     def _make_pool(self, cands, wp):
         """The arm's own pool over COPIES of the aisle bookkeeping — the purity rule:
@@ -478,11 +654,16 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
     prefix_ids = {id(t) for t in out}
     remaining = [t for t in candidates if id(t) not in prefix_ids]
     while remaining:
-        # The now side: every remaining load against the current pool.
+        # The now side: every remaining load against the current pool.  One block
+        # allocator per round, so a uniform bundle hands each candidate its OWN bins
+        # and the leftover model below unions distinct take-sets rather than counting
+        # one load's worth T times (`_place_uniform`).  Inert for the other adapters,
+        # whose takes are whatever their arm's own preference lands on.
         swept: list = []
         counts: dict = {}
+        alloc: dict = {}
         for t in remaining:
-            c, tk = ev.place_load(_load(t), ev.taken, False)
+            c, tk = ev.place_load(_load(t), ev.taken, False, alloc=alloc)
             ids = set(map(id, tk))
             swept.append((t, c, tk, ids))
             for i in ids:

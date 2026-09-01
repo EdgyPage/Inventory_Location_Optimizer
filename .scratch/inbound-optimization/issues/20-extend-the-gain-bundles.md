@@ -55,6 +55,18 @@ gain-bundle gate is on the POLICY, not the arm, which surfaced a blocker that be
 ticket — see [21](21-give-fifo-a-faithful-gain-bundle.md), which carries the full chain and the
 faithfulness question. Do 21 first; it is unblocked and phase 2 cannot start without it.
 
+2026-09-01: **21 is RESOLVED** — phase 2 is no longer blocked, and this ticket is the only one
+left on the map. Two things it changed for the work here:
+
+- **There are now THREE adapters, not two.** A family with no pool is not automatically
+  unservable: `fifo` is priced by the exact expectation of its own draw
+  (`Inbound.gain._place_uniform`). When a phase-1 pick has a per-unit assignment function with
+  no ranked wave, ask whether its draw has a closed form before reaching for a pool.
+- **`place_load` gained an `alloc` keyword** (the sweep's shared block allocator, one per greedy
+  round). It is read by the uniform adapter only, so a new pool- or merge-shaped family can
+  ignore it — but a new adapter whose takes are identity-blind must use it, or `plan_order`'s
+  leftover union collapses to one load's worth.
+
 The faithful set is now a NAMED constant, `Inbound.gain.FAITHFUL_GAIN_FAMILIES`, and this ticket
 extends it rather than only extending `_gain_bundle_for`'s dispatch chain. It exists because
 the phase-1 selector has to know which chosen rules need extending without importing the

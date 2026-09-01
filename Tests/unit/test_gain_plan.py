@@ -20,6 +20,13 @@ arms", 14) and the cache boundary's Tier-1 contract (06):
   6. PURITY through the real seam: an entry called via `yard_order`/`bounded_order`
      consumes no RNG, mutates neither the yard, the frozen view, nor the live aisle
      dicts a pool bundle references (the pool adapter works on copies).
+  8. THE UNIFORM ADAPTER ("Give the fifo rider a faithful gain bundle", 21): `fifo`
+     has no pool to rebuild, so it is priced by the EXACT expectation of its uniform
+     draw — checked against brute-force enumeration, with the height moment averaged
+     per bin rather than read at the mean height. Consumption is a seat COUNT, so
+     capacity is the arm's whole lever: an uncontended tier ties every gain to zero
+     (the honest degeneracy), an oversubscribed one is shared rather than handed to
+     whoever swept first, and the sweep's allocator moves identities, never prices.
   7. THE FUTURESIGHT WINDOW ("Build the futuresight window feed", 13): the entry
      refuses a missing feed (None) and accepts an empty one (`()`); pricing swaps
      the static rates for the window's realized demand (absent = put only, visits
@@ -429,8 +436,10 @@ def _naive_plan(candidates, bundle, space, predicted):
     out, remaining = [], list(candidates)
     while remaining:
         swept, counts = [], {}
+        alloc: dict = {}          # part of the plan's definition, not of the structure
         for t in remaining:
-            c, tk = _Evaluator(bundle, space).place_load(_load_units(t), taken, False)
+            c, tk = _Evaluator(bundle, space).place_load(_load_units(t), taken, False,
+                                                         alloc=alloc)
             ids = set(map(id, tk))
             swept.append((t, c, tk, ids))
             for i in ids:
@@ -469,16 +478,18 @@ def _random_scene(seed):
     return trailers, _view({_KEY_M: med, _KEY_L: lg}, predicted={_KEY_M: pred})
 
 
-def test_structured_plan_equals_naive_rebuild_per_candidate():
+@pytest.mark.parametrize('kind', ('merge', 'uniform'))
+def test_structured_plan_equals_naive_rebuild_per_candidate(kind):
     for seed in range(5):
         trailers, view = _random_scene(seed)
-        bundle = _bundle()
+        bundle = _bundle(uniform=(kind == 'uniform'))
         for predicted in (False, True):
             structured = plan_order(trailers, bundle, view, predicted=predicted)
             naive = _naive_plan(trailers, bundle, view, predicted)
             assert _seqs(structured) == _seqs(naive), (
-                f'seed {seed} predicted={predicted}: sort-once/slice-under-'
-                f'consumption diverged from the rebuild-per-candidate reference')
+                f'{kind} seed {seed} predicted={predicted}: the cached structure '
+                f'(sorted arrays / tier moments) diverged from the rebuild-per-'
+                f'candidate reference')
 
 
 def test_sabotaged_sort_structure_is_caught():
@@ -496,6 +507,223 @@ def test_sabotaged_sort_structure_is_caught():
     assert _seqs(tampered) != _seqs(intact), (
         'a perturbed sort order must change the plan, or the equivalence test is '
         'vacuous')
+
+
+# ── 8. the uniform adapter: fifo's draw, priced exactly (ticket 21) ───────────────
+
+def _price_pair(view, unit, bin_, key=_KEY_M):
+    """One (unit, bin) price through the merge adapter's own pricing — the reference
+    the uniform expectation is checked against, so nothing here is self-referential."""
+    ref = _Evaluator(_bundle(), view)
+    wp, xk, yk = ref._params(unit, key)
+    return ref._pair_cost(unit, bin_, wp, xk, yk)
+
+
+def test_the_uniform_price_is_the_exact_expectation_of_the_real_draw():
+    """`_uniform_assignment` draws uniformly from the whole tier, so a load's cost is a
+    random variable and the adapter must return its MEAN — exactly, not a stand-in
+    bin's cost dressed up as one.  Checked against brute force: every injective
+    assignment of the three units to the four bins, averaged."""
+    from itertools import permutations
+
+    from Warehouse.kernel.cost_model import height_multiplier
+    bins = [_Bin(0, 120.0, 0.0), _Bin(0, 900.0, 48.0),
+            _Bin(1, 1800.0, 96.0), _Bin(1, 2400.0, 144.0)]
+    view = _view({_KEY_M: bins})
+    units = [_Unit(_Order(1, qty_rate=2.0), 9), _Unit(_Order(2, qty_rate=0.5), 4),
+             _Unit(_Order(3, qty_rate=4.0), 20)]
+    assert len({height_multiplier(_WP.height_brackets, b.y_phys) for b in bins}) > 1, (
+        'the tier must span more than one height bracket, or the mean multiplier is '
+        'the same number however it is taken and this test cannot see the difference')
+
+    got, takes = _Evaluator(_bundle(uniform=True), view).place_load(units, set(), False)
+    assert len(takes) == 3, 'three units, three seats'
+    perms = list(permutations(bins, 3))
+    exact = sum(sum(_price_pair(view, u, b) for u, b in zip(units, perm))
+                for perm in perms) / len(perms)
+    assert got == pytest.approx(exact), (
+        'the adapter is priced as an expectation; if it ever stops matching the '
+        'brute-force average it has become an approximation under fifo\'s name')
+
+
+def test_the_height_multiplier_is_averaged_per_bin_not_read_at_the_mean_height():
+    """The one moment that is not a plain average of a coordinate.  `height_multiplier`
+    is a STEP over brackets, so the mean of the steps and the step at the mean height
+    are different numbers — and only the first is the expectation."""
+    from Warehouse.kernel.cost_model import height_multiplier
+    low, high = _Bin(0, 600.0, 0.0), _Bin(0, 600.0, 200.0)
+    view = _view({_KEY_M: [low, high]})
+    unit = _Unit(_Order(1, qty_rate=1.0), 12)
+    mean_of_steps = 0.5 * (height_multiplier(_WP.height_brackets, 0.0)
+                           + height_multiplier(_WP.height_brackets, 200.0))
+    step_at_mean = height_multiplier(_WP.height_brackets, 100.0)
+    assert mean_of_steps != step_at_mean, 'the premise: the brackets must actually step'
+    got, _ = _Evaluator(_bundle(uniform=True), view).place_load([unit], set(), False)
+    assert got == pytest.approx(0.5 * (_price_pair(view, unit, low)
+                                       + _price_pair(view, unit, high)))
+    assert got != pytest.approx(_price_pair(view, unit, _Bin(0, 600.0, 100.0))), (
+        'reading the step at the mean height would be the cheap mistake here, and it '
+        'is a different number — so the assertion above is not vacuous')
+
+
+def test_uniform_consumption_is_a_count_not_a_set():
+    """A uniform draw has no preference, so losing the cheapest bin costs exactly what
+    losing the dearest costs: only the SEAT count moves.  Which is the whole mechanism
+    an inbound policy has against this arm — take enough seats and the load spills."""
+    near, mid, far = _Bin(0, 50.0), _Bin(0, 800.0), _Bin(1, 2400.0)
+    big = _Bin(1, 40.0)
+    view = _view({_KEY_M: [near, mid, far], _KEY_L: [big]})
+    unit = _Unit(_Order(1, qty_rate=1.0), 8)
+    assert _price_pair(view, unit, near) != pytest.approx(_price_pair(view, unit, far)), (
+        'the premise: the two bins must cost visibly different amounts, or "the same '
+        'price either way" is a statement about nothing')
+    ev = _Evaluator(_bundle(uniform=True), view)
+    drop_near, _ = ev.place_load([unit], {id(near)}, False)
+    drop_far, _ = ev.place_load([unit], {id(far)}, False)
+    assert drop_near == pytest.approx(drop_far), (
+        'excluding the near bin and excluding the far one must cost the same — the '
+        'price is the FULL tier\'s mean either way, because what another load '
+        'consumed was a uniformly random subset'
+    )
+    spilled, takes = ev.place_load([unit], {id(near), id(mid), id(far)}, False)
+    assert [id(b) for b in takes] == [id(big)], 'the tier is out of seats: spill up'
+    assert spilled == pytest.approx(_price_pair(view, unit, big, key=_KEY_M))
+
+
+def test_the_sweep_allocator_hands_each_candidate_its_own_bins():
+    """Cost is identity-blind here, so the takes exist ONLY to feed the leftover model,
+    which unions the OTHER candidates' takes.  Share one front-of-list block and that
+    union collapses to a single load's worth — a whole yard's contention priced as one
+    trailer's."""
+    view = _view({_KEY_M: [_Bin(0, 100.0 * i) for i in range(1, 7)]})
+    a = [_Unit(_Order(1, qty_rate=1.0), 5) for _ in range(2)]
+    b = [_Unit(_Order(2, qty_rate=3.0), 7) for _ in range(2)]
+    ev = _Evaluator(_bundle(uniform=True), view)
+    alloc: dict = {}
+    ca, ta = ev.place_load(a, set(), False, alloc=alloc)
+    cb, tb = ev.place_load(b, set(), False, alloc=alloc)
+    assert len(ta) == len(tb) == 2
+    assert not ({id(x) for x in ta} & {id(x) for x in tb}), (
+        'the shared allocator must hand out disjoint blocks')
+    solo_a = ev.place_load(a, set(), False)[1]
+    solo_b = ev.place_load(b, set(), False)[1]
+    assert {id(x) for x in solo_a} == {id(x) for x in solo_b}, (
+        'without the shared allocator both loads name the same bins — which is '
+        'exactly the collapse the allocator exists to prevent')
+    assert (ca, cb) == (ev.place_load(a, set(), False)[0],
+                        ev.place_load(b, set(), False)[0]), (
+        'the allocator moves identities, never prices')
+
+
+def test_an_oversubscribed_tier_is_shared_rather_than_handed_to_whoever_swept_first():
+    """Two loads, two bins, two units each: whoever defers finds nothing, so the load
+    with more to lose must go first REGARDLESS of where it sits in the sweep.  A
+    truncating allocator would leave the second candidate empty-handed and the first
+    with an untouched tier, and the answer would turn on sweep position instead."""
+    def scene(hot_seq):
+        view = _view({_KEY_M: [_Bin(0, 100.0), _Bin(0, 2000.0)]})
+        cold = _trailer(1 - hot_seq, 0.0,
+                        [_Unit(_Order(1, qty_rate=1.0), 1) for _ in range(2)])
+        hot = _trailer(hot_seq, 0.0,
+                       [_Unit(_Order(2, qty_rate=1.0), 60) for _ in range(2)])
+        pair = [hot, cold] if hot_seq == 0 else [cold, hot]
+        return _seqs(yard_key('gain_myopic')(pair, _ctx(view, _bundle(uniform=True))))
+
+    assert scene(0) == [0, 1], 'the hot load is swept first and must still win'
+    assert scene(1) == [1, 0], 'and it wins from second place too'
+
+
+def test_an_uncontended_uniform_tier_gives_the_myopic_arm_nothing():
+    """The finding this adapter forced into the open, pinned so nobody 'fixes' it.
+    Uniform placement has no preference over bins, so with seats for everyone the
+    myopic gains are EXACTLY zero and the plan is arrival order.  That is a property
+    of the arm — it is why `fifo` is the order-blind control — and not an inert
+    evaluator: the same scene under a ranked bundle reorders."""
+    cold, hot, view = _contention_pair()
+    assert _seqs(yard_key('gain_myopic')([cold, hot], _ctx(view, _bundle()))) == [1, 0]
+    for pair in ([cold, hot], [hot, cold]):
+        out = yard_key('gain_myopic')(pair, _ctx(view, _bundle(uniform=True)))
+        assert _seqs(out) == _seqs(pair), (
+            'every gain is zero, so the plan is whatever order it was handed — and '
+            'reversing the input reverses the plan, which a fixed answer would not')
+
+
+def test_uniform_forecast_reads_the_predicted_tier_and_a_sabotaged_moment_is_caught():
+    """Contention is not the only lever the adapter has: the deferral side draws from a
+    DIFFERENT pool, so the blend of empties and predicted clears moves the gain.  The
+    second half is 06's Tier-1 sabotage for this adapter — perturb the cached predicted
+    moments and the plan must change, or the equivalence check above is vacuous."""
+    key2 = ('conveyable', 'general', 'medium', 'pallet')
+    m1, m2, p = _Bin(0, 500.0), _Bin(1, 500.0), _Bin(1, 5.0)
+    b = _trailer(0, 0.0, [_Unit(_Order(2, qty_rate=1.0, category='general'), 10)])
+    a = _trailer(1, 50.0, [_Unit(_Order(1, qty_rate=1.0), 10)])
+    view = _view({_KEY_M: [m1], key2: [m2]}, predicted={key2: [p]})
+    bundle = _bundle(uniform=True)
+    assert _seqs(plan_order([b, a], bundle, view, predicted=True)) == [1, 0], (
+        'B defers into a much cheaper predicted clear, so A is served first')
+    assert _seqs(plan_order([b, a], bundle, view, predicted=False)) == [0, 1], (
+        'the myopic arm cannot see it: gains tie, arrival order')
+    ev = _Evaluator(bundle, view)
+    ev.place_load(_load_units(b), set(), True)               # warm the moment cache
+    ck = (key2, True, _WP.height_brackets)
+    assert ck in ev._mom, 'the predicted moments must be the thing being cached'
+    ev._mom[ck] = (9000.0, 0.0, 1.0)                          # the sabotage: make it dear
+    assert _seqs(plan_order([b, a], bundle, view, predicted=True, _ev=ev)) == [0, 1], (
+        'a perturbed tier moment must change the plan, or nothing pins the moments')
+
+
+def test_the_rider_plans_a_real_drain_through_the_driver_bundle(monkeypatch):
+    """The blocker itself, closed end to end rather than at the seam it was found at.
+
+    Everything above prices stub units against stub bins; this runs a REAL
+    `Inventory_Manager` drain under `gain_myopic`, with the bundle the DRIVER builds
+    from the real `uni_fifo_norsl` strategy — the closures over `_wp_for`,
+    `_binkey_of` and `_tier_ranks_for`, and the manager's own aisle bookkeeping.  The
+    ticket-21 chain (`_gain_bundle_for` is called for every arm in a gain cell's set,
+    and `fifo` was not in the faithful set) died at worker startup, so a test that
+    stops at the bundle would not have noticed the drain.
+
+    The harness is `test_standing_yard`'s, imported rather than copied: the point is
+    to run the same drain those tests run, not a lookalike."""
+    from Inbound.space import SpaceTimeline
+    from Inbound.trailer import POSITION_VOLUME, Trailer28
+    from Optimization.config.strategies import STRATEGY_BY_KEY
+    from Optimization.simdriver.strategy_runner import _gain_bundle_for
+    from Warehouse.picking.Workload_Builder import drain_sku
+    from Tests.unit.test_standing_yard import _dispatch, _drain, _manager
+
+    tr = YardTransit(Trailer28, lead_s=0.0, doors=1, allocation='merged',
+                     yard_policy='gain_myopic', dock_policy='gain_myopic')
+    mgr = _manager(tr, crew=2)
+    SpaceTimeline(drain_sku).attach(mgr)
+    tr.gain_bundle = _gain_bundle_for(
+        STRATEGY_BY_KEY['uni_fifo_norsl'], mgr, None, _WP, _PUT,
+        {'fee_threshold_days': 2.0, 'urgency_horizon_days': 0.0})
+    assert tr.gain_bundle.uniform, 'the rider must arrive on the uniform adapter'
+
+    # One door and three reorders' worth of freight, so the yard is genuinely deep and
+    # the plan is a choice rather than a formality.  The counter is the guard: a drain
+    # that ranked a one-trailer yard would satisfy every assert below while proving
+    # nothing about ordering.
+    ranked: list = []
+    real_plan = plan_order
+
+    def _spy(candidates, *a, **kw):
+        ranked.append(len(candidates))
+        return real_plan(candidates, *a, **kw)
+    monkeypatch.setattr('Inbound.gain.plan_order', _spy)
+
+    epoch = 10_000.0
+    for sku, qty in ((101, 40), (102, 25), (103, 60)):
+        _dispatch(mgr, sku, qty, POSITION_VOLUME, epoch)
+    _drain(mgr, epoch)
+    assert max(ranked, default=0) > 1, (
+        'the gain plan never ordered more than one standing trailer — the uniform '
+        'adapter was exercised on a yard with no decision in it')
+    placed = {i.unit.order.sku for i in mgr._stock_queue}
+    assert placed == {101, 102, 103}, (
+        'every dispatched SKU must reach the put queue through the planned unload; '
+        f'got {sorted(placed)}')
 
 
 # ── 6. purity through the real seam, and the pool adapter ─────────────────────────
