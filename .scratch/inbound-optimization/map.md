@@ -247,6 +247,22 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   bundled on one schema event), [19](issues/19-build-total-production-hours.md) (the metric
   does not exist — put hours have never been read from `work_events`) and
   [20](issues/20-extend-the-gain-bundles.md) (gated on phase 1's ranking).
+- [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md): BUILT,
+  commit `d266c07` — one `is None`-guarded `evict` call beside `requeue_bin`'s `_index_add`,
+  no fourth counter. The counters now partition by WHAT CHANGED rather than by which
+  function ran (`_index` grows through exactly two doors, both bumping `reclaim_v`), which
+  is what makes the vector a complete description of the free index instead of a log of
+  call sites. `evict` writes no stamp and expires none — verified structurally, not
+  assumed: bin occupancy has a SINGLE site (`Inventory_Management.py:919`, the fill hook's
+  own line), so no stale stamp can survive to be popped. This is the one touchpoint
+  reachable with the standing yard OFF (the reloader gates on `reslot_frac` alone), so its
+  silence is pinned against an unattached manager rather than argued. Three pins, each
+  proven to fail by sabotaging the hook — exact count, an eviction ALONE moving the vector
+  (the gap as its own failure), and attached ≡ unattached; all three override BOTH
+  degenerate reloader defaults, the known `move_limit_pct` and a second one found here
+  (`ref_size='extra_large'` does not exist in the fixture warehouse, flooring the cap a
+  second way). Unit tier 1451 green; one PRE-EXISTING, unrelated gate failure surfaced and
+  spun off (`test_the_dead_site_is_still_dead` substring-matches a docstring citation).
 
 ## Not yet specified
 
@@ -261,9 +277,8 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   (Done or ticketed: the standing-yard mechanics — 09 —, the
   space-timeline build — 11 —, the ordering-seam generalization — 12 —, the gain
   evaluator + gain-plan arms — 14 —, the futuresight window feed + entry — 13 — and the
-  lead distribution — 15 — are DONE;
-  [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md) and
-  [Build the yard metrics](issues/17-build-the-yard-metrics.md) are on the frontier; and
+  lead distribution — 15 — and the eviction fold — 16 — are DONE;
+  [Build the yard metrics](issues/17-build-the-yard-metrics.md) is on the frontier; and
   the funnel resolution (08) graduated three more —
   [Build the run-shape layer](issues/18-build-the-run-shape-layer.md) which finally pays
   the seams 3–4 debt every knob deferred to "the first sweep",
