@@ -324,9 +324,10 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   here:** a gain cell builds a bundle for EVERY arm in its set (the gate is on the POLICY, not
   the arm), and the mandatory `fifo` rider has no faithful bundle — so all five phase-2 gain
   cells would refuse it at worker startup. Verified directly and pinned; it sits OUTSIDE 08's
-  cap of three, is reportable before phase 1 runs, and moved to
-  [20](issues/20-extend-the-gain-bundles.md), which is therefore no longer optional and no
-  longer fully gated on the ranking.
+  cap of three, is knowable before phase 1 runs, and graduated as
+  [Give the fifo rider a faithful gain bundle](issues/21-give-fifo-a-faithful-gain-bundle.md)
+  rather than sitting unreachable inside [20](issues/20-extend-the-gain-bundles.md), which
+  stays genuinely gated on the ranking.
 
 ## Not yet specified
 
@@ -343,11 +344,12 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   futuresight window feed + entry — 13 —, the lead distribution — 15 —, the eviction
   fold — 16 —, the yard metrics — 17 —, the total-production-hours build — 19 — and the
   run-shape layer — 18 —, which paid the seams 3–4 debt every knob deferred to "the first
-  sweep". The only open ticket is
-  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md), and 18 SPLIT it: most of
-  it still waits on phase 1's chosen rules, but the `fifo` rider's bundle is mandatory,
-  known now, and blocks phase 2 — so that piece is takeable immediately and is the last
-  thing between the builds and the pilot.)
+  sweep". Two tickets remain, and 18 SPLIT them apart:
+  [Give the fifo rider a faithful gain bundle](issues/21-give-fifo-a-faithful-gain-bundle.md)
+  is the FRONTIER — unblocked, mandatory, and the last thing between the builds and the
+  pilot, because every phase-2 gain cell refuses the rider until it lands;
+  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md) stays gated on phase 1,
+  since which OTHER families need extending is phase 1's output.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions

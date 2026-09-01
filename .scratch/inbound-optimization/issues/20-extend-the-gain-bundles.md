@@ -7,13 +7,15 @@ Blocked by: 08
 ## Question
 
 Extend `_gain_bundle_for` so the gain policies can run on the placement families phase 1
-actually selects. **Most of the scope is unknown until phase 1's ranking exists** — that part
-is blocked by 08 on paper but genuinely gated on the phase-1 run, and must not start before
+actually selects. **Scope is unknown until phase 1's ranking exists** — this ticket is
+blocked by 08 on paper, but genuinely gated on the phase-1 run, and must not start before
 that ranking is recorded in the selection artifact.
 
-**One piece is NOT gated and blocks phase 2 outright: the mandatory `fifo` rider has no
-faithful bundle**, so every phase-2 gain cell refuses it at worker startup. See the first
-comment below — that piece can and should be done first.
+The one piece that is NOT gated — the mandatory `fifo` rider, which blocks phase 2 outright —
+was split out as
+[Give the fifo rider a faithful gain bundle](21-give-fifo-a-faithful-gain-bundle.md) so it
+does not sit unreachable behind this ticket's wait. It is also OUTSIDE 08's cap of three: the
+cap governs which OPTIONAL families are worth extending, and the rider has no opt-out.
 
 The gain evaluator today serves exactly four restock families — `tmin`/`tmax` (the proven
 k-cheapest merge), `rank_popularity` (its own pool rebuilt over aisle-state copies) and
@@ -48,37 +50,10 @@ runtime consequence beyond the build.
 
 ## Comments
 
-2026-08-31, from resolving [Build the run-shape layer](18-build-the-run-shape-layer.md).
-**THIS TICKET IS NO LONGER OPTIONAL, AND ITS FLOOR IS KNOWN BEFORE PHASE 1 RUNS.** `fifo`
-needs a faithful bundle, mandatorily, or phase 2 cannot run at all.
-
-The chain: `strategy_runner` builds `_gain_bundle_for(strat, …)` for EVERY arm in the set
-whenever a gain policy is named — the gate is on the POLICY, not on the arm. 08 makes `fifo` a
-mandatory rider in the phase-2 arm set. `fifo` is not in `FAITHFUL_GAIN_FAMILIES`. So every one
-of phase 2's five gain cells refuses `uni_fifo_norsl` / `opt_fifo_norsl` at worker startup.
-Verified directly, not inferred: `_gain_bundle_for` raises for both fifo arms and builds for
-`uni_tmin_norsl` (pinned by
-`Tests/unit/test_restock_selection.py::test_a_gain_bundle_really_is_refused_for_the_rider`).
-
-Consequences for the scope here:
-
-- **`fifo` sits OUTSIDE 08's cap of three.** The cap governs which OPTIONAL families are worth
-  extending; the rider has no opt-out, so counting it against the cap would silently buy one
-  fewer real family. `run_restock_selection` reports it in its own field,
-  `rider_needs_bundle_extension`, and logs it loudly.
-- **It can start BEFORE phase 1.** The rest of this ticket is genuinely gated on the ranking,
-  but this piece is not: `fifo` is in every possible arm set. Doing it first also de-risks
-  phase 2 rather than discovering the refusal at the start of a 480-unit sweep.
-- **The faithfulness question is real, not clerical.** `fifo` is `_build_uniform` — a uniform-
-  random enqueue, not a ranked pool — so neither existing adapter fits directly. `rank_random`
-  is the nearest precedent (a deterministic stand-in selector under expectation pricing, the
-  no-RNG deviation 04 recorded), and the same argument may carry: an ordering entry may consume
-  no RNG. Whether an expectation over uniformly-chosen bins is FAITHFUL to what the arm does,
-  or is a fiction priced under its name, is this ticket's first decision.
-- A rejected shortcut, named so it is not re-proposed: exempting `fifo` from the bundle (a
-  policy-and-arm gate instead of a policy gate) would leave the baseline arm running v1 ordering
-  inside a gain cell, so the cell's own baseline would be measured under a different inbound
-  policy than the rows it baselines. That is worse than refusing.
+2026-08-31, from resolving [Build the run-shape layer](18-build-the-run-shape-layer.md): the
+gain-bundle gate is on the POLICY, not the arm, which surfaced a blocker that became its own
+ticket — see [21](21-give-fifo-a-faithful-gain-bundle.md), which carries the full chain and the
+faithfulness question. Do 21 first; it is unblocked and phase 2 cannot start without it.
 
 The faithful set is now a NAMED constant, `Inbound.gain.FAITHFUL_GAIN_FAMILIES`, and this ticket
 extends it rather than only extending `_gain_bundle_for`'s dispatch chain. It exists because
