@@ -14,11 +14,18 @@ neutrality obligations, each pinned here:
   3. THE DRAIN RULE IS THE SIM'S OWN: the extracted rule reproduces `Task.from_batch`'s
      bin_pick (and shortfall) on identical state.
 
-Plus the mechanics the cache ticket will key on: per-event-class version counters
+Plus the mechanics the cache ticket keys on: per-event-class version counters
 (equality-only), the clear-stamp lifecycle (harvest keeps only stamped bins, fill
 expires), and the frozen-copy contract of the view itself — and the futuresight
 window slot ("Build the futuresight window feed", 13): its own slot, riding the
 `demand_v` event, never read by the projection.
+
+The counters gained one obligation after the fact ("Fold the eviction into reclaim_v",
+inbound-optimization 16): `requeue_bin` is the SECOND door into the free index, so an
+eviction bumps `reclaim_v` too — otherwise two version-equal freezes could straddle an
+eviction-only change and a cache keyed on the vector would serve stale empties.  It is
+also the one touchpoint that fires with the standing yard OFF (the reloader gates on
+`reslot_frac` alone), so its neutrality is pinned against an unattached manager.
 
 The `_emptied_at` read-site pin (reclaim-harvest is the ONE legal reader) lives in
 `Tests/unit/test_bin_empty_timing.py`, beside the stamp's other pins.
@@ -46,6 +53,7 @@ from Warehouse.layout.Aisle_Dimensions import aisle_height_for, aisle_width_for
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Warehouse_Builder import (
     AisleConfig, Warehouse_Builder, WarehouseConfig)
+from Warehouse.placement.Capacity_Reloader import Capacity_Reloader, demote_unpopular
 from Warehouse.picking.Workload_Builder import Task, drain_sku
 
 
@@ -329,6 +337,11 @@ def test_versions_bump_per_event_class_and_demand_replaces():
     tl.harvest([b1, b2, b3], {id(b1): 5.5})
     assert tl.reclaim_v == 3, 'reclaim_v is +1 per harvested BIN, not per harvest'
     assert tl.emptied_at == {id(b1): 5.5}, 'only actual stamps enter the map'
+    tl.evict(b2)
+    assert tl.reclaim_v == 4, 'an eviction is a reclaim — the SAME counter, +1 per bin'
+    assert tl.emptied_at == {id(b1): 5.5}, (
+        'an eviction writes no stamp (the bin was occupied, so it never ran dry) '
+        'and expires none belonging to other bins')
     tl.fill(b1)
     tl.fill(b2)                       # no stamp to expire — still a fill event
     assert tl.fill_v == 2
@@ -357,6 +370,93 @@ def test_the_window_rides_the_injection_and_replaces():
     tl.inject_demand({101: 3}, released_at=3.0, window=())
     assert tl.freeze(mgr, 3.0).window == (), (
         'the end of the script is an EMPTY window, not None and not an error')
+
+
+# ── 5b. the eviction is the second door into the free index ("Fold …", 16) ───────
+
+def _reload(mgr, freq_of=None, move_limit_pct: float = 0.5) -> int:
+    """Fire the reloader against a test-scale warehouse; return the eviction count.
+
+    TWO defaults have to be overridden here or `requeue_bin` never runs and every
+    assertion below passes vacuously (`context/memory/store/reloader-cap-floors-to-
+    zero.md`): the production `move_limit_pct` of 0.005 floors the per-aisle cap to 0
+    at this scale, and the reference size `extra_large` does not exist in
+    `_warehouse()`'s pallet aisle at all — it holds mediums and larges — which would
+    floor the cap to 0 a second way.  The cap is asserted, not assumed.
+    """
+    reloader = Capacity_Reloader('demote_unpopular', demote_unpopular,
+                                 move_limit_pct=move_limit_pct, ref_size='medium')
+    assert reloader.per_aisle_cap(mgr.warehouse) >= 1, (
+        'the per-aisle cap floored to zero — no eviction can fire')
+    return reloader.reload(mgr, freq_of or {101: 0.5, 102: 0.5}, 1.0, 1.0)
+
+
+def _placement_state(mgr) -> dict:
+    """Everything an eviction moves, keyed by LOCATION so two managers compare.
+
+    (`_mgr_fingerprint` holds Bin objects, which compare by identity — right for the
+    same manager before and after, useless across two.)
+    """
+    return {
+        'index': {k: [bn.location for bn in v] for k, v in mgr._index.items()},
+        'placements': sorted((bn.location, bn.storage.order.sku, bn.storage.quantity)
+                             for bn in mgr._unavailable.values()
+                             if bn.storage is not None),
+        'queue': _queue_stream(mgr),
+        'ledgers': _ledgers(mgr),
+        'current': dict(mgr._current_quantities),
+        'churn': mgr._reload_moves,
+    }
+
+
+def test_the_eviction_bumps_reclaim_v_once_per_bin():
+    """The generalized meaning, driven by the real reloader: `reclaim_v` counts bins
+    returned to the free index, whichever door they came through."""
+    mgr = _stocked_manager()
+    tl = SpaceTimeline(drain_sku).attach(mgr)
+    evicted = _reload(mgr)
+    assert evicted > 0, 'the reloader evicted nothing — the pin is vacuous'
+    assert tl.reclaim_v == evicted, (
+        f'the eviction hook bumped {tl.reclaim_v} for {evicted} evicted bins')
+    assert (tl.demand_v, tl.fill_v) == (0, 0), 'an eviction bumped another event class'
+    assert tl.emptied_at == {}, (
+        'an evicted bin asserts no clear stamp — it was occupied, so it never ran dry')
+
+
+def test_an_eviction_alone_moves_the_version_vector():
+    """The gap 06 sent here, stated as its failure: BEFORE the fold an eviction changed
+    `_index` through none of the three classes, so two freezes straddling an
+    eviction-only change carried EQUAL vectors and a cache keyed on one would serve the
+    pre-eviction empties.  This is the test that fails without the hook."""
+    mgr = _stocked_manager()
+    tl = SpaceTimeline(drain_sku).attach(mgr)
+    tl.inject_demand({102: 5}, released_at=1.0)
+    before = tl.freeze(mgr, 1.0)
+    assert _reload(mgr) > 0
+    after = tl.freeze(mgr, 2.0)
+    assert after.versions != before.versions, (
+        'an eviction-only change left the version vector equal')
+    # non-vacuity: the freed bins really did reach the free index between the freezes
+    assert (sum(len(v) for v in after.empties.values())
+            > sum(len(v) for v in before.empties.values()))
+
+
+def test_the_eviction_hook_is_silent_without_a_timeline():
+    """Flag-off byte-identity for the ONE touchpoint reachable with the standing yard
+    off: the reloader gates on `reslot_frac` alone, so `requeue_bin` fires on store-only
+    arms that never construct a timeline.  Two identical managers, one attached and one
+    not, must be indistinguishable after the same eviction."""
+    plain = _stocked_manager()
+    assert plain.space_timeline is None, 'unattached is the default — no flag, no hook'
+    evicted_plain = _reload(plain)        # must not raise: `is None` is the whole guard
+
+    timed = _stocked_manager()
+    tl = SpaceTimeline(drain_sku).attach(timed)
+    evicted_timed = _reload(timed)
+
+    assert evicted_plain == evicted_timed > 0
+    assert _placement_state(timed) == _placement_state(plain)
+    assert tl.reclaim_v == evicted_timed, 'the observer saw what the manager did not'
 
 
 # ── 6. the view is a frozen copy ──────────────────────────────────────────────────

@@ -22,13 +22,16 @@ drain_sku`, handed over by the driver) because the import edge `Inbound -> wh_pi
 is forbidden — the broker holds what it is handed.  This module imports nothing from
 Warehouse at all.
 
-# ── the four touchpoints (decisions are drain-quantized; data is event-stamped) ───
+# ── the five touchpoints (decisions are drain-quantized; data is event-stamped) ───
 
     inject_demand   driver, BEFORE check_reorders: the batch about to be released plus
                     the rollover carry — everything released-but-unpicked at the
                     decision instant
     harvest         `_reclaim_empty_bins`: the actual `_emptied_at` stamps, captured at
                     the one moment the stamps and the bins meet before both are wiped
+    evict           `requeue_bin`: the reloader's eviction returned a bin to the free
+                    index — the OTHER door into `_index`, and the one that runs with
+                    the standing yard off
     fill            `_execute_placement`: a bin was occupied — version bump, stamp expiry
     freeze          ctx-freeze inside `_receive_standing`: ONE projection per drain
                     serves every decision in it (no per-decision rescans), delivered as
@@ -37,8 +40,12 @@ Warehouse at all.
 # ── the version contract (what the cache ticket keys on) ──────────────────────────
 
 Three per-event-class counters, so tables can be processed in parallel without an I/O
-race: `demand_v` +1 per injection (once per batch), `reclaim_v` +1 per harvested bin,
-`fill_v` +1 per placement.  EQUALITY is the only legal operation — magnitudes and
+race: `demand_v` +1 per injection (once per batch), `reclaim_v` +1 PER BIN RETURNED TO
+THE FREE INDEX (harvest or eviction — see below), `fill_v` +1 per placement.  The
+counters partition by what CHANGED, not by which function ran: `_index` grows through
+exactly two doors and both bump the same counter, which is what makes the vector a
+complete description of the free index rather than a log of call sites.  EQUALITY is
+the only legal operation — magnitudes and
 cross-class comparisons are meaningless by contract.  The predicted set is a pure
 function of the other three states, so it carries no fourth counter, and the cache
 layer composes keys from this vector and may not add counters of its own.  The
@@ -46,11 +53,15 @@ futuresight window rides the same rule from the other side: a pure function of
 (batch script, batch index), replaced by the injection that bumps `demand_v`, so it
 too adds no counter (see `SpaceView.window`).
 
-One honest gap, stated for that cache layer: `requeue_bin` evictions (reloader arms)
-return a bin to the free index through NONE of the three event classes, so two version-
-equal freezes can straddle an eviction-only change.  The frozen views themselves are
-always correct — they snapshot live state — but a cache keyed on this vector alone is
-stale across an eviction until the evicted unit re-places (which bumps `fill_v`).
+That completeness was not free.  `requeue_bin` evictions (reloader arms) originally
+returned a bin to the free index through none of the three classes, so two version-equal
+freezes could straddle an eviction-only change and a cache keyed on the vector alone
+went stale until the evicted unit re-placed.  "Draw the cache-sharing boundary"
+(inbound-optimization 06) closed it by GENERALIZING `reclaim_v` rather than adding a
+fourth counter: an eviction is a reclaim by every property the vector exists to express.
+Note the eviction hook is the one touchpoint reachable with the standing yard OFF (the
+reloader gates on `reslot_frac` alone), so its `is None` guard is load-bearing, not
+ceremonial.
 """
 from __future__ import annotations
 
@@ -127,8 +138,12 @@ class SpaceTimeline:
         #: id(bin) -> the absolute second it ran dry — harvested stamps, kept only while
         #: the bin stays empty (`fill` expires them; a re-emptied bin is re-harvested).
         self.emptied_at: dict = {}
+        #: +1 per demand injection (once per batch).
         self.demand_v = 0
+        #: +1 per bin RETURNED TO THE FREE INDEX — `harvest` (reclaim) and `evict`
+        #: (reloader) both, one counter for one kind of change to `_index`.
         self.reclaim_v = 0
+        #: +1 per placement.
         self.fill_v = 0
         #: The futuresight window (see `SpaceView.window`); replaced wholesale by each
         #: injection, so it carries NO counter of its own — a pure function of the
@@ -175,6 +190,21 @@ class SpaceTimeline:
             if at is not None:
                 emptied_at[id(bin_)] = at
         self.reclaim_v += len(bins)
+
+    def evict(self, bin_) -> None:
+        """A reloader eviction returned `bin_` to the free index (`requeue_bin`, the
+        second and last door into `_index`): bump `reclaim_v`, whose meaning is "+1 per
+        bin returned to the free index".  No fourth counter — an eviction changes the
+        free index in exactly the way a harvest does, and 03's equality-only contract
+        cannot tell the two apart, nor should it.
+
+        NO stamp is written, and none is expired.  An evicted bin was OCCUPIED an
+        instant ago, so it never ran dry — `emptied_at` carries actual clear stamps
+        only, exactly as it treats the harvest's stampless notifications.  Nor can a
+        stale stamp survive here: occupancy has a single site (`_execute_placement`),
+        and the `fill` that put this unit in the bin already popped it.
+        """
+        self.reclaim_v += 1
 
     def fill(self, bin_) -> None:
         """A placement occupied `bin_` (`_execute_placement`, the chokepoint every

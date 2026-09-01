@@ -141,6 +141,13 @@ class ReorderMixin:
         (self._sku_singleton_bins if is_forward_pick(bin_)
          else self._sku_pallet_bins)[sku].discard(bin_)
         self._index_add(bin_)
+        # THE EVICTION EVENT: the second door into the free index (the reclaim-harvest
+        # in _reclaim_empty_bins is the first), folded into the SAME reclaim_v so the
+        # space timeline's version vector describes _index completely.  Observer only.
+        # Unlike the harvest and fill hooks this one is reachable with the standing yard
+        # OFF -- the reloader gates on reslot_frac alone -- so the guard is load-bearing.
+        if self.space_timeline is not None:
+            self.space_timeline.evict(bin_)
 
         self._drop_sku_from_aisle(sku, bin_)
 
