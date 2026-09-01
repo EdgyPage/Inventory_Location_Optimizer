@@ -49,3 +49,34 @@ Honesty note inherited from 01: total unload hours vary across arms only through
 reorder feedback loop, so the first-order lever is placement quality buying put + pick
 hours. Inbound-off (phase 1) the unload leg is near-absent, which means phase 1's metric is
 effectively **put + pick** — and the put leg is exactly the piece that does not exist yet.
+
+## Comments
+
+2026-08-31, from resolving "Build the yard metrics" (17): the shared `HEADLINE_ORDER` edit
+that comment anticipated is now UNAMBIGUOUSLY this ticket's, and it comes with a
+prerequisite 08 did not name.
+
+`yard_overage_days` is BUILT and is not in `HEADLINE_ORDER`. It cannot be: a slot there is
+validated at import by `_check_order(..., 'steady_state')`, so every headline key must
+declare a steady-state scalar in the series document — and the series document is built by
+`_build_series` out of the batch and task frames alone. The yard's numbers are per-trailer
+and per-drain, so the fee has no such scalar and would fail the import check on the spot.
+Adding the panel before one exists would also put an empty sixth panel on every inbound-off
+publish, which is every run in the archive.
+
+That is the same seam this ticket already has to open (put hours are not a `batch_stats`
+column either), so the two land together: whatever route is chosen for `total_production_hours`'
+steady-state scalar, give the fee one on the same mechanism and append BOTH at the end of
+`HEADLINE_ORDER`. A comment naming the debt is in `HEADLINE_ORDER` itself.
+
+Two things from 17 that change the ground here:
+
+- `core/quantities.PER_BATCH_KINDS` now exists and is load-bearing. `stats_core._metric_series`
+  is written as "batch, ELSE the task frame", so a new `FRAME_TABLE` kind is silently looked
+  up in `df_t` and comes back empty. Any new frame kind this ticket adds must be added to
+  `PER_BATCH_KINDS` if it is meant to reach the significance suite, and left out with intent
+  if it is not — a kind in neither now raises.
+- The era gate's RUNTIME half is built (`ctx.capabilities()`, `requests.EraUnmet`, the
+  `[era]` summary). If put hours read `work_events`, that table is on the conditional
+  surface: the quantity needs a `work_events` capability name, and it will then be refused
+  with an `[era]` line on runs that predate it rather than rendering a plausible zero.

@@ -264,6 +264,23 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   second way). Unit tier 1451 green; one PRE-EXISTING, unrelated gate failure surfaced and
   spun off (`test_the_dead_site_is_still_dead` substring-matches a docstring citation).
 
+- [Build the yard metrics](issues/17-build-the-yard-metrics.md): BUILT — everything 07
+  decided is code across TWO schema events (sim_db `be2a593727be`, run-tree
+  `51f99901f03c`): `yard_trailers`/`yard_drains` raw-stamps-only, semantics + a `yard`
+  capability, named queries and negotiated loaders, the per-drain levels frozen BEFORE the
+  door fill, and a run-end censored flush with its OWN writer because the final checkpoint
+  block does not fire at a batch count divisible by the cadence — exactly where an
+  adversarial ordering's overage lives. The `yard` family (four evaluations, all proven to
+  render on a real standing-yard run) plus `throughput.missed`; five yard Quantities and
+  two availability ones; re-report under a second threshold asserted with no re-simulation.
+  Its quantities were the FIRST to name a capability, which fired the era gate's
+  written-to-fail test and pulled in the RUNTIME half it specified: `ctx.capabilities()`
+  (intersected across arms), `EraUnmet` distinct from `Denied` because the two prescribe
+  different actions, an `[era]` run summary, and `GATED_CONSUMERS` as a second sweep
+  category rather than an exemption inside the first. `yard_overage_days`' headline slot is
+  deferred to 19 — it needs a steady-state scalar that does not exist, and adding it now
+  would put an empty panel on every archived publish.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -277,9 +294,8 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   (Done or ticketed: the standing-yard mechanics — 09 —, the
   space-timeline build — 11 —, the ordering-seam generalization — 12 —, the gain
   evaluator + gain-plan arms — 14 —, the futuresight window feed + entry — 13 — and the
-  lead distribution — 15 — and the eviction fold — 16 — are DONE;
-  [Build the yard metrics](issues/17-build-the-yard-metrics.md) is on the frontier; and
-  the funnel resolution (08) graduated three more —
+  lead distribution — 15 —, the eviction fold — 16 — and the yard metrics — 17 — are
+  DONE; and the funnel resolution (08) graduated three more —
   [Build the run-shape layer](issues/18-build-the-run-shape-layer.md) which finally pays
   the seams 3–4 debt every knob deferred to "the first sweep",
   [Build total production hours](issues/19-build-total-production-hours.md), and
@@ -290,12 +306,14 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   untimed. (The unlawful version — reading the future script — is no longer fog: it is the
   futuresight window reference family, decided by the objective resolution, 10.)
 - **The funnel campaign** — no longer a design gap: 08 specified it end to end (pilot →
-  phase 1 → selection → phase 2 → publish), so what remains is EXECUTION, gated on 17, 18
-  and 19. The order is load-bearing: the builds land first (phase 1 cannot rank on a metric
-  that does not exist, and a run whose spec cannot record its threshold is not
+  phase 1 → selection → phase 2 → publish), so what remains is EXECUTION, gated on 18 and
+  19 (17 is DONE). The order is load-bearing: the builds land first (phase 1 cannot rank on
+  a metric that does not exist, and a run whose spec cannot record its threshold is not
   re-analysable), then the throwaway pilot decides whether the campaign runs at all — a
   config showing neither yard contention nor binding cuts is a DECLARED STOP, not a knob to
-  keep turning. Sizing to plan against: phase 1 is 136 work units, phase 2 is 480, and at
+  keep turning. The pilot's two criteria are now READABLE: `yard.binding` prints the
+  contention sentence on the figure itself and `binding_cuts` is a declared quantity, so
+  the gate is a chart to look at rather than a query to write. Sizing to plan against: phase 1 is 136 work units, phase 2 is 480, and at
   the published series depth that is ~1.1 TB and well north of twelve hours of simulation
   floor, so archive-as-you-go is mandatory and the grids are the trimming lever.
 
