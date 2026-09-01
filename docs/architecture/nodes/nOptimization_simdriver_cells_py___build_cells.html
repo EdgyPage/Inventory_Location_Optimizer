@@ -15,12 +15,19 @@
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_cells_py.html"><code>Optimization/simdriver/cells.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _build_cells(spec)</code></pre>
-<section class="doc">Combinatorial (scheduler × zoning × k × capacity_loss) cells from a WHATIF spec.  k=1 = no
-split (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec, scheduler), …];
-the (k=1, off, round_robin) cell is the natural reference.  ``schedulers`` defaults to
-[&#x27;round_robin&#x27;] (byte-identical, no name suffix); a multi-value list adds a `_rr`/`_lpt`
-suffix so the picker-scheduler becomes a sweep axis alongside aisle_split and zoning.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_cells_py__Cell.html"><code>Cell</code></a> <span class="dim">Optimization/simdriver/cells.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_simdriver_scenario_py___run_whatif_matrix.html"><code>_run_whatif_matrix</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
+<section class="doc">Combinatorial (scheduler × zoning × k × capacity_loss × inbound) cells from a WHATIF spec.
+k=1 = no split (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec,
+scheduler, inbound|None), …]; the (k=1, off, round_robin, no inbound) cell is the natural
+reference.  ``schedulers`` defaults to [&#x27;round_robin&#x27;] (byte-identical, no name suffix); a
+multi-value list adds a `_rr`/`_lpt` suffix so the picker-scheduler becomes a sweep axis
+alongside aisle_split and zoning.  ``inbound`` defaults to one inert entry and behaves the
+same way — see `_inbound_axis` for its shape and the four collapses it refuses.
+
+A swept inbound axis must also DECLARE `reference`: `Cell.is_reference` answers False for
+every cell carrying an inbound record, so an undeclared reference would fall through to
+`cells[0]` — the same silent-arbitrary-baseline failure `run_channel_rollup._baseline_entry`
+was caught doing, one level up.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_cells_py__Cell.html"><code>Cell</code></a> <span class="dim">Optimization/simdriver/cells.py</span></li><li><a href="nOptimization_simdriver_cells_py___inbound_axis.html"><code>_inbound_axis</code></a> <span class="dim">Optimization/simdriver/cells.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_simdriver_scenario_py___run_whatif_matrix.html"><code>_run_whatif_matrix</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_cells_py___build_cells">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/cells.py#:~:text=def%20_build_cells">Source ↗</a></p>
 </article>
 </main>

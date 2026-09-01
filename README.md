@@ -214,9 +214,9 @@ grid is the cartesian product of the three lists — **2 × 17 × 1 = 34 arms** 
 `CHANNEL_RESTOCKS` narrows the suite per channel.
 
 **Cells — `Optimization/config/whatif_config.py`.** A **cell** is a frozen structural variant:
-one choice of aisle-split × velocity-zoning × picker-scheduler, replayed over the same inventory
-and the same batch stream so the difference between cells is attributable. Every run is a cell
-matrix; a plain run is the single cell `k1_off`. Select one with `--spec`:
+one choice of aisle-split × velocity-zoning × picker-scheduler × inbound policy, replayed over the
+same inventory and the same batch stream so the difference between cells is attributable. Every run
+is a cell matrix; a plain run is the single cell `k1_off`. Select one with `--spec`:
 
 ```python
 'scheduler_ab': {
@@ -224,14 +224,25 @@ matrix; a plain run is the single cell `k1_off`. Select one with `--spec`:
     'losses':     [0.0],                         # capacity lost per cut; only applies when k > 1
     'zoning':     [('off', {'enabled': False})], # (name suffix, velocity_zoning spec)
     'schedulers': ['round_robin', 'lpt'],        # >1 appends the _rr / _lpt cell suffix
+    'inbound':    [('', None)],                  # (name suffix, inbound_* overrides); default inert
     'arms':       'all',                         # 'all' | tuple of restock keys | None (as committed)
     'reference':  'k1_off_rr',                   # the cell every other cell is diffed against
 }
 ```
 
-Registered specs: `single` (1 cell), `scheduler_ab` (the committed 2-cell A/B). Cells are named
-`k{k}[_l{loss%}]_{zone}[_{rr|lpt}]`. **More than one cell renames the output root**
-`comparison_` → `comparison_whatif_` and switches on the cross-cell what-if outputs.
+Registered specs: `single` (1 cell), `scheduler_ab` (the committed 2-cell A/B), and the inbound
+funnel's pair — `inbound_select` (phase 1) and `inbound_policies` (phase 2, 10 cells). Cells are
+named `k{k}[_l{loss%}]_{zone}[_{inbound}][_{rr|lpt}]`. **More than one cell renames the output
+root** `comparison_` → `comparison_whatif_` and switches on the cross-cell what-if outputs.
+
+The **inbound axis** is the fifth, and unlike the other four it writes `CONFIG['global']` rather
+than a channel: the yard and the dock are the site's, not a channel's. Its entries are
+`inbound_*` settings named without the prefix. Three shapes are refused outright, each of which
+would otherwise fail with no error message: an entry with no name suffix (cells dedupe by name, so
+inbound-on and inbound-off would collapse into one directory), a duplicate suffix (the same
+collapse), and an entry that omits a key another entry sets — `CONFIG` is mutated in place and
+never reset between cells, so that cell would silently inherit the previous one's policy under its
+own name. State every key in every entry, including the off anchor.
 
 **Everything else — `Optimization/config/sim_config.py`.** The `CONFIG` dict: a `global` section
 (`seed_world=42`, `seed_batches=1337`, `n_batches=100`, checkpointing) and a per-channel
@@ -267,6 +278,24 @@ python -m Optimization.run_simulation --resume <run_dir>                 # zero 
 | `--recv-day-seconds` | — | the receiving crew's own working day. Omit for no whistle. Independent of `--cut-at-day-end`, which is about PICKERS |
 | `--recv-day-origin` | 0.0 | when the receiving day opens on the absolute axis — a dock that starts before the pickers |
 
+**The inbound trailer pipeline.** Off unless `--inbound-trailer-type` names one, and structurally
+so: `inbound_spec()` returns `None`, no transit is built, and the manager keeps its batch lead
+queue byte-identically. Naming a type is a **results era**, not a tuning knob. Every one of these
+is also settable per cell (above), which is how phase 2 sweeps ten policies in one run.
+
+| Arg | Default | Meaning |
+|-----|---------|---------|
+| `--inbound-trailer-type` | — | `53` (26 pallet positions) or `28` (12). Omit for no trailers — the family's structural off switch |
+| `--inbound-dock-doors` | (CONFIG: 4) | staging slots. Bookkeeping without the standing yard; with it, doors are REAL — a trailer holds its door until it is empty |
+| `--inbound-standing-yard` | (CONFIG: off) | trailers STAND in the yard until a door frees, instead of v1's drain-everything release. Requires a trailer type AND a receiving crew — either missing fails loudly |
+| `--inbound-lead-minutes` / `--inbound-lead-spread` | (CONFIG: 0/0) | median transit delay in minutes, and the sigma of the lognormal around it. One stateless draw per trailer keyed by the WORLD seed, so trailer #N draws the same lead in every arm. Spread 0 constructs no RNG at all; above 0 requires the standing yard and a non-zero median |
+| `--inbound-yard-policy` / `--inbound-dock-policy` | (CONFIG: `fifo`) | freed door ← which standing trailer; crew ← which staged trailer. `fifo`, `lifo`, the three `gain_*` arms, `futuresight` |
+| `--inbound-fee-threshold-days` | (CONFIG: 2.0) | free yard days before overage accrues. ONE knob, TWO readers — the urgency gate and the fee report — so they can never disagree about "overdue". Stamps are stored raw, so the fee is re-reportable under a different threshold without re-simulating |
+| `--inbound-urgency-horizon-days` | (CONFIG: 0.0) | `gain_gated`'s only dial. Hours and days never blend into one score; the gate is the only place they meet |
+| `--inbound-futuresight-batches` | — | the futuresight window in script batches, or `all` for the oracle. A declared-**unlawful** upper-bound reference, never in the recommendable set |
+| `--inbound-crew-allocation` | (CONFIG: `split`) | `split` = door teams (the standing physics); `merged` = v1's pooled gang. A mechanics mode, not a policy |
+| `--inbound-unload-{intercept,weight-coef,volume-coef}` | — | the dock's own unload price. Omit to take the put-away value by reference, which is what every existing run did |
+
 **The output tree.** Two levels are conditional, and both have caused real bugs:
 
 ```
@@ -298,6 +327,7 @@ python -m Optimization.analyze_run <run_dir> --reference k1_off_rr --preset BY_I
 |-----|----------|
 | `run_analysis.py` | the per-cell graph + statistics suite → `figures/<family>/`, `tables/`, `_aggregate/` |
 | `run_channel_rollup.py` | store + fulfillment combined into a whole-warehouse view |
+| `run_restock_selection.py` | the inbound funnel's phase-1 → phase-2 hand-off: all 17 restock rules ranked per channel on total production hours → `restock_selection.json` |
 | `run_whatif_delta.py` | the cross-cell steady-state delta matrix (multi-cell) |
 | `run_whatif_labor.py` | the same runs told in modeled labor-hours |
 | `run_whatif_volume.py` | cumulative volume vs elapsed time — throughput as a *rate* |
@@ -431,10 +461,10 @@ adding a file, since it is what keeps these directories from sprawling.
 | `kernel/` | zero-dependency value objects (pick-cost primitives, store/fulfillment regime) |
 | `generation/` | the data-generation CLIs that build inventory/affinity/profile DBs |
 
-**`Optimization/` — the run harness.** The eight entry points stay at the package root —
-`run_simulation`, `analyze_run`, `run_analysis`, `run_channel_rollup`, `run_whatif_delta`,
-`run_whatif_labor`, `run_whatif_volume`: what you RUN is at the top,
-everything else is organised beneath.
+**`Optimization/` — the run harness.** The nine entry points stay at the package root —
+`run_simulation`, `analyze_run`, `run_analysis`, `run_channel_rollup`, `run_restock_selection`,
+`run_map_precompute`, `run_whatif_delta`, `run_whatif_labor`, `run_whatif_volume`: what you RUN is
+at the top, everything else is organised beneath.
 
 | Package | What |
 |---|---|

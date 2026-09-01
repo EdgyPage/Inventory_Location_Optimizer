@@ -420,6 +420,26 @@ def _futuresight_batches(raw):
     return w
 
 
+#: Every `CONFIG['global']` key `inbound_spec()` reads — the inbound family's SHAPE, in one
+#: place, so its CLI flags, its run-spec record and both restore sites are derived from one
+#: list rather than three hand-maintained ones.  That is what seams 3 and 4 are: a knob missing
+#: from any of them is accepted, logged, and then ignored (see `settings.py`'s four-seam note
+#: and the fifth, `workunits._shared`, which the whole family already crosses as one record).
+#:
+#: Order is the order the flags and the run-spec record are emitted in, so it is read by a
+#: human as much as by the loops.
+INBOUND_KEYS: tuple[str, ...] = (
+    'inbound_trailer_type', 'inbound_dock_doors',
+    'inbound_lead_minutes', 'inbound_lead_spread',
+    'inbound_global_policy', 'inbound_local_policy', 'inbound_trailer_bound',
+    'inbound_standing_yard', 'inbound_crew_allocation',
+    'inbound_yard_policy', 'inbound_dock_policy',
+    'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
+    'inbound_futuresight_batches',
+    'inbound_unload_intercept', 'inbound_unload_weight_coef', 'inbound_unload_volume_coef',
+)
+
+
 def inbound_spec() -> dict | None:
     """The trailer pipeline's configuration as a picklable record, or **None** for off.
 

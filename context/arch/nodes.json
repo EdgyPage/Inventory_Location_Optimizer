@@ -2198,6 +2198,20 @@
       "signature": null,
       "value_preview": "{'sim_db': {'batch_stats.duration': 'ratio', 'batch_stats.task_makespan': 'ratio', 'batch_stats.total_items': 'ratio', 'batch_stats.avg_concurrent_pickers': 'read', 'batch_stats.picking_pct': 'read..."
     },
+    "Optimization/Performance_Evaluations/common/frames.py::_SOURCE_FRAME": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'batch': ('batch', None), 'task_mean': ('task', 'mean'), 'task_sum': ('task', 'sum'), 'work': ('work', None)}"
+    },
+    "Optimization/Performance_Evaluations/common/frames.py::_WORK_ROLES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'put': 'put_seconds', 'receive': 'unload_seconds'}"
+    },
     "Optimization/Performance_Evaluations/common/frames.py::_aligned": {
       "decorators": [],
       "doc": "Intersect batch indices common to all strategies \u2192 paired matrix (n \u00d7 k).",
@@ -2235,10 +2249,10 @@
     },
     "Optimization/Performance_Evaluations/common/frames.py::_metric_series": {
       "decorators": [],
-      "doc": "Per-batch steady-state Series (indexed by batch_id) for one strategy/metric.",
+      "doc": "Per-batch steady-state Series (indexed by batch_id) for one strategy/metric.\n\n`frames` is {'batch': df_b, 'task': df_t, 'work': df_w} for ONE strategy.  A mapping\nrather than positional frames because the set grows: each new per-batch source used to\nmean a new positional argument threaded through six call sites, and the one that was\nmissed would have fallen through to the task frame rather than failing.",
       "is_async": false,
       "kind": "function",
-      "signature": "(df_b_k, df_t_k, source, col, ss_lo)"
+      "signature": "(frames, source, col, ss_lo)"
     },
     "Optimization/Performance_Evaluations/common/frames.py::_roll": {
       "decorators": [],
@@ -2253,6 +2267,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(stats, aisle_unittype_map, aisle_handling_map)"
+    },
+    "Optimization/Performance_Evaluations/common/frames.py::_wdf": {
+      "decorators": [],
+      "doc": "Per-BATCH production labour: put + unload from `work_events`, pick from the tasks.\n\nTHE OBJECTIVE'S FRAME.  `total_production_seconds` is the quantity the whole inbound\neffort selects on \u2014 put-away hours and picking hours move in OPPOSITE directions under\na placement rule, so a comparison on either leg alone systematically favours arms that\nbuy one with the other.\n\nAn EMPTY frame when `rows` is empty, never a frame of zeros.  This is the same rule\n`_ydf` and `_ddf` follow and it is the load-bearing one here: a run predating\n`work_events` and a run whose crews did no work are indistinguishable by row count, and\nfilling the missing legs with 0.0 would publish `total = pick` as if the put leg had\nbeen measured and found to be nothing.  Empty makes the metric ABSENT instead, which is\nwhat the capability gate and every downstream `_aligned` are written to handle.\n\nZeros WITHIN a populated frame are honest and are filled deliberately: once the table\nhas rows, a batch with no put row genuinely put nothing away, and dropping it would\nmake the batch index of this frame disagree with the batch frame's for no reason a\nreader could recover.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, df_b, df_t)"
     },
     "Optimization/Performance_Evaluations/common/frames.py::_ydf": {
       "decorators": [],
@@ -2530,10 +2551,10 @@
     },
     "Optimization/Performance_Evaluations/common/series.py::_build_series": {
       "decorators": [],
-      "doc": "Per-strategy time series + steady-state scalars for the comparison suite.\n\nReturns {key: dict | None}.  Task metrics carry their own x ('task_batch')\nbecause some batches may have no surviving (non-outlier) tasks.",
+      "doc": "Per-strategy time series + steady-state scalars for the comparison suite.\n\nReturns {key: dict | None}.  Task metrics carry their own x ('task_batch')\nbecause some batches may have no surviving (non-outlier) tasks.\n\n`df_w` (production labour) and `df_y` (the yard's trailers) were the third and fourth\nframes to reach this builder, and they arrived together for a structural reason: a slot\nin `quantities.HEADLINE_ORDER` is validated at import to name a steady-state scalar,\nand this function is the only thing that writes one.  Until it could see a frame other\nthan batch and task, the total-production-hours objective and the yard fee were both\nunheadlineable no matter how well either was measured.\n\nBoth default to None so a caller with only the two original frames still gets the\noriginal document \u2014 the scalars they feed come out absent rather than zero, which is\nthe same distinction `_wdf`'s empty frame draws and for the same reason.",
       "is_async": false,
       "kind": "function",
-      "signature": "(strategies, df_b, df_t)"
+      "signature": "(strategies, df_b, df_t, df_w=None, df_y=None)"
     },
     "Optimization/Performance_Evaluations/common/series.py::_dump_series": {
       "decorators": [],
@@ -2562,6 +2583,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(s)"
+    },
+    "Optimization/Performance_Evaluations/common/series.py::_ss_mean": {
+      "decorators": [],
+      "doc": "Mean of a per-batch column over the steady-state batches, or NaN.\n\n`ssb` is the batch frame already cut to the window, so the cut is stated once and the\nproduction scalars cannot drift onto a different window from `ss_dur` beside them.\nNaN whenever the frame is absent or empty: an unmeasured leg is not a leg measured at\nzero, and every consumer here treats NaN as \"this run cannot answer that\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(df, ssb, col)"
     },
     "Optimization/Performance_Evaluations/common/stats_core.py": {
       "decorators": [],
@@ -3169,7 +3197,7 @@
     },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.fee_threshold_days": {
       "decorators": [],
-      "doc": "The free yard days this run's overage accrues past \u2014 RECORDED, else HEAD's.\n\nThe whole reason the DB holds raw stamps: the fee is derived here, so a finished\nrun can be re-reported under a different threshold without re-simulating. Which\nalso means the threshold has to be the RUN's, not this checkout's, or the number\nis quietly about the wrong configuration.\n\nRecording it is `Build the run-shape layer`'s job (the run spec does not carry\n`inbound_fee_threshold_days` yet, and neither restore site touches inbound). Until\nthen this falls back to the default in `Optimization.config.settings`, which is\ncorrect for every run that predates recording and WRONG the moment someone sweeps\nthe threshold \u2014 so the fallback says so in the log rather than resolving silently.\nThe campaign must never exercise it, which is what makes that ticket a prerequisite\nof phase 1 rather than of phase 2.",
+      "doc": "The free yard days this run's overage accrues past \u2014 RECORDED, else HEAD's.\n\nThe whole reason the DB holds raw stamps: the fee is derived here, so a finished\nrun can be re-reported under a different threshold without re-simulating. Which\nalso means the threshold has to be the RUN's, not this checkout's, or the number\nis quietly about the wrong configuration.\n\nThe run spec now records it and both restore sites replay it, so `sim_result` carries\nthe run's own value: `_apply_run_shape` puts it back into CONFIG in the parent, and\n`_sim_result_from_meta` stamps it onto the pickled job \u2014 CONFIG cannot be the channel,\nbecause an analysis worker is SPAWNED and re-imports sim_config with pristine defaults.\n\nThe fallback to `Optimization.config.settings` remains, for runs that predate the\nrecording. It is correct for those and WRONG the moment someone sweeps the threshold,\nso it says so in the log rather than resolving silently; the campaign must never\nexercise it, which is why the run-shape layer was a prerequisite of phase 1.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> float"
@@ -3203,6 +3231,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.metric_frames": {
+      "decorators": [],
+      "doc": "{key: {kind: frame}} for every arm \u2014 what the `_METRICS` consumers iterate.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.metric_frames_for": {
+      "decorators": [],
+      "doc": "{kind: frame} for one arm, as `frames._metric_series` expects it.\n\nThe one place a metric-source frame set is assembled: every consumer that iterates\n`stats_core._METRICS` goes through here, so none of them can serve three kinds and\nstarve the fourth.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key) -> dict"
     },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.missed_df": {
       "decorators": [],
@@ -3247,6 +3289,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.work_df": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.work_frames": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
     },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.yard_df": {
       "decorators": [],
@@ -3525,7 +3581,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'batch': 'batch_stats', 'task_mean': 'task_stats', 'task_sum': 'task_stats', 'trailer': 'yard_trailers', 'drain': 'yard_drains', 'carryover': 'carryover'}"
+      "value_preview": "{'batch': 'batch_stats', 'task_mean': 'task_stats', 'task_sum': 'task_stats', 'trailer': 'yard_trailers', 'drain': 'yard_drains', 'carryover': 'carryover', 'work': 'work_events'}"
     },
     "Optimization/Performance_Evaluations/core/quantities.py::INSPECTION": {
       "decorators": [],
@@ -3539,7 +3595,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('batch', 'task_mean', 'task_sum')"
+      "value_preview": "('batch', 'task_mean', 'task_sum', 'work')"
     },
     "Optimization/Performance_Evaluations/core/quantities.py::Quantity": {
       "decorators": [
@@ -3798,10 +3854,10 @@
     },
     "Optimization/Performance_Evaluations/core/registry.py::evaluation": {
       "decorators": [],
-      "doc": "Decorator: register the wrapped render fn as an Evaluation.\n\nA figure eval declares `family=` and its out_subdir is DERIVED (figures/<family>) \u2014\npassing both is an error, so a family's folder can never be retyped inconsistently.\nNon-figure evals declare out_subdir explicitly ('tables', or '' for the leaf root).\n\nA figure eval also declares `shape=` (the mark) and `quantities=` (what it draws), and\nits `views` are derived from those.  `views=` may still be passed, but ONLY by an\nevaluation listed in `families.LEGACY_VIEWS` with the reason it has not moved \u2014 a debt\nwith a name, not a permission.\n\nReturns the plain function unchanged so it stays directly unit-testable.",
+      "doc": "Decorator: register the wrapped render fn as an Evaluation.\n\nA figure eval declares `family=` and its out_subdir is DERIVED (figures/<family>) \u2014\npassing both is an error, so a family's folder can never be retyped inconsistently.\nNon-figure evals declare out_subdir explicitly ('tables', or '' for the leaf root).\n\nA figure eval also declares `shape=` (the mark) and `quantities=` (what it draws), and\nits `views` are derived from those.  `views=` may still be passed, but ONLY by an\nevaluation listed in `families.LEGACY_VIEWS` with the reason it has not moved \u2014 a debt\nwith a name, not a permission.\n\n## `quantities_optional=`\n\nA quantity the figure draws WHEN THE RUN CAN ANSWER IT and omits when it cannot.  It\nfeeds the view derivation exactly like `quantities=` \u2014 it is drawn, so it must be\ndrawable \u2014 but `requests.era_shortfall` ignores it, so a capability the run lacks costs\nthe figure that quantity rather than the whole render.\n\nThis is a narrow permission, not a softer `quantities=`.  It is only honest when the\nrender genuinely degrades per quantity and SAYS SO \u2014 `headline.top_vs_baseline`, whose\ntwo funnel-appended groups (total production hours, yard overage) are dropped from the\npanel with a log line when no arm has a finite value, so the reader sees five groups\nrather than seven blank-panelled ones.  An evaluation whose figure would be a lie\nwithout the quantity declares it in `quantities=` and takes the refusal: that is what\nthe whole `yard` family does, and correctly.\n\nReturns the plain function unchanged so it stays directly unit-testable.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, key, label, scope, needs=(), defaults=None, out_subdir=None, family=None, quantities=(), shape=None, views_suppressed=(), views_pending=(), views=(), by_initial=False)"
+      "signature": "(*, key, label, scope, needs=(), defaults=None, out_subdir=None, family=None, quantities=(), quantities_optional=(), shape=None, views_suppressed=(), views_pending=(), views=(), by_initial=False)"
     },
     "Optimization/Performance_Evaluations/core/registry.py::evaluation._wrap": {
       "decorators": [],
@@ -3980,6 +4036,15 @@
       "kind": "function",
       "signature": "(ctx)"
     },
+    "Optimization/Performance_Evaluations/core/requests.py::_work": {
+      "decorators": [
+        "request('work', 'config')"
+      ],
+      "doc": "Every arm's per-batch production-labour frame \u2014 `{key: work_df}`.\n\nERA-UNMET, not Denied, when no arm has a single work-event row. The files were opened\nand read and simply have no production timeline in them, which no re-run of this stage\ncan change: the run predates `work_events`, or predates the 2026-08-24 refactor that\ngave put-away a duration at all. A `total_production_time` figure built on that would\nread exactly the pick leg while claiming to be the sum of three \u2014 which is the\nsubstitution this whole quantity exists to prevent.\n\nThe `_METRICS` consumers (`tables.stats`, `tables.vs_baseline`, `sig.suite`) do NOT\ndeclare this need, and that is deliberate rather than an oversight in their `needs=`\ntuples. They iterate every declared metric and already drop the ones whose series\ncannot be aligned, so an era shortfall costs them three rows; declaring the need would\ncost them the whole CSV, on every run in the archive, to protect rows that degrade\ncorrectly on their own. Figure evaluations, which cannot degrade a panel that way,\ndeclare it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
     "Optimization/Performance_Evaluations/core/requests.py::_yard": {
       "decorators": [
         "request('yard', 'config')"
@@ -4016,6 +4081,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, ev)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::metric_frames": {
+      "decorators": [],
+      "doc": "The {kind: frame} mapping `frames._metric_series` resolves a metric source against.\n\nOne place builds it, so a consumer iterating `_METRICS` cannot serve some kinds and\nsilently starve another \u2014 which is what a positional frame list did until a fourth\nframe made the omission likely rather than merely possible.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key) -> dict"
     },
     "Optimization/Performance_Evaluations/core/requests.py::missed_frame": {
       "decorators": [],
@@ -4076,6 +4148,13 @@
     "Optimization/Performance_Evaluations/core/requests.py::task_frame": {
       "decorators": [],
       "doc": "One strategy's task frame, memoised in ctx._tcache \u2014 EvalContext.task_df delegates here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::work_frame": {
+      "decorators": [],
+      "doc": "One strategy's per-batch production-labour frame, memoised.\n\nTakes BOTH sibling frames: the batch frame states which batches happened (so a batch\nthat put nothing away is present at zero rather than missing) and the task frame\ncarries the pick leg, which `work_events` structurally cannot \u2014 a pick row is an\ninstant with a NULL duration, and the work is the span between two of them.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
@@ -4563,7 +4642,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[(q.label, q.source.steady_state, q.lower_is_better, *q.source.per_batch) for q in (_quantities.BY_KEY[k] for k in _quantities.HEADLINE_ORDER)]"
+      "value_preview": "[(q.label, q.source.steady_state, q.lower_is_better, *q.source.per_batch, q.source.per_batch[0] in _quantities.PAIRED_KINDS) for q in (_quantities.BY_KEY[k] for k in _quantities.HEADLINE_ORDER)]"
     },
     "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_UNSHARED_RATIO": {
       "decorators": [],
@@ -4571,6 +4650,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "8.0"
+    },
+    "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_drawable": {
+      "decorators": [],
+      "doc": "({label: values} the figure can draw, [labels dropped]) \u2014 ORDER PRESERVED.\n\nA group with nothing finite in it is dropped, not drawn empty.  Every group could once\nbe relied on to produce numbers, so this was unreachable code; the funnel's two\nappended entries (ticket 08) make it the normal case \u2014 an inbound-off run has no yard,\nso the fee's scalar is NaN on every arm, and an archived run predating `work_events`\nhas no put-away hours.  Both are the overwhelming majority of what gets re-analysed.\n\nRendering those as a blank labelled panel would put an unanswered question on published\nevidence, and a reader who sees a labelled group with no bar in it concludes the wrong\nthing: not \"this run cannot answer that\" but \"it was measured, and it was nothing\".\nThat is the same substitution the era gate exists to prevent, arriving one layer lower\nwhere the gate cannot see it \u2014 this figure survives its optional quantities on purpose,\nso nothing else is going to refuse on its behalf.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals)"
     },
     "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_impr": {
       "decorators": [],
@@ -4609,7 +4695,7 @@
     },
     "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::render": {
       "decorators": [
-        "evaluation(key='headline.top_vs_baseline', label='Top arms vs FIFO baseline (% bars + effect table)', scope='config', needs=('series', 'batch', 'task'), defaults={'top_n': 3, 'top_by': 'initial'}, family='headline', shape=('ranked', 'table'), quantities=('production_time', 'makespan', 'throughput', 'throughput_task', 'sigma_fd'), views_pending=(('absolute', \"the top-N arms' own steady-state levels beside the baseline's, which is what a reader asks for after seeing a 2.6% bar and wanting to know 2.6% of what. The table view carries the numbers today; a bar of them is not written yet\"),))"
+        "evaluation(key='headline.top_vs_baseline', label='Top arms vs FIFO baseline (% bars + effect table)', scope='config', needs=('series', 'batch', 'task'), defaults={'top_n': 3, 'top_by': 'initial'}, family='headline', shape=('ranked', 'table'), quantities=('production_time', 'makespan', 'throughput', 'throughput_task', 'sigma_fd'), quantities_optional=('total_production_time', 'yard_overage_days'), views_pending=(('absolute', \"the top-N arms' own steady-state levels beside the baseline's, which is what a reader asks for after seeing a 2.6% bar and wanting to know 2.6% of what. The table view carries the numbers today; a bar of them is not written yet\"),))"
       ],
       "doc": null,
       "is_async": false,
@@ -4751,6 +4837,35 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/labor/production_legs.py": {
+      "decorators": [],
+      "doc": "labor.production_legs \u2014 the three legs of production time, per arm.\n\nTHE FIGURE THE OBJECTIVE WAS MISSING.  Ticket 10 fixed the inbound objective as expected\nfuture WORK \u2014 the put + pick hours a placement generates \u2014 and ticket 08 made total\nproduction hours phase 1's selection metric.  Until the `work` frame landed, only the pick\nleg was reportable, and the honest consequence was stated in the ticket: a comparison on\npick hours alone systematically favours arms that buy pick time with put-away time, which\nis the exact trade the inbound effort exists to measure.\n\nOne stacked bar per arm, three segments:\n\n    unload   receiving labour  (`work_events`, role='receive')\n    put      put-away labour   (`work_events`, role='put')\n    pick     picking labour    (`task_stats.duration`, summed per batch)\n\nRead it for the SPLIT, not the total \u2014 the total already has a headline panel.  An arm\nwhose bar is shorter than its neighbour's while its put segment is longer bought its\npicking win with put-away hours, and the put share printed on each bar is what makes that\ncomparison possible across arms of different sizes.\n\nDeliberately ABSOLUTE-only, which the `composite` mark enforces: the meaning here is the\ndecomposition, and a decomposition has no single value to compare against a baseline.  The\nper-leg comparison against the baseline arm is a real question and it is answered by the\n`tables.vs_baseline` evaluation, which now emits `putaway_time` and `unload_time` as their\nown rows with paired intervals \u2014 numbers, where this is a shape.\n\nUnload is near-absent inbound-off: no trailers, no receiving crew, no unload hours.  That\nsegment being invisible on an archive run is the model saying it had no inbound, not a\nrendering fault.  A run that recorded no work events at all does not reach here \u2014 all three\nquantities name the `work_events` capability, so the era gate refuses the render with a\nreason rather than drawing pick hours under a label promising three legs.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/labor/production_legs.py::_LEGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('unload_seconds', 'unload_time', 'unload (receiving)', '#dd8452'), ('put_seconds', 'putaway_time', 'put-away', '#c44e52'), ('pick_seconds', 'production_time', 'pick', '#4c72b0'))"
+    },
+    "Optimization/Performance_Evaluations/labor/production_legs.py::_totals": {
+      "decorators": [],
+      "doc": "[(strategy, [seconds per leg])] over the arms with a populated work frame.\n\nSummed over every batch rather than the steady-state window, and that is the one\nchoice worth stating: the legs are FLOWS of seconds, the put-away queue drains on its\nown schedule, and a trailing window can cut a put-away burst away from the picking it\nwas serving.  The whole run is the only cut where the three legs describe the same\nwork.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, frames)"
+    },
+    "Optimization/Performance_Evaluations/labor/production_legs.py::render": {
+      "decorators": [
+        "evaluation(key='labor.production_legs', label='Production time by leg (unload / put / pick) per arm', scope='config', needs=('work',), family='labor', shape='composite', quantities=('unload_time', 'putaway_time', 'production_time'))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
     "Optimization/Performance_Evaluations/layout/__init__.py": {
       "decorators": [],
       "doc": "layout.* evaluations \u2014 placement-layout dynamics (inventory churn and its\ncross-arm spread).  Submodules are imported by core.discovery; this package\ndeclares nothing itself.",
@@ -4875,7 +4990,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['task_time.duration', 'task_time.breakdown', 'layout.travel', 'layout.churn', 'yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard', 'diagnostics.metric_grids', 'diagnostics.scorecards']"
+      "value_preview": "['task_time.duration', 'task_time.breakdown', 'labor.production_legs', 'layout.travel', 'layout.churn', 'yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard', 'diagnostics.metric_grids', '..."
     },
     "Optimization/Performance_Evaluations/presets.py::_GROUPS": {
       "decorators": [],
@@ -5107,14 +5222,14 @@
       "doc": "The uni-vs-opt contrast per assignment function, computed once.\n\nReturns (combined, per_fn):\n  combined  list of rows with EXACTLY the retired summary columns\n            (assignment, metric, n, uni_median, opt_median,\n             pct_change_opt_vs_uni, p_wilcoxon, better) \u2014 pct_change is the raw\n            median shift, sign NOT improvement-oriented, as the retired CSV had it;\n  per_fn    {fn: {'keys': {'uni','opt'}, 'metrics': {metric_name: detail}}} where\n            detail carries the paired arrays (u, o), the direction flag, the full\n            pairwise test document, and the summary scalars \u2014 the raw material for\n            the consolidated test JSON and the significance heatmap/forest panels.",
       "is_async": false,
       "kind": "function",
-      "signature": "(strategies, df_b, df_t, ss_lo)"
+      "signature": "(strategies, frames, ss_lo)"
     },
     "Optimization/Performance_Evaluations/tables/stats_csv.py::compute_config_stats": {
       "decorators": [],
       "doc": "The full per-config suite over all strategies, computed once.\n\nReturns (summary_rows, per_metric):\n  summary_rows  list of {'strategy', 'metric', **descriptives} \u2014 the CSV body,\n                including the travel/handling decomposition rows when provided;\n  per_metric    {metric_name: {'box_values', 'paired', 'tests', 'lower'}} \u2014\n                everything the merged effect panels need, in _METRICS order.\n                `box_values` are each key's own observations (what the boxes show);\n                `paired` is the aligned block \u00d7 key matrix (what every paired\n                statistic and its resampled interval must be computed over).  They\n                are different objects on purpose: a key with a missing block belongs\n                in its own box but not in a pair.",
       "is_async": false,
       "kind": "function",
-      "signature": "(strategies, df_b, df_t, ss_lo, travel_handling=None)"
+      "signature": "(strategies, frames, ss_lo, travel_handling=None)"
     },
     "Optimization/Performance_Evaluations/tables/stats_csv.py::render_by_initial": {
       "decorators": [
@@ -6686,12 +6801,61 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/config/whatif_config.py::PHASE2_ARMS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_DOCK_DOORS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "4"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_FINITE_W": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "5"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_H_MULTIPLES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(0.25, 0.5, 1.0)"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_LEAD_MINUTES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "480.0"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_LEAD_SPREAD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.7"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_THRESHOLD_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "2.0"
+    },
     "Optimization/config/whatif_config.py::SPECS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'single': {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off'}, 'scheduler_ab': WHATIF, '_canary_sweep': {'ks':..."
+      "value_preview": "{'single': {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})], 'schedulers': ['round_robin'], 'arms': None, 'reference': 'k1_off'}, 'scheduler_ab': WHATIF, 'inbound_select': {'ks'..."
     },
     "Optimization/config/whatif_config.py::WHATIF": {
       "decorators": [],
@@ -6706,6 +6870,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(name)"
+    },
+    "Optimization/config/whatif_config.py::phase2_inbound_axis": {
+      "decorators": [],
+      "doc": "The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), \u2026].\n\nEvery entry states EVERY key the axis touches, including the ones it is not exercising.\nThat is not verbosity: `_apply_cell` mutates a process-wide CONFIG that is never reset\nbetween cells, so a key one cell writes and the next omits leaves the second running the\nfirst's policy under its own name.  `_inbound_axis` refuses a partial entry for exactly\nthis reason, and stating the full record here is how that refusal is satisfied.\n\nThe arrival regime rides the axis rather than the command line for the same reason: the\ninbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a\nspread without the standing yard \u2014 and it refuses it ABOVE the trailer-type early return,\nso an anchor inheriting a run-level `--inbound-lead-spread` would raise instead of running.\nCarrying the regime here makes the spec the whole experimental condition, reproducible\nwithout a remembered command line.\n\nThe anchor is the validity check that phase 1's ranking transferred \u2014 present as a cell,\nnever the reference.  The reference is `fifo`, so every delta reads \"versus FIFO\", which\nis the campaign's own question.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES)"
+    },
+    "Optimization/config/whatif_config.py::phase2_inbound_axis._policy": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name, **over)"
     },
     "Optimization/gpu/__init__.py": {
       "decorators": [],
@@ -7814,6 +7992,13 @@
       "signature": null,
       "value_preview": "('batch_id', 'seq', 't_abs', 't_local', 'shift_index', 'actor_uid', 'actor_local', 'role', 'mode', 'event_type', 'aisle_id', 'sku', 'qty', 'duration', 'source')"
     },
+    "Optimization/persistence/Picking_Data.py::_WORK_HOURS_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('batch_id', 'role', 'seconds', 'n_rows', 'n_timed')"
+    },
     "Optimization/persistence/Picking_Data.py::_YARD_DRAIN_COLS": {
       "decorators": [],
       "doc": null,
@@ -8086,6 +8271,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list[TaskStats]"
+    },
+    "Optimization/persistence/Picking_Data.py::load_work_hours": {
+      "decorators": [],
+      "doc": "Seconds of production labour per (batch, role).  `[]` on a pre-`work_events` vintage.\n\nTHE PUT LEG'S ONLY ROUTE.  Put-away hours exist nowhere else: `putaway_seconds` is an\nin-sim property on `Inventory_Management` and was never written to `batch_stats`, so\nevery consumer that wanted them had to read this table -- and until now none did.\n\nThe unload leg is here too, deliberately, even though `batch_stats.recv_seconds`\ncarries the same measurement.  That column sits OUTSIDE the guaranteed sim-DB surface\nand postdates `work_events`, so a quantity reading it would need a capability that\n`work_events` cannot honestly supply, while an unguarded read would fill a pre-dock\nvintage's unload leg with a plausible zero.  Reading both legs here puts the whole\nobjective behind one capability that is true when it says it is.  The two surfaces are\nwritten by different code from different state and are reconciled seconds-for-seconds\nby `Diagnostics/receiving_report.py`'s first check, which is what makes them\nsubstitutable rather than merely similar.\n\nRows are aggregates, not events, so the fold happens in SQL: a 200-batch arm holds\n~30k rows and the consumer wants ~3 numbers a batch.  `role` selection stays with the\ncaller for the same reason `load_carryover` leaves `reason` there -- 'pick' rows carry\nNULL durations by design and summing across every role would produce a number with no\nmeaning.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list"
     },
     "Optimization/persistence/Picking_Data.py::load_yard_drains": {
       "decorators": [],
@@ -8648,7 +8840,7 @@
     },
     "Optimization/run_channel_rollup.py::_baseline_entry": {
       "decorators": [],
-      "doc": "The channel's baseline plan \u2014 the fifo arm (uni_fifo), matching run_analysis's\nctx.base = strategies[0].  Prefer an explicit fifo key; fall back to the first entry.",
+      "doc": "The channel's baseline plan \u2014 the fifo arm (uni_fifo), matching run_analysis's\nctx.base = strategies[0].  Prefer an explicit fifo key, then any fifo key.\n\nNO fallback to `strategies[0]`.  That fallback was silent and its output was plausible:\nevery `saving_abs` in both CSVs would be measured against an arbitrary arm, the summary\nwould name it `baseline_fifo_ss`, and nothing in the numbers would look wrong.  An arm set\nwithout a fifo rule is a configuration error made upstream \u2014 `_run_whatif_matrix` refuses\none before the simulation starts \u2014 so by the time a series doc reaches here, its absence\nmeans the analysis is reading something other than what the driver ran.  Failing here is\nthe only way that difference is ever visible.",
       "is_async": false,
       "kind": "function",
       "signature": "(strategies: list[dict]) -> dict | None"
@@ -8764,6 +8956,110 @@
       "kind": "function",
       "signature": "(base_dir: str, log=None) -> None"
     },
+    "Optimization/run_restock_selection.py": {
+      "decorators": [],
+      "doc": "run_restock_selection.py \u2014 phase 1's hand-off: rank the restock rules, choose phase 2's arms.\n\nThe inbound funnel is two phases, not one product sweep (\"Design the phased funnel\",\n`.scratch/inbound-optimization`).  Phase 1 is a fresh, inbound-OFF run of the full assignment\nsuite whose ONLY job is to rank the restock rules; phase 2 sweeps the ten inbound policies over\nthe rules phase 1 chose.  This module is the seam between them, and it writes the one artifact\nthat carries the decision:\n\n    <phase-1 run root>/restock_selection.json\n\n**The unit is a restock RULE, not an arm.**  `strategies.CHANNEL_RESTOCKS` filters on\n`Strategy.restock`, so choosing `tmin` necessarily takes both `uni_tmin_norsl` and\n`opt_tmin_norsl`: 17 rules, each costing 2 arms.  \"Top-k arms\" is not an expressible unit, and\na selector that ranked arms would hand phase 2 an arm set it cannot configure.\n\n**The metric is TOTAL PRODUCTION HOURS** \u2014 unload + put + pick, the objective the whole effort\nis about (\"Define the inbound objective\").  It reaches this module as `ss_prod_total` in each\nchannel run's `series_json` artifact: a steady-state MEAN of `production_seconds` per batch,\nresolved through the contract rather than by name.  Ranking on\npick hours alone \u2014 all that `channel_rollup` and `whatif_labor` offer \u2014 would systematically\nfavour arms that buy pick time with put-away time, which is the exact trade phase 2 measures.\n\nThree things about that metric decide the shape of the code below:\n\n* **Do NOT read the cross-profile summary CSV.**  `_aggregate_series` normalizes each profile to\n  its own baseline, so that file holds RATIOS; `total_production_time` is deliberately absent\n  from `AGGREGATE_ORDER` for the same reason.  Hours are additive and physical, ranks are not,\n  so this module sums `ss_prod_total` over the profiles' series documents itself.\n* **Absence must be LOUD.**  The metric is capability-gated: a run with no `work_events` rows\n  produces no `total_production_time` at all and `ss_prod_total` comes out NaN \u2014 correctly, an\n  unmeasured leg is not a leg measured at zero.  A selector that read a missing value as a tie\n  would rank all seventeen rules on nothing, so a rule with any missing or non-finite reading is\n  EXCLUDED from the ranking and reported by name.\n* **`fifo` is mandatory, and is not one of the k.**  `run_channel_rollup._baseline_entry` needs\n  it as the analysis baseline, and `uni_fifo`/`opt_fifo` are byte-identical runs, which makes\n  the same row phase 2's order-blind negative control.  It rides along whether or not it ranks.\n\nRun AFTER `analyze_run` (which writes the series JSONs):\n\n    python -m Optimization.analyze_run <phase-1 run root>\n    python -m Optimization.run_restock_selection <phase-1 run root>\n\nThen copy the chosen `arms` into `whatif_config.PHASE2_ARMS` and run phase 2 with\n`--spec inbound_policies`.  The copy is deliberate and manual: the arm set is a decision a\nperson signs off on, and a spec that read a JSON file at import would make it invisible.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/run_restock_selection.py::BASELINE_RULE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fifo'"
+    },
+    "Optimization/run_restock_selection.py::DEFAULT_EXTENSION_CAP": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3"
+    },
+    "Optimization/run_restock_selection.py::DEFAULT_K": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "5"
+    },
+    "Optimization/run_restock_selection.py::METRIC_FIELD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'ss_prod_total'"
+    },
+    "Optimization/run_restock_selection.py::METRIC_QUANTITY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'total_production_time'"
+    },
+    "Optimization/run_restock_selection.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
+    },
+    "Optimization/run_restock_selection.py::_choose": {
+      "decorators": [],
+      "doc": "The top-k rules, with the extension cap applied and the `fifo` rider added.\n\nThe cap is 08's: only `FAITHFUL_GAIN_FAMILIES` have a faithful gain bundle today, and every\nother family refuses at the first drain by design.  If the top k holds more unfaithful\nfamilies than the cap allows, take the highest-ranked `extension_cap` of them and backfill\nfrom the next faithful rules down \u2014 so the cost of phase 2 is bounded by a decision made\nhere rather than discovered when an arm dies mid-sweep.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ranking, k: int, extension_cap: int, log) -> dict"
+    },
+    "Optimization/run_restock_selection.py::_finite": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x) -> bool"
+    },
+    "Optimization/run_restock_selection.py::_rank_channel": {
+      "decorators": [],
+      "doc": "Rank every restock rule in one channel.  Lower hours win.\n\nAn arm's score is its `ss_prod_total` SUMMED over the channel's (profile, config) leaves \u2014\na steady-state per-batch mean of production seconds, summed, then reported in hours.  Every\narm is measured on the identical leaf set, so the sum is like-for-like; a MIN over leaves\nwould let two rules be scored on different profiles and is exactly the \"ranks are not\nadditive\" mistake one level down.\n\nA RULE's score is the minimum over its own arms, because selecting a rule takes both of them\nand what makes the rule worth carrying into phase 2 is that one of its arms performs.  Both\narm totals are recorded, so a reader can see when the two disagree.\n\nAn arm missing from a leaf, or reading non-finite there, disqualifies its RULE: a partial sum\nwould silently rank a rule that was measured on fewer profiles than its rivals as cheaper\nthan all of them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(leaves, log) -> dict"
+    },
+    "Optimization/run_restock_selection.py::_read_leaves": {
+      "decorators": [],
+      "doc": "[(ChannelRun, meta, series)] for every analyzed channel run under one cell dir.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell_dir: str)"
+    },
+    "Optimization/run_restock_selection.py::_rule_of": {
+      "decorators": [],
+      "doc": "The restock rule an arm key belongs to, from the strategy grid rather than by parsing.\n\n`uni_rank_labor_norsl` splits into three fields whose middle one contains underscores, so\nevery hand-rolled parse of an arm key is a guess.  `STRATEGY_BY_KEY` already holds the\nanswer the driver used when it built the arm, so unknown keys come back None and are\nreported rather than mis-bucketed into a rule that exists.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(arm_key: str) -> str | None"
+    },
+    "Optimization/run_restock_selection.py::_tree_for": {
+      "decorators": [],
+      "doc": "(RunTree, [(cell_name, cell_dir)]) for a phase-1 RUN ROOT.\n\nRooted at the run root, not a cell dir \u2014 unlike `run_channel_rollup`, whose artifacts are\ncell-scoped.  The selection is a property of the RUN: it names the arm set a second run will\ncarry, so it belongs beside the run's own spec and layout descriptors rather than inside the\ncell whose numbers produced it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str)"
+    },
+    "Optimization/run_restock_selection.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
+    "Optimization/run_restock_selection.py::select": {
+      "decorators": [],
+      "doc": "Rank the restock rules of a phase-1 run and write the selection artifact at its root.\n\n`base_dir` is the phase-1 RUN ROOT.  Phase 1 is one cell by design \u2014 ranking across two\nlayouts would rank two different warehouses on one scale \u2014 so a multi-cell run is refused\nrather than silently summed or silently reduced to its first cell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, k: int=DEFAULT_K, extension_cap: int=DEFAULT_EXTENSION_CAP, log=print) -> dict"
+    },
     "Optimization/run_simulation.py": {
       "decorators": [],
       "doc": "Warehouse assignment strategy simulation runner.\n\nRuns A/B/C strategy workers for each (pair \u00d7 regression-config) combination\nand saves all results to per-strategy SQLite DBs.  Graph generation is a\nseparate step: run_analysis.py <base_dir>.\n\nModes:\n  python run_simulation.py                          # new run, sequential\n  python run_simulation.py --workers 15             # flat pool, no idle\n  python run_simulation.py --resume <base_dir>      # resume a crashed run",
@@ -8790,6 +9086,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(args, spec, explicit)"
+    },
+    "Optimization/run_simulation.py::_futuresight_window": {
+      "decorators": [],
+      "doc": "An argparse `type=` for the futuresight window: `'all'` or a non-negative int.\n\nThe knob is a batch COUNT with a string sentinel for the oracle, and `_futuresight_batches`\n(the spec-build normalizer) rejects `'5'` as firmly as it rejects `'oracle'` \u2014 its\n`w != raw` test is what stops a fractional value, and a numeric STRING fails it too.  So\nthe conversion has to happen at the parser: without it, `--inbound-futuresight-batches 5`\nwould parse cleanly and then refuse at spec build, naming the settings constant rather\nthan the flag the user actually typed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(text: str)"
     },
     "Optimization/run_simulation.py::_nonneg_float": {
       "decorators": [],
@@ -10487,13 +10790,13 @@
     },
     "Optimization/simdriver/cells.py": {
       "decorators": [],
-      "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler over one frozen inventory.\n_apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the change is\nseen everywhere; _build_cells names cells k{k}[_l{loss}]_{zone}[_{sched}].\n\nCONFIG is run STATE and the simconfig registry is the DECLARATION; _apply_cell writes to\nthe former only.  Cell.overrides() reports the same values without applying them.",
+      "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler \u00d7 inbound policy over one frozen\ninventory.  _apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the\nchange is seen everywhere; _build_cells names cells\nk{k}[_l{loss}]_{zone}[_{inbound}][_{sched}].\n\nThe inbound suffix sits BEFORE the scheduler suffix on purpose: `run_whatif_labor._scheduler_of`\nrecovers the swept scheduler as the cell name's LAST underscore token, and appending a fifth\nsegment after it would silently relabel every row of that module's CSV.\n\nCONFIG is run STATE and the simconfig registry is the DECLARATION; _apply_cell writes to\nthe former only.  Cell.overrides() reports the same values without applying them.",
       "kind": "module",
       "signature": null
     },
     "Optimization/simdriver/cells.py::Cell": {
       "decorators": [],
-      "doc": "One point in the what-if matrix: a fixed choice on every swept axis.\n\nA NamedTuple rather than a dataclass, deliberately.  This was a bare 4-tuple unpacked\npositionally in five files \u2014 `cells.py`, `scenario.py`, `run_simulation.py`,\n`sim_manifest.py` and `run_whatif_delta.py` \u2014 so `c[1]`, `c[3]` and\n`(name, split, zoning, sched) = c` all had to keep working.  They do, which is why\nthis change cannot break a consumer by being half-applied; named access is simply\nadded beside them.\n\nAdding a FIFTH axis (an inbound sorter policy) is now one field and one line in\n`_build_cells` rather than five positional unpacks to find and renumber.  The names\nhere are the same ones the run-tree descriptor records, so it and the producer\ncannot drift apart.",
+      "doc": "One point in the what-if matrix: a fixed choice on every swept axis.\n\nA NamedTuple rather than a dataclass, deliberately.  This was a bare 4-tuple unpacked\npositionally in five files \u2014 `cells.py`, `scenario.py`, `run_simulation.py`,\n`sim_manifest.py` and `run_whatif_delta.py` \u2014 so `c[1]`, `c[3]` and\n`(name, split, zoning, sched) = c` all had to keep working.  They do, which is why\nthis change cannot break a consumer by being half-applied; named access is simply\nadded beside them.\n\nThe FIFTH axis (the inbound policy) is now one field and one line in `_build_cells`\nrather than five positional unpacks to find and renumber.  The names here are the same\nones the run-tree descriptor records, so it and the producer cannot drift apart.",
       "kind": "class",
       "signature": "(NamedTuple)"
     },
@@ -10501,14 +10804,14 @@
       "decorators": [
         "property"
       ],
-      "doc": "The natural baseline: no split, no zoning, the legacy scheduler.\n\nThis predicate was written out twice, verbatim, in `scenario.py` and\n`run_simulation.py` \u2014 and those two MUST agree, because one picks the cell the\ndriver treats as the baseline and the other writes the reference name into\nthe run-tree descriptor for every downstream what-if to diff against.  Two copies of a\npredicate that must agree is a bug with a delay on it.",
+      "doc": "The natural baseline: no split, no zoning, the legacy scheduler, inbound untouched.\n\nThis predicate was written out twice, verbatim, in `scenario.py` and\n`run_simulation.py` \u2014 and those two MUST agree, because one picks the cell the\ndriver treats as the baseline and the other writes the reference name into\nthe run-tree descriptor for every downstream what-if to diff against.  Two copies of a\npredicate that must agree is a bug with a delay on it.\n\nA cell carrying an inbound record is never the NATURAL baseline: an inbound matrix has\nno order-blind default cell to fall into, so the spec must DECLARE its reference (and\n`_build_cells` refuses one that does not).  Without this clause every cell of a\nten-policy matrix would answer True and `reference_cell` would silently take the first.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> bool"
     },
     "Optimization/simdriver/cells.py::Cell.overrides": {
       "decorators": [],
-      "doc": "What this cell CHANGES about a channel, as a plain record.\n\nThe same three values `_apply_cell` writes, named rather than positional, so a\ncaller can see a cell's effect without applying it \u2014 which is what a resolution\npass needs, and what makes the effect diffable between two cells.\n\n`scheduler` is a pick-config field (like `one_way`), so it lands on every one of a\nchannel's pick-config dicts; the other two are channel-level.",
+      "doc": "What this cell CHANGES, as a plain record.\n\nThe same four values `_apply_cell` writes, named rather than positional, so a\ncaller can see a cell's effect without applying it \u2014 which is what a resolution\npass needs, and what makes the effect diffable between two cells.\n\n`scheduler` is a pick-config field (like `one_way`), so it lands on every one of a\nchannel's pick-config dicts; `aisle_split` and `velocity_zoning` are channel-level.\n`inbound` is the odd one out and stays named as itself: the yard and dock policies are\nwhole-RUN settings on `CONFIG['global']`, which is exactly why they had to become a\ncell axis instead of six separate runs.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> dict"
@@ -10522,14 +10825,14 @@
     },
     "Optimization/simdriver/cells.py::_apply_cell": {
       "decorators": [],
-      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every\nchannel.  The scheduler is a pick-config field (like one_way), so set it on each channel's\npick-config dicts.\n\nWrites into CONFIG and ONLY into CONFIG.  Those pick-config dicts used to be the very\nobjects `PICK_CONFIG_BY_KEY[\u2026].cfg` holds, so this loop permanently edited the registry:\n`scheduler` is absent from every config module as written, and after one cell ran the\nfrozen spec carried whichever value that cell chose, for the life of the process.\n`sim_config` now copies the dicts when it assembles CONFIG, which is where that boundary\nlives \u2014 see the comment beside STORE_CONFIGS.  Do not reintroduce a path that hands the\nregistry's own dict to a mutator.\n\nSee `Cell.overrides()` for the same three values as a record, when you want to inspect a\ncell's effect rather than apply it.",
+      "doc": "Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every\nchannel, plus this cell's inbound policy on `CONFIG['global']`.  The scheduler is a\npick-config field (like one_way), so set it on each channel's pick-config dicts.\n\nWrites into CONFIG and ONLY into CONFIG.  Those pick-config dicts used to be the very\nobjects `PICK_CONFIG_BY_KEY[\u2026].cfg` holds, so this loop permanently edited the registry:\n`scheduler` is absent from every config module as written, and after one cell ran the\nfrozen spec carried whichever value that cell chose, for the life of the process.\n`sim_config` now copies the dicts when it assembles CONFIG, which is where that boundary\nlives \u2014 see the comment beside STORE_CONFIGS.  Do not reintroduce a path that hands the\nregistry's own dict to a mutator.\n\n`inbound` is global rather than per-channel because the yard and the dock are one site's,\nnot one channel's; `inbound_spec()` reads `CONFIG['global']` at CALL time inside\n`_prepare_channel_run`, so a value written here reaches every spawned worker's payload.\nNone writes NOTHING \u2014 the inert default that keeps a pre-inbound spec byte-identical.\n\nSee `Cell.overrides()` for the same four values as a record, when you want to inspect a\ncell's effect rather than apply it.",
       "is_async": false,
       "kind": "function",
-      "signature": "(aisle_split, zoning, scheduler='round_robin') -> None"
+      "signature": "(aisle_split, zoning, scheduler='round_robin', inbound=None) -> None"
     },
     "Optimization/simdriver/cells.py::_build_cells": {
       "decorators": [],
-      "doc": "Combinatorial (scheduler \u00d7 zoning \u00d7 k \u00d7 capacity_loss) cells from a WHATIF spec.  k=1 = no\nsplit (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec, scheduler), \u2026];\nthe (k=1, off, round_robin) cell is the natural reference.  ``schedulers`` defaults to\n['round_robin'] (byte-identical, no name suffix); a multi-value list adds a `_rr`/`_lpt`\nsuffix so the picker-scheduler becomes a sweep axis alongside aisle_split and zoning.",
+      "doc": "Combinatorial (scheduler \u00d7 zoning \u00d7 k \u00d7 capacity_loss \u00d7 inbound) cells from a WHATIF spec.\nk=1 = no split (loss collapses to 0).  Returns [(name, aisle_split|None, zoning_spec,\nscheduler, inbound|None), \u2026]; the (k=1, off, round_robin, no inbound) cell is the natural\nreference.  ``schedulers`` defaults to ['round_robin'] (byte-identical, no name suffix); a\nmulti-value list adds a `_rr`/`_lpt` suffix so the picker-scheduler becomes a sweep axis\nalongside aisle_split and zoning.  ``inbound`` defaults to one inert entry and behaves the\nsame way \u2014 see `_inbound_axis` for its shape and the four collapses it refuses.\n\nA swept inbound axis must also DECLARE `reference`: `Cell.is_reference` answers False for\nevery cell carrying an inbound record, so an undeclared reference would fall through to\n`cells[0]` \u2014 the same silent-arbitrary-baseline failure `run_channel_rollup._baseline_entry`\nwas caught doing, one level up.",
       "is_async": false,
       "kind": "function",
       "signature": "(spec)"
@@ -10540,6 +10843,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(scenario_base: str, pairs: list) -> bool"
+    },
+    "Optimization/simdriver/cells.py::_inbound_axis": {
+      "decorators": [],
+      "doc": "The spec's inbound axis as [(name_suffix, overrides|None)], validated.\n\nDefaults to the single inert entry `[('', None)]`, which is what every spec written before\nthe inbound axis existed resolves to: no suffix, no CONFIG write, byte-identical names and\nbehaviour.  A real axis is a list of `(suffix, {inbound_key: value})` pairs \u2014 keys are\n`CONFIG['global']` `inbound_*` names with the prefix dropped.\n\nFour refusals, each closing a failure with no error message:\n\n* **An unknown key.**  A misspelt name creates a new `CONFIG['global']` entry that\n  `inbound_spec()` never reads, so the cell runs the DEFAULT policy under the swept\n  policy's name.  Checked on every axis, inert or not.\n* **A missing suffix on a real axis.**  `_build_cells` dedupes by name, so inbound-on and\n  inbound-off collapse into ONE cell \u2014 the matrix comes out smaller than it was asked for\n  and nothing says so.\n* **Duplicate suffixes.**  The same collapse by another route.\n* **A key one entry sets and another does not.**  `_apply_cell` mutates a process-wide\n  CONFIG that is never reset between cells, so a key written by cell 3 and omitted by cell 4\n  leaves cell 4 running cell 3's policy under its own name.  Requiring every entry to cover\n  the union makes the carryover unreachable rather than merely unlikely.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spec)"
     },
     "Optimization/simdriver/cells.py::_tightest_split": {
       "decorators": [],

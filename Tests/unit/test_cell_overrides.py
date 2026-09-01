@@ -29,6 +29,15 @@ from Optimization.simdriver.cells import Cell, _apply_cell, _build_cells
 
 
 @pytest.fixture
+def restore_inbound():
+    """The fifth axis lands on CONFIG['global'], which `restore_config` does not cover."""
+    from Optimization.config.sim_config import INBOUND_KEYS
+    before = {k: CONFIG['global'][k] for k in INBOUND_KEYS}
+    yield
+    CONFIG['global'].update(before)
+
+
+@pytest.fixture
 def restore_config():
     """_apply_cell mutates the process-wide CONFIG by design; put it back."""
     saved = copy.deepcopy({ch: {'sizing': dict(CONFIG['channels'][ch]['sizing']),
@@ -75,6 +84,25 @@ def test_a_cell_still_reaches_every_channel(restore_config):
             assert cfg['scheduler'] == 'lpt'
 
 
+def test_a_cell_writes_its_inbound_record_into_GLOBAL_config(restore_config, restore_inbound):
+    """Global, not per-channel: the yard and the dock are the SITE's, which is exactly why they
+    had to become a cell axis instead of six separate runs."""
+    _apply_cell(None, {'enabled': False}, 'lpt',
+                {'standing_yard': True, 'yard_policy': 'lifo'})
+    assert CONFIG['global']['inbound_standing_yard'] is True
+    assert CONFIG['global']['inbound_yard_policy'] == 'lifo'
+
+
+def test_an_inert_inbound_record_writes_nothing_at_all(restore_config, restore_inbound):
+    """None is the byte-identical default every pre-phase-2 spec resolves to. It must not
+    write CONFIG's own value back over itself either — writing nothing is the guarantee."""
+    _apply_cell(None, {'enabled': False}, 'lpt', {'standing_yard': True})
+    _apply_cell(None, {'enabled': False}, 'round_robin', None)
+    assert CONFIG['global']['inbound_standing_yard'] is True, (
+        'an inert inbound record cleared a key it was never given'
+    )
+
+
 def test_the_zoning_spec_is_copied_per_channel(restore_config):
     """Two channels must not share one dict, or zoning edited for one silently edits both."""
     spec = {'enabled': True}
@@ -92,7 +120,21 @@ def test_overrides_reports_what_apply_would_write():
     cell = Cell('k4_vel_lpt', {'k': 4, 'capacity_loss': 0.25}, {'enabled': True}, 'lpt')
     assert cell.overrides() == {'aisle_split': {'k': 4, 'capacity_loss': 0.25},
                                 'velocity_zoning': {'enabled': True},
-                                'scheduler': 'lpt'}
+                                'scheduler': 'lpt',
+                                'inbound': None}
+
+
+def test_overrides_reports_the_inbound_record_too():
+    """The fifth axis is global rather than per-channel, so it stays named as itself in the
+    record — a caller diffing two cells must see the policy that separates them."""
+    cell = Cell('k1_off_lifo', None, {'enabled': False}, 'lpt', {'yard_policy': 'lifo'})
+    assert cell.overrides()['inbound'] == {'yard_policy': 'lifo'}
+
+
+def test_overrides_hands_out_a_copy_of_the_inbound_record():
+    cell = Cell('k1_off_lifo', None, {'enabled': False}, 'lpt', {'yard_policy': 'lifo'})
+    cell.overrides()['inbound']['yard_policy'] = 'fifo'
+    assert cell.inbound == {'yard_policy': 'lifo'}
 
 
 def test_overrides_does_not_apply_anything():

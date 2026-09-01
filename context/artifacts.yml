@@ -329,6 +329,19 @@ artifacts:
     fields: [pair, channel, best_config, best_plan, baseline_fifo_ss, best_ss, saving_abs,
              saving_pct]
 
+  # The inbound funnel's phase-1 -> phase-2 hand-off.  Run-ROOT scope, unlike the two rollup
+  # CSVs above: it names the arm set a SECOND run will carry, so it belongs beside run_spec.json
+  # rather than inside the cell whose numbers produced it.  Written only when a person invokes
+  # run_restock_selection on a phase-1 run; absent from every other run.
+  restock_selection_json:
+    path_pattern: "comparison_<ts>/restock_selection.json"
+    format: json
+    writer: {function: select, file: Optimization/run_restock_selection.py}
+    readers: []
+    match: "restock_selection"
+    fields: [version, written, run, metric, k, extension_cap, baseline_rule,
+             faithful_gain_families, channels]
+
   # ── cross-cell what-if outputs (multi-cell runs only) ───────────────────────────
   whatif_delta_csv:
     path_pattern: "comparison_<ts>/whatif_delta.csv"

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.run_restock_selection · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_restock_selection_py" data-id="Optimization/run_restock_selection.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/run_restock_selection.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.run_restock_selection</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_restock_selection_py.html"><code>Optimization/run_restock_selection.py</code></a></p>
+
+<pre class="sig"><code>Optimization.run_restock_selection</code></pre>
+<section class="doc">run_restock_selection.py — phase 1&#x27;s hand-off: rank the restock rules, choose phase 2&#x27;s arms.
+
+The inbound funnel is two phases, not one product sweep (&quot;Design the phased funnel&quot;,
+`.scratch/inbound-optimization`).  Phase 1 is a fresh, inbound-OFF run of the full assignment
+suite whose ONLY job is to rank the restock rules; phase 2 sweeps the ten inbound policies over
+the rules phase 1 chose.  This module is the seam between them, and it writes the one artifact
+that carries the decision:
+
+    &lt;phase-1 run root&gt;/restock_selection.json
+
+**The unit is a restock RULE, not an arm.**  `strategies.CHANNEL_RESTOCKS` filters on
+`Strategy.restock`, so choosing `tmin` necessarily takes both `uni_tmin_norsl` and
+`opt_tmin_norsl`: 17 rules, each costing 2 arms.  &quot;Top-k arms&quot; is not an expressible unit, and
+a selector that ranked arms would hand phase 2 an arm set it cannot configure.
+
+**The metric is TOTAL PRODUCTION HOURS** — unload + put + pick, the objective the whole effort
+is about (&quot;Define the inbound objective&quot;).  It reaches this module as `ss_prod_total` in each
+channel run&#x27;s `series_json` artifact: a steady-state MEAN of `production_seconds` per batch,
+resolved through the contract rather than by name.  Ranking on
+pick hours alone — all that `channel_rollup` and `whatif_labor` offer — would systematically
+favour arms that buy pick time with put-away time, which is the exact trade phase 2 measures.
+
+Three things about that metric decide the shape of the code below:
+
+* **Do NOT read the cross-profile summary CSV.**  `_aggregate_series` normalizes each profile to
+  its own baseline, so that file holds RATIOS; `total_production_time` is deliberately absent
+  from `AGGREGATE_ORDER` for the same reason.  Hours are additive and physical, ranks are not,
+  so this module sums `ss_prod_total` over the profiles&#x27; series documents itself.
+* **Absence must be LOUD.**  The metric is capability-gated: a run with no `work_events` rows
+  produces no `total_production_time` at all and `ss_prod_total` comes out NaN — correctly, an
+  unmeasured leg is not a leg measured at zero.  A selector that read a missing value as a tie
+  would rank all seventeen rules on nothing, so a rule with any missing or non-finite reading is
+  EXCLUDED from the ranking and reported by name.
+* **`fifo` is mandatory, and is not one of the k.**  `run_channel_rollup._baseline_entry` needs
+  it as the analysis baseline, and `uni_fifo`/`opt_fifo` are byte-identical runs, which makes
+  the same row phase 2&#x27;s order-blind negative control.  It rides along whether or not it ranks.
+
+Run AFTER `analyze_run` (which writes the series JSONs):
+
+    python -m Optimization.analyze_run &lt;phase-1 run root&gt;
+    python -m Optimization.run_restock_selection &lt;phase-1 run root&gt;
+
+Then copy the chosen `arms` into `whatif_config.PHASE2_ARMS` and run phase 2 with
+`--spec inbound_policies`.  The copy is deliberate and manual: the arm set is a decision a
+person signs off on, and a spec that read a JSON file at import would make it invisible.</section>
+<section class="rel"><h2>Imports <span class="count">(7)</span></h2><ul><li><a href="nInbound_gain_py.html"><code>Inbound.gain</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nOptimization_config_strategies_py.html"><code>Optimization.config.strategies</code></a> <span class="dim">Optimization/config/strategies.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_runschema_contract_py.html"><code>Optimization.runschema.contract</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_resolver_py.html"><code>Optimization.runschema.resolver</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li><li><a href="nOptimization_runschema_runlayout_py.html"><code>Optimization.runschema.runlayout</code></a> <span class="dim">Optimization/runschema/runlayout.py</span></li><li><a href="nOptimization_runschema_sim_manifest_py.html"><code>Optimization.runschema.sim_manifest</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(14)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py__BASELINE_RULE.html"><code>BASELINE_RULE</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py__DEFAULT_EXTENSION_CAP.html"><code>DEFAULT_EXTENSION_CAP</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py__DEFAULT_K.html"><code>DEFAULT_K</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py__METRIC_FIELD.html"><code>METRIC_FIELD</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py__METRIC_QUANTITY.html"><code>METRIC_QUANTITY</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___choose.html"><code>_choose</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___finite.html"><code>_finite</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___rank_channel.html"><code>_rank_channel</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___read_leaves.html"><code>_read_leaves</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___rule_of.html"><code>_rule_of</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___tree_for.html"><code>_tree_for</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py__select.html"><code>select</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_restock_selection_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_restock_selection.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -66,6 +66,7 @@ SHAPE_SOURCES = (
     'Optimization/analyze_run.py',
     'Optimization/run_analysis.py',
     'Optimization/run_channel_rollup.py',
+    'Optimization/run_restock_selection.py',
     'Optimization/run_whatif_delta.py',
     'Optimization/run_whatif_labor.py',
     # run_whatif_volume declares two run-root artifacts and was never listed here, so

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-const">const</span> <code>_METRIC_GROUPS</code></h1>
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_headline_top_vs_baseline_py.html"><code>Optimization/Performance_Evaluations/headline/top_vs_baseline.py</code></a></p>
 
-<pre class="sig"><code>_METRIC_GROUPS = [(q.label, q.source.steady_state, q.lower_is_better, *q.source.per_batch) for q in (_quantities.BY_KEY[k] for k in _quantities.HEADLINE_ORDER)]</code></pre>
+<pre class="sig"><code>_METRIC_GROUPS = [(q.label, q.source.steady_state, q.lower_is_better, *q.source.per_batch, q.source.per_batch[0] in _quantities.PAIRED_KINDS) for q in (_quantities.BY_KEY[k] for k in _quantities.HEADLINE_ORDER)]</code></pre>
 <section class="doc empty">No docstring.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_headline_top_vs_baseline_py___METRIC_GROUPS">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/headline/top_vs_baseline.py#:~:text=_METRIC_GROUPS">Source ↗</a></p>

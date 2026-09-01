@@ -22,13 +22,15 @@ run can be re-reported under a different threshold without re-simulating. Which
 also means the threshold has to be the RUN&#x27;s, not this checkout&#x27;s, or the number
 is quietly about the wrong configuration.
 
-Recording it is `Build the run-shape layer`&#x27;s job (the run spec does not carry
-`inbound_fee_threshold_days` yet, and neither restore site touches inbound). Until
-then this falls back to the default in `Optimization.config.settings`, which is
-correct for every run that predates recording and WRONG the moment someone sweeps
-the threshold — so the fallback says so in the log rather than resolving silently.
-The campaign must never exercise it, which is what makes that ticket a prerequisite
-of phase 1 rather than of phase 2.</section>
+The run spec now records it and both restore sites replay it, so `sim_result` carries
+the run&#x27;s own value: `_apply_run_shape` puts it back into CONFIG in the parent, and
+`_sim_result_from_meta` stamps it onto the pickled job — CONFIG cannot be the channel,
+because an analysis worker is SPAWNED and re-imports sim_config with pristine defaults.
+
+The fallback to `Optimization.config.settings` remains, for runs that predate the
+recording. It is correct for those and WRONG the moment someone sweeps the threshold,
+so it says so in the log rather than resolving silently; the campaign must never
+exercise it, which is why the run-shape layer was a prerequisite of phase 1.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_settings_py__INBOUND_FEE_THRESHOLD_DAYS.html"><code>INBOUND_FEE_THRESHOLD_DAYS</code></a> <span class="dim">Optimization/config/settings.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_context_py__EvalContext_fee_threshold_days">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/context.py#:~:text=def%20fee_threshold_days">Source ↗</a></p>
 </article>

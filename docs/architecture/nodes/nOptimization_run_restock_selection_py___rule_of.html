@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_rule_of · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_restock_selection_py___rule_of" data-id="Optimization/run_restock_selection.py::_rule_of">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_restock_selection_py.html"><code>Optimization/run_restock_selection.py</code></a> <span class="sep">›</span> <span class="here"><code>_rule_of</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_rule_of</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_restock_selection_py.html"><code>Optimization/run_restock_selection.py</code></a></p>
+
+<pre class="sig"><code>def _rule_of(arm_key: str) -&gt; str | None</code></pre>
+<section class="doc">The restock rule an arm key belongs to, from the strategy grid rather than by parsing.
+
+`uni_rank_labor_norsl` splits into three fields whose middle one contains underscores, so
+every hand-rolled parse of an arm key is a guess.  `STRATEGY_BY_KEY` already holds the
+answer the driver used when it built the arm, so unknown keys come back None and are
+reported rather than mis-bucketed into a rule that exists.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py___rank_channel.html"><code>_rank_channel</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_restock_selection_py___rule_of">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_restock_selection.py#:~:text=def%20_rule_of">Source ↗</a></p>
+</article>
+</main>
+</body></html>

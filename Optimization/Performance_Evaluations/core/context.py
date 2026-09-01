@@ -304,13 +304,15 @@ class EvalContext:
         also means the threshold has to be the RUN's, not this checkout's, or the number
         is quietly about the wrong configuration.
 
-        Recording it is `Build the run-shape layer`'s job (the run spec does not carry
-        `inbound_fee_threshold_days` yet, and neither restore site touches inbound). Until
-        then this falls back to the default in `Optimization.config.settings`, which is
-        correct for every run that predates recording and WRONG the moment someone sweeps
-        the threshold — so the fallback says so in the log rather than resolving silently.
-        The campaign must never exercise it, which is what makes that ticket a prerequisite
-        of phase 1 rather than of phase 2.
+        The run spec now records it and both restore sites replay it, so `sim_result` carries
+        the run's own value: `_apply_run_shape` puts it back into CONFIG in the parent, and
+        `_sim_result_from_meta` stamps it onto the pickled job — CONFIG cannot be the channel,
+        because an analysis worker is SPAWNED and re-imports sim_config with pristine defaults.
+
+        The fallback to `Optimization.config.settings` remains, for runs that predate the
+        recording. It is correct for those and WRONG the moment someone sweeps the threshold,
+        so it says so in the log rather than resolving silently; the campaign must never
+        exercise it, which is why the run-shape layer was a prerequisite of phase 1.
         """
         if self._fee_days is None:
             from Optimization.config import settings as _settings

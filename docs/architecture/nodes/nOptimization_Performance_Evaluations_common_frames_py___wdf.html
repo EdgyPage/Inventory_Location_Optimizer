@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_wdf · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_frames_py___wdf" data-id="Optimization/Performance_Evaluations/common/frames.py::_wdf">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a> <span class="sep">›</span> <span class="here"><code>_wdf</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_wdf</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a></p>
+
+<pre class="sig"><code>def _wdf(rows, df_b, df_t)</code></pre>
+<section class="doc">Per-BATCH production labour: put + unload from `work_events`, pick from the tasks.
+
+THE OBJECTIVE&#x27;S FRAME.  `total_production_seconds` is the quantity the whole inbound
+effort selects on — put-away hours and picking hours move in OPPOSITE directions under
+a placement rule, so a comparison on either leg alone systematically favours arms that
+buy one with the other.
+
+An EMPTY frame when `rows` is empty, never a frame of zeros.  This is the same rule
+`_ydf` and `_ddf` follow and it is the load-bearing one here: a run predating
+`work_events` and a run whose crews did no work are indistinguishable by row count, and
+filling the missing legs with 0.0 would publish `total = pick` as if the put leg had
+been measured and found to be nothing.  Empty makes the metric ABSENT instead, which is
+what the capability gate and every downstream `_aligned` are written to handle.
+
+Zeros WITHIN a populated frame are honest and are filled deliberately: once the table
+has rows, a batch with no put row genuinely put nothing away, and dropping it would
+make the batch index of this frame disagree with the batch frame&#x27;s for no reason a
+reader could recover.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__work_frame.html"><code>work_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_frames_py___wdf">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/frames.py#:~:text=def%20_wdf">Source ↗</a></p>
+</article>
+</main>
+</body></html>

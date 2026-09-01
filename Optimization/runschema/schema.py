@@ -186,6 +186,15 @@ ARTIFACTS = {
     'run_log': {
         'path': 'run.log', 'format': 'text', 'scope': 'run',
         'writer': '_setup_logging@Optimization/config/sim_config.py'},
+    'restock_selection_json': {
+        'path': 'restock_selection.json', 'format': 'json', 'scope': 'run', 'optional': True,
+        'condition': 'written only by run_restock_selection, which a person invokes on a '
+                     'phase-1 funnel run after its analysis; absent from every other run.',
+        'writer': 'select@Optimization/run_restock_selection.py',
+        'note': "the phase-1 -> phase-2 hand-off: all seventeen restock rules ranked on total "
+                "production hours, the chosen k, and the mandatory `fifo` rider. Not "
+                "run_layout.json's `arms`, which records the REQUESTED keys, is written before "
+                'simulation, and is resume-guarded.'},
     'runtime_metrics_db': {
         'family': 'runtime_metrics_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': RUNTIME_DB, 'format': 'sqlite', 'scope': 'run', 'tables': ['runtime'],

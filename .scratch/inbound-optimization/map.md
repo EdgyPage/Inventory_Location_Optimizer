@@ -301,6 +301,33 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   through the pipeline). Flagged to 18: rank on summed `ss_prod_total`, NEVER the
   cross-profile CSV, which is normalized to ratios.
 
+- [Build the run-shape layer](issues/18-build-the-run-shape-layer.md): BUILT — the funnel is
+  runnable. ONE schema event (`5c9bc35db55b`, the added `restock_selection_json`) carries all
+  three parts. The fifth `Cell` field is a `CONFIG['global']` inbound record, defaulted so every
+  four-argument construction survives, and its suffix sits BEFORE the scheduler's because
+  `_scheduler_of` parses the LAST name token. Four collapses refused rather than documented —
+  no suffix, duplicate suffix, an unknown key, and the one the ticket did not name: an entry
+  omitting a key another entry sets, which would let a cell inherit the previous cell's policy
+  under its own name (CONFIG is never reset between cells). That rule is why the phase-2 spec
+  carries the whole ARRIVAL REGIME and not just the policies. `is_reference` gained
+  `inbound is None` and a swept axis must declare `reference`; `PHASE2_ARMS` is refused while
+  None; and 08's `fifo` rider is enforced twice — the matrix refuses a fifo-less subset at
+  minute zero, and `_baseline_entry` now RAISES instead of falling back to `strategies[0]`.
+  Seams 3–4 derive from ONE list (`sim_config.INBOUND_KEYS`): 17 flags each defaulting FROM
+  CONFIG, the whole family in the run spec with the imported lead TAG beside it, and both
+  restore sites. One defect found in the wiring: 07's derive-late fee report could never have
+  read the recorded threshold — `_sim_result_from_meta` copies five keys, and CONFIG is not a
+  channel to a SPAWNED analysis worker — so the threshold is now stamped onto the pickled job.
+  The selector ranks RULES (via `STRATEGY_BY_KEY`, never by parsing arm keys) on hours summed
+  over the identical leaf set, disqualifies any rule with a missing reading, records all 17,
+  and resolves its own output path HEAD-first. **One blocker surfaced and routed, not fixed
+  here:** a gain cell builds a bundle for EVERY arm in its set (the gate is on the POLICY, not
+  the arm), and the mandatory `fifo` rider has no faithful bundle — so all five phase-2 gain
+  cells would refuse it at worker startup. Verified directly and pinned; it sits OUTSIDE 08's
+  cap of three, is reportable before phase 1 runs, and moved to
+  [20](issues/20-extend-the-gain-bundles.md), which is therefore no longer optional and no
+  longer fully gated on the ranking.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -311,27 +338,29 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   v1 trailer run with a trailer type and NO receiving crew has worker-local trailers in no
   checkpoint and is not refused under `--resume-granularity batch`. Out of scope stays out
   of scope (no trailer checkpoint format) — this is a refusal, not a format.
-  (Done or ticketed: the standing-yard mechanics — 09 —, the
-  space-timeline build — 11 —, the ordering-seam generalization — 12 —, the gain
-  evaluator + gain-plan arms — 14 —, the futuresight window feed + entry — 13 — and the
-  lead distribution — 15 —, the eviction fold — 16 — and the yard metrics — 17 — are
-  DONE, as is the total-production-hours build — 19 —; and the funnel resolution (08)
-  graduated three more, of which
-  [Build the run-shape layer](issues/18-build-the-run-shape-layer.md) — which finally pays
-  the seams 3–4 debt every knob deferred to "the first sweep" — is now the frontier
-  (blocked by 19 as well as 08: its selection artifact ranks on 19's metric, a dependency
-  its body always stated and nothing had wired), and
-  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md) stays gated on phase 1.)
+  (Done: the standing-yard mechanics — 09 —, the space-timeline build — 11 —, the
+  ordering-seam generalization — 12 —, the gain evaluator + gain-plan arms — 14 —, the
+  futuresight window feed + entry — 13 —, the lead distribution — 15 —, the eviction
+  fold — 16 —, the yard metrics — 17 —, the total-production-hours build — 19 — and the
+  run-shape layer — 18 —, which paid the seams 3–4 debt every knob deferred to "the first
+  sweep". The only open ticket is
+  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md), and 18 SPLIT it: most of
+  it still waits on phase 1's chosen rules, but the `fifo` rider's bundle is mandatory,
+  known now, and blocks phase 2 — so that piece is takeable immediately and is the last
+  thing between the builds and the pilot.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
   untimed. (The unlawful version — reading the future script — is no longer fog: it is the
   futuresight window reference family, decided by the objective resolution, 10.)
-- **The funnel campaign** — no longer a design gap: 08 specified it end to end (pilot →
-  phase 1 → selection → phase 2 → publish), so what remains is EXECUTION, gated on 18 and
-  19 (17 and 19 are DONE, so 18 is the last build in the way). The order is load-bearing:
-  the builds land first (phase 1 cannot rank on a metric that does not exist — which is now
-  fixed — and a run whose spec cannot record its threshold is not re-analysable), then the
+- **The funnel campaign** — no longer a design gap OR a build gap: 08 specified it end to end
+  (pilot → phase 1 → selection → phase 2 → publish) and 18 landed the last build in the way,
+  so what remains is EXECUTION and it is UNBLOCKED. `--spec inbound_select` runs phase 1,
+  `run_restock_selection` writes the hand-off, `PHASE2_ARMS` takes its answer, and
+  `--spec inbound_policies` runs the ten-cell matrix (refusing to start until the arm set is
+  set). The order is load-bearing: the builds land first (phase 1 cannot rank on a metric
+  that does not exist, and a run whose spec cannot record its threshold is not
+  re-analysable — both now fixed), then the
   throwaway pilot decides whether the campaign runs at all — a
   config showing neither yard contention nor binding cuts is a DECLARED STOP, not a knob to
   keep turning. The pilot's two criteria are now READABLE: `yard.binding` prints the

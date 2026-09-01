@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.labor.production_legs · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_labor_production_legs_py" data-id="Optimization/Performance_Evaluations/labor/production_legs.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/labor/production_legs.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.labor.production_legs</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_labor_production_legs_py.html"><code>Optimization/Performance_Evaluations/labor/production_legs.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.labor.production_legs</code></pre>
+<section class="doc">labor.production_legs — the three legs of production time, per arm.
+
+THE FIGURE THE OBJECTIVE WAS MISSING.  Ticket 10 fixed the inbound objective as expected
+future WORK — the put + pick hours a placement generates — and ticket 08 made total
+production hours phase 1&#x27;s selection metric.  Until the `work` frame landed, only the pick
+leg was reportable, and the honest consequence was stated in the ticket: a comparison on
+pick hours alone systematically favours arms that buy pick time with put-away time, which
+is the exact trade the inbound effort exists to measure.
+
+One stacked bar per arm, three segments:
+
+    unload   receiving labour  (`work_events`, role=&#x27;receive&#x27;)
+    put      put-away labour   (`work_events`, role=&#x27;put&#x27;)
+    pick     picking labour    (`task_stats.duration`, summed per batch)
+
+Read it for the SPLIT, not the total — the total already has a headline panel.  An arm
+whose bar is shorter than its neighbour&#x27;s while its put segment is longer bought its
+picking win with put-away hours, and the put share printed on each bar is what makes that
+comparison possible across arms of different sizes.
+
+Deliberately ABSOLUTE-only, which the `composite` mark enforces: the meaning here is the
+decomposition, and a decomposition has no single value to compare against a baseline.  The
+per-leg comparison against the baseline arm is a real question and it is answered by the
+`tables.vs_baseline` evaluation, which now emits `putaway_time` and `unload_time` as their
+own rows with paired intervals — numbers, where this is a shape.
+
+Unload is near-absent inbound-off: no trailers, no receiving crew, no unload hours.  That
+segment being invisible on an archive run is the model saying it had no inbound, not a
+rendering fault.  A run that recorded no work events at all does not reach here — all three
+quantities name the `work_events` capability, so the era gate refuses the render with a
+reason rather than drawing pick hours under a label promising three legs.</section>
+<section class="rel"><h2>Imports <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_labor_production_legs_py___LEGS.html"><code>_LEGS</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/production_legs.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_production_legs_py___totals.html"><code>_totals</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/production_legs.py</span></li><li><a href="nOptimization_Performance_Evaluations_labor_production_legs_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/labor/production_legs.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_labor_production_legs_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/labor/production_legs.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

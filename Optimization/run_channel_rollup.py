@@ -89,7 +89,16 @@ def _find_series(rt, base_dir: str) -> list[tuple[str, str]]:
 
 def _baseline_entry(strategies: list[dict]) -> dict | None:
     """The channel's baseline plan — the fifo arm (uni_fifo), matching run_analysis's
-    ctx.base = strategies[0].  Prefer an explicit fifo key; fall back to the first entry."""
+    ctx.base = strategies[0].  Prefer an explicit fifo key, then any fifo key.
+
+    NO fallback to `strategies[0]`.  That fallback was silent and its output was plausible:
+    every `saving_abs` in both CSVs would be measured against an arbitrary arm, the summary
+    would name it `baseline_fifo_ss`, and nothing in the numbers would look wrong.  An arm set
+    without a fifo rule is a configuration error made upstream — `_run_whatif_matrix` refuses
+    one before the simulation starts — so by the time a series doc reaches here, its absence
+    means the analysis is reading something other than what the driver ran.  Failing here is
+    the only way that difference is ever visible.
+    """
     if not strategies:
         return None
     for s in strategies:
@@ -98,7 +107,10 @@ def _baseline_entry(strategies: list[dict]) -> dict | None:
     for s in strategies:
         if 'fifo' in str(s.get('key', '')):
             return s
-    return strategies[0]
+    raise ValueError(
+        f'no fifo arm among {[s.get("key") for s in strategies]}: the rollup baselines every '
+        f'saving against the fifo rule, and without it the old fallback silently used an '
+        f'ARBITRARY arm. Re-run the analysis on an arm set that includes `fifo`')
 
 
 def _channel_rows(meta: dict, series: dict) -> tuple[dict, list[dict]]:

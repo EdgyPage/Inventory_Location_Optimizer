@@ -39,13 +39,17 @@ if _REPO_ROOT not in sys.path:
 # Diagnostics/bucket_fill import them from run_simulation.  CONFIG binds the SAME
 # dict object as sim_config.CONFIG (tests mutate it in place) — never rebind it.
 from Optimization.config.sim_config import (            # noqa: F401
-    CONFIG, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
+    CONFIG, INBOUND_KEYS, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
     seed_world, seed_batches, n_batches, k_pickers, store_restocks, store_fill,
     _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
     _STORE_PICKERS, _FF_PICKERS, _CART_TYPES,
     regime_sizing_from_config, _setup_logging, _checkpoint_every,
     _config_name, _build_pick_cfg, _clean_path, _load_env,
 )
+# The lead draw's domain tag, imported rather than restated: it is recorded in the run spec
+# beside the lead shape it keys, and a second copy of a literal whose whole job is to be
+# stable is a copy that can drift.
+from Inbound.transit import _LEAD_TAG                                                # noqa: F401
 from Optimization.simdriver.sim_assets import build_shared_assets                    # noqa: F401
 from Optimization.runschema.sim_manifest import (                                    # noqa: F401
     _resume_path, _save_resume, _load_resume, write_run_manifest,
@@ -168,6 +172,28 @@ def _positive_int(text: str) -> int:
     return n
 
 
+def _futuresight_window(text: str):
+    """An argparse `type=` for the futuresight window: `'all'` or a non-negative int.
+
+    The knob is a batch COUNT with a string sentinel for the oracle, and `_futuresight_batches`
+    (the spec-build normalizer) rejects `'5'` as firmly as it rejects `'oracle'` — its
+    `w != raw` test is what stops a fractional value, and a numeric STRING fails it too.  So
+    the conversion has to happen at the parser: without it, `--inbound-futuresight-batches 5`
+    would parse cleanly and then refuse at spec build, naming the settings constant rather
+    than the flag the user actually typed.
+    """
+    if text == 'all':
+        return 'all'
+    try:
+        w = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is neither 'all' nor an integer count of script batches")
+    if w < 0:
+        raise argparse.ArgumentTypeError(f'{w} is negative; a window looks forward or not at all')
+    return w
+
+
 def _apply_run_spec(args, spec, explicit):
     """Overlay a saved run_spec onto args for --resume: the saved value is the base; a flag the
     user explicitly typed on the resume command overrides it (with a warning).  Returns
@@ -196,6 +222,12 @@ def _apply_run_spec(args, spec, explicit):
               'put_queue_split', 'put_cart_crew', 'put_pallet_crew', 'put_ff_crew',
               'put_cart_staging', 'put_pallet_staging', 'put_ff_staging',
               'put_swap_coef',
+              # ...and the whole inbound family, for the same reason twice over: an arm that
+              # resumed without its yard would finish on v1's drain-everything dock, and one
+              # that resumed without its lead shape would redraw a different arrival schedule.
+              # Spliced from the one list rather than retyped, so a new inbound knob cannot be
+              # recorded and then not restored.
+              *INBOUND_KEYS,
               # ...and the seeds it is drawn from, plus the world it is drawn against.
               'seed_world', 'seed_batches'):
         if f not in spec:
@@ -376,6 +408,102 @@ def main():
         metavar='SEC',
         help='Seconds to swap a full put-away cart for an empty one. 0 (the default) '
              'leaves swaps counted and free, which is what the single queue does today.')
+    # ── the inbound trailer pipeline + the standing yard ────────────────────────
+    # Seams 3 and 4 for the whole family, deferred by every knob this effort added ("the
+    # first sweep"); the funnel IS the first sweep, so the debt falls due together.  Every
+    # flag defaults FROM CONFIG (the --keyframe-interval precedent), which is what lets the
+    # override loop below assign unconditionally without a flag-less run drifting.
+    #
+    # Deliberately NOT `choices=` for the four policy names: the registries fill at import of
+    # `Inbound.gain`, so a choices list here would either import the sim to print --help or
+    # freeze a stale set.  An unknown policy is refused by the registry, loudly, at spec build.
+    parser.add_argument(
+        '--inbound-trailer-type', choices=('53', '28'),
+        default=CONFIG['global']['inbound_trailer_type'],
+        help='Trailer type merchandise arrives on: 53 (26 pallet positions) or 28 (12). '
+             'Omit for NO trailers — the whole family is structurally off and the manager '
+             'keeps its batch lead queue byte-identically. Naming a type is a RESULTS ERA.')
+    parser.add_argument(
+        '--inbound-dock-doors', type=_positive_int,
+        default=CONFIG['global']['inbound_dock_doors'], metavar='N',
+        help='Staging slots at the dock. Bookkeeping without --inbound-standing-yard '
+             '(every arrival lands at the batch epoch); with it, doors are REAL — at most '
+             'N trailers staged, each holding its door until it is empty.')
+    parser.add_argument(
+        '--inbound-lead-minutes', type=_nonneg_float,
+        default=CONFIG['global']['inbound_lead_minutes'], metavar='MIN',
+        help='MEDIAN per-trailer transit delay, in minutes (converted to seconds once, at '
+             'the spec seam). 0 = arrives instantly.')
+    parser.add_argument(
+        '--inbound-lead-spread', type=_nonneg_float,
+        default=CONFIG['global']['inbound_lead_spread'], metavar='SIGMA',
+        help='Sigma of the lognormal around that median (dimensionless): lead_i = median * '
+             'exp(sigma * Z_i), one stateless draw per trailer keyed by the WORLD seed, so '
+             'trailer #N draws the same lead in every arm. 0 constructs no RNG at all. '
+             'Above 0 REQUIRES --inbound-standing-yard and a non-zero median.')
+    parser.add_argument(
+        '--inbound-global-policy', default=CONFIG['global']['inbound_global_policy'],
+        metavar='NAME',
+        help='v1 trailer order at BOTH dock moments (ignored once the standing yard splits '
+             'it into the yard and dock policies below).')
+    parser.add_argument(
+        '--inbound-local-policy', default=CONFIG['global']['inbound_local_policy'],
+        metavar='NAME', help='Load-pallet order WITHIN a trailer.')
+    parser.add_argument(
+        '--inbound-trailer-bound', type=_positive_int,
+        default=CONFIG['global']['inbound_trailer_bound'], metavar='N',
+        help="The dock's k_cap analog, in TRAILERS; omit for unbounded (inert under fifo).")
+    parser.add_argument(
+        '--inbound-standing-yard', action='store_true',
+        default=CONFIG['global']['inbound_standing_yard'],
+        help='Trailers STAND in the yard until a door frees, instead of the v1 '
+             'drain-everything release. Requires a trailer type AND a receiving crew — '
+             'either missing fails loudly, never silently inert.')
+    parser.add_argument(
+        '--inbound-crew-allocation', choices=('split', 'merged'),
+        default=CONFIG['global']['inbound_crew_allocation'],
+        help="How receivers meet staged trailers: 'split' = door teams (the standing "
+             "physics, doors freeing staggered); 'merged' = v1's pooled gang, kept as "
+             'honest physics and the lockstep bridge. A mechanics MODE, not a policy.')
+    parser.add_argument(
+        '--inbound-yard-policy', default=CONFIG['global']['inbound_yard_policy'],
+        metavar='NAME',
+        help='Freed door <- which STANDING trailer (the yard-priority registry).')
+    parser.add_argument(
+        '--inbound-dock-policy', default=CONFIG['global']['inbound_dock_policy'],
+        metavar='NAME',
+        help='Crew <- which STAGED trailer (the dock-priority registry). Under door teams '
+             'this is a worker-allocation preference.')
+    parser.add_argument(
+        '--inbound-fee-threshold-days', type=_nonneg_float,
+        default=CONFIG['global']['inbound_fee_threshold_days'], metavar='DAYS',
+        help='Free yard days before a trailer accrues overage. ONE knob, TWO readers — the '
+             "urgency gate and the fee report — so they can never disagree about 'overdue'. "
+             'Spans are stored raw, so the fee axis is re-reportable under a different '
+             'threshold without re-simulating.')
+    parser.add_argument(
+        '--inbound-urgency-horizon-days', type=_nonneg_float,
+        default=CONFIG['global']['inbound_urgency_horizon_days'], metavar='DAYS',
+        help="gain_gated's only dial: trailers within this many days of crossing the "
+             'threshold are served FIFO ahead of the plan. 0 ~ pure gain; >= the threshold '
+             '= pure FIFO. Hours and days never blend into one score — the gate is the '
+             'only place they meet.')
+    parser.add_argument(
+        '--inbound-futuresight-batches', type=_futuresight_window, metavar='W',
+        default=CONFIG['global']['inbound_futuresight_batches'],
+        help="The futuresight arm's window, in SCRIPT BATCHES ahead of the one being "
+             "released; 'all' is the oracle (w=inf). The arm REQUIRES it and requires the "
+             'precomputed batch script. A declared-UNLAWFUL upper-bound reference, never '
+             'in the recommendable set.')
+    for _flag, _key, _what in (
+            ('--inbound-unload-intercept', 'inbound_unload_intercept', 'fixed seconds per unload'),
+            ('--inbound-unload-weight-coef', 'inbound_unload_weight_coef', 'seconds per pound'),
+            ('--inbound-unload-volume-coef', 'inbound_unload_volume_coef',
+             'seconds per cubic inch')):
+        parser.add_argument(_flag, type=float, default=CONFIG['global'][_key], metavar='SEC',
+                            help=f'Unload cost: {_what}. Omit to take the put-away value BY '
+                                 f'REFERENCE, which is what every existing run did — so the '
+                                 f'default splits no results era.')
     parser.add_argument('--sampler', choices=('v1', 'v2'),
                         default=CONFIG['global']['sampler'],
                         help='Batch-sampler VERSION — a results era, not a tuning knob. '
@@ -487,6 +615,12 @@ def main():
     g['put_pallet_staging'] = args.put_pallet_staging
     g['put_ff_staging']     = args.put_ff_staging
     g['put_swap_coef']      = args.put_swap_coef
+    # The inbound family, unconditionally: every flag defaults FROM CONFIG, so a flag-less run
+    # writes back exactly what was already there.  Assigning the whole list (rather than
+    # `if not None`) is what lets a cell's inbound record and a CLI value share one mechanism —
+    # both are just writes into CONFIG['global'], read at call time by `inbound_spec()`.
+    for _k in INBOUND_KEYS:
+        g[_k] = getattr(args, _k)
     if args.checkpoint_frac is not None:
         g['checkpoint_frac'] = args.checkpoint_frac
     # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
@@ -620,6 +754,18 @@ def main():
             'put_pallet_staging': g['put_pallet_staging'],
             'put_ff_staging'    : g['put_ff_staging'],
             'put_swap_coef'     : g['put_swap_coef'],
+            # The inbound family. Read from `g` (post-overlay) like the two families above,
+            # and recorded WHOLE rather than only when on: a phase-2 cell that cannot say
+            # which lead shape and which fee threshold it ran under is not re-analysable, and
+            # the yard's derive-late fee report reads the threshold off this record (its
+            # HEAD-default fallback exists for runs that predate recording — the campaign must
+            # never exercise it).
+            **{k: g[k] for k in INBOUND_KEYS},
+            # The lead draw's DOMAIN TAG, recorded beside the shape it keys. Un-re-derivable
+            # by construction (a literal chosen to be stable), so a comparison spanning a TAG
+            # change would silently span two different arrival schedules with nothing to
+            # detect it from -- the same argument that puts `sampler` in this file.
+            'inbound_lead_tag'  : _LEAD_TAG,
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,

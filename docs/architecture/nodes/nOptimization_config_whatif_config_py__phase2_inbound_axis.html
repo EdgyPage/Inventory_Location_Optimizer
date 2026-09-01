@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>phase2_inbound_axis · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_whatif_config_py__phase2_inbound_axis" data-id="Optimization/config/whatif_config.py::phase2_inbound_axis">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <a href="../files/nOptimization_config_whatif_config_py.html"><code>Optimization/config/whatif_config.py</code></a> <span class="sep">›</span> <span class="here"><code>phase2_inbound_axis</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>phase2_inbound_axis</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_whatif_config_py.html"><code>Optimization/config/whatif_config.py</code></a></p>
+
+<pre class="sig"><code>def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES)</code></pre>
+<section class="doc">The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), …].
+
+Every entry states EVERY key the axis touches, including the ones it is not exercising.
+That is not verbosity: `_apply_cell` mutates a process-wide CONFIG that is never reset
+between cells, so a key one cell writes and the next omits leaves the second running the
+first&#x27;s policy under its own name.  `_inbound_axis` refuses a partial entry for exactly
+this reason, and stating the full record here is how that refusal is satisfied.
+
+The arrival regime rides the axis rather than the command line for the same reason: the
+inbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a
+spread without the standing yard — and it refuses it ABOVE the trailer-type early return,
+so an anchor inheriting a run-level `--inbound-lead-spread` would raise instead of running.
+Carrying the regime here makes the spec the whole experimental condition, reproducible
+without a remembered command line.
+
+The anchor is the validity check that phase 1&#x27;s ranking transferred — present as a cell,
+never the reference.  The reference is `fifo`, so every delta reads &quot;versus FIFO&quot;, which
+is the campaign&#x27;s own question.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_whatif_config_py__SPECS.html"><code>SPECS</code></a> <span class="dim">Optimization/config/whatif_config.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_whatif_config_py__phase2_inbound_axis">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/whatif_config.py#:~:text=def%20phase2_inbound_axis">Source ↗</a></p>
+</article>
+</main>
+</body></html>

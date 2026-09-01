@@ -1846,6 +1846,11 @@
       "src": "Optimization/Performance_Evaluations/common/series.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/series.py::_ss_mean",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/series.py::_build_series"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/quantities.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/common/stats_core.py"
@@ -2181,6 +2186,16 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.maxb"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.metric_frames_for",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.metric_frames"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::metric_frames",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.metric_frames_for"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/requests.py::missed_frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.missed_df"
@@ -2204,6 +2219,16 @@
       "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.task_df",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.task_frames"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::work_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.work_df"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.work_df",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.work_frames"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/requests.py::yard_frame",
@@ -2623,6 +2648,26 @@
     {
       "dst": "Optimization/Performance_Evaluations/core/requests.py::EraUnmet",
       "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_work"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_work"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_work"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::work_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_work"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::EraUnmet",
+      "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::_yard"
     },
     {
@@ -2676,6 +2721,21 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::era_shortfall"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::metric_frames"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::task_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::metric_frames"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::work_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::metric_frames"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/frames.py::_cdf",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::missed_frame"
@@ -2721,6 +2781,16 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::series_dict"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::work_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::series_dict"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::yard_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::series_dict"
+    },
+    {
       "dst": "Schema/dataset.py::sql_for",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::sql"
@@ -2734,6 +2804,26 @@
       "dst": "Optimization/persistence/Picking_Data.py::load_task_stats",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::task_frame"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_wdf",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::work_frame"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::work_frame"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::task_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::work_frame"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_work_hours",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::work_frame"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/frames.py::_ydf",
@@ -3646,6 +3736,11 @@
       "src": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_percent_figure"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_drawable",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_percent_figure"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_impr",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_percent_figure"
@@ -4064,6 +4159,61 @@
       "dst": "Optimization/Performance_Evaluations/labor/per_batch.py::labor_by_batch",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/labor/per_batch.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::make",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::time_units",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::width_for_categories",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/labor/production_legs.py::_totals",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/labor/production_legs.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/chartkit.py",
@@ -6441,6 +6591,11 @@
       "src": "Optimization/config/strategies.py::_stock_optimal"
     },
     {
+      "dst": "Optimization/config/whatif_config.py::phase2_inbound_axis",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::SPECS"
+    },
+    {
       "dst": "Optimization/gpu/gpu_auction.py::_top2_numpy",
       "kind": "calls",
       "src": "Optimization/gpu/gpu_auction.py::_auction_phase_numpy"
@@ -6884,6 +7039,11 @@
       "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::load_task_stats"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::load_work_hours"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
@@ -7876,6 +8036,131 @@
       "src": "Optimization/run_map_precompute.py::run"
     },
     {
+      "dst": "Inbound/gain.py",
+      "kind": "imports",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py",
+      "kind": "imports",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::main",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py",
+      "kind": "imports",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py",
+      "kind": "imports",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
+      "dst": "Optimization/runschema/runlayout.py",
+      "kind": "imports",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py",
+      "kind": "imports",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_finite",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::_rank_channel"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_rule_of",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::_rank_channel"
+    },
+    {
+      "dst": "Optimization/runschema/runlayout.py::iter_channel_runs",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::_read_leaves"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::head",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/contract.py::load",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::_tree_for"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::select",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::resolve_base_dir",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::main"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_choose",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_rank_channel",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_read_leaves",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_tree_for",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/runschema/__init__.py::analysis_path",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_load_run_spec",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::read_run_layout",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Inbound/transit.py",
+      "kind": "imports",
+      "src": "Optimization/run_simulation.py"
+    },
+    {
       "dst": "Optimization/analyze_run.py",
       "kind": "imports",
       "src": "Optimization/run_simulation.py"
@@ -8003,6 +8288,11 @@
     {
       "dst": "Optimization/run_simulation.py::_apply_run_spec",
       "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_futuresight_window",
+      "kind": "ref",
       "src": "Optimization/run_simulation.py::main"
     },
     {
@@ -9897,6 +10187,11 @@
     },
     {
       "dst": "Optimization/simdriver/cells.py::Cell",
+      "kind": "calls",
+      "src": "Optimization/simdriver/cells.py::_build_cells"
+    },
+    {
+      "dst": "Optimization/simdriver/cells.py::_inbound_axis",
       "kind": "calls",
       "src": "Optimization/simdriver/cells.py::_build_cells"
     },
@@ -19465,6 +19760,22 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/frames.py",
+      "id": "Optimization/Performance_Evaluations/common/frames.py::_SOURCE_FRAME",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/common/frames.py",
+      "name": "_SOURCE_FRAME",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/frames.py",
+      "id": "Optimization/Performance_Evaluations/common/frames.py::_WORK_ROLES",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/common/frames.py",
+      "name": "_WORK_ROLES",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/frames.py",
       "id": "Optimization/Performance_Evaluations/common/frames.py::_aligned",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/frames.py",
@@ -19525,6 +19836,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/frames.py",
       "name": "_tdf",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/frames.py",
+      "id": "Optimization/Performance_Evaluations/common/frames.py::_wdf",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/frames.py",
+      "name": "_wdf",
       "public": false
     },
     {
@@ -19886,6 +20205,14 @@
       "module": "Optimization/Performance_Evaluations/common/series.py",
       "name": "rank",
       "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/series.py",
+      "id": "Optimization/Performance_Evaluations/common/series.py::_ss_mean",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/series.py",
+      "name": "_ss_mean",
+      "public": false
     },
     {
       "file": "Optimization/Performance_Evaluations/common/stats_core.py",
@@ -20625,6 +20952,22 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.metric_frames",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "metric_frames",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.metric_frames_for",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "metric_frames_for",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
       "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.missed_df",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
@@ -20669,6 +21012,22 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
       "name": "title",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.work_df",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "work_df",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.work_frames",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "work_frames",
       "public": true
     },
     {
@@ -21473,6 +21832,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_work",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_work",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
       "id": "Optimization/Performance_Evaluations/core/requests.py::_yard",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
@@ -21509,6 +21876,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
       "name": "era_shortfall",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::metric_frames",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "metric_frames",
       "public": true
     },
     {
@@ -21581,6 +21956,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
       "name": "task_frame",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::work_frame",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "work_frame",
       "public": true
     },
     {
@@ -22145,6 +22528,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py",
+      "id": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_drawable",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py",
+      "name": "_drawable",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py",
       "id": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py::_impr",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/headline/top_vs_baseline.py",
@@ -22340,6 +22731,38 @@
       "id": "Optimization/Performance_Evaluations/labor/per_batch.py::render",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/labor/per_batch.py",
+      "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/labor/production_legs.py",
+      "id": "Optimization/Performance_Evaluations/labor/production_legs.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/labor/production_legs.py",
+      "name": "Optimization.Performance_Evaluations.labor.production_legs",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/labor/production_legs.py",
+      "id": "Optimization/Performance_Evaluations/labor/production_legs.py::_LEGS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/labor/production_legs.py",
+      "name": "_LEGS",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/labor/production_legs.py",
+      "id": "Optimization/Performance_Evaluations/labor/production_legs.py::_totals",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/labor/production_legs.py",
+      "name": "_totals",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/labor/production_legs.py",
+      "id": "Optimization/Performance_Evaluations/labor/production_legs.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/labor/production_legs.py",
       "name": "render",
       "public": true
     },
@@ -24545,6 +24968,62 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_ARMS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_ARMS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_DOCK_DOORS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_DOCK_DOORS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_FINITE_W",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_FINITE_W",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_H_MULTIPLES",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_H_MULTIPLES",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_LEAD_MINUTES",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_LEAD_MINUTES",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_LEAD_SPREAD",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_LEAD_SPREAD",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_THRESHOLD_DAYS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_THRESHOLD_DAYS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::SPECS",
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
@@ -24566,6 +25045,22 @@
       "module": "Optimization/config/whatif_config.py",
       "name": "get_spec",
       "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::phase2_inbound_axis",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "phase2_inbound_axis",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::phase2_inbound_axis._policy",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "_policy",
+      "public": false
     },
     {
       "file": "Optimization/gpu/__init__.py",
@@ -25833,6 +26328,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_WORK_HOURS_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_WORK_HOURS_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_YARD_DRAIN_COLS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -26141,6 +26644,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "load_task_stats",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::load_work_hours",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "load_work_hours",
       "public": true
     },
     {
@@ -26928,6 +27439,126 @@
       "public": true
     },
     {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py",
+      "kind": "module",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "Optimization.run_restock_selection",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::BASELINE_RULE",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "BASELINE_RULE",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::DEFAULT_EXTENSION_CAP",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "DEFAULT_EXTENSION_CAP",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::DEFAULT_K",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "DEFAULT_K",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::METRIC_FIELD",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "METRIC_FIELD",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::METRIC_QUANTITY",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "METRIC_QUANTITY",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::_choose",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "_choose",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::_finite",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "_finite",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::_rank_channel",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "_rank_channel",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::_read_leaves",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "_read_leaves",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::_rule_of",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "_rule_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::_tree_for",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "_tree_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::main",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::select",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "select",
+      "public": true
+    },
+    {
       "file": "Optimization/run_simulation.py",
       "id": "Optimization/run_simulation.py",
       "kind": "module",
@@ -26957,6 +27588,14 @@
       "kind": "function",
       "module": "Optimization/run_simulation.py",
       "name": "_apply_run_spec",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_futuresight_window",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_futuresight_window",
       "public": false
     },
     {
@@ -28965,6 +29604,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/cells.py",
       "name": "_cell_complete",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/cells.py",
+      "id": "Optimization/simdriver/cells.py::_inbound_axis",
+      "kind": "function",
+      "module": "Optimization/simdriver/cells.py",
+      "name": "_inbound_axis",
       "public": false
     },
     {

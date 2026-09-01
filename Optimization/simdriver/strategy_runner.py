@@ -57,7 +57,8 @@ from Warehouse.kernel.timeline import (
 from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
-from Inbound.gain import GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle
+from Inbound.gain import (
+    FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle)
 from Inbound.pack import packer as _inbound_packer
 from Inbound.space import SpaceTimeline as _SpaceTimeline
 from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
@@ -183,9 +184,10 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
                            heads_of=lambda pool: pool._head_bin, **kw)
     raise ValueError(
         f'no faithful gain bundle for placement arm {strat.key!r} (restock '
-        f'{restock!r}): the gain evaluator serves tmin/tmax (k-cheapest merge) and '
-        f'rank_popularity/rank_random (pool over copies).  Extend _gain_bundle_for '
-        f'for this family, or run it with a non-gain inbound policy')
+        f'{restock!r}): the gain evaluator serves {"/".join(FAITHFUL_GAIN_FAMILIES)} '
+        f'(tmin/tmax by the k-cheapest merge, the other two by a pool over copies).  '
+        f'Extend _gain_bundle_for for this family, or run it with a non-gain inbound '
+        f'policy')
 
 
 def _futuresight_window_w(spec, batches):

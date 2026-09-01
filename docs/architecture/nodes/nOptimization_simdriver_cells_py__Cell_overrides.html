@@ -15,14 +15,17 @@
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_cells_py.html"><code>Optimization/simdriver/cells.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def overrides(self) -&gt; dict</code></pre>
-<section class="doc">What this cell CHANGES about a channel, as a plain record.
+<section class="doc">What this cell CHANGES, as a plain record.
 
-The same three values `_apply_cell` writes, named rather than positional, so a
+The same four values `_apply_cell` writes, named rather than positional, so a
 caller can see a cell&#x27;s effect without applying it — which is what a resolution
 pass needs, and what makes the effect diffable between two cells.
 
 `scheduler` is a pick-config field (like `one_way`), so it lands on every one of a
-channel&#x27;s pick-config dicts; the other two are channel-level.</section>
+channel&#x27;s pick-config dicts; `aisle_split` and `velocity_zoning` are channel-level.
+`inbound` is the odd one out and stays named as itself: the yard and dock policies are
+whole-RUN settings on `CONFIG[&#x27;global&#x27;]`, which is exactly why they had to become a
+cell axis instead of six separate runs.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_cells_py__Cell_overrides">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/cells.py#:~:text=def%20overrides">Source ↗</a></p>
 </article>

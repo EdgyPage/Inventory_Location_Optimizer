@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_work · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_requests_py___work" data-id="Optimization/Performance_Evaluations/core/requests.py::_work">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a> <span class="sep">›</span> <span class="here"><code>_work</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_work</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a></p>
+
+<pre class="sig"><code>@request(&amp;#x27;work&amp;#x27;, &amp;#x27;config&amp;#x27;)
+def _work(ctx)</code></pre>
+<section class="doc">Every arm&#x27;s per-batch production-labour frame — `{key: work_df}`.
+
+ERA-UNMET, not Denied, when no arm has a single work-event row. The files were opened
+and read and simply have no production timeline in them, which no re-run of this stage
+can change: the run predates `work_events`, or predates the 2026-08-24 refactor that
+gave put-away a duration at all. A `total_production_time` figure built on that would
+read exactly the pick leg while claiming to be the sum of three — which is the
+substitution this whole quantity exists to prevent.
+
+The `_METRICS` consumers (`tables.stats`, `tables.vs_baseline`, `sig.suite`) do NOT
+declare this need, and that is deliberate rather than an oversight in their `needs=`
+tuples. They iterate every declared metric and already drop the ones whose series
+cannot be aligned, so an era shortfall costs them three rows; declaring the need would
+cost them the whole CSV, on every run in the archive, to protect rows that degrade
+correctly on their own. Figure evaluations, which cannot degrade a panel that way,
+declare it.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__EraUnmet.html"><code>EraUnmet</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py___deny_absent.html"><code>_deny_absent</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py__request_c71accc4.html"><code>request</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py__work_frame.html"><code>work_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_requests_py___work">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/requests.py#:~:text=def%20_work">Source ↗</a></p>
+</article>
+</main>
+</body></html>

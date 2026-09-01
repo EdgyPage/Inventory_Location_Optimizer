@@ -102,6 +102,17 @@ from Warehouse.kernel.cost_model import height_multiplier, per_pick
 GAIN_POLICIES: frozenset = frozenset({'gain_myopic', 'gain_forecast', 'gain_gated',
                                       'futuresight'})
 
+#: The placement families `_gain_bundle_for` can build a FAITHFUL bundle for — the other side
+#: of the same seam.  A gain policy run against any other restock rule refuses loudly rather
+#: than pricing a fiction under that arm's name, so this tuple is the phase-2 selection's
+#: constraint: a chosen rule outside it needs the evaluator EXTENDED before it can be swept.
+#:
+#: Declared here rather than in the driver so the funnel's selector can read it without
+#: importing the simulation, and so there is one list rather than a dispatch chain and a
+#: remembered copy.  `Tests/unit/test_restock_selection.py` pins it against what the driver
+#: actually accepts.
+FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('tmin', 'tmax', 'rank_popularity', 'rank_random')
+
 _SECONDS_PER_DAY = 86400.0
 
 

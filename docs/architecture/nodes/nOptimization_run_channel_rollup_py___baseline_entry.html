@@ -16,7 +16,15 @@
 
 <pre class="sig"><code>def _baseline_entry(strategies: list[dict]) -&gt; dict | None</code></pre>
 <section class="doc">The channel&#x27;s baseline plan — the fifo arm (uni_fifo), matching run_analysis&#x27;s
-ctx.base = strategies[0].  Prefer an explicit fifo key; fall back to the first entry.</section>
+ctx.base = strategies[0].  Prefer an explicit fifo key, then any fifo key.
+
+NO fallback to `strategies[0]`.  That fallback was silent and its output was plausible:
+every `saving_abs` in both CSVs would be measured against an arbitrary arm, the summary
+would name it `baseline_fifo_ss`, and nothing in the numbers would look wrong.  An arm set
+without a fifo rule is a configuration error made upstream — `_run_whatif_matrix` refuses
+one before the simulation starts — so by the time a series doc reaches here, its absence
+means the analysis is reading something other than what the driver ran.  Failing here is
+the only way that difference is ever visible.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_channel_rollup_py___channel_rows.html"><code>_channel_rows</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_channel_rollup_py___baseline_entry">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_channel_rollup.py#:~:text=def%20_baseline_entry">Source ↗</a></p>
 </article>

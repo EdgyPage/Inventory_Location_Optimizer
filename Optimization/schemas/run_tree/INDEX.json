@@ -1,6 +1,6 @@
 {
-  "head": "sha256:51f99901f03cfd27934d18442db78d170cf46dd9f6ff498d217d11d32cb45a58",
-  "source_fingerprint": "sha256:d6c1530fd9466d3aecaa3ee9930155f85e88ce105931b4639d6d1f95029263c8",
+  "head": "sha256:5c9bc35db55b795e1470bd114fdfc6c29cb49f12437d1346d203352674d4fd67",
+  "source_fingerprint": "sha256:5f33f01a53886fa2db8c1674fa7d3df1eb4ce6ab062616ac465a109df3971e00",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -162,6 +162,16 @@
       "label": "",
       "changes": [
         "artifact ADDED: figures_yard_pngs -> {cell}/{pair}/{config}/{channel?}/figures/yard/*.png"
+      ]
+    },
+    "sha256:5c9bc35db55b795e1470bd114fdfc6c29cb49f12437d1346d203352674d4fd67": {
+      "short": "5c9bc35db55b",
+      "parent": "sha256:51f99901f03cfd27934d18442db78d170cf46dd9f6ff498d217d11d32cb45a58",
+      "created": "2026-08-31T22:58:47",
+      "commit": "65671d7",
+      "label": "",
+      "changes": [
+        "artifact ADDED: restock_selection_json -> restock_selection.json"
       ]
     }
   }

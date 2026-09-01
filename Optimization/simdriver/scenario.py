@@ -94,11 +94,32 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     {'cells': [names], 'reference': name}."""
     cells = _build_cells(spec)
     reference = reference_cell(cells, spec.get('reference'))
+    # An inbound matrix must STATE its arm set.  `arms=None` means "leave CHANNEL_RESTOCKS as
+    # committed", which is the full 34-arm suite — 1,360 work units where the funnel budgeted
+    # 480 for twelve arms, and not the experiment phase 2 is.  The arm set is phase 1's output,
+    # so a matrix that never received one has skipped the selection rather than chosen it.
+    if len(cells) > 1 and any(c.inbound for c in cells) and spec.get('arms') is None:
+        raise ValueError(
+            'an inbound cell matrix has no `arms`: the phase-2 arm set is phase 1\'s output '
+            '(see run_restock_selection), not the committed default. Set whatif_config.'
+            'PHASE2_ARMS from the selection artifact, including its mandatory `fifo` rider')
     # Arm override: 'all' ⇒ full suite (CHANNEL_RESTOCKS=None); list ⇒ subset; None ⇒
     # leave strategies.CHANNEL_RESTOCKS exactly as committed.  CONFIG['restocks'] was
     # snapshotted at import, so refresh it too.
     if spec.get('arms') is not None:
         arms = None if str(spec['arms']).lower() == 'all' else tuple(spec['arms'])
+        # `fifo` is not optional in an explicit subset.  `run_channel_rollup._baseline_entry`
+        # prefers `uni_fifo`, falls back to any key containing `fifo`, and then falls back to
+        # `strategies[0]` — so a fifo-less arm set silently baselines every row against an
+        # arbitrary arm and renders plausible, meaningless savings.  It is also the
+        # order-blind negative control: `uni_fifo` and `opt_fifo` are byte-identical runs, so
+        # a gradient on that row indicts the machinery.  Refused HERE, at minute zero, rather
+        # than discovered at analysis after the simulation has been paid for.
+        if arms is not None and 'fifo' not in arms:
+            raise ValueError(
+                f'the arm subset {arms!r} has no `fifo` rule: it is both the analysis baseline '
+                f'(run_channel_rollup falls back to an ARBITRARY arm without it) and the '
+                f'order-blind negative control. Add it to the spec\'s `arms`')
         for ch in CONFIG['channels']:
             strategies.CHANNEL_RESTOCKS[ch] = arms
             CONFIG['channels'][ch]['restocks'] = strategies.restocks_for(ch)
@@ -113,6 +134,9 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     g = CONFIG['global']
     frozen: dict | None = None
     if len(cells) > 1:
+        # No inbound argument: the freeze PLANS inventory, it does not simulate, so no yard or
+        # dock decision is reachable from here.  Every cell writes its own inbound record
+        # immediately below, so leaving CONFIG's alone here cannot leak into one.
         _apply_cell(_tightest_split(cells), {'enabled': False}, 'round_robin')
         frozen = {}
         for label, inv_db, aff_db in pairs:
@@ -130,15 +154,15 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
 
     # ── 2. Each cell: reshape the warehouse (from FROZEN inv when multi-cell) + simulate ──
     n_cells = len(cells)
-    for ci, (name, aisle_split, zoning, sched) in enumerate(cells, start=1):
+    for ci, (name, aisle_split, zoning, sched, inbound) in enumerate(cells, start=1):
         scenario_base = os.path.join(base_dir, name)
         if resume and _cell_complete(scenario_base, pairs):
             log.info(f'  SKIP cell {ci}/{n_cells} {name} (already complete)')
             continue
         zdesc = zoning.get('mode', 'off') if zoning.get('enabled') else 'off'
         log.info(f'\n{"#"*64}\n  CELL {name}  (cell {ci}/{n_cells})  split={aisle_split}  '
-                 f'zoning={zdesc}  scheduler={sched}\n{"#"*64}')
-        _apply_cell(aisle_split, zoning, sched)
+                 f'zoning={zdesc}  scheduler={sched}  inbound={inbound}\n{"#"*64}')
+        _apply_cell(aisle_split, zoning, sched, inbound)
         os.makedirs(scenario_base, exist_ok=True)
         # max_tasks_per_child was NOT forwarded here until 2026-08-15, so every matrix run
         # — i.e. every run, since a plain run is the single cell k1_off — silently used the

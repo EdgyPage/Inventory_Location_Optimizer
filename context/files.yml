@@ -381,6 +381,8 @@ files:
       - {name: "yard_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "drain_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "missed_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "work_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "metric_frames", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "series_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "breakdown_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "record_error", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -480,6 +482,12 @@ files:
     key_symbols:
       - {name: "labor_by_batch", file: "Optimization/Performance_Evaluations/labor/per_batch.py", kind: "function"}
       - {name: "render", file: "Optimization/Performance_Evaluations/labor/per_batch.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/labor/production_legs.py":
+    purpose: "the three legs of production time, per arm."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/labor/production_legs.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/layout/churn.py":
     purpose: "inventory churn over time, all arms on ONE overlay."
@@ -744,6 +752,14 @@ files:
     layer: "opt_config"
     key_symbols:
       - {name: "WHATIF", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_ARMS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_THRESHOLD_DAYS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_LEAD_MINUTES", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_LEAD_SPREAD", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_DOCK_DOORS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_FINITE_W", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "phase2_inbound_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "get_spec", file: "Optimization/config/whatif_config.py", kind: "function"}
     notes: ""
@@ -896,6 +912,7 @@ files:
       - {name: "load_carryover", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_yard_drains", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_work_hours", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
     notes: ""
   "Optimization/persistence/Warehouse_Data.py":
@@ -963,6 +980,18 @@ files:
       - {name: "measure_pair", file: "Optimization/run_map_precompute.py", kind: "function"}
       - {name: "run", file: "Optimization/run_map_precompute.py", kind: "function"}
       - {name: "main", file: "Optimization/run_map_precompute.py", kind: "function"}
+    notes: ""
+  "Optimization/run_restock_selection.py":
+    purpose: "phase 1's hand-off: rank the restock rules, choose phase 2's arms."
+    layer: "optimization"
+    key_symbols:
+      - {name: "METRIC_FIELD", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "METRIC_QUANTITY", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "DEFAULT_K", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "DEFAULT_EXTENSION_CAP", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "BASELINE_RULE", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "select", file: "Optimization/run_restock_selection.py", kind: "function"}
+      - {name: "main", file: "Optimization/run_restock_selection.py", kind: "function"}
     notes: ""
   "Optimization/run_simulation.py":
     purpose: "Warehouse assignment strategy simulation runner."
@@ -2009,6 +2038,18 @@ files:
       - {name: "test_independent_sweep_is_union_not_cross_product", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
       - {name: "test_store_only_catalog_skips_fulfillment_sweep", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
     notes: ""
+  "Tests/e2e/test_production_hours_e2e.py":
+    purpose: "the objective's three legs, against the run that wrote them."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_put_leg_is_measured_at_all", file: "Tests/e2e/test_production_hours_e2e.py", kind: "function"}
+      - {name: "test_the_put_leg_matches_the_raw_work_events_sum", file: "Tests/e2e/test_production_hours_e2e.py", kind: "function"}
+      - {name: "test_the_unload_leg_matches_the_dock_column_the_ticket_specified", file: "Tests/e2e/test_production_hours_e2e.py", kind: "function"}
+      - {name: "test_the_pick_leg_joins_the_task_frame_batch_for_batch", file: "Tests/e2e/test_production_hours_e2e.py", kind: "function"}
+      - {name: "test_the_objective_is_the_sum_of_its_three_legs_on_the_real_file", file: "Tests/e2e/test_production_hours_e2e.py", kind: "function"}
+      - {name: "test_pick_rows_carry_no_duration_and_that_is_not_reported_as_a_loss", file: "Tests/e2e/test_production_hours_e2e.py", kind: "function"}
+      - {name: "test_the_production_legs_figure_renders_from_a_real_run", file: "Tests/e2e/test_production_hours_e2e.py", kind: "function"}
+    notes: ""
   "Tests/e2e/test_receiving_e2e.py":
     purpose: "a receiving crew through the production seam, reconciled."
     layer: "tests"
@@ -2932,12 +2973,17 @@ files:
     purpose: "a cell changes the run, not the declaration."
     layer: "tests"
     key_symbols:
+      - {name: "restore_inbound", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "restore_config", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "test_the_registry_is_untouched_by_a_cell", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "test_two_cells_in_one_process_do_not_inherit_each_other", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "test_a_cell_still_reaches_every_channel", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_a_cell_writes_its_inbound_record_into_GLOBAL_config", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_an_inert_inbound_record_writes_nothing_at_all", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "test_the_zoning_spec_is_copied_per_channel", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "test_overrides_reports_what_apply_would_write", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_overrides_reports_the_inbound_record_too", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
+      - {name: "test_overrides_hands_out_a_copy_of_the_inbound_record", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "test_overrides_does_not_apply_anything", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "test_overrides_hands_out_a_copy_of_the_zoning", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
       - {name: "test_every_built_cell_can_describe_itself", file: "Tests/unit/test_cell_overrides.py", kind: "function"}
@@ -2947,8 +2993,9 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_a_cell_is_still_indexable_positionally", file: "Tests/unit/test_cell_record.py", kind: "function"}
-      - {name: "test_a_cell_still_unpacks_into_four_names", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_a_cell_unpacks_into_five_names", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_a_cell_is_still_a_tuple", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_the_fifth_field_is_optional_at_construction", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_the_reference_is_no_split_no_zoning_legacy_scheduler", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_the_fallback_is_used_only_when_no_cell_qualifies", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_neither_call_site_still_spells_the_predicate_itself", file: "Tests/unit/test_cell_record.py", kind: "function"}
@@ -2957,6 +3004,14 @@ files:
       - {name: "test_the_cell_names_and_order_are_unchanged", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_a_single_scheduler_sweep_adds_no_suffix", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_the_scheduler_suffix_and_the_name_parser_share_one_vocabulary", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_the_inbound_suffix_sits_before_the_scheduler_suffix", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_a_swept_inbound_axis_makes_one_cell_per_entry", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_an_unsuffixed_inbound_entry_is_refused", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_a_duplicate_inbound_suffix_is_refused", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_an_entry_that_omits_a_key_another_sets_is_refused", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_an_unknown_inbound_key_is_refused", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_an_inbound_matrix_must_declare_its_reference", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_a_single_inert_inbound_entry_changes_no_name_and_writes_nothing", file: "Tests/unit/test_cell_record.py", kind: "function"}
     notes: ""
   "Tests/unit/test_census.py":
     purpose: "the count/span claim a page makes must be the one the data supports."
@@ -3228,6 +3283,25 @@ files:
       - {name: "test_a_policy_returning_none_is_the_same_as_no_policy", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
       - {name: "test_the_packer_itself_is_untouched", file: "Tests/unit/test_inbound_load_plan.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_inbound_params.py":
+    purpose: "the inbound family reaches a real run, through all five seams."
+    layer: "tests"
+    key_symbols:
+      - {name: "restore", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_the_defaults_are_no_inbound_pipeline", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_the_key_list_is_exactly_the_inbound_family_in_config", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_every_inbound_knob_has_a_cli_flag", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_every_inbound_flag_defaults_from_config", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_the_futuresight_flag_converts_at_the_parser", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_the_family_is_recorded_in_the_run_spec", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_the_recorded_tag_is_the_one_the_draw_uses", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_a_resume_restores_the_whole_family", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_a_standalone_reanalysis_restores_the_whole_family", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_a_pre_field_spec_restores_inbound_OFF_not_this_checkout", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_the_recorded_threshold_reaches_the_evaluation_through_the_job", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_the_context_prefers_the_recorded_threshold_and_says_so_when_it_falls_back", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+      - {name: "test_the_family_crosses_the_worker_payload_as_one_record", file: "Tests/unit/test_inbound_params.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_index_equivalence.py":
     purpose: "Regression tests for the aisle_index fast path and its coupling guard."
     layer: "tests"
@@ -3489,6 +3563,31 @@ files:
       - {name: "test_a_time_metric_hands_the_painter_no_converter", file: "Tests/unit/test_present_collapse.py", kind: "function"}
       - {name: "test_the_converter_is_picklable_and_names_itself", file: "Tests/unit/test_present_collapse.py", kind: "function"}
       - {name: "test_a_metric_with_no_scaling_gets_no_converter", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_production_hours.py":
+    purpose: "the objective's third leg, and the traps around measuring it."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_work_rows_gives_an_empty_frame_and_not_a_frame_of_zeros", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_a_populated_frame_fills_zeros_for_the_batches_that_did_none", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_batch_index_comes_from_the_batch_frame_not_from_the_work_rows", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_three_legs_sum_to_the_objective_per_batch", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_pick_leg_comes_from_the_task_frame_and_never_from_work_events", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_rows_the_sum_skipped_are_counted_only_where_skipping_is_a_defect", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_an_unrouted_metric_source_raises_instead_of_reading_the_task_frame", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_a_missing_frame_raises_rather_than_reading_an_absent_one", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_every_frame_kind_the_quantity_table_declares_can_actually_be_read", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_work_kind_pairs_by_batch_id_like_the_batch_kind", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_new_scalars_are_nan_when_their_frames_are_absent", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_production_scalar_is_the_steady_state_mean_of_the_objective", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_yard_scalar_is_a_run_total_and_says_so_in_its_name", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_every_headline_slot_can_actually_be_read_from_the_series_document", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_new_quantities_are_gated_and_the_static_gate_still_passes", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_the_unload_leg_reads_work_events_and_not_the_dock_column", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_an_optional_quantity_is_drawn_but_does_not_trigger_the_era_refusal", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_a_quantity_cannot_be_declared_both_required_and_optional", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_a_group_with_no_finite_value_is_dropped_rather_than_drawn_empty", file: "Tests/unit/test_production_hours.py", kind: "function"}
+      - {name: "test_an_optional_quantity_still_feeds_the_view_derivation", file: "Tests/unit/test_production_hours.py", kind: "function"}
     notes: ""
   "Tests/unit/test_prune_stale_analysis.py":
     purpose: "the stale-output pruner deletes orphans and nothing else."
@@ -3771,6 +3870,27 @@ files:
       - {name: "test_tally_counts_grants_and_denials_per_eval_and_resets", file: "Tests/unit/test_request_broker.py", kind: "function"}
       - {name: "test_sql_facade_serves_the_head_vintage_and_refuses_unknown_ids", file: "Tests/unit/test_request_broker.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_restock_selection.py":
+    purpose: "phase 1's hand-off ranks RULES, on hours, and never on nothing."
+    layer: "tests"
+    key_symbols:
+      - {name: "run_root", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_ranking_is_by_rule_not_by_arm", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_rules_score_is_its_best_arm_and_both_are_recorded", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_hours_are_summed_across_profiles", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_two_channels_are_ranked_separately", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_rule_with_a_missing_reading_is_excluded_and_named", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_an_arm_key_outside_the_strategy_grid_is_dropped_and_named", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_fifo_rides_along_even_when_it_does_not_rank", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_extension_cap_backfills_from_the_faithful_set", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_mandatory_rider_is_reported_as_needing_a_bundle_of_its_own", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_gain_bundle_really_is_refused_for_the_rider", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_faithful_set_is_the_one_the_driver_actually_accepts", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_artifact_lands_at_the_run_root_and_states_its_metric", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_all_seventeen_rules_are_recorded_not_just_the_cut", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_multi_cell_run_is_refused", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_an_unanalyzed_run_says_what_to_run", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_rng_determinism.py":
     purpose: "test_rng_determinism.py"
     layer: "tests"
@@ -3816,6 +3936,8 @@ files:
       - {name: "test_the_new_flags_exist_and_are_documented", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_the_new_flags_are_recorded_in_run_spec_and_restored_on_resume", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_apply_run_shape_restores_every_recorded_param", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_every_recorded_crew_queue_and_inbound_key_is_restored_on_re_analysis", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+      - {name: "test_the_recorded_key_scan_actually_finds_all_three_families", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_apply_run_shape_pre_sampler_spec_means_v1", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_apply_run_shape_finds_run_spec_from_a_CELL_dir", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_apply_run_shape_warns_loudly_when_the_run_predates_run_spec", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}

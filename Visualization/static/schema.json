@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:51f99901f03cfd27934d18442db78d170cf46dd9f6ff498d217d11d32cb45a58",
-  "schema_short": "51f99901f03c",
+  "schema_id": "sha256:5c9bc35db55b795e1470bd114fdfc6c29cb49f12437d1346d203352674d4fd67",
+  "schema_short": "5c9bc35db55b",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -264,6 +264,12 @@
       "path": "{cell}/{pair}/planned_inventory.db",
       "format": "sqlite",
       "scope": "pair",
+      "optional": true
+    },
+    "restock_selection_json": {
+      "path": "restock_selection.json",
+      "format": "json",
+      "scope": "run",
       "optional": true
     },
     "resume_pkl": {

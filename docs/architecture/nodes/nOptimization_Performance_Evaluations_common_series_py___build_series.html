@@ -14,12 +14,23 @@
 <h1><span class="kind kind-function">function</span> <code>_build_series</code></h1>
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_series_py.html"><code>Optimization/Performance_Evaluations/common/series.py</code></a></p>
 
-<pre class="sig"><code>def _build_series(strategies, df_b, df_t)</code></pre>
+<pre class="sig"><code>def _build_series(strategies, df_b, df_t, df_w=None, df_y=None)</code></pre>
 <section class="doc">Per-strategy time series + steady-state scalars for the comparison suite.
 
 Returns {key: dict | None}.  Task metrics carry their own x (&#x27;task_batch&#x27;)
-because some batches may have no surviving (non-outlier) tasks.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__series_dict.html"><code>series_dict</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+because some batches may have no surviving (non-outlier) tasks.
+
+`df_w` (production labour) and `df_y` (the yard&#x27;s trailers) were the third and fourth
+frames to reach this builder, and they arrived together for a structural reason: a slot
+in `quantities.HEADLINE_ORDER` is validated at import to name a steady-state scalar,
+and this function is the only thing that writes one.  Until it could see a frame other
+than batch and task, the total-production-hours objective and the yard fee were both
+unheadlineable no matter how well either was measured.
+
+Both default to None so a caller with only the two original frames still gets the
+original document — the scalars they feed come out absent rather than zero, which is
+the same distinction `_wdf`&#x27;s empty frame draws and for the same reason.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_series_py___ss_mean.html"><code>_ss_mean</code></a> <span class="dim">Optimization/Performance_Evaluations/common/series.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__series_dict.html"><code>series_dict</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_series_py___build_series">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/series.py#:~:text=def%20_build_series">Source ↗</a></p>
 </article>
 </main>

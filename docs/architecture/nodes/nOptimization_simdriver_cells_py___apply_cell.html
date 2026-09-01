@@ -14,10 +14,10 @@
 <h1><span class="kind kind-function">function</span> <code>_apply_cell</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_cells_py.html"><code>Optimization/simdriver/cells.py</code></a></p>
 
-<pre class="sig"><code>def _apply_cell(aisle_split, zoning, scheduler=&#x27;round_robin&#x27;) -&gt; None</code></pre>
+<pre class="sig"><code>def _apply_cell(aisle_split, zoning, scheduler=&#x27;round_robin&#x27;, inbound=None) -&gt; None</code></pre>
 <section class="doc">Mutate CONFIG for one cell: same aisle_split + velocity_zoning + picker scheduler on every
-channel.  The scheduler is a pick-config field (like one_way), so set it on each channel&#x27;s
-pick-config dicts.
+channel, plus this cell&#x27;s inbound policy on `CONFIG[&#x27;global&#x27;]`.  The scheduler is a
+pick-config field (like one_way), so set it on each channel&#x27;s pick-config dicts.
 
 Writes into CONFIG and ONLY into CONFIG.  Those pick-config dicts used to be the very
 objects `PICK_CONFIG_BY_KEY[…].cfg` holds, so this loop permanently edited the registry:
@@ -27,7 +27,12 @@ frozen spec carried whichever value that cell chose, for the life of the process
 lives — see the comment beside STORE_CONFIGS.  Do not reintroduce a path that hands the
 registry&#x27;s own dict to a mutator.
 
-See `Cell.overrides()` for the same three values as a record, when you want to inspect a
+`inbound` is global rather than per-channel because the yard and the dock are one site&#x27;s,
+not one channel&#x27;s; `inbound_spec()` reads `CONFIG[&#x27;global&#x27;]` at CALL time inside
+`_prepare_channel_run`, so a value written here reaches every spawned worker&#x27;s payload.
+None writes NOTHING — the inert default that keeps a pre-inbound spec byte-identical.
+
+See `Cell.overrides()` for the same four values as a record, when you want to inspect a
 cell&#x27;s effect rather than apply it.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_scenario_py___run_whatif_matrix.html"><code>_run_whatif_matrix</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_cells_py___apply_cell">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/cells.py#:~:text=def%20_apply_cell">Source ↗</a></p>

@@ -128,6 +128,81 @@ def test_apply_run_shape_restores_every_recorded_param(tmp_path):
         CONFIG['channels']['fulfillment']['sizing'].update(saved_sizing[1])
 
 
+#: Recorded-but-not-run-shape: provenance, restored by nobody on purpose.  `inbound_lead_tag`
+#: is the lead draw's domain constant — a comparison spanning a change to it is incomparable,
+#: which is why it is written down, but replaying it onto CONFIG would mean nothing.
+_PROVENANCE_KEYS = {'inbound_lead_tag'}
+
+
+def _recorded_shape_keys() -> set:
+    """Every `recv_*` / `put_*` / `inbound_*` key `main` writes into run_spec.json.
+
+    Read off the AST because the record is a dict literal inside `main`, and because the
+    inbound family arrives through a `**{...}` comprehension over `INBOUND_KEYS` rather than
+    as literals — a text scan would see the first two families and miss the third entirely.
+    """
+    import ast
+    import Optimization.run_simulation as rs
+    from Optimization.config.sim_config import INBOUND_KEYS
+    tree = ast.parse(inspect.getsource(rs))
+    main = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == 'main')
+    call = next(n for n in ast.walk(main)
+                if isinstance(n, ast.Call) and getattr(n.func, 'id', '') == '_write_run_spec')
+    rec = set(INBOUND_KEYS) if any(k is None for k in call.args[1].keys) else set()
+    rec |= {k.value for k in call.args[1].keys
+            if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+    return {k for k in rec
+            if k.startswith(('recv_', 'put_', 'inbound_'))} - _PROVENANCE_KEYS
+
+
+def _restored_shape_keys() -> set:
+    """Every `CONFIG['global']` key `_apply_run_shape` writes back."""
+    import ast
+    import Optimization.run_analysis as ra
+    from Optimization.config.sim_config import INBOUND_KEYS
+    tree = ast.parse(inspect.getsource(ra))
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == '_apply_run_shape')
+    out = set()
+    for node in ast.walk(fn):
+        if (isinstance(node, ast.Subscript) and getattr(node.value, 'id', '') == 'g'
+                and isinstance(node.slice, ast.Constant)):
+            out.add(node.slice.value)
+        # `for key in ('a', 'b', ...)` and `for _k in INBOUND_KEYS`
+        if isinstance(node, ast.For) and isinstance(node.iter, ast.Tuple):
+            out |= {e.value for e in node.iter.elts if isinstance(e, ast.Constant)}
+        if isinstance(node, ast.For) and getattr(node.iter, 'id', '') == 'INBOUND_KEYS':
+            out |= set(INBOUND_KEYS)
+    return out
+
+
+def test_every_recorded_crew_queue_and_inbound_key_is_restored_on_re_analysis():
+    """Seam 4 is TWO sites, and this is the half that has no observable symptom.
+
+    A knob recorded but not restored costs nothing on a resume (that is `_apply_run_spec`, the
+    other site) and nothing during the run. It shows up only in a STANDALONE re-analysis, which
+    then rebuilds a warehouse — or reads a fee threshold, a lead shape, a queue split — that the
+    run never had, and reports about a different configuration without a word.
+
+    Caught by deleting a line while adding the inbound family: `put_swap_coef` lost its restore
+    and all 1,534 tests stayed green. Three families are covered by prefix rather than by name,
+    so a new knob in any of them is covered the day it is recorded.
+    """
+    missing = sorted(_recorded_shape_keys() - _restored_shape_keys())
+    assert not missing, (
+        f'{missing} are written to run_spec.json but never restored by _apply_run_shape; a '
+        f'standalone re-analysis of such a run silently uses THIS checkout\'s value')
+
+
+def test_the_recorded_key_scan_actually_finds_all_three_families():
+    """A structural test that matched nothing would pass forever. Pin that each family is
+    genuinely in the scan — the inbound one especially, since it arrives via `**{...}`."""
+    rec = _recorded_shape_keys()
+    assert {'recv_crew_size', 'put_swap_coef', 'inbound_standing_yard'} <= rec
+    assert len(rec) > 25, f'only {len(rec)} keys scanned; the AST walk has stopped matching'
+    assert 'inbound_lead_tag' not in rec, 'provenance is not run shape'
+
+
 def test_apply_run_shape_pre_sampler_spec_means_v1(tmp_path):
     """A run_spec.json written before the sampler field existed belongs to a run whose
     batches were drawn with v1 — the re-analysis must restore 'v1', never this

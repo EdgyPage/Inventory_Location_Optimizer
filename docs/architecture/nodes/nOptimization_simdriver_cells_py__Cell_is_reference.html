@@ -16,13 +16,18 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@property
 def is_reference(self) -&gt; bool</code></pre>
-<section class="doc">The natural baseline: no split, no zoning, the legacy scheduler.
+<section class="doc">The natural baseline: no split, no zoning, the legacy scheduler, inbound untouched.
 
 This predicate was written out twice, verbatim, in `scenario.py` and
 `run_simulation.py` — and those two MUST agree, because one picks the cell the
 driver treats as the baseline and the other writes the reference name into
 the run-tree descriptor for every downstream what-if to diff against.  Two copies of a
-predicate that must agree is a bug with a delay on it.</section>
+predicate that must agree is a bug with a delay on it.
+
+A cell carrying an inbound record is never the NATURAL baseline: an inbound matrix has
+no order-blind default cell to fall into, so the spec must DECLARE its reference (and
+`_build_cells` refuses one that does not).  Without this clause every cell of a
+ten-policy matrix would answer True and `reference_cell` would silently take the first.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_cells_py__Cell_is_reference">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/cells.py#:~:text=def%20is_reference">Source ↗</a></p>
 </article>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_rank_channel · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_restock_selection_py___rank_channel" data-id="Optimization/run_restock_selection.py::_rank_channel">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_restock_selection_py.html"><code>Optimization/run_restock_selection.py</code></a> <span class="sep">›</span> <span class="here"><code>_rank_channel</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_rank_channel</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_restock_selection_py.html"><code>Optimization/run_restock_selection.py</code></a></p>
+
+<pre class="sig"><code>def _rank_channel(leaves, log) -&gt; dict</code></pre>
+<section class="doc">Rank every restock rule in one channel.  Lower hours win.
+
+An arm&#x27;s score is its `ss_prod_total` SUMMED over the channel&#x27;s (profile, config) leaves —
+a steady-state per-batch mean of production seconds, summed, then reported in hours.  Every
+arm is measured on the identical leaf set, so the sum is like-for-like; a MIN over leaves
+would let two rules be scored on different profiles and is exactly the &quot;ranks are not
+additive&quot; mistake one level down.
+
+A RULE&#x27;s score is the minimum over its own arms, because selecting a rule takes both of them
+and what makes the rule worth carrying into phase 2 is that one of its arms performs.  Both
+arm totals are recorded, so a reader can see when the two disagree.
+
+An arm missing from a leaf, or reading non-finite there, disqualifies its RULE: a partial sum
+would silently rank a rule that was measured on fewer profiles than its rivals as cheaper
+than all of them.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py___finite.html"><code>_finite</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___rule_of.html"><code>_rule_of</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py__select.html"><code>select</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_restock_selection_py___rank_channel">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_restock_selection.py#:~:text=def%20_rank_channel">Source ↗</a></p>
+</article>
+</main>
+</body></html>

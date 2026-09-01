@@ -159,6 +159,17 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  ('Optimization/Performance_Evaluations/tables/census.py', 'comparison_census.json'): 1,
  # The CLI bootstrap every analysis entry point shares (see analyze_run / run_analysis).
  ('Optimization/run_map_precompute.py', 'analysis.log'): 1,
+ # ── the funnel's phase-1 -> phase-2 hand-off (2026-08-31) ───────────────────────────
+ # The same sanctioned class as the dossier writers above, held to the same discipline: the
+ # writer names the ONE document it writes, ONCE, in the module docstring. The path itself is
+ # never spelled — `select` resolves it through `runschema.analysis_path`, HEAD-first, because
+ # a phase-1 run simulated under an older contract has never heard of this artifact.
+ ('Optimization/run_restock_selection.py', 'restock_selection.json'): 1,
+ # NOT a path: this is the cross-profile aggregator's function name, in the one warning that
+ # says WHY the summary CSV must not be the ranking source (it normalizes each profile to its
+ # own baseline, so it holds ratios, not hours). Naming the function is the evidence for the
+ # warning; the token matches it as a substring.
+ ('Optimization/run_restock_selection.py', '_aggregate'): 1,
  # docs/macros.py READS the staged dossier documents by name.  A reader naming its source
  # is a weaker claim than a writer naming its output, but it is the same recorded class the
  # what-if reads already occupy — and one loader with one name dict is what keeps it at a

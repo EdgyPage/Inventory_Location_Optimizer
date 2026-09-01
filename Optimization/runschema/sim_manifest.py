@@ -156,8 +156,10 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
         # `Cell` is a NamedTuple whose field names ARE these keys, so `_asdict()` keeps the
         # descriptor and the producer in step by construction.  A plain tuple is still
         # accepted: a legacy resumed run reaches here with whatever it recorded.
+        # `zip` truncates to the shorter side, so a legacy FOUR-tuple still yields exactly the
+        # four keys it recorded — an absent `inbound` reads as "this run predates the axis".
         'cells'        : [c._asdict() if hasattr(c, '_asdict')
-                          else dict(zip(('name', 'split', 'zoning', 'scheduler'), c))
+                          else dict(zip(('name', 'split', 'zoning', 'scheduler', 'inbound'), c))
                           for c in cells],
         'pairs'        : [label for label, _inv, _aff in pairs],
         'pair_bindings': _pair_bindings(pairs),

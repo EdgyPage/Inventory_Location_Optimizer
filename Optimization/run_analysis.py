@@ -41,8 +41,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from Optimization.simdriver.sim_assets import build_shared_assets
-from Optimization.config.sim_config import (CONFIG, regime_sizing_from_config, _setup_logging,
-                                            _OUTPUT_DIR)
+from Optimization.config.sim_config import (CONFIG, INBOUND_KEYS, regime_sizing_from_config,
+                                            _setup_logging, _OUTPUT_DIR)
 from Optimization.runschema.runlayout import iter_channel_runs
 
 # Importing the package fires every @evaluation (also re-fires in each spawned worker),
@@ -84,6 +84,13 @@ def _sim_result_from_meta(meta: dict) -> dict:
     sim_result['optimal_sigma_fd'] = meta.get('optimal_sigma_fd', 0.0)
     sim_result['optimal_work'] = meta.get('optimal_work', 0.0)
     sim_result['inventory'] = meta.get('inventory', '')
+    # The RUN's own free-yard threshold, not this checkout's. It reaches the evaluations only
+    # through this record: `EvalContext.fee_threshold_days` runs in a SPAWNED analysis worker,
+    # which re-imports sim_config and gets pristine module defaults, so CONFIG is not a channel
+    # between the parent and the evaluation — the pickled job is. `_apply_run_shape` has
+    # already restored the recorded value into CONFIG in THIS (parent) process; None here means
+    # the run predates recording, which is what makes the context's fallback fire and say so.
+    sim_result['inbound_fee_threshold_days'] = CONFIG['global'].get('inbound_fee_threshold_days')
     return sim_result
 
 
@@ -333,6 +340,14 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     g['put_pallet_staging'] = spec.get('put_pallet_staging')
     g['put_ff_staging']     = spec.get('put_ff_staging')
     g['put_swap_coef']      = spec.get('put_swap_coef') or 0.0
+    # The inbound family, unconditionally and from the list itself. A pre-field spec yields
+    # None for every key, which is exactly right: `inbound_spec()` returns None without a
+    # trailer type, so "absent" restores to "that run had no inbound pipeline" -- never this
+    # checkout's settings, which would let a re-analysis read a fee threshold, a lead shape or
+    # a yard policy the run never ran under. Every downstream `or` default (doors, allocation,
+    # the two policies, the threshold) turns the None back into the same value the run used.
+    for _k in INBOUND_KEYS:
+        g[_k] = spec.get(_k)
     if spec.get('max_skus') is not None:
         g['max_skus'] = spec['max_skus']
     for ch, key in (('store', 'store_fill'), ('fulfillment', 'ff_fill')):

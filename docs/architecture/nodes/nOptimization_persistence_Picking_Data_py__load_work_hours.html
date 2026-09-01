@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>load_work_hours · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_persistence_Picking_Data_py__load_work_hours" data-id="Optimization/persistence/Picking_Data.py::load_work_hours">
+<nav class="crumbs"><a href="../layers.html">opt_persistence</a> <span class="sep">›</span> <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a> <span class="sep">›</span> <span class="here"><code>load_work_hours</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>load_work_hours</code></h1>
+<p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def load_work_hours(path: str, run_id: int) -&gt; list</code></pre>
+<section class="doc">Seconds of production labour per (batch, role).  `[]` on a pre-`work_events` vintage.
+
+THE PUT LEG&#x27;S ONLY ROUTE.  Put-away hours exist nowhere else: `putaway_seconds` is an
+in-sim property on `Inventory_Management` and was never written to `batch_stats`, so
+every consumer that wanted them had to read this table -- and until now none did.
+
+The unload leg is here too, deliberately, even though `batch_stats.recv_seconds`
+carries the same measurement.  That column sits OUTSIDE the guaranteed sim-DB surface
+and postdates `work_events`, so a quantity reading it would need a capability that
+`work_events` cannot honestly supply, while an unguarded read would fill a pre-dock
+vintage&#x27;s unload leg with a plausible zero.  Reading both legs here puts the whole
+objective behind one capability that is true when it says it is.  The two surfaces are
+written by different code from different state and are reconciled seconds-for-seconds
+by `Diagnostics/receiving_report.py`&#x27;s first check, which is what makes them
+substitutable rather than merely similar.
+
+Rows are aggregates, not events, so the fold happens in SQL: a 200-batch arm holds
+~30k rows and the consumer wants ~3 numbers a batch.  `role` selection stays with the
+caller for the same reason `load_carryover` leaves `reason` there -- &#x27;pick&#x27; rows carry
+NULL durations by design and summing across every role would produce a number with no
+meaning.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___query_rows.html"><code>_query_rows</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__work_frame.html"><code>work_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__load_work_hours">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20load_work_hours">Source ↗</a></p>
+</article>
+</main>
+</body></html>
