@@ -84,9 +84,15 @@ moves the schedule, so the seed is not decoration.
 **The gradient exists.** Eight trailers dispatched at one epoch with σ=0.7, seed 42, land
 in yard order `[1, 2, 6, 5, 0, 4, 7, 3]` — not dispatch order — and the yard stays sorted
 by `(arrived_s, seq)` with `arrived_s == dispatched_s + lead_s`. At σ=0 the same script
-gives `[0..7]`, so the seq tiebreak still holds when every stamp ties. That is ticket 10's
-acceptance criterion (a) in miniature; (b), binding cuts, needs a real run and belongs to
-the funnel.
+gives `[0..7]`, so the seq tiebreak still holds when every stamp ties.
+
+What that demo does and does not settle (corrected 2026-08-31, caught by the session
+resolving 08): it settles that arrival order diverges from dispatch order, which is a
+PRECONDITION for the ordering lever having any gradient at all. It is **not** ticket 10's
+acceptance criterion (a) — that one is yard CONTENTION, standing trailers regularly
+exceeding free doors at drain start, which a single-epoch unit test cannot show. Both of
+10's criteria, contention and binding cuts, still need the pilot run and belong to the
+funnel (08).
 
 **One refusal the ticket did not list.** The two named contradictions are built, and both
 guards sit **above** the `if not ttype` early return rather than after it. With no trailer

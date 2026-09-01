@@ -101,9 +101,31 @@ derive-late fee report reads the threshold off the run spec.
 
 Also worth having when the acceptance probe is specified: at median = one working day,
 σ = 0.7, seed 42, eight trailers dispatched at one epoch land in yard order
-`[1, 2, 6, 5, 0, 4, 7, 3]`. That is criterion (a) of 10's acceptance test — arrival order
-is no longer dispatch order — demonstrated at unit scale. Criterion (b), binding cuts,
-needs a real run and remains this ticket's to specify.
+`[1, 2, 6, 5, 0, 4, 7, 3]`, not dispatch order.
+
+[Corrected 2026-08-31, same author, after this ticket's resolution flagged the label: that
+demo is a PRECONDITION for the ordering lever having a gradient, not criterion (a) of 10's
+acceptance test. Criterion (a) is yard CONTENTION — standing trailers regularly exceeding
+free doors at drain start — which a single-epoch unit test cannot show. Both criteria,
+contention and binding cuts, need the pilot run. The original wording claimed (a) was
+already demonstrated, which would have let the probe skip half its check.]
+
+2026-08-31, read against source while resolving 15 — the futuresight cost fact above
+(the 2026-08-30 comment from 13) is imprecise about granularity, and the correction is a
+CONSTANT FACTOR, not a change of order. What the code shows:
+
+- `_futuresight_window` slices and copies once per injection, i.e. once per batch.
+- `_window_rates` (`Inbound/gain.py:426`) runs inside the `futuresight` @ordering entry,
+  so once per ENTRY CALL. `check_reorders` runs `_release_arrivals` + `_receive` once, and
+  `_receive_standing` calls `yard_order` and `dock_order` once each — so an arm naming
+  `futuresight` on both knobs aggregates TWICE per drain against ONE copy.
+
+So the aggregation is the larger term by roughly 2x, not by an order: the run total stays
+O(n²·|batch|) under `'all'`. Ticket 13's own Answer already said "per-injection copies plus
+per-drain re-aggregation" and is accurate; it is the summary comment above that collapsed
+both into "every batch". If it ever bites, memoizing `_window_rates` on the view's
+`demand_v` is legal under 06 (the window rides that same event, no fourth counter) and
+collapses the two entry calls into one — again a 2x, so it is not a fix for depth.
 
 ## Answer
 
