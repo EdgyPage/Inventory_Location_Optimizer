@@ -435,6 +435,9 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   reachable from this map's destination, which stops at "the campaign can run" — and its
   deliverable is a different artifact, config-file records of expected throughput and baseline
   staffing per department. This map's contribution is the measurements above; the successor
-  effort owns the model. **Successor: `.scratch/department-calibration/map.md`** (to be
-  charted). The inbound campaign is runnable without it — the pilot proved a passing regime —
-  but runs under a scarcity that effort would let someone CHOOSE rather than inherit.
+  effort owns the model. **Successor: [`.scratch/department-calibration/map.md`](../department-calibration/map.md)**,
+  charted 2026-09-01 — its ticket
+  [Sequence the inbound funnel](../department-calibration/issues/05-sequence-the-inbound-funnel.md)
+  decides whether phase 1 also waits for the calibrated era (phase 2 already holds). The
+  inbound campaign is runnable without it — the pilot proved a passing regime — but runs
+  under a scarcity that effort would let someone CHOOSE rather than inherit.

@@ -242,8 +242,9 @@ What a count counts — packs or merchandise pieces. Never added across accounts
 ### Day-over-day
 
 **Working day**:
-The calendar boundary for every crew. Site state — a half-unloaded trailer, dock depth, queued
-packs — is preserved across the boundary, never reset or re-derived.
+The calendar boundary for every crew — one day for the whole site, a calendar day with a
+declared stretch of production time inside it. Site state — a half-unloaded trailer, dock
+depth, queued packs — is preserved across the boundary, never reset or re-derived.
 
 **Shift**:
 One working stretch of the site's crews on the shared clock. It ends when no standing work
@@ -254,3 +255,9 @@ _Avoid_: shift (for the reporting frame that merely labels hours)
 **Standing work**:
 The labor a shift can end on: released-but-unpicked demand, queued puts and held items, and
 the dock floor. Merchandise in transit is calendar, not standing work.
+
+**Duty cycle**:
+The share of the site's production time a crew is actually granted to work. Denominated
+against the working day, never against a batch — a budget granted per batch scales with batch
+cadence rather than with time, so it drifts silently whenever a batch outlives a day. A
+department's capacity is denominated in the same unit as the work that arrives at it.
