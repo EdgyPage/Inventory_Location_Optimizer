@@ -346,6 +346,26 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   an inert one; forecast/gated/futuresight all still move it. Cheapest adapter in the suite.
   Owed: the derived arch layer (as at 09/13/15); no schema event, fingerprint refreshed.
 
+- [Run the pilot gate](issues/22-run-the-pilot-gate.md): **GO, with three conditions** — both of
+  10's criteria hold in a stable non-saturated regime at `--recv-crew-size 4
+  --recv-day-seconds 43200`, doors 4, lead 480 min σ 0.7, published depth (committed as the
+  `inbound_pilot` spec). Three findings qualify it. (i) A receiving WHISTLE is a precondition,
+  not a preference: with no `--recv-day-seconds` the crew's day is unbounded, the yard drains
+  completely every drain, and neither criterion can fire *by construction*. (ii) The FIRST
+  attempt — a physically plausible dock, 2 receivers on an 8-hour day — passed both criteria
+  emphatically (70/75, 71/75) while starving the warehouse to a **49.6% missed share**, fill
+  85%→35% and yard depth running away to 2,208; the cause is a CLOCK MISMATCH between
+  departments, `_recv_deadline` granting one day-REMAINDER per BATCH while a store batch spans
+  **19 working days** (effective capacity is `crew × day / 2` per batch, measured 38–53% of
+  nominal). (iii) Receiving demand spans **7.4× across the four leaves** against one global crew
+  knob, so fulfillment binds hard (46–60 of 75) and store lightly (14–17) — the campaign is
+  mostly a FULFILLMENT experiment — and the fee threshold wants 2–3 d there against 7–10 d in
+  store, so `PHASE2_THRESHOLD_DAYS = 3.0` is a compromise and `gain_gated`'s H grid is a
+  fulfillment-only result. Also settled: 10's criterion (a) has two readings that disagree and
+  the STRICT one (`free_doors == 0`) is right; 08's "unmeasured multiplier" on the futuresight
+  window is **1.00 drains/batch** (structural), so `'all'` is affordable and 06's `demand_v`
+  memo is not a prerequisite. Not done, and named: the futuresight wall-clock bench.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -376,16 +396,20 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   so what remains is EXECUTION and it is UNBLOCKED. `--spec inbound_select` runs phase 1,
   `run_restock_selection` writes the hand-off, `PHASE2_ARMS` takes its answer, and
   `--spec inbound_policies` runs the ten-cell matrix (refusing to start until the arm set is
-  set). The order is load-bearing: the builds land first (phase 1 cannot rank on a metric
-  that does not exist, and a run whose spec cannot record its threshold is not
-  re-analysable — both now fixed), then the
-  throwaway pilot decides whether the campaign runs at all — a
-  config showing neither yard contention nor binding cuts is a DECLARED STOP, not a knob to
-  keep turning. The pilot's two criteria are now READABLE: `yard.binding` prints the
-  contention sentence on the figure itself and `binding_cuts` is a declared quantity, so
-  the gate is a chart to look at rather than a query to write. Sizing to plan against: phase 1 is 136 work units, phase 2 is 480, and at
-  the published series depth that is ~1.1 TB and well north of twelve hours of simulation
-  floor, so archive-as-you-go is mandatory and the grids are the trimming lever.
+  set), plus phase 2's command line carrying `PHASE2_RECV_CREW_SIZE` /
+  `PHASE2_RECV_DAY_SECONDS`, which have no cell axis and ARE the experimental condition.
+  The pilot (22) has RUN and gated through: the regime that makes both acceptance criteria
+  hold is known and committed. Two qualifications it attached, which the campaign must publish
+  with rather than discover — the comparison is mostly a FULFILLMENT result (store binds 14–17
+  of 75 drains against fulfillment's 46–60), and `gain_gated`'s H grid is fulfillment-only,
+  because one global fee threshold cannot serve channels whose non-saturated bands sit 3.5×
+  apart. **Whether phase 2 is worth running BEFORE the department-calibration effort lands is
+  now an open call, not a settled yes**: the passing config still carries a 15.9–22.0%
+  fulfillment missed share, so a campaign run there measures inbound ordering under a scarcity
+  the staffing model never chose. Sizing, if it runs as-is: phase 1 is 136 work units, phase 2
+  is 480; measured at published depth one unit is ~1,230–1,320 s wall at ~5.5 GB peak RSS, so
+  phase 2 is ~13 h of simulation and ~1.1 TB — archive-as-you-go is mandatory, workers are
+  RAM-bound before CPU-bound, and the grids are the trimming lever.
 
 ## Out of scope
 
@@ -400,3 +424,17 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   built it (FIFO next-fit, dispatch-when-passed-by).
 - **The full multiplicative sweep** (34 × inbound policies) — the funnel replaces it by
   design.
+- **Cross-department capacity calibration — baseline staffing and interaction effects.**
+  Surfaced by [Run the pilot gate](issues/22-run-the-pilot-gate.md) and ruled out here the same
+  day. The pilot found that picking, put-away and receiving have never been sized against one
+  another: `_recv_deadline` grants the dock one working-day REMAINDER per BATCH while a store
+  batch spans 19 working days (fulfillment 2.6), so a plausible dock runs at a ~5% duty cycle
+  against store picking and starves the warehouse to a 49.6% missed share; and the four leaves'
+  receiving loads span 7.4× against ONE global crew knob. Ruled out of scope rather than
+  ticketed here for two reasons: it reaches every department, not just inbound — so it is not
+  reachable from this map's destination, which stops at "the campaign can run" — and its
+  deliverable is a different artifact, config-file records of expected throughput and baseline
+  staffing per department. This map's contribution is the measurements above; the successor
+  effort owns the model. **Successor: `.scratch/department-calibration/map.md`** (to be
+  charted). The inbound campaign is runnable without it — the pilot proved a passing regime —
+  but runs under a scarcity that effort would let someone CHOOSE rather than inherit.

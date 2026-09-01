@@ -62,14 +62,36 @@ PHASE2_ARMS = None
 #: The arrival regime and the two grids phase 2 sweeps against.  Every one of these is a PILOT
 #: output, not a preference: the pilot fixes the free-days threshold (where overage is nonzero
 #: and non-saturated), the lead shape that produces yard contention at all, and the finite
-#: window worth benching against the oracle.  The values below are the pre-pilot placeholders
-#: they inherit from `settings.py`; the pilot replaces them here, in ONE place, and the H
-#: points move with the threshold because they are derived from it rather than typed beside it.
-PHASE2_THRESHOLD_DAYS = 2.0
-PHASE2_LEAD_MINUTES = 480.0        # ~ one working day, the first probe 02 named
+#: window worth benching against the oracle.  SET BY THE PILOT GATE (`inbound_pilot` spec,
+#: `.scratch/inbound-optimization/issues/22-run-the-pilot-gate.md`) at published depth on the
+#: full catalogue; the H points move with the threshold because they are derived from it
+#: rather than typed beside it.
+#:
+#: THE THRESHOLD IS FULFILLMENT-CALIBRATED AND THAT IS A COMPROMISE, not a measurement that
+#: came out clean.  "Nonzero, non-saturated" lands at 2-3 days in fulfillment and 7-10 days in
+#: store -- 3.5x apart, because the two channels' receiving loads differ 7.4x against one
+#: global crew knob.  3.0 follows the channel that actually binds (46-60 of 75 drains, against
+#: store's 14-17).  The fee REPORT survives this: 07 stores stamps raw, so store is re-reported
+#: at its own threshold with no re-simulation.  `gain_gated` does not -- its urgency gate reads
+#: this value at SIMULATION time, so its three H cells are a FULFILLMENT result and are
+#: degenerate in store.  Read them that way.
+PHASE2_THRESHOLD_DAYS = 3.0
+PHASE2_LEAD_MINUTES = 480.0        # ~ one working day, the first probe 02 named — confirmed:
+                                   # the yard ranks by arrival, not dispatch, at every leaf
 PHASE2_LEAD_SPREAD = 0.7
 PHASE2_DOCK_DOORS = 4
 PHASE2_FINITE_W = 5
+
+#: The RECEIVING regime phase 2 must run under, and the reason it is not in the inbound axis:
+#: `recv_crew_size` / `recv_day_seconds` are `CONFIG['global']` knobs with no cell axis, so they
+#: ride the COMMAND LINE.  They are nonetheless the whole experimental condition -- the pilot's
+#: first attempt used a physically plausible dock (2 receivers, an 8-hour day) and starved the
+#: warehouse to a 49.6% missed share, because the crew is granted one day-REMAINDER per BATCH
+#: while a store batch spans 19 working days.  Effective capacity is crew x day / 2 per batch;
+#: size it against the BATCH, never against a shift.  Both are recorded in `run_spec.json`, so a
+#: run stays re-analysable, but a phase-2 launch that forgets them is not the pilot's regime.
+PHASE2_RECV_CREW_SIZE = 4
+PHASE2_RECV_DAY_SECONDS = 43200.0
 
 #: H as MULTIPLES of the calibrated threshold, never absolute days — a horizon authored
 #: independently of the threshold drifts out of meaning the moment the threshold is calibrated.
@@ -160,6 +182,25 @@ SPECS = {
         'schedulers': ['lpt'], 'arms': PHASE2_ARMS,
         'inbound': phase2_inbound_axis(),
         'reference': 'k1_off_fifo',
+    },
+    # ── the funnel's PILOT GATE: one throwaway cell that decides whether the campaign runs ──
+    # Deliberately NOT a phase-2 cell — the arm set is not known until phase 1 ends, so reuse
+    # would be circular.  Its job is to answer 10's two acceptance criteria (yard contention
+    # and binding cuts) under `fifo`, calibrate `INBOUND_FEE_THRESHOLD_DAYS`, and bench the
+    # window; no pilot number is ever published.
+    #
+    # The inbound knobs ride the COMMAND LINE rather than an inbound axis, because the gate is
+    # one arrival regime, not a sweep — and the receiving crew and its day, which are what
+    # actually decide whether the yard binds, are run-level knobs with no cell axis at all.
+    # The scheduler is pinned to `lpt` to match phase 2: the scheduler moves batch DURATION,
+    # and batch duration is what decides how many leads elapse before the next drain observes
+    # them, so a pilot on the retired scheduler would calibrate a different arrival regime.
+    # Two rules, both in `Inbound.gain.FAITHFUL_GAIN_FAMILIES`: `fifo` is phase 2's mandatory
+    # rider and its reference, `tmin` a ranked wave, so the gate is not read off one restock
+    # shape.
+    'inbound_pilot': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'arms': ('fifo', 'tmin'), 'reference': 'k1_off',
     },
     # Schema-preflight canary: the SMALLEST spec that still produces a MULTI-cell tree (so the
     # cell level, `_frozen/`, and the cross-cell what-if outputs all appear).  Two cells x one
