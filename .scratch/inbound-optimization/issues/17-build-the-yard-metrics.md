@@ -41,3 +41,26 @@ since the standing-yard build (09).
 - **The knob**: `INBOUND_FEE_THRESHOLD_DAYS = 2.0` (shared with the arms build, 14 —
   whichever lands first creates it), calibration rule in its docstring; CLI flag and
   run-spec recording deferred to the first sweep, per the family precedent.
+
+## Comments
+
+2026-08-31, from resolving "Design the phased funnel" (08): the deferred run-spec recording
+above now has an owner and a deadline. 08 decided the first sweep, and the wiring graduated
+as [Build the run-shape layer](18-build-the-run-shape-layer.md), which records
+`INBOUND_FEE_THRESHOLD_DAYS` and restores it at BOTH sites (`_apply_run_spec` and
+`run_analysis._apply_run_shape` — separate functions, and today neither touches inbound).
+
+Worth stating plainly because this ticket's derive-late decision depends on it: until 18
+lands, a fee re-report resolves the threshold through the HEAD-default fallback named
+above, which means it silently uses **this checkout's** default rather than the run's. The
+fallback is correct for runs that predate recording; the campaign must never exercise it,
+so 18 is a prerequisite of phase 1 rather than of phase 2.
+
+Two items 08 settled that land on this build's surface: `yard_overage_days` DOES earn a
+`headline` slot beside hours and missed share (the campaign's question is "and at what fee
+cost", so the fee is half the decision) — a distinct number in its own unit, never summed
+with hours and never a ratio against them, added at the END of `HEADLINE_ORDER` alongside
+the entries from [Build total production hours](19-build-total-production-hours.md). And
+`binding_cuts` is load-bearing earlier than expected: it is one of the two acceptance
+criteria for the pilot gate, read as an ABSOLUTE value under `fifo`, so a campaign cannot
+start until this build reports it.

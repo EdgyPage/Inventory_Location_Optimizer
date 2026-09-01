@@ -223,35 +223,66 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   type is discarded by a silent `None`. Gradient confirmed — eight trailers at one epoch
   with σ=0.7 land `[1,2,6,5,0,4,7,3]`, `[0..7]` at σ=0. CLI/run-spec deferred, values
   unpicked (defaults inert); the derived arch layer is owed to the maintainer, as at 09/13.
+- [Design the phased funnel](issues/08-design-the-phased-funnel.md): phase 1 is a FRESH,
+  inbound-off, PURE SELECTOR run (no phase-1 number is ever published — which is what makes
+  a between-phase build legal and confines the un-re-derivable TAG to one phase); the
+  archive cannot price the objective at all (five boundaries, and put-away was untimed
+  before the one-clock refactor). The selectable unit is a restock RULE, not an arm
+  (`CHANNEL_RESTOCKS` filters on `restock`, so each pick costs 2 arms); k = 5 rules PLUS a
+  mandatory `fifo` — which is both the analysis baseline (`_baseline_entry` silently falls
+  back to `strategies[0]` without it) and the order-blind negative control — ranked per
+  CHANNEL on total production hours SUMMED across profiles, extensions capped at 3 families
+  so `(b)` stays costable, recorded as a post-analysis artifact carrying ALL 17 rules
+  ranked. Phase 2 is a TEN-CELL matrix on a new FIFTH `Cell` field (six runs would fire no
+  cross-cell writer at all): `fifo` the reference, `lifo`, three gain arms with H at 0.25/
+  0.5/1.0 × the calibrated threshold, `futuresight` at one finite w and `'all'`, plus an
+  inbound-off anchor; scheduler fixed at `lpt`, series depth, `yard_overage_days` granted a
+  `headline` slot (never blended). A throwaway pilot gates everything (both of 10's criteria
+  still unproven — 15's demo shows reordering, a precondition, not contention) with a
+  DECLARED STOP if contention will not bind; the win rule is pre-registered (moving-block CI
+  excluding zero, missed share not degraded, fee reported beside). 13's O(n²) verified and
+  CORRECTED: the copies are the minor term, the real multiplier is DRAINS PER BATCH, with a
+  `demand_v` memo as the legal fix. Graduated as
+  [18](issues/18-build-the-run-shape-layer.md) (cell axis + seams 3–4 + selection artifact,
+  bundled on one schema event), [19](issues/19-build-total-production-hours.md) (the metric
+  does not exist — put hours have never been read from `work_events`) and
+  [20](issues/20-extend-the-gain-bundles.md) (gated on phase 1's ranking).
 
 ## Not yet specified
 
-- **The builds** — every implementation graduates here once its governing decisions close:
-  the resume-guard extension to yard state; the funnel build (if its
-  decision says build); and the DEFERRED CLI/RUN-SPEC SEAMS — every knob this effort has
-  added (09, 13, 14, 15) declared seams 1–2 and deferred seams 3–4 to "the first sweep"
-  per ticket 09's precedent, so the family now owes one wiring job: flags, the run-spec
-  record, and its two restore sites (`_apply_run_spec` + `run_analysis._apply_run_shape`).
-  Its governing decision is the funnel (08), which decides what the first sweep is; a
-  phase-2 cell that cannot record the lead shape and threshold it ran under is not
-  re-analysable, and 07's derive-late fee report reads the threshold off the run spec.
+- **The builds** — every implementation graduates here once its governing decisions close.
+  ONE fog item remains: the RESUME-GUARD EXTENSION TO YARD STATE. Nothing inspects inbound
+  state on resume today — `_plan_strategy_start` takes `roll_over` and `receiving`, not
+  `inbound`. The standing yard is covered only BY ACCIDENT, because `inbound_spec` refuses a
+  standing yard without a receiving crew, so `recv_crew_spec()` is never None there; but a
+  v1 trailer run with a trailer type and NO receiving crew has worker-local trailers in no
+  checkpoint and is not refused under `--resume-granularity batch`. Out of scope stays out
+  of scope (no trailer checkpoint format) — this is a refusal, not a format.
   (Done or ticketed: the standing-yard mechanics — 09 —, the
   space-timeline build — 11 —, the ordering-seam generalization — 12 —, the gain
   evaluator + gain-plan arms — 14 —, the futuresight window feed + entry — 13 — and the
   lead distribution — 15 — are DONE;
-  [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md) is on
-  the frontier too — the cache boundary (06) resolved to NO cache build beyond that fold
-  and the Tier-1 equivalence test that landed with 14; and
-  [Build the yard metrics](issues/17-build-the-yard-metrics.md) joined the frontier when
-  the yard metrics (07) resolved.)
+  [Fold the eviction into reclaim_v](issues/16-fold-the-eviction-into-reclaim-v.md) and
+  [Build the yard metrics](issues/17-build-the-yard-metrics.md) are on the frontier; and
+  the funnel resolution (08) graduated three more —
+  [Build the run-shape layer](issues/18-build-the-run-shape-layer.md) which finally pays
+  the seams 3–4 debt every knob deferred to "the first sweep",
+  [Build total production hours](issues/19-build-total-production-hours.md), and
+  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md), gated on phase 1.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
   untimed. (The unlawful version — reading the future script — is no longer fog: it is the
   futuresight window reference family, decided by the objective resolution, 10.)
-- **The funnel campaign** — actually running phase 1 (inbound-off top-k selection) and
-  phase 2 (top-k × inbound policies), and publishing the results; specifiable once the
-  machinery and the funnel design exist.
+- **The funnel campaign** — no longer a design gap: 08 specified it end to end (pilot →
+  phase 1 → selection → phase 2 → publish), so what remains is EXECUTION, gated on 17, 18
+  and 19. The order is load-bearing: the builds land first (phase 1 cannot rank on a metric
+  that does not exist, and a run whose spec cannot record its threshold is not
+  re-analysable), then the throwaway pilot decides whether the campaign runs at all — a
+  config showing neither yard contention nor binding cuts is a DECLARED STOP, not a knob to
+  keep turning. Sizing to plan against: phase 1 is 136 work units, phase 2 is 480, and at
+  the published series depth that is ~1.1 TB and well north of twelve hours of simulation
+  floor, so archive-as-you-go is mandatory and the grids are the trimming lever.
 
 ## Out of scope
 

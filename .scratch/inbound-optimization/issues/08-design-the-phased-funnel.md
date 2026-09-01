@@ -1,7 +1,7 @@
 # Design the phased funnel
 
 Type: grilling
-Status: claimed
+Status: resolved
 
 ## Question
 
@@ -104,3 +104,183 @@ Also worth having when the acceptance probe is specified: at median = one workin
 `[1, 2, 6, 5, 0, 4, 7, 3]`. That is criterion (a) of 10's acceptance test — arrival order
 is no longer dispatch order — demonstrated at unit scale. Criterion (b), binding cuts,
 needs a real run and remains this ticket's to specify.
+
+## Answer
+
+Resolved 2026-08-31 by grilling (four rounds, twenty questions; every recommendation
+confirmed, Q3 answered `(b)` explicitly).
+
+### Phase 1 — a fresh, inbound-off SELECTOR run
+
+**Fresh, not an archive re-read.** The archive cannot price this objective at all. Five
+independent boundaries stand between it and today: the placement-pool refactor (`a033aff`
+the last byte-identical commit), the over-picking fix (`0b0d7d7`), the seconds-not-
+milliseconds correction, the v2 sampler flip, and the one-clock refactor that first made
+put-away a TIMED quantity. The last is fatal alone — put hours did not exist as a
+measurement in the archive, and no correction factor recovers them.
+
+**Inbound-OFF**, keeping the charter but for a new reason: selecting under inbound-on-
+`fifo` would bake ONE policy's contention pattern into the candidate set, biasing the
+funnel's mouth toward arms that suit FIFO's yard behaviour specifically. Inbound-off ranks
+arms on intrinsic placement quality.
+
+**A PURE SELECTOR: no phase-1 number is ever quoted in the published result.** The whole
+claim is made inside phase 2 against the `fifo` inbound cell. This is load-bearing three
+ways — it makes a BETWEEN-PHASE build legal (which `(b)` requires), it makes a phase-1
+flaw cost a re-selection rather than a retraction, and it means the lead TAG (`0x1EAD`)
+and every other un-re-derivable constant need only be stable WITHIN a phase, not across
+the campaign.
+
+**Shape:** ONE cell, scheduler fixed at `lpt` — the series' winner; measuring inbound on
+the naive scheduler the series retired would answer about a configuration nobody runs.
+
+### The selection
+
+**The unit is a restock RULE, not an arm.** `CHANNEL_RESTOCKS` filters on `s.restock`, so
+picking `tmin` necessarily takes both `uni_tmin_norsl` and `opt_tmin_norsl`: 17 rules, each
+costing 2 arms. "Top-k arms" is not an expressible unit.
+
+**Metric: TOTAL PRODUCTION HOURS** (per 10) — which does not exist yet and must be BUILT.
+Pick is the `production_time` quantity; unload is a `batch_stats.recv_seconds` column with
+ZERO quantities declared; put is not in `batch_stats` at all, living only in `work_events`
+rows with `role='put'`, which the analysis suite has never read. Selecting on pick hours
+alone — all that `channel_rollup` and `whatif_labor` offer today — would systematically
+favour arms that buy pick time with put-away time, the exact trade this effort measures.
+
+**Scope: PER CHANNEL**, hours SUMMED across inventory profiles (hours are additive and
+physical; ranks are not). Store and fulfillment are independent warehouses, so one global
+list would rank two warehouses on one scale. Per-channel arm sets are natively supported —
+`CHANNEL_RESTOCKS` is keyed by channel — so the two channels may legitimately carry
+different top-5s. Profile DISAGREEMENT is a finding to surface, not to smooth (10's rule).
+
+**k = FIVE rules, plus `fifo`, with bundle extensions capped at THREE families.** `fifo` is
+not optional: `run_channel_rollup._baseline_entry` prefers `uni_fifo`, falls back to any
+key containing `fifo`, then to `strategies[0]` — so an arm set without it silently
+baselines against an arbitrary arm and renders plausible, meaningless `saving_abs` for
+everything. That one mandatory row buys two things: the analysis baseline AND the
+order-blind negative control (`opt_fifo`/`uni_fifo` are byte-identical runs, so a gradient
+on that row would indict the machinery). The cap is what makes `(b)` costable — only
+`tmin`, `tmax`, `rank_popularity` and `rank_random` have faithful gain bundles today and
+every other family raises by design; if the top five holds more than three unfaithful
+families, take the three highest-ranked and backfill from the faithful set.
+
+**Recorded as a POST-ANALYSIS ARTIFACT** in phase 1's run root, shaped like the
+channel-rollup writer, carrying the phase-1 run identity, the metric, ALL SEVENTEEN rules
+in ranked order, the chosen five, the `fifo` rider, and which chosen rules need an
+extension. `run_layout.json`'s `arms` key cannot serve: it records the REQUESTED restock
+keys, is written once before simulation, and is resume-guarded. The full ranking rather
+than the cut, so a later reader can see how close the decision was.
+
+### Phase 2 — a cell matrix over inbound policy
+
+**The six-policy axis becomes the FIFTH `Cell` FIELD, not six runs.**
+`INBOUND_YARD_POLICY`/`INBOUND_DOCK_POLICY` are whole-run settings, so six policies would
+otherwise be six single-cell runs — and the entire comparison surface (`whatif_delta`,
+`whatif_labor`, `whatif_volume`) fires only when `len(cell_items) > 1`, so six runs would
+produce NO comparison artifact and force a hand-rolled contrast. The cell matrix also
+guarantees every cell sees the same frozen inventory and batch stream, the apples-to-apples
+property a policy comparison needs; the `Cell` docstring already names this axis. Two
+traps: `_build_cells` dedupes by name, so the axis MUST add a name suffix or inbound-on and
+inbound-off collapse into one cell with no error; and the gain bundle refuses under
+velocity zoning, satisfied by default since every committed spec has zoning off.
+
+**Ten cells:** `fifo` (the REFERENCE — every delta then reads "versus FIFO", the campaign's
+own question), `lifo`, `gain_myopic`, `gain_forecast`, `gain_gated` × three H points,
+`futuresight` × two w points, and an inbound-OFF anchor (the validity check that the
+ranking transferred — present as a cell, never the reference). At 12 strategies × 2 pairs
+× 2 channels = 48 work units per cell, that is 480.
+
+**H grid: 0.25×, 0.5×, 1.0× the CALIBRATED threshold**, not absolute days — the pilot fixes
+the threshold and a horizon authored independently of it would drift out of meaning. Both
+poles are predictable and get no cells: H = 0 collapses `gain_gated` to `gain_forecast` (a
+seam test), H ≥ threshold collapses it toward FIFO.
+
+**w grid: one small finite window and `'all'`**, the bench taken during the pilot.
+
+### On the O(n²) — a correction to 13's cost claim, verified here
+
+The figure is CORRECT but was single-sourced (13's answer, echoed onward unchecked), and
+its two terms are not comparable. `_futuresight_window` re-slices and dict-copies the whole
+remaining script once per batch: n(n−1)/2 batch-copies under `'all'` — 2,775 at 75 batches
+against 375 for w=5. That is the n², and it is the MINOR term. `_window_rates`
+re-aggregates the window "once per entry call" — i.e. once per DRAIN — walking every SKU of
+every window dict. **The real cost is the n² multiplied by DRAINS PER BATCH, and that
+multiplier is the unmeasured quantity: the bench is measuring drains per batch.**
+
+A legal fix exists if it bites: the window is replaced wholesale by the injection that
+bumps `demand_v` (it carries no counter of its own for exactly this reason), so the
+aggregate is constant across every drain within a batch, and memoizing it keyed on
+`demand_v` is 06's "legal-keyed-not-built" case, not new cache machinery. Prefer the memo
+to dropping `'all'` — dropping the oracle costs the ceiling the reference family exists to
+establish.
+
+### The pilot gate
+
+ONE deliberately small, THROWAWAY run — not a reusable phase-2 cell (the arm set is not
+known until phase 1 ends, so reuse is circular). It runs AFTER the builds land, inbound-on
+under `fifo`, on a provisional two-or-three-rule arm set, and answers three things at once:
+do the pilot leads produce 10's criterion (a) YARD CONTENTION and (b) BINDING CUTS; where
+does `INBOUND_FEE_THRESHOLD_DAYS` sit for nonzero, non-saturated overage (an analysis
+re-report over the same run, since the fee derives late); and the `'all'`-window bench.
+
+**Correction carried in:** 15's eight-trailer demonstration (`[1,2,6,5,0,4,7,3]`) shows
+arrival order diverging from dispatch order, which is a PRECONDITION for contention, not
+contention itself. BOTH of 10's criteria still need a real run.
+
+**On failure: BOUNDED retuning** — at most a couple of attempts moving σ and the door count
+— then a DECLARED STOP. If contention will not bind, that is not a knob to keep turning; it
+is the finding that this model carries no structural inbound pressure at the series' scale,
+invalidating the campaign's premise, and it is reported as such. Naming the exit now is
+what stops it becoming an open-ended search. The pilot may also demand more SKUs rather
+than more batches — the batches knob saturates every backlog level, so put-away and
+receiving pressure show on the SKU knob.
+
+### Depth, decision rule, presentation
+
+**Depth: match the published series.** These results join a series stakeholders read
+across; a per-campaign depth makes cross-experiment reading harder, and a depth chosen to
+flatter an effect cannot be audited.
+
+**The decision rule, PRE-REGISTERED here rather than chosen after the run.** A policy beats
+FIFO when three things hold TOGETHER: its total-production-hours gain over the `fifo` cell
+has a CI excluding zero under the MOVING-BLOCK bootstrap (per-batch series are
+autocorrelated at lags 1–3, so an iid bootstrap under-reports every interval); its missed
+share does not degrade (10: a policy winning on hours while service decays must be
+surfaced, not averaged away); and its fee cost is reported BESIDE the result, never netted
+into it (05's two-separate-scores rule). Standing exclusions unchanged: `futuresight` never
+enters the recommendable set whatever it scores; `lifo` is a control whose job is to lose,
+and a `lifo` win is evidence about the machinery, not about LIFO.
+
+**`yard_overage_days` DOES earn a `headline` slot**, beside hours and missed share. The
+campaign's question is "does space-aware inbound beat FIFO, AND AT WHAT FEE COST", so the
+fee is half the decision and a reader who sees only hours at the decision point concludes
+wrongly; three numbers fits `headline`'s charter. It stays a distinct number in its own
+unit — never summed with hours, never a ratio against them. Structurally cheap: no new
+family glob, and `HEADLINE_ORDER` takes new entries at the end.
+
+### Cost, honestly
+
+Experiment 8 (75 batches, 400k-SKU catalogue, 2 pairs × 2 channels × 34 arms × 2 cells =
+272 arm-runs at 20 workers) reconstructs to ~78 arm-hours of batch-loop work — a ~3.9 h
+ideal-packing floor — and ~500 GB. Per-arm cost spans 3.4 min (`store`/`fifo`) to 52.3 min
+(`fulfillment`/`cluster_map`), and phase 2 selects the top five BY LABOR, which are
+inferentially the expensive ones. Phase 1 (136 work units) plus phase 2 (480) therefore
+lands near 1.1 TB and well north of twelve hours of simulation floor. Archive-as-you-go is
+not optional; the grids are the trimming lever; 20 workers is an operator constraint, not a
+tunable.
+
+### Graduated
+
+Three tickets plus the campaign:
+
+- [Build the run-shape layer](18-build-the-run-shape-layer.md) — the fifth `Cell` field,
+  the inbound family's deferred seams 3–4, and the selection artifact. Bundled because all
+  three touch `SHAPE_SOURCES` and force a preflight canary pair: splitting pays the schema
+  event three times and leaves states where the tree shape moved without its writers (the
+  reasoning 07 used when it refused to split 17).
+- [Build total production hours](19-build-total-production-hours.md) — the unload quantity
+  and the put leg's first `work_events` read. A different pipeline; independent; parallel.
+- [Extend the gain bundles](20-extend-the-gain-bundles.md) — capped at three families,
+  necessarily blocked by phase 1.
+
+The campaign itself stays a map item: pilot → phase 1 → selection → phase 2.
