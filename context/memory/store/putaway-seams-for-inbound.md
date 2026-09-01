@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-27T03:01:22.131Z
+  modified: 2026-08-29T20:22:35.532Z
 ---
 
 Nine byte-identical commits (`d45364b..266c324`, 2026-08-24) decoupled put-away from picking
@@ -22,7 +22,13 @@ resource, not people), **myopic and forecasting sorters as two arms of one exper
 - `PutawayItem(unit, source)` rides in `_stock_queue`; a trailer is the fourth source.
 - `_stock(budget=)` — a dock/crew cap. Ranked waves are ATOMIC: the budget is spent per
   group, checked before `place_wave`, because that call mutates aisle running balances.
-- `_emptied_at[id(bin)]` records WHEN a bin ran dry. Inert; the substrate for "upcoming slots".
+- `_emptied_at[id(bin)]` records WHEN a bin ran dry. **No longer inert as of 2026-08-29**
+  (`72bbffb`): `Inbound/space.py`'s `SpaceTimeline` harvests it inside
+  `_reclaim_empty_bins` — the ONE legal reader, AST-pinned in
+  `Tests/unit/test_bin_empty_timing.py`. The stamps are confirmed ABSOLUTE-clock seconds
+  (the earlier "picker-local" docstrings were stale and are now fixed). Full record of
+  this and the standing-yard build lives in `.scratch/inbound-optimization/map.md` and
+  `Inbound/space.py`'s module docstring, not duplicated here.
 - `Warehouse/kernel/allocation.partition` — round-robin/LPT over any work type, zero-dependency.
 - `Warehouse/kernel/timeline.epochs` — batch-local picker time onto one absolute axis.
 - `Cell` NamedTuple + `reference_cell` — a fifth sweep axis is one field, not five unpacks.
