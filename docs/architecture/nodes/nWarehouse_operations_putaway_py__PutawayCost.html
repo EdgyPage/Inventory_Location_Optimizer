@@ -18,10 +18,23 @@
 class PutawayCost</code></pre>
 <section class="doc">The put-away time model&#x27;s coefficients — the put-side twin of `PickConfig`&#x27;s.
 
-Defaults mirror `PickConfig`&#x27;s own dataclass defaults, so a caller that supplies
-nothing gets the pick model&#x27;s shape at the pick model&#x27;s scale rather than a second set
-of magic numbers to reconcile later (this project has already paid for two default sets
-that drifted 55x apart).</section>
+PICKING&#x27;S SHAPE, PICKING&#x27;S COEFFICIENTS, TWO DECLARED SCALARS.  Every value here is the
+pick model&#x27;s BY REFERENCE — the kernel&#x27;s one literal set (`cost_model.DEFAULT_PICK_*`),
+the same declaration `PickConfig` reads — and the only way a put crew&#x27;s numbers may
+differ from a picker&#x27;s is through the two scales the calibrated era declares:
+
+    intercept = picking&#x27;s × PUT_INTERCEPT_SCALE   (&quot;putting is less work&quot;, default 0.5)
+    per_item  = picking&#x27;s × PUT_ITEM_RATIO        (default 0.2, i.e. 0.1 s per unit)
+
+The fields hold the EFFECTIVE (already-scaled) values, so `put_cost` stays one call to
+the shared primitive and the object is self-describing.  `from_pick` is how a run
+builds one from its own `PickConfig` (or `WorkloadParams`) and the run&#x27;s scales; the
+dataclass defaults are what that yields for the kernel defaults.  There is deliberately
+no second literal set: this project has already paid for two default sets that drifted
+55x apart, and the by-reference link is what makes the drift structurally impossible.
+
+This module may not import the pick simulation (architecture.yml forbids
+wh_operations -&gt; wh_picking), which is why the shared declaration lives in the kernel.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enable_putaway_timing.html"><code>enable_putaway_timing</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_putaway_py__PutawayCost">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/putaway.py#:~:text=class%20PutawayCost">Source ↗</a></p>
 </article>

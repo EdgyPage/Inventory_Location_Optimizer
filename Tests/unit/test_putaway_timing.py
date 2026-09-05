@@ -45,8 +45,14 @@ def test_it_is_travel_plus_the_pick_handling_expression():
     got = put_cost(120.0, 48.0, weight=10, volume=100, quantity=3, speed=MACHINE, cost=c)
     travel = 120.0 * MACHINE.x_pace + 48.0 * MACHINE.y_pace
     handling = per_pick(height_multiplier(DEFAULT_HEIGHT_BRACKETS, 48.0), c.intercept,
-                        handle_var(10, 100, c.weight_coef, c.volume_coef), 3)
+                        handle_var(10, 100, c.weight_coef, c.volume_coef), 3, c.per_item)
     assert got == pytest.approx(travel + handling)
+    # Re-baselined with the per-item charge (ADR-0001): the pre-charge expression is a
+    # different number now, and must be — a 0.0 charge would be the model the era ended.
+    old = per_pick(height_multiplier(DEFAULT_HEIGHT_BRACKETS, 48.0), c.intercept,
+                   handle_var(10, 100, c.weight_coef, c.volume_coef), 3)
+    assert got - travel - old == pytest.approx(
+        height_multiplier(DEFAULT_HEIGHT_BRACKETS, 48.0) * 3 * c.per_item)
 
 
 def test_a_higher_bin_costs_more_to_reach_and_more_to_handle():
@@ -78,12 +84,20 @@ def test_more_units_cost_more_but_the_travel_is_paid_once():
 
 
 def test_the_defaults_mirror_the_pick_models():
-    """Not a second set of magic numbers to reconcile later."""
+    """Not a second set of magic numbers to reconcile later: the coefficients ARE
+    picking's, and the intercept and per-item charge are picking's times the two declared
+    scales — the only legal divergence (ADR-0001)."""
+    from Warehouse.kernel.cost_model import (
+        DEFAULT_PUT_INTERCEPT_SCALE, DEFAULT_PUT_ITEM_RATIO)
     from Warehouse.picking.Pick import PickConfig
     pc, put = PickConfig(), PutawayCost()
-    assert (put.intercept, put.weight_coef, put.volume_coef) == \
-           (pc.pick_intercept, pc.pick_weight_coef, pc.pick_volume_coef)
+    assert (put.weight_coef, put.volume_coef, put.weight_fn, put.volume_fn) == \
+           (pc.pick_weight_coef, pc.pick_volume_coef, pc.pick_weight_fn, pc.pick_volume_fn)
+    assert put.intercept == pytest.approx(pc.pick_intercept * DEFAULT_PUT_INTERCEPT_SCALE)
+    assert put.per_item == pytest.approx(pc.pick_per_item * DEFAULT_PUT_ITEM_RATIO)
     assert put.height_brackets == pc.height_brackets
+    # and the runtime constructor yields the class defaults for the kernel defaults
+    assert PutawayCost.from_pick(pc) == put
 
 
 # ── the manager binding ───────────────────────────────────────────────────────────

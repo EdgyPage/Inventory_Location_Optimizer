@@ -166,18 +166,24 @@ class Order:
 
     def compute_labor_cost(self, pick_intercept: float,
                            pick_weight_coef: float, pick_volume_coef: float,
-                           pick_weight_fn: str = 'log', pick_volume_fn: str = 'log') -> float:
+                           pick_weight_fn: str = 'log', pick_volume_fn: str = 'log',
+                           *, pick_per_item: float) -> float:
         """Set (and return) labor_cost = per-unit pick regression cost for this order
         under the given PickConfig coefficients.  Mirrors Pick._pick_time at qty=1,
         no cart swap, ground level.  Call once per worker after inventory load.
 
         Also stores handle_var = the per-unit weight/volume term ALONE (without the
-        intercept).  labor_cost (= intercept + handle_var) is the qty=1 ground per-pick
-        cost used to RANK items; the height multiplier scales the whole at-location pick
-        at placement time: per-pick at height = mult*(pick_intercept + qty*handle_var).
+        intercept or the per-item charge).  labor_cost (= intercept + per_item + handle_var)
+        is the qty=1 ground per-pick cost used to RANK items; the height multiplier scales
+        the whole at-location pick at placement time:
+        per-pick at height = mult*(pick_intercept + qty*pick_per_item + qty*handle_var).
+
+        `pick_per_item` is keyword-only and REQUIRED: a caller that forgot it would price
+        the pre-charge model and rank against a labor the sim no longer bills — silently,
+        since nothing compares the two until a lockstep test does.
         """
         self.handle_var = _handle_var(self.weight, self.volume(),
                                       pick_weight_coef, pick_volume_coef,
                                       pick_weight_fn, pick_volume_fn)
-        self.labor_cost = _per_pick(1.0, pick_intercept, self.handle_var)
+        self.labor_cost = _per_pick(1.0, pick_intercept, self.handle_var, 1, pick_per_item)
         return self.labor_cost

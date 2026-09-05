@@ -14,12 +14,18 @@
 <h1><span class="kind kind-function">function</span> <code>place_load</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def place_load(self, units, excluded, predicted: bool)</code></pre>
+<pre class="sig"><code>def place_load(self, units, excluded, predicted: bool, *, alloc=None)</code></pre>
 <section class="doc">(cost, takes) of placing `units` against the availability that `excluded`
 leaves standing; `predicted` merges the deferral tier in.  Groups by the
 unit&#x27;s OWN BinKey in load order (the canonical pack order is deterministic),
-spilling up the chain per group.</section>
-<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__chain.html"><code>_chain</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__params.html"><code>_params</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_merge.html"><code>_place_merge</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_pool.html"><code>_place_pool</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+spilling up the chain per group.
+
+`alloc` is the sweep&#x27;s shared block allocator, read by the uniform adapter
+ONLY (see `_place_uniform`) and inert for the other two.  None gives this
+placement its own, which is what the forced prefix and the deferral side
+want: each of those stands alone, against an `excluded` that already carries
+whatever went before it.</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__chain.html"><code>_chain</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__params.html"><code>_params</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_merge.html"><code>_place_merge</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_pool.html"><code>_place_pool</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_uniform.html"><code>_place_uniform</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator_place_load">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20place_load">Source ↗</a></p>
 </article>
 </main>

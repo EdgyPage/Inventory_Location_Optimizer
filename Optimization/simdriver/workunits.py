@@ -14,6 +14,7 @@ from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
     CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, put_queues_spec,
+    crew_cost_spec,
     inbound_spec,
     recv_crew_spec,
     work_day_spec,
@@ -155,7 +156,8 @@ def _prepare_channel_run(
     log.info(f'{"="*64}')
     log.info(f'  Config : {name}  [{channel.name}]')
     log.info(f'  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}  '
-             f'i={pick_cfg.pick_intercept}  c={pick_cfg.cart_swap_coef}')
+             f'i={pick_cfg.pick_intercept}  p={pick_cfg.pick_per_item}  '
+             f'c={pick_cfg.cart_swap_coef}')
     log.info(f'{"="*64}')
 
     config_record = {
@@ -165,6 +167,10 @@ def _prepare_channel_run(
         'pick_weight_fn'  : pick_cfg.pick_weight_fn,
         'pick_volume_fn'  : pick_cfg.pick_volume_fn,
         'pick_intercept'  : pick_cfg.pick_intercept,
+        # The per-item charge (ADR-0001).  Recorded so `docs/macros.py` renders the model
+        # this leaf actually ran and `run_map_precompute` rebuilds it; an archived config
+        # WITHOUT this key predates the charge and is reconstructed at 0.0 by both.
+        'pick_per_item'   : pick_cfg.pick_per_item,
         'cart_swap_coef'  : pick_cfg.cart_swap_coef,
         'cart'            : pick_cfg.cart.__name__,
         'cart_capacity'   : pick_cfg.cart.capacity(),
@@ -366,6 +372,9 @@ def _prepare_channel_run(
         recv_crew           = recv_crew_spec(),
         inbound             = inbound_spec(),
         put_queues          = put_queues_spec(),
+        # The other crews' PRICE as scalars of the pickers' -- the fifth seam of a knob.
+        # Not in the payload = silently the kernel default in every spawned worker.
+        crew_cost           = crew_cost_spec(),
         velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )

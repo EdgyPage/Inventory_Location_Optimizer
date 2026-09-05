@@ -46,16 +46,22 @@ travel term, mode arrives with it.
 
 # ── the granularity, which moves the answer by an order of magnitude ──────────────
 
-`per_pick(mult, intercept, var, qty)` is `mult * (intercept + qty * var)`, so the intercept
-is charged ONCE PER CALL.  A 60-unit arrival therefore costs one intercept-second if it is
-costed as one call and sixty if it is costed per pack -- and at the default `intercept=1.0`
-that is a 59-second difference on a single arrival, scaling with the run.
+`per_pick(mult, intercept, var, qty, per_item)` is `mult * (intercept + qty * per_item +
+qty * var)`, so the intercept is charged ONCE PER CALL.  A 60-unit arrival therefore costs
+one intercept if it is costed as one call and sixty if it is costed per pack -- and at the
+put-away default that is a 59 x 0.5 s difference on a single arrival, scaling with the run.
 
 The charge is **per `StorageUnit`**: one call per pack, because a pack is what a person
-lifts, and the fixed grab-orient-set-down charge belongs to the lift.  There is deliberately
-no per-DELIVERY setup term (backing the trailer in, opening the doors): its default would
-have to be invented, and a coefficient defaulted to 0.0 is dead code that rots.</section>
-<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_operations_putaway_py.html"><code>Warehouse.operations.putaway</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nInbound___init___py.html"><code>Inbound</code></a> <span class="dim">Inbound/__init__.py</span></li><li><a href="nInbound_dock_py.html"><code>Inbound.dock</code></a> <span class="dim">Inbound/dock.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nInbound_unload_py__UnloadCost.html"><code>UnloadCost</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nInbound_unload_py__unload_cost.html"><code>unload_cost</code></a> <span class="dim">Inbound/unload.py</span></li></ul></section>
+lifts, and the fixed grab-orient-set-down charge belongs to the lift.  **So is the per-item
+charge**, by decision (`.scratch/department-calibration`, &quot;Define the calibrated era&quot;): a
+receiver handles and labels the PACK, not the items inside it, so the charge lands once per
+pack rather than once per item -- an order split into five pallets and a bag of singletons
+is six intercepts and six per-item charges, never six intercepts and sixty charges.  It is
+therefore added OUTSIDE `per_pick`&#x27;s quantity term below rather than passed as `per_item`.
+There is deliberately no per-DELIVERY setup term (backing the trailer in, opening the
+doors): its default would have to be invented, and a coefficient defaulted to 0.0 is dead
+code that rots.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_operations_putaway_py.html"><code>Warehouse.operations.putaway</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nInbound___init___py.html"><code>Inbound</code></a> <span class="dim">Inbound/__init__.py</span></li><li><a href="nInbound_dock_py.html"><code>Inbound.dock</code></a> <span class="dim">Inbound/dock.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nInbound_unload_py__UnloadCost.html"><code>UnloadCost</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nInbound_unload_py__UnloadCost_from_putaway.html"><code>from_putaway</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nInbound_unload_py__unload_cost.html"><code>unload_cost</code></a> <span class="dim">Inbound/unload.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_unload_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/unload.py">Source ↗</a></p>
 </article>
 </main>

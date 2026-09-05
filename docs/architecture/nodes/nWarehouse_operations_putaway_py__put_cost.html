@@ -18,7 +18,9 @@
 <section class="doc">Seconds to put `quantity` units away at physical location `(x_phys, y_phys)`.
 
 Travel from the aisle mouth plus height-bracketed handling — the same two terms, in the
-same order, through the same primitives as `Pick._pick_time` and `Workload`&#x27;s P-term.
+same order, through the same primitives as `Pick._pick_time` and `Workload`&#x27;s P-term:
+
+    travel + M(y) · (intercept + quantity · per_item + quantity · var)
 
 Returns SECONDS, the unit the whole simulator counts in
 (`Warehouse.kernel.timeline.TIME_UNIT`).</section>

@@ -224,6 +224,11 @@ CONFIG = {
         'put_pallet_staging': _s.PUT_PALLET_STAGING,
         'put_ff_staging'    : _s.PUT_FF_STAGING,
         'put_swap_coef'     : _s.PUT_SWAP_COEF,
+        # The other crews' PRICE as scalars of the pickers' (settings, "the other crews'
+        # price"); read at call time by crew_cost_spec below and carried in the payload.
+        'put_intercept_scale' : _s.PUT_INTERCEPT_SCALE,
+        'put_item_ratio'      : _s.PUT_ITEM_RATIO,
+        'recv_intercept_scale': _s.RECV_INTERCEPT_SCALE,
     },
     'channels': {
         'store': {
@@ -611,6 +616,36 @@ def put_crew_spec() -> dict:
     x, y = ((_s.PUT_MACHINE_X, _s.PUT_MACHINE_Y) if mode == 'machine'
             else (_s.PUT_FOOT_X, _s.PUT_FOOT_Y))
     return {'size': _s.PUT_CREW_SIZE, 'mode': mode, 'x_speed': x, 'y_speed': y}
+
+
+def crew_cost_spec() -> dict:
+    """The other crews' PRICE as a picklable record:
+    `{put_intercept_scale, put_item_ratio, recv_intercept_scale}`.
+
+    Put-away and receiving keep picking's cost shape and coefficients by reference
+    (`PutawayCost.from_pick`, `UnloadCost.from_putaway`); these three scalars are the only
+    place their numbers may differ.  Read from CONFIG at CALL time -- never from `_s.`
+    directly, which is the trap `put_crew_spec` above still carries -- and handed to the
+    worker in its payload (`workunits._shared['crew_cost']`), because a spawned worker
+    re-imports this module and would get pristine defaults.
+
+    A None (a pre-field run spec restored by `run_analysis._apply_run_shape`) resolves to the
+    kernel default: that run priced its put crew at the pre-charge literal, which no scale
+    can reproduce, so the default is the honest reconstruction of "no scale was declared".
+    """
+    from Warehouse.kernel.cost_model import (
+        DEFAULT_PUT_INTERCEPT_SCALE, DEFAULT_PUT_ITEM_RATIO, DEFAULT_RECV_INTERCEPT_SCALE)
+    g = CONFIG['global']
+
+    def _f(key, default):
+        v = g.get(key)
+        return float(default if v is None else v)
+
+    return {
+        'put_intercept_scale':  _f('put_intercept_scale', DEFAULT_PUT_INTERCEPT_SCALE),
+        'put_item_ratio':       _f('put_item_ratio', DEFAULT_PUT_ITEM_RATIO),
+        'recv_intercept_scale': _f('recv_intercept_scale', DEFAULT_RECV_INTERCEPT_SCALE),
+    }
 
 
 def store_fill() -> float:

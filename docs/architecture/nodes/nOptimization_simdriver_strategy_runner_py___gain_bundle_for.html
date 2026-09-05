@@ -24,9 +24,10 @@ k-cheapest merge; rank_popularity gets its own pool rebuilt over aisle-state
 copies (its selector must read the COPY of aisle_demand_sum, not the live dict);
 rank_random gets the pool with a deterministic stand-in selector and expectation
 pricing over the aisle heads (an ordering entry may consume no RNG — the decided
-deviation 04 recorded).  Any other placement family FAILS LOUDLY: an evaluator
-that cannot rebuild the arm&#x27;s pool over copies would price a fiction under that
-arm&#x27;s name, and phase 2&#x27;s top-k should extend this map consciously, not silently.</section>
+deviation 04 recorded); fifo gets the uniform adapter, which needs nothing from
+here at all.  Any other placement family FAILS LOUDLY: an evaluator that cannot
+rebuild the arm&#x27;s pool over copies would price a fiction under that arm&#x27;s name,
+and phase 2&#x27;s top-k should extend this map consciously, not silently.</section>
 <section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_gain_py__GainBundle.html"><code>GainBundle</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py___wp_for.html"><code>_wp_for</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py__binkey_of.html"><code>binkey_of</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py__tier_ranks_for.html"><code>tier_ranks_for</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___gain_bundle_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_gain_bundle_for">Source ↗</a></p>
 </article>

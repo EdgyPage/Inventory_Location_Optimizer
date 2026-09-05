@@ -230,6 +230,27 @@ FF_PICK_MODE = 'foot'                  # walker
 PUT_CREW_SIZE = 1                      # one walker; put-away is not yet a swept axis
 PUT_CREW_MODE = 'foot'                 # 'foot' | 'machine' -- picks the speed below
 
+# ── the other crews' PRICE, as scalars of the pickers' ──────────────────────────
+# Put-away and receiving keep picking's cost shape and picking's coefficients BY REFERENCE
+# (Warehouse/operations/putaway.py, Inbound/unload.py); these three scalars are the ONLY
+# place their numbers may differ.  The defaults are the kernel's declaration
+# (Warehouse/kernel/cost_model.py), imported rather than restated so the dataclass
+# defaults and the run defaults cannot drift apart; every one is a declared ASSUMPTION of
+# the calibrated era (.scratch/department-calibration, "Define the calibrated era"), not a
+# measurement.
+from Warehouse.kernel.cost_model import (  # noqa: E402
+    DEFAULT_PUT_INTERCEPT_SCALE, DEFAULT_PUT_ITEM_RATIO, DEFAULT_RECV_INTERCEPT_SCALE)
+
+PUT_INTERCEPT_SCALE = DEFAULT_PUT_INTERCEPT_SCALE    # put intercept = picking's × this
+                                                     # ("putting is less work").
+                                                     # --put-intercept-scale
+PUT_ITEM_RATIO = DEFAULT_PUT_ITEM_RATIO              # put per-item charge = picking's × this.
+                                                     # --put-item-ratio
+RECV_INTERCEPT_SCALE = DEFAULT_RECV_INTERCEPT_SCALE  # receive intercept = PUT-AWAY's × this;
+                                                     # the per-item charge is put-away's,
+                                                     # charged once per PACK.
+                                                     # --recv-intercept-scale
+
 # ── the SPLIT put-away configuration ──────────────────────────────────────────────
 # Off by default: one catch-all queue named 'all', which is what every run has ever used.
 # On, put-away becomes three streams with their own crews, carts and floor space --

@@ -192,8 +192,8 @@ def test_per_regime_travel_cost_single_regime_unchanged():
 def test_per_regime_labor_cost():
     rng = random.Random(11)
     ff = _ff_order(1, rng)
-    store_cost = ff.compute_labor_cost(5.0, 0.5, 0.5)        # machine coefs
-    ff_cost = ff.compute_labor_cost(10.0, 0.1, 0.5)          # walker coefs (diff intercept)
+    store_cost = ff.compute_labor_cost(5.0, 0.5, 0.5, pick_per_item=0.5)   # machine coefs
+    ff_cost = ff.compute_labor_cost(10.0, 0.1, 0.5, pick_per_item=0.5)     # walker coefs (diff intercept)
     assert store_cost != ff_cost                             # regime-specific coefficients apply
     assert ff.labor_cost == ff_cost
 

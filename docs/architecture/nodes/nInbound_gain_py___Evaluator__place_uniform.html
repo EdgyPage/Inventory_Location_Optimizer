@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_place_uniform · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_py___Evaluator__place_uniform" data-id="Inbound/gain.py::_Evaluator._place_uniform">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="sep">›</span> <span class="here"><code>_place_uniform</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_place_uniform</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
+
+<pre class="sig"><code>def _place_uniform(self, gunits, chain, wp, xk, yk, excluded, predicted, cache, alloc)</code></pre>
+<section class="doc">The uniform adapter: `fifo`&#x27;s draw, priced by its EXACT expectation and
+consumed as a seat count.
+
+`_uniform_assignment` picks uniformly from the whole tier `_candidates_raw`
+hands it, so (a) every unit&#x27;s bin is marginally uniform over that tier as
+frozen — sequential draws WITHOUT replacement leave the marginal untouched,
+which is what makes this an expectation rather than an approximation — and
+(b) which bin a unit got is worth nothing to the next one.  Units therefore
+keep LOAD order here: a uniform draw has no precedence to sort by (contrast
+`_place_merge`, which sorts by the pool&#x27;s priority).
+
+The reported takes come from `alloc`, the sweep&#x27;s shared block allocator, so
+two candidates claim the same bin only once a tier is oversubscribed.  That is
+not bookkeeping taste: the cost above is identity-blind, so identities exist
+ONLY to feed `plan_order`&#x27;s leftover model, which unions the OTHER candidates&#x27;
+takes.  Independent uniform draws essentially never collide, so hand every
+candidate the same front-of-list bins and that union collapses to one load&#x27;s
+worth — pricing a whole yard&#x27;s contention as a single trailer&#x27;s.  Past the end
+the allocator WRAPS rather than truncating: an oversubscribed tier then marks
+its bins as shared (`n &gt; 1`) for everyone, instead of leaving the last
+candidates empty-handed and making a later arrival look starved purely because
+an earlier one drew its block first.
+
+RESIDUE, named: the union is exact while a tier&#x27;s demand fits in it, and exact
+again once every bin is claimed twice; between those it under-excludes,
+because the leftover model hands a candidate back the bins no OTHER
+candidate&#x27;s block happened to name.  Uniform contention wants a COUNT and the
+seam speaks in identities; this is as close as that seam gets.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__mean_cost.html"><code>_mean_cost</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__moments.html"><code>_moments</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__unseated_cost.html"><code>_unseated_cost</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__useat.html"><code>_useat</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator_place_load.html"><code>place_load</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator__place_uniform">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20_place_uniform">Source ↗</a></p>
+</article>
+</main>
+</body></html>

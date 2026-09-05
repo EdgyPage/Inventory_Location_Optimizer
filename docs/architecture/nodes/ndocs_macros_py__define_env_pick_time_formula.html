@@ -17,7 +17,12 @@
 <pre class="sig"><code>@env.macro
 def pick_time_formula(*args)</code></pre>
 <section class="doc">Pick-time cost model (LaTeX) with this config&#x27;s calibrated coefficients.
-Matches Warehouse/picking/Pick.py: t_pick = M(y)·(t0 + q·h) + c_cart·1[cart swap].</section>
+Matches Warehouse/picking/Pick.py:
+    t_pick = M(y)·(t0 + q·t1 + q·h) + c_cart·1[cart swap]
+where t1 is the per-item charge (ADR-0001).  An archived config WITHOUT a
+`pick_per_item` key predates the charge: it ran the model without the term, so
+the term is rendered absent rather than at this checkout&#x27;s default — the page
+describes the run, not the current code.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env_pick_time_formula">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20pick_time_formula">Source ↗</a></p>
 </article>

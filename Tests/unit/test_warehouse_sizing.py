@@ -578,7 +578,7 @@ def _run_batch_drain(build_fn, label: str):
     aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={},
                                 sum_lift=lambda skus: 0.0,
                                 delta_lift_idxs=lambda s, idxs: 0.0)
-    wp  = types.SimpleNamespace(x_speed=1.0, y_speed=1.0, pick_intercept=1.0,
+    wp  = types.SimpleNamespace(x_speed=1.0, y_speed=1.0, pick_intercept=1.0, pick_per_item=0.5,
                                 pick_weight_coef=0.5, pick_volume_coef=0.5)
     mgr.placement = Placement('test_ranked', mgr.placement.place_one, build_fn(
         aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
@@ -739,7 +739,8 @@ def test_batch_assignment_gives_the_highest_priority_unit_the_cheapest_bin():
              for i, f in enumerate(freqs)]
     aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={})
     wp  = types.SimpleNamespace(x_speed=1.0, y_speed=1.0,
-                                pick_intercept=1.0, pick_weight_coef=0.0, pick_volume_coef=0.0)
+                                pick_intercept=1.0, pick_per_item=0.5,
+                                pick_weight_coef=0.0, pick_volume_coef=0.0)
 
     fn  = build_ranked_minimizing_assignment_fn(
         aff, wp, defaultdict(set), defaultdict(set), defaultdict(float), {}, {}, {}, beta=1.0)
@@ -1064,7 +1065,7 @@ def test_capacity_reloaders_respect_their_budget_and_lower_sigma_fd():
 
     fbs = {c.sku: c.demand.relative_frequency for c in plan.sampled}
     qbs = {c.sku: c.demand.quantity_rate      for c in plan.sampled}
-    wp  = types.SimpleNamespace(x_speed=x, y_speed=y, pick_intercept=1.0,
+    wp  = types.SimpleNamespace(x_speed=x, y_speed=y, pick_intercept=1.0, pick_per_item=0.5,
                                 pick_weight_coef=0.0, pick_volume_coef=0.0)
     mgr.placement = Placement('test_ranked', mgr.placement.place_one,
                               build_ranked_minimizing_assignment_fn(

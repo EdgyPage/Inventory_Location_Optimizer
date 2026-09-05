@@ -693,6 +693,9 @@ files:
       - {name: "FF_PICK_MODE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CREW_SIZE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CREW_MODE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_INTERCEPT_SCALE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "PUT_ITEM_RATIO", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "RECV_INTERCEPT_SCALE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_QUEUE_SPLIT", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CART_CREW", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_PALLET_CREW", file: "Optimization/config/settings.py", kind: "const"}
@@ -734,6 +737,7 @@ files:
       - {name: "inbound_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_queues_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "crew_cost_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "ff_fill", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "regime_sizing_from_config", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -758,6 +762,8 @@ files:
       - {name: "PHASE2_LEAD_SPREAD", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_DOCK_DOORS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_FINITE_W", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_RECV_CREW_SIZE", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_RECV_DAY_SECONDS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "phase2_inbound_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -3253,6 +3259,14 @@ files:
       - {name: "test_a_load_seatable_nowhere_prices_zero_and_cancels", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_structured_plan_equals_naive_rebuild_per_candidate", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_sabotaged_sort_structure_is_caught", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_uniform_price_is_the_exact_expectation_of_the_real_draw", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_height_multiplier_is_averaged_per_bin_not_read_at_the_mean_height", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_uniform_consumption_is_a_count_not_a_set", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_sweep_allocator_hands_each_candidate_its_own_bins", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_an_oversubscribed_tier_is_shared_rather_than_handed_to_whoever_swept_first", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_an_uncontended_uniform_tier_gives_the_myopic_arm_nothing", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_uniform_forecast_reads_the_predicted_tier_and_a_sabotaged_moment_is_caught", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_rider_plans_a_real_drain_through_the_driver_bundle", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_entry_through_yard_order_is_pure_and_permutes", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_pool_adapter_agrees_on_contention_and_never_mutates_live_state", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_expectation_pricing_consumes_no_rng_and_permutes", file: "Tests/unit/test_gain_plan.py", kind: "function"}
@@ -3462,6 +3476,32 @@ files:
       - {name: "test_initial_stock_conserves_quantity_and_carries_no_reorder_flag", file: "Tests/unit/test_palletizing.py", kind: "function"}
       - {name: "test_originals_hold_the_unflagged_template_a_reorder_is_copied_from", file: "Tests/unit/test_palletizing.py", kind: "function"}
       - {name: "test_reorder_copies_preserve_everything_the_palletizer_reads", file: "Tests/unit/test_palletizing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_per_item_charge.py":
+    purpose: "the per-item charge, and the hard break it is (ADR-0001)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_primitive_is_the_model_stated_once", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_a_zero_charge_is_bit_identical_to_the_old_expression", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_default_charge_is_non_zero_by_decision", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_three_cost_objects_share_one_literal_set", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_pick_time_charges_the_intercept_per_line_and_the_charge_per_item", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_labor_cost_requires_the_charge_and_carries_it", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_analytical_mirror_carries_the_charge", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_put_away_is_pickings_price_at_the_declared_scales", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_put_cost_charges_per_item_like_a_pick", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_receiving_is_put_aways_price_by_reference", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_receiving_charges_per_pack_not_per_item", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_gain_evaluator_carries_the_charge", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_demand_mass_yardstick_carries_the_charge", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_scales_are_declared_and_default_to_the_kernel", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_scales_are_read_from_config_at_call_time", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_scales_have_cli_flags", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_scales_are_recorded_and_restored_on_resume", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_worker_payload_carries_the_scales", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_runner_prices_both_crews_from_the_payload_and_the_pick_config", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_the_leaf_config_record_carries_the_charge", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
+      - {name: "test_a_pre_charge_archive_is_rebuilt_without_the_charge", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
     notes: ""
   "Tests/unit/test_pick_config_conversion.py":
     purpose: "one dict\u2192PickConfig conversion, one default set."
@@ -3883,8 +3923,8 @@ files:
       - {name: "test_an_arm_key_outside_the_strategy_grid_is_dropped_and_named", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_fifo_rides_along_even_when_it_does_not_rank", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_extension_cap_backfills_from_the_faithful_set", file: "Tests/unit/test_restock_selection.py", kind: "function"}
-      - {name: "test_the_mandatory_rider_is_reported_as_needing_a_bundle_of_its_own", file: "Tests/unit/test_restock_selection.py", kind: "function"}
-      - {name: "test_a_gain_bundle_really_is_refused_for_the_rider", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_mandatory_rider_needs_no_extension", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_gain_bundle_really_is_built_for_the_rider", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_faithful_set_is_the_one_the_driver_actually_accepts", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_artifact_lands_at_the_run_root_and_states_its_metric", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_all_seventeen_rules_are_recorded_not_just_the_cut", file: "Tests/unit/test_restock_selection.py", kind: "function"}

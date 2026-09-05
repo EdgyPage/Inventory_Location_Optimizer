@@ -45,6 +45,7 @@ def _oracle_travel_balanced_impl(units, candidates_fn, affinity, wp,
     wp = _wp_for(wp, units[0]) if units else wp
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)
     intercept = wp.pick_intercept
+    per_item  = wp.pick_per_item          # ADR-0001: the oracle prices what the pool prices
     brackets = getattr(wp, 'height_brackets', ())
     sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
     if not sorted_units:
@@ -83,7 +84,7 @@ def _oracle_travel_balanced_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = dq[0]
-            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
             if best is None or cost < best[0]:
                 best = (cost, m, b)
         return best

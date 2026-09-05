@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_cost_at · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_py___Evaluator__cost_at" data-id="Inbound/gain.py::_Evaluator._cost_at">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="sep">›</span> <span class="here"><code>_cost_at</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_cost_at</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _cost_at(self, unit, x, y, hm, wp, xk, yk) -&gt; float</code></pre>
+<section class="doc">put travel (paid once) + E[visits] x (pick travel + per_pick at height),
+read at a LOCATION (x, y) with height multiplier `hm`.
+A zero demand rate means the unit is never picked: its pick term is ZERO
+(not quantity visits, the maximum possible reading); put is still paid.
+
+Under window rates (the futuresight entry) the SKU&#x27;s REALIZED window demand
+stands where the static rate stands: absent from the window = not picked in
+the visible future, put only; present = per-event draw total/events, visits
+capped at the event count (a unit cannot be visited more often than demand
+events exist — the cap is what makes w=inf honestly the oracle).
+
+`hm` None reads the bracket step at `y` — a real bin, the only caller that
+existed before the uniform adapter.  A VALUE is a tier&#x27;s MEAN multiplier, and
+passing one is exactly why the expectation below is exact: this expression is
+AFFINE in x, y and hm, so its mean over a bin set equals its value at the
+set&#x27;s means.  The step function is evaluated per bin when the moments are
+taken, never on an averaged y (which would be a different, wrong number).
+The sentinel keeps the bracket walk off the put-only path, where it would be
+computed and thrown away for every never-picked unit.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__mean_cost.html"><code>_mean_cost</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__pair_cost.html"><code>_pair_cost</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator__cost_at">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20_cost_at">Source ↗</a></p>
+</article>
+</main>
+</body></html>

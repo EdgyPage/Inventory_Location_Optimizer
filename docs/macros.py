@@ -411,16 +411,25 @@ def define_env(env):
     @env.macro
     def pick_time_formula(*args):
         """Pick-time cost model (LaTeX) with this config's calibrated coefficients.
-        Matches Warehouse/picking/Pick.py: t_pick = M(y)·(t0 + q·h) + c_cart·1[cart swap]."""
+        Matches Warehouse/picking/Pick.py:
+            t_pick = M(y)·(t0 + q·t1 + q·h) + c_cart·1[cart swap]
+        where t1 is the per-item charge (ADR-0001).  An archived config WITHOUT a
+        `pick_per_item` key predates the charge: it ran the model without the term, so
+        the term is rendered absent rather than at this checkout's default — the page
+        describes the run, not the current code."""
         c = _load_cfg(*_ric(args))
         t0 = _num(c["pick_intercept"])
+        t1 = c.get("pick_per_item")           # None on a pre-charge archive
         wt = _fmt_fn_tex(c["pick_weight_coef"], c["pick_weight_fn"], "w")
         vt = _fmt_fn_tex(c["pick_volume_coef"], c["pick_volume_fn"], "V")
         cart = _num(c["cart_swap_coef"])
         vx, vy = c["x_speed"], c["y_speed"]
         dx, dy = _num(12 * vx), _num(12 * vy)
+        item_term = "" if t1 is None else r" + q\," + _num(t1)
+        item_gloss = ("" if t1 is None else
+                      r" $t_1$ the per-item charge (s per unit picked),")
         return "\n".join([
-            r"$$t_{\text{pick}} \;=\; M(y)\,\bigl(" + t0 + r" + q\,h\bigr)"
+            r"$$t_{\text{pick}} \;=\; M(y)\,\bigl(" + t0 + item_term + r" + q\,h\bigr)"
             r" \;+\; " + cart + r"\,\mathbb{1}[\text{cart swap}],"
             r"\qquad h \;=\; " + wt + " + " + vt + r"$$",
             "",
@@ -428,9 +437,11 @@ def define_env(env):
             r"}\ \text{s}\qquad(\text{speeds } " + _num(vx) + "/" + _num(vy) +
             r"\ \text{ft·s}^{-1}\text{, cross-aisle / along-aisle}).$$",
             "",
-            r"Here $t_0$ is the fixed pick setup (s), $q$ the quantity picked, $w$ the item "
+            r"Here $t_0$ is the fixed setup per pick line (s, one bin visit for one SKU),"
+            + item_gloss +
+            r" $q$ the quantity picked, $w$ the item "
             r"weight (lb), $V$ its volume (in³), $y$ the shelf height, $M(y)$ the height-bracket "
-            r"multiplier (per calibration below), $h$ the per-pick **handling term**, "
+            r"multiplier (per calibration below), $h$ the per-unit **handling term**, "
             r"$c_{\text{cart}}$ the cart-swap penalty, and $\mathbb{1}[\cdot]$ its indicator. "
             r"$M(y)$ scales the whole at-location pick; the cart penalty is not height-scaled.",
         ])

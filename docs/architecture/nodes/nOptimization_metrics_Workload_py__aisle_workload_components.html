@@ -19,7 +19,7 @@
 
   D (travel)   = x_traversed * sec_per_inch(x_speed) + y_traversed * sec_per_inch(y_speed)
                  (x_speed/y_speed are ft/s; x_traversed/y_traversed are inches walked)
-  P (handling) = Σ_stops  height_mult(y) * (intercept + qty
+  P (handling) = Σ_stops  height_mult(y) * (intercept + qty * per_item + qty
                                     * (weight_coef*ln(weight) + volume_coef*ln(volume)))
   C (cart)     = cart_swap_coef * max(0, carts_required - 1)
 

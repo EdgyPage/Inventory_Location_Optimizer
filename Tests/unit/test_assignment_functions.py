@@ -66,6 +66,7 @@ class _B:
 
 def _wp(x_speed=1.0, y_speed=1.0, **kw):
     """A WorkloadParams stand-in.  y_speed is POSITIVE by default (see module docstring)."""
+    kw.setdefault('pick_per_item', 0.5)   # the scorers read it; kernel default unless a test sets it
     return types.SimpleNamespace(x_speed=x_speed, y_speed=y_speed, **kw)
 
 

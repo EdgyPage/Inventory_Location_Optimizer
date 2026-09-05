@@ -13,9 +13,43 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 # (upper_y_phys_exclusive, handling_multiplier) brackets — a bin's bracket is the first
-# whose threshold exceeds its y_phys (else the last).  The multiplier scales ONLY the
-# per-unit weight/volume handling term (not the intercept or cart-swap penalty).
+# whose threshold exceeds its y_phys (else the last).  The multiplier scales the WHOLE
+# at-location expression `per_pick` (intercept, per-item charge and handling alike);
+# the only at-location term outside it is the cart-swap penalty, which the sim loops
+# charge as their own timed step.  (This comment said "ONLY the per-unit handling term"
+# for as long as it existed, while `per_pick` scaled the whole — `_pick_time` had it right.)
 DEFAULT_HEIGHT_BRACKETS: tuple = ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4))
+
+# ── the handling model's DEFAULT coefficients — ONE literal set ─────────────────────
+# `PickConfig` (Warehouse/picking), `WorkloadParams` (Optimization/metrics) and
+# `PutawayCost` (Warehouse/operations) all default to THESE, by reference.  They used to be
+# three copied literal sets that "mirrored" each other — and this project has already paid
+# for two default sets that drifted 55x apart.  A put crew may not import the pick
+# simulation (architecture.yml: wh_operations -> wh_picking is forbidden), so the kernel
+# is the only place all three can share a declaration.
+#
+# THE MODEL, stated once:  M(y) · (intercept + qty · per_item + qty · var)
+#   intercept  — charged once per pick LINE (one bin visit for one SKU), never per item;
+#   per_item   — the fixed labour of placing one unit into the cart and labelling it,
+#                charged once per UNIT.  Non-zero by decision (ADR-0001, docs/adr/): the
+#                intercept was believed to carry this and never did, and a 0.0 default
+#                would have preserved a model the calibrated era deliberately ends;
+#   var        — the per-unit weight/volume handling term (`handle_var`).
+DEFAULT_PICK_INTERCEPT: float   = 1.0
+DEFAULT_PICK_PER_ITEM: float    = 0.5
+DEFAULT_PICK_WEIGHT_COEF: float = 0.02
+DEFAULT_PICK_VOLUME_COEF: float = 1e-4
+DEFAULT_PICK_WEIGHT_FN: str     = 'log'
+DEFAULT_PICK_VOLUME_FN: str     = 'log'
+# The other two crews keep picking's shape and coefficients and differ ONLY by these
+# declared scalars (the run-level knobs are settings.PUT_INTERCEPT_SCALE and siblings):
+#   put-away   intercept × PUT_INTERCEPT_SCALE ("putting is less work"),
+#              per_item  × PUT_ITEM_RATIO;
+#   receiving  put-away's intercept × RECV_INTERCEPT_SCALE, and put-away's per-item
+#              charge ONCE PER PACK rather than per item (a pack is what a receiver lifts).
+DEFAULT_PUT_INTERCEPT_SCALE: float  = 0.5
+DEFAULT_PUT_ITEM_RATIO: float       = 0.2
+DEFAULT_RECV_INTERCEPT_SCALE: float = 1.0
 
 
 def height_multiplier(brackets: tuple, y_phys: float) -> float:
@@ -66,17 +100,24 @@ def handle_var(weight: float, volume: float,
             + volume_coef * resolve_transform(volume_fn)(volume))
 
 
-def per_pick(mult: float, intercept: float, var: float, qty: float = 1) -> float:
-    """The composite at-location pick expression  mult · (intercept + qty · var).
+def per_pick(mult: float, intercept: float, var: float, qty: float = 1,
+             per_item: float = 0.0) -> float:
+    """The composite at-location expression  mult · (intercept + qty · per_item + qty · var).
 
     THE one formula behind every per-pick cost in the codebase — the sim's pick time
-    (mult = height bracket M(y)), the analytical workload P-term, the per-SKU labor_cost
-    (mult=1, qty=1), the optimal-map coefficients (mult = frequency), and the marginal
-    placement scores (… + D).  Previously inlined at 7 sites with "mirrors _pick_time"
-    comments; one helper makes the invariant structural.  Expression shape/associativity
-    preserved exactly — float-identical with the inlined originals (a·b is commutative
-    bit-for-bit in IEEE 754, so qty·var == var·qty)."""
-    return mult * (intercept + qty * var)
+    (mult = height bracket M(y)), the put-away and unload costs, the analytical workload
+    P-term, the per-SKU labor_cost (mult=1, qty=1), the optimal-map coefficients (mult =
+    frequency), the gain evaluator's at-bin price and the marginal placement scores (… + D).
+    Previously inlined at 7 sites with "mirrors _pick_time" comments; one helper makes the
+    invariant structural.
+
+    `per_item` is the per-UNIT charge (see DEFAULT_PICK_PER_ITEM above).  It is a parameter
+    HERE, defaulting to 0.0, so the primitive does not fork: every caller passes its own
+    crew's value (`PickConfig.pick_per_item`, `PutawayCost.per_item`, …), and the model-level
+    defaults are non-zero where the decision says so.  With `per_item == 0.0` the expression
+    is bit-identical to the pre-charge `mult · (intercept + qty · var)`: `intercept + 0.0`
+    is exactly `intercept`, and the remaining associativity is unchanged."""
+    return mult * (intercept + qty * per_item + qty * var)
 
 
 # Positions (x_phys/y_phys) are in inches — a pallet column is 48 in = 4 ft (Aisle_Dimensions).

@@ -64,6 +64,11 @@ from Inbound.space import SpaceTimeline as _SpaceTimeline
 from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
 from Inbound.transit import TrailerTransit as _TrailerTransit, YardTransit as _YardTransit
 from Inbound.unload import UnloadCost as _UnloadCost
+from Warehouse.kernel.cost_model import (
+    DEFAULT_PUT_INTERCEPT_SCALE as _DEF_PUT_SCALE, DEFAULT_PUT_ITEM_RATIO as _DEF_PUT_RATIO,
+    DEFAULT_RECV_INTERCEPT_SCALE as _DEF_RECV_SCALE)
+from Warehouse.operations.putaway import PutawayCost as _PutawayCost
+from dataclasses import replace as _dc_replace
 from Warehouse.inventory.inventory_common import (
     _wp_for, binkey_of as _binkey_of, tier_ranks_for as _tier_ranks_for)
 from Warehouse.placement import Assignment_Functions as _af
@@ -611,7 +616,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # derive from this + demand, so the hot ranked-wave order/balance never re-takes logs.
     for c in inventory.orders:
         c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef,
-                             wp.pick_weight_fn, wp.pick_volume_fn)
+                             wp.pick_weight_fn, wp.pick_volume_fn,
+                             pick_per_item=wp.pick_per_item)
 
     # ── affinity ──────────────────────────────────────────────────────────────
     log.info(f'Loading affinity: {aff_db}')
@@ -822,7 +828,19 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     _put_workers = _put_crews[mgr.put_queues.queues[0].name]
     # Put-away now costs seconds.  ADDITIVE: it moves no pick result (same items, same
     # order, same instants); it records durations and rows.  See enable_putaway_timing.
-    mgr.enable_putaway_timing(_put_crew.speed, size=_put_crew.size)
+    #
+    # THE PUT CREW'S PRICE IS THE PICKERS' PRICE, SCALED.  Built from THIS channel's
+    # pick config by reference (a store arm's 15 s intercept reaches the put crew as
+    # 15 × PUT_INTERCEPT_SCALE; the class defaults alone would have priced it at the
+    # kernel's 1.0 × 0.5 while the pickers beside it were billed 15 -- the "second literal
+    # set" both cost modules forbid).  The scales ride the payload (`crew_cost`), not a
+    # re-import: a spawned worker re-imports sim_config and gets pristine defaults.
+    _cc = args.get('crew_cost') or {}
+    _pcost = _PutawayCost.from_pick(
+        pick_cfg,
+        intercept_scale=float(_cc.get('put_intercept_scale', _DEF_PUT_SCALE)),
+        item_ratio=float(_cc.get('put_item_ratio', _DEF_PUT_RATIO)))
+    mgr.enable_putaway_timing(_put_crew.speed, cost=_pcost, size=_put_crew.size)
 
     # ── the receiving crew ────────────────────────────────────────────────────────
     # ABSENT BY DEFAULT, AND STRUCTURALLY SO: `recv_crew_spec()` returns None when the size
@@ -842,10 +860,14 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         _uid = _recv_crew.next_uid(_uid)
         _recv_sources = ('reorder', 'trailer') if args.get('inbound') is not None \
             else ('reorder',)
-        # The unload cost's own coefficients (the independent inbound price lever).
-        # Unset keys leave UnloadCost's by-reference put-away defaults in place, so the
-        # archive is untouched at defaults; _ucost None hands Dock its own default.
-        _ucost = None
+        # The receiving price is the PUT crew's price by reference (which is the pickers'
+        # by reference), scaled by RECV_INTERCEPT_SCALE from the same payload record --
+        # the picking -> put-away -> receiving chain the two cost modules declare at their
+        # class defaults, rebuilt here from this channel's actual coefficients.
+        _ucost = _UnloadCost.from_putaway(
+            _pcost, intercept_scale=float(_cc.get('recv_intercept_scale', _DEF_RECV_SCALE)))
+        # The unload cost's own coefficients (the independent inbound price lever) overlay
+        # that chain.  Unset keys leave the by-reference values in place.
         _inb_cost = args.get('inbound')
         if _inb_cost is not None:
             _ckw = {}
@@ -856,7 +878,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             if _inb_cost.get('unload_volume_coef') is not None:
                 _ckw['volume_coef'] = float(_inb_cost['unload_volume_coef'])
             if _ckw:
-                _ucost = _UnloadCost(**_ckw)
+                _ucost = _dc_replace(_ucost, **_ckw)
         mgr.enable_receiving(_Dock(_DockSpec(size=_recv_spec['size'],
                                              sources=_recv_sources), cost=_ucost))
         # The rich packer rides with the crew: LoadPlans exist so the dock can count

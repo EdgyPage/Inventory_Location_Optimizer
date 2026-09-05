@@ -222,6 +222,9 @@ def _apply_run_spec(args, spec, explicit):
               'put_queue_split', 'put_cart_crew', 'put_pallet_crew', 'put_ff_crew',
               'put_cart_staging', 'put_pallet_staging', 'put_ff_staging',
               'put_swap_coef',
+              # ...and the other crews' price, for the same reason: an arm that resumed
+              # with this checkout's scales would bill its second half at a different rate.
+              'put_intercept_scale', 'put_item_ratio', 'recv_intercept_scale',
               # ...and the whole inbound family, for the same reason twice over: an arm that
               # resumed without its yard would finish on v1's drain-everything dock, and one
               # that resumed without its lead shape would redraw a different arrival schedule.
@@ -408,6 +411,19 @@ def main():
         metavar='SEC',
         help='Seconds to swap a full put-away cart for an empty one. 0 (the default) '
              'leaves swaps counted and free, which is what the single queue does today.')
+    # ── the other crews' price, as scalars of the pickers' ─────────────────────
+    # Put-away and receiving keep picking's coefficients by reference; these three are the
+    # only place their numbers may differ (settings, "the other crews' price").
+    for _flag, _key, _what in (
+            ('--put-intercept-scale', 'put_intercept_scale',
+             "put-away intercept as a multiple of picking's ('putting is less work')"),
+            ('--put-item-ratio', 'put_item_ratio',
+             "put-away per-item charge as a multiple of picking's"),
+            ('--recv-intercept-scale', 'recv_intercept_scale',
+             "receiving intercept as a multiple of PUT-AWAY's (the per-item charge is "
+             "put-away's, charged once per pack)")):
+        parser.add_argument(_flag, type=_nonneg_float, default=CONFIG['global'][_key],
+                            metavar='X', help=f'{_what[0].upper()}{_what[1:]}.')
     # ── the inbound trailer pipeline + the standing yard ────────────────────────
     # Seams 3 and 4 for the whole family, deferred by every knob this effort added ("the
     # first sweep"); the funnel IS the first sweep, so the debt falls due together.  Every
@@ -615,6 +631,9 @@ def main():
     g['put_pallet_staging'] = args.put_pallet_staging
     g['put_ff_staging']     = args.put_ff_staging
     g['put_swap_coef']      = args.put_swap_coef
+    g['put_intercept_scale']  = args.put_intercept_scale
+    g['put_item_ratio']       = args.put_item_ratio
+    g['recv_intercept_scale'] = args.recv_intercept_scale
     # The inbound family, unconditionally: every flag defaults FROM CONFIG, so a flag-less run
     # writes back exactly what was already there.  Assigning the whole list (rather than
     # `if not None`) is what lets a cell's inbound record and a CLI value share one mechanism —
@@ -754,6 +773,11 @@ def main():
             'put_pallet_staging': g['put_pallet_staging'],
             'put_ff_staging'    : g['put_ff_staging'],
             'put_swap_coef'     : g['put_swap_coef'],
+            # The other crews' price as scalars of the pickers' -- recorded so a resume and
+            # a re-analysis price put-away and receiving as the run did.
+            'put_intercept_scale' : g['put_intercept_scale'],
+            'put_item_ratio'      : g['put_item_ratio'],
+            'recv_intercept_scale': g['recv_intercept_scale'],
             # The inbound family. Read from `g` (post-overlay) like the two families above,
             # and recorded WHOLE rather than only when on: a phase-2 cell that cannot say
             # which lead shape and which fee threshold it ran under is not re-analysable, and

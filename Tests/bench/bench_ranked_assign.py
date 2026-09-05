@@ -56,7 +56,8 @@ def _bench(n_bins, n_aisles, n_units, placed_idx_total, rng):
     # null affinity (co_occur term short-circuits) — we measure the union + pool cost
     aff = types.SimpleNamespace(_matrix=None, _sku_to_idx={})
     wp  = types.SimpleNamespace(x_speed=1.0, y_speed=0.5,
-                                pick_intercept=1.0, pick_weight_coef=0.5, pick_volume_coef=1e-4)
+                                pick_intercept=1.0, pick_per_item=0.5,
+                                pick_weight_coef=0.5, pick_volume_coef=1e-4)
     aisle_sku_sets   = defaultdict(set)
     aisle_idx_sets   = defaultdict(set)
     aisle_demand_sum = defaultdict(float)

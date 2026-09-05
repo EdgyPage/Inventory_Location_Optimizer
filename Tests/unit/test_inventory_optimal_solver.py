@@ -66,6 +66,7 @@ class _Order:
 class _WP:
     x_speed = y_speed = 1.0
     pick_intercept = 1.0
+    pick_per_item = 0.5      # the kernel default (cost_model.DEFAULT_PICK_PER_ITEM)
     height_brackets = ((96, 1.0), (240, 1.2), (float('inf'), 1.4))
 
 

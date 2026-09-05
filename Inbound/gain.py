@@ -281,7 +281,10 @@ class _Evaluator:
             visits = max(1.0, unit.quantity / q)
         if hm is None:
             hm = height_multiplier(wp.height_brackets, y)
-        at_bin = per_pick(hm, wp.pick_intercept, order.handle_var, q)
+        # The full at-location model, per-item charge included: what the sim will bill
+        # at this bin is what the load is priced at (a sabotage test pins that zeroing
+        # `wp.pick_per_item` moves the priced hours).
+        at_bin = per_pick(hm, wp.pick_intercept, order.handle_var, q, wp.pick_per_item)
         return put + visits * (xk * x + yk * y + at_bin)
 
     def _pair_cost(self, unit, bin_, wp, xk, yk) -> float:

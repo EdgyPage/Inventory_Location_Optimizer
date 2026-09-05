@@ -340,6 +340,13 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     g['put_pallet_staging'] = spec.get('put_pallet_staging')
     g['put_ff_staging']     = spec.get('put_ff_staging')
     g['put_swap_coef']      = spec.get('put_swap_coef') or 0.0
+    # The other crews' price.  A pre-field spec yields None, which `crew_cost_spec()`
+    # resolves to the kernel default -- the honest reading of "no scale was declared" (that
+    # run's literal put price is not reproducible by any scale).  Explicit `.get`, never
+    # `or`: a declared 0.0 scale is a real (if odd) configuration, not an absence.
+    g['put_intercept_scale']  = spec.get('put_intercept_scale')
+    g['put_item_ratio']       = spec.get('put_item_ratio')
+    g['recv_intercept_scale'] = spec.get('recv_intercept_scale')
     # The inbound family, unconditionally and from the list itself. A pre-field spec yields
     # None for every key, which is exactly right: `inbound_spec()` returns None without a
     # trailer type, so "absent" restores to "that run had no inbound pipeline" -- never this

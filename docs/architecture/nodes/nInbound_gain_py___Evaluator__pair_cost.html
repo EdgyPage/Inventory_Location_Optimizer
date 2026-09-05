@@ -13,18 +13,10 @@
 <nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="sep">›</span> <span class="here"><code>_pair_cost</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_pair_cost</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _pair_cost(self, unit, bin_, wp, xk, yk) -&gt; float</code></pre>
-<section class="doc">put travel (paid once) + E[visits] x (pick travel + per_pick at height).
-A zero demand rate means the unit is never picked: its pick term is ZERO
-(not quantity visits, the maximum possible reading); put is still paid.
 
-Under window rates (the futuresight entry) the SKU&#x27;s REALIZED window demand
-stands where the static rate stands: absent from the window = not picked in
-the visible future, put only; present = per-event draw total/events, visits
-capped at the event count (a unit cannot be visited more often than demand
-events exist — the cap is what makes w=inf honestly the oracle).</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__place_merge.html"><code>_place_merge</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_pool.html"><code>_place_pool</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__unseated_cost.html"><code>_unseated_cost</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<pre class="sig"><code>def _pair_cost(self, unit, bin_, wp, xk, yk) -&gt; float</code></pre>
+<section class="doc">`_cost_at` read at one real bin — the merge and pool adapters&#x27; pricing.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__cost_at.html"><code>_cost_at</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__place_merge.html"><code>_place_merge</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_pool.html"><code>_place_pool</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__unseated_cost.html"><code>_unseated_cost</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator__pair_cost">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20_pair_cost">Source ↗</a></p>
 </article>
 </main>

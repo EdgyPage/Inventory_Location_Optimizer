@@ -15,15 +15,20 @@
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_unload_py.html"><code>Inbound/unload.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def unload_cost(weight: float, volume: float, quantity: int, cost: UnloadCost) -&gt; float</code></pre>
-<section class="doc">Seconds to take ONE storage unit off a trailer.
+<section class="doc">Seconds to take ONE storage unit off a trailer:
+
+    intercept + per_item + quantity · var
 
 `weight` and `volume` are PER ITEM — `order.weight` and `order.volume()`, exactly as
 `put_cost` takes them.  Passing a pack&#x27;s or a trailer&#x27;s volume instead inflates the log
 term by `ln(quantity)` per unit, and `handle_var` clamps its log input to &gt;= 1 so it
 never raises: a 34-pallet arrival would simply cost as if every item were 34x bigger.
 
-`quantity` is the merchandise in THIS pack (`unit.quantity`), so the intercept is charged
-once for the pack and the variable term once per item in it.
+`quantity` is the merchandise in THIS pack (`unit.quantity`), so the intercept AND the
+per-item charge are charged once for the pack and only the variable term once per item
+in it.  The per-item charge is added outside `per_pick`&#x27;s quantity term on purpose —
+passing it as `per_item` would charge it `quantity` times, which is the pick model, not
+the receiving one (module docstring, &quot;the granularity&quot;).
 
 Returns SECONDS, the unit the whole simulator counts in
 (`Warehouse.kernel.timeline.TIME_UNIT`).</section>

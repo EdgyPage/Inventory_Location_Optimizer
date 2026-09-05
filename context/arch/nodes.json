@@ -669,13 +669,13 @@
     },
     "Inbound/gain.py": {
       "decorators": [],
-      "doc": "gain \u2014 the unload-plan evaluator: EXPECTED FUTURE WORK, faithful-to-arm.\n\nThe gain arms (\"Name the policy arms\", 05) order standing trailers by the put + pick\nhours their placements will generate (\"Define the inbound objective\", 10): serve first\nthe load whose DEFERRAL to the next drain's pool costs the most.  One `@ordering` entry\nper family, called once per drain on the frozen ctx; the entries land in BOTH standing\nregistries, so an arm sets `INBOUND_YARD_POLICY` and `INBOUND_DOCK_POLICY` to one name.\n\n    gain(t) = E[put + pick work if t's load places from the deferral pool]\n            \u2212 E[same if it places from the pool NOW]\n    take argmax gain (ties -> the handed order, which is arrival order); virtually\n    consume what the chosen load would take; repeat.\n\n# \u2500\u2500 the deferral pool (the one recorded deviation from the prototype's letter) \u2500\u2500\u2500\u2500\n\nDecision 4 of the objective names the deferral pool \"the NEXT drain's pool (leftovers +\npredicted)\".  The prototype (ticket 04) approximated leftovers as the CURRENT virtual\npool \u2014 which is exact only when the standing loads do not contend, and makes the myopic\narm's gain identically zero (no predicted tier, same pool on both sides: a fake arm,\n`fifo` in disguise).  The build therefore prices leftovers as what the OTHER remaining\ncandidates leave behind: each greedy step first places every remaining load against the\ncurrent pool (the now side), then each candidate's deferral pool excludes every bin some\nOTHER candidate's now-placement took.  Zero extra placements, symmetric across\ncandidates (two identical loads still tie -> FIFO), degenerates to the prototype's shape\nexactly when takes do not overlap \u2014 and gives the myopic arm its real signal, which is\nCONTENTION for today's space.  Recorded on the build ticket (14), the 11 precedent.\n\n# \u2500\u2500 faithful-to-arm: the fidelity seam \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain` estimates the bins THIS arm's pool would grant, never an idealized best-bin cost\n(10 decision 5).  The seam is `GainBundle`, built and injected by the DRIVER (the\n`drain_sku` precedent \u2014 the import edges `Inbound -> wh_inventory / wh_placement` are\nforbidden, so the broker holds what it is handed):\n\n  * extremal-D arms (tmin / tmax) get the K-CHEAPEST MERGE structure: per BinKey class\n    the bins sorted ONCE per plan by the arm's own D, consumed by slicing \u2014 proven\n    order-equal to the full pool up to co-occurrence near-ties and ~5x cheaper (04\n    finding 1/2).  The merge orders units by freq x labor_cost (the pool's priority\n    minus the co term \u2014 exactly the proven residue).\n  * selector arms get `pool_factory`: the arm's own pool class, rebuilt per evaluation\n    over COPIES of the aisle bookkeeping (purity: live state is never mutated).\n    rank_random's virtual pool must consume no RNG (the seam purity pin), so it prices\n    by EXPECTATION over the pool's current aisle heads and consumes via a deterministic\n    stand-in selector \u2014 the deviation 04 decided and this docstring records.\n\nExhaustion resolves tiers over the `SpaceView` keys the way `_candidates_raw` does:\nsmallest non-empty fitting tier first, spilling UP (the injected `tier_ranks_for`\ncarries the tier tables).  Only past total exhaustion does a unit price at the worst\nbin of its whole spill chain x 1.5 \u2014 a deterministic, knob-free penalty that makes\n\"seats next drain but not now\" defer correctly and cancels when nothing seats anywhere.\n\n# \u2500\u2500 purity, and where the pieces come from \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nAn entry reads ONLY the frozen ctx: `ctx.space` (the drain's SpaceView) and `ctx.gain`\n(the driver-injected bundle, put there by `YardTransit.freeze_ctx`).  It mutates no\nmanager state, consumes no RNG, and returns a permutation (`bounded_order` raises\notherwise).  Cost-model pricing imports from `wh_kernel` \u2014 a legal edge: put travel is\npaid once at the put crew's speeds; pick pays E[visits] x (travel + per_pick at height),\nE[visits] = quantity / per-visit draw.  No new knobs anywhere in the score; the two\ndays-denominated knobs below belong to the GATE, which never blends them into hours.\n\n# \u2500\u2500 the urgency gate (`gain_gated`) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain_forecast` behind a FIFO gate: trailers within `INBOUND_URGENCY_HORIZON_DAYS` of\ncrossing `INBOUND_FEE_THRESHOLD_DAYS` of yard time form the URGENT SET, served FIFO\nahead of everyone; the rest follow the plan, which prices its space AFTER the urgent\nloads consume.  Hours and days never combine into one scalar \u2014 the gate IS the only\nlegal composition (05's two-separate-scores rule).  The horizon spans the poles: 0 ~\npure gain (only already-overdue trailers jump), >= threshold = pure FIFO.\n\n# \u2500\u2500 the futuresight window (`futuresight`) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain_forecast` reading `ctx.space.window` \u2014 the declared-unlawful upper-bound\nREFERENCE (\"Define the inbound objective\" decision 6): a real WMS cannot see\nundispatched orders, so this arm never enters the recommendable set.  The window is\nthe next `INBOUND_FUTURESIGHT_BATCHES` script batches' realized demand ('all' = the\noracle w=inf), driver-fed on its own view slot; the batch script is i.i.d. draws from\nthe static rates, so the edge is exactly SAMPLING-NOISE knowledge \u2014 which SKUs land,\nand their counts.  The build reads it where the static rates otherwise stand, the\nPRICING: a SKU absent from the window is not picked in the visible future (put\ntravel only); a present one prices at its realized per-event draw (window total /\nwindow events) with visits capped at the event count, which is what makes w=inf\nhonestly the oracle.  The placement MACHINERY stays the arm's own, static rates and\nall (faithful-to-arm, 10 decision 5: the real pool cannot see the future, so a\nclairvoyant virtual pool would price placements the arm will never make).  The\ndeferral pool is `gain_forecast`'s \u2014 predicted stays one batch deep by charter; the\nwindow never projects bins.",
+      "doc": "gain \u2014 the unload-plan evaluator: EXPECTED FUTURE WORK, faithful-to-arm.\n\nThe gain arms (\"Name the policy arms\", 05) order standing trailers by the put + pick\nhours their placements will generate (\"Define the inbound objective\", 10): serve first\nthe load whose DEFERRAL to the next drain's pool costs the most.  One `@ordering` entry\nper family, called once per drain on the frozen ctx; the entries land in BOTH standing\nregistries, so an arm sets `INBOUND_YARD_POLICY` and `INBOUND_DOCK_POLICY` to one name.\n\n    gain(t) = E[put + pick work if t's load places from the deferral pool]\n            \u2212 E[same if it places from the pool NOW]\n    take argmax gain (ties -> the handed order, which is arrival order); virtually\n    consume what the chosen load would take; repeat.\n\n# \u2500\u2500 the deferral pool (the one recorded deviation from the prototype's letter) \u2500\u2500\u2500\u2500\n\nDecision 4 of the objective names the deferral pool \"the NEXT drain's pool (leftovers +\npredicted)\".  The prototype (ticket 04) approximated leftovers as the CURRENT virtual\npool \u2014 which is exact only when the standing loads do not contend, and makes the myopic\narm's gain identically zero (no predicted tier, same pool on both sides: a fake arm,\n`fifo` in disguise).  The build therefore prices leftovers as what the OTHER remaining\ncandidates leave behind: each greedy step first places every remaining load against the\ncurrent pool (the now side), then each candidate's deferral pool excludes every bin some\nOTHER candidate's now-placement took.  Zero extra placements, symmetric across\ncandidates (two identical loads still tie -> FIFO), degenerates to the prototype's shape\nexactly when takes do not overlap \u2014 and gives the myopic arm its real signal, which is\nCONTENTION for today's space.  Recorded on the build ticket (14), the 11 precedent.\n\n# \u2500\u2500 faithful-to-arm: the fidelity seam \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain` estimates the bins THIS arm's pool would grant, never an idealized best-bin cost\n(10 decision 5).  The seam is `GainBundle`, built and injected by the DRIVER (the\n`drain_sku` precedent \u2014 the import edges `Inbound -> wh_inventory / wh_placement` are\nforbidden, so the broker holds what it is handed):\n\n  * extremal-D arms (tmin / tmax) get the K-CHEAPEST MERGE structure: per BinKey class\n    the bins sorted ONCE per plan by the arm's own D, consumed by slicing \u2014 proven\n    order-equal to the full pool up to co-occurrence near-ties and ~5x cheaper (04\n    finding 1/2).  The merge orders units by freq x labor_cost (the pool's priority\n    minus the co term \u2014 exactly the proven residue).\n  * selector arms get `pool_factory`: the arm's own pool class, rebuilt per evaluation\n    over COPIES of the aisle bookkeeping (purity: live state is never mutated).\n    rank_random's virtual pool must consume no RNG (the seam purity pin), so it prices\n    by EXPECTATION over the pool's current aisle heads and consumes via a deterministic\n    stand-in selector \u2014 the deviation 04 decided and this docstring records.\n  * `fifo` gets the UNIFORM adapter.  It is the mandatory phase-2 rider (08) and it has\n    no pool at ALL \u2014 `_build_uniform` sets only `place_one`, a uniform draw over the\n    whole tier `_candidates_raw` returns \u2014 so neither adapter above fits.  It needs\n    neither: the draw's expectation is EXACT in closed form, because `_pair_cost` is\n    affine in a bin's (x, y, height multiplier) and sequential draws without\n    replacement leave every unit's bin marginally uniform over the tier as frozen.\n    Price = the tier's mean; consumption = a SEAT COUNT, since which bin a uniform\n    draw got is worth nothing to the next unit.  See `_place_uniform` (ticket 21).\n\nExhaustion resolves tiers over the `SpaceView` keys the way `_candidates_raw` does:\nsmallest non-empty fitting tier first, spilling UP (the injected `tier_ranks_for`\ncarries the tier tables).  Only past total exhaustion does a unit price at the worst\nbin of its whole spill chain x 1.5 \u2014 a deterministic, knob-free penalty that makes\n\"seats next drain but not now\" defer correctly and cancels when nothing seats anywhere.\n\n# \u2500\u2500 purity, and where the pieces come from \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nAn entry reads ONLY the frozen ctx: `ctx.space` (the drain's SpaceView) and `ctx.gain`\n(the driver-injected bundle, put there by `YardTransit.freeze_ctx`).  It mutates no\nmanager state, consumes no RNG, and returns a permutation (`bounded_order` raises\notherwise).  Cost-model pricing imports from `wh_kernel` \u2014 a legal edge: put travel is\npaid once at the put crew's speeds; pick pays E[visits] x (travel + per_pick at height),\nE[visits] = quantity / per-visit draw.  No new knobs anywhere in the score; the two\ndays-denominated knobs below belong to the GATE, which never blends them into hours.\n\n# \u2500\u2500 the urgency gate (`gain_gated`) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain_forecast` behind a FIFO gate: trailers within `INBOUND_URGENCY_HORIZON_DAYS` of\ncrossing `INBOUND_FEE_THRESHOLD_DAYS` of yard time form the URGENT SET, served FIFO\nahead of everyone; the rest follow the plan, which prices its space AFTER the urgent\nloads consume.  Hours and days never combine into one scalar \u2014 the gate IS the only\nlegal composition (05's two-separate-scores rule).  The horizon spans the poles: 0 ~\npure gain (only already-overdue trailers jump), >= threshold = pure FIFO.\n\n# \u2500\u2500 the futuresight window (`futuresight`) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`gain_forecast` reading `ctx.space.window` \u2014 the declared-unlawful upper-bound\nREFERENCE (\"Define the inbound objective\" decision 6): a real WMS cannot see\nundispatched orders, so this arm never enters the recommendable set.  The window is\nthe next `INBOUND_FUTURESIGHT_BATCHES` script batches' realized demand ('all' = the\noracle w=inf), driver-fed on its own view slot; the batch script is i.i.d. draws from\nthe static rates, so the edge is exactly SAMPLING-NOISE knowledge \u2014 which SKUs land,\nand their counts.  The build reads it where the static rates otherwise stand, the\nPRICING: a SKU absent from the window is not picked in the visible future (put\ntravel only); a present one prices at its realized per-event draw (window total /\nwindow events) with visits capped at the event count, which is what makes w=inf\nhonestly the oracle.  The placement MACHINERY stays the arm's own, static rates and\nall (faithful-to-arm, 10 decision 5: the real pool cannot see the future, so a\nclairvoyant virtual pool would price placements the arm will never make).  The\ndeferral pool is `gain_forecast`'s \u2014 predicted stays one batch deep by charter; the\nwindow never projects bins.",
       "kind": "module",
       "signature": null
     },
     "Inbound/gain.py::GainBundle": {
       "decorators": [],
-      "doc": "Everything arm-specific the evaluator needs, injected by the driver.\n\n`pool_factory` None selects the merge adapter (extremal-D family, direction\n`minimize`); otherwise the pool adapter calls\n`pool_factory(candidates, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, wp)`\nwith FRESH copies of the three aisle dicts per evaluation.  `expect_heads` prices\neach unit at the mean over `heads_of(pool)` before consuming (rank_random's no-RNG\nexpectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because\ntheir home (`wh_inventory`) is a forbidden import \u2014 the broker rule.\n\nThe two days-denominated knobs ride here because the gate entry has no other\nchannel to CONFIG (`inbound_spec()` -> driver -> bundle, the five-seam path).",
+      "doc": "Everything arm-specific the evaluator needs, injected by the driver.\n\nThree adapters, and the bundle picks exactly one.  `uniform` selects the uniform\nadapter (`fifo`: no pool, no direction \u2014 the tier's mean and a seat count).  Else\n`pool_factory` None selects the merge adapter (extremal-D family, direction\n`minimize`); otherwise the pool adapter calls\n`pool_factory(candidates, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, wp)`\nwith FRESH copies of the three aisle dicts per evaluation.  `expect_heads` prices\neach unit at the mean over `heads_of(pool)` before consuming (rank_random's no-RNG\nexpectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because\ntheir home (`wh_inventory`) is a forbidden import \u2014 the broker rule.\n\n`minimize` is INERT under `uniform`: a uniform draw has no extremal direction to\nsort a tier by, so nothing reads it.  It is left at its default rather than\nrefused, because the merge adapter's default is the same value.\n\nThe two days-denominated knobs ride here because the gate entry has no other\nchannel to CONFIG (`inbound_spec()` -> driver -> bundle, the five-seam path).",
       "kind": "class",
       "signature": ""
     },
@@ -684,7 +684,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, aisle_sku_sets=None, aisle_idx_sets=None, aisle_demand_sum=None, fee_threshold_days: float=2.0, urgency_horizon_days: float=0.0)"
+      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_sku_sets=None, aisle_idx_sets=None, aisle_demand_sum=None, fee_threshold_days: float=2.0, urgency_horizon_days: float=0.0)"
     },
     "Inbound/gain.py::_Evaluator": {
       "decorators": [],
@@ -713,6 +713,13 @@
       "kind": "function",
       "signature": "(self, unit, own_key)"
     },
+    "Inbound/gain.py::_Evaluator._cost_at": {
+      "decorators": [],
+      "doc": "put travel (paid once) + E[visits] x (pick travel + per_pick at height),\nread at a LOCATION (x, y) with height multiplier `hm`.\nA zero demand rate means the unit is never picked: its pick term is ZERO\n(not quantity visits, the maximum possible reading); put is still paid.\n\nUnder window rates (the futuresight entry) the SKU's REALIZED window demand\nstands where the static rate stands: absent from the window = not picked in\nthe visible future, put only; present = per-event draw total/events, visits\ncapped at the event count (a unit cannot be visited more often than demand\nevents exist \u2014 the cap is what makes w=inf honestly the oracle).\n\n`hm` None reads the bracket step at `y` \u2014 a real bin, the only caller that\nexisted before the uniform adapter.  A VALUE is a tier's MEAN multiplier, and\npassing one is exactly why the expectation below is exact: this expression is\nAFFINE in x, y and hm, so its mean over a bin set equals its value at the\nset's means.  The step function is evaluated per bin when the moments are\ntaken, never on an averaged y (which would be a different, wrong number).\nThe sentinel keeps the bracket walk off the put-only path, where it would be\ncomputed and thrown away for every never-picked unit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit, x, y, hm, wp, xk, yk) -> float"
+    },
     "Inbound/gain.py::_Evaluator._make_pool": {
       "decorators": [],
       "doc": "The arm's own pool over COPIES of the aisle bookkeeping \u2014 the purity rule:\na virtual placement may never advance the live dicts.",
@@ -720,9 +727,23 @@
       "kind": "function",
       "signature": "(self, cands, wp)"
     },
+    "Inbound/gain.py::_Evaluator._mean_cost": {
+      "decorators": [],
+      "doc": "`_cost_at` read at a tier's means \u2014 the exact expectation of `_pair_cost`\nover that tier, by the affineness `_cost_at` documents.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit, mom, wp, xk, yk) -> float"
+    },
+    "Inbound/gain.py::_Evaluator._moments": {
+      "decorators": [],
+      "doc": "(mean x, mean y, mean height multiplier) over a tier as FROZEN \u2014 the three\nnumbers the uniform expectation reads, computed once per (tier, source,\nbrackets) and never rebuilt.\n\nOver the FULL frozen tier, never the excluded-filtered one.  The bins another\nload consumed are a uniformly random subset under this arm, so what is left\nhas the same mean in expectation; filtering them out would bias the price by\nexactly the thing the arm does not choose on.  Only the COUNT is filtered\n(`_useat`).  Keyed by the height brackets because the multiplier is the one\nmoment that is regime-specific.  Callers only ask for a tier they know is\nnon-empty, so there is no empty-set division here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key, predicted: bool, brackets)"
+    },
     "Inbound/gain.py::_Evaluator._pair_cost": {
       "decorators": [],
-      "doc": "put travel (paid once) + E[visits] x (pick travel + per_pick at height).\nA zero demand rate means the unit is never picked: its pick term is ZERO\n(not quantity visits, the maximum possible reading); put is still paid.\n\nUnder window rates (the futuresight entry) the SKU's REALIZED window demand\nstands where the static rate stands: absent from the window = not picked in\nthe visible future, put only; present = per-event draw total/events, visits\ncapped at the event count (a unit cannot be visited more often than demand\nevents exist \u2014 the cap is what makes w=inf honestly the oracle).",
+      "doc": "`_cost_at` read at one real bin \u2014 the merge and pool adapters' pricing.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, unit, bin_, wp, xk, yk) -> float"
@@ -748,6 +769,13 @@
       "kind": "function",
       "signature": "(self, gunits, chain, wp, xk, yk, excluded, predicted, cache)"
     },
+    "Inbound/gain.py::_Evaluator._place_uniform": {
+      "decorators": [],
+      "doc": "The uniform adapter: `fifo`'s draw, priced by its EXACT expectation and\nconsumed as a seat count.\n\n`_uniform_assignment` picks uniformly from the whole tier `_candidates_raw`\nhands it, so (a) every unit's bin is marginally uniform over that tier as\nfrozen \u2014 sequential draws WITHOUT replacement leave the marginal untouched,\nwhich is what makes this an expectation rather than an approximation \u2014 and\n(b) which bin a unit got is worth nothing to the next one.  Units therefore\nkeep LOAD order here: a uniform draw has no precedence to sort by (contrast\n`_place_merge`, which sorts by the pool's priority).\n\nThe reported takes come from `alloc`, the sweep's shared block allocator, so\ntwo candidates claim the same bin only once a tier is oversubscribed.  That is\nnot bookkeeping taste: the cost above is identity-blind, so identities exist\nONLY to feed `plan_order`'s leftover model, which unions the OTHER candidates'\ntakes.  Independent uniform draws essentially never collide, so hand every\ncandidate the same front-of-list bins and that union collapses to one load's\nworth \u2014 pricing a whole yard's contention as a single trailer's.  Past the end\nthe allocator WRAPS rather than truncating: an oversubscribed tier then marks\nits bins as shared (`n > 1`) for everyone, instead of leaving the last\ncandidates empty-handed and making a later arrival look starved purely because\nan earlier one drew its block first.\n\nRESIDUE, named: the union is exact while a tier's demand fits in it, and exact\nagain once every bin is claimed twice; between those it under-excludes,\nbecause the leftover model hands a candidate back the bins no OTHER\ncandidate's block happened to name.  Uniform contention wants a COUNT and the\nseam speaks in identities; this is as close as that seam gets.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, gunits, chain, wp, xk, yk, excluded, predicted, cache, alloc)"
+    },
     "Inbound/gain.py::_Evaluator._tier_sorted": {
       "decorators": [],
       "doc": null,
@@ -762,12 +790,19 @@
       "kind": "function",
       "signature": "(self, unit, chain, wp, xk, yk) -> float"
     },
-    "Inbound/gain.py::_Evaluator.place_load": {
+    "Inbound/gain.py::_Evaluator._useat": {
       "decorators": [],
-      "doc": "(cost, takes) of placing `units` against the availability that `excluded`\nleaves standing; `predicted` merges the deferral tier in.  Groups by the\nunit's OWN BinKey in load order (the canonical pack order is deterministic),\nspilling up the chain per group.",
+      "doc": "One placement's view of a tier for the uniform adapter:\n`[seats, predicted weight, the now-list]`.\n\nBoth numbers are fixed at first touch and never recomputed as the tier is\nconsumed.  The units draw from ONE pool \u2014 the empties merged with whatever\npredicted clears the arm may see \u2014 and drawing uniformly from a mixed pool\nleaves its mix proportional in expectation, so the weight does not drift.\nWhat consumption changes is the SEAT COUNT, and that is the whole mechanism:\nit is the only way an inbound ordering can move a uniform arm's cost.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, units, excluded, predicted: bool)"
+      "signature": "(self, key, excluded, predicted, cache)"
+    },
+    "Inbound/gain.py::_Evaluator.place_load": {
+      "decorators": [],
+      "doc": "(cost, takes) of placing `units` against the availability that `excluded`\nleaves standing; `predicted` merges the deferral tier in.  Groups by the\nunit's OWN BinKey in load order (the canonical pack order is deterministic),\nspilling up the chain per group.\n\n`alloc` is the sweep's shared block allocator, read by the uniform adapter\nONLY (see `_place_uniform`) and inert for the other two.  None gives this\nplacement its own, which is what the forced prefix and the deferral side\nwant: each of those stands alone, against an `excluded` that already carries\nwhatever went before it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, units, excluded, predicted: bool, *, alloc=None)"
     },
     "Inbound/gain.py::_SECONDS_PER_DAY": {
       "decorators": [],
@@ -1506,7 +1541,7 @@
     },
     "Inbound/unload.py": {
       "decorators": [],
-      "doc": "unload \u2014 what it costs to take merchandise off a trailer.\n\n# \u2500\u2500 the put-away cost, minus the two terms a dock does not have \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`putaway.put_cost` is `travel + per_pick(height_multiplier(...), intercept, handle_var(...),\nquantity)`.  An unload keeps the handling term verbatim and drops both of the others:\n\n**No travel.**  `put_cost`'s travel is `x_phys * speed.x_pace + y_phys * speed.y_pace`\nagainst a BIN.  A receive has no bin, and there is no dock coordinate anywhere in the model\n-- grepping `dock|trailer|unload` across `Warehouse/` finds this file and prose.  The\ntempting shortcut is to call `put_cost` with the dock at `(0, 0)`: travel comes out exactly\n0.0 and `height_multiplier(brackets, 0.0)` comes out exactly 1.0, so it returns a plausible\nnumber while silently asserting that unloading involves no travel at all.  Same for a\n`dock_travel = 0.0` field: it is a slot for a number no layout can validate, and setting it\nto 200 would assert 200 inches of x-travel corresponding to nothing.  So the term is ABSENT,\nand this paragraph is the record that its absence is a decision.\n\n**No height multiplier.**  A trailer floor is one height.  `UnloadCost` therefore has no\n`height_brackets` field at all, rather than one defaulted to a flat bracket -- the field's\nabsence is what makes the claim checkable.\n\n**No speed, and therefore no mode.**  Without a travel term there is nothing for a speed to\nscale, so `unload_cost` takes no `SpeedProfile`.  The consequence is worth stating plainly\nbecause someone will want a knob for it: *this model cannot say whether a forklift crew\nunloads faster than a hand crew.*  Only crew SIZE changes a receiving makespan, because size\nis the number of clocks.  A mode knob would label rows without moving a second, and a sweep\nover it would publish \"mode makes no difference to receiving\".  When an unload gains a\ntravel term, mode arrives with it.\n\n# \u2500\u2500 the granularity, which moves the answer by an order of magnitude \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`per_pick(mult, intercept, var, qty)` is `mult * (intercept + qty * var)`, so the intercept\nis charged ONCE PER CALL.  A 60-unit arrival therefore costs one intercept-second if it is\ncosted as one call and sixty if it is costed per pack -- and at the default `intercept=1.0`\nthat is a 59-second difference on a single arrival, scaling with the run.\n\nThe charge is **per `StorageUnit`**: one call per pack, because a pack is what a person\nlifts, and the fixed grab-orient-set-down charge belongs to the lift.  There is deliberately\nno per-DELIVERY setup term (backing the trailer in, opening the doors): its default would\nhave to be invented, and a coefficient defaulted to 0.0 is dead code that rots.",
+      "doc": "unload \u2014 what it costs to take merchandise off a trailer.\n\n# \u2500\u2500 the put-away cost, minus the two terms a dock does not have \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`putaway.put_cost` is `travel + per_pick(height_multiplier(...), intercept, handle_var(...),\nquantity)`.  An unload keeps the handling term verbatim and drops both of the others:\n\n**No travel.**  `put_cost`'s travel is `x_phys * speed.x_pace + y_phys * speed.y_pace`\nagainst a BIN.  A receive has no bin, and there is no dock coordinate anywhere in the model\n-- grepping `dock|trailer|unload` across `Warehouse/` finds this file and prose.  The\ntempting shortcut is to call `put_cost` with the dock at `(0, 0)`: travel comes out exactly\n0.0 and `height_multiplier(brackets, 0.0)` comes out exactly 1.0, so it returns a plausible\nnumber while silently asserting that unloading involves no travel at all.  Same for a\n`dock_travel = 0.0` field: it is a slot for a number no layout can validate, and setting it\nto 200 would assert 200 inches of x-travel corresponding to nothing.  So the term is ABSENT,\nand this paragraph is the record that its absence is a decision.\n\n**No height multiplier.**  A trailer floor is one height.  `UnloadCost` therefore has no\n`height_brackets` field at all, rather than one defaulted to a flat bracket -- the field's\nabsence is what makes the claim checkable.\n\n**No speed, and therefore no mode.**  Without a travel term there is nothing for a speed to\nscale, so `unload_cost` takes no `SpeedProfile`.  The consequence is worth stating plainly\nbecause someone will want a knob for it: *this model cannot say whether a forklift crew\nunloads faster than a hand crew.*  Only crew SIZE changes a receiving makespan, because size\nis the number of clocks.  A mode knob would label rows without moving a second, and a sweep\nover it would publish \"mode makes no difference to receiving\".  When an unload gains a\ntravel term, mode arrives with it.\n\n# \u2500\u2500 the granularity, which moves the answer by an order of magnitude \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`per_pick(mult, intercept, var, qty, per_item)` is `mult * (intercept + qty * per_item +\nqty * var)`, so the intercept is charged ONCE PER CALL.  A 60-unit arrival therefore costs\none intercept if it is costed as one call and sixty if it is costed per pack -- and at the\nput-away default that is a 59 x 0.5 s difference on a single arrival, scaling with the run.\n\nThe charge is **per `StorageUnit`**: one call per pack, because a pack is what a person\nlifts, and the fixed grab-orient-set-down charge belongs to the lift.  **So is the per-item\ncharge**, by decision (`.scratch/department-calibration`, \"Define the calibrated era\"): a\nreceiver handles and labels the PACK, not the items inside it, so the charge lands once per\npack rather than once per item -- an order split into five pallets and a bag of singletons\nis six intercepts and six per-item charges, never six intercepts and sixty charges.  It is\ntherefore added OUTSIDE `per_pick`'s quantity term below rather than passed as `per_item`.\nThere is deliberately no per-DELIVERY setup term (backing the trailer in, opening the\ndoors): its default would have to be invented, and a coefficient defaulted to 0.0 is dead\ncode that rots.",
       "kind": "module",
       "signature": null
     },
@@ -1514,13 +1549,22 @@
       "decorators": [
         "dataclass(frozen=True)"
       ],
-      "doc": "The unload time model's coefficients \u2014 the receiving twin of `PutawayCost`.\n\nEvery default is the PUT-AWAY default **by reference**, not by copied literal.  That is\nthe whole point: `PutawayCost`'s own docstring warns against \"a second set of magic\nnumbers to reconcile later (this project has already paid for two default sets that\ndrifted 55x apart)\", and a reference makes the drift structurally impossible rather than\nmerely a diff someone might notice.  Change a put-away coefficient and this moves with\nit, which is right until someone measures a dock and has a reason to separate them.\n\nNo `height_brackets`, and no speed \u2014 see the module docstring for why each is absent\nrather than defaulted.",
+      "doc": "The unload time model's coefficients \u2014 the receiving twin of `PutawayCost`.\n\nEvery default is the PUT-AWAY default **by reference**, not by copied literal.  That is\nthe whole point: `PutawayCost`'s own docstring warns against \"a second set of magic\nnumbers to reconcile later (this project has already paid for two default sets that\ndrifted 55x apart)\", and a reference makes the drift structurally impossible rather than\nmerely a diff someone might notice.  Change a put-away coefficient and this moves with\nit, which is right until someone measures a dock and has a reason to separate them.\n\nThe one declared divergence is `RECV_INTERCEPT_SCALE` (default 1.0): the receive\nintercept is put-away's \u00d7 that scale, and the per-item charge is put-away's, charged\nonce per PACK (module docstring).  `from_putaway` is how a run builds one from the put\ncrew's own cost and the run's scale, so the chain picking -> put-away -> receiving is\nthe same chain at runtime as it is here at the class defaults.\n\nNo `height_brackets`, and no speed \u2014 see the module docstring for why each is absent\nrather than defaulted.",
       "kind": "class",
       "signature": ""
     },
+    "Inbound/unload.py::UnloadCost.from_putaway": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "The receiving cost derived from the put crew's \u2014 the runtime form of the\nby-reference defaults above, so a run whose pickers charge 15 s a line receives\nat 15 \u00d7 PUT_INTERCEPT_SCALE \u00d7 RECV_INTERCEPT_SCALE rather than the kernel's 0.5.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, put: PutawayCost, *, intercept_scale: float=DEFAULT_RECV_INTERCEPT_SCALE) -> 'UnloadCost'"
+    },
     "Inbound/unload.py::unload_cost": {
       "decorators": [],
-      "doc": "Seconds to take ONE storage unit off a trailer.\n\n`weight` and `volume` are PER ITEM \u2014 `order.weight` and `order.volume()`, exactly as\n`put_cost` takes them.  Passing a pack's or a trailer's volume instead inflates the log\nterm by `ln(quantity)` per unit, and `handle_var` clamps its log input to >= 1 so it\nnever raises: a 34-pallet arrival would simply cost as if every item were 34x bigger.\n\n`quantity` is the merchandise in THIS pack (`unit.quantity`), so the intercept is charged\nonce for the pack and the variable term once per item in it.\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
+      "doc": "Seconds to take ONE storage unit off a trailer:\n\n    intercept + per_item + quantity \u00b7 var\n\n`weight` and `volume` are PER ITEM \u2014 `order.weight` and `order.volume()`, exactly as\n`put_cost` takes them.  Passing a pack's or a trailer's volume instead inflates the log\nterm by `ln(quantity)` per unit, and `handle_var` clamps its log input to >= 1 so it\nnever raises: a 34-pallet arrival would simply cost as if every item were 34x bigger.\n\n`quantity` is the merchandise in THIS pack (`unit.quantity`), so the intercept AND the\nper-item charge are charged once for the pack and only the variable term once per item\nin it.  The per-item charge is added outside `per_pick`'s quantity term on purpose \u2014\npassing it as `per_item` would charge it `quantity` times, which is the pick model, not\nthe receiving one (module docstring, \"the granularity\").\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
       "is_async": false,
       "kind": "function",
       "signature": "(weight: float, volume: float, quantity: int, cost: UnloadCost) -> float"
@@ -6151,6 +6195,20 @@
       "signature": null,
       "value_preview": "4.0"
     },
+    "Optimization/config/settings.py::PUT_INTERCEPT_SCALE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "DEFAULT_PUT_INTERCEPT_SCALE"
+    },
+    "Optimization/config/settings.py::PUT_ITEM_RATIO": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "DEFAULT_PUT_ITEM_RATIO"
+    },
     "Optimization/config/settings.py::PUT_MACHINE_X": {
       "decorators": [],
       "doc": null,
@@ -6213,6 +6271,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "None"
+    },
+    "Optimization/config/settings.py::RECV_INTERCEPT_SCALE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "DEFAULT_RECV_INTERCEPT_SCALE"
     },
     "Optimization/config/settings.py::RELEASES_PER_DAY": {
       "decorators": [],
@@ -6485,6 +6550,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(log_path: str) -> logging.Logger"
+    },
+    "Optimization/config/sim_config.py::crew_cost_spec": {
+      "decorators": [],
+      "doc": "The other crews' PRICE as a picklable record:\n`{put_intercept_scale, put_item_ratio, recv_intercept_scale}`.\n\nPut-away and receiving keep picking's cost shape and coefficients by reference\n(`PutawayCost.from_pick`, `UnloadCost.from_putaway`); these three scalars are the only\nplace their numbers may differ.  Read from CONFIG at CALL time -- never from `_s.`\ndirectly, which is the trap `put_crew_spec` above still carries -- and handed to the\nworker in its payload (`workunits._shared['crew_cost']`), because a spawned worker\nre-imports this module and would get pristine defaults.\n\nA None (a pre-field run spec restored by `run_analysis._apply_run_shape`) resolves to the\nkernel default: that run priced its put crew at the pre-charge literal, which no scale\ncan reproduce, so the default is the honest reconstruction of \"no scale was declared\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
+    "Optimization/config/sim_config.py::crew_cost_spec._f": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(key, default)"
     },
     "Optimization/config/sim_config.py::ff_fill": {
       "decorators": [],
@@ -6843,12 +6922,26 @@
       "signature": null,
       "value_preview": "0.7"
     },
+    "Optimization/config/whatif_config.py::PHASE2_RECV_CREW_SIZE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "4"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_RECV_DAY_SECONDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "43200.0"
+    },
     "Optimization/config/whatif_config.py::PHASE2_THRESHOLD_DAYS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "2.0"
+      "value_preview": "3.0"
     },
     "Optimization/config/whatif_config.py::SPECS": {
       "decorators": [],
@@ -7316,7 +7409,7 @@
       "decorators": [
         "dataclass"
       ],
-      "doc": "Coefficients that define how physical effort is estimated for one aisle.\n\nMirrors the relevant fields of PickConfig (Warehouse/picking/Pick.py) so the\nOptimization layer can compute W without importing simulation internals.\n\nFields\n------\nx_speed      : horizontal travel speed in ft/s (positions are inches)\ny_speed      : vertical travel speed in ft/s (positions are inches)\npick_intercept   : fixed overhead per P stop\npick_weight_coef : time added per (weight \u00d7 quantity) unit\npick_volume_coef : time added per (volume \u00d7 quantity) unit\ncart_swap_coef   : penalty per additional cart needed beyond the first",
+      "doc": "Coefficients that define how physical effort is estimated for one aisle.\n\nMirrors the relevant fields of PickConfig (Warehouse/picking/Pick.py) so the\nOptimization layer can compute W without importing simulation internals.\n\nFields\n------\nx_speed      : horizontal travel speed in ft/s (positions are inches)\ny_speed      : vertical travel speed in ft/s (positions are inches)\npick_intercept   : fixed overhead per P stop (one pick LINE), never per item\npick_per_item    : fixed charge per UNIT handled (cost_model.DEFAULT_PICK_PER_ITEM)\npick_weight_coef : time added per (weight \u00d7 quantity) unit\npick_volume_coef : time added per (volume \u00d7 quantity) unit\ncart_swap_coef   : penalty per additional cart needed beyond the first\n\nThe handling defaults are the KERNEL's, by reference \u2014 the same declaration\n`PickConfig` and `PutawayCost` read, so the mirror cannot drift.",
       "kind": "class",
       "signature": ""
     },
@@ -7354,7 +7447,7 @@
     },
     "Optimization/metrics/Workload.py::aisle_workload_components": {
       "decorators": [],
-      "doc": "The (D, P, C) decomposition of one aisle's workload W = D + P + C.\n\n  D (travel)   = x_traversed * sec_per_inch(x_speed) + y_traversed * sec_per_inch(y_speed)\n                 (x_speed/y_speed are ft/s; x_traversed/y_traversed are inches walked)\n  P (handling) = \u03a3_stops  height_mult(y) * (intercept + qty\n                                    * (weight_coef*ln(weight) + volume_coef*ln(volume)))\n  C (cart)     = cart_swap_coef * max(0, carts_required - 1)\n\nMirrors Warehouse/Pick._pick_time, including the height-bracket multiplier on the\nper-unit weight/volume handling.  Split out so callers can report the\nhandling-vs-travel breakdown of the analytical objective (see expected_task_labor).\n\nParameters\n----------\nx_traversed    : total bayX distance walked in the aisle (from Task)\ny_traversed    : total bayY distance walked in the aisle (from Task)\ncarts_required : number of carts the aisle's picks fill (from Task)\npick_lines     : one (weight, volume, qty[, y_phys]) tuple per pick stop\nparams         : WorkloadParams coefficients",
+      "doc": "The (D, P, C) decomposition of one aisle's workload W = D + P + C.\n\n  D (travel)   = x_traversed * sec_per_inch(x_speed) + y_traversed * sec_per_inch(y_speed)\n                 (x_speed/y_speed are ft/s; x_traversed/y_traversed are inches walked)\n  P (handling) = \u03a3_stops  height_mult(y) * (intercept + qty * per_item + qty\n                                    * (weight_coef*ln(weight) + volume_coef*ln(volume)))\n  C (cart)     = cart_swap_coef * max(0, carts_required - 1)\n\nMirrors Warehouse/Pick._pick_time, including the height-bracket multiplier on the\nper-unit weight/volume handling.  Split out so callers can report the\nhandling-vs-travel breakdown of the analytical objective (see expected_task_labor).\n\nParameters\n----------\nx_traversed    : total bayX distance walked in the aisle (from Task)\ny_traversed    : total bayY distance walked in the aisle (from Task)\ncarts_required : number of carts the aisle's picks fill (from Task)\npick_lines     : one (weight, volume, qty[, y_phys]) tuple per pick stop\nparams         : WorkloadParams coefficients",
       "is_async": false,
       "kind": "function",
       "signature": "(x_traversed: int, y_traversed: int, carts_required: int, pick_lines: list[tuple], params: WorkloadParams) -> tuple[float, float, float]"
@@ -10969,7 +11062,7 @@
     },
     "Optimization/simdriver/strategy_runner.py::_gain_bundle_for": {
       "decorators": [],
-      "doc": "The gain evaluator's faithful-to-arm bundle \u2014 driver-built, driver-injected\n(`mgr.transit.gain_bundle`), because `Inbound -> wh_inventory / wh_placement` are\nforbidden edges: the broker holds what it is handed (the `drain_sku` precedent).\n\nThe fidelity seam per arm FAMILY (prototype ticket 04): tmin/tmax ride the proven\nk-cheapest merge; rank_popularity gets its own pool rebuilt over aisle-state\ncopies (its selector must read the COPY of aisle_demand_sum, not the live dict);\nrank_random gets the pool with a deterministic stand-in selector and expectation\npricing over the aisle heads (an ordering entry may consume no RNG \u2014 the decided\ndeviation 04 recorded).  Any other placement family FAILS LOUDLY: an evaluator\nthat cannot rebuild the arm's pool over copies would price a fiction under that\narm's name, and phase 2's top-k should extend this map consciously, not silently.",
+      "doc": "The gain evaluator's faithful-to-arm bundle \u2014 driver-built, driver-injected\n(`mgr.transit.gain_bundle`), because `Inbound -> wh_inventory / wh_placement` are\nforbidden edges: the broker holds what it is handed (the `drain_sku` precedent).\n\nThe fidelity seam per arm FAMILY (prototype ticket 04): tmin/tmax ride the proven\nk-cheapest merge; rank_popularity gets its own pool rebuilt over aisle-state\ncopies (its selector must read the COPY of aisle_demand_sum, not the live dict);\nrank_random gets the pool with a deterministic stand-in selector and expectation\npricing over the aisle heads (an ordering entry may consume no RNG \u2014 the decided\ndeviation 04 recorded); fifo gets the uniform adapter, which needs nothing from\nhere at all.  Any other placement family FAILS LOUDLY: an evaluator that cannot\nrebuild the arm's pool over copies would price a fiction under that arm's name,\nand phase 2's top-k should extend this map consciously, not silently.",
       "is_async": false,
       "kind": "function",
       "signature": "(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle'"
@@ -13913,10 +14006,10 @@
     },
     "Warehouse/catalog/Order.py::Order.compute_labor_cost": {
       "decorators": [],
-      "doc": "Set (and return) labor_cost = per-unit pick regression cost for this order\nunder the given PickConfig coefficients.  Mirrors Pick._pick_time at qty=1,\nno cart swap, ground level.  Call once per worker after inventory load.\n\nAlso stores handle_var = the per-unit weight/volume term ALONE (without the\nintercept).  labor_cost (= intercept + handle_var) is the qty=1 ground per-pick\ncost used to RANK items; the height multiplier scales the whole at-location pick\nat placement time: per-pick at height = mult*(pick_intercept + qty*handle_var).",
+      "doc": "Set (and return) labor_cost = per-unit pick regression cost for this order\nunder the given PickConfig coefficients.  Mirrors Pick._pick_time at qty=1,\nno cart swap, ground level.  Call once per worker after inventory load.\n\nAlso stores handle_var = the per-unit weight/volume term ALONE (without the\nintercept or the per-item charge).  labor_cost (= intercept + per_item + handle_var)\nis the qty=1 ground per-pick cost used to RANK items; the height multiplier scales\nthe whole at-location pick at placement time:\nper-pick at height = mult*(pick_intercept + qty*pick_per_item + qty*handle_var).\n\n`pick_per_item` is keyword-only and REQUIRED: a caller that forgot it would price\nthe pre-charge model and rank against a labor the sim no longer bills \u2014 silently,\nsince nothing compares the two until a lockstep test does.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, pick_intercept: float, pick_weight_coef: float, pick_volume_coef: float, pick_weight_fn: str='log', pick_volume_fn: str='log') -> float"
+      "signature": "(self, pick_intercept: float, pick_weight_coef: float, pick_volume_coef: float, pick_weight_fn: str='log', pick_volume_fn: str='log', *, pick_per_item: float) -> float"
     },
     "Warehouse/catalog/Order.py::Order.expected_labor": {
       "decorators": [
@@ -16646,10 +16739,10 @@
     },
     "Warehouse/kernel/cost_model.py::per_pick": {
       "decorators": [],
-      "doc": "The composite at-location pick expression  mult \u00b7 (intercept + qty \u00b7 var).\n\nTHE one formula behind every per-pick cost in the codebase \u2014 the sim's pick time\n(mult = height bracket M(y)), the analytical workload P-term, the per-SKU labor_cost\n(mult=1, qty=1), the optimal-map coefficients (mult = frequency), and the marginal\nplacement scores (\u2026 + D).  Previously inlined at 7 sites with \"mirrors _pick_time\"\ncomments; one helper makes the invariant structural.  Expression shape/associativity\npreserved exactly \u2014 float-identical with the inlined originals (a\u00b7b is commutative\nbit-for-bit in IEEE 754, so qty\u00b7var == var\u00b7qty).",
+      "doc": "The composite at-location expression  mult \u00b7 (intercept + qty \u00b7 per_item + qty \u00b7 var).\n\nTHE one formula behind every per-pick cost in the codebase \u2014 the sim's pick time\n(mult = height bracket M(y)), the put-away and unload costs, the analytical workload\nP-term, the per-SKU labor_cost (mult=1, qty=1), the optimal-map coefficients (mult =\nfrequency), the gain evaluator's at-bin price and the marginal placement scores (\u2026 + D).\nPreviously inlined at 7 sites with \"mirrors _pick_time\" comments; one helper makes the\ninvariant structural.\n\n`per_item` is the per-UNIT charge (see DEFAULT_PICK_PER_ITEM above).  It is a parameter\nHERE, defaulting to 0.0, so the primitive does not fork: every caller passes its own\ncrew's value (`PickConfig.pick_per_item`, `PutawayCost.per_item`, \u2026), and the model-level\ndefaults are non-zero where the decision says so.  With `per_item == 0.0` the expression\nis bit-identical to the pre-charge `mult \u00b7 (intercept + qty \u00b7 var)`: `intercept + 0.0`\nis exactly `intercept`, and the remaining associativity is unchanged.",
       "is_async": false,
       "kind": "function",
-      "signature": "(mult: float, intercept: float, var: float, qty: float=1) -> float"
+      "signature": "(mult: float, intercept: float, var: float, qty: float=1, per_item: float=0.0) -> float"
     },
     "Warehouse/kernel/cost_model.py::resolve_transform": {
       "decorators": [
@@ -17502,13 +17595,22 @@
       "decorators": [
         "dataclass(frozen=True)"
       ],
-      "doc": "The put-away time model's coefficients \u2014 the put-side twin of `PickConfig`'s.\n\nDefaults mirror `PickConfig`'s own dataclass defaults, so a caller that supplies\nnothing gets the pick model's shape at the pick model's scale rather than a second set\nof magic numbers to reconcile later (this project has already paid for two default sets\nthat drifted 55x apart).",
+      "doc": "The put-away time model's coefficients \u2014 the put-side twin of `PickConfig`'s.\n\nPICKING'S SHAPE, PICKING'S COEFFICIENTS, TWO DECLARED SCALARS.  Every value here is the\npick model's BY REFERENCE \u2014 the kernel's one literal set (`cost_model.DEFAULT_PICK_*`),\nthe same declaration `PickConfig` reads \u2014 and the only way a put crew's numbers may\ndiffer from a picker's is through the two scales the calibrated era declares:\n\n    intercept = picking's \u00d7 PUT_INTERCEPT_SCALE   (\"putting is less work\", default 0.5)\n    per_item  = picking's \u00d7 PUT_ITEM_RATIO        (default 0.2, i.e. 0.1 s per unit)\n\nThe fields hold the EFFECTIVE (already-scaled) values, so `put_cost` stays one call to\nthe shared primitive and the object is self-describing.  `from_pick` is how a run\nbuilds one from its own `PickConfig` (or `WorkloadParams`) and the run's scales; the\ndataclass defaults are what that yields for the kernel defaults.  There is deliberately\nno second literal set: this project has already paid for two default sets that drifted\n55x apart, and the by-reference link is what makes the drift structurally impossible.\n\nThis module may not import the pick simulation (architecture.yml forbids\nwh_operations -> wh_picking), which is why the shared declaration lives in the kernel.",
       "kind": "class",
       "signature": ""
     },
+    "Warehouse/operations/putaway.py::PutawayCost.from_pick": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "Build the put crew's cost from a pick config's coefficients (duck-typed: a\n`PickConfig` or a `WorkloadParams`, anything with the `pick_*` attributes).\n\nTHE constructor the run harness uses, so a registered pick config's intercept\n(15 s on the store arms, 10 s on fulfillment) actually reaches the put crew \u2014 the\nclass defaults alone would price every put at the kernel's 1.0 while the pickers\nbeside it were charged 15.  The scales are the run's declared knobs\n(`settings.PUT_INTERCEPT_SCALE` / `PUT_ITEM_RATIO`), carried in the worker payload.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, cfg, *, intercept_scale: float=DEFAULT_PUT_INTERCEPT_SCALE, item_ratio: float=DEFAULT_PUT_ITEM_RATIO) -> 'PutawayCost'"
+    },
     "Warehouse/operations/putaway.py::put_cost": {
       "decorators": [],
-      "doc": "Seconds to put `quantity` units away at physical location `(x_phys, y_phys)`.\n\nTravel from the aisle mouth plus height-bracketed handling \u2014 the same two terms, in the\nsame order, through the same primitives as `Pick._pick_time` and `Workload`'s P-term.\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
+      "doc": "Seconds to put `quantity` units away at physical location `(x_phys, y_phys)`.\n\nTravel from the aisle mouth plus height-bracketed handling \u2014 the same two terms, in the\nsame order, through the same primitives as `Pick._pick_time` and `Workload`'s P-term:\n\n    travel + M(y) \u00b7 (intercept + quantity \u00b7 per_item + quantity \u00b7 var)\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
       "is_async": false,
       "kind": "function",
       "signature": "(x_phys: float, y_phys: float, weight: float, volume: float, quantity: int, speed: SpeedProfile, cost: PutawayCost) -> float"
@@ -17741,7 +17843,7 @@
     },
     "Warehouse/picking/Pick.py::_pick_time": {
       "decorators": [],
-      "doc": "Log-linear model for the at-location HANDLING time to pick `quantity` units of an order.\n\nweight and volume must be \u2265 1; values of 0 would cause math.log(0) which\nraises ValueError.  Clamp both to 1 as a safety floor \u2014 a zero-weight or\nzero-volume order is physically impossible and indicates bad data.\n\ny_phys is the bin's physical height; the height bracket factor scales the ENTIRE\nat-location pick operation \u2014 the fixed setup/intercept AND the per-unit weight/volume\nhandling (equipment is slower at everything up high), i.e. M(y)\u00b7(intercept + qty\u00b7var).\ny_phys defaults to 0 (ground bracket \u2192 factor 1.0) so callers without a bin are unaffected.\n\nThe cart-swap penalty (cfg.cart_swap_coef) is NOT part of this handling term \u2014 the sim loops\ncharge it as its own timed step at the swap and the decomposition attributes it to travel.",
+      "doc": "The at-location HANDLING time to pick `quantity` units of one SKU from one bin:\n\n    M(y) \u00b7 (pick_intercept + quantity \u00b7 pick_per_item + quantity \u00b7 var)\n\nONE pick LINE \u2014 one bin visit for one SKU.  The intercept is charged once for the line,\nthe per-item charge once per unit, and `var` (the log-linear weight/volume term) once\nper unit.  `cost_model.per_pick` is the formula; this passes the picker's coefficients.\n\nweight and volume must be \u2265 1; values of 0 would cause math.log(0) which\nraises ValueError.  Clamp both to 1 as a safety floor \u2014 a zero-weight or\nzero-volume order is physically impossible and indicates bad data.\n\ny_phys is the bin's physical height; the height bracket factor scales the ENTIRE\nat-location pick operation \u2014 the intercept, the per-item charge AND the per-unit\nweight/volume handling (equipment is slower at everything up high).  y_phys defaults\nto 0 (ground bracket \u2192 factor 1.0) so callers without a bin are unaffected.\n\nThe cart-swap penalty (cfg.cart_swap_coef) is NOT part of this handling term \u2014 the sim loops\ncharge it as its own timed step at the swap and the decomposition attributes it to travel.",
       "is_async": false,
       "kind": "function",
       "signature": "(cfg: PickConfig, weight: int, volume: int, quantity: int, y_phys: float=0.0) -> float"
@@ -18082,7 +18184,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._aisle_best_cost": {
       "decorators": [],
-      "doc": "Extremal (min, or max if maximize) over the aisle's bracket ends of the\nper-pick labor + travel:  M*(intercept + var) + D  (height scales the whole pick).",
+      "doc": "Extremal (min, or max if maximize) over the aisle's bracket ends of the\nper-pick labor + travel:  M*(intercept + per_item + var) + D  (height scales the whole pick).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, aid, var)"
@@ -18319,7 +18421,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best": {
       "decorators": [],
-      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m*(intercept+var) + D.",
+      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m*(intercept + per_item + var) + D.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, aid, var)"
@@ -18606,7 +18708,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl._aisle_best_cost": {
       "decorators": [],
-      "doc": "Extremal (min, or max if maximize) over the aisle's bracket ends of the\nper-pick labor + travel:  M\u00b7(intercept + var) + D  (height scales the whole pick).",
+      "doc": "Extremal (min, or max if maximize) over the aisle's bracket ends of the\nper-pick labor + travel:  M\u00b7(intercept + per_item + var) + D  (height scales the whole pick).",
       "is_async": false,
       "kind": "function",
       "signature": "(aid, var)"
@@ -18655,7 +18757,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._aisle_best": {
       "decorators": [],
-      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m\u00b7(intercept+var) + D.",
+      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m\u00b7(intercept + per_item + var) + D.",
       "is_async": false,
       "kind": "function",
       "signature": "(aid, var)"
@@ -19673,7 +19775,7 @@
       "decorators": [
         "env.macro"
       ],
-      "doc": "Pick-time cost model (LaTeX) with this config's calibrated coefficients.\nMatches Warehouse/picking/Pick.py: t_pick = M(y)\u00b7(t0 + q\u00b7h) + c_cart\u00b71[cart swap].",
+      "doc": "Pick-time cost model (LaTeX) with this config's calibrated coefficients.\nMatches Warehouse/picking/Pick.py:\n    t_pick = M(y)\u00b7(t0 + q\u00b7t1 + q\u00b7h) + c_cart\u00b71[cart swap]\nwhere t1 is the per-item charge (ADR-0001).  An archived config WITHOUT a\n`pick_per_item` key predates the charge: it ran the model without the term, so\nthe term is rendered absent rather than at this checkout's default \u2014 the page\ndescribes the run, not the current code.",
       "is_async": false,
       "kind": "function",
       "signature": "(*args)"

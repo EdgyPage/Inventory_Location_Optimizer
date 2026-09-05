@@ -1392,6 +1392,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     wp = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     intercept = wp.pick_intercept
+    per_item  = wp.pick_per_item          # the per-unit charge, priced as the sim bills it
     brackets  = getattr(wp, 'height_brackets', ())
     sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
     if not sorted_units:
@@ -1434,13 +1435,13 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
 
     def _aisle_best(aid, var):
         """(cost, mult, bin) of the cheapest available bin in the aisle for this var.
-        Height scales the whole at-location pick: cost = m·(intercept+var) + D."""
+        Height scales the whole at-location pick: cost = m·(intercept + per_item + var) + D."""
         best = None
         for m, dq in by_aisle[aid].items():
             if not dq:
                 continue
             b = dq[0]
-            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
             if best is None or cost < best[0]:
                 best = (cost, m, b)
         return best
@@ -1553,7 +1554,7 @@ class _TravelBalancedPool(_Pool):
     """
 
     __slots__ = ('_ass', '_ais', '_ads', '_apl', '_splp', '_fbs', '_qbs', '_s2i',
-                 '_intercept', '_by_aisle', '_geo_memo', '_load', '_vol_load',
+                 '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
                  '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_score_cache')
 
@@ -1571,6 +1572,7 @@ class _TravelBalancedPool(_Pool):
         speed = SpeedProfile(wp.x_speed, wp.y_speed)
         x_pace, y_pace = speed.x_pace, speed.y_pace
         self._intercept = wp.pick_intercept
+        self._per_item = wp.pick_per_item     # the per-unit charge, priced as the sim bills it
         brackets = getattr(wp, 'height_brackets', ())
 
         # ── optional cart-swap term ──────────────────────────────────────────────
@@ -1661,9 +1663,9 @@ class _TravelBalancedPool(_Pool):
 
     def _aisle_best(self, aid, var):
         """(cost, mult, bin) of the cheapest available bin in the aisle for this var.
-        Height scales the whole at-location pick: cost = m*(intercept+var) + D."""
+        Height scales the whole at-location pick: cost = m*(intercept + per_item + var) + D."""
         best = None
-        intercept = self._intercept
+        intercept, per_item = self._intercept, self._per_item
         for m, h in self._by_aisle[aid].items():
             if not h:
                 continue
@@ -1671,7 +1673,7 @@ class _TravelBalancedPool(_Pool):
             # dict lookup this line used to pay -- once per aisle at every SKU-run boundary,
             # and once more for the winner after every placement -- is gone.
             d, _seq, b = h[0]
-            cost = per_pick(m, intercept, var) + d
+            cost = per_pick(m, intercept, var, 1, per_item) + d
             if best is None or cost < best[0]:
                 best = (cost, m, b)
         return best
@@ -1896,6 +1898,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     wp = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     intercept = wp.pick_intercept
+    per_item  = wp.pick_per_item          # the per-unit charge, priced as the sim bills it
     brackets  = getattr(wp, 'height_brackets', ())
     sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
     if not sorted_units:
@@ -1942,12 +1945,12 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
 
     def _aisle_best_cost(aid, var):
         """Extremal (min, or max if maximize) over the aisle's bracket ends of the
-        per-pick labor + travel:  M·(intercept + var) + D  (height scales the whole pick)."""
+        per-pick labor + travel:  M·(intercept + per_item + var) + D  (height scales the whole pick)."""
         best = None
         for m, dq in by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = per_pick(m, intercept, var) + D_of[id(_rep(dq))]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(_rep(dq))]
             if best is None or _better(cost, best):
                 best = cost
         return best
@@ -2031,7 +2034,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = _rep(dq)
-            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
             if cx is not None:
                 cost += x_pace * abs(b.x_phys - cx)
             if cbest is None or _better(cost, cbest):
@@ -2078,7 +2081,7 @@ class _MinLaborPool(_Pool):
     """
 
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs', '_lam',
-                 '_maximize', '_intercept', '_x_pace', '_D_of', '_by_aisle_brkt',
+                 '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
                  '_s2i', '_matrix', '_rep', '_drop', '_last_sku', '_last_winner',
                  '_bc_by_aid', '_row_items', '_max_reward')
 
@@ -2095,6 +2098,7 @@ class _MinLaborPool(_Pool):
         x_pace, y_pace = speed.x_pace, speed.y_pace
         self._x_pace = x_pace
         self._intercept = wp.pick_intercept
+        self._per_item = wp.pick_per_item     # the per-unit charge, priced as the sim bills it
         brackets = getattr(wp, 'height_brackets', ())
 
         # minimise -> near (min-D) deque head; maximise -> far (max-D) deque tail.
@@ -2135,13 +2139,13 @@ class _MinLaborPool(_Pool):
 
     def _aisle_best_cost(self, aid, var):
         """Extremal (min, or max if maximize) over the aisle's bracket ends of the
-        per-pick labor + travel:  M*(intercept + var) + D  (height scales the whole pick)."""
+        per-pick labor + travel:  M*(intercept + per_item + var) + D  (height scales the whole pick)."""
         best = None
-        intercept, D_of, rep = self._intercept, self._D_of, self._rep
+        intercept, per_item, D_of, rep = self._intercept, self._per_item, self._D_of, self._rep
         for m, dq in self._by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = per_pick(m, intercept, var) + D_of[id(rep(dq))]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(rep(dq))]
             if best is None or self._better(cost, best):
                 best = cost
         return best
@@ -2236,12 +2240,13 @@ class _MinLaborPool(_Pool):
             self._aff, sku, self._amp[best_aid], self._fbi)
         chosen = chosen_m = None
         cbest = None
-        intercept, D_of, x_pace = self._intercept, self._D_of, self._x_pace
+        intercept, per_item = self._intercept, self._per_item
+        D_of, x_pace = self._D_of, self._x_pace
         for m, dq in by_aisle_brkt[best_aid].items():
             if not dq:
                 continue
             b = self._rep(dq)
-            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
             if cx is not None:
                 cost += x_pace * abs(b.x_phys - cx)
             if cbest is None or self._better(cost, cbest):

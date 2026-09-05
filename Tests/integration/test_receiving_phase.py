@@ -302,10 +302,15 @@ def test_the_seconds_match_the_cost_model():
 
 def test_an_unload_is_a_put_at_the_origin_with_no_height():
     """Inverts the trap into a claim: reusing `put_cost` with the dock at (0,0) would return
-    exactly this number, which is why it looks like it works. The difference is that this
-    function cannot silently acquire a travel term or a height bracket later."""
+    ALMOST this number, which is why it looks like it works. The difference is that this
+    function cannot silently acquire a travel term or a height bracket later — and, since
+    ADR-0001, that it charges the per-item term once per PACK where a put charges it per
+    unit: the two differ by exactly (quantity - 1) charges, and by nothing else."""
     from Warehouse.kernel.cost_model import SpeedProfile
     from Warehouse.operations.putaway import PutawayCost, put_cost
+    put = PutawayCost()
     got = unload_cost(2.0, 800.0, 4, UnloadCost())
-    same = put_cost(0.0, 0.0, 2.0, 800.0, 4, SpeedProfile(2.0, 4.0), PutawayCost())
-    assert got == pytest.approx(same)
+    same = put_cost(0.0, 0.0, 2.0, 800.0, 4, SpeedProfile(2.0, 4.0), put)
+    assert same - got == pytest.approx((4 - 1) * put.per_item)
+    assert unload_cost(2.0, 800.0, 1, UnloadCost()) == pytest.approx(
+        put_cost(0.0, 0.0, 2.0, 800.0, 1, SpeedProfile(2.0, 4.0), put))

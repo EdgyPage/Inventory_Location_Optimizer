@@ -50,7 +50,8 @@ def test_labor_cost_matches_pick_time_qty1():
     random.seed(0)
     for _ in range(25):
         c = Order(('conveyable', 'food'))
-        lc = c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
+        lc = c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef,
+                             pick_per_item=cfg.pick_per_item)
         expect = _pick_time(cfg, c.weight, c.volume(), 1)
         assert abs(lc - expect) < 1e-9
         assert abs(c.labor_cost - expect) < 1e-9
@@ -59,7 +60,8 @@ def test_labor_cost_matches_pick_time_qty1():
 def test_expected_popularity_and_labor():
     cfg = _cfg(); random.seed(1)
     c = Order(('conveyable', 'food'))
-    c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
+    c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef,
+                             pick_per_item=cfg.pick_per_item)
     assert abs(c.expected_popularity - c.demand.relative_frequency * c.demand.quantity_rate) < 1e-12
     assert abs(c.expected_labor - c.expected_popularity * c.labor_cost) < 1e-12
 
@@ -67,7 +69,8 @@ def test_expected_popularity_and_labor():
 def test_total_labor_cost_is_qty_times_labor():
     cfg = _cfg(); random.seed(2)
     c = Order(('conveyable', 'food'))
-    c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
+    c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef,
+                             pick_per_item=cfg.pick_per_item)
     units = viable_storage_units(c, 5)
     assert units
     for u in units:
@@ -77,7 +80,8 @@ def test_total_labor_cost_is_qty_times_labor():
 def test_reorder_propagates_labor_cost():
     cfg = _cfg(); random.seed(3)
     c = Order(('conveyable', 'food'))
-    c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef)
+    c.compute_labor_cost(cfg.pick_intercept, cfg.pick_weight_coef, cfg.pick_volume_coef,
+                             pick_per_item=cfg.pick_per_item)
     r = c.reorder()
     assert r.labor_cost > 0
     assert abs(r.labor_cost - c.labor_cost) < 1e-12
@@ -121,7 +125,7 @@ def _aff_csr(skus, lift_pairs=None):
     return types.SimpleNamespace(_matrix=csr_matrix(M), _sku_to_idx=idx)
 
 def _wp():
-    return types.SimpleNamespace(x_speed=1.0, y_speed=0.5, pick_intercept=1.0,
+    return types.SimpleNamespace(x_speed=1.0, y_speed=0.5, pick_intercept=1.0, pick_per_item=0.5,
                                  pick_weight_coef=1.1, pick_volume_coef=1e-3)
 
 
@@ -182,7 +186,7 @@ def test_rank_random_disperses_across_aisles():
 # ── height brackets ──────────────────────────────────────────────────────────
 
 def _wp_h(brackets):
-    return types.SimpleNamespace(x_speed=1.0, y_speed=0.5, pick_intercept=0.0,
+    return types.SimpleNamespace(x_speed=1.0, y_speed=0.5, pick_intercept=0.0, pick_per_item=0.0,
                                  pick_weight_coef=1.0, pick_volume_coef=0.0,
                                  height_brackets=brackets)
 
@@ -201,13 +205,14 @@ def test_pick_time_height_scaling():
     cfg = PickConfig(pick_intercept=2.0, pick_weight_coef=0.5, pick_volume_coef=0.1,
                      cart_swap_coef=10.0, height_brackets=((96.0, 1.0), (float('inf'), 2.0)))
     var = 0.5 * math.log(20) + 0.1 * math.log(27000)
+    per_unit = cfg.pick_per_item + var                 # the charge rides per unit (ADR-0001)
     ground = _pick_time(cfg, 20, 27000, 3, 10.0)    # mult 1.0
     high   = _pick_time(cfg, 20, 27000, 3, 300.0)   # mult 2.0
-    # height scales the ENTIRE at-location pick: M*(intercept + qty*var)
-    assert abs(ground - 1.0 * (2.0 + 3 * var)) < 1e-9
-    assert abs(high   - 2.0 * (2.0 + 3 * var)) < 1e-9
-    # the whole pick (intercept + handling) is height-scaled (cart is not part of _pick_time)
-    assert abs((high - ground) - (2.0 - 1.0) * (2.0 + 3 * var)) < 1e-9
+    # height scales the ENTIRE at-location pick: M*(intercept + qty*per_item + qty*var)
+    assert abs(ground - 1.0 * (2.0 + 3 * per_unit)) < 1e-9
+    assert abs(high   - 2.0 * (2.0 + 3 * per_unit)) < 1e-9
+    # the whole pick (intercept + charge + handling) is height-scaled (cart is not part of _pick_time)
+    assert abs((high - ground) - (2.0 - 1.0) * (2.0 + 3 * per_unit)) < 1e-9
 
 
 def test_aisle_workload_matches_pick_time_with_height():
@@ -331,7 +336,7 @@ def test_expected_task_labor_objective_and_split():
     t = types.SimpleNamespace(path=[_bin(1, 20, 100, 0.0)], items={1: 2},
                               x_traversed=4, y_traversed=0, carts_required=1)
     res = expected_task_labor([t], wp)
-    P = 1.0 + 2 * 0.5 * math.log(20)               # intercept + qty*weight_coef*ln(w)
+    P = 1.0 + 2 * cfg.pick_per_item + 2 * 0.5 * math.log(20)   # intercept + qty*(per_item + weight_coef*ln(w))
     D = 4 * sec_per_inch(wp.x_speed)               # D = x_traversed(in) * pace(x_speed ft/s)
     assert abs(res['handling'] - P) < 1e-9
     assert abs(res['travel'] - D) < 1e-9

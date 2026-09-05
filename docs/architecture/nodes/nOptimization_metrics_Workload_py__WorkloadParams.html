@@ -25,10 +25,14 @@ Fields
 ------
 x_speed      : horizontal travel speed in ft/s (positions are inches)
 y_speed      : vertical travel speed in ft/s (positions are inches)
-pick_intercept   : fixed overhead per P stop
+pick_intercept   : fixed overhead per P stop (one pick LINE), never per item
+pick_per_item    : fixed charge per UNIT handled (cost_model.DEFAULT_PICK_PER_ITEM)
 pick_weight_coef : time added per (weight × quantity) unit
 pick_volume_coef : time added per (volume × quantity) unit
-cart_swap_coef   : penalty per additional cart needed beyond the first</section>
+cart_swap_coef   : penalty per additional cart needed beyond the first
+
+The handling defaults are the KERNEL&#x27;s, by reference — the same declaration
+`PickConfig` and `PutawayCost` read, so the mirror cannot drift.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_Workload_py__WorkloadParams">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/Workload.py#:~:text=class%20WorkloadParams">Source ↗</a></p>
 </article>

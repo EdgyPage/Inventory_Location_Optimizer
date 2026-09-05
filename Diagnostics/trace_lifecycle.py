@@ -222,7 +222,8 @@ def trace_strategy(strategy_key: str, *, n_skus: int, bins_per_aisle: int,
     batch_cfg = BatchConfig(inventory_size=len(plan.sampled),
                             mean_fraction=0.15, std_fraction=0.05)
     for c in inventory.orders:
-        c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef)
+        c.compute_labor_cost(wp.pick_intercept, wp.pick_weight_coef, wp.pick_volume_coef,
+                             pick_per_item=wp.pick_per_item)
 
     freq_by_sku = {c.sku: c.demand.relative_frequency    for c in inventory.orders}
     qty_by_sku  = {c.sku: c.demand.quantity_rate for c in inventory.orders}

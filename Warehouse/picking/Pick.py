@@ -9,7 +9,11 @@ from Warehouse.picking.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
 from Warehouse.kernel.allocation import partition
-from Warehouse.kernel.cost_model import aisle_exit_cost, DEFAULT_HEIGHT_BRACKETS, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step, validate_speeds, SpeedProfile
+from Warehouse.kernel.cost_model import (
+    aisle_exit_cost, DEFAULT_HEIGHT_BRACKETS, DEFAULT_PICK_INTERCEPT, DEFAULT_PICK_PER_ITEM,
+    DEFAULT_PICK_VOLUME_COEF, DEFAULT_PICK_VOLUME_FN, DEFAULT_PICK_WEIGHT_COEF,
+    DEFAULT_PICK_WEIGHT_FN, height_multiplier, handle_var, per_pick, sec_per_inch, cart_step,
+    validate_speeds, SpeedProfile)
 
 if TYPE_CHECKING:
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
@@ -24,13 +28,20 @@ class PickConfig:
     num_pickers: int        = 1
     x_speed: float          = 4.0   # horizontal travel speed in ft/s (bin positions are inches)
     y_speed: float          = 2.0   # vertical travel speed in ft/s (bin positions are inches)
-    # Log model: pick_time = intercept + weight_coef*ln(weight)*qty + volume_coef*ln(volume)*qty + cart_swap_coef*swapped
-    pick_intercept: float   = 1.0
-    pick_weight_coef: float = 0.02
-    pick_volume_coef: float = 1e-4
+    # The at-location model (cost_model.per_pick — the kernel states it once):
+    #   pick_time = M(y) · (intercept + qty · per_item + qty · var) + cart_swap_coef · swapped
+    # `pick_intercept` is charged once per pick LINE (one bin visit for one SKU) — NOT per
+    # item, which this comment used to imply and which no term ever did.  `pick_per_item` is
+    # the per-UNIT charge (placing one item into the cart and labelling it); its default is
+    # NON-ZERO by decision (ADR-0001) so no archived pick result stays comparable with a new
+    # run.  Every default below is the kernel's, by reference — not a second literal set.
+    pick_intercept: float   = DEFAULT_PICK_INTERCEPT
+    pick_per_item: float    = DEFAULT_PICK_PER_ITEM
+    pick_weight_coef: float = DEFAULT_PICK_WEIGHT_COEF
+    pick_volume_coef: float = DEFAULT_PICK_VOLUME_COEF
     # Base function for each handling term (coef·fn(value)): 'log'(default)/'linear'/'sqrt'/'pow:p'/'log:b'.
-    pick_weight_fn: str     = 'log'
-    pick_volume_fn: str     = 'log'
+    pick_weight_fn: str     = DEFAULT_PICK_WEIGHT_FN
+    pick_volume_fn: str     = DEFAULT_PICK_VOLUME_FN
     cart_swap_coef: float   = 5.0
     # Cart TYPE for this channel — its capacity() sets the cart-swap threshold. A smaller cart
     # (e.g. FulfillmentCart) swaps more often. Default StoreCart = today's 125,000, so store is
@@ -132,16 +143,22 @@ class PickerProgress:
 
 def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
                y_phys: float = 0.0) -> float:
-    """Log-linear model for the at-location HANDLING time to pick `quantity` units of an order.
+    """The at-location HANDLING time to pick `quantity` units of one SKU from one bin:
+
+        M(y) · (pick_intercept + quantity · pick_per_item + quantity · var)
+
+    ONE pick LINE — one bin visit for one SKU.  The intercept is charged once for the line,
+    the per-item charge once per unit, and `var` (the log-linear weight/volume term) once
+    per unit.  `cost_model.per_pick` is the formula; this passes the picker's coefficients.
 
     weight and volume must be ≥ 1; values of 0 would cause math.log(0) which
     raises ValueError.  Clamp both to 1 as a safety floor — a zero-weight or
     zero-volume order is physically impossible and indicates bad data.
 
     y_phys is the bin's physical height; the height bracket factor scales the ENTIRE
-    at-location pick operation — the fixed setup/intercept AND the per-unit weight/volume
-    handling (equipment is slower at everything up high), i.e. M(y)·(intercept + qty·var).
-    y_phys defaults to 0 (ground bracket → factor 1.0) so callers without a bin are unaffected.
+    at-location pick operation — the intercept, the per-item charge AND the per-unit
+    weight/volume handling (equipment is slower at everything up high).  y_phys defaults
+    to 0 (ground bracket → factor 1.0) so callers without a bin are unaffected.
 
     The cart-swap penalty (cfg.cart_swap_coef) is NOT part of this handling term — the sim loops
     charge it as its own timed step at the swap and the decomposition attributes it to travel.
@@ -149,7 +166,7 @@ def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int,
     hmult = height_multiplier(cfg.height_brackets, y_phys)
     var   = handle_var(weight, volume, cfg.pick_weight_coef, cfg.pick_volume_coef,
                        cfg.pick_weight_fn, cfg.pick_volume_fn)
-    return per_pick(hmult, cfg.pick_intercept, var, quantity)
+    return per_pick(hmult, cfg.pick_intercept, var, quantity, cfg.pick_per_item)
 
 
 # ── simulation ───────────────────────────────────────────────────────────────

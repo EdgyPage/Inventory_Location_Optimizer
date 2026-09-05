@@ -59,10 +59,14 @@ def test_there_is_no_receiving_speed_or_mode_knob():
     nothing consumes a speed. Four constants would assert a distinction the model cannot
     express, and a sweep over a mode knob would publish "mode makes no difference to
     receiving". Crew SIZE is the only lever, because size is the number of clocks.
+
+    `RECV_INTERCEPT_SCALE` is not physics: it is the receiving PRICE as a scalar of
+    put-away's (ADR-0001), the one declared way the crews' numbers may differ. It moves
+    seconds, not a makespan's shape, and it is allowed here for that reason.
     """
     for name in dir(_s):
         assert not name.startswith('RECV_') or name in (
-            'RECV_CREW_SIZE', 'RECV_DAY_SECONDS', 'RECV_DAY_ORIGIN'), (
+            'RECV_CREW_SIZE', 'RECV_DAY_SECONDS', 'RECV_DAY_ORIGIN', 'RECV_INTERCEPT_SCALE'), (
             f'{name} declares receiving-specific physics the cost model cannot use')
 
 

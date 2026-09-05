@@ -15,16 +15,22 @@
 <p class="meta">layer <span class="chip">wh_picking</span> · file <a href="../files/nWarehouse_picking_Pick_py.html"><code>Warehouse/picking/Pick.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _pick_time(cfg: PickConfig, weight: int, volume: int, quantity: int, y_phys: float=0.0) -&gt; float</code></pre>
-<section class="doc">Log-linear model for the at-location HANDLING time to pick `quantity` units of an order.
+<section class="doc">The at-location HANDLING time to pick `quantity` units of one SKU from one bin:
+
+    M(y) · (pick_intercept + quantity · pick_per_item + quantity · var)
+
+ONE pick LINE — one bin visit for one SKU.  The intercept is charged once for the line,
+the per-item charge once per unit, and `var` (the log-linear weight/volume term) once
+per unit.  `cost_model.per_pick` is the formula; this passes the picker&#x27;s coefficients.
 
 weight and volume must be ≥ 1; values of 0 would cause math.log(0) which
 raises ValueError.  Clamp both to 1 as a safety floor — a zero-weight or
 zero-volume order is physically impossible and indicates bad data.
 
 y_phys is the bin&#x27;s physical height; the height bracket factor scales the ENTIRE
-at-location pick operation — the fixed setup/intercept AND the per-unit weight/volume
-handling (equipment is slower at everything up high), i.e. M(y)·(intercept + qty·var).
-y_phys defaults to 0 (ground bracket → factor 1.0) so callers without a bin are unaffected.
+at-location pick operation — the intercept, the per-item charge AND the per-unit
+weight/volume handling (equipment is slower at everything up high).  y_phys defaults
+to 0 (ground bracket → factor 1.0) so callers without a bin are unaffected.
 
 The cart-swap penalty (cfg.cart_swap_coef) is NOT part of this handling term — the sim loops
 charge it as its own timed step at the swap and the decomposition attributes it to travel.</section>

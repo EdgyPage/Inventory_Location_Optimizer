@@ -176,16 +176,18 @@ class OptimalLayoutMixin:
             w = _wp_for(wp, units[0])
             xs_k, ys_k  = sec_per_inch(w.x_speed), sec_per_inch(w.y_speed)   # ft/s -> s/inch
             intercept_k = w.pick_intercept
+            per_item_k  = w.pick_per_item
             brackets_k  = getattr(w, 'height_brackets', ())
             def _Dk(bn, _x=xs_k, _y=ys_k):  return _x * bn.x_phys + _y * bn.y_phys
             def _Mk(bn, _b=brackets_k):     return height_multiplier(_b, bn.y_phys)
             n = len(units)
             a = [freq_of.get(u.order.sku, 0.0) for u in units]                  # α_s = f (travel)
-            # height now scales the WHOLE pick: per-pick handling = M·(intercept + q·v),
-            # so the M-coefficient is f·(intercept + q·v), not f·q·v.
+            # height scales the WHOLE pick: per-pick handling = M·(intercept + q·per_item + q·v),
+            # so the M-coefficient is f·(intercept + q·per_item + q·v), not f·q·v.
             b_ = [per_pick(freq_of.get(u.order.sku, 0.0), intercept_k,
-                           v_by_sku.get(u.order.sku, 0.0), qty_of.get(u.order.sku, 0.0))
-                  for u in units]                                                # β_s = f·(intercept + q·v)
+                           v_by_sku.get(u.order.sku, 0.0), qty_of.get(u.order.sku, 0.0),
+                           per_item_k)
+                  for u in units]                                # β_s = f·(intercept + q·per_item + q·v)
             # candidate bins: lowest-D per height bracket, capped at n (others dominated)
             by_m: dict = defaultdict(list)
             for bn in bins:
@@ -266,8 +268,9 @@ class OptimalLayoutMixin:
                 #   f·D  +  f·M·(intercept + q·v)   (height scales the whole pick; the
                 # intercept now lives inside b_, so it is no longer added bin-independently).
                 W_var += a[i] * Dc[j] + b_[i] * Mc[j]
-                # quantity-free bin basis: travel + M-scaled per-pick floor (intercept + v_ref)
-                pref = Dc[j] + Mc[j] * (intercept_k + v_ref)
+                # quantity-free bin basis: travel + M-scaled per-pick floor at qty=1
+                # (intercept + per_item + v_ref)
+                pref = Dc[j] + Mc[j] * (intercept_k + per_item_k + v_ref)
                 sku_target[units[i].order.sku].append(pref)
 
         target = {sku: sum(p) / len(p) for sku, p in sku_target.items() if p}
@@ -296,14 +299,16 @@ class OptimalLayoutMixin:
         brackets = getattr(wp, 'height_brackets', ())
         xs, ys = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch pace
         intercept = wp.pick_intercept
+        per_item  = wp.pick_per_item
 
         vs = [self._handle_var(c, wp) for c in orders]
         v_ref = (sum(vs) / len(vs)) if vs else 1.0
-        # quantity-free bin basis: travel + M-scaled per-pick floor (intercept + v_ref),
-        # matching the new height model where M scales the whole at-location pick.
+        # quantity-free bin basis: travel + M-scaled per-pick floor at qty=1
+        # (intercept + per_item + v_ref), matching the height model where M scales the
+        # whole at-location pick.
         self._bin_pref = {
             id(b): (xs * b.x_phys + ys * b.y_phys)
-                   + height_multiplier(brackets, b.y_phys) * (intercept + v_ref)
+                   + height_multiplier(brackets, b.y_phys) * (intercept + per_item + v_ref)
             for b in self.warehouse.bins
         }
         w_star, self._map_target = self._optimal_work_assign(orders, freq_of, qty_of, wp)

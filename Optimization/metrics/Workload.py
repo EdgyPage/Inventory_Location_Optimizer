@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 # Single source of truth for the cost primitives (Warehouse/kernel/cost_model.py — on sys.path
 # alongside Optimization at runtime).  No more local mirror of the bracket/handling math.
 from Warehouse.kernel.cost_model import DEFAULT_HEIGHT_BRACKETS as _DEFAULT_HEIGHT_BRACKETS
+from Warehouse.kernel.cost_model import (
+    DEFAULT_PICK_INTERCEPT, DEFAULT_PICK_PER_ITEM, DEFAULT_PICK_VOLUME_COEF,
+    DEFAULT_PICK_VOLUME_FN, DEFAULT_PICK_WEIGHT_COEF, DEFAULT_PICK_WEIGHT_FN)
 from Warehouse.kernel.cost_model import height_multiplier as _height_mult, handle_var, per_pick, sec_per_inch, validate_speeds, SpeedProfile
 from Warehouse.layout.Storage_Primitive import StoreCart   # default cart for the capacity field
 
@@ -20,18 +23,23 @@ class WorkloadParams:
     ------
     x_speed      : horizontal travel speed in ft/s (positions are inches)
     y_speed      : vertical travel speed in ft/s (positions are inches)
-    pick_intercept   : fixed overhead per P stop
+    pick_intercept   : fixed overhead per P stop (one pick LINE), never per item
+    pick_per_item    : fixed charge per UNIT handled (cost_model.DEFAULT_PICK_PER_ITEM)
     pick_weight_coef : time added per (weight × quantity) unit
     pick_volume_coef : time added per (volume × quantity) unit
     cart_swap_coef   : penalty per additional cart needed beyond the first
+
+    The handling defaults are the KERNEL's, by reference — the same declaration
+    `PickConfig` and `PutawayCost` read, so the mirror cannot drift.
     """
     x_speed: float          = 4.0   # horizontal travel speed (ft/s); positions in inches
     y_speed: float          = 2.0   # vertical travel speed (ft/s); positions in inches
-    pick_intercept: float   = 1.0
-    pick_weight_coef: float = 0.02
-    pick_volume_coef: float = 1e-4
-    pick_weight_fn: str     = 'log'   # base function per handling term ('log'/'linear'/'sqrt'/'pow:p'/'log:b')
-    pick_volume_fn: str     = 'log'
+    pick_intercept: float   = DEFAULT_PICK_INTERCEPT
+    pick_per_item: float    = DEFAULT_PICK_PER_ITEM
+    pick_weight_coef: float = DEFAULT_PICK_WEIGHT_COEF
+    pick_volume_coef: float = DEFAULT_PICK_VOLUME_COEF
+    pick_weight_fn: str     = DEFAULT_PICK_WEIGHT_FN   # base function per handling term ('log'/'linear'/'sqrt'/'pow:p'/'log:b')
+    pick_volume_fn: str     = DEFAULT_PICK_VOLUME_FN
     cart_swap_coef: float   = 5.0
     # Cart volume (this regime's cart.capacity()) — the swap threshold used by placement
     # policies that estimate expected cart-swap cost. Default = standard store cart.
@@ -69,6 +77,9 @@ class WorkloadParams:
             x_speed          = cfg.x_speed,            # type: ignore[attr-defined]
             y_speed          = cfg.y_speed,            # type: ignore[attr-defined]
             pick_intercept   = cfg.pick_intercept,    # type: ignore[attr-defined]
+            # Strict, not getattr-with-default: a config object without the charge is a
+            # bug now, and a silent 0.0 here would price the model the era ended.
+            pick_per_item    = cfg.pick_per_item,     # type: ignore[attr-defined]
             pick_weight_coef = cfg.pick_weight_coef,  # type: ignore[attr-defined]
             pick_volume_coef = cfg.pick_volume_coef,  # type: ignore[attr-defined]
             pick_weight_fn   = getattr(cfg, 'pick_weight_fn', 'log'),
@@ -91,7 +102,7 @@ def aisle_workload_components(
 
       D (travel)   = x_traversed * sec_per_inch(x_speed) + y_traversed * sec_per_inch(y_speed)
                      (x_speed/y_speed are ft/s; x_traversed/y_traversed are inches walked)
-      P (handling) = Σ_stops  height_mult(y) * (intercept + qty
+      P (handling) = Σ_stops  height_mult(y) * (intercept + qty * per_item + qty
                                         * (weight_coef*ln(weight) + volume_coef*ln(volume)))
       C (cart)     = cart_swap_coef * max(0, carts_required - 1)
 
@@ -114,11 +125,13 @@ def aisle_workload_components(
         weight, volume, qty = line[0], line[1], line[2]
         y_phys = line[3] if len(line) > 3 else 0.0
         hmult = _height_mult(params.height_brackets, y_phys)
-        # height scales the ENTIRE at-location pick: per_pick = M·(intercept + qty·var)
+        # height scales the ENTIRE at-location pick:
+        #   per_pick = M·(intercept + qty·per_item + qty·var)
         P += per_pick(hmult, params.pick_intercept,
                       handle_var(weight, volume,
                                  params.pick_weight_coef, params.pick_volume_coef,
-                                 params.pick_weight_fn, params.pick_volume_fn), qty)
+                                 params.pick_weight_fn, params.pick_volume_fn), qty,
+                      params.pick_per_item)
     C: float = params.cart_swap_coef * max(0, carts_required - 1)
     return D, P, C
 

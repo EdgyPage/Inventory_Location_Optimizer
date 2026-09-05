@@ -713,10 +713,25 @@
     {
       "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
       "kind": "calls",
-      "src": "Inbound/gain.py::_Evaluator._pair_cost"
+      "src": "Inbound/gain.py::_Evaluator._cost_at"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._cost_at"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._cost_at",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._mean_cost"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._moments"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._cost_at",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator._pair_cost"
     },
@@ -751,6 +766,26 @@
       "src": "Inbound/gain.py::_Evaluator._place_pool"
     },
     {
+      "dst": "Inbound/gain.py::_Evaluator._mean_cost",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._place_uniform"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._moments",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._place_uniform"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._unseated_cost",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._place_uniform"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._useat",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._place_uniform"
+    },
+    {
       "dst": "Inbound/gain.py::_Evaluator._pair_cost",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator._unseated_cost"
@@ -772,6 +807,11 @@
     },
     {
       "dst": "Inbound/gain.py::_Evaluator._place_pool",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator.place_load"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._place_uniform",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator.place_load"
     },
@@ -5891,6 +5931,11 @@
       "src": "Optimization/config/settings.py"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py",
+      "kind": "imports",
+      "src": "Optimization/config/settings.py"
+    },
+    {
       "dst": "Warehouse/kernel/timeline.py",
       "kind": "imports",
       "src": "Optimization/config/settings.py"
@@ -5922,6 +5967,11 @@
     },
     {
       "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Optimization/config/sim_config.py"
     },
@@ -6111,6 +6161,16 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
+      "dst": "Optimization/config/settings.py::PUT_INTERCEPT_SCALE",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::PUT_ITEM_RATIO",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
       "dst": "Optimization/config/settings.py::PUT_PALLET_CREW",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
@@ -6142,6 +6202,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::RECV_DAY_SECONDS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::RECV_INTERCEPT_SCALE",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -10551,6 +10616,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Warehouse/operations/putaway.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Warehouse/picking/Workload_Builder.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -10636,7 +10706,7 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
-      "dst": "Inbound/unload.py::UnloadCost",
+      "dst": "Inbound/unload.py::UnloadCost.from_putaway",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -10946,6 +11016,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Warehouse/operations/putaway.py::PutawayCost.from_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Warehouse/picking/Workload_Builder.py::Batch",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -11197,6 +11272,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::_config_name",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::crew_cost_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
@@ -18080,10 +18160,34 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator._cost_at",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_cost_at",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_Evaluator._make_pool",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "_make_pool",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator._mean_cost",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_mean_cost",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator._moments",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_moments",
       "public": false
     },
     {
@@ -18120,6 +18224,14 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator._place_uniform",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_place_uniform",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_Evaluator._tier_sorted",
       "kind": "function",
       "module": "Inbound/gain.py",
@@ -18132,6 +18244,14 @@
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "_unseated_cost",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator._useat",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_useat",
       "public": false
     },
     {
@@ -18980,6 +19100,14 @@
       "kind": "class",
       "module": "Inbound/unload.py",
       "name": "UnloadCost",
+      "public": true
+    },
+    {
+      "file": "Inbound/unload.py",
+      "id": "Inbound/unload.py::UnloadCost.from_putaway",
+      "kind": "function",
+      "module": "Inbound/unload.py",
+      "name": "from_putaway",
       "public": true
     },
     {
@@ -24224,6 +24352,22 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_INTERCEPT_SCALE",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_INTERCEPT_SCALE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::PUT_ITEM_RATIO",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "PUT_ITEM_RATIO",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::PUT_MACHINE_X",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -24292,6 +24436,14 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "RECV_DAY_SECONDS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::RECV_INTERCEPT_SCALE",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "RECV_INTERCEPT_SCALE",
       "public": true
     },
     {
@@ -24604,6 +24756,22 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "_setup_logging",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::crew_cost_spec",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "crew_cost_spec",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::crew_cost_spec._f",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "_f",
       "public": false
     },
     {
@@ -25012,6 +25180,22 @@
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
       "name": "PHASE2_LEAD_SPREAD",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_RECV_CREW_SIZE",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_RECV_CREW_SIZE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_RECV_DAY_SECONDS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_RECV_DAY_SECONDS",
       "public": true
     },
     {
@@ -37164,6 +37348,14 @@
       "kind": "class",
       "module": "Warehouse/operations/putaway.py",
       "name": "PutawayCost",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/putaway.py",
+      "id": "Warehouse/operations/putaway.py::PutawayCost.from_pick",
+      "kind": "function",
+      "module": "Warehouse/operations/putaway.py",
+      "name": "from_pick",
       "public": true
     },
     {

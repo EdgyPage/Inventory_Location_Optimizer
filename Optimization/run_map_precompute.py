@@ -88,6 +88,11 @@ def _workload_params(rt, cell, run):
     # so an archived config and a live one reconstruct through one definition, and a new
     # PickConfig field cannot reach one path and miss the other.
     kw = {k: v for k, v in cfg.items() if k in _PICK_CONFIG_FIELDS}
+    # The per-item charge (ADR-0001) is the one field whose ABSENCE is meaningful: a leaf
+    # config archived before the charge existed ran the model without it, so the vintage is
+    # reconstructed at 0.0 rather than at the dataclass default.  Field-filtering alone
+    # would silently hand a pre-charge archive this checkout's 0.5 and re-price its map.
+    kw.setdefault('pick_per_item', 0.0)
     # `cart` is serialised as its NAME; PickConfig wants the class.  The same registry the
     # sim resolves it through, so a store leaf gets the store cart and a fulfillment leaf
     # does not silently inherit it — the cart term is where the two channels diverge most.

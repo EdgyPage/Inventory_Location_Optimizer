@@ -17,6 +17,8 @@
 <pre class="sig"><code>class GainBundle</code></pre>
 <section class="doc">Everything arm-specific the evaluator needs, injected by the driver.
 
+Three adapters, and the bundle picks exactly one.  `uniform` selects the uniform
+adapter (`fifo`: no pool, no direction — the tier&#x27;s mean and a seat count).  Else
 `pool_factory` None selects the merge adapter (extremal-D family, direction
 `minimize`); otherwise the pool adapter calls
 `pool_factory(candidates, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, wp)`
@@ -24,6 +26,10 @@ with FRESH copies of the three aisle dicts per evaluation.  `expect_heads` price
 each unit at the mean over `heads_of(pool)` before consuming (rank_random&#x27;s no-RNG
 expectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because
 their home (`wh_inventory`) is a forbidden import — the broker rule.
+
+`minimize` is INERT under `uniform`: a uniform draw has no extremal direction to
+sort a tier by, so nothing reads it.  It is left at its default rather than
+refused, because the merge adapter&#x27;s default is the same value.
 
 The two days-denominated knobs ride here because the gate entry has no other
 channel to CONFIG (`inbound_spec()` -&gt; driver -&gt; bundle, the five-seam path).</section>
