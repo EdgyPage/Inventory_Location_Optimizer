@@ -29,3 +29,15 @@ hatch.
 
 Resolves when a real (spawn-pool) run declares picker counts on the command line and its run
 spec, sim_result, and every worker agree.
+
+## Comments
+
+2026-09-05, from resolving [Design the staffing record](03-design-the-staffing-record.md): UNBLOCKED.
+The record's shape for this seam: two flat global keys, `store_pickers` and `ff_pickers`, declared in
+settings with the compile-time constants as their defaults, spliced into one `STAFFING_KEYS` list that
+record and both restore sites iterate (the `INBOUND_KEYS` precedent), exposed through `staffing_spec()`
+(inputs only, call-time read), and carried in `workunits._shared`. `CONFIG['channels'][<ch>]['num_pickers']`
+becomes a call-time read of the global key. The "arm-level escape hatch" line above is SUPERSEDED: a
+per-pick-config `num_pickers` that disagrees with its channel's declared count raises at setup; one that
+restates it stays legal. The sixth seam stamps the whole `staffing` dict onto `sim_result`, which is
+where the `k_pickers` fallback in `Performance_Evaluations/core/context.py` goes to die.

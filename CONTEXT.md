@@ -245,6 +245,12 @@ on different clocks never form a ratio.
 **Unit of account**:
 What a count counts — packs or merchandise pieces. Never added across accounts.
 
+**Provenance**:
+Where a recorded value came from, one of five: assumed (a default nobody chose), declared (set
+for the run), seed (an analytic starting guess), measured (read off a reference run), derived
+(computed from other recorded values). A value keeps its provenance when it is copied.
+_Avoid_: source, origin (the day origin is a different thing)
+
 **Travel share**:
 The ratio of a department's measured seconds per unit to the seconds the demand script alone
 predicts — the part of the price a run had to be taken to learn.
@@ -289,3 +295,10 @@ The committed declaration of a catalogue's labour constants together with the pr
 produced them — seeded, measured, or derived. A run reads it and copies what it ran under; it
 never edits it.
 _Avoid_: calibration constants, tuning file
+
+**Staffing record**:
+A run's declaration of who worked it: the declared inputs (pickers per channel, the utilization
+and replenishment scalars, the put crew's mode), the calibration constants it ran under with their
+provenance, and the crews and expected throughput derived from them. Recorded with the run and
+authoritative on resume; never edited by hand.
+_Avoid_: crew config, headcount

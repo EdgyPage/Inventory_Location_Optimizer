@@ -1,7 +1,7 @@
 # Design the staffing record
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: 01
 
 ## Question
@@ -61,3 +61,57 @@ record designed here COPIES the constants it ran under together with their `prov
 (catalogue fingerprint differs from the record's) and the `K_max` exceedance flag (declared
 pickers above the heaviest-aisle bound). Both are things an evaluation will read, so both take
 the sixth seam onto `sim_result`.
+
+## Answer
+
+Resolved 2026-09-05. (a) was settled by 01 before this session opened (no fungible pool; pickers per
+channel are the one declared input; put and receiving crews are derived site totals), and (b)'s
+pattern stood (CONFIG keys + call-time accessor + one spliced key list, never the `put_crew_spec`
+trap). Seven remaining shape decisions were put to the user in one round and every recommendation
+was confirmed.
+
+1. **Pickers live in two flat global keys**, `store_pickers` and `ff_pickers`, on the spliced
+   `STAFFING_KEYS` list; the compile-time constants become their settings defaults and
+   `CONFIG['channels'][<ch>]['num_pickers']` becomes a call-time read of them. A per-pick-config
+   `num_pickers` override that DISAGREES with its channel's declared count **raises at setup**: the
+   script is derived from the declared crew, so an arm fielding a different crew is the stale-literal
+   trap 01 killed, restated per arm. A module that restates the channel value (as the committed ones
+   do) stays legal. This supersedes 07's "arm-level escape hatch" line.
+2. **Two blocks, one record.** `staffing_spec()` in `sim_config` returns INPUTS only (pickers, the
+   ρ_pick / ρ_put / ρ_recv and f_put / f_recv scalars, the intercept scales and item ratio, and the
+   put crew mode). The derivation is a **pure module**, `Optimization/simconfig/staffing.py`: inputs +
+   the loaded calibration record + the script's totals in, the derived dict out (batch content per
+   channel, put crew, receiving crew, expected throughput — 01's table is its interface). It runs at
+   setup after batch precompute, because the receiving crew needs the packs the script implies and the
+   script is itself derived from pickers. The run spec records one `staffing` key with `inputs` and
+   `derived` sub-blocks. Derived values are never CONFIG keys, so none can be set from the CLI.
+3. **Restore reads the record and re-derives.** On resume the recorded `derived` block is
+   authoritative (an arm fields the crew it started with) and a re-derivation from the restored
+   inputs that disagrees **raises**; on re-analysis the same disagreement **warns and stamps**. The
+   re-derivation is a free drift check for a changed derivation or calibration record.
+4. **Legacy crew knobs under the era are an error.** `--recv-crew-size`, the base put crew size and
+   the split family's three crew counts stay live flag-off (byte-identical discipline) but are
+   derived under the era; passing one explicitly under the era raises. `put_queue_split` on under
+   the era also raises for this map: single queue only; per-stream sizing joins the out-of-scope
+   swept-axis effort, which is why 02 records per-stream `s_put` as diagnostics.
+5. **One five-valued provenance enum, shared by both records:** `assumed` (a settings default nobody
+   chose), `declared` (set by flag or spec), `seed`, `measured`, `derived`. The calibration record's
+   constants are copied onto the staffing record with theirs; scalars carry `assumed` or `declared`;
+   the derived block carries `derived`. A value keeps its provenance as it is copied.
+6. **The sixth seam carries the whole record**: `_sim_result_from_meta` stamps the entire `staffing`
+   dict (inputs, derived, and the `calibration_stale` / `K_max` stamps) onto `sim_result` as one
+   key, so the fogged throughput audit graduates without touching the seam again.
+7. **Scope riders confirmed as stated:** the `put_crew_spec` trap fix (PUT_CREW_SIZE / PUT_CREW_MODE
+   gaining real CONFIG keys and every seam) rides the build; PUT_CREW_MODE stays a DECLARED input on
+   the record (the derivation sizes the count, the mode is a labour-model term the cost model
+   prices); the yard jockey stays unbudgeted and the reloader stays out.
+
+**Glossary:** `CONTEXT.md` gained **Staffing record** (Day-over-day) and **Provenance** (Measurement),
+2026-09-05. No ADR: none of the seven is hard to reverse.
+
+**Map consequences, applied this session:** [Build the picker staffing seam](07-build-the-picker-staffing-seam.md)
+is unblocked and its override line is superseded (comment);
+[Build the derivation, the calibration record, and the era wiring](08-build-the-derivation-and-era-wiring.md)
+now has its module boundary, restore semantics, error cases and provenance enum (comment);
+[Declare the equilibrium bands](04-declare-the-equilibrium-bands.md) learns the audit reads the
+stamped record (comment). The throughput-audit fog entry is sharpened but stays fog until 04 closes.

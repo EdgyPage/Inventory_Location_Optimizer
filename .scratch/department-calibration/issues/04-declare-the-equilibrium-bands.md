@@ -47,3 +47,9 @@ the pre-registered equilibrium check is also the reference run's WINDOW PRECONDI
 of each pass are measured only if the check holds over them, otherwise the window is discarded
 and the next pass runs. So the check must be computable from `batch_stats` (`released_late`) and
 the drain-or-cap close-out ledger over a day range, not only as a whole-run verdict.
+
+2026-09-05, from resolving [Design the staffing record](03-design-the-staffing-record.md): the bands
+are recorded beside the staffing INSIDE the `staffing` record, and the whole record is stamped onto
+`sim_result` as one key, so the measured-vs-expected audit (still fog) reads the targets, bands and
+expected throughput from there with no further seam work. This ticket's close is what graduates that
+audit out of fog.

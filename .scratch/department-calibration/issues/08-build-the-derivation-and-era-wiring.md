@@ -43,3 +43,21 @@ and `derived` and a run spec records which one it ran under.
 
 Resolves when a reference run per 02's procedure can be launched from the command line on
 `develop` with the tests green.
+
+## Comments
+
+2026-09-05, from resolving [Design the staffing record](03-design-the-staffing-record.md): the shape
+this build lands. (1) The derivation is a PURE module, `Optimization/simconfig/staffing.py`: inputs +
+the loaded calibration record + the script's totals in, the derived dict out (01's table is its
+interface); it runs at setup AFTER batch precompute because the receiving crew needs the packs the
+script implies. Test it without a run. (2) The run spec records one `staffing` key with `inputs` and
+`derived` sub-blocks; derived values are never CONFIG keys. (3) Restore reads the recorded `derived`
+block as authoritative and re-derives from the restored inputs: a disagreement raises on resume,
+warns and stamps on re-analysis. (4) Errors under the era: any explicit legacy crew flag
+(`--recv-crew-size`, the base put crew size, the split family's three crew counts) and
+`put_queue_split` on. Flag-off, all of them keep working verbatim. (5) One provenance enum shared with
+the calibration record: `assumed` / `declared` / `seed` / `measured` / `derived`; scalars carry
+`assumed` or `declared`, copied constants keep theirs, the derived block is `derived`. (6) The `put_crew_spec`
+trap fix (PUT_CREW_SIZE / PUT_CREW_MODE gain real CONFIG keys and every seam) rides here; PUT_CREW_MODE
+is a DECLARED input on the record. (7) `_sim_result_from_meta` stamps the whole `staffing` dict as one
+key, including `calibration_stale` and the `K_max` stamp.

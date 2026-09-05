@@ -84,6 +84,14 @@ regime someone chose rather than one the defaults inherited.
   provenance; a catalogue mismatch warns and stamps `calibration_stale`; `K_max` bounds pickers
   with a warn-and-stamp; the measured/analytic travel share may price a new catalogue
   provisionally, stamped `derived`.
+- [Design the staffing record](issues/03-design-the-staffing-record.md): pickers are two flat
+  global keys on a spliced `STAFFING_KEYS` list; a disagreeing per-arm override RAISES. One
+  `staffing` run-spec record with `inputs` (accessor) and `derived` (a pure module,
+  `simconfig/staffing.py`, run after precompute) sub-blocks; restore reads the record and
+  re-derives (raise on resume, warn-and-stamp on analysis). Legacy crew flags and
+  `put_queue_split` under the era are errors. One five-valued provenance enum shared by both
+  records (`assumed`/`declared`/`seed`/`measured`/`derived`). The whole record crosses the
+  sixth seam onto `sim_result` as one key. PUT_CREW_MODE stays declared; trap fix rides the build.
 
 ## Not yet specified
 
@@ -99,9 +107,10 @@ regime someone chose rather than one the defaults inherited.
   build remains in fog; what stays dim is below.
 - **Measured-vs-expected throughput as a reported check** — once expected throughput is a
   declared config record, an evaluation comparing the run's realized throughput against
-  its declaration (and its duty cycles against their bands) is the natural audit; needs
-  the record to exist first, and the analysis-side stamp rides
-  `config-is-not-a-channel-to-an-evaluation`.
+  its declaration (and its duty cycles against their bands) is the natural audit. It reads
+  the whole `staffing` record stamped onto `sim_result` (03's sixth-seam decision), so the
+  seam is settled; what keeps it fog is the bands themselves — it graduates when
+  [Declare the equilibrium bands](issues/04-declare-the-equilibrium-bands.md) closes.
 - **Interaction-effects reporting beyond the bands** — the user's framing names
   "interaction effects between departments"; the bands capture equilibrium, but how the
   coupling itself is surfaced (receiving throttles put-away throttles availability
