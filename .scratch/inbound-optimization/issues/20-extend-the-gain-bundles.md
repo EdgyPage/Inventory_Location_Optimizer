@@ -95,3 +95,13 @@ DRAIN, so the real cost is the n² multiplied by drains per batch. If the pilot'
 it biting, the legal fix is memoizing `_window_rates` keyed on `demand_v` (the window is
 replaced wholesale by the injection that bumps it) — 06's "legal-keyed-not-built" case, not
 new cache machinery.
+
+2026-09-04: a session opened this ticket to work it and **stood down — the gate is unmet.**
+Phase 1 has not run: no `restock_selection.json` exists under `COMPARISON_OUTPUT_DIR`, the
+pilot's answer records no phase-1 ranking, and the successor map's ticket
+[Sequence the inbound funnel](../../department-calibration/issues/05-sequence-the-inbound-funnel.md)
+currently recommends HOLDING phase 1 until the calibrated era lands (a ranking taken now would
+feed a phase 2 in a different era). Not claimed. This ticket's scope arrives as
+`channels.<ch>.needs_bundle_extension` in the artifact and does not exist yet; do not start it
+from the "likely candidates" list above. Next act on this map: none — the frontier stays empty
+until that calibration ticket resolves and phase 1 runs.
