@@ -61,3 +61,13 @@ the calibration record: `assumed` / `declared` / `seed` / `measured` / `derived`
 trap fix (PUT_CREW_SIZE / PUT_CREW_MODE gain real CONFIG keys and every seam) rides here; PUT_CREW_MODE
 is a DECLARED input on the record. (7) `_sim_result_from_meta` stamps the whole `staffing` dict as one
 key, including `calibration_stale` and the `K_max` stamp.
+
+2026-09-05, from resolving [Declare the equilibrium bands](04-declare-the-equilibrium-bands.md):
+three riders. (a) Persist the drain-or-cap ledger as a `shift_days` table (run_id, day, cap_end,
+end_s, drained, standing, last_finish), written as each close-out fires — today it is a log line
+only — riding the schema pipeline (`schema-maintainer`); the close-out fires at the first batch
+of the NEXT day, so the final day needs its own flush, outside the checkpoint tail (memory
+`run-end-writers-miss-the-final-flush`). (b) The `derived` block gains `expected_utilization` per
+department per channel leaf (load × s ÷ (crew × S), after `ceil` and after the leaf's share of the
+site crew); the `inputs` block gains `band_tol` (default 0.10, `assumed`). (c) ρ stays 0.85 for all
+three departments — the ticket's 0.80/0.90 sketch is withdrawn.

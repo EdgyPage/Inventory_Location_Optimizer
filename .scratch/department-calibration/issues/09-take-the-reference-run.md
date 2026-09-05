@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 08
+Blocked by: 08, 10
 
 AFK once unblocked. Blocked by
 [Build the derivation, the calibration record, and the era wiring](08-build-the-derivation-and-era-wiring.md)
@@ -33,3 +33,12 @@ resulting calibration record:
 The answer records the measured constants, travel shares, `K_max` per channel, the pass count,
 whether the fixed point converged or was cut off, and the outcome of the receiving self-check.
 Run output stays out of git (CLAUDE.md §2); only the record is committed.
+
+## Comments
+
+2026-09-05, from resolving [Declare the equilibrium bands](04-declare-the-equilibrium-bands.md):
+now also blocked by
+[Build the equilibrium check and the throughput audit](10-build-the-equilibrium-check-and-audit.md)
+— the window precondition is that ticket's `equilibrium.check`, four strict clauses (every day
+drained, `released_late` = 0 on drained days, utilization within `band_tol` of expected, missed
+share not trending). The passing window's readings are stamped into the calibration record.

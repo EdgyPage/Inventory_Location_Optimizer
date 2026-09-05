@@ -92,30 +92,37 @@ regime someone chose rather than one the defaults inherited.
   `put_queue_split` under the era are errors. One five-valued provenance enum shared by both
   records (`assumed`/`declared`/`seed`/`measured`/`derived`). The whole record crosses the
   sixth seam onto `sim_result` as one key. PUT_CREW_MODE stays declared; trap fix rides the build.
+- [Declare the equilibrium bands](issues/04-declare-the-equilibrium-bands.md): the quantity is
+  UTILIZATION (worked ÷ granted), not duty cycle; ρ = 0.85 for all three departments; the band is
+  |realized − expected| ≤ `band_tol` (0.10, `assumed`) around a per-department per-leaf
+  `expected_utilization` the derivation records — never around ρ, which integer site crews and
+  single-channel leaves undercut by construction. The pre-registered check is four STRICT clauses
+  over (db, day range): every day drained (from a persisted `shift_days` ledger — today log-only),
+  `released_late` = 0 on drained days (nonzero RAISES), utilization in band as a ratio of sums,
+  missed share not trending (half-window means within ±0.02). One pure function, two callers: a
+  PRECONDITION for the reference run, a REPORT on every other run (below-band picking is the arm's
+  saving; a capped day is "declared throughput not delivered"). The sim never judges itself.
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
-  All four are now tickets: the cost-model hard break
+  All five are now tickets: the cost-model hard break
   ([Add the per-item charge and break the cost model](issues/06-add-the-per-item-charge.md),
   unblocked), the picker staffing seam
-  ([Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md), waits on 03),
-  the derivation + calibration-record loader + era wiring
+  ([Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md), unblocked),
+  the derivation + calibration-record loader + era wiring + persisted ledger
   ([Build the derivation, the calibration record, and the era wiring](issues/08-build-the-derivation-and-era-wiring.md),
-  waits on 03, 06, 07), and the reference run itself
-  ([Take the reference run](issues/09-take-the-reference-run.md), waits on 08). Nothing of the
-  build remains in fog; what stays dim is below.
-- **Measured-vs-expected throughput as a reported check** — once expected throughput is a
-  declared config record, an evaluation comparing the run's realized throughput against
-  its declaration (and its duty cycles against their bands) is the natural audit. It reads
-  the whole `staffing` record stamped onto `sim_result` (03's sixth-seam decision), so the
-  seam is settled; what keeps it fog is the bands themselves — it graduates when
-  [Declare the equilibrium bands](issues/04-declare-the-equilibrium-bands.md) closes.
+  waits on 03, 06, 07), the equilibrium check and the throughput audit
+  ([Build the equilibrium check and the throughput audit](issues/10-build-the-equilibrium-check-and-audit.md),
+  waits on 08), and the reference run itself
+  ([Take the reference run](issues/09-take-the-reference-run.md), waits on 08, 10). Nothing of
+  the build remains in fog; what stays dim is below.
 - **Interaction-effects reporting beyond the bands** — the user's framing names
   "interaction effects between departments"; the bands capture equilibrium, but how the
   coupling itself is surfaced (receiving throttles put-away throttles availability
-  throttles picks — a lag/propagation read, not just levels) is dim until the era and
-  bands exist.
+  throttles picks — a lag/propagation read, not just levels) is dim until the era exists.
+  04 left one sharp edge of it: whether a CAPPED day on a campaign arm is also a comparison
+  caveat (the arm did not deliver the declared throughput) is reported, not yet judged.
 
 ## Out of scope
 

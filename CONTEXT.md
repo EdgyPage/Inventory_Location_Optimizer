@@ -256,6 +256,17 @@ The ratio of a department's measured seconds per unit to the seconds the demand 
 predicts — the part of the price a run had to be taken to learn.
 _Avoid_: travel fraction, overhead ratio
 
+**Utilization**:
+The share of a crew's granted production time it spends working, read over a window of days as
+a ratio of sums. Its declared target is the input every derived crew is sized from; the band
+around its expected value is what a run is verified against.
+_Avoid_: duty cycle (that is the grant, not the work), load factor, occupancy
+
+**Headroom**:
+The declared distance between a crew's target utilization and saturation. It is chosen, never
+left over, so that a placement decision has room to move the site's operations.
+_Avoid_: safety margin, slack, buffer
+
 ### Day-over-day
 
 **Working day**:
@@ -278,6 +289,12 @@ The share of the site's production time a crew is actually granted to work. Deno
 against the working day, never against a batch — a budget granted per batch scales with batch
 cadence rather than with time, so it drifts silently whenever a batch outlives a day. A
 department's capacity is denominated in the same unit as the work that arrives at it.
+
+**Equilibrium**:
+A window of working days each of which drains inside its production time with nothing standing
+and no release late, every crew's utilization inside its band, and missed share holding a level
+rather than trending. A precondition for the reference run; a report for every other run.
+_Avoid_: steady state (that names the replenishment scalars, not the day), stable
 
 **Era**:
 A declared regime of the site — its working day, its labour model, its demand script — under
