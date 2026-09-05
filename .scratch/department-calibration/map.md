@@ -110,16 +110,24 @@ regime someone chose rather than one the defaults inherited.
   phase 2 refuses under a different one. Two tickets graduated onto the inbound map (23, 24), 08 gained
   the docstring flip, `CONTEXT.md` gained **Pilot gate**.
 
+- [Add the per-item charge and break the cost model](issues/06-add-the-per-item-charge.md):
+  LANDED. `per_pick` is `M·(intercept + qty·per_item + qty·var)`, default 0.5 in PickConfig, the
+  pick-model defaults now ONE literal set in the kernel that PickConfig/WorkloadParams/PutawayCost
+  reference. The charge flows through `WorkloadParams` into every scorer, labor_cost, W*, the gain
+  evaluator and Workload (the lockstep tests demand it). The put crew is priced from the run's
+  pick config for the first time (`PutawayCost.from_pick`, scale 0.5 / ratio 0.2) and receiving
+  from the put crew (`UnloadCost.from_putaway`, scale 1.0, per-item charge once per PACK). Three
+  scale knobs with all five seams (`crew_cost_spec`, `_shared['crew_cost']`). Pre-charge archives
+  are rebuilt WITHOUT the term. 1587 unit tests green; sabotage tests pin the evaluator and yardstick.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
-  All five are now tickets: the cost-model hard break
-  ([Add the per-item charge and break the cost model](issues/06-add-the-per-item-charge.md),
-  unblocked), the picker staffing seam
+  Four remain tickets (06 landed): the picker staffing seam
   ([Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md), unblocked),
   the derivation + calibration-record loader + era wiring + persisted ledger
   ([Build the derivation, the calibration record, and the era wiring](issues/08-build-the-derivation-and-era-wiring.md),
-  waits on 03, 06, 07), the equilibrium check and the throughput audit
+  waits on 03 and 06, both resolved, and 07), the equilibrium check and the throughput audit
   ([Build the equilibrium check and the throughput audit](issues/10-build-the-equilibrium-check-and-audit.md),
   waits on 08), and the reference run itself
   ([Take the reference run](issues/09-take-the-reference-run.md), waits on 08, 10). Nothing of
