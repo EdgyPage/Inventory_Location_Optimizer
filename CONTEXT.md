@@ -319,3 +319,11 @@ and replenishment scalars, the put crew's mode), the calibration constants it ra
 provenance, and the crews and expected throughput derived from them. Recorded with the run and
 authoritative on resume; never edited by hand.
 _Avoid_: crew config, headcount
+
+**Pilot gate**:
+One inbound-on cell, run before a campaign launches, that verifies the derived receiving crew lands
+the yard in band under arrivals — read through the equilibrium report, never published. It checks a
+derivation; it does not search for a regime. (The earlier sense — a search for a receiving crew
+and day that make the yard bind without starving the warehouse — is retired: under an era the crew
+is derived, so there is nothing to search for.)
+_Avoid_: pilot run, smoke test, calibration cell

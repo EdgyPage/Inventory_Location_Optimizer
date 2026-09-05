@@ -410,6 +410,22 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   is 480; measured at published depth one unit is ~1,230–1,320 s wall at ~5.5 GB peak RSS, so
   phase 2 is ~13 h of simulation and ~1.1 TB — archive-as-you-go is mandatory, workers are
   RAM-bound before CPU-bound, and the grids are the trimming lever.
+  **Decided 2026-09-05 at department-calibration's
+  [Sequence the inbound funnel](../department-calibration/issues/05-sequence-the-inbound-funnel.md):
+  phase 1 is HELD.** It runs under the calibrated era, not the historical continuous regime — a
+  ranking taken today would be taken under a cost model (per-item charge) and a batch script (cut
+  on) no later run uses, and the `inb_off` anchor would compare across eras. The lift is that map's
+  [Take the reference run](../department-calibration/issues/09-take-the-reference-run.md) resolving.
+  The pilot's committed regime (`--recv-crew-size 4 --recv-day-seconds 43200`, `PHASE2_RECV_*`) is
+  an ERROR under the era — the receiving crew is derived, on the site's day — so the pilot gate is
+  re-run as a VERIFICATION, not a search, and phase 2's command line no longer carries an
+  experimental condition. **Execution order is now:** reference run (that map) →
+  [Verify the derived receiving crew under arrivals](issues/23-verify-the-derived-receiving-crew.md)
+  → phase 1 → selection → phase 2 → publish, with
+  [Re-size the funnel in site days](issues/24-resize-the-funnel-in-site-days.md) done before
+  phase 1 launches (the funnel inherits the reference window, 40 site days with 20–39 measured, so
+  the 136/480-unit sizing above is stale). `restock_selection.json` will pin the staffing record
+  and `inbound_policies` refuse under a different one.
 
 ## Out of scope
 

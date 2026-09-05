@@ -71,3 +71,11 @@ of the NEXT day, so the final day needs its own flush, outside the checkpoint ta
 department per channel leaf (load × s ÷ (crew × S), after `ceil` and after the leaf's share of the
 site crew); the `inputs` block gains `band_tol` (default 0.10, `assumed`). (c) ρ stays 0.85 for all
 three departments — the ticket's 0.80/0.90 sketch is withdrawn.
+
+2026-09-05, from resolving [Sequence the inbound funnel](05-sequence-the-inbound-funnel.md): one
+rider. Flip the DOCSTRINGS on `PHASE2_RECV_CREW_SIZE` / `PHASE2_RECV_DAY_SECONDS` and the
+pilot-gate comment block in `whatif_config.SPECS` — today they teach "size it against the BATCH,
+never against a shift", the inverted form of the denomination invariant this map established, and
+under the era the two flags they describe RAISE (03, decision 4). Words only: the constants and flags
+stay flag-off-live (byte-identical discipline); the `inbound_pilot` spec's new shape is inbound
+ticket 23's work, not this build's.

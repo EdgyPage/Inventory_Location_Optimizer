@@ -105,3 +105,12 @@ feed a phase 2 in a different era). Not claimed. This ticket's scope arrives as
 `channels.<ch>.needs_bundle_extension` in the artifact and does not exist yet; do not start it
 from the "likely candidates" list above. Next act on this map: none — the frontier stays empty
 until that calibration ticket resolves and phase 1 runs.
+
+2026-09-05: the successor map RESOLVED
+[Sequence the inbound funnel](../../department-calibration/issues/05-sequence-the-inbound-funnel.md):
+phase 1 is HELD until department-calibration's
+[Take the reference run](../../department-calibration/issues/09-take-the-reference-run.md) resolves.
+Two tickets now sit between that lift and phase 1 on this map —
+[Verify the derived receiving crew under arrivals](23-verify-the-derived-receiving-crew.md) and
+[Re-size the funnel in site days](24-resize-the-funnel-in-site-days.md). This ticket's gate is
+unchanged: the ranking in `restock_selection.json`, which does not exist yet.

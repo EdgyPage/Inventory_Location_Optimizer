@@ -102,6 +102,13 @@ regime someone chose rather than one the defaults inherited.
   missed share not trending (half-window means within ±0.02). One pure function, two callers: a
   PRECONDITION for the reference run, a REPORT on every other run (below-band picking is the arm's
   saving; a capped day is "declared throughput not delivered"). The sim never judges itself.
+- [Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md): HOLD phase 1; the lift
+  is [Take the reference run](issues/09-take-the-reference-run.md) resolving, not the map closing. The
+  pilot's committed regime (crew 4, 12-hour day) is an ERROR under the era, so the pilot gate becomes a
+  one-cell inbound-on VERIFICATION read through 04's report, not a search; the funnel inherits the
+  reference window (40 days, 20–39 measured); `restock_selection.json` pins the staffing record and
+  phase 2 refuses under a different one. Two tickets graduated onto the inbound map (23, 24), 08 gained
+  the docstring flip, `CONTEXT.md` gained **Pilot gate**.
 
 ## Not yet specified
 
