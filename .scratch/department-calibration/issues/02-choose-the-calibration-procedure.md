@@ -32,3 +32,17 @@ run under `fifo` in the 01 era to measure the travel-bearing makespans and set f
 counts. Record the analytic prediction AND the measured value per department — their
 ratio IS the travel share, and it is the number that lets the next catalogue re-calibrate
 cheaply.
+
+## Comments
+
+2026-09-05, from resolving [Define the calibrated era](01-define-the-calibrated-era.md): the
+question is RESHAPED. Calibration is now a DERIVATION from declared pickers (the chain is in
+01's answer), not a search — so this ticket no longer chooses counts. It decides the REFERENCE
+RUN that supplies the two measured constants, `s_pick` and `s_put` (seconds per unit picked /
+put): which arm (the `fifo` recommendation stands), depth, leaves, and what it records — the
+analytic prediction beside the measured value, their ratio being the travel share, as already
+recommended — plus how the constants are declared with provenance so the next catalogue can
+re-calibrate. Receiving needs no measurement (exact from the script). The heaviest-aisle floor
+is still measured here, but it now BOUNDS the picker count a scenario may declare rather than
+setting one. The run must be taken under the new cost model
+([ticket 06](06-add-the-per-item-charge.md)) or it measures labour no later run uses.

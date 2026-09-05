@@ -40,3 +40,15 @@ line. A true shared-pool tradeoff (a picker added is a receiver removed) needs c
 pricing this model does not have — if wanted, it is a later effort started from this
 record. (b) as sketched: one spliced-list record, `recv_crew_spec` pattern, expected
 throughput declared beside the crews. (c) both as stated.
+
+## Comments
+
+2026-09-05, from resolving [Define the calibrated era](01-define-the-calibrated-era.md):
+(a) is settled by 01 — pickers per channel are the declared input, the put crew and receiving
+crew are SITE totals derived from them; no fungible pool. The record therefore carries INPUTS
+(per-channel pickers; ρ_pick / ρ_put / ρ_recv; f_put / f_recv; the intercept scales and
+per-item ratio; the measured `s_pick` / `s_put` with provenance) and DERIVED OUTPUTS (batch
+content per channel, put crew, receiving crew, expected throughput), both in the run spec,
+computed live at setup so no run can carry a stale literal. (b)'s pattern choice stands. The
+picker seam build is [Build the picker staffing seam](07-build-the-picker-staffing-seam.md),
+blocked on this record's shape.

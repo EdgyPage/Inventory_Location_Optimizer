@@ -206,6 +206,12 @@ same cart.
 **Picking**:
 Retrieving units from bins to fill demand batches.
 
+**Per-item charge**:
+The fixed labour to label one handled unit — an item at pick, a pack at receiving. Charged per
+unit handled and scaled by the height bracket like the rest of at-location work; smaller for
+putting than for picking.
+_Avoid_: sticker cost, per-item intercept
+
 ### Measurement
 
 **Stamp**:
@@ -261,3 +267,9 @@ The share of the site's production time a crew is actually granted to work. Deno
 against the working day, never against a batch — a budget granted per batch scales with batch
 cadence rather than with time, so it drifts silently whenever a batch outlives a day. A
 department's capacity is denominated in the same unit as the work that arrives at it.
+
+**Era**:
+A declared regime of the site — its working day, its labour model, its demand script — under
+which results are comparable. A change of era ends comparability with every earlier result;
+nothing is read across one.
+_Avoid_: regime (for the comparability boundary), version

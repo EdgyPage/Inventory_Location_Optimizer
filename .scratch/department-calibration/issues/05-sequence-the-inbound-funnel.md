@@ -28,3 +28,10 @@ this ticket is where it gets decided.
 **Recommendation:** hold phase 1. Cheap to defer, expensive to duplicate, and a number
 with no consumer is not worth 3 hours. The funnel restarts from phase 1 under the
 calibrated era once this map lands.
+
+## Comments
+
+2026-09-05, from resolving [Define the calibrated era](01-define-the-calibrated-era.md): the
+era now also changes the COST MODEL (per-item charge, hard break — ticket 06, ADR-0001), so a
+phase-1 ranking taken today would be taken under a labour model no later run uses. This
+strengthens "hold".

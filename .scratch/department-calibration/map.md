@@ -68,20 +68,32 @@ regime someone chose rather than one the defaults inherited.
 
 <!-- one line per closed ticket: gist + link -->
 
+- [Define the calibrated era](issues/01-define-the-calibrated-era.md): drain-or-cap paced at
+  one release per day, cut and rollover on, S = 28,800 s, is the era — and it is the VERIFIER.
+  Staffing is a DERIVATION, not a search: per-channel pickers are the one declared input; batch
+  content, put crew and receiving crew (site totals) derive from them live at setup, a declared
+  scalar at every step (ρ = 0.85, f = 1.0 defaults), seconds-per-unit hybrid (one `fifo`
+  reference run; receiving exact). The cost model changes as a HARD BREAK: picking gains a
+  per-item charge (0.5 s), put-away a scaled intercept (0.5) and a 0.2 ratio of the charge,
+  receiving one charge per PACK (ADR-0001). Six era consequences recorded verbatim.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
-  Already visible through the fog: the PICKER STAFFING SEAM (the one department with no
-  runtime knob at all — CLI flag, `CONFIG['global']` key, spec accessor on the
-  `recv_crew_spec` pattern, run-spec record + both restore sites, `workunits._shared`);
-  the STAFFING RECORD build (shape decided by
-  [Design the staffing record](issues/03-design-the-staffing-record.md), including the
-  `put_crew_spec` no-CONFIG-key trap fix riding along); the ERA WIRING (whatever
-  [Define the calibrated era](issues/01-define-the-calibrated-era.md) decides about
-  `SHIFT_DRAIN_OR_CAP` / `releases_per_day` defaults for campaign specs); and the
-  CALIBRATION RUN itself with its verification read (procedure from
-  [02](issues/02-choose-the-calibration-procedure.md), bands from
-  [04](issues/04-declare-the-equilibrium-bands.md)).
+  Graduated so far: the cost-model hard break
+  ([Add the per-item charge and break the cost model](issues/06-add-the-per-item-charge.md),
+  unblocked) and the picker staffing seam
+  ([Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md), waits on
+  03's record shape). Still fog, each waiting on its governing ticket: the DERIVATION at run
+  setup (the chain in 01's answer — the ρ / f scalars, the intercept scales, and the measured
+  `s_pick` / `s_put` constants; needs 02's reference run and 03's record shape); the
+  BATCH-CONTENT derivation (`STORE_BATCH_MEAN` / `FF_BATCH_MEAN` stop being declared and
+  become one day's demand at headroom — rides the derivation build); the ERA WIRING
+  (`SHIFT_DRAIN_OR_CAP` + `releases_per_day=1` + `roll_over_unpicked` as the campaign specs'
+  defaults — decided by 01, pointless before the derivation exists, so it rides that build);
+  and the REFERENCE RUN under `fifo` with its verification read (procedure from
+  [02](issues/02-choose-the-calibration-procedure.md), targets from
+  [04](issues/04-declare-the-equilibrium-bands.md)), taken under the new cost model.
 - **Measured-vs-expected throughput as a reported check** — once expected throughput is a
   declared config record, an evaluation comparing the run's realized throughput against
   its declaration (and its duty cycles against their bands) is the natural audit; needs

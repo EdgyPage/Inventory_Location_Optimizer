@@ -32,3 +32,12 @@ rather than capped, and missed share holds a stable level rather than trending. 
 numbers are this ticket's to confirm against the calibration run's measurements; the
 SHAPE of the declaration (target + band + check, recorded beside the staffing) is the
 decision.
+
+## Comments
+
+2026-09-05, from resolving [Define the calibrated era](01-define-the-calibrated-era.md): the
+bands are now the UTILIZATION TARGETS ρ per department that the derivation consumes (defaults
+0.85 each, declared in 01's chain, replacing the ~0.80 sketched above — reconcile), plus the
+accepted band and the pre-registered equilibrium check read from the instruments named here.
+The read VERIFIES derived staffing; it no longer tunes it. The recommendation's shape (target +
+band + check, recorded beside the staffing) stands.
