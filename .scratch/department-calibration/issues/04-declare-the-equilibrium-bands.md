@@ -41,3 +41,9 @@ bands are now the UTILIZATION TARGETS ρ per department that the derivation cons
 accepted band and the pre-registered equilibrium check read from the instruments named here.
 The read VERIFIES derived staffing; it no longer tunes it. The recommendation's shape (target +
 band + check, recorded beside the staffing) stands.
+
+2026-09-05, from resolving [Choose the calibration procedure](02-choose-the-calibration-procedure.md):
+the pre-registered equilibrium check is also the reference run's WINDOW PRECONDITION — days 20–39
+of each pass are measured only if the check holds over them, otherwise the window is discarded
+and the next pass runs. So the check must be computable from `batch_stats` (`released_late`) and
+the drain-or-cap close-out ledger over a day range, not only as a whole-run verdict.

@@ -76,24 +76,27 @@ regime someone chose rather than one the defaults inherited.
   reference run; receiving exact). The cost model changes as a HARD BREAK: picking gains a
   per-item charge (0.5 s), put-away a scaled intercept (0.5) and a 0.2 ratio of the charge,
   receiving one charge per PACK (ADR-0001). Six era consequences recorded verbatim.
+- [Choose the calibration procedure](issues/02-choose-the-calibration-procedure.md): hybrid under
+  `fifo`, as a FIXED POINT (analytic seed, era run, re-derive, ≤2 passes, 5% tolerance); 40 days
+  with days 20–39 measured under 04's check as a precondition; one cell, `lpt`, both channels,
+  minimal mechanics. `s_pick` per channel as a ratio of sums, `s_put` one site value, `s_recv`
+  exact with a failing self-check. Constants live in a COMMITTED calibration record with
+  provenance; a catalogue mismatch warns and stamps `calibration_stale`; `K_max` bounds pickers
+  with a warn-and-stamp; the measured/analytic travel share may price a new catalogue
+  provisionally, stamped `derived`.
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
-  Graduated so far: the cost-model hard break
+  All four are now tickets: the cost-model hard break
   ([Add the per-item charge and break the cost model](issues/06-add-the-per-item-charge.md),
-  unblocked) and the picker staffing seam
-  ([Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md), waits on
-  03's record shape). Still fog, each waiting on its governing ticket: the DERIVATION at run
-  setup (the chain in 01's answer — the ρ / f scalars, the intercept scales, and the measured
-  `s_pick` / `s_put` constants; needs 02's reference run and 03's record shape); the
-  BATCH-CONTENT derivation (`STORE_BATCH_MEAN` / `FF_BATCH_MEAN` stop being declared and
-  become one day's demand at headroom — rides the derivation build); the ERA WIRING
-  (`SHIFT_DRAIN_OR_CAP` + `releases_per_day=1` + `roll_over_unpicked` as the campaign specs'
-  defaults — decided by 01, pointless before the derivation exists, so it rides that build);
-  and the REFERENCE RUN under `fifo` with its verification read (procedure from
-  [02](issues/02-choose-the-calibration-procedure.md), targets from
-  [04](issues/04-declare-the-equilibrium-bands.md)), taken under the new cost model.
+  unblocked), the picker staffing seam
+  ([Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md), waits on 03),
+  the derivation + calibration-record loader + era wiring
+  ([Build the derivation, the calibration record, and the era wiring](issues/08-build-the-derivation-and-era-wiring.md),
+  waits on 03, 06, 07), and the reference run itself
+  ([Take the reference run](issues/09-take-the-reference-run.md), waits on 08). Nothing of the
+  build remains in fog; what stays dim is below.
 - **Measured-vs-expected throughput as a reported check** — once expected throughput is a
   declared config record, an evaluation comparing the run's realized throughput against
   its declaration (and its duty cycles against their bands) is the natural audit; needs

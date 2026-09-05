@@ -52,3 +52,12 @@ content per channel, put crew, receiving crew, expected throughput), both in the
 computed live at setup so no run can carry a stale literal. (b)'s pattern choice stands. The
 picker seam build is [Build the picker staffing seam](07-build-the-picker-staffing-seam.md),
 blocked on this record's shape.
+
+2026-09-05, from resolving [Choose the calibration procedure](02-choose-the-calibration-procedure.md):
+two records now exist and must not be confused. The COMMITTED calibration record (constants +
+provenance, under `Optimization/simconfig/`) is an INPUT this record reads; the run-spec staffing
+record designed here COPIES the constants it ran under together with their `provenance`
+(`seed` / `measured` / `derived`), and carries two stamps 02 decided: `calibration_stale`
+(catalogue fingerprint differs from the record's) and the `K_max` exceedance flag (declared
+pickers above the heaviest-aisle bound). Both are things an evaluation will read, so both take
+the sixth seam onto `sim_result`.

@@ -245,6 +245,11 @@ on different clocks never form a ratio.
 **Unit of account**:
 What a count counts — packs or merchandise pieces. Never added across accounts.
 
+**Travel share**:
+The ratio of a department's measured seconds per unit to the seconds the demand script alone
+predicts — the part of the price a run had to be taken to learn.
+_Avoid_: travel fraction, overhead ratio
+
 ### Day-over-day
 
 **Working day**:
@@ -273,3 +278,14 @@ A declared regime of the site — its working day, its labour model, its demand 
 which results are comparable. A change of era ends comparability with every earlier result;
 nothing is read across one.
 _Avoid_: regime (for the comparability boundary), version
+
+**Reference run**:
+The one run, taken under the era and the reference arm, whose measured labour per unit prices
+the travel-bearing departments for a catalogue. Its product is the calibration record.
+_Avoid_: calibration run, baseline run (the baseline is the arm compared against, not this run)
+
+**Calibration record**:
+The committed declaration of a catalogue's labour constants together with the provenance that
+produced them — seeded, measured, or derived. A run reads it and copies what it ran under; it
+never edits it.
+_Avoid_: calibration constants, tuning file
