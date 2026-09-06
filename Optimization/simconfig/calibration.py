@@ -185,10 +185,16 @@ def resolve_constants(rec: dict, *, overrides: dict, analytic_pick: dict,
 def record_stub(rec: dict) -> dict:
     """The provenance a run copies from the record: enough to find the record again and to
     tell which pass it was, never the constants themselves (those ride `resolve_constants`)."""
+    path = rec.get('_path', RECORD_PATH)
+    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        path = os.path.relpath(path, repo)
+    except ValueError:
+        # A candidate record under COMPARISON_OUTPUT_DIR on another drive (Windows relpath
+        # refuses across mounts): keep it absolute -- the run tree is not tracked.
+        path = os.path.abspath(path)
     return {
-        'path': os.path.relpath(rec.get('_path', RECORD_PATH),
-                                os.path.dirname(os.path.dirname(os.path.dirname(
-                                    os.path.abspath(__file__))))).replace(os.sep, '/'),
+        'path': path.replace(os.sep, '/'),
         'pass': rec.get('pass'),
         'created': rec.get('created'),
         'commit': rec.get('commit'),

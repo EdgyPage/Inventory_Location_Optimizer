@@ -172,6 +172,11 @@ def main(argv=None) -> int:
     args, passthrough = parser.parse_known_args(argv)
     if passthrough and passthrough[0] == '--':
         passthrough = passthrough[1:]
+    # A redirected stdout on Windows is cp1252, and the child's log (decoded with
+    # errors='replace') can carry a character it cannot encode -- the echo must never
+    # kill the driver mid-pass and orphan the run_simulation subprocess.
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(errors='replace')
     log = _log()
     lo, hi = args.window
     if hi < lo or lo < 0:

@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: ../../department-calibration/issues/09-take-the-reference-run.md
+Blocked by: ../../department-calibration/issues/12-re-take-the-reference-run.md
 
 AFK once unblocked. Cross-map gate: this ticket may not start until the department-calibration
 map's [Take the reference run](../../department-calibration/issues/09-take-the-reference-run.md)

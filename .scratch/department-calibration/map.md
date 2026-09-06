@@ -150,12 +150,30 @@ regime someone chose rather than one the defaults inherited.
   utilization in an inspection table because it has no direction). 31 tests; smoke run rendered
   both leaves and measured travel shares of 1.46 / 5.1 / 1.83 against the seed's 1.01 / 1.04 / 1.05.
 
+- [Take the reference run](issues/09-take-the-reference-run.md): TAKEN 2026-09-06 on the
+  `bell_lt0` pair — and the procedure as decided produced NO measured record: two passes, both
+  windows discarded (0/20 days drained on both leaves), fixed point cut off. Receiving self-check
+  exact everywhere. Three causes, all measured: the pick constant converges by ~0.7 per pass so
+  two passes stop 10–19% short (store 74→86→95 s/unit, fulfillment 3.1→21.5→25.6; a
+  continuation closed it at the FIFTH pass, store ~107 / fulfillment ~29.2 s/unit, pick
+  utilization then dead on expectation); the
+  catalogue's stock coverage (10 GENERATION batches ≈ 35/47 era days) puts the first reorder
+  wave at or past day 40, so put/receiving ran at 30%/2% of pick flow and their bands cannot
+  pass in this window — and the same lag defeats "every day drained" through STOCKOUTS (89% of
+  fulfillment carry is `unpicked_unstocked` once picking is in band); realized demand runs
+  ~3–6% above the derived target (line fraction vs units). Two Windows traps fixed in the driver. Graduated a decision (11) and the re-take (12);
+  the inbound map's gates 23/24 now wait on 12.
+
 ## Not yet specified
 
-- **The builds** — every implementation graduated and landed (06, 07, 08, 10). One ticket
-  remains, the reference run itself
-  ([Take the reference run](issues/09-take-the-reference-run.md), UNBLOCKED — 10 is resolved),
-  which is a RUN, not a build. Nothing of the build remains in fog; what stays dim is below.
+- **The builds** — every implementation graduated and landed (06, 07, 08, 10). The reference
+  run was taken (09) and failed its window for catalogue reasons; the amendment is a live
+  decision ([Fit the reference window to the replenishment cycle](issues/11-fit-the-reference-window-to-the-replenishment-cycle.md))
+  and the re-take a live task (12). Nothing of the build remains in fog; what stays dim is below.
+- **Coverage denomination.** If 11 moves stock coverage from generation batches to era days,
+  the generator gains a knob that depends on the calibration it feeds — how that circularity is
+  authored (a coverage in days at a declared demand, stamped like the travel share) is dim
+  until 11 picks a lever.
 - **Interaction-effects reporting beyond the bands** — the user's framing names
   "interaction effects between departments"; the bands capture equilibrium, but how the
   coupling itself is surfaced (receiving throttles put-away throttles availability
