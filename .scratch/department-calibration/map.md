@@ -192,13 +192,25 @@ regime someone chose rather than one the defaults inherited.
   stamped for the audit's band; coverage is a runtime rescaling (graduated to 14); `k_max` retired;
   no correction factor -- the bands absorb the residual. The calibration record, the reference
   driver and their spec/flags are gone; the era launches with no record at all.
+- [Rescale stock coverage at setup](issues/14-rescale-coverage-at-setup.md): LANDED.
+  `simconfig/coverage.py` (the generator's formula in days, the floor shares) and
+  `simdriver/era_coverage.py` (stage A factored out of the derivation; the pair-level fixed
+  point `Q(n) -> plan -> geometry -> n`, a bracketed log-space secant because the map's gain
+  is above one) drive from `build_shared_assets` under the era; `coverage_days` (10) and
+  `safety_days` (2) ride `STAFFING_KEYS`; the loop's record lands under
+  `calibration[<pair>].coverage`; the placement fingerprint rides every arm stamp. Flag-off
+  the planner runs once, proven. THE FINDING: the catalogue's levels were worth 1,771 store
+  days, so at 10 days the store collapses to 722 aisles, 71% of its SKUs hold one unit and
+  93% hold less than one line -- the 40-day run reorders from day 1, drains 0 of 40 days and
+  picks 3.8% of demand. A wave inside the window and a store that is a warehouse are mutually
+  exclusive under the unit floor; the default is provisional and the floor is ticket 15.
 
 ## Not yet specified
 
-- **The builds** — every implementation graduated and landed (06, 07, 08, 10, 13). The one live
-  ticket is the coverage rescaling
-  ([Rescale stock coverage at setup](issues/14-rescale-coverage-at-setup.md)). What stays dim
-  is below.
+- **The builds** — every implementation graduated and landed (06, 07, 08, 10, 13, 14). The
+  one live ticket is the decision 14 surfaced
+  ([Choose the coverage floor](issues/15-choose-the-coverage-floor.md)); the era's default
+  coverage is PROVISIONAL until it closes. What stays dim is below.
 - **Ranked arms' steady-state placement.** 13 found FIFO drifts to the class-uniform smear; a
   ranked restock keeps its placement concentrated, so its initial-placement expectation is a
   proxy, not a steady state. Whether the audit's per-arm band should follow the placement as it

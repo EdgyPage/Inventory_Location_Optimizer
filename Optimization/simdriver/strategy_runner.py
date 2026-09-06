@@ -26,6 +26,7 @@ sys.path bootstrap of its own.
 from __future__ import annotations
 
 import gc
+import hashlib
 import logging
 import logging.handlers
 import os
@@ -114,6 +115,24 @@ def _gc_cb(phase, info, _st=_GC_STATE):
         _st['gen'][info.get('generation', 0)] += 1
 
 
+def placement_fingerprint(bin_map: dict) -> str:
+    """A rename-proof hash of a placement: `bin_map[sku] = [(aisle_id, bayX, bayY, qty), ...]`.
+
+    Sorted by SKU and by location, so two managers holding the same units in the same bins
+    agree whatever order they were filled in; sixteen hex digits, the size of the geometry
+    fingerprint it sits beside.  An empty placement hashes to a fixed value rather than
+    raising: an arm that placed nothing still stamps.
+    """
+    h = hashlib.sha1()
+    for sku in sorted(bin_map):
+        rows = sorted((int(a), int(x), int(y), int(q)) for a, x, y, q in bin_map[sku])
+        h.update(f'{sku}:'.encode())
+        for row in rows:
+            h.update(f'{row[0]},{row[1]},{row[2]},{row[3]};'.encode())
+        h.update(b'\n')
+    return h.hexdigest()[:16]
+
+
 def _arm_expected_pick(args: dict, warehouse, orders, pick_cfg, log) -> dict | None:
     """The arm's expected day under ITS OWN initial placement, or None flag-off.
 
@@ -145,6 +164,12 @@ def _arm_expected_pick(args: dict, warehouse, orders, pick_cfg, log) -> dict | N
     out = _et.expected_pick(rates, geometry, pick_cfg, float(expected['lines']),
                             float(expected.get('cv') or 0.0))
     out['pair_s_pick'] = float(expected['s_pick'])
+    # The PLACEMENT FINGERPRINT: a hash of the bin map the expectation was computed from,
+    # so the stamp names the placement, not just `placement: initial` and the geometry.
+    # An arm re-stamped after a reorder cycle, or two arms with the same initial rule,
+    # compare by this and not by the rule's name.
+    out['placement_fingerprint'] = placement_fingerprint(bin_map)
+    out['bins_filled'] = int(sum(len(v) for v in bin_map.values()))
     log.info(f"  [era] expected day under this arm's initial placement: s_pick="
              f"{out['s_pick']:.3f} s/unit (pair {out['pair_s_pick']:.3f}), "
              f"{out['tasks']:,.0f} tasks, {out['swaps']:,.0f} swaps  "

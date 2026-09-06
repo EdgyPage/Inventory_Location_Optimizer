@@ -214,6 +214,52 @@ rescaled Q makes the coverage *nominal AND real* only for SKUs with `Q ≥ 2`. (
 regenerated stock levels change the warehouse's aisle count, so archive comparability is
 gone — it already went with the per-item charge.
 
+### 5a. Built (2026-09-06, "Rescale stock coverage at setup") — and what the floor amounts to
+
+`Optimization/simconfig/coverage.py` (pure: `d_s`, the generator's formula in days, the
+floor shares) and `Optimization/simdriver/era_coverage.py` (stage A factored out of the
+derivation, and the loop `Q(n) → plan_warehouse → geometry → solve_n → n`, driven from
+`sim_assets.build_shared_assets` under `era_on()` wherever a plan samples). `coverage_days`
+(10.0) and `safety_days` (2.0) ride `STAFFING_KEYS`; the loop's record lands under
+`staffing.calibration[<pair>].coverage`. Flag-off the planner runs exactly once, as before.
+
+**The floor is not a tail on this catalogue — it is the store section.** Measured on the
+reference pair (`mixed_realistic_bell_lt0`, 400,000 SKUs) at the reference run's converged
+line counts (556 store / 1,818 fulfillment lines a day), BEFORE any re-plan:
+
+| section | SKUs | catalogue's implied coverage (demand-weighted) | at 10 d: SKUs at Q = 1 / share of demand on them | at 30 d | at 90 d | at 365 d |
+|---|---|---|---|---|---|---|
+| store | 239,938 | **1,785 days** (median 1,785) | **100.0% / 100.0%** | 87.2% / 63.3% | 46.4% / 12.8% | 18.3% / 1.0% |
+| fulfillment | 160,062 | 278 days (median 278) | 72.6% / 41.7% | 27.4% / 6.6% | 5.8% / 0.5% | 0.2% / 0.0% |
+
+Why: the average store SKU carries `d_s ≈ 0.024` units a day (a line every ~430 days at
+~10 units a line), so `10 × d_s` rounds to zero for every one of them; the catalogue's
+generation-batch coverage was worth **five years** on the store side. The `Q ≥ 1` floor
+therefore turns the store section into a one-unit-per-SKU shelf under the default, and a
+coverage short enough to put the first reorder wave inside a 40-day window (the wave lands
+at `coverage − safety` days for the SKUs above the floor) floors the store whatever the
+number. That conflict — the ticket's window against the unit floor on a slow-moving
+section — is the finding this build surfaces; the decision it needs (a line-sized floor,
+per-channel coverage, or the catalogue's own levels) is graduated on the map.
+
+**At the fixed point (the 40-day era run, `comparison_20260906_173635`).** The loop needs a
+bracketed log-space secant, not plain iteration: `n_out(n_in)` is monotone decreasing with a
+gain above one (fulfillment went 1,818 → 14,832 → 4,048 → 10,797 under the plain iterate),
+and with the secant it converged in 4 rounds / 490 s to a 0.5% residual. Rescaling the store
+to 10 days collapses its warehouse from 5,814 to 722 aisles, so the same 25 pickers fill 4.7×
+the lines (556 → 2,633 a day; fulfillment 1,818 → 6,902), which raises every `d_s` and pulls
+the floor share DOWN from the table above — to 70.9% of store SKUs (37% of store demand) and
+20.5% of fulfillment SKUs (4.0%). The deeper number is the LINE: the planned median stock is
+1 unit (store) / 4 (fulfillment) against a sampler line of ~10.4, so 93% / 87% of SKUs hold
+less than one line's quantity. The closed form already prices that starvation (`units_per_line`
+2.02 / 4.92 against the analytic 10.4 / 10.5: it caps a line at the stock in front of it), and
+the run shows it: reorders from day 1 on both leaves, 0 of 40 days drained, 3.8% / 4.6% of
+demanded units picked over the window, 90% / 87% of the carry `unpicked_unstocked`, 0.53 M /
+1.21 M units standing on day 39; the derived crews follow the packs (put 237, receiving 82
+against 42 / 16 under the catalogue's levels). The "wave inside the window" the ticket asked
+for is therefore met trivially and meaninglessly: it is the whole section reordering on its
+first pick, every day.
+
 ## 6. Decisions for the user before the build
 
 1. **Pair-level n from the class-uniform expectation, per-arm expectation stamped** (§4).

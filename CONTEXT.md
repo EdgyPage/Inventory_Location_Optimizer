@@ -312,9 +312,19 @@ judged against.
 _Avoid_: calibration, reference run, travel share, measured constant (there are no
 calibration simulations; a formula error shows in the equilibrium report)
 
+**Stock coverage**:
+How long a SKU's order-up-to quantity lasts, in days of its OWN expected demand — never in
+generation batches, which are not a unit of time. Under an era it is a declared input
+(`coverage_days`, with `safety_days` for the reorder point) and every SKU's levels are
+re-derived from it at setup, the warehouse sized from them through a pair-level fixed point.
+Nominal and real only for SKUs holding two or more units: the unit floor makes a slow mover
+hold one unit and reorder on its first pick whatever the coverage says, and the record states
+how much of a section, and of its demand, sits on that floor.
+_Avoid_: coverage batches, equilibrium coverage (the catalogue's flag-off shape)
+
 **Staffing record**:
 A run's declaration of who worked it: the declared inputs (pickers per channel, the utilization
-and replenishment scalars, the put crew's mode), the expected labour constants it ran under
+and replenishment scalars, the put crew's mode, the stock coverage in days), the expected labour constants it ran under
 with their provenance and the expected day they were read off, and the crews and expected
 throughput derived from them. Recorded with the run and authoritative on resume; never edited
 by hand.

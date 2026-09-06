@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import os
 from dataclasses import replace as _dc_replace
 
@@ -29,12 +28,12 @@ from Optimization.runschema.sim_manifest import (
     _load_resume, _resume_path, _save_resume, _load_run_spec, _write_run_spec)
 from Optimization.simconfig import expected_travel as _et
 from Optimization.simconfig import staffing as _staffing
+from Optimization.simdriver import era_coverage as _era_cov
 from Optimization.config.strategies import strategies_for
 from Optimization.simdriver.strategy_runner import load_worker_checkpoint, reset_strategy_db
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.kernel.cost_model import SpeedProfile
 from Warehouse.kernel.regime import FULFILLMENT
-from Warehouse.layout.Storage_Primitive import viable_storage_units
 from Warehouse.layout.Storage_Primitive import StoreCart
 # local (in-function) imports preserved from the originals: dataclasses.replace,
 # Warehouse.kernel.regime.regime_of, Optimization.config.channels.make_channel.
@@ -454,10 +453,6 @@ def _prepare_channel_run(
     return strategy_args, [sim_skeleton]
 
 
-#: Which staffing input overrides each channel's expected s_pick.
-_PICK_OVERRIDE_KEY: dict = {'store': 's_pick_store', 'fulfillment': 's_pick_ff'}
-
-
 def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pair_dir: str,
                               log: logging.Logger, workers: int = 1) -> tuple:
     """Run the calibrated era's staffing derivation for ONE inventory pair.
@@ -508,62 +503,30 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
     for ch, cfg in channel_runs:
         groups.setdefault(ch.name, {'ch': ch, 'cfg': cfg})
     # ── stage A: the catalogue and the geometry ────────────────────────────────────
-    stage_a: dict = {}
+    # ONE function (`era_coverage.stage_a`) for the coverage loop and the derivation.  The
+    # loop ran it last on exactly these orders over exactly this geometry ("Rescale stock
+    # coverage at setup"), so when `build_shared_assets` left that result on the shared dict
+    # it is reused rather than priced again; anything else -- a caller that built its assets
+    # without the loop -- prices the section here.
+    specs = [_era_cov.ChannelSpec(name, grp['ch'].regime if mixed else None,
+                                  grp['ch'].picker.cost, _config_name(grp['cfg']))
+             for name, grp in groups.items()]
+    cached = shared.get('era_stage_a')
+    if cached and cached.get('n_orders') == len(inventory.orders) \
+            and cached.get('aisles') == len(shared['warehouse_meta'].aisles) \
+            and set(cached['channels']) == {s.name for s in specs}:
+        stage_a = cached['channels']
+        log.info('  [staffing] stage A reused from the coverage loop (same orders, same geometry)')
+    else:
+        stage_a = _era_cov.stage_a(inventory.orders, geometry, specs, inputs=inputs,
+                                   day_seconds=S, log=log)
     constants: dict = {'s_pick': {}}
     new_runs: list = []
     for name, grp in groups.items():
         ch = grp['ch']
-        pick_cfg = ch.picker.cost
-        orders = _staffing.regime_orders(inventory.orders, ch.regime if mixed else None)
-        pricing = _staffing.PricingConfig.from_pick_config(pick_cfg, name=_config_name(grp['cfg']))
-        t0 = time.perf_counter()
-        dist = _et.PlacementDist.uniform(
-            {c.sku: viable_storage_units(c, c.equilibrium_qty) for c in orders})
-        rates = _et.accumulate(orders, pick_cfg, dist, geometry)
-        declared = CONFIG['channels'][name]['batch']
-        cv = (float(declared['std']) / float(declared['mean'])) if float(declared['mean']) > 0 else 0.0
-        K = channel_pickers(name)
-        cap = _staffing.pick_capacity(K, S, float(inputs['rho_pick']))
-        override = overrides.get(_PICK_OVERRIDE_KEY[name])
-        if rates.units_per_line <= 0.0:
-            log.warning(f"  [staffing] {name}: s_pick could not be priced (empty section); "
-                        f"the channel derives no demand")
-            expected = _et.expected_pick(rates, geometry, pick_cfg, 0.0, cv)
-            s_pick = {'value': 0.0, 'provenance': 'derived', 'source': 'expected_travel',
-                      'unpriced': True}
-            D = 0.0
-        elif override is not None:
-            D = _staffing.daily_demand(cap, float(override))
-            expected = _et.expected_pick(rates, geometry, pick_cfg, D / rates.units_per_line, cv)
-            s_pick = _staffing.constant(float(override), 'declared', source='override',
-                                        expected=float(expected['s_pick']))
-        else:
-            expected = _et.solve_n(rates, geometry, pick_cfg, cv, capacity_s=cap,
-                                   n_max=len(orders))
-            D = float(expected['units'])
-            s_pick = _staffing.constant(float(expected['s_pick']), 'derived',
-                                        source='expected_travel', placement=dist.kind)
-        if rates.unplaced_skus:
-            log.warning(f"  [staffing] {name}: {rates.unplaced_skus} SKU(s) pack into no storage "
-                        f"unit and carry no visit rate")
-        batch = _staffing.batch_content(D, rates.units_per_line, len(orders),
-                                        float(declared['mean']), float(declared['std']))
-        if batch['saturated']:
-            log.warning(f"  [staffing] {name}: {K} pickers at {s_pick['value']:.2f} s/unit "
-                        f"ask for {batch['mean_lines']:,.0f} lines/day but the section has "
-                        f"{len(orders)} SKUs -- batch content clamped to every SKU every "
-                        f"day; the declared crew is oversized for this catalogue")
-        constants['s_pick'][name] = s_pick
-        stage_a[name] = {'orders': orders, 'pricing': pricing, 'dist': dist, 'pick_cfg': pick_cfg,
-                         'analytic': _staffing.analytic_pick(orders, pricing),
-                         'expected': expected, 'pickers': K, 'daily_demand_units': D,
-                         'batch': batch}
-        log.info(f"  [staffing] {name}: K={K}  s_pick={s_pick['value']:.3f} s/unit "
-                 f"({s_pick['provenance']}, expected {expected['s_pick']:.3f} at "
-                 f"{expected['lines']:,.0f} lines/day: {expected['tasks']:,.0f} tasks, "
-                 f"{expected['swaps']:,.0f} swaps)  demand={D:,.0f} units/day  "
-                 f"batch mean_fraction={batch['mean_fraction']:.4f} "
-                 f"(~{batch['mean_lines']:,.0f} lines)  [{time.perf_counter()-t0:.0f}s]")
+        a = stage_a[name]
+        constants['s_pick'][name] = a['s_pick']
+        batch = a['batch']
         new_ch = _dc_replace(ch, batch_mean_fraction=batch['mean_fraction'],
                              batch_std_fraction=batch['std_fraction'])
         groups[name]['new_ch'] = new_ch
@@ -626,6 +589,11 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
         'geometry_fingerprint': geometry_fp,
         's_pick': constants['s_pick'], 's_put': constants['s_put'],
         'overrides': sorted(k for k, v in overrides.items() if v is not None),
+        # The coverage loop's record ("Rescale stock coverage at setup"): the declared
+        # days, the catalogue's own implied coverage, every round's line count and the
+        # floor shares of the levels the run fields.  None when the assets were built
+        # without the loop (a frozen inventory, an analysis-shape rebuild).
+        'coverage': shared.get('coverage'),
     }
     log.info(f"  [staffing] put crew={derived['put']['crew']} "
              f"(s_put={constants['s_put']['value']:.3f} s/unit, "

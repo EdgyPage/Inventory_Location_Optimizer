@@ -590,7 +590,15 @@ def main():
             ('--f-recv', 'f_recv', _nonneg_float,
              'packs received per pack the script implies; 1.0 = steady state'),
             ('--band-tol', 'band_tol', _nonneg_float,
-             'equilibrium band: |realized - expected| utilization tolerance, absolute')):
+             'equilibrium band: |realized - expected| utilization tolerance, absolute'),
+            # Stock coverage in DAYS of each SKU's own demand: under the era setup
+            # re-derives every SKU's order-up-to and reorder point from these and sizes the
+            # warehouse through a pair-level fixed point (simdriver/era_coverage.py); the
+            # catalogue's generation-batch coverage is the flag-off shape only.
+            ('--coverage-days', 'coverage_days', _positive_float,
+             "stock coverage: order-up-to = days x the SKU's daily demand (era only)"),
+            ('--safety-days', 'safety_days', _nonneg_float,
+             'safety stock: reorder point = demand over (lead + safety) days (era only)')):
         parser.add_argument(_flag, type=_type, default=CONFIG['global'][_key], metavar='X',
                             help=f'{_what[0].upper()}{_what[1:]} (default '
                                  f'{CONFIG["global"][_key]}).')

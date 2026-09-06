@@ -1,7 +1,7 @@
 # Build the drain-or-cap shift
 
 Type: task
-Status: open
+Status: resolved
 
 ## Question
 

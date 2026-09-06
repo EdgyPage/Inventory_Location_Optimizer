@@ -24,6 +24,7 @@ from Warehouse.picking.Workload_Builder import BatchConfig
 
 from Optimization.config.sim_config import (
     CONFIG, seed_world, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, store_fill,
+    era_on, staffing_spec, work_day_spec,
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # recovered_params.json lives here
@@ -77,25 +78,60 @@ def build_shared_assets(
              f'  avg lead_time={sum(getattr(c,"lead_time_mean",0.0) for c in inventory.orders)/max(n_skus,1):.2f}'
              f'  avg supply_cv={sum(getattr(c,"supply_cv",0.0) for c in inventory.orders)/max(n_skus,1):.3f}')
 
-    plan = Inventory_Manager.plan_warehouse(
-        inventory.orders,
-        categories   = _CATEGORIES,
-        handlings    = _HANDLINGS,
-        aisle_width  = _AISLE_W,
-        aisle_height = _AISLE_H,
-        target_fill  = store_fill(),
-        min_bins     = min_bins,
-        max_bins     = max_bins,
-        max_aisles   = max_aisles,
-        composition  = composition,
-        regime_sizing= regime_sizing,
-        # Analysis (no warehouse_db_path) only needs the warehouse shape + aisle
-        # maps, so skip the expensive inventory re-stock in that path.  A frozen inventory is
-        # already sampled, so we only need the SHAPE (sample=False) and keep the frozen orders.
-        sample       = warehouse_db_path is not None and frozen_inventory_db is None,
-        rng          = random.Random(seed_world() + 1),
-        log          = log,
-    )
+    _sample = warehouse_db_path is not None and frozen_inventory_db is None
+
+    def _plan():
+        return Inventory_Manager.plan_warehouse(
+            inventory.orders,
+            categories   = _CATEGORIES,
+            handlings    = _HANDLINGS,
+            aisle_width  = _AISLE_W,
+            aisle_height = _AISLE_H,
+            target_fill  = store_fill(),
+            min_bins     = min_bins,
+            max_bins     = max_bins,
+            max_aisles   = max_aisles,
+            composition  = composition,
+            regime_sizing= regime_sizing,
+            # Analysis (no warehouse_db_path) only needs the warehouse shape + aisle
+            # maps, so skip the expensive inventory re-stock in that path.  A frozen inventory is
+            # already sampled, so we only need the SHAPE (sample=False) and keep the frozen orders.
+            sample       = _sample,
+            rng          = random.Random(seed_world() + 1),
+            log          = log,
+        )
+
+    def _build(cfg):
+        # Build warehouse once in the main process only to extract aisle metadata maps
+        # used by the analysis/plotting phase.  Workers rebuild from the same seed.
+        Aisle.next_aisle_id = 1
+        random.seed(seed_world())
+        return Warehouse_Builder().from_config(cfg).build()
+
+    # ── THE CALIBRATED ERA: stock coverage in days, a pair-level fixed point ───────
+    # Under the era every SKU's stock levels are re-derived from its DAILY demand, which
+    # needs the fixed-point line count, which needs the built geometry, which is sized from
+    # the stock levels -- so plan/build/price iterate here (`era_coverage.fixed_point`;
+    # .scratch/department-calibration, "Rescale stock coverage at setup").  Only where a
+    # plan SAMPLES: an analysis-shape rebuild and a frozen inventory keep the levels they
+    # were handed.  Flag-off this branch is never entered and the planner runs exactly once,
+    # below, as it always has.
+    warehouse_meta = None
+    era_stage_a: dict | None = None
+    coverage: dict | None = None
+    if _sample and era_on():
+        from Optimization.simdriver import era_coverage as _era_cov          # noqa: E402
+        _inputs = staffing_spec()
+        _mixed, _specs = _era_cov.channel_specs(inventory)
+        plan, warehouse_meta, _sa, coverage = _era_cov.fixed_point(
+            inventory.orders, lambda: (lambda p: (p, _build(p.warehouse_cfg)))(_plan()),
+            _specs, coverage_days=float(_inputs['coverage_days']),
+            safety_days=float(_inputs['safety_days']), inputs=_inputs,
+            day_seconds=float(work_day_spec()['seconds']), log=log)
+        era_stage_a = {'channels': _sa, 'n_orders': len(plan.sampled or inventory.orders),
+                       'aisles': len(warehouse_meta.aisles)}
+    else:
+        plan = _plan()
     if plan.sampled:                 # empty when sample=False (analysis / frozen path)
         inventory.orders = plan.sampled
     n_skus             = len(inventory.orders)
@@ -152,10 +188,10 @@ def build_shared_assets(
     )
 
     # Build warehouse once in the main process only to extract aisle metadata maps
-    # used by the analysis/plotting phase.  Workers rebuild from the same seed.
-    Aisle.next_aisle_id = 1
-    random.seed(seed_world())
-    warehouse_meta = Warehouse_Builder().from_config(warehouse_cfg).build()
+    # used by the analysis/plotting phase.  Workers rebuild from the same seed.  The
+    # coverage loop above already built the plan it settled on; nothing else has.
+    if warehouse_meta is None:
+        warehouse_meta = _build(warehouse_cfg)
 
     # ── persist the PLANNED inventory (grown equilibrium_qty + multi-tier
     # stock_plan) so worker processes reproduce the exact cross-tier placement
@@ -289,4 +325,9 @@ def build_shared_assets(
         keyframe_interval  = keyframe_interval,
         warehouse_meta     = warehouse_meta,
         warehouse_fingerprint = warehouse_fp,
+        # The coverage loop's record and its last stage-A pricing (era only; both None
+        # flag-off, on a frozen inventory and on an analysis-shape rebuild).  The
+        # derivation reuses the pricing and records the loop under `calibration`.
+        coverage           = coverage,
+        era_stage_a        = era_stage_a,
     )

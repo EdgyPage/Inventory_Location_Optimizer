@@ -265,6 +265,22 @@ BAND_TOL = 0.10                        # |realized - expected| utilization toler
                                        # absolute number for all three departments.
                                        # --band-tol
 
+# ── stock coverage, in DAYS of each SKU's own expected demand ───────────────────
+# Under the era every SKU's order-up-to quantity and reorder point are RE-DERIVED at setup
+# from its daily demand (Optimization/simconfig/coverage.py: `Q = max(1, round(coverage x
+# d_s))`, the generator's own formula with the day as the unit) and the warehouse is sized
+# from those levels through a pair-level fixed point (Optimization/simdriver/era_coverage.py).
+# The catalogue's `equilibrium_coverage_batches` stays the flag-off shape -- a generation
+# batch is not a unit of time, which is the whole reason these are runtime knobs
+# (.scratch/department-calibration, "Rescale stock coverage at setup").  Both defaults
+# mirror the generator's constants (10 coverage batches, 2 safety batches), now in days,
+# and are ASSUMPTIONS: the record says so, and the floor shares the loop logs say what
+# they amount to on a given catalogue.
+COVERAGE_DAYS = 10.0                   # order-up-to = coverage_days x daily demand.
+                                       # --coverage-days
+SAFETY_DAYS = 2.0                      # reorder point = demand over (lead + safety) days.
+                                       # --safety-days
+
 # ── the expected constants' OVERRIDES ───────────────────────────────────────────
 # None = take the closed-form expectation over the catalogue and the built geometry
 # (Optimization/simconfig/expected_travel.py, computed at setup); a number is seconds per

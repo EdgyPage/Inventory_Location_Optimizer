@@ -61,8 +61,8 @@ from scipy.optimize import brentq
 from scipy.special import gammainc
 
 from Warehouse.inventory.inventory_common import binkey_of, is_forward_pick
-from Warehouse.kernel.cost_model import (DEFAULT_HEIGHT_BRACKETS, handle_var,
-                                         height_multiplier, per_pick, sec_per_inch)
+from Warehouse.kernel.cost_model import (DEFAULT_HEIGHT_BRACKETS, SpeedProfile, handle_var,
+                                         height_multiplier, per_pick)
 from Warehouse.layout.Aisle_Dimensions import (FF_TIER_HEIGHTS, SINGLETON_BIN_HEIGHT,
                                                SIZE_HEIGHTS, unit_bin_width,
                                                FULFILLMENT_BIN_WIDTH)
@@ -399,7 +399,8 @@ def expected_pick(rates: SectionRates, geometry: Geometry, pick_cfg, n: float,
 
     `pick_cfg` supplies `x_speed`/`y_speed` (ft/s), `one_way`, `cart_swap_coef` and
     `cart` (its `capacity()`).  `units == 0` yields `s_pick = 0.0` (an empty section)."""
-    x_pace, y_pace = sec_per_inch(pick_cfg.x_speed), sec_per_inch(pick_cfg.y_speed)
+    _speed = SpeedProfile(pick_cfg.x_speed, pick_cfg.y_speed)
+    x_pace, y_pace = _speed.x_pace, _speed.y_pace
     r = routing(rates, geometry, n, cv, bool(getattr(pick_cfg, 'one_way', False)))
     units = n * rates.units_per_line
     visits = n * rates.visits_per_line
