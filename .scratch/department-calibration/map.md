@@ -40,6 +40,9 @@ regime someone chose rather than one the defaults inherited.
     the warehouse geometry built at runtime, computed at setup per arm
     ([Derive the expected-travel closed form](issues/13-derive-the-expected-travel-closed-form.md)).
     There are **no calibration simulations**; the equilibrium check stays a REPORT.
+    LANDED 2026-09-06: the expectation takes a placement DISTRIBUTION -- class-uniform for
+    the pair's demand (one shared script; FIFO's long-run state), the arm's own initial
+    placement for its report -- because a churning FIFO section migrates to the smear.
   - **No bespoke conversions implicit in the inventory.** A standing preference from the
     same decision: nothing authored on the catalogue may carry an implicit batch or day (the
     coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
@@ -180,22 +183,27 @@ regime someone chose rather than one the defaults inherited.
   (the tickets 09 first graduated, 11 and 12, closed out of scope); the inbound map's gates
   23/24 now wait on 13.
 
+- [Derive the expected-travel closed form](issues/13-derive-the-expected-travel-closed-form.md):
+  LANDED. `simconfig/expected_travel.py` prices a day of picking and put-away in closed form
+  over the catalogue, the built geometry and a placement distribution (the seam: `initial` /
+  `uniform`), and `solve_n` is the fixed point; reproduces the converged reference pass to -3.1%
+  (store) / -6.8% (fulfillment), put-away exactly. Four decisions: the pair's demand derives from
+  the class-uniform expectation (one shared script) with each arm's initial-placement expectation
+  stamped for the audit's band; coverage is a runtime rescaling (graduated to 14); `k_max` retired;
+  no correction factor -- the bands absorb the residual. The calibration record, the reference
+  driver and their spec/flags are gone; the era launches with no record at all.
+
 ## Not yet specified
 
-- **The builds** — every implementation graduated and landed (06, 07, 08, 10). The one live
-  ticket is the closed-form derivation
-  ([Derive the expected-travel closed form](issues/13-derive-the-expected-travel-closed-form.md)),
-  which retires the reference run. What stays dim is below.
-- **Coverage denomination on the catalogue.** 13 decides whether per-SKU coverage in days of
-  its own demand lands as a generator knob on the profile or as a runtime rescaling at setup;
-  either way the expected reorder flow and its first-cycle timing become closed form. Whether
-  the pilot/archive comparability that a regenerated profile breaks matters (the per-item
-  charge already broke it) is dim until then.
-- **The residual between formula and simulator.** LPT makespan tails, roll-over backlog
-  density and stockout-thinned pick lists make the realized seconds per unit differ from the
-  expectation. 13 records the residual once against the six passes on disk; whether the bands
-  should absorb it (a declared tolerance on top of `band_tol`) or the formula should carry a
-  correction is dim until the residual is known.
+- **The builds** — every implementation graduated and landed (06, 07, 08, 10, 13). The one live
+  ticket is the coverage rescaling
+  ([Rescale stock coverage at setup](issues/14-rescale-coverage-at-setup.md)). What stays dim
+  is below.
+- **Ranked arms' steady-state placement.** 13 found FIFO drifts to the class-uniform smear; a
+  ranked restock keeps its placement concentrated, so its initial-placement expectation is a
+  proxy, not a steady state. Whether the audit's per-arm band should follow the placement as it
+  evolves (re-stamped per reorder cycle) or stay at the initial map is dim until a ranked arm
+  runs a full replenishment cycle under the era.
 - **Interaction-effects reporting beyond the bands** — the user's framing names
   "interaction effects between departments"; the bands capture equilibrium, but how the
   coupling itself is surfaced (receiving throttles put-away throttles availability

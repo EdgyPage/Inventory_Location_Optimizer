@@ -1,7 +1,7 @@
 # Derive the expected-travel closed form
 
 Type: task
-Status: claimed
+Status: resolved
 
 AFK build with the derivation written up for review before anything lands (the map's execution
 override: nothing committed without the user's go-ahead). Raised by the user after
@@ -119,3 +119,44 @@ the report only. (2) Coverage is a runtime rescaling under declared `coverage_da
 `safety_days`, a pair-level fixed point through the warehouse sizing; flag-off byte-identical.
 (3) `k_max` is retired with the calibration record. (4) No correction factor -- the bands absorb
 the residual and the equilibrium report shows the rest.
+
+## Answer
+
+**Resolved 2026-09-06.** The closed form is derived, checked and landed on `develop`
+(`feat(era): the expected-travel closed form replaces the calibration record`).
+
+- **The equations, their assumptions and the residual** are in
+  [assets/expected-travel-derivation.md](../assets/expected-travel-derivation.md) (sections 0-3),
+  produced by [assets/validate_closed_form.py](../assets/validate_closed_form.py) against the six
+  passes ticket 09 left on disk. On the converged fifth pass the formula reproduces `s_pick` to
+  -3.1% (store, initial placement) and -6.8% (fulfillment, class-uniform steady state); per-task x
+  travel within 1.1% / 0.0%; put-away pricing exact (+0.0%). The residual's causes -- stock-thinned
+  lines, FIFO placement drift, intra-aisle correlation -- all price a cleaner day than the sim
+  runs and all sit inside `band_tol`; by decision 4 the bands absorb it and the equilibrium
+  report shows the rest.
+- **The module** is `Optimization/simconfig/expected_travel.py` (pure): `Geometry`,
+  `PlacementDist` (the seam -- `initial` / `uniform`), `accumulate`, `routing`,
+  `expected_pick`, `solve_n`, `put_site_pricer`; `Tests/unit/test_expected_travel.py` pins the
+  simulator's two identities and the demand moments. The harness runs the class-uniform
+  expectation and the fixed point at PAIR level (`workunits._derive_staffing_for_pair`,
+  decision 1: one shared script), and every arm stamps its own initial-placement expectation
+  after its initial stock (`strategy_runner._arm_expected_pick` -> the config's strategy entry ->
+  `equilibrium.arm_expectations` in the throughput audit).
+- **The record**: `staffing.derived[<pair>].channels[<ch>].expected` holds the expected day
+  (lines, cv, tasks, travel, swaps, handling, units, `s_pick`, `placement`) and
+  `staffing.calibration[<pair>]` records `method: expected_travel`, `placement: uniform`,
+  `geometry_fingerprint` and any declared overrides. Provenance of `s_pick` / `s_put` is
+  `derived` (`declared` under an override); `measured` and `seed` have no producer left.
+  `k_max` is retired (decision 3).
+- **Retired**: the calibration record and its loader, the reference driver and its CLI, the
+  `calibration_reference` spec, `--calibration-record`, the stale/measured flags. *Reference run*
+  and *Calibration record* left `CONTEXT.md`; *Expected travel* joined it and *Staffing record*
+  was amended; the map's *Knowability* charter line is amended by this answer.
+- **Smoke run** (3 days, the reference pair, both channels, `_canary_single`): derivation at
+  556 / 1,818 lines a day and 106.2 / 26.0 s per unit (the reference run's converged 556 lines
+  and ~107 s), put crew 42, receiving crew 16, per-arm stamps 104.0 / 24.2, the audit rendered.
+  Stage A costs ~60 s (store) / ~110 s (fulfillment) per pair; a per-arm stamp ~65-115 s.
+- **Not on this ticket**: decision 2, the coverage rescaling, graduated to
+  [Rescale stock coverage at setup](14-rescale-coverage-at-setup.md) with the placement
+  fingerprint riding along. The architecture layer (`context/arch`, `docs/architecture`) needs
+  its regen for the new and deleted modules -- the `architecture-maintainer` agent's job.
