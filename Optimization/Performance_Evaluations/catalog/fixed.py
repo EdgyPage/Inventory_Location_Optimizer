@@ -78,6 +78,17 @@ def _publishable_spec(spec: dict) -> dict:
     for k, v in spec.items():
         if k in _PATH_KEYS:
             continue
+        # The staffing record is the ONE nested family (`{inputs, provenance, ...}`); it
+        # holds the declared headcount, which is exactly what a reader comparing two
+        # experiments needs to see.  Flattened: each input under its own key, its
+        # provenance beside it.  The scalar filter below would otherwise drop it whole.
+        if k == 'staffing' and isinstance(v, dict):
+            prov = v.get('provenance') or {}
+            for ik, iv in (v.get('inputs') or {}).items():
+                out[ik] = iv
+                if ik in prov:
+                    out[f'{ik}_provenance'] = prov[ik]
+            continue
         if not (isinstance(v, (str, int, float, bool)) or v is None):
             continue
         if isinstance(v, str) and any(c in v for c in ('\\', '/', ':')):

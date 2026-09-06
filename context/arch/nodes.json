@@ -5842,7 +5842,7 @@
       "doc": "Assemble the run's channel list.\n\nThe STORE channel's cost is the run's own (swept) PickConfig, so store results are\nunchanged.  The FULFILLMENT channel is appended only when the inventory has fulfillment\nitems (``include_fulfillment``); it uses the walker cost + its own picker pool.\n\n``store_restocks`` restricts the store channel to a subset of restock rules (None \u21d2 full\nsuite); fulfillment always runs the full suite.",
       "is_async": false,
       "kind": "function",
-      "signature": "(store_pick_cfg: PickConfig, store_num_pickers: int, *, include_fulfillment: bool, ff_pick_cfg: PickConfig | None=None, ff_num_pickers: int=20, store_restocks: tuple[str, ...] | None=None) -> list[Channel]"
+      "signature": "(store_pick_cfg: PickConfig, store_num_pickers: int, *, include_fulfillment: bool, ff_pick_cfg: PickConfig | None=None, ff_num_pickers: int=_FF_PICKERS, store_restocks: tuple[str, ...] | None=None) -> list[Channel]"
     },
     "Optimization/config/channels.py::fulfillment_pick_config": {
       "decorators": [],
@@ -6504,7 +6504,7 @@
     },
     "Optimization/config/sim_config.py::_build_pick_cfg": {
       "decorators": [],
-      "doc": "Turn a config dict (store or fulfillment) into a PickConfig.\n\nThe one canonical dict\u2192PickConfig conversion shared by both channels' sweeps.  Callers\npass the config's own 'num_pickers' (store default k_pickers(), fulfillment default 20) and\nthe channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.\n\nA MISSING key falls through to `PickConfig`'s own dataclass default, and that is the whole\npoint of the shape here.  This function used to restate a fallback per key \u2014 a SECOND\ndefault set, which had drifted from the first: `pick_weight_coef` 1.1 against the\ndataclass's 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0\nagainst 5.0 (2x).  Nothing caught it because every registered pick-config declares all\nthree, so neither set was ever exercised on the run path \u2014 and `run_map_precompute`\nrebuilds a `PickConfig` from an ARCHIVED leaf config by field-filtering, which has always\ntaken the dataclass defaults.  Two default sets and two reconstruction paths is a silent\n55x waiting for the first archive vintage that omits a key.\n\nKeys the dataclass does not declare (`name`) are dropped; `cart` is resolved separately\nbecause the dict stores its NAME and the dataclass wants the class.",
+      "doc": "Turn a config dict (store or fulfillment) into a PickConfig.\n\nThe one canonical dict\u2192PickConfig conversion shared by both channels' sweeps.  Callers\npass the channel's DECLARED picker count (`channel_pickers(name)`; a config dict's own\n'num_pickers', if present, must agree -- `workunits._channel_runs_for` raises otherwise) and\nthe channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.\n\nA MISSING key falls through to `PickConfig`'s own dataclass default, and that is the whole\npoint of the shape here.  This function used to restate a fallback per key \u2014 a SECOND\ndefault set, which had drifted from the first: `pick_weight_coef` 1.1 against the\ndataclass's 0.02 (55x), `pick_volume_coef` 1e-3 against 1e-4 (10x), `cart_swap_coef` 10.0\nagainst 5.0 (2x).  Nothing caught it because every registered pick-config declares all\nthree, so neither set was ever exercised on the run path \u2014 and `run_map_precompute`\nrebuilds a `PickConfig` from an ARCHIVED leaf config by field-filtering, which has always\ntaken the dataclass defaults.  Two default sets and two reconstruction paths is a silent\n55x waiting for the first archive vintage that omits a key.\n\nKeys the dataclass does not declare (`name`) are dropped; `cart` is resolved separately\nbecause the dict stores its NAME and the dataclass wants the class.",
       "is_async": false,
       "kind": "function",
       "signature": "(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> PickConfig"
@@ -6551,6 +6551,13 @@
       "kind": "function",
       "signature": "(log_path: str) -> logging.Logger"
     },
+    "Optimization/config/sim_config.py::channel_pickers": {
+      "decorators": [],
+      "doc": "The declared picker count of channel `name`, read from CONFIG at CALL time.\n\nThe `recv_crew_spec` pattern, never `put_crew_spec`'s: a flag writes CONFIG, a resume\nand a re-analysis restore into CONFIG, so CONFIG is the only place this may be read from.\nA None (a pre-record run spec restored by `run_analysis._apply_run_shape`) resolves to the\nleaf default -- that run fielded the compile-time constant of its day, which is what the\nconstant still is.  An unknown channel is a KeyError, deliberately: a third channel needs\nits own declared knob, not a silent share of someone else's.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str) -> int"
+    },
     "Optimization/config/sim_config.py::crew_cost_spec": {
       "decorators": [],
       "doc": "The other crews' PRICE as a picklable record:\n`{put_intercept_scale, put_item_ratio, recv_intercept_scale}`.\n\nPut-away and receiving keep picking's cost shape and coefficients by reference\n(`PutawayCost.from_pick`, `UnloadCost.from_putaway`); these three scalars are the only\nplace their numbers may differ.  Read from CONFIG at CALL time -- never from `_s.`\ndirectly, which is the trap `put_crew_spec` above still carries -- and handed to the\nworker in its payload (`workunits._shared['crew_cost']`), because a spawned worker\nre-imports this module and would get pristine defaults.\n\nA None (a pre-field run spec restored by `run_analysis._apply_run_shape`) resolves to the\nkernel default: that run priced its put crew at the pre-charge literal, which no scale\ncan reproduce, so the default is the honest reconstruction of \"no scale was declared\".",
@@ -6581,7 +6588,7 @@
     },
     "Optimization/config/sim_config.py::k_pickers": {
       "decorators": [],
-      "doc": "The store channel's picker count, read at call time.",
+      "doc": "The store channel's picker count, read at call time (the diagnostics' entry point).",
       "is_async": false,
       "kind": "function",
       "signature": "() -> int"
@@ -6641,6 +6648,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> float"
+    },
+    "Optimization/config/sim_config.py::staffing_spec": {
+      "decorators": [],
+      "doc": "The staffing record's INPUTS as a picklable dict: `{store_pickers, ff_pickers}`.\n\nInputs ONLY -- the derived block (batch content, put crew, receiving crew, expected\nthroughput) is a pure module the derivation ticket adds, run after batch precompute, and\nis never a CONFIG key.  Read from CONFIG at call time for the reason every accessor in\nthis file is, and carried in `workunits._shared` so a spawned worker can check that the\ncrew it was handed is the crew the record declares.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
     },
     "Optimization/config/sim_config.py::store_fill": {
       "decorators": [],
@@ -8825,7 +8839,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('aisle_unittype_map', 'aisle_handling_map', 'k_pickers', 'total_bins')"
+      "value_preview": "('aisle_unittype_map', 'aisle_handling_map', 'total_bins')"
     },
     "Optimization/run_analysis.py::_aggregate_jobs": {
       "decorators": [],
@@ -8889,6 +8903,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(meta: dict) -> dict"
+    },
+    "Optimization/run_analysis.py::_staffing_record": {
+      "decorators": [],
+      "doc": "The staffing record to stamp onto sim_result: the run's own when it recorded one,\nelse a reconstruction from the restored inputs with every value marked `assumed` --\nwhich is what a pre-record run's crew was, a compile-time constant nobody chose.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
     },
     "Optimization/run_analysis.py::_tree_for": {
       "decorators": [],
@@ -10741,7 +10762,7 @@
     },
     "Optimization/simconfig/constants.py": {
       "decorators": [],
-      "doc": "Leaf constants shared by the pick-config modules AND sim_config.\n\nKept here (importing nothing from sim_config) to break the circular-import trap: the config\nmodules under configs/ need the per-channel picker-pool sizes, but importing them from sim_config\nwould cycle \u2014 sim_config imports the simconfig registry, which import_all()s the config modules.\nsim_config re-imports these so `rs._STORE_PICKERS` / `sim_config.k_pickers()` and\nCONFIG['channels'][*]['num_pickers'] keep their single source of truth.",
+      "doc": "Leaf constants shared by the pick-config modules, sim_config, AND the staffing records.\n\nKept here (importing nothing from sim_config) to break the circular-import trap: sim_config\nimports the simconfig registry, which import_all()s the config modules, so anything both\nsides need has to live below both of them.\n\n`_STORE_PICKERS` / `_FF_PICKERS` are the DEFAULTS of the two declared picker knobs -- the\none staffing input of the calibrated era (.scratch/department-calibration, \"Define the\ncalibrated era\").  They reach a run through `settings.STORE_PICKERS` / `FF_PICKERS`, then\n`CONFIG['global']['store_pickers']` / `['ff_pickers']`, and are read at CALL time by\n`sim_config.channel_pickers(name)` -- never snapshotted, never restated.  The pick-config\nmodules under configs/ no longer name them at all: a per-arm `num_pickers` that disagrees\nwith the channel's declared count raises at setup (`workunits._channel_runs_for`), so the only\nthing a module could legally say is the channel value, and saying nothing says exactly that.",
       "kind": "module",
       "signature": null
     },
@@ -11038,6 +11059,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "gc.get_threshold()"
+    },
+    "Optimization/simdriver/strategy_runner.py::_check_declared_crew": {
+      "decorators": [],
+      "doc": "Refuse a payload whose sized crew is not its declared crew.\n\n`k_pickers` is the count the worker sizes its pick crew from; `args['staffing']` is the\nstaffing record's INPUTS (`{store_pickers, ff_pickers}`, `sim_config.staffing_spec`),\nkeyed here by the worker's channel.  Both were read from the same CONFIG key in the\nparent, so they can only disagree when a caller assembled the payload by hand -- and that\ncaller would otherwise run a whole arm under a count its run spec never declared.  An\nabsent record (a bench harness, a test predating it) is nothing to check against.\nModule-level so a unit test can hand it a payload without running an arm.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict, k_pickers: int) -> None"
     },
     "Optimization/simdriver/strategy_runner.py::_cleanup_checkpoints": {
       "decorators": [],

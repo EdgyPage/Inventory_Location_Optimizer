@@ -18,7 +18,8 @@
 <section class="doc">Turn a config dict (store or fulfillment) into a PickConfig.
 
 The one canonical dict→PickConfig conversion shared by both channels&#x27; sweeps.  Callers
-pass the config&#x27;s own &#x27;num_pickers&#x27; (store default k_pickers(), fulfillment default 20) and
+pass the channel&#x27;s DECLARED picker count (`channel_pickers(name)`; a config dict&#x27;s own
+&#x27;num_pickers&#x27;, if present, must agree -- `workunits._channel_runs_for` raises otherwise) and
 the channel&#x27;s default_cart (StoreCart / FulfillmentCart); a &#x27;cart&#x27; key overrides it.
 
 A MISSING key falls through to `PickConfig`&#x27;s own dataclass default, and that is the whole

@@ -6,7 +6,6 @@ name DISTINCT from any store config name (config.json is written per config dir;
 would collide — see the runner's _prepare_channel_run).
 """
 from Optimization.simconfig.core.registry import pick_config
-from Optimization.simconfig.constants import _FF_PICKERS
 
 
 @pick_config(name='ful_calibrated', channel='fulfillment', order=0)
@@ -23,6 +22,5 @@ def ful_calibrated():
         'x_speed'         : 2,    # ft/s
         'y_speed'         : 4,    # ft/s
         'one_way'         : True, # one-way lanes: aisle DEPTH drives x-travel (see travel model)
-        'num_pickers'     : _FF_PICKERS,   # walker pool size (independent of store pickers)
         # height_brackets omitted → DEFAULT (no-op for ff bins, all M=1).
     }

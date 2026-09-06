@@ -473,6 +473,29 @@ def _run_strategy_worker(args: dict) -> dict:
             pass
 
 
+def _check_declared_crew(args: dict, k_pickers: int) -> None:
+    """Refuse a payload whose sized crew is not its declared crew.
+
+    `k_pickers` is the count the worker sizes its pick crew from; `args['staffing']` is the
+    staffing record's INPUTS (`{store_pickers, ff_pickers}`, `sim_config.staffing_spec`),
+    keyed here by the worker's channel.  Both were read from the same CONFIG key in the
+    parent, so they can only disagree when a caller assembled the payload by hand -- and that
+    caller would otherwise run a whole arm under a count its run spec never declared.  An
+    absent record (a bench harness, a test predating it) is nothing to check against.
+    Module-level so a unit test can hand it a payload without running an arm.
+    """
+    st = args.get('staffing')
+    if not st:
+        return
+    key = 'ff_pickers' if args.get('channel_name') == 'fulfillment' else 'store_pickers'
+    declared = int(st[key])
+    if declared != int(k_pickers):
+        raise ValueError(
+            f'worker was handed k_pickers={k_pickers} but its staffing record declares '
+            f'{key}={declared}; the two are read from the same key at setup, so a '
+            f'disagreement means the payload was assembled by hand')
+
+
 def _run_strategy_worker_impl(args: dict) -> dict:
     """One assignment strategy end-to-end — the body behind _run_strategy_worker.
 
@@ -526,6 +549,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     start_i       = args['start_i']
     n_batches     = args['n_batches']
     k_pickers     = args['k_pickers']
+    _check_declared_crew(args, k_pickers)   # the sized crew must be the declared crew
     seed_world    = args['seed_world']
     seed_batches  = args['seed_batches']
     checkpoint    = args['checkpoint']

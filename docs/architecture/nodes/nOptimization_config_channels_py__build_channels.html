@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>build_channels</code></h1>
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_channels_py.html"><code>Optimization/config/channels.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def build_channels(store_pick_cfg: PickConfig, store_num_pickers: int, *, include_fulfillment: bool, ff_pick_cfg: PickConfig | None=None, ff_num_pickers: int=20, store_restocks: tuple[str, ...] | None=None) -&gt; list[Channel]</code></pre>
+<pre class="sig"><code>def build_channels(store_pick_cfg: PickConfig, store_num_pickers: int, *, include_fulfillment: bool, ff_pick_cfg: PickConfig | None=None, ff_num_pickers: int=_FF_PICKERS, store_restocks: tuple[str, ...] | None=None) -&gt; list[Channel]</code></pre>
 <section class="doc">Assemble the run&#x27;s channel list.
 
 The STORE channel&#x27;s cost is the run&#x27;s own (swept) PickConfig, so store results are

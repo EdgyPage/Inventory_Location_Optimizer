@@ -278,8 +278,9 @@ def build_shared_assets(
         total_units_needed = total_units_needed,
         aisle_unittype_map = {a.aisle_id: a.unit_type     for a in warehouse_meta.aisles},
         aisle_handling_map = {a.aisle_id: a.handling_type for a in warehouse_meta.aisles},
-        # Store picker pool — read by run_analysis's slim EvalContext (Performance_Evaluations).
-        k_pickers          = CONFIG['channels']['store']['num_pickers'],
+        # No picker count here: the analysis reads its crew off the staffing record stamped
+        # onto sim_result (run_analysis._sim_result_from_meta), per channel -- a store-only
+        # slice of shared assets was the wrong number for every fulfillment leaf.
         max_skus           = max_skus,
         max_aisles         = max_aisles,
         max_bins           = max_bins,

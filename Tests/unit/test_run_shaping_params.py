@@ -151,8 +151,15 @@ def _recorded_shape_keys() -> set:
     rec = set(INBOUND_KEYS) if any(k is None for k in call.args[1].keys) else set()
     rec |= {k.value for k in call.args[1].keys
             if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+    # The staffing family is recorded NESTED (`'staffing': {'inputs': staffing_spec(), ...}`),
+    # so the flat scan sees only the outer key; its inputs are the STAFFING_KEYS by
+    # construction (the accessor iterates that list), so record them under their own names.
+    if 'staffing' in rec:
+        from Optimization.config.sim_config import STAFFING_KEYS
+        rec -= {'staffing'}
+        rec |= set(STAFFING_KEYS)
     return {k for k in rec
-            if k.startswith(('recv_', 'put_', 'inbound_'))} - _PROVENANCE_KEYS
+            if k.startswith(('recv_', 'put_', 'inbound_')) or k.endswith('_pickers')} - _PROVENANCE_KEYS
 
 
 def _restored_shape_keys() -> set:
@@ -173,6 +180,9 @@ def _restored_shape_keys() -> set:
             out |= {e.value for e in node.iter.elts if isinstance(e, ast.Constant)}
         if isinstance(node, ast.For) and getattr(node.iter, 'id', '') == 'INBOUND_KEYS':
             out |= set(INBOUND_KEYS)
+        if isinstance(node, ast.For) and getattr(node.iter, 'id', '') == 'STAFFING_KEYS':
+            from Optimization.config.sim_config import STAFFING_KEYS
+            out |= set(STAFFING_KEYS)
     return out
 
 
@@ -198,7 +208,7 @@ def test_the_recorded_key_scan_actually_finds_all_three_families():
     """A structural test that matched nothing would pass forever. Pin that each family is
     genuinely in the scan — the inbound one especially, since it arrives via `**{...}`."""
     rec = _recorded_shape_keys()
-    assert {'recv_crew_size', 'put_swap_coef', 'inbound_standing_yard'} <= rec
+    assert {'recv_crew_size', 'put_swap_coef', 'inbound_standing_yard', 'store_pickers'} <= rec
     assert len(rec) > 25, f'only {len(rec)} keys scanned; the AST walk has stopped matching'
     assert 'inbound_lead_tag' not in rec, 'provenance is not run shape'
 

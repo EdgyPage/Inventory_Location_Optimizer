@@ -15,14 +15,21 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_constants_py.html"><code>Optimization/simconfig/constants.py</code></a></p>
 
 <pre class="sig"><code>Optimization.simconfig.constants</code></pre>
-<section class="doc">Leaf constants shared by the pick-config modules AND sim_config.
+<section class="doc">Leaf constants shared by the pick-config modules, sim_config, AND the staffing records.
 
-Kept here (importing nothing from sim_config) to break the circular-import trap: the config
-modules under configs/ need the per-channel picker-pool sizes, but importing them from sim_config
-would cycle — sim_config imports the simconfig registry, which import_all()s the config modules.
-sim_config re-imports these so `rs._STORE_PICKERS` / `sim_config.k_pickers()` and
-CONFIG[&#x27;channels&#x27;][*][&#x27;num_pickers&#x27;] keep their single source of truth.</section>
-<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(6)</span></h2><ul><li><a href="nOptimization_config_settings_py.html"><code>Optimization.config.settings</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_simconfig_configs_ful_calibrated_py.html"><code>Optimization.simconfig.configs.ful_calibrated</code></a> <span class="dim">Optimization/simconfig/configs/ful_calibrated.py</span></li><li><a href="nOptimization_simconfig_configs_store_py.html"><code>Optimization.simconfig.configs.store</code></a> <span class="dim">Optimization/simconfig/configs/store.py</span></li><li><a href="nOptimization_simconfig_configs_store_high_height_py.html"><code>Optimization.simconfig.configs.store_high_height</code></a> <span class="dim">Optimization/simconfig/configs/store_high_height.py</span></li><li><a href="nOptimization_simconfig_configs_store_high_weight_high_height_py.html"><code>Optimization.simconfig.configs.store_high_weight_high_height</code></a> <span class="dim">Optimization/simconfig/configs/store_high_weight_high_height.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_constants_py___FF_PICKERS.html"><code>_FF_PICKERS</code></a> <span class="dim">Optimization/simconfig/constants.py</span></li><li><a href="nOptimization_simconfig_constants_py___STORE_PICKERS.html"><code>_STORE_PICKERS</code></a> <span class="dim">Optimization/simconfig/constants.py</span></li></ul></section>
+Kept here (importing nothing from sim_config) to break the circular-import trap: sim_config
+imports the simconfig registry, which import_all()s the config modules, so anything both
+sides need has to live below both of them.
+
+`_STORE_PICKERS` / `_FF_PICKERS` are the DEFAULTS of the two declared picker knobs -- the
+one staffing input of the calibrated era (.scratch/department-calibration, &quot;Define the
+calibrated era&quot;).  They reach a run through `settings.STORE_PICKERS` / `FF_PICKERS`, then
+`CONFIG[&#x27;global&#x27;][&#x27;store_pickers&#x27;]` / `[&#x27;ff_pickers&#x27;]`, and are read at CALL time by
+`sim_config.channel_pickers(name)` -- never snapshotted, never restated.  The pick-config
+modules under configs/ no longer name them at all: a per-arm `num_pickers` that disagrees
+with the channel&#x27;s declared count raises at setup (`workunits._channel_runs_for`), so the only
+thing a module could legally say is the channel value, and saying nothing says exactly that.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nOptimization_config_channels_py.html"><code>Optimization.config.channels</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_config_settings_py.html"><code>Optimization.config.settings</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_constants_py___FF_PICKERS.html"><code>_FF_PICKERS</code></a> <span class="dim">Optimization/simconfig/constants.py</span></li><li><a href="nOptimization_simconfig_constants_py___STORE_PICKERS.html"><code>_STORE_PICKERS</code></a> <span class="dim">Optimization/simconfig/constants.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_constants_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/constants.py">Source ↗</a></p>
 </article>
 </main>

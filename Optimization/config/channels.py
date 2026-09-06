@@ -27,6 +27,7 @@ from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.picking.Workload_Builder import BatchConfig
 from Warehouse.kernel.regime import STORE, FULFILLMENT
 from Warehouse.operations import Crew, Mode, Role
+from Optimization.simconfig.constants import _FF_PICKERS
 
 
 @dataclass(frozen=True)
@@ -143,7 +144,7 @@ FF_BATCH_SEED_OFFSET = 1_000_000
 def build_channels(store_pick_cfg: PickConfig, store_num_pickers: int,
                    *, include_fulfillment: bool,
                    ff_pick_cfg: PickConfig | None = None,
-                   ff_num_pickers: int = 20,
+                   ff_num_pickers: int = _FF_PICKERS,
                    store_restocks: tuple[str, ...] | None = None) -> list[Channel]:
     """Assemble the run's channel list.
 

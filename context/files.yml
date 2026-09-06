@@ -729,6 +729,8 @@ files:
       - {name: "seed_world", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "seed_batches", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "n_batches", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "channel_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "staffing_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "k_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -4130,6 +4132,40 @@ files:
       - {name: "test_neither_pick_simulation_converts_by_hand_any_more", file: "Tests/unit/test_speed_profile.py", kind: "function"}
       - {name: "test_the_hand_conversion_count_only_falls", file: "Tests/unit/test_speed_profile.py", kind: "function"}
       - {name: "test_cost_model_still_imports_nothing_from_the_repo", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_staffing_params.py":
+    purpose: "the declared picker counts reach a real run, through all six seams."
+    layer: "tests"
+    key_symbols:
+      - {name: "restore", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_defaults_are_the_leaf_constants", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_settings_names_the_flag_beside_each_knob", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_no_committed_pick_config_restates_a_picker_count", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_provenance_enum_is_the_five_agreed_values", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_keys_are_global_and_not_per_channel", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_accessor_reads_config_and_not_the_module", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_pre_record_none_resolves_to_the_leaf_default", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_non_positive_count_raises_at_the_accessor", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_an_unknown_channel_is_a_keyerror_not_a_share", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_disagreeing_per_arm_count_raises_at_setup", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_restated_per_arm_count_stays_legal", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_channel_is_built_from_the_declared_count", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_each_knob_has_a_flag", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_flag_rejects_a_zero_crew_at_the_parser", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_override_loop_writes_every_staffing_key", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_recorded_as_one_nested_staffing_key", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_resume_restores_the_inputs_from_the_nested_record", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_an_explicit_flag_still_wins_on_resume_with_a_note", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_pre_record_spec_leaves_the_flags_alone_on_resume", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_standalone_reanalysis_restores_the_inputs", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_pre_record_run_reanalyses_at_the_leaf_defaults", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_record_reaches_the_worker_payload", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_worker_checks_its_crew_against_the_record_and_never_the_module", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_check_reads_the_payload_in_the_shape_the_parent_sends", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_hand_assembled_payload_that_disagrees_is_refused", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_sim_result_carries_the_whole_record_and_the_channel", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_a_pre_record_stamp_is_a_reconstruction_marked_assumed", file: "Tests/unit/test_staffing_params.py", kind: "function"}
+      - {name: "test_the_evaluation_context_reads_its_own_channels_count", file: "Tests/unit/test_staffing_params.py", kind: "function"}
     notes: ""
   "Tests/unit/test_standing_yard.py":
     purpose: "doors become real, and flag-off stays byte-identical."

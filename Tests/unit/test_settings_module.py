@@ -63,6 +63,10 @@ def _config_sources():
     ('KEYFRAME_INTERVAL', ('global', 'keyframe_interval')),
     ('SAMPLER',           ('global', 'sampler')),
     ('REPORTING_FRAME_SECONDS', ('global', 'shift_seconds')),
+    # The declared crews: two flat GLOBAL keys, never a per-channel entry (see
+    # test_staffing_params for the seams that follow from that).
+    ('STORE_PICKERS',    ('global', 'store_pickers')),
+    ('FF_PICKERS',       ('global', 'ff_pickers')),
 ])
 def test_a_global_setting_is_the_source_of_its_config_key(name, path):
     assert hasattr(settings, name), f'settings.{name} does not exist'
@@ -70,8 +74,6 @@ def test_a_global_setting_is_the_source_of_its_config_key(name, path):
 
 
 @pytest.mark.parametrize('name,channel,key', [
-    ('STORE_PICKERS',    'store',       'num_pickers'),
-    ('FF_PICKERS',       'fulfillment', 'num_pickers'),
     ('STORE_CART',       'store',       'cart'),
     ('FF_CART',          'fulfillment', 'cart'),
     ('STORE_FILL',       'store',       'fill'),

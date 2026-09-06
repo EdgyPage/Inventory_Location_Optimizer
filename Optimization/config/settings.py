@@ -214,13 +214,18 @@ ROLL_OVER_UNPICKED = False # demand a batch did not pick joins the NEXT batch's 
                            # though it is the modelling we want.  --roll-over-unpicked
 
 # ── crews ────────────────────────────────────────────────────────────────────────
-# Imported from simconfig.constants rather than restated: the self-registering pick-config
-# modules need these too and importing sim_config from them would cycle.
+# THE ONE DECLARED STAFFING INPUT of the calibrated era (.scratch/department-calibration,
+# "Define the calibrated era"): pickers per channel.  Every other crew -- the put crew, the
+# receiving crew -- is a site total DERIVED from these, so these two are the only headcounts
+# a run may declare.  Imported from simconfig.constants rather than restated (that leaf is
+# importable from below sim_config, which is where the staffing records live); the values
+# there are these knobs' DEFAULTS and nothing else, and are read at CALL time through
+# `CONFIG['global']['store_pickers']` / `['ff_pickers']` and `sim_config.channel_pickers`.
 
 from Optimization.simconfig.constants import _FF_PICKERS, _STORE_PICKERS  # noqa: E402
 
-STORE_PICKERS = _STORE_PICKERS         # machine order-picker pool
-FF_PICKERS = _FF_PICKERS               # human-walker pool
+STORE_PICKERS = _STORE_PICKERS         # machine order-picker pool.  --store-pickers
+FF_PICKERS = _FF_PICKERS               # human-walker pool.          --ff-pickers
 
 # The MODE each pick pool works in.  These were implicit in the pool names
 # ('store_machine', 'fulfillment_walker') and in constants.py's comments for years

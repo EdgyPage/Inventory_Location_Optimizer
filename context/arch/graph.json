@@ -5856,6 +5856,11 @@
       "src": "Optimization/config/channels.py"
     },
     {
+      "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/config/channels.py"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py",
       "kind": "imports",
       "src": "Optimization/config/channels.py"
@@ -6331,6 +6336,11 @@
       "src": "Optimization/config/sim_config.py::inbound_spec"
     },
     {
+      "dst": "Optimization/config/sim_config.py::channel_pickers",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py::k_pickers"
+    },
+    {
       "dst": "Optimization/config/settings.py::PUT_CREW_SIZE",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::put_crew_spec"
@@ -6364,6 +6374,11 @@
       "dst": "Optimization/config/settings.py::PUT_FOOT_Y",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::recv_crew_spec"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::channel_pickers",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py::staffing_spec"
     },
     {
       "dst": "Optimization/config/sim_config.py::shift_seconds",
@@ -7786,6 +7801,16 @@
       "src": "Optimization/run_analysis.py::_run_job"
     },
     {
+      "dst": "Optimization/run_analysis.py::_staffing_record",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_sim_result_from_meta"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::staffing_spec",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_staffing_record"
+    },
+    {
       "dst": "Optimization/runschema/__init__.py::resolver_for",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_tree_for"
@@ -8347,6 +8372,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::_setup_logging",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::staffing_spec",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
@@ -10091,11 +10121,6 @@
       "src": "Optimization/simconfig/__init__.py"
     },
     {
-      "dst": "Optimization/simconfig/constants.py",
-      "kind": "imports",
-      "src": "Optimization/simconfig/configs/ful_calibrated.py"
-    },
-    {
       "dst": "Optimization/simconfig/core/registry.py",
       "kind": "imports",
       "src": "Optimization/simconfig/configs/ful_calibrated.py"
@@ -10104,11 +10129,6 @@
       "dst": "Optimization/simconfig/core/registry.py::pick_config",
       "kind": "calls",
       "src": "Optimization/simconfig/configs/ful_calibrated.py::ful_calibrated"
-    },
-    {
-      "dst": "Optimization/simconfig/constants.py",
-      "kind": "imports",
-      "src": "Optimization/simconfig/configs/store.py"
     },
     {
       "dst": "Optimization/simconfig/core/registry.py",
@@ -10121,11 +10141,6 @@
       "src": "Optimization/simconfig/configs/store.py::store"
     },
     {
-      "dst": "Optimization/simconfig/constants.py",
-      "kind": "imports",
-      "src": "Optimization/simconfig/configs/store_high_height.py"
-    },
-    {
       "dst": "Optimization/simconfig/core/registry.py",
       "kind": "imports",
       "src": "Optimization/simconfig/configs/store_high_height.py"
@@ -10134,11 +10149,6 @@
       "dst": "Optimization/simconfig/core/registry.py::pick_config",
       "kind": "calls",
       "src": "Optimization/simconfig/configs/store_high_height.py::store_high_height"
-    },
-    {
-      "dst": "Optimization/simconfig/constants.py",
-      "kind": "imports",
-      "src": "Optimization/simconfig/configs/store_high_weight_high_height.py"
     },
     {
       "dst": "Optimization/simconfig/core/registry.py",
@@ -10811,6 +10821,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_check_declared_crew",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::_futuresight_window",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -11241,6 +11256,11 @@
       "src": "Optimization/simdriver/workunits.py::_channel_runs_for"
     },
     {
+      "dst": "Optimization/config/sim_config.py::channel_pickers",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_channel_runs_for"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_channel_runs_for"
@@ -11312,6 +11332,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::shift_seconds",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::staffing_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
@@ -24760,6 +24785,14 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::channel_pickers",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "channel_pickers",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::crew_cost_spec",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
@@ -24860,6 +24893,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "shift_seconds",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::staffing_spec",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "staffing_spec",
       "public": true
     },
     {
@@ -27440,6 +27481,14 @@
     },
     {
       "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_staffing_record",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_staffing_record",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
       "id": "Optimization/run_analysis.py::_tree_for",
       "kind": "function",
       "module": "Optimization/run_analysis.py",
@@ -29908,6 +29957,14 @@
       "kind": "const",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_GC_THRESHOLD_DEFAULT",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_check_declared_crew",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_check_declared_crew",
       "public": false
     },
     {

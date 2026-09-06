@@ -18,12 +18,12 @@ from Optimization.simconfig.core.registry import pick_config
 
 _EXP_STORE = {'name': 'store', 'pick_intercept': 15, 'pick_weight_coef': 0.58,
               'pick_weight_fn': 'pow:1.5', 'pick_volume_coef': 0.7, 'pick_volume_fn': 'log:2',
-              'cart_swap_coef': 300, 'x_speed': 3, 'y_speed': 2, 'num_pickers': 25,
+              'cart_swap_coef': 300, 'x_speed': 3, 'y_speed': 2,
               'height_brackets': ((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4))}
 _EXP_FF = {'name': 'ful_calibrated', 'pick_intercept': 10, 'pick_weight_coef': 0.7,
            'pick_weight_fn': 'log', 'pick_volume_coef': 0.09, 'pick_volume_fn': 'log',
            'cart_swap_coef': 240, 'cart': 'FulfillmentCart', 'x_speed': 2, 'y_speed': 4,
-           'one_way': True, 'num_pickers': 20}
+           'one_way': True}
 
 
 def test_active_sweeps_rebuilt_from_registry():

@@ -160,7 +160,20 @@ class EvalContext:
         self.optimal_work = float(sim_result.get('optimal_work') or 0.0)
         self.aisle_unittype_map = slim['aisle_unittype_map']
         self.aisle_handling_map = slim['aisle_handling_map']
-        self.k_pickers  = slim.get('k_pickers', 25)
+        # THIS channel's declared crew, off the staffing record stamped onto sim_result by
+        # `run_analysis._sim_result_from_meta` (the sixth seam).  No fallback: this context
+        # runs in a SPAWNED worker, so CONFIG is not a channel to it, and the literal 25 that
+        # stood here was the store's crew on every fulfillment leaf (no evaluation read it
+        # yet, so it was never an output defect -- the throughput audit will be the first
+        # reader).  A record without the key is a stamping bug upstream and raises as one.
+        _staffing = sim_result.get('staffing') or {}
+        _key = 'ff_pickers' if sim_result.get('channel') == 'fulfillment' else 'store_pickers'
+        try:
+            self.k_pickers = int(_staffing['inputs'][_key])
+        except (KeyError, TypeError):
+            raise KeyError(
+                f'sim_result for {self.name!r} carries no staffing record with {_key!r}; '
+                f'run_analysis._sim_result_from_meta stamps it (the sixth seam)') from None
         self.total_bins = float(slim.get('total_bins') or 0)
         self.log        = log
 

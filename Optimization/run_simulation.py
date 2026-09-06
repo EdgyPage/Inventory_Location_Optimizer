@@ -39,8 +39,9 @@ if _REPO_ROOT not in sys.path:
 # Diagnostics/bucket_fill import them from run_simulation.  CONFIG binds the SAME
 # dict object as sim_config.CONFIG (tests mutate it in place) — never rebind it.
 from Optimization.config.sim_config import (            # noqa: F401
-    CONFIG, INBOUND_KEYS, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
-    seed_world, seed_batches, n_batches, k_pickers, store_restocks, store_fill,
+    CONFIG, INBOUND_KEYS, STAFFING_KEYS, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
+    seed_world, seed_batches, n_batches, k_pickers, channel_pickers, staffing_spec,
+    store_restocks, store_fill,
     _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
     _STORE_PICKERS, _FF_PICKERS, _CART_TYPES,
     regime_sizing_from_config, _setup_logging, _checkpoint_every,
@@ -200,6 +201,11 @@ def _apply_run_spec(args, spec, explicit):
     (store_composition_override, notes) — the resolved store composition is injected directly so
     a since-deleted --s-composition file can't break resume."""
     notes = []
+    # The staffing record is NESTED (`staffing.inputs.<key>`); flatten its inputs beside the
+    # flat keys so one loop restores every family.  A pre-record spec has no `staffing`, so
+    # its keys are simply absent and the flags' CONFIG defaults stand -- never a KeyError.
+    _staffing_inputs = (spec.get('staffing') or {}).get('inputs') or {}
+    spec = {**spec, **{k: _staffing_inputs[k] for k in STAFFING_KEYS if k in _staffing_inputs}}
     for f in ('n_batches', 'max_skus', 's_max_aisles', 's_max_bins', 's_min_bins',
               'ff_max_aisles', 'ff_max_bins', 'ff_min_bins', 'keyframe_interval', 'whatif', 'spec',
               'profiles_dir', 'all_profiles', 'workers', 'max_tasks_per_child',
@@ -225,6 +231,10 @@ def _apply_run_spec(args, spec, explicit):
               # ...and the other crews' price, for the same reason: an arm that resumed
               # with this checkout's scales would bill its second half at a different rate.
               'put_intercept_scale', 'put_item_ratio', 'recv_intercept_scale',
+              # ...and the declared crews, for the same reason: an arm that resumed with this
+              # checkout's picker counts would finish under a crew its run spec never
+              # declared.  Spliced from the list; flattened from `staffing.inputs` above.
+              *STAFFING_KEYS,
               # ...and the whole inbound family, for the same reason twice over: an arm that
               # resumed without its yard would finish on v1's drain-everything dock, and one
               # that resumed without its lead shape would redraw a different arrival schedule.
@@ -424,6 +434,21 @@ def main():
              "put-away's, charged once per pack)")):
         parser.add_argument(_flag, type=_nonneg_float, default=CONFIG['global'][_key],
                             metavar='X', help=f'{_what[0].upper()}{_what[1:]}.')
+    # ── staffing: pickers per channel ───────────────────────────────────────────
+    # THE ONE DECLARED HEADCOUNT.  Every other crew is derived from these under the
+    # calibrated era, so these are the only two crew-size flags that are not an error
+    # there.  Each defaults FROM CONFIG (the --keyframe-interval precedent) so the
+    # unconditional write-back below cannot drift a flag-less run; a pick-config module
+    # that names its own `num_pickers` must agree with the channel's value or setup raises.
+    # One flag per STAFFING_KEYS entry, in its order -- a key with no flag here is a knob
+    # reachable only by editing settings.py, which is exactly the seam this closes.
+    for _flag, _key, _what in (
+            ('--store-pickers', 'store_pickers',
+             'machine order-pickers on the store channel'),
+            ('--ff-pickers', 'ff_pickers',
+             'walkers on the fulfillment channel (a store-only catalogue ignores it)')):
+        parser.add_argument(_flag, type=_positive_int, default=CONFIG['global'][_key],
+                            metavar='N', help=f'{_what[0].upper()}{_what[1:]}.')
     # ── the inbound trailer pipeline + the standing yard ────────────────────────
     # Seams 3 and 4 for the whole family, deferred by every knob this effort added ("the
     # first sweep"); the funnel IS the first sweep, so the debt falls due together.  Every
@@ -634,6 +659,10 @@ def main():
     g['put_intercept_scale']  = args.put_intercept_scale
     g['put_item_ratio']       = args.put_item_ratio
     g['recv_intercept_scale'] = args.recv_intercept_scale
+    # Staffing, unconditionally and from the list: read at call time by channel_pickers()
+    # and staffing_spec(), so it reaches the channel build, the run params and the payload.
+    for _k in STAFFING_KEYS:
+        g[_k] = getattr(args, _k)
     # The inbound family, unconditionally: every flag defaults FROM CONFIG, so a flag-less run
     # writes back exactly what was already there.  Assigning the whole list (rather than
     # `if not None`) is what lets a cell's inbound record and a CLI value share one mechanism —
@@ -778,6 +807,19 @@ def main():
             'put_intercept_scale' : g['put_intercept_scale'],
             'put_item_ratio'      : g['put_item_ratio'],
             'recv_intercept_scale': g['recv_intercept_scale'],
+            # THE STAFFING RECORD -- one nested key, not flat entries, because it is the
+            # artifact the calibrated era exists to produce and it grows: `inputs` is what
+            # was declared (the STAFFING_KEYS, read post-overlay through the accessor so a
+            # value that came from CONFIG is recorded too); `provenance` says, per input,
+            # whether a flag chose it (`declared`) or a settings default did (`assumed`);
+            # the derivation ticket adds `derived` beside them.  Both restore sites read
+            # `inputs` by iterating STAFFING_KEYS, and the whole record is stamped onto
+            # sim_result for the evaluations (run_analysis, the sixth seam).
+            'staffing': {
+                'inputs'    : staffing_spec(),
+                'provenance': {k: ('declared' if k in explicit else 'assumed')
+                               for k in STAFFING_KEYS},
+            },
             # The inbound family. Read from `g` (post-overlay) like the two families above,
             # and recorded WHOLE rather than only when on: a phase-2 cell that cannot say
             # which lead shape and which fee threshold it ran under is not re-analysable, and

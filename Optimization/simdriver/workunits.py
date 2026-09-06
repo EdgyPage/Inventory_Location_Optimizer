@@ -15,6 +15,7 @@ from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.config.sim_config import (
     CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, put_queues_spec,
     crew_cost_spec,
+    channel_pickers, staffing_spec, _PICKERS_KEY,
     inbound_spec,
     recv_crew_spec,
     work_day_spec,
@@ -375,6 +376,11 @@ def _prepare_channel_run(
         # The other crews' PRICE as scalars of the pickers' -- the fifth seam of a knob.
         # Not in the payload = silently the kernel default in every spawned worker.
         crew_cost           = crew_cost_spec(),
+        # The staffing record's INPUTS -- the fifth seam of the picker knobs.  `k_pickers`
+        # above is the value the worker sizes its crew from; this is the record it checks
+        # that value against, so a worker that was handed the wrong crew refuses rather
+        # than running under a count its run spec never declared.
+        staffing            = staffing_spec(),
         velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )
@@ -421,14 +427,26 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
     mixed = any(regime_of(c) == FULFILLMENT for c in inventory.orders)
     runs: list[tuple] = []
     # Store first, then fulfillment (only for a mixed catalog) — every knob per channel
-    # comes from CONFIG['channels'][name]; a pick-config entry may override 'num_pickers'.
+    # comes from CONFIG['channels'][name], except the crew, which is the channel's DECLARED
+    # picker count (CONFIG['global'], via channel_pickers).  A pick-config entry that names
+    # its own 'num_pickers' must AGREE with it: the batch script is derived from the declared
+    # crew, so an arm fielding a different crew is the stale-literal trap restated per arm
+    # (.scratch/department-calibration, "Design the staffing record", decision 1).  Restating
+    # the channel value stays legal; disagreeing raises here, at setup, before any DB exists.
     for name in ('store', 'fulfillment'):
         if name == 'fulfillment' and not mixed:
             continue
         chan = CONFIG['channels'][name]
         default_cart = _CART_TYPES.get(chan['cart'], StoreCart)
+        n = channel_pickers(name)
         for cfg in chan['configs']:
-            n  = int(cfg.get('num_pickers', chan['num_pickers']))
+            _own = cfg.get('num_pickers')
+            if _own is not None and int(_own) != n:
+                raise ValueError(
+                    f"pick config {cfg.get('name')!r} declares num_pickers={_own}, but the "
+                    f"{name} channel's declared crew is {n} ({_PICKERS_KEY[name]}). The script "
+                    f"is derived from the declared crew, so an arm may not field a different "
+                    f"one: drop the key from the config module, or change the channel's knob.")
             pc = _build_pick_cfg(cfg, num_pickers=n, default_cart=default_cart)
             ch = make_channel(name, chan['regime'], pc, n,
                               # The crew's MODE.  Without it both channels silently took

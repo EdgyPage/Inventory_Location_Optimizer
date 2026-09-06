@@ -41,7 +41,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from Optimization.simdriver.sim_assets import build_shared_assets
-from Optimization.config.sim_config import (CONFIG, INBOUND_KEYS, regime_sizing_from_config,
+from Optimization.config.sim_config import (CONFIG, INBOUND_KEYS, STAFFING_KEYS, staffing_spec,
+                                            regime_sizing_from_config,
                                             _setup_logging, _OUTPUT_DIR)
 from Optimization.runschema.runlayout import iter_channel_runs
 
@@ -57,7 +58,23 @@ from Optimization.Performance_Evaluations.presets import PRESETS
 
 # Keys the context reads from `shared` — a small, picklable slice sent to worker processes
 # (avoids pickling the warehouse / inventory objects).
-_SLIM_KEYS = ('aisle_unittype_map', 'aisle_handling_map', 'k_pickers', 'total_bins')
+_SLIM_KEYS = ('aisle_unittype_map', 'aisle_handling_map', 'total_bins')
+
+#: The run's own staffing record, verbatim from its run_spec (set by `_apply_run_shape`), or
+#: None when the run predates the record.  Module state rather than a return value because
+#: the shape function's one caller threads only `max_skus` on, and the stamp below is the
+#: only reader.
+_RUN_STAFFING: dict | None = None
+
+
+def _staffing_record() -> dict:
+    """The staffing record to stamp onto sim_result: the run's own when it recorded one,
+    else a reconstruction from the restored inputs with every value marked `assumed` --
+    which is what a pre-record run's crew was, a compile-time constant nobody chose."""
+    if _RUN_STAFFING and _RUN_STAFFING.get('inputs'):
+        return _RUN_STAFFING
+    return {'inputs': staffing_spec(),
+            'provenance': {k: 'assumed' for k in STAFFING_KEYS}}
 
 # Per-process context caches (graph granularity: co-scheduled graphs of one config/group
 # that land on the same worker reuse a single loaded context).
@@ -91,6 +108,13 @@ def _sim_result_from_meta(meta: dict) -> dict:
     # already restored the recorded value into CONFIG in THIS (parent) process; None here means
     # the run predates recording, which is what makes the context's fallback fire and say so.
     sim_result['inbound_fee_threshold_days'] = CONFIG['global'].get('inbound_fee_threshold_days')
+    # THE STAFFING RECORD, whole, as one key -- the sixth seam.  `EvalContext.k_pickers` reads
+    # ITS channel's count off `inputs`, which is why the channel rides beside it (a pre-channel
+    # meta is a store-only run).  Stamping the entire record rather than one number means the
+    # throughput audit reads provenance, the derived crews and the calibration stamps from the
+    # same key without this function changing again.
+    sim_result['channel'] = meta.get('channel') or 'store'
+    sim_result['staffing'] = _staffing_record()
     return sim_result
 
 
@@ -347,6 +371,17 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     g['put_intercept_scale']  = spec.get('put_intercept_scale')
     g['put_item_ratio']       = spec.get('put_item_ratio')
     g['recv_intercept_scale'] = spec.get('recv_intercept_scale')
+    # The staffing record's INPUTS, from the nested block and from the list itself.  A
+    # pre-record spec yields None for every key, which `channel_pickers()` resolves to the
+    # leaf default -- the crew that run actually fielded, since the constant it compiled in
+    # is the constant the default still is -- never this checkout's CONFIG, which a flag in
+    # this process could have moved.  The block itself is kept verbatim (provenance and, once
+    # the derivation lands, the derived crews) for the sim_result stamp below.
+    global _RUN_STAFFING
+    _RUN_STAFFING = spec.get('staffing')
+    _staffing_inputs = (_RUN_STAFFING or {}).get('inputs') or {}
+    for _k in STAFFING_KEYS:
+        g[_k] = _staffing_inputs.get(_k)
     # The inbound family, unconditionally and from the list itself. A pre-field spec yields
     # None for every key, which is exactly right: `inbound_spec()` returns None without a
     # trailer type, so "absent" restores to "that run had no inbound pipeline" -- never this

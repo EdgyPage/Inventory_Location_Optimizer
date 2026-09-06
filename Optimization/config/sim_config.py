@@ -75,9 +75,11 @@ from Optimization.config import settings as _s
 _AISLE_W = aisle_width_for(50)    # 50 × 48 = 2400 physical units
 _AISLE_H = aisle_height_for(10)   # 10 × 48 = 480 physical units
 
-# Picker-pool defaults per channel live in Optimization/simconfig/constants.py (imported above as
-# _STORE_PICKERS / _FF_PICKERS) so the self-registering pick-config modules can reference them
-# without a circular import.  A pick-config entry may still override its own 'num_pickers'.
+# Picker-pool DEFAULTS per channel live in Optimization/simconfig/constants.py (imported above as
+# _STORE_PICKERS / _FF_PICKERS; re-exported for the diagnostics that reach them via `rs.`).  The
+# live values are CONFIG['global']['store_pickers'] / ['ff_pickers'], read at call time by
+# `channel_pickers(name)` below; a pick-config entry that names its own 'num_pickers' must agree
+# with its channel's declared count or setup raises (see `workunits._channel_runs_for`).
 
 
 def _clean_path(val: str) -> str:
@@ -229,12 +231,19 @@ CONFIG = {
         'put_intercept_scale' : _s.PUT_INTERCEPT_SCALE,
         'put_item_ratio'      : _s.PUT_ITEM_RATIO,
         'recv_intercept_scale': _s.RECV_INTERCEPT_SCALE,
+        # STAFFING: pickers per channel, the one declared headcount of the calibrated era.
+        # Two flat GLOBAL keys (not a per-channel entry) so they ride the same flag /
+        # run-spec / restore / payload machinery as every other run-shaping knob; the
+        # channel dicts below deliberately carry no 'num_pickers' -- `channel_pickers(name)`
+        # reads these at call time, and `staffing_spec()` records them.  STAFFING_KEYS is the
+        # spliced list every seam iterates.
+        'store_pickers'       : _s.STORE_PICKERS,
+        'ff_pickers'          : _s.FF_PICKERS,
     },
     'channels': {
         'store': {
             'regime'     : STORE,
             'configs'    : STORE_CONFIGS,
-            'num_pickers': _s.STORE_PICKERS,
             'pick_mode'  : _s.STORE_PICK_MODE,
             'restocks'   : restocks_for('store'),
             'cart'       : _s.STORE_CART,
@@ -255,7 +264,6 @@ CONFIG = {
         'fulfillment': {
             'regime'     : FULFILLMENT,
             'configs'    : FULFILLMENT_CONFIGS,
-            'num_pickers': _s.FF_PICKERS,
             'pick_mode'  : _s.FF_PICK_MODE,
             'restocks'   : restocks_for('fulfillment'),
             'cart'       : _s.FF_CART,
@@ -318,9 +326,56 @@ def n_batches() -> int:
     return CONFIG['global']['n_batches']
 
 
+#: Every `CONFIG['global']` key the staffing record's INPUTS block carries -- the family's
+#: SHAPE in one place, on the `INBOUND_KEYS` precedent: the CLI flags, the run-spec record and
+#: BOTH restore sites iterate this list rather than retyping the keys, so a new staffing input
+#: cannot be recorded and then not restored.  Order is the order the flags are emitted in.
+#: Today the two picker counts; the derivation ticket adds the utilization / replenishment
+#: scalars and the put crew mode beside them (.scratch/department-calibration, "Design the
+#: staffing record").
+STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers')
+
+#: Which global key each channel's pick crew is sized from.  A module-level table rather than
+#: a key in the channel dict, so the channel dicts stay "settings references + structure" and
+#: the count has exactly one live home.
+_PICKERS_KEY: dict[str, str] = {'store': 'store_pickers', 'fulfillment': 'ff_pickers'}
+
+
+def channel_pickers(name: str) -> int:
+    """The declared picker count of channel `name`, read from CONFIG at CALL time.
+
+    The `recv_crew_spec` pattern, never `put_crew_spec`'s: a flag writes CONFIG, a resume
+    and a re-analysis restore into CONFIG, so CONFIG is the only place this may be read from.
+    A None (a pre-record run spec restored by `run_analysis._apply_run_shape`) resolves to the
+    leaf default -- that run fielded the compile-time constant of its day, which is what the
+    constant still is.  An unknown channel is a KeyError, deliberately: a third channel needs
+    its own declared knob, not a silent share of someone else's.
+    """
+    key = _PICKERS_KEY[name]
+    v = CONFIG['global'].get(key)
+    if v is None:
+        v = {'store_pickers': _STORE_PICKERS, 'ff_pickers': _FF_PICKERS}[key]
+    n = int(v)
+    if n < 1:
+        raise ValueError(f'{key} must be a positive picker count; got {v!r}')
+    return n
+
+
+def staffing_spec() -> dict:
+    """The staffing record's INPUTS as a picklable dict: `{store_pickers, ff_pickers}`.
+
+    Inputs ONLY -- the derived block (batch content, put crew, receiving crew, expected
+    throughput) is a pure module the derivation ticket adds, run after batch precompute, and
+    is never a CONFIG key.  Read from CONFIG at call time for the reason every accessor in
+    this file is, and carried in `workunits._shared` so a spawned worker can check that the
+    crew it was handed is the crew the record declares.
+    """
+    return {k: channel_pickers(ch) for ch, k in _PICKERS_KEY.items()}
+
+
 def k_pickers() -> int:
-    """The store channel's picker count, read at call time."""
-    return CONFIG['channels']['store']['num_pickers']
+    """The store channel's picker count, read at call time (the diagnostics' entry point)."""
+    return channel_pickers('store')
 
 
 def store_restocks() -> tuple:
@@ -725,7 +780,8 @@ def _build_pick_cfg(cfg: dict, *, num_pickers: int, default_cart=StoreCart) -> P
     """Turn a config dict (store or fulfillment) into a PickConfig.
 
     The one canonical dict→PickConfig conversion shared by both channels' sweeps.  Callers
-    pass the config's own 'num_pickers' (store default k_pickers(), fulfillment default 20) and
+    pass the channel's DECLARED picker count (`channel_pickers(name)`; a config dict's own
+    'num_pickers', if present, must agree -- `workunits._channel_runs_for` raises otherwise) and
     the channel's default_cart (StoreCart / FulfillmentCart); a 'cart' key overrides it.
 
     A MISSING key falls through to `PickConfig`'s own dataclass default, and that is the whole

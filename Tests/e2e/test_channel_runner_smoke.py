@@ -222,8 +222,13 @@ def test_independent_sweep_is_union_not_cross_product(monkeypatch):
     from Warehouse.layout.Storage_Primitive import FulfillmentCart
 
     # Asymmetric counts (3 vs 2) so union (5) is distinguishable from a cross product (6).
+    # f2 RESTATES the channel's declared walker pool, which stays legal; a per-config count
+    # that disagrees raises at setup (the staffing record, .scratch/department-calibration),
+    # asserted at the end.
+    _ff_declared = rs.channel_pickers('fulfillment')
     store_cfgs = [{'name': 's1'}, {'name': 's2'}, {'name': 's3'}]
-    ff_cfgs    = [{'name': 'f1'}, {'name': 'f2', 'cart': 'FulfillmentCart', 'num_pickers': 12}]
+    ff_cfgs    = [{'name': 'f1'},
+                  {'name': 'f2', 'cart': 'FulfillmentCart', 'num_pickers': _ff_declared}]
     monkeypatch.setitem(rs.CONFIG['channels']['store'], 'configs', store_cfgs)
     monkeypatch.setitem(rs.CONFIG['channels']['fulfillment'], 'configs', ff_cfgs)
 
@@ -239,7 +244,13 @@ def test_independent_sweep_is_union_not_cross_product(monkeypatch):
         assert ch.regime == STORE and ch.picker.num_pickers == rs.k_pickers()
     for ch, _ in ff_runs:
         assert ch.regime == FULFILLMENT and ch.picker.cost.cart is FulfillmentCart
-    assert ff_runs[1][0].picker.num_pickers == 12               # per-config walker pool override
+    assert ff_runs[1][0].picker.num_pickers == _ff_declared     # restated, so still the declared pool
+    # ...and a per-config count that DISAGREES with the declared crew is refused at setup.
+    monkeypatch.setitem(rs.CONFIG['channels']['fulfillment'], 'configs',
+                        [{'name': 'f3', 'cart': 'FulfillmentCart', 'num_pickers': _ff_declared + 1}])
+    import pytest
+    with pytest.raises(ValueError, match='declares num_pickers='):
+        rs._channel_runs_for(_mixed_inventory())
 
 
 def test_store_only_catalog_skips_fulfillment_sweep(monkeypatch):

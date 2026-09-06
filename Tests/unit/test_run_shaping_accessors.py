@@ -75,8 +75,12 @@ def test_a_global_override_reaches_the_accessor(restore_global, name, path, prob
 
 
 def test_a_channel_override_reaches_the_accessor(restore_global):
-    CONFIG['channels']['store']['num_pickers'] = 99
+    """The picker count is a GLOBAL key now (`store_pickers`), not a channel entry; the
+    store accessor is a call-time read of it."""
+    CONFIG['global']['store_pickers'] = 99
     assert sim_config.k_pickers() == 99
+    assert sim_config.channel_pickers('store') == 99
+    assert 'num_pickers' not in CONFIG['channels']['store']
 
 
 # ── the consumer that would have been bitten ──────────────────────────────────────
