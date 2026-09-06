@@ -88,7 +88,7 @@ PHASE2_FINITE_W = 5
 #: first attempt used a physically plausible dock (2 receivers, an 8-hour day) and starved the
 #: warehouse to a 49.6% missed share, because the crew is granted one day-REMAINDER per BATCH
 #: while a store batch spans 19 working days.  Effective capacity is crew x day / 2 per batch;
-#: size it against the BATCH, never against a shift.  Both are recorded in `run_spec.json`, so a
+#: size it against the BATCH, never against a shift.  Both are recorded in the run spec, so a
 #: run stays re-analysable, but a phase-2 launch that forgets them is not the pilot's regime.
 PHASE2_RECV_CREW_SIZE = 4
 PHASE2_RECV_DAY_SECONDS = 43200.0
