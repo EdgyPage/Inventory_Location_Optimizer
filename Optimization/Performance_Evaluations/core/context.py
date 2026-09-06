@@ -203,6 +203,8 @@ class EvalContext:
         self._dcache: dict = {}     # per-drain yard frames
         self._mcache: dict = {}     # per-batch demand-service frames
         self._wcache: dict = {}     # per-batch production-labour frames
+        self._scache: dict = {}     # per-day drain-or-cap ledger frames
+        self._expect = None         # staffing expectations, resolved once (False = none)
         self._series = None
         self._breakdown = None
         self._maxb = None
@@ -255,6 +257,30 @@ class EvalContext:
 
     def work_df(self, key):
         return _requests.work_frame(self, key)
+
+    def shift_df(self, key):
+        return _requests.shift_frame(self, key)
+
+    def staffing_expectations(self):
+        """This leaf's expected utilization per department, off the staffing record stamped
+        onto `sim_result` -- or None, logged once, when the record carries no derived block
+        (a flag-off run: nothing was derived, so nothing is expected).
+
+        `equilibrium.expectations_for` is the ONE reader of the record for both the
+        reference-run driver and the audit, so the two cannot disagree about which number
+        is "expected".  Keyed by PAIR (`self.inv`) and this leaf's channel, both of which
+        `run_analysis._sim_result_from_meta` stamps beside the record.
+        """
+        if self._expect is None:
+            from Optimization.simconfig import equilibrium as _eq
+            try:
+                self._expect = _eq.expectations_for(
+                    self.sim_result.get('staffing') or {},
+                    pair=self.inv, channel=self.sim_result.get('channel'))
+            except _eq.RecordError as exc:
+                self.log.info(f'  [era] {self.name}: no staffing expectations ({exc})')
+                self._expect = False
+        return self._expect or None
 
     def batch_frames(self) -> dict:
         return {s['key']: self.batch_df(s['key']) for s in self.strategies}

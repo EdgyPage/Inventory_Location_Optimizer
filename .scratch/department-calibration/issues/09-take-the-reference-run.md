@@ -68,3 +68,29 @@ check reads it. (5) `_record_derived` RAISES on a resume whose re-derivation dis
 crashed reference run resumes with `--resume DIR` and nothing retyped, or starts over. (6) On the
 smoke catalogues two pickers saturated a 134-SKU fulfillment section (`batch.saturated`, a
 warning); at production scale check the `[staffing]` lines for that word before trusting a pass.
+
+2026-09-06, from resolving [Build the equilibrium check and the throughput audit](10-build-the-equilibrium-check-and-audit.md):
+UNBLOCKED. The launch is now ONE command, not a hand-driven loop:
+
+    python -m Optimization.run_reference --n-batches 40 --window 20 39 --max-passes 2 --workers N -- --profiles-dir DIR [--store-pickers K --ff-pickers K ...]
+
+(flags after `--` go to run_simulation untouched). It runs each pass as a subprocess under the
+current candidate record, judges days 20-39 of every leaf with `equilibrium.check` (a failing
+window is DISCARDED and RE-SEEDS the next pass with provenance `seed`; nothing from it is
+`measured`), measures `s_pick` per channel, `s_put` one site value with per-leaf diagnostics,
+`K_max`, and the EXACT per-pack receiving self-check (float tolerance; a failure is a broken run
+and stops the driver), writes `calibration_record.pass<n>.json` / `.candidate.json` under
+`--out` (default: a `calibration_reference_<ts>` dir under COMPARISON_OUTPUT_DIR), and stops at
+<5% movement in derived daily demand. `--install` copies a MEASURED final record over
+`Optimization/simconfig/calibration_record.json` (refused for a re-seed); committing it is the
+human's act. `--measure RUN_ROOT --window lo hi` re-judges a finished run.
+
+What to check before trusting a pass, from the 5-day smoke run: (1) the STORE leaf placed zero
+reorders in 5 days (coverage 10 batches) -- its put and receiving utilization read 0.000; confirm
+`reorder_placements` is nonzero inside days 20-39 or the site crews are being sized against a
+load the window never carried; (2) the fulfillment seed was 5x off (travel share 5.1 vs 1.04)
+on a saturated 128-SKU section -- watch `[staffing] ... clamped` and expect pass 0 to fail its
+window and re-seed; (3) `released_late` behind a capped day is that day's overrun and is
+recorded, not an error; (4) the `passes` list in the candidate carries every window's verdict
+with readings, so "converged" vs "cut off" is readable off the record. The audit
+(`throughput.audit`) renders on every era leaf and logs the same verdict per arm.

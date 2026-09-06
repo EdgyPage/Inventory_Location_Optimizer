@@ -48,6 +48,17 @@ SEMANTIC_USES = {'sim_db': {
     # silently did exactly that with every pick row defaulting to zero seconds.
     'work_events.batch_id': 'read', 'work_events.role': 'read',
     'work_events.duration': 'sum',
+    # The calibrated era.  `work_day` is the LABEL a batch is grouped into a day by;
+    # `released_late` is a SPAN and is summed per DAY (the check's second clause reads the
+    # per-day total against the ledger's verdict).  The ledger's `drained` is read per day
+    # and COUNTED, never summed; its stamps are read and differenced on one clock
+    # (`last_finish - cap_end` is the START-gate overtime); its levels are read and never
+    # summed across days.
+    'batch_stats.work_day': 'read', 'batch_stats.released_late': 'sum',
+    'shift_days.day': 'read', 'shift_days.cap_end': 'read', 'shift_days.end_s': 'read',
+    'shift_days.drained': 'read', 'shift_days.standing': 'read',
+    'shift_days.standing_put': 'read', 'shift_days.standing_dock': 'read',
+    'shift_days.standing_carry': 'read', 'shift_days.last_finish': 'read',
 }}
 
 
@@ -92,6 +103,12 @@ def _bdf(stats):
         'recv_unloaded'         : getattr(s, 'recv_unloaded', 0),
         'recv_cut'              : getattr(s, 'recv_cut', 0),
         'recv_seconds'          : getattr(s, 'recv_seconds', 0.0),
+        # The working day a batch was RELEASED into (0 on every continuous-release run)
+        # and the seconds it missed its slot by.  Carried so the day frame below can join
+        # the ledger to the batches through `work_day`; `tables.tidy` lists `work_day` as
+        # bookkeeping so it never becomes a metric row.
+        'work_day'              : getattr(s, 'work_day', 0),
+        'released_late'         : getattr(s, 'released_late', 0.0),
         'lead_queue_depth'      : getattr(s, 'lead_queue_depth', 0),
         'in_transit_qty'        : getattr(s, 'in_transit_qty', 0),
         # upstream Tukey outlier flag, carried through so downstream tables can filter
@@ -365,6 +382,86 @@ def _wdf(rows, df_b, df_t):
                                             + pick),
                      'untimed_rows': rec['untimed_rows']})
     return pd.DataFrame(recs)
+
+
+_SHIFT_COLS = ['day', 'cap_end', 'end_s', 'drained', 'capped', 'standing', 'standing_put',
+               'standing_dock', 'standing_carry', 'last_finish', 'overtime_s', 'n_batches',
+               'released_late_s', 'items_demanded', 'total_items', 'pick_seconds',
+               'put_seconds', 'unload_seconds', 'pick_utilization', 'put_utilization',
+               'recv_utilization']
+
+
+def _sdf(rows, df_b, df_w, expectations=None):
+    """Per-DAY frame of the drain-or-cap ledger, joined to the batches and the labour.
+
+    THE THROUGHPUT AUDIT'S FRAME.  One row per working day the ledger closed: the verdict
+    (`drained` / `capped`), the close-out levels, the START-gate overtime
+    (`last_finish - cap_end`, floored at 0), and -- joined through `batch_stats.work_day`
+    -- the day's batches, released-late seconds, demand and picks, and the three crews'
+    worked seconds.  With `expectations` (`equilibrium.expectations_for`) each department's
+    UTILIZATION is worked ÷ (crew × S) for that day; without them the three columns are
+    NaN, never zero -- an unknown crew is not a crew of nobody.
+
+    An EMPTY frame when `rows` is empty, by the same rule `_ydf` / `_wdf` follow: a run
+    without the drain-or-cap shift never closed a day, and a frame of zeros would say every
+    day drained.  Utilization here is per DAY for the figures; the equilibrium check
+    computes it as a ratio of sums over the window itself and never from these rows.
+    """
+    if not rows:
+        return pd.DataFrame(columns=_SHIFT_COLS)
+    df = pd.DataFrame([{
+        'day'           : int(r['day']),
+        'cap_end'       : float(r['cap_end']),
+        'end_s'         : float(r['end_s']),
+        'drained'       : int(bool(r['drained'])),
+        'standing'      : int(r['standing']),
+        'standing_put'  : int(r['standing_put']),
+        'standing_dock' : int(r['standing_dock']),
+        'standing_carry': int(r['standing_carry']),
+        'last_finish'   : float(r['last_finish']),
+    } for r in rows]).sort_values('day').reset_index(drop=True)
+    df['capped'] = 1 - df['drained']
+    df['overtime_s'] = (df['last_finish'] - df['cap_end']).clip(lower=0.0)
+    # The day's batches: count, lag, demand, picks and the pick leg (Σ task time).
+    if df_b is not None and not df_b.empty and 'work_day' in df_b:
+        g = df_b.groupby('work_day')
+        per_day = pd.DataFrame({
+            'n_batches'      : g.size(),
+            'released_late_s': g['released_late'].sum(),
+            'items_demanded' : g['items_demanded'].sum(),
+            'total_items'    : g['total_items'].sum(),
+            'pick_seconds'   : g['task_makespan'].sum(min_count=1),
+        })
+        df = df.merge(per_day, left_on='day', right_index=True, how='left')
+    else:
+        for c in ('n_batches', 'released_late_s', 'items_demanded', 'total_items',
+                  'pick_seconds'):
+            df[c] = np.nan
+    # The put and unload legs, per batch in the work frame, folded to the day.
+    if (df_w is not None and not df_w.empty and df_b is not None and not df_b.empty
+            and 'work_day' in df_b):
+        day_of = df_b.set_index('batch_id')['work_day']
+        w = df_w.assign(day=df_w['batch_id'].map(day_of)).dropna(subset=['day'])
+        gw = w.groupby(w['day'].astype(int))
+        legs = pd.DataFrame({'put_seconds': gw['put_seconds'].sum(),
+                             'unload_seconds': gw['unload_seconds'].sum()})
+        df = df.merge(legs, left_on='day', right_index=True, how='left')
+    else:
+        df['put_seconds'] = np.nan
+        df['unload_seconds'] = np.nan
+    for col in ('n_batches',):
+        df[col] = df[col].fillna(0).astype(int)
+    df['released_late_s'] = df['released_late_s'].fillna(0.0)
+    # Utilization per day against the whole day's grant, only where a crew is expected.
+    for dept, col in (('pick', 'pick_seconds'), ('put', 'put_seconds'),
+                      ('recv', 'unload_seconds')):
+        spec = ((expectations or {}).get('departments') or {}).get(dept)
+        if spec is None:
+            df[f'{dept}_utilization'] = np.nan
+            continue
+        granted = float(spec['crew']) * float(expectations['day_seconds'])
+        df[f'{dept}_utilization'] = df[col] / granted if granted > 0 else np.nan
+    return df[_SHIFT_COLS]
 
 
 def _roll(df, col, win=50):

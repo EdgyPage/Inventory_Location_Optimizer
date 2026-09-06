@@ -26,7 +26,12 @@ _TABLES   = ['config.series', 'tables.per_run', 'tables.tidy',
 _HEADLINE = ['headline.top_vs_baseline', 'headline.all_arms', 'headline.rollup',
              'headline.throughput_vs_labor']
 _TRENDS   = ['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch',
-             'labor.delta_grid', 'throughput.volume', 'throughput.missed']
+             'labor.delta_grid', 'throughput.volume', 'throughput.missed',
+             # The calibrated era's audit: declared throughput vs delivered.  Its one
+             # quantity names the `shift_days` capability, so the era gate refuses it on
+             # every run without the drain-or-cap ledger -- the whole archive -- with a
+             # reason, rather than drawing a scorecard of days that never existed.
+             'throughput.audit']
 _DETAIL   = ['task_time.duration', 'task_time.breakdown',
              # Grouped by CHARACTER, not by family: a static stacked decomposition belongs
              # beside `task_time.breakdown` (the other composite) rather than with the

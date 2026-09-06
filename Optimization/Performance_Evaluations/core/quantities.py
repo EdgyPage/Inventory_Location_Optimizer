@@ -112,7 +112,12 @@ FRAME_TABLE = {'batch': 'batch_stats',
                # already an aggregate.  A frame of its own rather than columns on
                # `batch_stats` because put-away hours were never written there at all:
                # `putaway_seconds` is an in-sim property and this table is its only record.
-               'work': 'work_events'}
+               'work': 'work_events',
+               # The calibrated era's ledger: one row per WORKING DAY the drain-or-cap
+               # shift closed, joined to the batches through `batch_stats.work_day`.  Not a
+               # per-batch kind (a day holds one batch under the era and any number off
+               # it), so it is in FRAME_TABLE and not in PAIRED_KINDS, like the yard's.
+               'shift': 'shift_days'}
 
 #: The frame kinds `stats_core._metric_series` can actually pair batch-for-batch, and
 #: therefore the only ones `metric_specs()` hands to the significance suite.
@@ -567,6 +572,28 @@ QUANTITIES: tuple = (
               'or put into a bin, never both in one row, and the two crews are separate. '
               'Near-absent inbound-off, which is what makes it the leg that only the '
               'campaign moves.'),
+
+    # ── the calibrated era: declared throughput delivered, or not ─────────────────
+    # The ONE directional read-out of the throughput audit.  The audit's other numbers --
+    # realized vs expected utilization per department -- have no honest direction (a
+    # below-band picking read is a campaign arm's travel saving AND a reference run's
+    # failed precondition), so they live in the audit's inspection table, exactly as the
+    # yard scorecard's door utilization does.  A capped day is unambiguous: the site did
+    # not deliver the throughput it declared.
+    Quantity(
+        key='days_capped', label='Days capped',
+        axis_stem='working days ended capped', unit=Unit('count', 'days'),
+        direction='lower',
+        source=Source(per_batch=('shift', 'capped'),
+                      db_columns=('day', 'drained')),
+        capability='shift_days',
+        notes='COUNT of ledger rows with drained = 0 -- declared throughput not delivered. '
+              'Per DAY, not per batch: the drain-or-cap ledger closes one row per working '
+              'day, and `_sdf` derives `capped` as 1 - drained. Zero rows on a run without '
+              'the drain-or-cap shift, which the capability refuses rather than reporting '
+              'as "every day drained". On a campaign arm this is a REPORT ("declared '
+              'throughput not delivered"), never a failure; whether it is also a '
+              'comparison caveat is still open on the department-calibration map.'),
 
     # ── series-only quantities: no per-batch scalar, so no significance row ──────
     Quantity(

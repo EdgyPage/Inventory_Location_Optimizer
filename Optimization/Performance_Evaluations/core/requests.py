@@ -38,11 +38,11 @@ import numpy as np
 
 from Optimization.persistence.Picking_Data import (load_batch_stats, load_task_stats,
                                                    load_picker_events, load_carryover,
-                                                   load_work_hours,
+                                                   load_shift_days, load_work_hours,
                                                    load_yard_drains, load_yard_trailers)
 from Optimization.metrics.Simulation_Analytics import task_time_breakdown
-from Optimization.Performance_Evaluations.common.frames import (_bdf, _cdf, _ddf, _tdf,
-                                                                _wdf, _ydf)
+from Optimization.Performance_Evaluations.common.frames import (_bdf, _cdf, _ddf, _sdf,
+                                                                _tdf, _wdf, _ydf)
 from Optimization.Performance_Evaluations.common.series import _build_series
 
 
@@ -203,6 +203,24 @@ def work_frame(ctx, key):
     return df
 
 
+def shift_frame(ctx, key):
+    """One strategy's per-DAY ledger frame, memoised -- the throughput audit's frame.
+
+    Joined to the batch and work frames through `work_day`, and priced against the
+    context's staffing expectations (`ctx.staffing_expectations()`), which are None on a
+    run whose record carries no derived block: the utilization columns are then NaN and
+    the day verdicts still render.
+    """
+    df = ctx._scache.get(key)
+    if df is None:
+        s = ctx._by_key[key]
+        df = _sdf(load_shift_days(s['db_path'], s['run_id']),
+                  batch_frame(ctx, key), work_frame(ctx, key),
+                  ctx.staffing_expectations())
+        ctx._scache[key] = df
+    return df
+
+
 def metric_frames(ctx, key) -> dict:
     """The {kind: frame} mapping `frames._metric_series` resolves a metric source against.
 
@@ -354,6 +372,28 @@ def _work(ctx):
         return EraUnmet('no work-event rows on any arm (the run predates `work_events`), '
                         'so put-away and unload hours were never recorded',
                         missing=('work_events',))
+    return got
+
+
+@request('shift', 'config')
+def _shift(ctx):
+    """Every arm's per-day ledger frame -- `{key: shift_df}`.
+
+    ERA-UNMET, not Denied, when no arm closed a single day: the files were read and hold
+    no drain-or-cap ledger, which is every run before the calibrated era and every
+    flag-off run since.  A throughput audit over that would report "every day drained"
+    about a site that never had a day.  The `days_capped` quantity names the `shift_days`
+    capability, so the probe refuses the audit before this compose runs; this check is
+    the same fact found the other way round, for a caller that declared no quantity.
+    """
+    denied = _deny_absent(ctx)
+    if denied is not None:       # Denied is deliberately FALSY - never truth-test it
+        return denied
+    got = {s['key']: shift_frame(ctx, s['key']) for s in ctx.strategies}
+    if all(df.empty for df in got.values()):
+        return EraUnmet('no drain-or-cap ledger rows on any arm (the run predates the '
+                        'calibrated era, or ran without --shift-drain-or-cap), so no '
+                        'working day was ever closed out', missing=('shift_days',))
     return got
 
 

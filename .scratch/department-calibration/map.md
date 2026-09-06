@@ -138,15 +138,24 @@ regime someone chose rather than one the defaults inherited.
   dead). A disagreeing per-arm `num_pickers` raises at setup, so the four committed modules dropped
   theirs. `PROVENANCE` lives in the `simconfig/constants.py` leaf. Verified by a 68-arm spawn-pool run
   at 7 / 5 agreeing on every surface down to `picker_events`.
+- [Build the equilibrium check and the throughput audit](issues/10-build-the-equilibrium-check-and-audit.md):
+  LANDED. `simconfig/equilibrium.py` is the one pure function (four strict clauses, a `Verdict`
+  with every reading, `expectations_for` the ONE reader of the staffing record for both callers).
+  Two facts from the first era run reshaped it: lag on a batch belongs to the CAPPED day before
+  it (behind a drained day, or on day 0, it RAISES), and the receiving self-check is EXACT PER
+  PACK (an average was 7x off; float tolerance). Caller one is `simconfig/reference.py` +
+  `run_reference.py` (subprocess passes, a discarded window RE-SEEDS the next pass and is never
+  `measured`, fixed point at <5% daily demand, `--measure`, `--install`); caller two is the
+  `throughput.audit` evaluation (`days_capped` ranked behind the new `shift_days` capability,
+  utilization in an inspection table because it has no direction). 31 tests; smoke run rendered
+  both leaves and measured travel shares of 1.46 / 5.1 / 1.83 against the seed's 1.01 / 1.04 / 1.05.
 
 ## Not yet specified
 
-- **The builds** — every implementation graduates here once its governing decisions close.
-  Two remain tickets (06, 07 and 08 landed): the equilibrium check and the throughput audit
-  ([Build the equilibrium check and the throughput audit](issues/10-build-the-equilibrium-check-and-audit.md),
-  UNBLOCKED — 08 is resolved), and the reference run itself
-  ([Take the reference run](issues/09-take-the-reference-run.md), waits on 10). Nothing of
-  the build remains in fog; what stays dim is below.
+- **The builds** — every implementation graduated and landed (06, 07, 08, 10). One ticket
+  remains, the reference run itself
+  ([Take the reference run](issues/09-take-the-reference-run.md), UNBLOCKED — 10 is resolved),
+  which is a RUN, not a build. Nothing of the build remains in fog; what stays dim is below.
 - **Interaction-effects reporting beyond the bands** — the user's framing names
   "interaction effects between departments"; the bands capture equilibrium, but how the
   coupling itself is surfaced (receiving throttles put-away throttles availability

@@ -13,6 +13,8 @@ self-registering pick-config registry.
 | `whatif_config.py` | `SPECS` — the cell matrices a run can be launched as, and `ERA_RUN_DEFAULTS`, the calibrated era the campaign specs default to |
 | `../simconfig/staffing.py` | the calibrated era's staffing DERIVATION — a pure module: pickers + the calibration record + the script in, batch content and the two site crews out |
 | `../simconfig/calibration.py` + `calibration_record.json` | the committed calibration record (seconds per unit with provenance) and its loader; the pass-0 record is the SEED |
+| `../simconfig/equilibrium.py` | the pre-registered EQUILIBRIUM CHECK — one pure function of (db, day_lo, day_hi) with four strict clauses; the reference run's window precondition and the throughput audit's report |
+| `../simconfig/reference.py` | the reference run's driver: measure a window as ratios of sums, discard a failing one (re-seed, never average), write the candidate record, iterate to the fixed point. Launched by `Optimization/run_reference.py` |
 
 **Does NOT belong here:** anything that reads or writes a run's output (→ `persistence/`,
 `runschema/`), orchestration (→ `simdriver/`), or plotting (→ `Performance_Evaluations/`).

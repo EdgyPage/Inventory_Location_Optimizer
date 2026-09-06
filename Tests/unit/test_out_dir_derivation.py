@@ -58,6 +58,7 @@ _LITERALS = {
     'labor.production_legs':          ('figures', 'labor'),
     'throughput.volume':              ('figures', 'throughput'),
     'throughput.missed':              ('figures', 'throughput'),
+    'throughput.audit':               ('figures', 'throughput'),
     # The yard family: one folder, four evaluations, and it is legitimately EMPTY on a run
     # without the standing yard — the request is denied rather than drawing zeros.
     'yard.fee':                       ('figures', 'yard'),

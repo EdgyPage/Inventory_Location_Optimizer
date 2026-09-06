@@ -22,7 +22,9 @@ from Optimization.Performance_Evaluations.core.registry import evaluation
 from Optimization.Performance_Evaluations.common import io
 
 #: batch-frame columns that are identity/bookkeeping, not metrics.
-_NON_METRIC = ('batch_id', 'is_outlier')
+#: `work_day` is the day a batch was RELEASED into -- a grouping label, and a metric row
+#: of "day 17" would be a number with no direction.
+_NON_METRIC = ('batch_id', 'is_outlier', 'work_day')
 
 
 def _batch_long(strategies, df_b):

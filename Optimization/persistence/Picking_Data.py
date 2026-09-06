@@ -1163,6 +1163,8 @@ CONDITIONAL_READS = {
     # The production-labour fold, added 2026-08-31 — `work_events` had no consumer outside
     # Diagnostics until the objective needed the put leg.  Negotiated like the yard pair.
     'load_work_hours':     'work_events',
+    # The receive rows, added 2026-09-06 for the reference run's exact self-check.
+    'load_receive_events': 'work_events',
 }
 
 # ── the sim DB's capabilities: what a consumer may NEGOTIATE for ────────────────────────────
@@ -1187,8 +1189,24 @@ CAP_KEYFRAMES = 'keyframes'          # a sibling .keyframes.db — not table-pro
 CAP_VIZ_CACHE = 'viz_cache'          # a FRESH derived sidecar — not table-probed
 CAP_YARD = 'yard'                    # the standing yard's stamps + per-drain levels
 CAP_CARRYOVER = 'carryover'          # what did not get done this batch, and why
+CAP_SHIFT_DAYS = 'shift_days'        # the drain-or-cap ledger: one close-out per working day
 
 SIM_CAPABILITIES = {c.name: c for c in (
+    # The calibrated era's ledger, added 2026-09-06 with the equilibrium check.  Rows exist
+    # only on a run under the drain-or-cap shift -- an era-less run of the same vintage has
+    # the table and no rows, which is why the probe checks for ROWS and why a quantity read
+    # off it names this capability rather than the guaranteed surface.
+    _capability.Capability(
+        name=CAP_SHIFT_DAYS, table='shift_days', exact=True,
+        phase='per working day, at close-out (the next day\'s first batch; the final day '
+              'flushed at run end)',
+        caveat='ONE ROW PER WORKING DAY of ONE ARM. `drained` is the per-day verdict; the '
+               '`standing_*` columns are LEVELS at close-out and never sum across days. '
+               'Written only under --shift-drain-or-cap: zero rows on every run before the '
+               'calibrated era and on every flag-off run since, both of which mean "no day '
+               'was ever closed out", not "every day drained".',
+        columns=('run_id', 'day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put',
+                 'standing_dock', 'standing_carry', 'last_finish')),
     _capability.Capability(
         name=CAP_WORK_EVENTS, table='work_events', exact=True,
         phase='per-batch, appended at each checkpoint flush',
@@ -1416,15 +1434,35 @@ _dataset.register_query(_dataset.Query(
 # vintage every pick row claims zero seconds and `SUM(duration)` looks like a total while
 # being put+receive labour only.  `n_rows` and `n_timed` make that visible in the frame
 # instead of leaving it to a docstring nobody reads at the call site.
-_WORK_HOURS_COLS = ('batch_id', 'role', 'seconds', 'n_rows', 'n_timed')
+#
+# `units` is Σ qty over the same rows: merchandise units put (a put row's qty is the units
+# into one bin) and, for 'receive', the units unloaded -- while `n_rows` on a receive row IS
+# the pack count, one row per storage unit off the trailer.  The reference run divides
+# `seconds` by these to measure seconds per unit put and per pack received ("Choose the
+# calibration procedure", decision 2); SUM skips the NULL qty a pick state-change carries.
+_WORK_HOURS_COLS = ('batch_id', 'role', 'seconds', 'n_rows', 'n_timed', 'units')
 _dataset.register_query(_dataset.Query(
     name='work_hours_frame', family='sim_db',
     sql=('SELECT batch_id, role, SUM(duration) AS seconds, COUNT(*) AS n_rows,'
-         ' COUNT(duration) AS n_timed'
+         ' COUNT(duration) AS n_timed, SUM(qty) AS units'
          ' FROM work_events WHERE run_id = :run_id'
          ' GROUP BY batch_id, role ORDER BY batch_id, role'),
     columns=_WORK_HOURS_COLS,
-    tables={'work_events': ('run_id', 'batch_id', 'role', 'duration')}))
+    tables={'work_events': ('run_id', 'batch_id', 'role', 'duration', 'qty')}))
+
+# The receive rows THEMSELVES, one per pack off a trailer, for the reference run's exact
+# self-check (`simconfig/reference.recv_exact_check`): each row is re-priced from its SKU
+# and quantity with the run's own unload cost and compared with the duration the dock
+# charged.  Rows, not an aggregate, because the check is exact per pack and an average
+# over a pack mix is not -- the first smoke run put a site average 7x off an honest run.
+_RECEIVE_EVENT_COLS = ('batch_id', 'sku', 'qty', 'duration')
+_dataset.register_query(_dataset.Query(
+    name='receive_event_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_RECEIVE_EVENT_COLS)
+         + " FROM work_events WHERE run_id = :run_id AND role = 'receive'"
+         ' ORDER BY batch_id, seq'),
+    columns=_RECEIVE_EVENT_COLS,
+    tables={'work_events': ('run_id', 'batch_id', 'seq', 'role', 'sku', 'qty', 'duration')}))
 
 
 # ── the VIEWER's named queries (publisher side) ─────────────────────────────────────────────
@@ -2680,6 +2718,14 @@ def load_work_hours(path: str, run_id: int) -> list:
     meaning.
     """
     return _query_rows('work_hours_frame', path, run_id=run_id) or []
+
+
+def load_receive_events(path: str, run_id: int) -> list:
+    """Every pack the receiving crew unloaded -- `{batch_id, sku, qty, duration}` per row,
+    one row per storage unit -- for a check that prices each pack exactly.  `[]` on a
+    pre-`work_events` vintage and on a run with no receiving crew alike; the caller must
+    not read either as "nothing was received" without the capability saying so."""
+    return _query_rows('receive_event_frame', path, run_id=run_id) or []
 
 
 def load_bin_evictions(path: str, run_id: int, batch_id: int | None = None) -> list:
