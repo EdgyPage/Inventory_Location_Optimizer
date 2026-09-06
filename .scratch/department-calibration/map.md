@@ -119,15 +119,23 @@ regime someone chose rather than one the defaults inherited.
   from the put crew (`UnloadCost.from_putaway`, scale 1.0, per-item charge once per PACK). Three
   scale knobs with all five seams (`crew_cost_spec`, `_shared['crew_cost']`). Pre-charge archives
   are rebuilt WITHOUT the term. 1587 unit tests green; sabotage tests pin the evaluator and yardstick.
+- [Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md): LANDED. Pickers
+  per channel are two flat global keys on `STAFFING_KEYS` with `channel_pickers()` /
+  `staffing_spec()` read at call time; `--store-pickers` / `--ff-pickers`; one nested `staffing`
+  run-spec record (`inputs` + `provenance`) restored at BOTH sites; carried in `_shared['staffing']`
+  and checked in the worker; stamped WHOLE onto `sim_result` where `EvalContext` reads its own
+  channel's count (the literal-25 fallback -- the store's crew on every fulfillment leaf, unread so far -- is
+  dead). A disagreeing per-arm `num_pickers` raises at setup, so the four committed modules dropped
+  theirs. `PROVENANCE` lives in the `simconfig/constants.py` leaf. Verified by a 68-arm spawn-pool run
+  at 7 / 5 agreeing on every surface down to `picker_events`.
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
-  Four remain tickets (06 landed): the picker staffing seam
-  ([Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md), unblocked),
-  the derivation + calibration-record loader + era wiring + persisted ledger
+  Three remain tickets (06 and 07 landed): the derivation + calibration-record loader + era
+  wiring + persisted ledger
   ([Build the derivation, the calibration record, and the era wiring](issues/08-build-the-derivation-and-era-wiring.md),
-  waits on 03 and 06, both resolved, and 07), the equilibrium check and the throughput audit
+  UNBLOCKED — 03, 06 and 07 are all resolved), the equilibrium check and the throughput audit
   ([Build the equilibrium check and the throughput audit](issues/10-build-the-equilibrium-check-and-audit.md),
   waits on 08), and the reference run itself
   ([Take the reference run](issues/09-take-the-reference-run.md), waits on 08, 10). Nothing of

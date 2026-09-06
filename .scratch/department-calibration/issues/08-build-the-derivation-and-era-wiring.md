@@ -79,3 +79,16 @@ never against a shift", the inverted form of the denomination invariant this map
 under the era the two flags they describe RAISE (03, decision 4). Words only: the constants and flags
 stay flag-off-live (byte-identical discipline); the `inbound_pilot` spec's new shape is inbound
 ticket 23's work, not this build's.
+
+2026-09-05, from resolving [Build the picker staffing seam](07-build-the-picker-staffing-seam.md):
+UNBLOCKED (03, 06, 07 all resolved). What this build inherits: `sim_config.STAFFING_KEYS` and
+`staffing_spec()` are the INPUTS surface -- extend the list and the dict with the utilization /
+replenishment scalars and the put crew mode, and every seam (flags are the one hand-written site,
+one per key) records, restores and carries the new input by construction; the run-spec `staffing`
+record already has `inputs` + `provenance`, so `derived` and the `calibration_stale` / `K_max` stamps
+go beside them and `run_analysis._staffing_record()` stamps whatever the block holds onto
+`sim_result`; `PROVENANCE` (the shared enum) is in `Optimization/simconfig/constants.py`, importable
+by the calibration-record module without a cycle; `strategy_runner._check_declared_crew` is where a
+worker refuses a crew its record did not declare (the derived crews' check belongs beside it); the
+`put_crew_spec` trap fix rides here (03, decision 7), as does tightening `--resume` with an explicit
+picker flag once the recorded `derived` block is authoritative (03, decision 3).
