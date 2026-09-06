@@ -12,16 +12,17 @@ fields is DERIVED from them, live at setup, with a declared scalar at every step
     receive load       packs the script implies × f_recv
     receiving crew     ceil(receive seconds ÷ (S × ρ_recv))  (ONE site crew)
 
-`s_pick` (per channel) and `s_put` (one site value) are seconds per unit and are HYBRID by
-nature: pick and put-away TRAVEL is arm-dependent and needs a measured reference run, so they
-come from the committed calibration record (`Optimization/simconfig/calibration.py`), or --
-until a reference run exists -- from the script's own analytic prediction scaled by a
-declared TRAVEL SHARE (the record's pass-0 seed).  `s_recv` is EXACT from the script: an
+`s_pick` (per channel) and `s_put` (one site value) are seconds per unit and are CLOSED-FORM
+EXPECTATIONS over the catalogue's demand distribution and the warehouse geometry the run
+built (`Optimization/simconfig/expected_travel.py`, "Derive the expected-travel closed form"):
+there are no calibration simulations and no calibration record.  The harness computes them
+at setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put` override
+replaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the script: an
 unload has no travel term, so every pack's seconds are computable from the catalogue and
 the cost model alone.
 
-THIS MODULE IS PURE.  Inputs, the loaded calibration record and the catalogue / script
-totals go in; the derived dict comes out.  It imports no CONFIG, reads no settings and
+THIS MODULE IS PURE.  Inputs, the resolved constants and the catalogue / script totals go
+in; the derived dict comes out.  It imports no CONFIG, reads no settings and
 touches no file, so the arithmetic is testable against a hand computation without a run
 (`Tests/unit/test_staffing_derivation.py`).  The harness seam that feeds it is
 `Optimization/simdriver/workunits._derive_staffing_for_pair`, which runs AFTER batch
@@ -170,7 +171,7 @@ def batch_content(demand_units: float, units_per_line: float, n_skus: int,
     mean_lines = demand_units / units_per_line
     mean_fraction = mean_lines / n_skus
     cv = (declared_std / declared_mean) if declared_mean > 0 else 0.0
-    saturated = mean_fraction > 1.0
+    saturated = bool(mean_fraction > 1.0)
     if saturated:
         mean_fraction = 1.0
     return {'mean_lines': mean_lines,
@@ -252,7 +253,8 @@ def reorder_lot(order) -> int:
 
 def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *,
                      f_put: float, f_recv: float, put_intercept_scale: float,
-                     put_item_ratio: float, recv_intercept_scale: float) -> ScriptTotals:
+                     put_item_ratio: float, recv_intercept_scale: float,
+                     put_site=None) -> ScriptTotals:
     """Stage B's supply side: the put-away and receiving work the script implies.
 
     Steady state (f = 1.0) replenishes every unit picked, so each SKU's expected reorders
@@ -260,8 +262,13 @@ def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: Pricing
     would produce (`Inbound.pack.receive` -> `viable_storage_units`, honouring a
     `stock_plan`), and each pack costs
 
-        put-away   M(0) · (put_intercept + qty · put_per_item + qty · var)   (no travel)
+        put-away   travel + M(y) · (put_intercept + qty · put_per_item + qty · var)
         receiving  recv_intercept + recv_per_item + qty · var                (EXACT)
+
+    `put_site`, when given, is `(unit) -> (travel_s, height_mult)` -- the expected travel
+    from the aisle mouth and the height multiplier of the pack's destination under the run's
+    placement distribution (`expected_travel.put_site_pricer`).  None prices every put at
+    the ground with no travel (the script-only prediction).
 
     Fractional reorders are expectations and are kept fractional.  `f_put` scales the put
     load and `f_recv` the receiving load ("units put per unit picked" / packs received per
@@ -278,8 +285,11 @@ def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: Pricing
         reorders = units / lot
         plan = _receive(c, lot)
         var = pricing.var(c)
-        put_s = sum(per_pick(1.0, put_cost.intercept, var, u.quantity, put_cost.per_item)
-                    for u in plan.units)
+        put_s = 0.0
+        for u in plan.units:
+            travel, mult = put_site(u) if put_site is not None else (0.0, 1.0)
+            put_s += travel + per_pick(mult, put_cost.intercept, var, u.quantity,
+                                       put_cost.per_item)
         recv_s = sum(unload_cost(c.weight, c.volume(), u.quantity, recv_cost)
                      for u in plan.units)
         totals.put_units += reorders * plan.packed_qty * f_put
@@ -333,9 +343,10 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
     `inputs` is the staffing record's INPUTS (`sim_config.staffing_spec()` shape: the two
     picker counts, `rho_pick/rho_put/rho_recv`, `f_put/f_recv`, `band_tol`,
     `put_crew_mode`, plus the three crew-cost scales the harness copies in).
-    `constants` is `{'s_pick': {channel: constant}, 's_put': constant, 'k_max':
-    {channel: int|None}}` as `calibration.resolve_constants` returns it.  `channels` maps
-    a channel name to its stage-A dict (`analytic`, `batch`, `pickers`, `n_skus`);
+    `constants` is `{'s_pick': {channel: constant}, 's_put': constant}` as the harness
+    resolves them (the expectation, or a declared override).  `channels` maps a channel
+    name to its stage-A dict (`analytic`, `batch`, `pickers`, `n_skus`, and `expected` --
+    the expected day the constant was read off, recorded beside it);
     `scripts` maps it to its `ScriptTotals`.  Channels absent from `channels` (a
     store-only catalogue) are recorded as absent and contribute nothing.
 
@@ -350,7 +361,6 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
         'day_seconds': S,
         'channels': {},
         'put': {}, 'receiving': {},
-        'k_max_exceeded': {},
     }
     put_load_s = 0.0
     recv_load_s = 0.0
@@ -373,14 +383,15 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
             'pick_capacity_s': cap,
             'daily_demand_units': ch['daily_demand_units'],
             'analytic': ch['analytic'],
+            'expected': ch.get('expected'),
             'batch': ch['batch'],
             'script': {
                 'batches': t.batches,
                 'units': t.units, 'lines': t.lines,
                 'units_per_day': units_day,
                 'analytic_pick_s': t.analytic_pick_s,
-                # The script's own seconds per unit at ground with no travel -- what a
-                # measured s_pick divides by to give the travel share.
+                # The script's own seconds per unit at ground with no travel -- the
+                # handling floor the expectation's travel and swaps sit on top of.
                 'analytic_s_pick': (t.analytic_pick_s / t.units) if t.units else 0.0,
                 'put_units': t.put_units, 'put_s': t.put_s,
                 'packs': t.packs, 'recv_s': t.recv_s,
@@ -390,13 +401,9 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
                 'pick': expected_utilization(units_day * s_pick, K, S),
             },
         }
-        # K_max bounds, it does not set ("Choose the calibration procedure", decision 6):
-        # a declared crew above the recorded window minimum is warned about and stamped.
-        k_max = (constants.get('k_max') or {}).get(name)
-        if k_max is not None and K > int(k_max):
-            out['k_max_exceeded'][name] = {'declared': K, 'k_max': int(k_max)}
-        # Site loads, per day.  Put-away is priced at s_put (one site value, measured or
-        # seeded); receiving is EXACT -- the script's unload seconds need no constant.
+        # Site loads, per day.  Put-away is priced at s_put (one site value, the expected
+        # travel + handling per unit); receiving is EXACT -- the script's unload seconds
+        # need no constant.
         ch_put_s = t.per_day(t.put_units) * s_put
         ch_recv_s = t.per_day(t.recv_s)
         per_channel_put_s[name] = ch_put_s
@@ -423,8 +430,8 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
         'crew': recv_crew,
         'load_seconds_per_day': recv_load_s,
         'load_packs_per_day': total_packs,
-        # Exact seconds per pack, derived from the script: the self-check value the
-        # reference run compares its measured receiving labour against.
+        # Exact seconds per pack, derived from the script: the value the throughput
+        # audit's receiving self-check compares the realized receiving labour against.
         's_recv': constant((recv_load_s / total_packs) if total_packs else 0.0, 'derived',
                            note='exact from the script: an unload has no travel term'),
         'f_recv': float(inputs['f_recv']),

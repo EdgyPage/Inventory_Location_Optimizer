@@ -1451,7 +1451,7 @@ _dataset.register_query(_dataset.Query(
     tables={'work_events': ('run_id', 'batch_id', 'role', 'duration', 'qty')}))
 
 # The receive rows THEMSELVES, one per pack off a trailer, for the reference run's exact
-# self-check (`simconfig/reference.recv_exact_check`): each row is re-priced from its SKU
+# self-check (the throughput audit's receiving clause): each row is re-priced from its SKU
 # and quantity with the run's own unload cost and compared with the duration the dock
 # charged.  Rows, not an aggregate, because the check is exact per pack and an average
 # over a pack mix is not -- the first smoke run put a site average 7x off an honest run.

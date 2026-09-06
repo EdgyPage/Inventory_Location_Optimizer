@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from dataclasses import MISSING, fields
 
+import math
+
 import pytest
 
 from Optimization.simconfig import equilibrium as eq
@@ -32,8 +34,7 @@ def _expectations(**over):
                             'put': {'crew': 1, 'expected': 0.30},
                             'recv': {'crew': 1, 'expected': 0.20}},
             'absent': {},
-            'flags': {'calibration_stale': False, 'calibration_measured': False,
-                      'k_max_exceeded': False, 'saturated': False}}
+            'flags': {'overridden': False, 'saturated': False}}
     base.update(over)
     return base
 
@@ -201,7 +202,7 @@ def test_an_empty_window_is_refused():
 # ── the expectations come off the staffing record, keyed by pair and channel ────────
 
 
-def _staffing(*, pickers=3, put_crew=2, recv_crew=1, stale=False):
+def _staffing(*, pickers=3, put_crew=2, recv_crew=1, overrides=()):
     return {
         'inputs': {'store_pickers': pickers, 'ff_pickers': 2, 'band_tol': 0.10},
         'derived': {'pairA': {
@@ -213,20 +214,35 @@ def _staffing(*, pickers=3, put_crew=2, recv_crew=1, stale=False):
             },
             'put': {'crew': put_crew, 'expected_utilization': {'store': 0.33}},
             'receiving': {'crew': recv_crew, 'expected_utilization': {'store': 0.12}},
-            'k_max_exceeded': {'store': {'declared': pickers, 'k_max': 2}},
         }},
-        'calibration': {'pairA': {'calibration_stale': stale, 'calibration_measured': stale}},
+        'calibration': {'pairA': {'method': 'expected_travel', 'overrides': list(overrides)}},
     }
 
 
 def test_expectations_are_read_per_department_off_the_derived_block():
     e = eq.expectations_for(_staffing(), pair='pairA', channel='store')
     assert e['day_seconds'] == S and e['band_tol'] == 0.10
-    assert e['departments'] == {'pick': {'crew': 3, 'expected': 0.71},
+    assert e['departments'] == {'pick': {'crew': 3, 'expected': 0.71, 's_pick': None},
                                 'put': {'crew': 2, 'expected': 0.33},
                                 'recv': {'crew': 1, 'expected': 0.12}}
-    assert e['flags'] == {'calibration_stale': False, 'calibration_measured': False,
-                          'k_max_exceeded': True, 'saturated': True}
+    assert e['flags'] == {'overridden': False, 'saturated': True}
+    assert e['departments']['pick']['s_pick'] is None      # this fixture stamps none
+
+
+def test_arm_expectations_recentre_the_pick_band_by_the_ratio_of_expected_seconds():
+    pair = _expectations()
+    pair['departments']['pick']['s_pick'] = 100.0
+    arm = eq.arm_expectations(pair, {'s_pick': 90.0})
+    assert math.isclose(arm['departments']['pick']['expected'], 0.50 * 0.9)
+    assert arm['departments']['pick']['pair_expected'] == 0.50
+    assert arm['departments']['put'] == pair['departments']['put']      # untouched
+    assert pair['departments']['pick']['expected'] == 0.50              # the input is not mutated
+    # nothing stamped, or no pair s_pick to scale from: the pair's expectations, unchanged
+    assert eq.arm_expectations(pair, None) is pair
+    assert eq.arm_expectations(_expectations(), {'s_pick': 90.0}) is not None
+    assert eq.arm_expectations(_expectations(), {'s_pick': 90.0})['departments']['pick']['expected'] == 0.50
+    over = eq.expectations_for(_staffing(overrides=('s_put',)), pair='pairA', channel='store')
+    assert over['flags']['overridden'] is True
     # a store-only run passes channel=None and lands on the store section
     assert eq.expectations_for(_staffing(), pair='pairA', channel=None)['channel'] == 'store'
 

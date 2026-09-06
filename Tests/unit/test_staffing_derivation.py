@@ -24,7 +24,6 @@ import os
 
 import pytest
 
-from Optimization.simconfig import calibration as cal
 from Optimization.simconfig import staffing as st
 from Optimization.simconfig.constants import PROVENANCE
 from Warehouse.catalog.Order import Order
@@ -187,11 +186,10 @@ def test_expected_utilization_is_after_the_ceiling_and_the_leafs_share():
     assert st.expected_utilization(1.0, 0, S) == 0.0
 
 
-def _constants(s_pick_store=12.0, s_pick_ff=6.0, s_put=3.0, k_max=None):
-    return {'s_pick': {'store': st.constant(s_pick_store, 'seed'),
-                       'fulfillment': st.constant(s_pick_ff, 'seed')},
-            's_put': st.constant(s_put, 'seed'),
-            'k_max': k_max or {'store': None, 'fulfillment': None}}
+def _constants(s_pick_store=12.0, s_pick_ff=6.0, s_put=3.0):
+    return {'s_pick': {'store': st.constant(s_pick_store, 'derived'),
+                       'fulfillment': st.constant(s_pick_ff, 'derived')},
+            's_put': st.constant(s_put, 'derived')}
 
 
 def _inputs(**over):
@@ -250,7 +248,7 @@ def test_derive_sizes_the_two_site_crews_over_both_channels_by_hand():
                         8_000 * 6.0 / (4 * S))
     assert d['channels']['store']['pick_capacity_s'] == 10 * S * 0.85
     assert d['channels']['store']['script']['analytic_s_pick'] == 5.0
-    assert d['k_max_exceeded'] == {}
+    assert 'k_max_exceeded' not in d, 'k_max retired with the calibration record'
 
 
 def test_an_absent_channel_contributes_nothing_and_is_recorded_as_absent():
@@ -262,18 +260,6 @@ def test_an_absent_channel_contributes_nothing_and_is_recorded_as_absent():
     assert d['channels']['fulfillment'] is None
     assert d['put']['crew'] == 3                    # 60,000 / 24,480 = 2.45 -> 3
     assert list(d['put']['expected_utilization']) == ['store']
-
-
-def test_the_k_max_warning_fires_above_the_recorded_bound_and_not_at_it():
-    channels = {'store': {'pickers': 10, 'daily_demand_units': 1.0,
-                          'analytic': {}, 'batch': {}, 'n_skus': 1}}
-    scripts = {'store': _script(1, 1, 1, 1, 1)}
-    at = st.derive(inputs=_inputs(), constants=_constants(k_max={'store': 10}), day_seconds=S,
-                   channels=channels, scripts=scripts, pricing_names={'store': 's'})
-    assert at['k_max_exceeded'] == {}
-    above = st.derive(inputs=_inputs(), constants=_constants(k_max={'store': 9}), day_seconds=S,
-                      channels=channels, scripts=scripts, pricing_names={'store': 's'})
-    assert above['k_max_exceeded'] == {'store': {'declared': 10, 'k_max': 9}}
 
 
 def test_constant_refuses_a_provenance_outside_the_five():
@@ -299,92 +285,3 @@ def test_regime_orders_filters_by_regime_and_none_is_the_whole_catalogue(catalog
     assert st.regime_orders(orders, None) == orders
     assert st.regime_orders(orders, FULFILLMENT) == [ff]
     assert len(st.regime_orders(orders, STORE)) == 3
-
-
-# ── the calibration record ─────────────────────────────────────────────────────────────────
-
-def test_the_committed_record_is_the_pass_zero_seed():
-    rec = cal.load_record()
-    assert rec['pass'] == 0 and rec['warehouse_fingerprint'] is None
-    for ch in ('store', 'fulfillment'):
-        e = rec['constants']['s_pick'][ch]
-        assert e['value'] is None and e['travel_share'] >= 1.0 and e['provenance'] == 'seed'
-    assert rec['constants']['s_put']['provenance'] == 'seed'
-    assert cal.is_measured(rec) is False
-    assert os.path.basename(rec['_path']) == 'calibration_record.json'
-
-
-def _seed_record(**over):
-    rec = {'schema': 1, 'pass': 0, 'warehouse_fingerprint': None,
-           'constants': {'s_pick': {'store': {'value': None, 'travel_share': 1.5,
-                                              'provenance': 'seed'},
-                                    'fulfillment': {'value': None, 'travel_share': 2.0,
-                                                    'provenance': 'seed'}},
-                         's_put': {'value': None, 'travel_share': 1.25, 'provenance': 'seed'},
-                         'k_max': {'store': None, 'fulfillment': None}}}
-    rec.update(over)
-    return rec
-
-
-def test_the_loader_refuses_an_unknown_provenance_and_a_valueless_entry(tmp_path):
-    bad = _seed_record()
-    bad['constants']['s_put']['provenance'] = 'guessed'
-    p = tmp_path / 'r.json'
-    p.write_text(json.dumps(bad))
-    with pytest.raises(cal.CalibrationRecordError, match='provenance'):
-        cal.load_record(str(p))
-    bad = _seed_record()
-    bad['constants']['s_put'] = {'provenance': 'seed'}
-    p.write_text(json.dumps(bad))
-    with pytest.raises(cal.CalibrationRecordError, match='value'):
-        cal.load_record(str(p))
-    bad = _seed_record(schema=2)
-    p.write_text(json.dumps(bad))
-    with pytest.raises(cal.CalibrationRecordError, match='schema'):
-        cal.load_record(str(p))
-
-
-def test_resolution_is_override_then_recorded_value_then_analytic_times_share():
-    seed = {'value': None, 'travel_share': 1.5, 'provenance': 'seed'}
-    measured = {'value': 11.0, 'provenance': 'measured'}
-    r = cal.resolve_constant(seed, override=9.0, analytic=4.0, name='x')
-    assert (r['value'], r['provenance'], r['source']) == (9.0, 'declared', 'override')
-    r = cal.resolve_constant(measured, override=None, analytic=4.0, name='x')
-    assert (r['value'], r['provenance'], r['source']) == (11.0, 'measured', 'record')
-    r = cal.resolve_constant(seed, override=None, analytic=4.0, name='x')
-    assert (r['value'], r['provenance'], r['source']) == (6.0, 'seed', 'analytic')
-    assert r['travel_share'] == 1.5 and r['analytic'] == 4.0 and 'unpriced' not in r
-    # a MEASURED record pricing a NEW catalogue by its travel share is `derived`, not seed
-    r = cal.resolve_constant({'value': None, 'travel_share': 1.5, 'provenance': 'measured'},
-                             override=None, analytic=4.0, name='x')
-    assert r['provenance'] == 'derived'
-    r = cal.resolve_constant(seed, override=None, analytic=0.0, name='x')
-    assert r['value'] == 0.0 and r['unpriced'] is True
-    with pytest.raises(ValueError):
-        cal.resolve_constant(seed, override=0.0, analytic=4.0, name='x')
-
-
-def test_resolve_constants_prices_only_the_channels_present():
-    rec = _seed_record()
-    rec['_path'] = cal.RECORD_PATH
-    c = cal.resolve_constants(rec, overrides={'s_pick_store': None, 's_pick_ff': None,
-                                              's_put': 2.0},
-                              analytic_pick={'store': 4.0}, analytic_put=0.0)
-    assert set(c['s_pick']) == {'store'}
-    assert c['s_pick']['store']['value'] == 6.0
-    assert (c['s_put']['value'], c['s_put']['provenance']) == (2.0, 'declared')
-    assert c['k_max'] == {'store': None, 'fulfillment': None}
-    assert c['record']['pass'] == 0 and c['record']['measured'] is False
-    assert not os.path.isabs(c['record']['path'])
-
-
-def test_the_stale_stamp_fires_on_a_mismatch_and_stays_silent_on_a_match():
-    measured = _seed_record(warehouse_fingerprint='abc123')
-    measured['constants']['s_put'] = {'value': 3.0, 'provenance': 'measured'}
-    assert cal.staleness(measured, 'abc123') == {
-        'calibration_stale': False, 'calibration_measured': True,
-        'record_fingerprint': 'abc123', 'run_fingerprint': 'abc123'}
-    assert cal.staleness(measured, 'zzz999')['calibration_stale'] is True
-    # the seed names no fingerprint: stale for nobody, and not measured either
-    seed = cal.staleness(_seed_record(), 'anything')
-    assert (seed['calibration_stale'], seed['calibration_measured']) == (False, False)

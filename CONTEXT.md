@@ -302,22 +302,22 @@ which results are comparable. A change of era ends comparability with every earl
 nothing is read across one.
 _Avoid_: regime (for the comparability boundary), version
 
-**Reference run**:
-The one run, taken under the era and the reference arm, whose measured labour per unit prices
-the travel-bearing departments for a catalogue. Its product is the calibration record.
-_Avoid_: calibration run, baseline run (the baseline is the arm compared against, not this run)
-
-**Calibration record**:
-The committed declaration of a catalogue's labour constants together with the provenance that
-produced them — seeded, measured, or derived. A run reads it and copies what it ran under; it
-never edits it.
-_Avoid_: calibration constants, tuning file
+**Expected travel**:
+The labour a day of picking or put-away costs, as a closed-form expectation over the
+catalogue's demand distribution, the warehouse geometry the run built, and a placement
+distribution — computed at setup, never measured by a run. Two placement distributions
+exist: the class-uniform one a pair's demand derives from (arm-independent, and the
+long-run state of a FIFO restock), and an arm's own initial placement, which its report is
+judged against.
+_Avoid_: calibration, reference run, travel share, measured constant (there are no
+calibration simulations; a formula error shows in the equilibrium report)
 
 **Staffing record**:
 A run's declaration of who worked it: the declared inputs (pickers per channel, the utilization
-and replenishment scalars, the put crew's mode), the calibration constants it ran under with their
-provenance, and the crews and expected throughput derived from them. Recorded with the run and
-authoritative on resume; never edited by hand.
+and replenishment scalars, the put crew's mode), the expected labour constants it ran under
+with their provenance and the expected day they were read off, and the crews and expected
+throughput derived from them. Recorded with the run and authoritative on resume; never edited
+by hand.
 _Avoid_: crew config, headcount
 
 **Pilot gate**:

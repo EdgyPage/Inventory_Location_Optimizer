@@ -265,15 +265,13 @@ BAND_TOL = 0.10                        # |realized - expected| utilization toler
                                        # absolute number for all three departments.
                                        # --band-tol
 
-# ── the calibration constants' OVERRIDES ────────────────────────────────────────
-# None = take the committed calibration record (Optimization/simconfig/calibration_record
-# .json, loaded by Optimization/simconfig/calibration.py); a number is seconds per unit,
-# recorded `declared`.  The record itself is never edited by a run.
+# ── the expected constants' OVERRIDES ───────────────────────────────────────────
+# None = take the closed-form expectation over the catalogue and the built geometry
+# (Optimization/simconfig/expected_travel.py, computed at setup); a number is seconds per
+# unit, recorded `declared`, and the expectation is still recorded beside it.
 S_PICK_STORE = None                    # seconds per unit picked, store.  --s-pick-store
 S_PICK_FF = None                       # seconds per unit picked, fulfillment.  --s-pick-ff
 S_PUT = None                           # seconds per unit put away, one site value.  --s-put
-CALIBRATION_RECORD = None              # path of the record to load; None = the committed
-                                       # one.  --calibration-record
 
 # ── the other crews' PRICE, as scalars of the pickers' ──────────────────────────
 # Put-away and receiving keep picking's cost shape and picking's coefficients BY REFERENCE

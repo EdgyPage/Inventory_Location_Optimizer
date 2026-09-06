@@ -99,12 +99,12 @@ def test_the_reading_vocabulary_tells_a_saving_from_a_failure():
     assert audit._read('recv', {'absent': 'no crew'}, is_base=False, tol=tol) == 'n/a'
 
 
-def test_the_flags_line_names_the_seed_and_the_stale_record():
-    assert 'SEED' in audit._flags({'flags': {'calibration_measured': False}})
-    assert 'STALE' in audit._flags({'flags': {'calibration_stale': True,
-                                              'calibration_measured': True}})
-    assert 'measured on this catalogue' in audit._flags(
-        {'flags': {'calibration_stale': False, 'calibration_measured': True}})
+def test_the_flags_line_names_an_override_and_the_closed_form():
+    # No calibration record and no reference run ("Derive the expected-travel closed
+    # form"): the expectations come from the closed form unless a flag overrode them.
+    assert 'override' in audit._flags({'flags': {'overridden': True}})
+    assert 'saturated' in audit._flags({'flags': {'saturated': True}})
+    assert 'closed form' in audit._flags({'flags': {'overridden': False, 'saturated': False}})
     assert 'no staffing record' in audit._flags(None)
 
 

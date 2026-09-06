@@ -254,7 +254,6 @@ CONFIG = {
         's_pick_store'        : _s.S_PICK_STORE,
         's_pick_ff'           : _s.S_PICK_FF,
         's_put'               : _s.S_PUT,
-        'calibration_record'  : _s.CALIBRATION_RECORD,
         # The put crew's SIZE: flag-off only.  The `put_crew_spec` trap is closed -- the
         # accessor reads THIS key, so `--put-crew-size` reaches a worker -- and under the
         # era the size is derived and an explicit flag raises (run_simulation).
@@ -360,9 +359,10 @@ STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
                                   'band_tol', 'put_crew_mode',
                                   's_pick_store', 's_pick_ff', 's_put')
 
-#: The subset of STAFFING_KEYS that override a calibration constant.  None = "take the
-#: committed record", which is why `staffing_spec()` does NOT default them from settings:
-#: an absent override is meaningful, and `calibration.resolve_constants` reads it as such.
+#: The subset of STAFFING_KEYS that override an EXPECTED constant.  None = "take the
+#: closed-form expectation" (`simconfig/expected_travel.py`), which is why `staffing_spec()`
+#: does NOT default them from settings: an absent override is meaningful, and the
+#: derivation (`workunits._derive_staffing_for_pair`) reads it as such.
 CALIBRATION_KEYS: tuple[str, ...] = ('s_pick_store', 's_pick_ff', 's_put')
 
 #: The scalar inputs' settings defaults, for a None restored from a pre-record run spec

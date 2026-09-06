@@ -11,10 +11,9 @@ self-registering pick-config registry.
 | `channels.py` | the Channel abstraction — one operation over a shared warehouse |
 | `strategies.py` | `STRATEGIES` — initial × restock × reslot, the arms a run compares |
 | `whatif_config.py` | `SPECS` — the cell matrices a run can be launched as, and `ERA_RUN_DEFAULTS`, the calibrated era the campaign specs default to |
-| `../simconfig/staffing.py` | the calibrated era's staffing DERIVATION — a pure module: pickers + the calibration record + the script in, batch content and the two site crews out |
-| `../simconfig/calibration.py` + `calibration_record.json` | the committed calibration record (seconds per unit with provenance) and its loader; the pass-0 record is the SEED |
-| `../simconfig/equilibrium.py` | the pre-registered EQUILIBRIUM CHECK — one pure function of (db, day_lo, day_hi) with four strict clauses; the reference run's window precondition and the throughput audit's report |
-| `../simconfig/reference.py` | the reference run's driver: measure a window as ratios of sums, discard a failing one (re-seed, never average), write the candidate record, iterate to the fixed point. Launched by `Optimization/run_reference.py` |
+| `../simconfig/staffing.py` | the calibrated era's staffing DERIVATION — a pure module: pickers + the expected constants + the script in, batch content and the two site crews out |
+| `../simconfig/expected_travel.py` | the EXPECTED-TRAVEL CLOSED FORM — a pure module: the catalogue, the built geometry and a placement distribution in; the expected day (tasks, travel, swaps, handling) and `s_pick` / `s_put` out, plus the fixed point that sets the daily demand. There is no calibration record and no reference run |
+| `../simconfig/equilibrium.py` | the pre-registered EQUILIBRIUM CHECK — one pure function of (db, day_lo, day_hi) with four strict clauses; the throughput audit's REPORT on every era run (where a formula error shows) |
 
 **Does NOT belong here:** anything that reads or writes a run's output (→ `persistence/`,
 `runschema/`), orchestration (→ `simdriver/`), or plotting (→ `Performance_Evaluations/`).

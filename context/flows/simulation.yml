@@ -75,8 +75,8 @@ steps:
       - {name: _derive_staffing_for_pair, file: Optimization/simdriver/workunits.py, kind: function}
       - {name: _record_derived, file: Optimization/simdriver/workunits.py, kind: function}
       - {name: derive, file: Optimization/simconfig/staffing.py, kind: function}
-      - {name: resolve_constants, file: Optimization/simconfig/calibration.py, kind: function}
-      - {name: load_record, file: Optimization/simconfig/calibration.py, kind: function}
+      - {name: solve_n, file: Optimization/simconfig/expected_travel.py, kind: function}
+      - {name: accumulate, file: Optimization/simconfig/expected_travel.py, kind: function}
     reads: [planned_inventory_db, affinity_db]
     writes: [batches_cache, run_spec]
     guards: [Tests/unit/test_staffing_derivation.py, Tests/unit/test_era_wiring.py]

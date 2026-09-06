@@ -101,6 +101,14 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
                               f'-- the numbers for this arm are suspect; see the worker '
                               f'log for the batch that broke first.')
                 done_uids.add(uid)
+                # The arm's expected day under its own initial placement (strategy_runner
+                # `_arm_expected_pick`): onto the skeleton's strategy entry, so sim_meta.json
+                # and hence sim_result['strategies'] carry it to the throughput audit.  Absent
+                # on a flag-off arm, and then nothing is written -- byte-identical.
+                if res.get('expected_pick') is not None:
+                    for _s in meta[gk]['sim_skeleton'].get('strategies', []):
+                        if _s.get('key') == uid[3]:
+                            _s['expected_pick'] = res['expected_pick']
                 if run_root:                         # parent-side runtime-metrics DB (best-effort)
                     try:
                         runtime_metrics.record_arm(run_root, cell, uid, res)

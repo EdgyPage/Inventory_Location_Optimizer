@@ -470,7 +470,8 @@ def main():
     # ── THE CALIBRATED ERA ──────────────────────────────────────────────────────────
     # One flag turns the regime on: one site-wide drain-or-cap shift, one release per day,
     # the cut and the roll-over on (completed by `_check_era_flags`), the put and receiving
-    # crews DERIVED from the pickers, the script priced from the calibration record.  The
+    # crews DERIVED from the pickers, the script priced from the expected-travel closed
+    # form (simconfig/expected_travel.py).  The
     # campaign specs carry it as `run_defaults` (whatif_config.ERA_RUN_DEFAULTS).
     parser.add_argument(
         '--shift-drain-or-cap', action='store_true',
@@ -479,7 +480,7 @@ def main():
              'work stands or at the cap (the day length), every crew on the same boundary; '
              'implies --releases-per-day 1, --cut-at-day-end and --roll-over-unpicked. The '
              'put and receiving crews are then DERIVED from --store-pickers / --ff-pickers '
-             'and the calibration record, so the legacy crew flags are an error. A '
+             'and the expected-travel closed form, so the legacy crew flags are an error. A '
              'RESULTS ERA: nothing is comparable across it.')
     # ── the receiving crew ──────────────────────────────────────────────────────
     # Its day is deliberately NOT gated on --cut-at-day-end.  That flag changes which units
@@ -598,21 +599,17 @@ def main():
         default=CONFIG['global']['put_crew_mode'],
         help="The put crew's travel MODE, which picks its speed table. A DECLARED staffing "
              'input: the derivation sizes the count, the mode is a labour-model term.')
-    # ── the calibration constants' overrides ───────────────────────────────────────
-    # Seconds per unit.  Omit to take the committed calibration record
-    # (Optimization/simconfig/calibration_record.json); a number is recorded `declared`.
+    # ── the expected constants' overrides ──────────────────────────────────────────
+    # Seconds per unit.  Omit to take the closed-form expectation computed at setup
+    # (Optimization/simconfig/expected_travel.py); a number is recorded `declared`.
     for _flag, _key, _what in (
             ('--s-pick-store', 's_pick_store', 'seconds per unit picked, store channel'),
             ('--s-pick-ff', 's_pick_ff', 'seconds per unit picked, fulfillment channel'),
             ('--s-put', 's_put', 'seconds per unit put away, one site value')):
         parser.add_argument(_flag, type=_positive_float, default=CONFIG['global'][_key],
                             metavar='SEC',
-                            help=f'Override the calibration record: {_what}. Omit to price '
-                                 f'from the record (seeded until a reference run measures it).')
-    parser.add_argument(
-        '--calibration-record', default=CONFIG['global']['calibration_record'], metavar='PATH',
-        help='Load this calibration record instead of the committed one (a candidate a '
-             'reference run wrote, before it is adopted).')
+                            help=f'Override the expected value: {_what}. Omit to take the '
+                                 f'closed-form expectation over this run\'s catalogue and geometry.')
     # ── the inbound trailer pipeline + the standing yard ────────────────────────
     # Seams 3 and 4 for the whole family, deferred by every knob this effort added ("the
     # first sweep"); the funnel IS the first sweep, so the debt falls due together.  Every
@@ -831,7 +828,6 @@ def main():
     g['put_ff_staging']     = args.put_ff_staging
     g['put_swap_coef']      = args.put_swap_coef
     g['put_crew_size']      = args.put_crew_size
-    g['calibration_record'] = args.calibration_record
     g['put_intercept_scale']  = args.put_intercept_scale
     g['put_item_ratio']       = args.put_item_ratio
     g['recv_intercept_scale'] = args.recv_intercept_scale
@@ -998,8 +994,8 @@ def main():
             # iterating STAFFING_KEYS, and the whole record is stamped onto sim_result for
             # the evaluations (run_analysis, the sixth seam).  The three CALIBRATION_KEYS
             # are `declared` only when typed; untyped they are `assumed` HERE (no override
-            # was chosen) and the resolved constant under `calibration` carries the record's
-            # own provenance (`seed` / `measured` / `derived`).
+            # was chosen) and the resolved constant under `calibration` is the closed-form
+            # expectation, provenance `derived`.
             'staffing': {
                 'inputs'    : staffing_spec(),
                 'provenance': {k: ('declared' if k in explicit else 'assumed')

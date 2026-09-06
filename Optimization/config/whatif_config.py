@@ -227,18 +227,6 @@ SPECS = {
         'schedulers': ['lpt'], 'arms': ('fifo', 'tmin'), 'reference': 'k1_off',
         'run_defaults': ERA_RUN_DEFAULTS,
     },
-    # ── THE REFERENCE RUN of the calibrated era ("Choose the calibration procedure") ──────
-    # One cell, `fifo` only, scheduler pinned to `lpt` as the pilot did, both channels (the
-    # crews are site totals), minimal mechanics: no trailers, no standing yard, the legacy
-    # batch-denominated restock path, receiving crew on at its DERIVED size.  Its product is
-    # the calibration record -- the measured seconds per unit picked and put that every era
-    # run after it prices its derivation with.  40 days with days 20-39 measured is the
-    # depth the procedure names; `--n-batches 40` is the launch, since one batch is one day.
-    'calibration_reference': {
-        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
-        'schedulers': ['lpt'], 'arms': ('fifo',), 'reference': 'k1_off',
-        'run_defaults': ERA_RUN_DEFAULTS,
-    },
     # Schema-preflight canary: the SMALLEST spec that still produces a MULTI-cell tree (so the
     # cell level, `_frozen/`, and the cross-cell what-if outputs all appear).  Two cells x one
     # restock rule = 2 arms per cell instead of 34.  Not for analysis — runschema.preflight runs it

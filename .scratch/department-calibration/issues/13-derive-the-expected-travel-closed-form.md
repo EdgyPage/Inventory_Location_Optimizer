@@ -1,7 +1,7 @@
 # Derive the expected-travel closed form
 
 Type: task
-Status: open
+Status: claimed
 
 AFK build with the derivation written up for review before anything lands (the map's execution
 override: nothing committed without the user's go-ahead). Raised by the user after
@@ -96,3 +96,26 @@ development-time residual against the six passes, the amended provenance of the 
 record, and the glossary/charter amendments. Done when: gates green, the flag-off path
 byte-identical, the derived expectations stamped on `staffing.derived[<pair>]` with geometry
 and placement fingerprints, and the era launchable with no calibration record at all.
+
+## Comments
+
+**2026-09-06 -- review checkpoint (claimed, not resolved).** The derivation, the development-time
+check against the six passes, the module/seam design, the record changes and the coverage
+recommendation are written up in
+[assets/expected-travel-derivation.md](../assets/expected-travel-derivation.md); the check
+script is [assets/validate_closed_form.py](../assets/validate_closed_form.py). Nothing is
+built and nothing is committed, per the ticket's review-first rule. Headline: on the converged
+fifth pass the formula reproduces s_pick to -3.1% (store, initial placement) and -6.8%
+(fulfillment, class-uniform steady state); per-task x travel is within 1.1% / 0.0% and the
+put-away pricing is exact. The check surfaced one modelling fact -- under FIFO restock a
+churning section's placement migrates to the class-uniform smear, so the expectation takes a
+placement DISTRIBUTION (two adapters: initial, uniform) -- and four decisions the build waits
+on (section 6 of the write-up).
+
+**2026-09-06 -- the four decisions, taken by the user (build go-ahead):** (1) the era's daily
+demand derives at PAIR level from the class-uniform expectation on the built geometry -- one
+shared script per pair; the per-arm expectation from the arm's initial placement is stamped for
+the report only. (2) Coverage is a runtime rescaling under declared `coverage_days` /
+`safety_days`, a pair-level fixed point through the warehouse sizing; flag-off byte-identical.
+(3) `k_max` is retired with the calibration record. (4) No correction factor -- the bands absorb
+the residual and the equilibrium report shows the rest.

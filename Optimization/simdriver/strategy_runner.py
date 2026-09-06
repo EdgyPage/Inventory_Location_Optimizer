@@ -114,6 +114,44 @@ def _gc_cb(phase, info, _st=_GC_STATE):
         _st['gen'][info.get('generation', 0)] += 1
 
 
+def _arm_expected_pick(args: dict, warehouse, orders, pick_cfg, log) -> dict | None:
+    """The arm's expected day under ITS OWN initial placement, or None flag-off.
+
+    The pair's demand was derived at setup from the class-uniform expectation
+    (`workunits._derive_staffing_for_pair`); this is the SAME closed form
+    (`simconfig/expected_travel`) over the bins the arm just filled, at the pair's derived
+    line count and spread, stamped for the throughput audit's per-arm band
+    (`equilibrium.arm_expectations`).  It sizes nothing.  Flag-off (no derived block in
+    the payload) it computes nothing and returns None, so the store-only path is untouched.
+    """
+    st = args.get('staffing') or {}
+    derived = st.get('derived') if isinstance(st, dict) else None
+    if not derived:
+        return None
+    section = (derived.get('channels') or {}).get(args.get('channel_name') or 'store')
+    expected = (section or {}).get('expected') if section else None
+    if not expected or not expected.get('lines'):
+        return None
+    from Optimization.simconfig import expected_travel as _et
+    t0 = time.perf_counter()
+    geometry = _et.Geometry.from_warehouse(warehouse)
+    bin_map: dict = {}
+    for b in warehouse.bins:
+        u = b.storage
+        if u is not None:
+            bin_map.setdefault(u.order.sku, []).append((b.aisle.aisle_id, b.bayX, b.bayY, int(u.quantity)))
+    dist = _et.PlacementDist.initial(bin_map, geometry)
+    rates = _et.accumulate(orders, pick_cfg, dist, geometry)
+    out = _et.expected_pick(rates, geometry, pick_cfg, float(expected['lines']),
+                            float(expected.get('cv') or 0.0))
+    out['pair_s_pick'] = float(expected['s_pick'])
+    log.info(f"  [era] expected day under this arm's initial placement: s_pick="
+             f"{out['s_pick']:.3f} s/unit (pair {out['pair_s_pick']:.3f}), "
+             f"{out['tasks']:,.0f} tasks, {out['swaps']:,.0f} swaps  "
+             f"({time.perf_counter()-t0:.0f}s)")
+    return out
+
+
 def _timed_build(strat, mgr, ctx) -> float:
     """Run the strategy's build hook and return its wall seconds.
 
@@ -807,6 +845,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             mgr.init_travel_costs(wp)
         t_precompute = _timed_build(strat, mgr, ctx)
     map_lap_pct = _map_lap_pct(mgr)
+    # The arm's own expected day, off the placement it just made (None flag-off).
+    expected_pick = _arm_expected_pick(args, warehouse, inventory.orders, pick_cfg, log)
 
     # Fill rate is over THIS channel's regime bins: a per-channel worker only stocks its own
     # regime's units, so dividing by the whole (mixed) warehouse would understate fill by the
@@ -1889,6 +1929,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # runtime_metrics.OUTSIDE_TOTAL is the declaration of that separation.
         't_precompute': t_precompute,   # strat.build(): the map family's offline solve
         'map_lap_pct' : map_lap_pct,    # None on every non-map arm
+        'expected_pick': expected_pick, # the arm's expected day (era only; None flag-off)
         't_reord'   : t_reord_run,
         't_build'   : t_build_run,
         't_sample'  : t_sample_run,     # build sub-split: batch sampling

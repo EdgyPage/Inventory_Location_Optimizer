@@ -22,11 +22,11 @@ verdict with reasons: four clauses over a window of working days, all STRICT.
                    regression slope (memories `knees-hide-from-r-squared`,
                    `per-batch-series-are-autocorrelated`).
 
-ONE PURE FUNCTION, TWO CALLERS, and the sim never judges itself (decision 6).  The
-reference-run driver (`Optimization/simconfig/reference.py`) calls it as a PRECONDITION: a
-window that fails is discarded and never averaged in.  The throughput audit
-(`Performance_Evaluations/throughput/audit.py`) calls the same function on every run and
-REPORTS: on a campaign arm a picking utilization below the band is the arm's travel saving --
+ONE PURE FUNCTION, and the sim never judges itself (decision 6).  It was designed with two
+callers; the reference-run driver that used it as a PRECONDITION is retired ("Derive the
+expected-travel closed form": there are no calibration simulations), so the one caller left
+is the throughput audit (`Performance_Evaluations/throughput/audit.py`), which calls it on
+every run and REPORTS: on a campaign arm a picking utilization below the band is the arm's travel saving --
 the effect being measured -- and a capped day is "declared throughput not delivered"; neither
 fails the run (decision 7).
 
@@ -139,8 +139,7 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
         {'pair', 'channel', 'day_seconds', 'band_tol',
          'departments': {dept: {'crew': int, 'expected': float}},   # only those that apply
          'absent': {dept: why},
-         'flags': {'calibration_stale', 'calibration_measured', 'k_max_exceeded',
-                   'saturated'}}
+         'flags': {'overridden', 'saturated'}}
 
     A department with no crew on this site, or whose expected value the record does not
     carry for this channel, is ABSENT rather than expected at zero: a band around 0.0 would
@@ -167,8 +166,12 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
     absent: dict = {}
     pickers = int(inputs.get(picker_key(ch)) or section.get('pickers') or 0)
     exp_pick = (section.get('expected_utilization') or {}).get('pick')
+    s_pick = ((section.get('s_pick') or {}).get('value')) if isinstance(section.get('s_pick'), dict) else None
     if pickers > 0 and exp_pick is not None:
-        departments['pick'] = {'crew': pickers, 'expected': float(exp_pick)}
+        departments['pick'] = {'crew': pickers, 'expected': float(exp_pick),
+                               # the pair's expected seconds per unit the utilization was
+                               # drawn at -- what `arm_expectations` rescales from
+                               's_pick': (float(s_pick) if s_pick is not None else None)}
     else:
         absent['pick'] = 'no pickers declared for this channel'
     for dept, block_name in (('put', 'put'), ('recv', 'receiving')):
@@ -185,12 +188,38 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
         'pair': pair, 'channel': ch, 'day_seconds': S, 'band_tol': float(band_tol),
         'departments': departments, 'absent': absent,
         'flags': {
-            'calibration_stale': bool(cal.get('calibration_stale')),
-            'calibration_measured': bool(cal.get('calibration_measured')),
-            'k_max_exceeded': ch in (derived.get('k_max_exceeded') or {}),
+            # A declared `--s-pick-*` / `--s-put` replaced the expectation for this pair.
+            'overridden': bool(cal.get('overrides')),
             'saturated': bool((section.get('batch') or {}).get('saturated')),
         },
     }
+
+
+def arm_expectations(expectations: dict, expected_pick: dict | None) -> dict:
+    """The expectations for ONE ARM: the pair's, with the picking band re-centred on the
+    arm's own expected seconds per unit under its initial placement.
+
+    The pair's pick expectation was drawn at the class-uniform `s_pick` (the demand's
+    fixed point, so it equals rho by construction).  An arm whose placement makes a unit
+    cheaper is EXPECTED to run below it -- by the ratio of the two expectations, since the
+    demand is shared -- and the band belongs around that number ("Derive the expected-travel
+    closed form": the per-arm expectation is stamped for the report only).  Without a
+    stamped `expected_pick` (a flag-off arm, an older run) the pair's expectations are
+    returned unchanged; the pick department is left alone when either `s_pick` is unknown.
+    """
+    if not expectations or not expected_pick:
+        return expectations
+    pick = (expectations.get('departments') or {}).get('pick')
+    s_pair = (pick or {}).get('s_pick')
+    s_arm = expected_pick.get('s_pick')
+    if not pick or not s_pair or not s_arm:
+        return expectations
+    out = dict(expectations)
+    out['departments'] = dict(expectations['departments'])
+    out['departments']['pick'] = {**pick, 'expected': float(pick['expected']) * float(s_arm) / float(s_pair),
+                                  'pair_expected': float(pick['expected']),
+                                  'arm_s_pick': float(s_arm)}
+    return out
 
 
 # ── the check over loaded rows ──────────────────────────────────────────────────────────

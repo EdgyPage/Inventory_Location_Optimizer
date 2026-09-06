@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import os
 from dataclasses import replace as _dc_replace
 
@@ -26,12 +27,14 @@ from Optimization.config.sim_config import (
 )
 from Optimization.runschema.sim_manifest import (
     _load_resume, _resume_path, _save_resume, _load_run_spec, _write_run_spec)
-from Optimization.simconfig import calibration as _calibration
+from Optimization.simconfig import expected_travel as _et
 from Optimization.simconfig import staffing as _staffing
 from Optimization.config.strategies import strategies_for
 from Optimization.simdriver.strategy_runner import load_worker_checkpoint, reset_strategy_db
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.kernel.cost_model import SpeedProfile
 from Warehouse.kernel.regime import FULFILLMENT
+from Warehouse.layout.Storage_Primitive import viable_storage_units
 from Warehouse.layout.Storage_Primitive import StoreCart
 # local (in-function) imports preserved from the originals: dataclasses.replace,
 # Warehouse.kernel.regime.regime_of, Optimization.config.channels.make_channel.
@@ -451,6 +454,10 @@ def _prepare_channel_run(
     return strategy_args, [sim_skeleton]
 
 
+#: Which staffing input overrides each channel's expected s_pick.
+_PICK_OVERRIDE_KEY: dict = {'store': 's_pick_store', 'fulfillment': 's_pick_ff'}
+
+
 def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pair_dir: str,
                               log: logging.Logger, workers: int = 1) -> tuple:
     """Run the calibrated era's staffing derivation for ONE inventory pair.
@@ -458,77 +465,105 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
     Returns `(channel_runs, derived, calibration)`: the channel-runs with their batch
     fractions REPLACED by the derived batch content (a store-only pair also gets
     `shared['batch_cfg']` replaced, since that is the plan its workers read), the derived
-    block (`staffing.derive`), and the resolved calibration constants with the two stamps.
+    block (`staffing.derive`), and the `calibration` block -- which, since "Derive the
+    expected-travel closed form", records HOW the constants were computed (the method,
+    the placement distribution, the geometry fingerprint, any declared override) rather
+    than which record they were copied from.  There is no calibration record.
 
     Two stages, because the script is derived from the pickers and the crews from the
     script (`Optimization/simconfig/staffing.py`):
 
-      A. per channel, from the CATALOGUE: the analytic pick seconds per unit, `s_pick`
-         resolved against the calibration record (a typed override, a measured value, or
-         analytic x travel share), the daily demand the declared pickers buy at it, and the
-         batch content that delivers it;
+      A. per channel, from the CATALOGUE and the BUILT GEOMETRY: the class-uniform
+         placement distribution over the section's packs (`expected_travel.PlacementDist
+         .uniform` -- arm-independent, and the FIFO restock's steady state), the
+         expected day at every line count, and the FIXED POINT `n` at which that day
+         fills the declared crew's capacity (`expected_travel.solve_n`); `s_pick` is the
+         expected seconds per unit AT that point, the daily demand its units, and the
+         batch content follows.  A declared `--s-pick-*` override replaces the fixed point
+         with the demand that number buys, and the expectation is still recorded beside it.
       B. per channel, from the SCRIPT: precompute the batches under the derived content
          (the same call `_prepare_channel_run` makes, so the cache is warm for it), read
-         them back, total the demand, the implied reorders' packs and their exact unload
-         seconds, resolve `s_put` against the script's analytic put seconds, then size the
-         two site crews.
+         them back, total the demand, the implied reorders' packs priced with the
+         expected put travel (`expected_travel.put_site_pricer`) and their exact unload
+         seconds, then size the two site crews.
 
-    The pricing config of a channel is its FIRST config (`store` / `ful_calibrated`): the
-    reference run measures `s_pick` on that leaf, and the analytic prediction is priced
-    with the same coefficients so the ratio is a travel share and not a config difference.
-    Warnings, never failures: a stale record, a declared crew above `k_max`, a saturated
-    batch (the crew asks for more lines than the catalogue has SKUs), an unpriced seed.
+    The pricing config of a channel is its FIRST config (`store` / `ful_calibrated`).
+    Warnings, never failures: a saturated batch (the crew asks for more lines than the
+    catalogue has SKUs), an unpriced section (empty), SKUs the packer placed nowhere.
     """
-    rec = _calibration.load_record(CONFIG['global'].get('calibration_record'))
     inputs = staffing_spec()
     cc = crew_cost_spec()
     S = float(work_day_spec()['seconds'])
     inventory = shared['inventory']
     invdb, allow, maxsk = _worker_inventory_args(shared)
     n_batches = int(CONFIG['global']['n_batches'])
+    geometry = _et.Geometry.from_warehouse(shared['warehouse_meta'])
+    geometry_fp = shared.get('warehouse_fingerprint')
+    _put = put_crew_spec()
+    put_speed = SpeedProfile(_put['x_speed'], _put['y_speed'])
+    overrides = {k: inputs.get(k) for k in CALIBRATION_KEYS}
 
     # Group the channel-runs by channel; the first config prices the channel.
     groups: dict = {}
     for ch, cfg in channel_runs:
         groups.setdefault(ch.name, {'ch': ch, 'cfg': cfg})
-    # ── stage A: the catalogue ─────────────────────────────────────────────────────
+    # ── stage A: the catalogue and the geometry ────────────────────────────────────
     stage_a: dict = {}
+    constants: dict = {'s_pick': {}}
+    new_runs: list = []
     for name, grp in groups.items():
         ch = grp['ch']
+        pick_cfg = ch.picker.cost
         orders = _staffing.regime_orders(inventory.orders, ch.regime if mixed else None)
-        pricing = _staffing.PricingConfig.from_pick_config(ch.picker.cost,
-                                                           name=_config_name(grp['cfg']))
-        stage_a[name] = {'orders': orders, 'pricing': pricing,
-                         'analytic': _staffing.analytic_pick(orders, pricing)}
-    constants = _calibration.resolve_constants(
-        rec, overrides={k: inputs[k] for k in CALIBRATION_KEYS},
-        analytic_pick={n: a['analytic']['seconds_per_unit'] for n, a in stage_a.items()},
-        analytic_put=0.0)
-    new_runs: list = []
-    for name, a in stage_a.items():
-        ch = groups[name]['ch']
+        pricing = _staffing.PricingConfig.from_pick_config(pick_cfg, name=_config_name(grp['cfg']))
+        t0 = time.perf_counter()
+        dist = _et.PlacementDist.uniform(
+            {c.sku: viable_storage_units(c, c.equilibrium_qty) for c in orders})
+        rates = _et.accumulate(orders, pick_cfg, dist, geometry)
+        declared = CONFIG['channels'][name]['batch']
+        cv = (float(declared['std']) / float(declared['mean'])) if float(declared['mean']) > 0 else 0.0
         K = channel_pickers(name)
         cap = _staffing.pick_capacity(K, S, float(inputs['rho_pick']))
-        s_pick = constants['s_pick'][name]
-        if s_pick.get('unpriced'):
+        override = overrides.get(_PICK_OVERRIDE_KEY[name])
+        if rates.units_per_line <= 0.0:
             log.warning(f"  [staffing] {name}: s_pick could not be priced (empty section); "
                         f"the channel derives no demand")
+            expected = _et.expected_pick(rates, geometry, pick_cfg, 0.0, cv)
+            s_pick = {'value': 0.0, 'provenance': 'derived', 'source': 'expected_travel',
+                      'unpriced': True}
             D = 0.0
+        elif override is not None:
+            D = _staffing.daily_demand(cap, float(override))
+            expected = _et.expected_pick(rates, geometry, pick_cfg, D / rates.units_per_line, cv)
+            s_pick = _staffing.constant(float(override), 'declared', source='override',
+                                        expected=float(expected['s_pick']))
         else:
-            D = _staffing.daily_demand(cap, s_pick['value'])
-        declared = CONFIG['channels'][name]['batch']
-        batch = _staffing.batch_content(D, a['analytic']['units_per_line'], len(a['orders']),
+            expected = _et.solve_n(rates, geometry, pick_cfg, cv, capacity_s=cap,
+                                   n_max=len(orders))
+            D = float(expected['units'])
+            s_pick = _staffing.constant(float(expected['s_pick']), 'derived',
+                                        source='expected_travel', placement=dist.kind)
+        if rates.unplaced_skus:
+            log.warning(f"  [staffing] {name}: {rates.unplaced_skus} SKU(s) pack into no storage "
+                        f"unit and carry no visit rate")
+        batch = _staffing.batch_content(D, rates.units_per_line, len(orders),
                                         float(declared['mean']), float(declared['std']))
         if batch['saturated']:
             log.warning(f"  [staffing] {name}: {K} pickers at {s_pick['value']:.2f} s/unit "
                         f"ask for {batch['mean_lines']:,.0f} lines/day but the section has "
-                        f"{len(a['orders'])} SKUs -- batch content clamped to every SKU every "
+                        f"{len(orders)} SKUs -- batch content clamped to every SKU every "
                         f"day; the declared crew is oversized for this catalogue")
-        a.update(pickers=K, daily_demand_units=D, batch=batch)
+        constants['s_pick'][name] = s_pick
+        stage_a[name] = {'orders': orders, 'pricing': pricing, 'dist': dist, 'pick_cfg': pick_cfg,
+                         'analytic': _staffing.analytic_pick(orders, pricing),
+                         'expected': expected, 'pickers': K, 'daily_demand_units': D,
+                         'batch': batch}
         log.info(f"  [staffing] {name}: K={K}  s_pick={s_pick['value']:.3f} s/unit "
-                 f"({s_pick['provenance']})  demand={D:,.0f} units/day  "
+                 f"({s_pick['provenance']}, expected {expected['s_pick']:.3f} at "
+                 f"{expected['lines']:,.0f} lines/day: {expected['tasks']:,.0f} tasks, "
+                 f"{expected['swaps']:,.0f} swaps)  demand={D:,.0f} units/day  "
                  f"batch mean_fraction={batch['mean_fraction']:.4f} "
-                 f"(~{batch['mean_lines']:,.0f} lines)")
+                 f"(~{batch['mean_lines']:,.0f} lines)  [{time.perf_counter()-t0:.0f}s]")
         new_ch = _dc_replace(ch, batch_mean_fraction=batch['mean_fraction'],
                              batch_std_fraction=batch['std_fraction'])
         groups[name]['new_ch'] = new_ch
@@ -555,39 +590,43 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
                 f'packs the script implies, so there is nothing to size it from')
         by_sku = {c.sku: c for c in a['orders']}
         totals = _staffing.script_totals(batches, by_sku, a['pricing'])
+        put_site = _et.put_site_pricer(geometry, a['dist'], None, put_speed,
+                                       brackets=a['pick_cfg'].height_brackets)
         _staffing.implied_reorders(
             totals, by_sku, a['pricing'],
             f_put=float(inputs['f_put']), f_recv=float(inputs['f_recv']),
             put_intercept_scale=cc['put_intercept_scale'], put_item_ratio=cc['put_item_ratio'],
-            recv_intercept_scale=cc['recv_intercept_scale'])
+            recv_intercept_scale=cc['recv_intercept_scale'], put_site=put_site)
         if totals.unknown_skus:
             log.warning(f'  [staffing] {name}: {totals.unknown_skus} script line(s) named a SKU '
                         f'outside the channel section -- skipped in the totals')
         scripts[name] = totals
     site_put_units = sum(t.put_units for t in scripts.values())
     site_put_s = sum(t.put_s for t in scripts.values())
-    constants['s_put'] = _calibration.resolve_constant(
-        rec['constants']['s_put'], override=inputs['s_put'],
-        analytic=(site_put_s / site_put_units) if site_put_units else 0.0, name='s_put')
+    if overrides.get('s_put') is not None:
+        constants['s_put'] = _staffing.constant(
+            float(overrides['s_put']), 'declared', source='override',
+            expected=(site_put_s / site_put_units) if site_put_units else 0.0)
+    else:
+        constants['s_put'] = _staffing.constant(
+            (site_put_s / site_put_units) if site_put_units else 0.0, 'derived',
+            source='expected_travel', placement='uniform',
+            note='expected put travel from the aisle mouth over the class-uniform destination, '
+                 'plus the packs\' handling at the class-mean height')
     derived = _staffing.derive(
         inputs=inputs, constants=constants, day_seconds=S,
         channels={n: {'pickers': a['pickers'], 'daily_demand_units': a['daily_demand_units'],
-                      'analytic': a['analytic'], 'batch': a['batch'], 'n_skus': len(a['orders'])}
+                      'analytic': a['analytic'], 'batch': a['batch'], 'n_skus': len(a['orders']),
+                      'expected': a['expected']}
                   for n, a in stage_a.items()},
         scripts=scripts,
         pricing_names={n: a['pricing'].name for n, a in stage_a.items()})
     calibration = {
-        's_pick': constants['s_pick'], 's_put': constants['s_put'], 'k_max': constants['k_max'],
-        'record': constants['record'],
-        **_calibration.staleness(rec, shared.get('warehouse_fingerprint')),
+        'method': 'expected_travel', 'placement': 'uniform',
+        'geometry_fingerprint': geometry_fp,
+        's_pick': constants['s_pick'], 's_put': constants['s_put'],
+        'overrides': sorted(k for k, v in overrides.items() if v is not None),
     }
-    if calibration['calibration_stale']:
-        log.warning(f"  [staffing] CALIBRATION STALE: the record was measured on warehouse "
-                    f"{calibration['record_fingerprint']} and this run's is "
-                    f"{calibration['run_fingerprint']}; stamped calibration_stale=True")
-    for name, x in derived['k_max_exceeded'].items():
-        log.warning(f"  [staffing] {name}: declared {x['declared']} pickers exceed the record's "
-                    f"K_max={x['k_max']} (the heaviest-aisle floor); stamped, not refused")
     log.info(f"  [staffing] put crew={derived['put']['crew']} "
              f"(s_put={constants['s_put']['value']:.3f} s/unit, "
              f"{constants['s_put']['provenance']}; load={derived['put']['load_seconds_per_day']:,.0f} s/day)"

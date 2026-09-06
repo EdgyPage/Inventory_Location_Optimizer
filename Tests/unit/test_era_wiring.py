@@ -39,7 +39,7 @@ from Optimization.config.whatif_config import SPECS, ERA_RUN_DEFAULTS
 _ERA_INPUTS = ('rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv', 'band_tol',
                'put_crew_mode')
 _NEW_KEYS = (*_ERA_INPUTS, *CALIBRATION_KEYS, 'shift_drain_or_cap', 'put_crew_size',
-             'calibration_record', 'recv_crew_size')
+             'recv_crew_size')
 
 
 @pytest.fixture()
@@ -68,7 +68,7 @@ def test_the_eras_scalars_are_declared_assumptions_with_their_flags_named():
     src = inspect.getsource(_s)
     for flag in ('--rho-pick', '--rho-put', '--rho-recv', '--f-put', '--f-recv', '--band-tol',
                  '--s-pick-store', '--s-pick-ff', '--s-put', '--put-crew-size',
-                 '--put-crew-mode', '--shift-drain-or-cap', '--calibration-record'):
+                 '--put-crew-mode', '--shift-drain-or-cap'):
         assert flag in src, f'{flag} is not named beside its setting'
 
 
@@ -78,8 +78,9 @@ def test_staffing_keys_carry_the_scalars_the_mode_and_the_overrides():
     assert set(_ERA_INPUTS) <= set(STAFFING_KEYS)
     assert set(CALIBRATION_KEYS) <= set(STAFFING_KEYS)
     assert CALIBRATION_KEYS == ('s_pick_store', 's_pick_ff', 's_put')
-    for k in (*STAFFING_KEYS, 'shift_drain_or_cap', 'put_crew_size', 'calibration_record'):
+    for k in (*STAFFING_KEYS, 'shift_drain_or_cap', 'put_crew_size'):
         assert k in CONFIG['global'], k
+    assert 'calibration_record' not in CONFIG['global'], 'the calibration record is retired'
 
 
 def test_staffing_spec_resolves_a_none_scalar_to_its_default_and_keeps_a_none_override(restore):
@@ -87,7 +88,7 @@ def test_staffing_spec_resolves_a_none_scalar_to_its_default_and_keeps_a_none_ov
     spec = staffing_spec()
     assert spec['rho_pick'] == _s.RHO_PICK and spec['f_put'] == _s.F_PUT
     assert spec['put_crew_mode'] == _s.PUT_CREW_MODE
-    assert spec['s_put'] is None, '"no override" is a value the calibration loader reads'
+    assert spec['s_put'] is None, '"no override" is a value the derivation reads'
     assert spec['s_pick_ff'] == 4.5
     assert set(spec) == set(STAFFING_KEYS)
 
@@ -118,7 +119,7 @@ def test_a_bad_put_mode_is_refused_at_the_accessor(restore):
 @pytest.mark.parametrize('flag', ['--shift-drain-or-cap', '--put-crew-size', '--put-crew-mode',
                                   '--rho-pick', '--rho-put', '--rho-recv', '--f-put',
                                   '--f-recv', '--band-tol', '--s-pick-store', '--s-pick-ff',
-                                  '--s-put', '--calibration-record'])
+                                  '--s-put'])
 def test_each_new_knob_has_a_flag(flag):
     from Optimization import run_simulation
     assert f"'{flag}'" in inspect.getsource(run_simulation), flag
@@ -132,16 +133,16 @@ def test_a_utilization_target_must_lie_in_the_unit_interval():
             _unit_fraction(bad)
 
 
-def test_the_campaign_specs_and_the_reference_run_default_to_the_era():
+def test_the_campaign_specs_default_to_the_era_and_the_reference_run_is_gone():
     assert ERA_RUN_DEFAULTS == {'shift_drain_or_cap': True, 'releases_per_day': 1,
                                 'roll_over_unpicked': True, 'cut_at_day_end': True}
-    for name in ('inbound_select', 'inbound_policies', 'inbound_pilot', 'calibration_reference'):
+    for name in ('inbound_select', 'inbound_policies', 'inbound_pilot'):
         assert SPECS[name]['run_defaults'] is ERA_RUN_DEFAULTS, name
     for name in ('single', 'scheduler_ab', '_canary_single', '_canary_sweep'):
         assert 'run_defaults' not in SPECS[name], f'{name} must stay flag-off (byte-identical)'
-    ref = SPECS['calibration_reference']
-    assert ref['arms'] == ('fifo',) and ref['schedulers'] == ['lpt']
-    assert len(ref['ks']) == 1 and ref['zoning'] == [('off', {'enabled': False})]
+    # No calibration simulations ("Derive the expected-travel closed form"): the reference
+    # run's spec left with its driver.
+    assert 'calibration_reference' not in SPECS
 
 
 def test_run_defaults_overlay_args_but_an_explicit_flag_wins_with_a_note():

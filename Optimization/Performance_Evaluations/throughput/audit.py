@@ -114,15 +114,12 @@ def _flags(expectations):
         return 'no staffing record on this run: expected values unavailable'
     f = expectations['flags']
     bits = []
-    if f.get('calibration_stale'):
-        bits.append('calibration STALE (record measured on another catalogue)')
-    elif not f.get('calibration_measured'):
-        bits.append('calibration is the pass-0 SEED (no reference run yet)')
-    if f.get('k_max_exceeded'):
-        bits.append('declared pickers exceed K_max')
+    if f.get('overridden'):
+        bits.append('a declared override replaced the expected seconds per unit')
     if f.get('saturated'):
         bits.append('batch content saturated (every SKU every day)')
-    return ' · '.join(bits) if bits else 'calibration measured on this catalogue'
+    return (' · '.join(bits) if bits
+            else "expectations from the closed form on this run's geometry")
 
 
 @evaluation(key='throughput.audit', label='Throughput audit: declared vs delivered',
@@ -161,10 +158,13 @@ def render(ctx, params):
         sdf = frames[s['key']]
         if sdf.empty:
             continue
-        verdict = _verdict_for(ctx, s['key'], sdf, expectations)
+        # The arm's own band: the pair's expectations re-centred on the expected seconds per
+        # unit its initial placement gives (stamped by the worker; absent flag-off).
+        arm_exp = _eq.arm_expectations(expectations, s.get('expected_pick'))
+        verdict = _verdict_for(ctx, s['key'], sdf, arm_exp)
         if verdict is not None:
             ctx.log.info(f'  [audit] {_stitle(s)}: {_eq.summarize(verdict)}')
-        rows.extend(_rows(ctx, s, sdf, verdict, expectations))
+        rows.extend(_rows(ctx, s, sdf, verdict, arm_exp))
     if rows:
         ch = chartkit.make(panels=1, panel_w=13.0, legend='none',
                            panel_h=chartkit.height_for_categories(len(rows), per=0.36,

@@ -327,7 +327,6 @@ python -m Optimization.analyze_run <run_dir> --reference k1_off_rr --preset BY_I
 |-----|----------|
 | `run_analysis.py` | the per-cell graph + statistics suite → `figures/<family>/`, `tables/`, `_aggregate/` |
 | `run_channel_rollup.py` | store + fulfillment combined into a whole-warehouse view |
-| `run_reference.py` | the calibrated era's REFERENCE RUN: passes of `--spec calibration_reference` under the equilibrium check as window precondition, iterated to the fixed point; writes the calibration record candidate (`--install` copies a MEASURED one over the committed record) |
 | `run_restock_selection.py` | the inbound funnel's phase-1 → phase-2 hand-off: all 17 restock rules ranked per channel on total production hours → `restock_selection.json` |
 | `run_whatif_delta.py` | the cross-cell steady-state delta matrix (multi-cell) |
 | `run_whatif_labor.py` | the same runs told in modeled labor-hours |
