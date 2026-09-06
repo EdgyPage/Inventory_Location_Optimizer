@@ -151,7 +151,8 @@ def measure_pass(run_root: str, *, day_lo: int, day_hi: int,
     """Judge and measure the window on EVERY channel leaf of a finished reference run.
 
     Walks the tree through the run-tree resolver (never a joined path), reads the staffing
-    record off `run_spec.json`, builds each leaf's expectations, runs the check, measures.
+    record off the run spec (the resolver's `run_spec` artifact), builds each leaf's
+    expectations, runs the check, measures.
     Returns
 
         {'run_root', 'day_lo', 'day_hi', 'passed', 'reasons': [...],
@@ -177,7 +178,7 @@ def measure_pass(run_root: str, *, day_lo: int, day_hi: int,
         spec = json.load(fh)
     staffing = spec.get('staffing') or {}
     if not staffing.get('derived'):
-        raise ReferenceRunError(f'{run_root}: run_spec.json carries no derived staffing '
+        raise ReferenceRunError(f'{run_root}: the run spec carries no derived staffing '
                                 f'block; this is not a calibrated-era run')
     from Optimization.persistence.Picking_Data import load_batch_stats, load_receive_events
     from Warehouse.generation.generate_inventory import load_inventory_from_db

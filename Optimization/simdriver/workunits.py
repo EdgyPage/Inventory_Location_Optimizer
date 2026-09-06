@@ -623,7 +623,7 @@ def _record_derived(base_dir: str, label: str, derived: dict, calibration: dict,
     """
     root, spec = _run_root_spec(base_dir)
     if spec is None:
-        log.warning('  [staffing] no run_spec.json at the run root -- the derived block is '
+        log.warning('  [staffing] no run spec at the run root -- the derived block is '
                     'carried in the payload but not recorded')
         return
     st = spec.setdefault('staffing', {})
@@ -640,7 +640,7 @@ def _record_derived(base_dir: str, label: str, derived: dict, calibration: dict,
     st.setdefault('derived', {})[label] = derived
     st.setdefault('calibration', {})[label] = calibration
     _write_run_spec(root, spec)
-    log.info(f'  [staffing] recorded derived + calibration blocks for {label} in run_spec.json')
+    log.info(f'  [staffing] recorded derived + calibration blocks for {label} in the run spec')
 
 
 def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
