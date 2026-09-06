@@ -1,7 +1,7 @@
 # Fit the reference window to the replenishment cycle
 
 Type: grilling
-Status: open
+Status: resolved
 
 HITL. Surfaced by [Take the reference run](09-take-the-reference-run.md), which ran the
 procedure of [Choose the calibration procedure](02-choose-the-calibration-procedure.md) on the
@@ -52,3 +52,13 @@ Decide the amended procedure. The candidate levers, not exclusive:
 The answer records the amended procedure precisely enough for
 [Re-take the reference run](12-re-take-the-reference-run.md) to be AFK, and which of 02's and
 04's decisions it supersedes (amend those tickets' answers in place with a dated note).
+
+## Answer
+
+CLOSED OUT OF SCOPE 2026-09-06, unresolved. The user's decision the same day: there are to be
+NO calibration simulations -- every constant is a closed-form expectation over the known
+inventory distribution and the warehouse geometry built at runtime. That retires the reference
+run and with it every lever above (window length, pass cap, band scope, backlog clearing). The
+one lever that survives, stock coverage denominated per SKU in days of its own demand rather
+than generation batches, moved into
+[Derive the expected-travel closed form](13-derive-the-expected-travel-closed-form.md).

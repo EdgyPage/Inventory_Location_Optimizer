@@ -1,7 +1,7 @@
 # Re-take the reference run
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 11
 
 AFK once unblocked. The deliverable of [Take the reference run](09-take-the-reference-run.md)
@@ -32,3 +32,11 @@ answer 09 was to give. On resolution the inbound map's
 and
 [Re-size the funnel in site days](../../inbound-optimization/issues/24-resize-the-funnel-in-site-days.md)
 unblock.
+
+## Answer
+
+CLOSED OUT OF SCOPE 2026-09-06, never started. Superseded by
+[Derive the expected-travel closed form](13-derive-the-expected-travel-closed-form.md): the
+constants are computed at setup from the built geometry and the inventory distribution, so
+there is no reference run to re-take and no measured record to commit. The six passes 09 left
+on disk remain a development-time correctness check for 13, not a calibration step.

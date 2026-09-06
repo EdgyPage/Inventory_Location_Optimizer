@@ -116,3 +116,16 @@ no new instrument.
 08). [Design the staffing record](03-design-the-staffing-record.md) gains the calibration
 record's constants with provenance plus the two stamps; [Declare the equilibrium bands](04-declare-the-equilibrium-bands.md)
 learns its check doubles as the reference run's window precondition.
+
+## Comments
+
+2026-09-06: **decisions 1-3 (hybrid under `fifo`, the fixed point, the 40-day window) are
+SUPERSEDED.** [Take the reference run](09-take-the-reference-run.md) executed them and found
+the procedure cannot close on the production catalogue (six passes to converge picking; the
+replenishment cycle longer than the window; stockouts defeating the drained clause). The user
+then ruled out calibration simulations altogether: every constant is a closed-form expectation
+over the known inventory distribution and the warehouse geometry built at runtime --
+[Derive the expected-travel closed form](13-derive-the-expected-travel-closed-form.md). What
+stands from this ticket: the constants live in a committed record with provenance (now
+`derived`, stamped with geometry and placement fingerprints), `K_max` bounds pickers, and the
+receiving constant is exact.

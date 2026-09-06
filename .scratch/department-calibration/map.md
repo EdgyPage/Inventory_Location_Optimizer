@@ -35,6 +35,15 @@ regime someone chose rather than one the defaults inherited.
     the script alone (the dock's demand fully — unloads have no travel term); pick and
     put-away TRAVEL is arm-dependent and needs a measured run. Calibration is therefore
     hybrid by nature; the split is exact (see the assets survey, `arm_invariance`).
+    **AMENDED 2026-09-06 (user decision, after the reference run ran):** travel is NOT
+    measured. It is a closed-form expectation over the inventory's demand distribution and
+    the warehouse geometry built at runtime, computed at setup per arm
+    ([Derive the expected-travel closed form](issues/13-derive-the-expected-travel-closed-form.md)).
+    There are **no calibration simulations**; the equilibrium check stays a REPORT.
+  - **No bespoke conversions implicit in the inventory.** A standing preference from the
+    same decision: nothing authored on the catalogue may carry an implicit batch or day (the
+    coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
+    expected demand; the method must scale to any item distribution unchanged.
   - **The inbound campaign holds.** Phase 2 was already held at the pilot resolution;
     whether phase 1 also waits for the calibrated era is
     [Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md), not settled
@@ -76,7 +85,10 @@ regime someone chose rather than one the defaults inherited.
   reference run; receiving exact). The cost model changes as a HARD BREAK: picking gains a
   per-item charge (0.5 s), put-away a scaled intercept (0.5) and a 0.2 ratio of the charge,
   receiving one charge per PACK (ADR-0001). Six era consequences recorded verbatim.
-- [Choose the calibration procedure](issues/02-choose-the-calibration-procedure.md): hybrid under
+- [Choose the calibration procedure](issues/02-choose-the-calibration-procedure.md):
+  **decisions 1–3 SUPERSEDED 2026-09-06** — no calibration simulations; travel is a closed-form
+  expectation computed at setup (13). What stands: the committed record with provenance, `K_max`,
+  the exact receiving constant. Was: hybrid under
   `fifo`, as a FIXED POINT (analytic seed, era run, re-derive, ≤2 passes, 5% tolerance); 40 days
   with days 20–39 measured under 04's check as a precondition; one cell, `lpt`, both channels,
   minimal mechanics. `s_pick` per channel as a ratio of sums, `s_put` one site value, `s_recv`
@@ -161,19 +173,29 @@ regime someone chose rather than one the defaults inherited.
   wave at or past day 40, so put/receiving ran at 30%/2% of pick flow and their bands cannot
   pass in this window — and the same lag defeats "every day drained" through STOCKOUTS (89% of
   fulfillment carry is `unpicked_unstocked` once picking is in band); realized demand runs
-  ~3–6% above the derived target (line fraction vs units). Two Windows traps fixed in the driver. Graduated a decision (11) and the re-take (12);
-  the inbound map's gates 23/24 now wait on 12.
+  ~3–6% above the derived target (line fraction vs units). Two Windows traps fixed in the
+  driver. The user's response the same day retired calibration simulations altogether: the
+  successor is
+  [Derive the expected-travel closed form](issues/13-derive-the-expected-travel-closed-form.md)
+  (the tickets 09 first graduated, 11 and 12, closed out of scope); the inbound map's gates
+  23/24 now wait on 13.
 
 ## Not yet specified
 
-- **The builds** — every implementation graduated and landed (06, 07, 08, 10). The reference
-  run was taken (09) and failed its window for catalogue reasons; the amendment is a live
-  decision ([Fit the reference window to the replenishment cycle](issues/11-fit-the-reference-window-to-the-replenishment-cycle.md))
-  and the re-take a live task (12). Nothing of the build remains in fog; what stays dim is below.
-- **Coverage denomination.** If 11 moves stock coverage from generation batches to era days,
-  the generator gains a knob that depends on the calibration it feeds — how that circularity is
-  authored (a coverage in days at a declared demand, stamped like the travel share) is dim
-  until 11 picks a lever.
+- **The builds** — every implementation graduated and landed (06, 07, 08, 10). The one live
+  ticket is the closed-form derivation
+  ([Derive the expected-travel closed form](issues/13-derive-the-expected-travel-closed-form.md)),
+  which retires the reference run. What stays dim is below.
+- **Coverage denomination on the catalogue.** 13 decides whether per-SKU coverage in days of
+  its own demand lands as a generator knob on the profile or as a runtime rescaling at setup;
+  either way the expected reorder flow and its first-cycle timing become closed form. Whether
+  the pilot/archive comparability that a regenerated profile breaks matters (the per-item
+  charge already broke it) is dim until then.
+- **The residual between formula and simulator.** LPT makespan tails, roll-over backlog
+  density and stockout-thinned pick lists make the realized seconds per unit differ from the
+  expectation. 13 records the residual once against the six passes on disk; whether the bands
+  should absorb it (a declared tolerance on top of `band_tol`) or the formula should carry a
+  correction is dim until the residual is known.
 - **Interaction-effects reporting beyond the bands** — the user's framing names
   "interaction effects between departments"; the bands capture equilibrium, but how the
   coupling itself is surfaced (receiving throttles put-away throttles availability
@@ -193,3 +215,10 @@ regime someone chose rather than one the defaults inherited.
 - **Staffing as a swept experimental axis.** This map declares ONE calibrated baseline per
   channel; sweeping crew sizes as a campaign (what does a fifth receiver buy?) is a later
   effort that would start from the record this map creates.
+- **Calibration simulations of any kind** (user decision 2026-09-06). The reference run, its
+  window amendment
+  ([Fit the reference window to the replenishment cycle](issues/11-fit-the-reference-window-to-the-replenishment-cycle.md))
+  and its re-take ([Re-take the reference run](issues/12-re-take-the-reference-run.md)) are
+  closed: every constant is a closed-form expectation over the known inventory distribution and
+  the runtime geometry (13). The six passes 09 left on disk are a one-time correctness check
+  for the formula, never a pipeline step.
