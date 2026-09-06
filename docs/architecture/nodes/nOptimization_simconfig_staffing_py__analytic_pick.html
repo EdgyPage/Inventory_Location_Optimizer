@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>analytic_pick · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_staffing_py__analytic_pick" data-id="Optimization/simconfig/staffing.py::analytic_pick">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a> <span class="sep">›</span> <span class="here"><code>analytic_pick</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>analytic_pick</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def analytic_pick(orders, pricing: PricingConfig) -&gt; dict</code></pre>
+<section class="doc">The script-only prediction of a channel&#x27;s picking labour per UNIT, from the catalogue.
+
+Weighted the way the sampler weights: a SKU enters a batch in proportion to its
+`relative_frequency` (affinity lift ignored -- it redistributes lines, it does not add
+them), and a line demands `quantity_rate` units in expectation.  One intercept per LINE
+(one bin visit for one SKU) is the line-count floor (&quot;Choose the calibration
+procedure&quot;, decision 7); the per-item charge and `qty × handle_var` are per unit; the
+height multiplier is M(0) = 1 (ground) and there is no travel term.  Returns
+
+    {&#x27;seconds_per_unit&#x27;, &#x27;units_per_line&#x27;, &#x27;n_skus&#x27;, &#x27;pricing_config&#x27;}
+
+`seconds_per_unit` is what a travel share scales into a seeded `s_pick`.  Empty
+orders yield zeros rather than raising: a store-only catalogue has no fulfillment
+section, and the caller records that as an absent channel.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__analytic_pick">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20analytic_pick">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -14,8 +14,13 @@
 <h1><span class="kind kind-function">function</span> <code>recv_crew_spec</code></h1>
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def recv_crew_spec() -&gt; dict | None</code></pre>
+<pre class="sig"><code>def recv_crew_spec(size: int | None=None) -&gt; dict | None</code></pre>
 <section class="doc">The receiving crew as a picklable record, or **None** when there is no crew.
+
+`size` is the DERIVED crew under the calibrated era (`staffing.derive`), handed in by
+the caller that holds the derived block; None reads the declared `recv_crew_size` key,
+which is every flag-off run.  Derived values are never CONFIG keys, so the derivation
+cannot leak into a flag-off run by leaving a key behind.
 
 None rather than an empty dict, and that distinction is the feature&#x27;s off-switch. The
 worker tests `args.get(&#x27;recv_crew&#x27;) is None` and skips its whole receive block: no Crew,
@@ -23,11 +28,12 @@ no Workers, no clocks, no Dock, no WorkDay. The no-op is therefore &quot;nothing
 constructed&quot; rather than &quot;an empty thing exists&quot; -- which matters because an empty dock
 would still be an object something could fold into a clock or a snapshot.
 
-COPIED FROM `work_day_spec`, NOT FROM `put_crew_spec`. That one reads `_s.PUT_CREW_SIZE`
-directly and there is no `CONFIG[&#x27;global&#x27;][&#x27;put_crew_*&#x27;]` key at all -- so a CLI flag,
-which writes CONFIG, would be accepted and ignored forever, and a standalone re-analysis
-would size against this checkout&#x27;s `settings.py` instead of the run&#x27;s own. Reading CONFIG
-at CALL time is what makes the other three seams reachable.
+COPIED FROM `work_day_spec`, NOT FROM the `put_crew_spec` of its day. That one read
+`_s.PUT_CREW_SIZE` directly with no `CONFIG[&#x27;global&#x27;][&#x27;put_crew_*&#x27;]` key at all -- so a
+CLI flag, which writes CONFIG, would have been accepted and ignored forever, and a
+standalone re-analysis would have sized against this checkout&#x27;s `settings.py` instead
+of the run&#x27;s own. Reading CONFIG at CALL time is what makes the other three seams
+reachable.  (`put_crew_spec` has since been fixed the same way.)
 
 `day_seconds` is resolved with an explicit `is not None`, never `or`: `--recv-day-seconds
 0` means &quot;the crew has no day today&quot;, and `or` would silently turn that into &quot;no whistle

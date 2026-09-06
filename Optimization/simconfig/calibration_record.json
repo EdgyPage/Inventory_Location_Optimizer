@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "pass": 0,
+  "created": "2026-09-05",
+  "commit": null,
+  "run_root": null,
+  "warehouse_fingerprint": null,
+  "batch_fingerprint": null,
+  "cost_model": null,
+  "era": {
+    "day_seconds": 28800.0,
+    "releases_per_day": 1,
+    "shift_drain_or_cap": true,
+    "roll_over_unpicked": true,
+    "cut_at_day_end": true
+  },
+  "constants": {
+    "s_pick": {
+      "store": {
+        "value": null,
+        "travel_share": 1.01,
+        "provenance": "seed",
+        "note": "pass-0 seed: the catalogue's own analytic pick seconds per unit (Optimization/simconfig/staffing.analytic_pick) times this share. 1.01 = 1 / 0.990, the makespan-weighted picking share of the store fifo arm in the 2026-08-20 lpt archive (75 batches, 2,535,476 units, pre-per-item-charge). An ASSUMPTION until the reference run measures it."
+      },
+      "fulfillment": {
+        "value": null,
+        "travel_share": 1.04,
+        "provenance": "seed",
+        "note": "pass-0 seed, same construction: 1.04 = 1 / 0.959, the fulfillment fifo arm's picking share in the same archive (75 batches, 5,931,161 units)."
+      }
+    },
+    "s_put": {
+      "value": null,
+      "travel_share": 1.05,
+      "provenance": "seed",
+      "note": "pass-0 seed: the script's analytic put-away seconds per unit (one intercept per PACK at ground, the put per-item charge and qty x handle_var per unit) times this share. No archive measures put travel apart from handling, so the share is a stated guess a little above the pickers'; the reference run's work_events spans replace it."
+    },
+    "k_max": {
+      "store": null,
+      "fulfillment": null
+    }
+  },
+  "passes": [],
+  "notes": "The seed record. Every constant is expressed as a travel share over the analytic prediction rather than as a number, because no reference run has been taken and a number would be right for at most one catalogue. The reference run (.scratch/department-calibration/issues/09-take-the-reference-run.md) replaces this file with measured values, a warehouse fingerprint, the cost-model parameters it ran under, the pass list, and k_max per channel."
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_apply_run_defaults · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_simulation_py___apply_run_defaults" data-id="Optimization/run_simulation.py::_apply_run_defaults">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a> <span class="sep">›</span> <span class="here"><code>_apply_run_defaults</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_apply_run_defaults</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a></p>
+
+<pre class="sig"><code>def _apply_run_defaults(args, spec_dict: dict, explicit: set) -&gt; list[str]</code></pre>
+<section class="doc">Overlay a cell-matrix spec&#x27;s `run_defaults` onto args, for a NEW run.
+
+A spec may carry run-level knobs (whatif_config.ERA_RUN_DEFAULTS: the calibrated era)
+beside its cell axes.  They are DEFAULTS: a flag the user typed wins, with a note, so a
+spec cannot silently override a command line.  A resumed run never reaches this -- its
+run spec recorded the resolved values and `_apply_run_spec` restores them.
+Returns the notes.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_simulation_py___apply_run_defaults">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py#:~:text=def%20_apply_run_defaults">Source ↗</a></p>
+</article>
+</main>
+</body></html>

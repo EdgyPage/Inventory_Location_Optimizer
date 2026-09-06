@@ -8,14 +8,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+from dataclasses import replace as _dc_replace
 
 from Optimization.persistence.Picking_Data import create_run, init_run_db, sim_schema_id
 from Optimization.metrics.Workload import WorkloadParams
-from Optimization.simdriver.batch_precompute import ensure_batches
+from Optimization.simdriver.batch_precompute import ensure_batches, load_batches
 from Optimization.config.sim_config import (
     CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, put_queues_spec,
     crew_cost_spec,
-    channel_pickers, staffing_spec, _PICKERS_KEY,
+    channel_pickers, staffing_spec, _PICKERS_KEY, CALIBRATION_KEYS, era_on,
     inbound_spec,
     recv_crew_spec,
     work_day_spec,
@@ -23,7 +24,10 @@ from Optimization.config.sim_config import (
     _build_pick_cfg, _checkpoint_every,
     _config_name,
 )
-from Optimization.runschema.sim_manifest import _load_resume, _resume_path, _save_resume
+from Optimization.runschema.sim_manifest import (
+    _load_resume, _resume_path, _save_resume, _load_run_spec, _write_run_spec)
+from Optimization.simconfig import calibration as _calibration
+from Optimization.simconfig import staffing as _staffing
 from Optimization.config.strategies import strategies_for
 from Optimization.simdriver.strategy_runner import load_worker_checkpoint, reset_strategy_db
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
@@ -90,6 +94,37 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
                     f'run (un-replayed physical state). Use --resume-granularity strategy for '
                     f'exact cross-arm comparability.')
     return prev_id, ckpt
+
+
+def _worker_inventory_args(shared: dict) -> tuple:
+    """(inv_db, sku_allowlist, max_skus) exactly as the workers load inventory.
+
+    Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier stock plans)
+    when available so they reproduce the placement the warehouse was sized for; the
+    allowlist and the limit then already live in that DB.  ONE helper, because the batch
+    precompute's fingerprint is over exactly these inputs: the derivation's precompute and
+    `_prepare_channel_run`'s must load the same candidates or they compute two scripts.
+    """
+    _planned_db = shared.get('planned_inv_db')
+    return (_planned_db or shared['inv_db'],
+            None if _planned_db else shared.get('sku_allowlist'),
+            None if _planned_db else shared.get('max_skus'))
+
+
+def _channel_batch_plan(ch, inventory, mixed: bool, shared: dict) -> tuple:
+    """(batch_cfg, seed_batches, channel_regime) for one channel-run's batch stream.
+
+    Mixed catalogue: the channel's own BatchConfig over its regime's SKU count, its own seed
+    offset, its regime as the precompute filter.  Store-only: the pair-level shared
+    BatchConfig (= the store channel's shape), the base seed, no filter -- byte-identical
+    to the pre-channel pipeline.  ONE helper for the same reason as
+    `_worker_inventory_args`: two callers computing the plan is two fingerprints.
+    """
+    if mixed:
+        from Warehouse.kernel.regime import regime_of                       # noqa: E402
+        _ch_size = sum(1 for c in inventory.orders if regime_of(c) == ch.regime)
+        return ch.batch_config(max(1, _ch_size)), seed_batches() + ch.batch_seed_offset, ch.regime
+    return shared['batch_cfg'], seed_batches(), None
 
 
 def _prepare_channel_run(
@@ -253,10 +288,7 @@ def _prepare_channel_run(
 
     # Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier stock plans)
     # when available so they reproduce the placement the warehouse was sized for.
-    _planned_db   = shared.get('planned_inv_db')
-    _worker_invdb = _planned_db or shared['inv_db']
-    _worker_allow = None if _planned_db else shared.get('sku_allowlist')
-    _worker_maxsk = None if _planned_db else shared.get('max_skus')
+    _worker_invdb, _worker_allow, _worker_maxsk = _worker_inventory_args(shared)
 
     # ── one worker set for THIS channel over the shared warehouse ────────────────────
     # The channel filters inventory to its regime (mixed catalog) and simulates with its own
@@ -279,16 +311,13 @@ def _prepare_channel_run(
         ch_pick_cfg     = replace(ch.picker.cost, num_pickers=ch.picker.num_pickers)
         ch_wp           = WorkloadParams.from_pick_config(ch_pick_cfg)
         ch_wp.by_regime = None
-        _ch_size        = sum(1 for c in inventory.orders if regime_of(c) == ch.regime)
-        ch_batch_cfg    = ch.batch_config(max(1, _ch_size))
-        ch_seed_batches = seed_batches() + ch.batch_seed_offset
-        ch_regime       = ch.regime
     else:
         # Store-only path: precomputed pair-level shared batch stream (whole catalog = store).
         ch_pick_cfg, ch_wp = pick_cfg, wp
-        ch_batch_cfg    = batch_cfg
-        ch_seed_batches = seed_batches()
-        ch_regime       = None
+    # The batch stream's plan, from the ONE helper the derivation also uses -- under the era
+    # `shared['batch_cfg']` / the channel's fractions are the DERIVED content by the time
+    # this runs, and the two precomputes must fingerprint identically.
+    ch_batch_cfg, ch_seed_batches, ch_regime = _channel_batch_plan(ch, inventory, mixed, shared)
     try:
         ch_batches_path, ch_batches_fp = ensure_batches(
             pair_dir, _worker_invdb, _worker_maxsk, _worker_allow, shared['aff_db'],
@@ -335,6 +364,16 @@ def _prepare_channel_run(
                  + '  '.join(f'{s.key}={run_ids[s.key]}' for s in ch_strategies))
     _save_resume(ch_run_dir, run_ids, starts)
 
+    # THE DERIVED CREWS.  Under the calibrated era `_build_work_units` has run the derivation
+    # for this pair (`_derive_staffing_for_pair`) and left its block on `shared['staffing']`;
+    # the put and receiving crews are then the derived site totals, handed to the accessors
+    # as `size=` -- derived values are never CONFIG keys.  Flag-off `shared` carries no such
+    # block, both accessors read their declared keys, and the payload is byte-identical.
+    _st = shared.get('staffing')
+    _put_size = _st['derived']['put']['crew'] if _st else None
+    _recv_size = _st['derived']['receiving']['crew'] if _st else None
+    _staffing_payload = ({'inputs': staffing_spec(), **_st} if _st else staffing_spec())
+
     _shared = dict(
         inv_db              = _worker_invdb,
         batches_path        = ch_batches_path,
@@ -369,18 +408,20 @@ def _prepare_channel_run(
         # The put crew, carried the same way and for the same reason.  Its speed comes
         # from its MODE, not from the pick config: a crew labelled `foot` costed at the
         # store's machine speed would write rows whose mode and duration disagree.
-        put_crew            = put_crew_spec(),
-        recv_crew           = recv_crew_spec(),
+        put_crew            = put_crew_spec(size=_put_size),
+        recv_crew           = recv_crew_spec(size=_recv_size),
         inbound             = inbound_spec(),
         put_queues          = put_queues_spec(),
         # The other crews' PRICE as scalars of the pickers' -- the fifth seam of a knob.
         # Not in the payload = silently the kernel default in every spawned worker.
         crew_cost           = crew_cost_spec(),
-        # The staffing record's INPUTS -- the fifth seam of the picker knobs.  `k_pickers`
-        # above is the value the worker sizes its crew from; this is the record it checks
-        # that value against, so a worker that was handed the wrong crew refuses rather
-        # than running under a count its run spec never declared.
-        staffing            = staffing_spec(),
+        # The staffing record -- the fifth seam of the staffing knobs.  Flag-off it is the
+        # INPUTS dict; under the era it is `{inputs, derived, calibration}` for this pair.
+        # `k_pickers` above and the two crews are the values the worker sizes from; this is
+        # the record it checks them against (`strategy_runner._check_declared_crew`), so a
+        # worker handed a wrong crew refuses rather than running under one its run spec
+        # never declared or derived.
+        staffing            = _staffing_payload,
         velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
         # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
     )
@@ -408,6 +449,198 @@ def _prepare_channel_run(
         sim_schema_id = sim_schema_id(),
     )
     return strategy_args, [sim_skeleton]
+
+
+def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pair_dir: str,
+                              log: logging.Logger, workers: int = 1) -> tuple:
+    """Run the calibrated era's staffing derivation for ONE inventory pair.
+
+    Returns `(channel_runs, derived, calibration)`: the channel-runs with their batch
+    fractions REPLACED by the derived batch content (a store-only pair also gets
+    `shared['batch_cfg']` replaced, since that is the plan its workers read), the derived
+    block (`staffing.derive`), and the resolved calibration constants with the two stamps.
+
+    Two stages, because the script is derived from the pickers and the crews from the
+    script (`Optimization/simconfig/staffing.py`):
+
+      A. per channel, from the CATALOGUE: the analytic pick seconds per unit, `s_pick`
+         resolved against the calibration record (a typed override, a measured value, or
+         analytic x travel share), the daily demand the declared pickers buy at it, and the
+         batch content that delivers it;
+      B. per channel, from the SCRIPT: precompute the batches under the derived content
+         (the same call `_prepare_channel_run` makes, so the cache is warm for it), read
+         them back, total the demand, the implied reorders' packs and their exact unload
+         seconds, resolve `s_put` against the script's analytic put seconds, then size the
+         two site crews.
+
+    The pricing config of a channel is its FIRST config (`store` / `ful_calibrated`): the
+    reference run measures `s_pick` on that leaf, and the analytic prediction is priced
+    with the same coefficients so the ratio is a travel share and not a config difference.
+    Warnings, never failures: a stale record, a declared crew above `k_max`, a saturated
+    batch (the crew asks for more lines than the catalogue has SKUs), an unpriced seed.
+    """
+    rec = _calibration.load_record(CONFIG['global'].get('calibration_record'))
+    inputs = staffing_spec()
+    cc = crew_cost_spec()
+    S = float(work_day_spec()['seconds'])
+    inventory = shared['inventory']
+    invdb, allow, maxsk = _worker_inventory_args(shared)
+    n_batches = int(CONFIG['global']['n_batches'])
+
+    # Group the channel-runs by channel; the first config prices the channel.
+    groups: dict = {}
+    for ch, cfg in channel_runs:
+        groups.setdefault(ch.name, {'ch': ch, 'cfg': cfg})
+    # ── stage A: the catalogue ─────────────────────────────────────────────────────
+    stage_a: dict = {}
+    for name, grp in groups.items():
+        ch = grp['ch']
+        orders = _staffing.regime_orders(inventory.orders, ch.regime if mixed else None)
+        pricing = _staffing.PricingConfig.from_pick_config(ch.picker.cost,
+                                                           name=_config_name(grp['cfg']))
+        stage_a[name] = {'orders': orders, 'pricing': pricing,
+                         'analytic': _staffing.analytic_pick(orders, pricing)}
+    constants = _calibration.resolve_constants(
+        rec, overrides={k: inputs[k] for k in CALIBRATION_KEYS},
+        analytic_pick={n: a['analytic']['seconds_per_unit'] for n, a in stage_a.items()},
+        analytic_put=0.0)
+    new_runs: list = []
+    for name, a in stage_a.items():
+        ch = groups[name]['ch']
+        K = channel_pickers(name)
+        cap = _staffing.pick_capacity(K, S, float(inputs['rho_pick']))
+        s_pick = constants['s_pick'][name]
+        if s_pick.get('unpriced'):
+            log.warning(f"  [staffing] {name}: s_pick could not be priced (empty section); "
+                        f"the channel derives no demand")
+            D = 0.0
+        else:
+            D = _staffing.daily_demand(cap, s_pick['value'])
+        declared = CONFIG['channels'][name]['batch']
+        batch = _staffing.batch_content(D, a['analytic']['units_per_line'], len(a['orders']),
+                                        float(declared['mean']), float(declared['std']))
+        if batch['saturated']:
+            log.warning(f"  [staffing] {name}: {K} pickers at {s_pick['value']:.2f} s/unit "
+                        f"ask for {batch['mean_lines']:,.0f} lines/day but the section has "
+                        f"{len(a['orders'])} SKUs -- batch content clamped to every SKU every "
+                        f"day; the declared crew is oversized for this catalogue")
+        a.update(pickers=K, daily_demand_units=D, batch=batch)
+        log.info(f"  [staffing] {name}: K={K}  s_pick={s_pick['value']:.3f} s/unit "
+                 f"({s_pick['provenance']})  demand={D:,.0f} units/day  "
+                 f"batch mean_fraction={batch['mean_fraction']:.4f} "
+                 f"(~{batch['mean_lines']:,.0f} lines)")
+        new_ch = _dc_replace(ch, batch_mean_fraction=batch['mean_fraction'],
+                             batch_std_fraction=batch['std_fraction'])
+        groups[name]['new_ch'] = new_ch
+    for ch, cfg in channel_runs:
+        new_runs.append((groups[ch.name]['new_ch'], cfg))
+    if not mixed:
+        # The store-only path reads the PAIR-level BatchConfig; make it the derived one.
+        st = stage_a['store']['batch']
+        shared['batch_cfg'] = _dc_replace(shared['batch_cfg'], mean_fraction=st['mean_fraction'],
+                                          std_fraction=st['std_fraction'])
+    # ── stage B: the script ────────────────────────────────────────────────────────
+    scripts: dict = {}
+    for name, a in stage_a.items():
+        new_ch = groups[name]['new_ch']
+        batch_cfg, seed, regime = _channel_batch_plan(new_ch, inventory, mixed, shared)
+        path, fp = ensure_batches(pair_dir, invdb, maxsk, allow, shared['aff_db'], batch_cfg,
+                                  seed, n_batches, workers=workers, log=log,
+                                  channel_regime=regime)
+        batches = load_batches(path, fp) if path else None
+        if batches is None:
+            raise RuntimeError(
+                f'[staffing] {name}: the era derivation needs the precomputed batch script and '
+                f'none could be produced (path={path!r}); the receiving crew is sized from the '
+                f'packs the script implies, so there is nothing to size it from')
+        by_sku = {c.sku: c for c in a['orders']}
+        totals = _staffing.script_totals(batches, by_sku, a['pricing'])
+        _staffing.implied_reorders(
+            totals, by_sku, a['pricing'],
+            f_put=float(inputs['f_put']), f_recv=float(inputs['f_recv']),
+            put_intercept_scale=cc['put_intercept_scale'], put_item_ratio=cc['put_item_ratio'],
+            recv_intercept_scale=cc['recv_intercept_scale'])
+        if totals.unknown_skus:
+            log.warning(f'  [staffing] {name}: {totals.unknown_skus} script line(s) named a SKU '
+                        f'outside the channel section -- skipped in the totals')
+        scripts[name] = totals
+    site_put_units = sum(t.put_units for t in scripts.values())
+    site_put_s = sum(t.put_s for t in scripts.values())
+    constants['s_put'] = _calibration.resolve_constant(
+        rec['constants']['s_put'], override=inputs['s_put'],
+        analytic=(site_put_s / site_put_units) if site_put_units else 0.0, name='s_put')
+    derived = _staffing.derive(
+        inputs=inputs, constants=constants, day_seconds=S,
+        channels={n: {'pickers': a['pickers'], 'daily_demand_units': a['daily_demand_units'],
+                      'analytic': a['analytic'], 'batch': a['batch'], 'n_skus': len(a['orders'])}
+                  for n, a in stage_a.items()},
+        scripts=scripts,
+        pricing_names={n: a['pricing'].name for n, a in stage_a.items()})
+    calibration = {
+        's_pick': constants['s_pick'], 's_put': constants['s_put'], 'k_max': constants['k_max'],
+        'record': constants['record'],
+        **_calibration.staleness(rec, shared.get('warehouse_fingerprint')),
+    }
+    if calibration['calibration_stale']:
+        log.warning(f"  [staffing] CALIBRATION STALE: the record was measured on warehouse "
+                    f"{calibration['record_fingerprint']} and this run's is "
+                    f"{calibration['run_fingerprint']}; stamped calibration_stale=True")
+    for name, x in derived['k_max_exceeded'].items():
+        log.warning(f"  [staffing] {name}: declared {x['declared']} pickers exceed the record's "
+                    f"K_max={x['k_max']} (the heaviest-aisle floor); stamped, not refused")
+    log.info(f"  [staffing] put crew={derived['put']['crew']} "
+             f"(s_put={constants['s_put']['value']:.3f} s/unit, "
+             f"{constants['s_put']['provenance']}; load={derived['put']['load_seconds_per_day']:,.0f} s/day)"
+             f"  receiving crew={derived['receiving']['crew']} "
+             f"(exact {derived['receiving']['load_seconds_per_day']:,.0f} s/day over "
+             f"{derived['receiving']['load_packs_per_day']:,.1f} packs/day)")
+    return new_runs, derived, calibration
+
+
+def _run_root_spec(base_dir: str) -> tuple:
+    """(run_root, run_spec) for a cell dir or a run root; (None, None) when no run spec
+    exists (a harness that never wrote one).  The run spec lives at the RUN ROOT while
+    `_build_work_units` is handed a CELL dir -- the same parent-vs-self distinction
+    `run_analysis._apply_run_shape` documents."""
+    for root in (base_dir, os.path.dirname(os.path.abspath(base_dir))):
+        spec = _load_run_spec(root)
+        if spec:
+            return root, spec
+    return None, None
+
+
+def _record_derived(base_dir: str, label: str, derived: dict, calibration: dict,
+                    log: logging.Logger) -> None:
+    """Write this pair's `derived` and `calibration` blocks into the run spec's `staffing`
+    record -- or, when the run spec ALREADY holds a derived block for the pair, check that
+    the fresh derivation agrees with it and RAISE if it does not.
+
+    The recorded block is authoritative on resume ("Design the staffing record", decision 3):
+    an arm fields the crew it started with, so a re-derivation that disagrees -- a changed
+    derivation, a changed calibration record, a changed catalogue -- is refused rather than
+    quietly resuming under different crews.  A multi-cell run hits the agreeing branch on
+    every cell after the first, which is the free drift check across cells.
+    """
+    root, spec = _run_root_spec(base_dir)
+    if spec is None:
+        log.warning('  [staffing] no run_spec.json at the run root -- the derived block is '
+                    'carried in the payload but not recorded')
+        return
+    st = spec.setdefault('staffing', {})
+    prev = (st.get('derived') or {}).get(label)
+    if prev is not None:
+        diffs = _staffing.derived_differs(prev, derived)
+        if diffs:
+            raise RuntimeError(
+                f'[staffing] the derivation for pair {label!r} disagrees with the one this run '
+                f'recorded at {", ".join(diffs[:8])}{" ..." if len(diffs) > 8 else ""}; the '
+                f'recorded derived block is authoritative on resume, so this run cannot '
+                f'continue under different crews. Start a new run instead.')
+        return
+    st.setdefault('derived', {})[label] = derived
+    st.setdefault('calibration', {})[label] = calibration
+    _write_run_spec(root, spec)
+    log.info(f'  [staffing] recorded derived + calibration blocks for {label} in run_spec.json')
 
 
 def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
@@ -479,6 +712,14 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
         shared   = shared_by_pair[label]
         # Store & fulfillment sweep independent config sets — a union of channel-runs.
         mixed, channel_runs = _channel_runs_for(shared['inventory'])
+        # THE CALIBRATED ERA: derive the batch content and the two site crews for this pair
+        # BEFORE any channel-run is prepared, because the crews are site totals over both
+        # channels' scripts.  Flag-off this whole block is skipped and nothing below changes.
+        if era_on():
+            channel_runs, _derived, _cal = _derive_staffing_for_pair(
+                shared, channel_runs, mixed, pair_dir, log, workers=max_workers)
+            shared['staffing'] = {'derived': _derived, 'calibration': _cal}
+            _record_derived(base_dir, label, _derived, _cal, log)
         for ch, cfg in channel_runs:
             cfg_name = _config_name(cfg)
             # Outputs live at <cfg>/<channel>/ (mixed) or <cfg>/ (store-only); the skip guard

@@ -85,7 +85,7 @@ from Optimization.metrics.Simulation_Analytics import (
     fused_pre_snapshot, snapshot_aisle_metrics,
 )
 from Optimization.persistence.Picking_Data import (
-    save_checkpoint_bundle, save_yard_trailers,
+    save_checkpoint_bundle, save_shift_days, save_yard_trailers,
     save_bin_scores, save_sku_scores,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
@@ -474,26 +474,43 @@ def _run_strategy_worker(args: dict) -> dict:
 
 
 def _check_declared_crew(args: dict, k_pickers: int) -> None:
-    """Refuse a payload whose sized crew is not its declared crew.
+    """Refuse a payload whose sized crews are not its declared (or derived) crews.
 
     `k_pickers` is the count the worker sizes its pick crew from; `args['staffing']` is the
-    staffing record's INPUTS (`{store_pickers, ff_pickers}`, `sim_config.staffing_spec`),
-    keyed here by the worker's channel.  Both were read from the same CONFIG key in the
-    parent, so they can only disagree when a caller assembled the payload by hand -- and that
-    caller would otherwise run a whole arm under a count its run spec never declared.  An
-    absent record (a bench harness, a test predating it) is nothing to check against.
-    Module-level so a unit test can hand it a payload without running an arm.
+    staffing record -- its INPUTS (`sim_config.staffing_spec`), keyed here by the worker's
+    channel, plus under the calibrated era the pair's `derived` block, whose put and
+    receiving crews the payload's `put_crew` / `recv_crew` records must match.  Every one of
+    these was read or derived in the parent from the same source, so they can only disagree
+    when a caller assembled the payload by hand -- and that caller would otherwise run a
+    whole arm under a crew its run spec never declared.  An absent record (a bench harness,
+    a test predating it) is nothing to check against.  Module-level so a unit test can hand
+    it a payload without running an arm.
     """
     st = args.get('staffing')
     if not st:
         return
+    inputs = st.get('inputs', st)         # the pre-derivation payload WAS the inputs dict
     key = 'ff_pickers' if args.get('channel_name') == 'fulfillment' else 'store_pickers'
-    declared = int(st[key])
+    declared = int(inputs[key])
     if declared != int(k_pickers):
         raise ValueError(
             f'worker was handed k_pickers={k_pickers} but its staffing record declares '
             f'{key}={declared}; the two are read from the same key at setup, so a '
             f'disagreement means the payload was assembled by hand')
+    derived = st.get('derived')
+    if not derived:
+        return
+    put_size = (args.get('put_crew') or {}).get('size')
+    if int(derived['put']['crew']) != int(put_size or 0):
+        raise ValueError(
+            f"worker was handed a put crew of {put_size} but its staffing record derives "
+            f"{derived['put']['crew']}; under the era the put crew is derived, never declared")
+    recv_size = (args.get('recv_crew') or {}).get('size') or 0
+    if int(derived['receiving']['crew']) != int(recv_size):
+        raise ValueError(
+            f"worker was handed a receiving crew of {recv_size} but its staffing record "
+            f"derives {derived['receiving']['crew']}; under the era the receiving crew is "
+            f"derived, never declared")
 
 
 def _run_strategy_worker_impl(args: dict) -> dict:
@@ -586,9 +603,41 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     _drain_or_cap = bool(_wd.get('drain_or_cap'))
     if _drain_or_cap:
         _cut_at_day_end = True
-    _shift_prev_day = None          # per-day close-out state for the shift log
+    _shift_prev_day = None          # per-day close-out state for the shift ledger
     _shift_cut_today = False
     _shift_last_finish = 0.0
+    _shift_standing = (0, 0, 0)     # (put queues + held, dock floor, carried demand) after
+                                    # the LAST batch processed -- the state a day is closed on
+
+    def _shift_close_out(day: int, standing: tuple, last_finish: float, cut: bool) -> tuple:
+        """Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
+        standing, standing_put, standing_dock, standing_carry, last_finish)`, and the log
+        line.  A day DRAINED if nothing was cut in it and no standing work survives it (put
+        queues + held + the dock floor + carried demand -- never the lead queue: transit is
+        calendar, not labour; and releases are exhausted by construction at a day
+        boundary).  The end instant is `timeline.shift_end`'s arithmetic; days stay
+        origin-aligned, so this is a REPORT of when the crews got off the clock, never a
+        scheduler.
+
+        The state is PASSED IN, never read live: the close-out fires at the first batch of
+        the NEXT day, after that batch has already been processed, so the manager's live
+        depths and the folded clocks belong to the new day by then.  The caller hands it
+        the snapshot the previous day's last batch left behind (`_shift_standing`) and the
+        clocks and cut flag accumulated before this batch was folded in.  The log-only
+        ledger read them live and mis-attributed every day's first batch to the day before
+        -- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which
+        persisting the row was what made visible.  Called once per day boundary, and once
+        more after the loop for the final day, which has no next day to close it."""
+        _s_put, _s_dock, _s_carry = (int(x) for x in standing)
+        _standing = _s_put + _s_dock + _s_carry
+        _drained = (not cut) and _standing == 0
+        _cap_end = _release.day.end_of(day)
+        _end = _tl_shift_end(_cap_end, last_finish, _drained)
+        log.info(f'  [shift] day {day} ended at {_end:,.0f} s '
+                 f'({"drained" if _drained and _end < _cap_end else "capped"}; '
+                 f'standing={_standing})')
+        return (day, _cap_end, _end, _drained, _standing, _s_put, _s_dock, _s_carry,
+                float(last_finish))
     # Whether unpicked demand joins the next batch.  Independent of the cut: two of the three
     # causes below happen with no day boundary in sight.
     _roll_over = bool(_wd.get('roll_over_unpicked'))
@@ -1041,6 +1090,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     cov: list = []  # carryover: what did not get placed this batch, and why
     yt: list = []   # yard: FINISHED trailer stamps (the censored tail flushes after the loop)
     yd: list = []   # yard: per-drain levels — the contention pair and the binding-cut pair
+    sd: list = []   # the drain-or-cap shift's ledger: one close-out row per working day
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
     demand_breaks  = 0   # batches that picked MORE than was demanded (see the ledger)
@@ -1600,24 +1650,23 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # labour; and releases are exhausted by construction at a day boundary).  The end
         # instant is `timeline.shift_end`'s arithmetic; days stay origin-aligned, so this
         # is a REPORT of when the crews got off the clock, never a scheduler.
+        #
+        # ORDER MATTERS: the boundary is tested BEFORE this batch's clocks, cut and depths
+        # are folded in, so the previous day closes on what ITS last batch left behind and
+        # this batch -- the first of the new day -- is attributed to the new day.
         if _drain_or_cap:
-            _shift_cut_today = (_shift_cut_today or bool(sim.carried)
-                                or bool(bs.recv_cut))
-            _shift_last_finish = max(_shift_last_finish, arm_clock, put_clock, recv_clock)
             _d = _release.day_of(i)
             if _shift_prev_day is None:
                 _shift_prev_day = _d
             elif _d != _shift_prev_day:
-                _standing = (mgr.queue_depth + mgr.dock_depth
-                             + sum(_pending.values()))
-                _drained = (not _shift_cut_today) and _standing == 0
-                _cap_end = _release.day.end_of(_shift_prev_day)
-                _end = _tl_shift_end(_cap_end, _shift_last_finish, _drained)
-                log.info(f'  [shift] day {_shift_prev_day} ended at {_end:,.0f} s '
-                         f'({"drained" if _drained and _end < _cap_end else "capped"}; '
-                         f'standing={_standing})')
+                sd.append(_shift_close_out(_shift_prev_day, _shift_standing,
+                                           _shift_last_finish, _shift_cut_today))
                 _shift_prev_day, _shift_cut_today = _d, False
                 _shift_last_finish = 0.0
+            _shift_cut_today = (_shift_cut_today or bool(sim.carried)
+                                or bool(bs.recv_cut))
+            _shift_last_finish = max(_shift_last_finish, arm_clock, put_clock, recv_clock)
+            _shift_standing = (mgr.queue_depth, mgr.dock_depth, sum(_pending.values()))
 
         if len(pb) >= checkpoint:
             t_s0 = time.perf_counter()
@@ -1628,7 +1677,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 bin_placements=_bp, bin_evictions=_be,
                 aisle_metrics=pm, reorder_queue=pq, work_events=we,
                 put_queue_state=pqs, carryover=cov,
-                yard_trailers=yt, yard_drains=yd)
+                yard_trailers=yt, yard_drains=yd, shift_days=sd)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -1679,7 +1728,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
             pqs.clear(); cov.clear()
-            yt.clear(); yd.clear()
+            yt.clear(); yd.clear(); sd.clear()
             we.clear()
             reorders_ckpt      = 0
             units_ordered_ckpt = 0
@@ -1721,8 +1770,17 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             bin_placements=_bp, bin_evictions=_be,
             aisle_metrics=pm, reorder_queue=pq, work_events=we,
             put_queue_state=pqs, carryover=cov,
-            yard_trailers=yt, yard_drains=yd)
+            yard_trailers=yt, yard_drains=yd, shift_days=sd)
         t_save_run += time.perf_counter() - _ts_final
+
+    # THE FINAL DAY'S CLOSE-OUT, deliberately OUTSIDE the `if pb:` above (same reasoning as
+    # the censored yard tail below).  The ledger closes a day at the first batch of the NEXT
+    # day, so the last day of a run has no closer inside the loop; without this flush every
+    # era run would report one day fewer than it worked, and the equilibrium check's "every
+    # day drained" would be read over a window missing its last member.
+    if _drain_or_cap and _shift_prev_day is not None:
+        save_shift_days(db_path, run_id, [_shift_close_out(
+            _shift_prev_day, _shift_standing, _shift_last_finish, _shift_cut_today)])
 
     # THE CENSORED TAIL, and it is deliberately OUTSIDE the `if pb:` above.  That flush is
     # conditional on there being an unflushed batch window, which there is not when

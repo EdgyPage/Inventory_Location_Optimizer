@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>resolve_constants · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_calibration_py__resolve_constants" data-id="Optimization/simconfig/calibration.py::resolve_constants">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_calibration_py.html"><code>Optimization/simconfig/calibration.py</code></a> <span class="sep">›</span> <span class="here"><code>resolve_constants</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>resolve_constants</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_calibration_py.html"><code>Optimization/simconfig/calibration.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def resolve_constants(rec: dict, *, overrides: dict, analytic_pick: dict, analytic_put: float) -&gt; dict</code></pre>
+<section class="doc">Every constant the derivation needs, resolved against `rec`.
+
+`overrides` is `{&#x27;s_pick_store&#x27;, &#x27;s_pick_ff&#x27;, &#x27;s_put&#x27;}` (None = no override -- the
+three CALIBRATION_KEYS of the staffing inputs); `analytic_pick` maps a channel name to
+its stage-A `seconds_per_unit` (absent channels omitted); `analytic_put` is the site&#x27;s
+analytic put seconds per unit (from the script, stage B) -- zero when the seed has to
+be resolved before stage B, in which case the caller re-resolves `s_put` once it has it.
+Returns `{&#x27;s_pick&#x27;: {channel: constant}, &#x27;s_put&#x27;: constant, &#x27;k_max&#x27;: {channel: int|None},
+&#x27;record&#x27;: &lt;provenance stub&gt;}`.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_calibration_py__record_stub.html"><code>record_stub</code></a> <span class="dim">Optimization/simconfig/calibration.py</span></li><li><a href="nOptimization_simconfig_calibration_py__resolve_constant.html"><code>resolve_constant</code></a> <span class="dim">Optimization/simconfig/calibration.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_calibration_py__resolve_constants">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/calibration.py#:~:text=def%20resolve_constants">Source ↗</a></p>
+</article>
+</main>
+</body></html>

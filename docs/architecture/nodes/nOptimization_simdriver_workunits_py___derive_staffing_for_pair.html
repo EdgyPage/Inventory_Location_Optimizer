@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_derive_staffing_for_pair · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___derive_staffing_for_pair" data-id="Optimization/simdriver/workunits.py::_derive_staffing_for_pair">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_derive_staffing_for_pair</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_derive_staffing_for_pair</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge fanout">high fan-out</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pair_dir: str, log: logging.Logger, workers: int=1) -&gt; tuple</code></pre>
+<section class="doc">Run the calibrated era&#x27;s staffing derivation for ONE inventory pair.
+
+Returns `(channel_runs, derived, calibration)`: the channel-runs with their batch
+fractions REPLACED by the derived batch content (a store-only pair also gets
+`shared[&#x27;batch_cfg&#x27;]` replaced, since that is the plan its workers read), the derived
+block (`staffing.derive`), and the resolved calibration constants with the two stamps.
+
+Two stages, because the script is derived from the pickers and the crews from the
+script (`Optimization/simconfig/staffing.py`):
+
+  A. per channel, from the CATALOGUE: the analytic pick seconds per unit, `s_pick`
+     resolved against the calibration record (a typed override, a measured value, or
+     analytic x travel share), the daily demand the declared pickers buy at it, and the
+     batch content that delivers it;
+  B. per channel, from the SCRIPT: precompute the batches under the derived content
+     (the same call `_prepare_channel_run` makes, so the cache is warm for it), read
+     them back, total the demand, the implied reorders&#x27; packs and their exact unload
+     seconds, resolve `s_put` against the script&#x27;s analytic put seconds, then size the
+     two site crews.
+
+The pricing config of a channel is its FIRST config (`store` / `ful_calibrated`): the
+reference run measures `s_pick` on that leaf, and the analytic prediction is priced
+with the same coefficients so the ratio is a travel share and not a config difference.
+Warnings, never failures: a stale record, a declared crew above `k_max`, a saturated
+batch (the crew asks for more lines than the catalogue has SKUs), an unpriced seed.</section>
+<section class="rel"><h2>Callees <span class="count">(21)</span></h2><ul><li><a href="nOptimization_config_sim_config_py___config_name.html"><code>_config_name</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_config_sim_config_py__channel_pickers.html"><code>channel_pickers</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_config_sim_config_py__crew_cost_spec.html"><code>crew_cost_spec</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_config_sim_config_py__staffing_spec.html"><code>staffing_spec</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_config_sim_config_py__work_day_spec.html"><code>work_day_spec</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_simconfig_calibration_py__load_record.html"><code>load_record</code></a> <span class="dim">Optimization/simconfig/calibration.py</span></li><li><a href="nOptimization_simconfig_calibration_py__resolve_constant.html"><code>resolve_constant</code></a> <span class="dim">Optimization/simconfig/calibration.py</span></li><li><a href="nOptimization_simconfig_calibration_py__resolve_constants.html"><code>resolve_constants</code></a> <span class="dim">Optimization/simconfig/calibration.py</span></li><li><a href="nOptimization_simconfig_calibration_py__staleness.html"><code>staleness</code></a> <span class="dim">Optimization/simconfig/calibration.py</span></li><li><a href="nOptimization_simconfig_staffing_py__analytic_pick.html"><code>analytic_pick</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__batch_content.html"><code>batch_content</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__daily_demand.html"><code>daily_demand</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__derive.html"><code>derive</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__implied_reorders.html"><code>implied_reorders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__pick_capacity.html"><code>pick_capacity</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__regime_orders.html"><code>regime_orders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__script_totals.html"><code>script_totals</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simdriver_batch_precompute_py__ensure_batches.html"><code>ensure_batches</code></a> <span class="dim">Optimization/simdriver/batch_precompute.py</span></li><li><a href="nOptimization_simdriver_batch_precompute_py__load_batches.html"><code>load_batches</code></a> <span class="dim">Optimization/simdriver/batch_precompute.py</span></li><li><a href="nOptimization_simdriver_workunits_py___channel_batch_plan.html"><code>_channel_batch_plan</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___worker_inventory_args.html"><code>_worker_inventory_args</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___build_work_units.html"><code>_build_work_units</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___derive_staffing_for_pair">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_derive_staffing_for_pair">Source ↗</a></p>
+</article>
+</main>
+</body></html>

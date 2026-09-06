@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_worker_inventory_args · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___worker_inventory_args" data-id="Optimization/simdriver/workunits.py::_worker_inventory_args">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_worker_inventory_args</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_worker_inventory_args</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+
+<pre class="sig"><code>def _worker_inventory_args(shared: dict) -&gt; tuple</code></pre>
+<section class="doc">(inv_db, sku_allowlist, max_skus) exactly as the workers load inventory.
+
+Workers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier stock plans)
+when available so they reproduce the placement the warehouse was sized for; the
+allowlist and the limit then already live in that DB.  ONE helper, because the batch
+precompute&#x27;s fingerprint is over exactly these inputs: the derivation&#x27;s precompute and
+`_prepare_channel_run`&#x27;s must load the same candidates or they compute two scripts.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___worker_inventory_args">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_worker_inventory_args">Source ↗</a></p>
+</article>
+</main>
+</body></html>

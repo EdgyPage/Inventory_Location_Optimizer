@@ -200,21 +200,48 @@ def test_the_put_crews_speed_comes_from_its_mode():
 
 
 def test_switching_the_put_mode_switches_the_speed():
+    """The mode is read from CONFIG at call time (the `put_crew_spec` trap is closed): a
+    flag or a restore writes `put_crew_mode`, and the speed table follows it."""
     import Optimization.config.settings as st
-    was = st.PUT_CREW_MODE
+    g = sim_config.CONFIG['global']
+    was = g.get('put_crew_mode')
     try:
-        st.PUT_CREW_MODE = 'machine'
+        g['put_crew_mode'] = 'machine'
         s = sim_config.put_crew_spec()
         assert (s['mode'], s['x_speed'], s['y_speed']) == (
             'machine', st.PUT_MACHINE_X, st.PUT_MACHINE_Y)
     finally:
-        st.PUT_CREW_MODE = was
+        g['put_crew_mode'] = was
 
 
 def test_the_crew_size_setting_is_actually_read():
     """It was declared and unread — a setting nothing consumes is a lie about what is
-    configurable."""
-    assert sim_config.put_crew_spec()['size'] == settings.PUT_CREW_SIZE
+    configurable.  It is now the DEFAULT of the `put_crew_size` CONFIG key, which is what
+    the accessor reads (and what `--put-crew-size` writes)."""
+    import inspect
+    assert "'put_crew_size'       : _s.PUT_CREW_SIZE," in inspect.getsource(sim_config), (
+        'the CONFIG key is not seeded from the setting')
+    g = sim_config.CONFIG['global']
+    was = g.get('put_crew_size')          # another test's restore may have left None here
+    try:
+        g['put_crew_size'] = settings.PUT_CREW_SIZE
+        assert sim_config.put_crew_spec()['size'] == settings.PUT_CREW_SIZE
+    finally:
+        g['put_crew_size'] = was
+
+
+def test_the_put_crew_accessor_reads_config_not_the_module():
+    """THE trap every other accessor's docstring warned about, now closed here too: with no
+    CONFIG key a CLI flag writing CONFIG was accepted and ignored forever, and a standalone
+    re-analysis sized against this checkout's settings instead of the run's own."""
+    g = sim_config.CONFIG['global']
+    was = g.get('put_crew_size')
+    try:
+        g['put_crew_size'] = 3
+        assert sim_config.put_crew_spec()['size'] == 3
+        assert sim_config.put_crew_spec(size=7)['size'] == 7, 'the derived size wins'
+    finally:
+        g['put_crew_size'] = was
 
 
 def test_the_runner_builds_the_put_crew_from_the_payload_not_the_pick_config():
@@ -229,7 +256,7 @@ def test_the_runner_builds_the_put_crew_from_the_payload_not_the_pick_config():
 def test_the_worker_payload_carries_the_put_crew():
     import inspect
     import Optimization.simdriver.workunits as wu
-    assert 'put_crew            = put_crew_spec()' in inspect.getsource(wu)
+    assert 'put_crew            = put_crew_spec(size=_put_size)' in inspect.getsource(wu)
 
 
 # -- put_queues_spec: the third sibling, which had no test at all ------------------

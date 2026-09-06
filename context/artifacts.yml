@@ -69,10 +69,13 @@ artifacts:
       - {function: _load_run_spec, file: Optimization/runschema/sim_manifest.py}
       - {function: main, file: docs/experiments/ingest.py}
     match: "run_spec.json"
+    # `staffing` is `{inputs, provenance, era}` at write time; under the calibrated era
+    # (`shift_drain_or_cap`) `workunits._record_derived` adds `derived`/`calibration`, keyed
+    # per inventory pair, once batch precompute has run for that pair.
     fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
              ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, spec, profiles_dir,
              all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs,
-             repo_commit, repo_dirty]
+             repo_commit, repo_dirty, staffing]
 
   run_layout:
     # The unified cell-tree descriptor (cells/reference/configs/pairs), written at run start so any
@@ -172,7 +175,7 @@ artifacts:
     # table and load_bin_inventory still reads them.
     tables: [simulation_runs, batch_stats, task_stats, picker_events, picks,
              aisle_metrics, reorder_queue, bin_scores, sku_scores,
-             bin_placement, bin_eviction]
+             bin_placement, bin_eviction, shift_days]
 
   keyframes_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>[/<channel>]/sim_<strategy>.keyframes.db"

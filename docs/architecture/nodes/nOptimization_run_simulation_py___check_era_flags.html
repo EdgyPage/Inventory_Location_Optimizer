@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_check_era_flags · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_simulation_py___check_era_flags" data-id="Optimization/run_simulation.py::_check_era_flags">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a> <span class="sep">›</span> <span class="here"><code>_check_era_flags</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_check_era_flags</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a></p>
+
+<pre class="sig"><code>def _check_era_flags(args, explicit: set) -&gt; list[str]</code></pre>
+<section class="doc">Enforce and complete the calibrated era&#x27;s regime on the parsed args.
+
+Under `--shift-drain-or-cap` (&quot;.scratch/department-calibration&quot;, &quot;Define the calibrated
+era&quot;):
+  * the legacy crew flags (`_ERA_DERIVED_FLAGS`) typed explicitly are an ERROR -- the
+    put and receiving crews are derived from the pickers, never declared;
+  * `--put-queue-split` is an error -- single queue only for this map; per-stream sizing
+    is the out-of-scope swept-axis effort;
+  * the cadence is pinned at ONE release per day: an unset `--releases-per-day` is
+    completed to 1 (with a note), an explicit other value is an error, because the
+    derivation makes one batch one day&#x27;s demand;
+  * the roll-over and the cut are completed to on (with a note): a day that reads
+    &quot;drained&quot; because cut demand was dropped is not equilibrium, and the worker forces
+    the cut anyway -- the record should say what ran.
+Raises `SystemExit` with the reason; returns the completion notes otherwise.
+Module-level so a test can hand it a Namespace.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_simulation_py___check_era_flags">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py#:~:text=def%20_check_era_flags">Source ↗</a></p>
+</article>
+</main>
+</body></html>

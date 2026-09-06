@@ -15,15 +15,17 @@
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
 
 <pre class="sig"><code>def _check_declared_crew(args: dict, k_pickers: int) -&gt; None</code></pre>
-<section class="doc">Refuse a payload whose sized crew is not its declared crew.
+<section class="doc">Refuse a payload whose sized crews are not its declared (or derived) crews.
 
 `k_pickers` is the count the worker sizes its pick crew from; `args[&#x27;staffing&#x27;]` is the
-staffing record&#x27;s INPUTS (`{store_pickers, ff_pickers}`, `sim_config.staffing_spec`),
-keyed here by the worker&#x27;s channel.  Both were read from the same CONFIG key in the
-parent, so they can only disagree when a caller assembled the payload by hand -- and that
-caller would otherwise run a whole arm under a count its run spec never declared.  An
-absent record (a bench harness, a test predating it) is nothing to check against.
-Module-level so a unit test can hand it a payload without running an arm.</section>
+staffing record -- its INPUTS (`sim_config.staffing_spec`), keyed here by the worker&#x27;s
+channel, plus under the calibrated era the pair&#x27;s `derived` block, whose put and
+receiving crews the payload&#x27;s `put_crew` / `recv_crew` records must match.  Every one of
+these was read or derived in the parent from the same source, so they can only disagree
+when a caller assembled the payload by hand -- and that caller would otherwise run a
+whole arm under a crew its run spec never declared.  An absent record (a bench harness,
+a test predating it) is nothing to check against.  Module-level so a unit test can hand
+it a payload without running an arm.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___check_declared_crew">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_check_declared_crew">Source ↗</a></p>
 </article>

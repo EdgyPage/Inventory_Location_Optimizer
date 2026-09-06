@@ -348,6 +348,10 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     g['releases_per_day'] = spec.get('releases_per_day')
     g['cut_at_day_end']   = bool(spec.get('cut_at_day_end'))
     g['roll_over_unpicked'] = bool(spec.get('roll_over_unpicked'))
+    # The calibrated era.  A pre-field spec predates the flag, so its absence means the
+    # continuous, flag-off regime -- never this checkout's setting.  Restoring it is what
+    # lets `era_on()` in this process agree with the run.
+    g['shift_drain_or_cap'] = bool(spec.get('shift_drain_or_cap'))
     # The receiving crew, unconditionally.  A pre-field spec yields None/0, which correctly
     # means "that run had no receiving crew" -- never this checkout's setting, which would
     # make a re-analysis size a dock the run never had.
@@ -364,6 +368,9 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     g['put_pallet_staging'] = spec.get('put_pallet_staging')
     g['put_ff_staging']     = spec.get('put_ff_staging')
     g['put_swap_coef']      = spec.get('put_swap_coef') or 0.0
+    # The declared put crew size (flag-off only; derived under the era).  A pre-field spec
+    # yields None, which `put_crew_spec()` resolves to the one walker every such run had.
+    g['put_crew_size']      = spec.get('put_crew_size')
     # The other crews' price.  A pre-field spec yields None, which `crew_cost_spec()`
     # resolves to the kernel default -- the honest reading of "no scale was declared" (that
     # run's literal put price is not reproducible by any scale).  Explicit `.get`, never
@@ -375,8 +382,9 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     # pre-record spec yields None for every key, which `channel_pickers()` resolves to the
     # leaf default -- the crew that run actually fielded, since the constant it compiled in
     # is the constant the default still is -- never this checkout's CONFIG, which a flag in
-    # this process could have moved.  The block itself is kept verbatim (provenance and, once
-    # the derivation lands, the derived crews) for the sim_result stamp below.
+    # this process could have moved; the scalars resolve a None to their settings default
+    # the same way.  The block itself is kept verbatim (provenance, the derived crews, the
+    # calibration constants and stamps) for the sim_result stamp below.
     global _RUN_STAFFING
     _RUN_STAFFING = spec.get('staffing')
     _staffing_inputs = (_RUN_STAFFING or {}).get('inputs') or {}

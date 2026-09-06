@@ -61,7 +61,9 @@ def test_the_defaults_are_the_leaf_constants():
     live below sim_config and may not import it back."""
     assert _s.STORE_PICKERS is _STORE_PICKERS
     assert _s.FF_PICKERS is _FF_PICKERS
-    assert STAFFING_KEYS == ('store_pickers', 'ff_pickers')
+    # The pickers lead the list; the derivation build spliced the era's scalars, the put
+    # crew's mode and the three calibration overrides in behind them (test_era_wiring).
+    assert STAFFING_KEYS[:2] == ('store_pickers', 'ff_pickers')
 
 
 def test_settings_names_the_flag_beside_each_knob():
@@ -99,7 +101,7 @@ def test_the_accessor_reads_config_and_not_the_module(restore):
     assert channel_pickers('store') == 7
     assert channel_pickers('fulfillment') == 5
     assert k_pickers() == 7
-    assert staffing_spec() == {'store_pickers': 7, 'ff_pickers': 5}
+    assert {k: staffing_spec()[k] for k in _DEFAULTS} == {'store_pickers': 7, 'ff_pickers': 5}
 
     src = inspect.getsource(channel_pickers) + inspect.getsource(staffing_spec)
     assert '_s.' not in src, (
@@ -110,7 +112,7 @@ def test_a_pre_record_none_resolves_to_the_leaf_default(restore):
     """`_apply_run_shape` restores None for a run that predates the record. That run
     fielded the compile-time constant of its day, which is what the constant still is."""
     restore.update(store_pickers=None, ff_pickers=None)
-    assert staffing_spec() == _DEFAULTS
+    assert {k: staffing_spec()[k] for k in _DEFAULTS} == _DEFAULTS
 
 
 @pytest.mark.parametrize('bad', [0, -3])
@@ -236,7 +238,7 @@ def test_a_standalone_reanalysis_restores_the_inputs(tmp_path, restore):
     from Optimization.runschema.sim_manifest import _write_run_spec
     _write_run_spec(str(tmp_path), {'n_batches': 3, **_nested_spec()})
     run_analysis._apply_run_shape(str(tmp_path), logging.getLogger('t'))
-    assert staffing_spec() == {'store_pickers': 7, 'ff_pickers': 5}
+    assert {k: staffing_spec()[k] for k in _DEFAULTS} == {'store_pickers': 7, 'ff_pickers': 5}
     assert run_analysis._RUN_STAFFING == _nested_spec()['staffing']
 
 
@@ -247,7 +249,7 @@ def test_a_pre_record_run_reanalyses_at_the_leaf_defaults(tmp_path, restore):
     restore.update(store_pickers=99, ff_pickers=98)          # "this checkout", perturbed
     _write_run_spec(str(tmp_path), {'n_batches': 3})
     run_analysis._apply_run_shape(str(tmp_path), logging.getLogger('t'))
-    assert staffing_spec() == _DEFAULTS
+    assert {k: staffing_spec()[k] for k in _DEFAULTS} == _DEFAULTS
     assert run_analysis._RUN_STAFFING is None
 
 
@@ -256,8 +258,11 @@ def test_a_pre_record_run_reanalyses_at_the_leaf_defaults(tmp_path, restore):
 def test_the_record_reaches_the_worker_payload():
     from Optimization.simdriver import workunits
     src = inspect.getsource(workunits)
-    assert 'staffing            = staffing_spec(),' in src, (
+    assert 'staffing            = _staffing_payload,' in src, (
         'the worker payload does not carry the staffing record')
+    # Flag-off the payload IS the inputs dict; under the era it is {inputs, derived,
+    # calibration} for the pair (test_era_wiring covers that shape).
+    assert "_staffing_payload = ({'inputs': staffing_spec(), **_st} if _st else staffing_spec())" in src
     assert 'k_pickers           = ch.picker.num_pickers,' in src, (
         'the count the worker sizes its crew from no longer rides the payload')
 
@@ -328,8 +333,8 @@ def test_a_pre_record_stamp_is_a_reconstruction_marked_assumed(restore, monkeypa
     monkeypatch.setattr(run_analysis, '_RUN_STAFFING', None)
     restore.update(store_pickers=None, ff_pickers=None)
     sr = run_analysis._sim_result_from_meta({'name': 'n', 'run_dir': 'x', 'strategies': []})
-    assert sr['staffing'] == {'inputs': _DEFAULTS,
-                              'provenance': {k: 'assumed' for k in STAFFING_KEYS}}
+    assert {k: sr['staffing']['inputs'][k] for k in _DEFAULTS} == _DEFAULTS
+    assert sr['staffing']['provenance'] == {k: 'assumed' for k in STAFFING_KEYS}
     assert sr['channel'] == 'store', 'a pre-channel meta is a store-only run'
 
 

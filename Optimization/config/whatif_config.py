@@ -82,16 +82,35 @@ PHASE2_LEAD_SPREAD = 0.7
 PHASE2_DOCK_DOORS = 4
 PHASE2_FINITE_W = 5
 
-#: The RECEIVING regime phase 2 must run under, and the reason it is not in the inbound axis:
-#: `recv_crew_size` / `recv_day_seconds` are `CONFIG['global']` knobs with no cell axis, so they
-#: ride the COMMAND LINE.  They are nonetheless the whole experimental condition -- the pilot's
-#: first attempt used a physically plausible dock (2 receivers, an 8-hour day) and starved the
-#: warehouse to a 49.6% missed share, because the crew is granted one day-REMAINDER per BATCH
-#: while a store batch spans 19 working days.  Effective capacity is crew x day / 2 per batch;
-#: size it against the BATCH, never against a shift.  Both are recorded in the run spec, so a
-#: run stays re-analysable, but a phase-2 launch that forgets them is not the pilot's regime.
+#: THE PILOT'S RECEIVING REGIME, kept as a RECORD of what the gate ran under and NOT a
+#: recommendation.  `recv_crew_size` / `recv_day_seconds` are `CONFIG['global']` knobs with no
+#: cell axis, so they rode the COMMAND LINE.  The pilot's first attempt used a physically
+#: plausible dock (2 receivers, an 8-hour day) and starved the warehouse to a 49.6% missed share,
+#: and this pair (4 receivers, a 12-hour day) was the size that made the yard bind -- because the
+#: crew was granted one day-REMAINDER per BATCH while a store batch spanned 19 working days.  That
+#: is the DENOMINATION INVARIANT violated (.scratch/department-calibration, charter): a
+#: department's capacity must be denominated against the DAY the work arrives in, never against
+#: a batch, and a per-batch grant drifts silently whenever a batch outlives a day.  Under the
+#: calibrated era (`--shift-drain-or-cap`) the dock inherits the SITE's day, the receiving crew is
+#: DERIVED from the pickers' daily demand, and passing either of these two flags explicitly is an
+#: ERROR ("Design the staffing record", decision 4).  Flag-off they still work verbatim.  The
+#: `inbound_pilot` spec's era-shaped successor is inbound ticket 23's work.
 PHASE2_RECV_CREW_SIZE = 4
 PHASE2_RECV_DAY_SECONDS = 43200.0
+
+#: THE CALIBRATED ERA as run-level defaults (.scratch/department-calibration, "Define the
+#: calibrated era"): one site-wide drain-or-cap shift, one release per day, the cut and the
+#: roll-over on.  A spec that names this under `run_defaults` runs under the era unless a flag
+#: on the command line says otherwise (an explicit flag wins, with a note); the crews are then
+#: DERIVED from the pickers (Optimization/simconfig/staffing.py) and the legacy crew flags are
+#: an error.  Every campaign spec below carries it: the funnel holds until the era exists
+#: ("Sequence the inbound funnel"), so a funnel launch without it is not the funnel.
+ERA_RUN_DEFAULTS = {
+    'shift_drain_or_cap': True,
+    'releases_per_day': 1,
+    'roll_over_unpicked': True,
+    'cut_at_day_end': True,
+}
 
 #: H as MULTIPLES of the calibrated threshold, never absolute days — a horizon authored
 #: independently of the threshold drifts out of meaning the moment the threshold is calibrated.
@@ -172,6 +191,7 @@ SPECS = {
     'inbound_select': {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
         'schedulers': ['lpt'], 'arms': 'all', 'reference': 'k1_off',
+        'run_defaults': ERA_RUN_DEFAULTS,
     },
     # ── the funnel, phase 2: ten inbound policies over phase 1's chosen rules ────────
     # `arms` is PHASE2_ARMS: None until the selection artifact is read, and refused rather
@@ -182,6 +202,7 @@ SPECS = {
         'schedulers': ['lpt'], 'arms': PHASE2_ARMS,
         'inbound': phase2_inbound_axis(),
         'reference': 'k1_off_fifo',
+        'run_defaults': ERA_RUN_DEFAULTS,
     },
     # ── the funnel's PILOT GATE: one throwaway cell that decides whether the campaign runs ──
     # Deliberately NOT a phase-2 cell — the arm set is not known until phase 1 ends, so reuse
@@ -190,8 +211,11 @@ SPECS = {
     # window; no pilot number is ever published.
     #
     # The inbound knobs ride the COMMAND LINE rather than an inbound axis, because the gate is
-    # one arrival regime, not a sweep — and the receiving crew and its day, which are what
-    # actually decide whether the yard binds, are run-level knobs with no cell axis at all.
+    # one arrival regime, not a sweep.  The receiving crew and its day, which are what actually
+    # decide whether the yard binds, are DERIVED under the era (`run_defaults`): the pilot's
+    # committed regime (PHASE2_RECV_CREW_SIZE / PHASE2_RECV_DAY_SECONDS) is an error there, and
+    # the gate becomes a one-cell inbound-on VERIFICATION read through the equilibrium report,
+    # not a search ("Sequence the inbound funnel").  Its era-shaped form is inbound ticket 23's.
     # The scheduler is pinned to `lpt` to match phase 2: the scheduler moves batch DURATION,
     # and batch duration is what decides how many leads elapse before the next drain observes
     # them, so a pilot on the retired scheduler would calibrate a different arrival regime.
@@ -201,6 +225,19 @@ SPECS = {
     'inbound_pilot': {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
         'schedulers': ['lpt'], 'arms': ('fifo', 'tmin'), 'reference': 'k1_off',
+        'run_defaults': ERA_RUN_DEFAULTS,
+    },
+    # ── THE REFERENCE RUN of the calibrated era ("Choose the calibration procedure") ──────
+    # One cell, `fifo` only, scheduler pinned to `lpt` as the pilot did, both channels (the
+    # crews are site totals), minimal mechanics: no trailers, no standing yard, the legacy
+    # batch-denominated restock path, receiving crew on at its DERIVED size.  Its product is
+    # the calibration record -- the measured seconds per unit picked and put that every era
+    # run after it prices its derivation with.  40 days with days 20-39 measured is the
+    # depth the procedure names; `--n-batches 40` is the launch, since one batch is one day.
+    'calibration_reference': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'arms': ('fifo',), 'reference': 'k1_off',
+        'run_defaults': ERA_RUN_DEFAULTS,
     },
     # Schema-preflight canary: the SMALLEST spec that still produces a MULTI-cell tree (so the
     # cell level, `_frozen/`, and the cross-cell what-if outputs all appear).  Two cells x one

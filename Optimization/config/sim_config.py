@@ -239,6 +239,26 @@ CONFIG = {
         # spliced list every seam iterates.
         'store_pickers'       : _s.STORE_PICKERS,
         'ff_pickers'          : _s.FF_PICKERS,
+        # The era's declared scalars (settings, "the calibrated era's declared scalars")
+        # and the put crew's MODE -- staffing INPUTS, on STAFFING_KEYS with the pickers.
+        'rho_pick'            : _s.RHO_PICK,
+        'rho_put'             : _s.RHO_PUT,
+        'rho_recv'            : _s.RHO_RECV,
+        'f_put'               : _s.F_PUT,
+        'f_recv'              : _s.F_RECV,
+        'band_tol'            : _s.BAND_TOL,
+        'put_crew_mode'       : _s.PUT_CREW_MODE,
+        # The calibration constants' overrides (None = the committed record) -- the
+        # CALIBRATION_KEYS, also staffing inputs: typed, they are `declared`; untyped,
+        # the resolved constant carries the record's own provenance.
+        's_pick_store'        : _s.S_PICK_STORE,
+        's_pick_ff'           : _s.S_PICK_FF,
+        's_put'               : _s.S_PUT,
+        'calibration_record'  : _s.CALIBRATION_RECORD,
+        # The put crew's SIZE: flag-off only.  The `put_crew_spec` trap is closed -- the
+        # accessor reads THIS key, so `--put-crew-size` reaches a worker -- and under the
+        # era the size is derived and an explicit flag raises (run_simulation).
+        'put_crew_size'       : _s.PUT_CREW_SIZE,
     },
     'channels': {
         'store': {
@@ -330,10 +350,29 @@ def n_batches() -> int:
 #: SHAPE in one place, on the `INBOUND_KEYS` precedent: the CLI flags, the run-spec record and
 #: BOTH restore sites iterate this list rather than retyping the keys, so a new staffing input
 #: cannot be recorded and then not restored.  Order is the order the flags are emitted in.
-#: Today the two picker counts; the derivation ticket adds the utilization / replenishment
-#: scalars and the put crew mode beside them (.scratch/department-calibration, "Design the
-#: staffing record").
-STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers')
+#: The two picker counts, the utilization / replenishment scalars, the band tolerance, the
+#: put crew's mode, and the three calibration overrides (.scratch/department-calibration,
+#: "Design the staffing record", decision 2).  Derived values are NEVER on this list: the
+#: derivation's outputs live in the run spec's `staffing.derived` block and cannot be set
+#: from the command line.
+STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
+                                  'rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv',
+                                  'band_tol', 'put_crew_mode',
+                                  's_pick_store', 's_pick_ff', 's_put')
+
+#: The subset of STAFFING_KEYS that override a calibration constant.  None = "take the
+#: committed record", which is why `staffing_spec()` does NOT default them from settings:
+#: an absent override is meaningful, and `calibration.resolve_constants` reads it as such.
+CALIBRATION_KEYS: tuple[str, ...] = ('s_pick_store', 's_pick_ff', 's_put')
+
+#: The scalar inputs' settings defaults, for a None restored from a pre-record run spec
+#: (`run_analysis._apply_run_shape` writes None for every absent key): that run ran under
+#: the defaults of its day, which is what these still are.
+_SCALAR_DEFAULTS: dict = {
+    'rho_pick': _s.RHO_PICK, 'rho_put': _s.RHO_PUT, 'rho_recv': _s.RHO_RECV,
+    'f_put': _s.F_PUT, 'f_recv': _s.F_RECV, 'band_tol': _s.BAND_TOL,
+    'put_crew_mode': _s.PUT_CREW_MODE,
+}
 
 #: Which global key each channel's pick crew is sized from.  A module-level table rather than
 #: a key in the channel dict, so the channel dicts stay "settings references + structure" and
@@ -344,8 +383,8 @@ _PICKERS_KEY: dict[str, str] = {'store': 'store_pickers', 'fulfillment': 'ff_pic
 def channel_pickers(name: str) -> int:
     """The declared picker count of channel `name`, read from CONFIG at CALL time.
 
-    The `recv_crew_spec` pattern, never `put_crew_spec`'s: a flag writes CONFIG, a resume
-    and a re-analysis restore into CONFIG, so CONFIG is the only place this may be read from.
+    The `recv_crew_spec` pattern: a flag writes CONFIG, a resume and a re-analysis restore
+    into CONFIG, so CONFIG is the only place this may be read from.
     A None (a pre-record run spec restored by `run_analysis._apply_run_shape`) resolves to the
     leaf default -- that run fielded the compile-time constant of its day, which is what the
     constant still is.  An unknown channel is a KeyError, deliberately: a third channel needs
@@ -362,15 +401,39 @@ def channel_pickers(name: str) -> int:
 
 
 def staffing_spec() -> dict:
-    """The staffing record's INPUTS as a picklable dict: `{store_pickers, ff_pickers}`.
+    """The staffing record's INPUTS as a picklable dict, one entry per STAFFING_KEYS key.
 
     Inputs ONLY -- the derived block (batch content, put crew, receiving crew, expected
-    throughput) is a pure module the derivation ticket adds, run after batch precompute, and
-    is never a CONFIG key.  Read from CONFIG at call time for the reason every accessor in
-    this file is, and carried in `workunits._shared` so a spawned worker can check that the
-    crew it was handed is the crew the record declares.
+    utilization) is the pure module `Optimization/simconfig/staffing.py`, run by
+    `workunits._derive_staffing_for_pair` after batch precompute, and is never a CONFIG key.
+    Read from CONFIG at call time for the reason every accessor in this file is, and carried
+    in `workunits._shared` so a spawned worker can check that the crews it was handed are
+    the crews the record declares.
+
+    The pickers resolve through `channel_pickers` (a None is the leaf default); the scalars
+    resolve a None to their settings default (`_SCALAR_DEFAULTS`); the CALIBRATION_KEYS keep
+    None, because "no override" is a value the calibration loader reads.
     """
-    return {k: channel_pickers(ch) for ch, k in _PICKERS_KEY.items()}
+    g = CONFIG['global']
+    out = {k: channel_pickers(ch) for ch, k in _PICKERS_KEY.items()}
+    for k, default in _SCALAR_DEFAULTS.items():
+        v = g.get(k)
+        out[k] = default if v is None else v
+    for k in CALIBRATION_KEYS:
+        v = g.get(k)
+        out[k] = None if v is None else float(v)
+    return out
+
+
+def era_on() -> bool:
+    """Whether this run is under the calibrated era: the drain-or-cap shift is on.
+
+    ONE predicate for "derive the crews, refuse the legacy crew flags, price the script from
+    the calibration record", read from CONFIG at call time.  The same key `work_day_spec()`
+    carries to the worker as `drain_or_cap`, so the parent and the worker cannot disagree
+    about which regime a run is in.
+    """
+    return bool(CONFIG['global'].get('shift_drain_or_cap'))
 
 
 def k_pickers() -> int:
@@ -416,8 +479,13 @@ def work_day_spec() -> dict:
     }
 
 
-def recv_crew_spec() -> dict | None:
+def recv_crew_spec(size: int | None = None) -> dict | None:
     """The receiving crew as a picklable record, or **None** when there is no crew.
+
+    `size` is the DERIVED crew under the calibrated era (`staffing.derive`), handed in by
+    the caller that holds the derived block; None reads the declared `recv_crew_size` key,
+    which is every flag-off run.  Derived values are never CONFIG keys, so the derivation
+    cannot leak into a flag-off run by leaving a key behind.
 
     None rather than an empty dict, and that distinction is the feature's off-switch. The
     worker tests `args.get('recv_crew') is None` and skips its whole receive block: no Crew,
@@ -425,11 +493,12 @@ def recv_crew_spec() -> dict | None:
     constructed" rather than "an empty thing exists" -- which matters because an empty dock
     would still be an object something could fold into a clock or a snapshot.
 
-    COPIED FROM `work_day_spec`, NOT FROM `put_crew_spec`. That one reads `_s.PUT_CREW_SIZE`
-    directly and there is no `CONFIG['global']['put_crew_*']` key at all -- so a CLI flag,
-    which writes CONFIG, would be accepted and ignored forever, and a standalone re-analysis
-    would size against this checkout's `settings.py` instead of the run's own. Reading CONFIG
-    at CALL time is what makes the other three seams reachable.
+    COPIED FROM `work_day_spec`, NOT FROM the `put_crew_spec` of its day. That one read
+    `_s.PUT_CREW_SIZE` directly with no `CONFIG['global']['put_crew_*']` key at all -- so a
+    CLI flag, which writes CONFIG, would have been accepted and ignored forever, and a
+    standalone re-analysis would have sized against this checkout's `settings.py` instead
+    of the run's own. Reading CONFIG at CALL time is what makes the other three seams
+    reachable.  (`put_crew_spec` has since been fixed the same way.)
 
     `day_seconds` is resolved with an explicit `is not None`, never `or`: `--recv-day-seconds
     0` means "the crew has no day today", and `or` would silently turn that into "no whistle
@@ -442,7 +511,7 @@ def recv_crew_spec() -> dict | None:
     `Crew` can be built and its rows labelled.
     """
     g = CONFIG['global']
-    size = int(g.get('recv_crew_size') or 0)
+    size = int(g.get('recv_crew_size') or 0) if size is None else int(size)
     if size < 1:
         return None
     day = g.get('recv_day_seconds')
@@ -623,10 +692,10 @@ def put_queues_spec() -> dict | None:
     entirely, so the no-op is "the manager keeps the `single_queue()` it built in
     `__init__`" rather than "something reconstructed the default".
 
-    Reads CONFIG at CALL time. Copying `put_crew_spec` below would have been the natural
-    move and is a trap: it reads `_s.PUT_CREW_SIZE` directly, there is no
+    Reads CONFIG at CALL time. Copying the `put_crew_spec` of its day would have been the
+    natural move and was a trap: it read `_s.PUT_CREW_SIZE` directly, there was no
     `CONFIG['global']['put_crew_*']` key at all, and a CLI flag writing CONFIG would
-    therefore be accepted and ignored forever.
+    therefore have been accepted and ignored forever.  (Since fixed.)
 
     THE CREW SIZES ARE NOT A DETAIL. Each queue gets its own crew and its own clock, so
     three queues of size 1 is three putters where the default is one -- roughly 3x the
@@ -656,21 +725,39 @@ def put_queues_spec() -> dict | None:
     }
 
 
-def put_crew_spec() -> dict:
+def put_crew_spec(size: int | None = None) -> dict:
     """The put crew as a picklable record: `{size, mode, x_speed, y_speed}`.
 
-    Read at call time like every other tunable, and handed to the worker in its payload
-    rather than re-imported there -- a spawned worker re-imports this module and would get
-    pristine defaults.
+    Reads CONFIG at CALL time -- `put_crew_size` / `put_crew_mode` -- like every other
+    accessor in this file.  It used to read `_s.PUT_CREW_SIZE` / `_s.PUT_CREW_MODE`
+    directly with no CONFIG key at all, which was THE trap the other accessors' docstrings
+    warn about: a flag writing CONFIG would have been accepted and ignored forever, and a
+    standalone re-analysis would have sized against this checkout's settings instead of
+    the run's own.  Closed by "Design the staffing record", decision 7.
+
+    `size` is the DERIVED crew under the calibrated era (`staffing.derive`), handed in by
+    the caller that holds the derived block; None reads the declared key, which is every
+    flag-off run.  A None IN the key (a pre-field run spec restored by
+    `run_analysis._apply_run_shape`) resolves to the settings default -- the one walker
+    every such run fielded.
 
     The speed comes from the crew's MODE, which is the point of having a mode: a crew
     labelled `foot` costed at the store's machine speed would write rows whose mode and
-    duration contradict each other.
+    duration contradict each other.  The mode is a DECLARED staffing input (it rides
+    STAFFING_KEYS), so it is read through `staffing_spec()`'s resolution.
     """
-    mode = _s.PUT_CREW_MODE
+    g = CONFIG['global']
+    mode = g.get('put_crew_mode') or _s.PUT_CREW_MODE
+    if mode not in ('foot', 'machine'):
+        raise ValueError(f"put_crew_mode must be 'foot' or 'machine'; got {mode!r}")
     x, y = ((_s.PUT_MACHINE_X, _s.PUT_MACHINE_Y) if mode == 'machine'
             else (_s.PUT_FOOT_X, _s.PUT_FOOT_Y))
-    return {'size': _s.PUT_CREW_SIZE, 'mode': mode, 'x_speed': x, 'y_speed': y}
+    if size is None:
+        v = g.get('put_crew_size')
+        size = _s.PUT_CREW_SIZE if v is None else int(v)
+    if int(size) < 1:
+        raise ValueError(f'put crew size must be a positive count; got {size!r}')
+    return {'size': int(size), 'mode': mode, 'x_speed': x, 'y_speed': y}
 
 
 def crew_cost_spec() -> dict:
@@ -680,7 +767,7 @@ def crew_cost_spec() -> dict:
     Put-away and receiving keep picking's cost shape and coefficients by reference
     (`PutawayCost.from_pick`, `UnloadCost.from_putaway`); these three scalars are the only
     place their numbers may differ.  Read from CONFIG at CALL time -- never from `_s.`
-    directly, which is the trap `put_crew_spec` above still carries -- and handed to the
+    directly, which was the trap `put_crew_spec` above carried until the era build -- and handed to the
     worker in its payload (`workunits._shared['crew_cost']`), because a spawned worker
     re-imports this module and would get pristine defaults.
 

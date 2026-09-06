@@ -5,7 +5,7 @@ Owns the DDL and the load/save helpers for every database a run produces. If you
 
 | Module | Owns |
 |---|---|
-| `Picking_Data.py` | `sim_<arm>.db` — runs, batch/task stats, picker events, picks, the bin-mutation log (`bin_placement`/`bin_eviction`), the yard's raw stamps and per-drain levels (`yard_trailers`/`yard_drains`), keyframes, scores. Also the READER for the retired `bin_inventory`, kept so archived runs stay openable |
+| `Picking_Data.py` | `sim_<arm>.db` — runs, batch/task stats, picker events, picks, the bin-mutation log (`bin_placement`/`bin_eviction`), the yard's raw stamps and per-drain levels (`yard_trailers`/`yard_drains`), the drain-or-cap shift's per-day ledger (`shift_days`), keyframes, scores. Also the READER for the retired `bin_inventory`, kept so archived runs stay openable |
 | `Warehouse_Data.py` | `warehouse.db` — sizing stats and aisle layout |
 | `runtime_metrics.py` | `runtime_metrics.db` — per-arm compute cost; the only DB carrying a `cell` column |
 

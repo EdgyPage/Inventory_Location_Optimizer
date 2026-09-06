@@ -22,10 +22,10 @@ None: the worker tests `args.get(&#x27;put_queues&#x27;) is None` and skips the 
 entirely, so the no-op is &quot;the manager keeps the `single_queue()` it built in
 `__init__`&quot; rather than &quot;something reconstructed the default&quot;.
 
-Reads CONFIG at CALL time. Copying `put_crew_spec` below would have been the natural
-move and is a trap: it reads `_s.PUT_CREW_SIZE` directly, there is no
+Reads CONFIG at CALL time. Copying the `put_crew_spec` of its day would have been the
+natural move and was a trap: it read `_s.PUT_CREW_SIZE` directly, there was no
 `CONFIG[&#x27;global&#x27;][&#x27;put_crew_*&#x27;]` key at all, and a CLI flag writing CONFIG would
-therefore be accepted and ignored forever.
+therefore have been accepted and ignored forever.  (Since fixed.)
 
 THE CREW SIZES ARE NOT A DETAIL. Each queue gets its own crew and its own clock, so
 three queues of size 1 is three putters where the default is one -- roughly 3x the

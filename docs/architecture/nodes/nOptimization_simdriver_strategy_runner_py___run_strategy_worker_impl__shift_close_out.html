@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_shift_close_out · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl__shift_close_out" data-id="Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._shift_close_out">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_shift_close_out</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_shift_close_out</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _shift_close_out(day: int, standing: tuple, last_finish: float, cut: bool) -&gt; tuple</code></pre>
+<section class="doc">Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
+standing, standing_put, standing_dock, standing_carry, last_finish)`, and the log
+line.  A day DRAINED if nothing was cut in it and no standing work survives it (put
+queues + held + the dock floor + carried demand -- never the lead queue: transit is
+calendar, not labour; and releases are exhausted by construction at a day
+boundary).  The end instant is `timeline.shift_end`&#x27;s arithmetic; days stay
+origin-aligned, so this is a REPORT of when the crews got off the clock, never a
+scheduler.
+
+The state is PASSED IN, never read live: the close-out fires at the first batch of
+the NEXT day, after that batch has already been processed, so the manager&#x27;s live
+depths and the folded clocks belong to the new day by then.  The caller hands it
+the snapshot the previous day&#x27;s last batch left behind (`_shift_standing`) and the
+clocks and cut flag accumulated before this batch was folded in.  The log-only
+ledger read them live and mis-attributed every day&#x27;s first batch to the day before
+-- day 0&#x27;s `last_finish` read 2x its cap and the final day&#x27;s read 0.0, which
+persisting the row was what made visible.  Called once per day boundary, and once
+more after the loop for the final day, which has no next day to close it.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_timeline_py__shift_end.html"><code>shift_end</code></a> <span class="dim">Warehouse/kernel/timeline.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl__shift_close_out">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_shift_close_out">Source ↗</a></p>
+</article>
+</main>
+</body></html>

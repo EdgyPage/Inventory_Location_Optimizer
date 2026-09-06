@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>implied_reorders · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_staffing_py__implied_reorders" data-id="Optimization/simconfig/staffing.py::implied_reorders">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a> <span class="sep">›</span> <span class="here"><code>implied_reorders</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>implied_reorders</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *, f_put: float, f_recv: float, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float) -&gt; ScriptTotals</code></pre>
+<section class="doc">Stage B&#x27;s supply side: the put-away and receiving work the script implies.
+
+Steady state (f = 1.0) replenishes every unit picked, so each SKU&#x27;s expected reorders
+are `units demanded ÷ lot`, each lot packs into the storage units the sim&#x27;s own packer
+would produce (`Inbound.pack.receive` -&gt; `viable_storage_units`, honouring a
+`stock_plan`), and each pack costs
+
+    put-away   M(0) · (put_intercept + qty · put_per_item + qty · var)   (no travel)
+    receiving  recv_intercept + recv_per_item + qty · var                (EXACT)
+
+Fractional reorders are expectations and are kept fractional.  `f_put` scales the put
+load and `f_recv` the receiving load (&quot;units put per unit picked&quot; / packs received per
+pack demanded); at 1.0 both are the steady state, any other value models a growing or
+shrinking warehouse, which is exactly why they are knobs.  Mutates and returns `totals`.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_pack_py__receive.html"><code>receive</code></a> <span class="dim">Inbound/pack.py</span></li><li><a href="nInbound_unload_py__unload_cost.html"><code>unload_cost</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nOptimization_simconfig_staffing_py__reorder_lot.html"><code>reorder_lot</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__implied_reorders">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20implied_reorders">Source ↗</a></p>
+</article>
+</main>
+</body></html>

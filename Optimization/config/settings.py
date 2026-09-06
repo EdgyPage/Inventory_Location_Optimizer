@@ -194,7 +194,8 @@ INBOUND_UNLOAD_INTERCEPT = None
 INBOUND_UNLOAD_WEIGHT_COEF = None
 INBOUND_UNLOAD_VOLUME_COEF = None
 
-SHIFT_DRAIN_OR_CAP = False # the SHIFT: one site-wide working stretch that ends when no
+SHIFT_DRAIN_OR_CAP = False # THE CALIBRATED ERA (--shift-drain-or-cap).  One site-wide
+                           # working stretch that ends when no
                            # standing work remains and none is still scheduled to release,
                            # or at the cap, whichever comes FIRST.  The cap REUSES the day
                            # length (WORK_DAY_SECONDS, falling back to the reporting frame)
@@ -204,7 +205,10 @@ SHIFT_DRAIN_OR_CAP = False # the SHIFT: one site-wide working stretch that ends 
                            # demand.  One boundary for every crew when on (the receiving
                            # day's own knobs apply only flag-off); days stay ORIGIN-ALIGNED
                            # on the absolute clock -- an early drain stops the labour, never
-                           # the calendar.  Off = today's behaviour exactly.
+                           # the calendar.  Off = today's behaviour exactly.  ON IMPLIES the
+                           # era: one release per day (RELEASES_PER_DAY 1), the cut, and the
+                           # roll-over, and the put and receiving crews are DERIVED from the
+                           # pickers rather than declared (Optimization/simconfig/staffing.py).
 
 ROLL_OVER_UNPICKED = False # demand a batch did not pick joins the NEXT batch's demand,
                            # whatever the cause: the day cut, a bin that held less than the
@@ -232,8 +236,44 @@ FF_PICKERS = _FF_PICKERS               # human-walker pool.          --ff-picker
 # before anything read them; declaring them here is what finally makes them reach a run.
 STORE_PICK_MODE = 'machine'            # order-picker
 FF_PICK_MODE = 'foot'                  # walker
-PUT_CREW_SIZE = 1                      # one walker; put-away is not yet a swept axis
-PUT_CREW_MODE = 'foot'                 # 'foot' | 'machine' -- picks the speed below
+PUT_CREW_SIZE = 1                      # one walker.  FLAG-OFF ONLY: under the calibrated
+                                       # era the put crew is DERIVED (a site total sized
+                                       # from the pickers' daily demand) and passing this
+                                       # explicitly is an error.  --put-crew-size
+PUT_CREW_MODE = 'foot'                 # 'foot' | 'machine' -- picks the speed below.  A
+                                       # DECLARED staffing input under the era: the
+                                       # derivation sizes the count, the mode is a
+                                       # labour-model term the cost model prices.
+                                       # --put-crew-mode
+
+# ── the calibrated era's declared scalars ───────────────────────────────────────
+# Every step of the staffing derivation (Optimization/simconfig/staffing.py) is a declared
+# scalar, and every default here is an ASSUMPTION of the era, never a measurement
+# (.scratch/department-calibration, "Define the calibrated era"; "Declare the equilibrium
+# bands").  They are staffing INPUTS: recorded with the run under `staffing.inputs`,
+# restored on resume and re-analysis, carried in the worker payload, and stamped onto
+# sim_result -- by construction, because they ride `sim_config.STAFFING_KEYS`.
+RHO_PICK = 0.85                        # picking utilization target: worked / granted.
+                                       # Capacity = K x S x rho.  --rho-pick
+RHO_PUT = 0.85                         # put-away utilization target.  --rho-put
+RHO_RECV = 0.85                        # receiving utilization target.  --rho-recv
+F_PUT = 1.0                            # units put per unit picked; 1.0 = steady state
+                                       # (what is picked is replenished).  --f-put
+F_RECV = 1.0                           # packs received per pack the script implies; 1.0 =
+                                       # steady state.  --f-recv
+BAND_TOL = 0.10                        # |realized - expected| utilization tolerance, one
+                                       # absolute number for all three departments.
+                                       # --band-tol
+
+# ── the calibration constants' OVERRIDES ────────────────────────────────────────
+# None = take the committed calibration record (Optimization/simconfig/calibration_record
+# .json, loaded by Optimization/simconfig/calibration.py); a number is seconds per unit,
+# recorded `declared`.  The record itself is never edited by a run.
+S_PICK_STORE = None                    # seconds per unit picked, store.  --s-pick-store
+S_PICK_FF = None                       # seconds per unit picked, fulfillment.  --s-pick-ff
+S_PUT = None                           # seconds per unit put away, one site value.  --s-put
+CALIBRATION_RECORD = None              # path of the record to load; None = the committed
+                                       # one.  --calibration-record
 
 # ── the other crews' PRICE, as scalars of the pickers' ──────────────────────────
 # Put-away and receiving keep picking's cost shape and picking's coefficients BY REFERENCE

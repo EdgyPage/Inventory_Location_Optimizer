@@ -5943,6 +5943,20 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/config/settings.py::BAND_TOL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.1"
+    },
+    "Optimization/config/settings.py::CALIBRATION_RECORD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
     "Optimization/config/settings.py::CHECKPOINT_FRAC": {
       "decorators": [],
       "doc": null,
@@ -5998,6 +6012,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'foot'"
+    },
+    "Optimization/config/settings.py::F_PUT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1.0"
+    },
+    "Optimization/config/settings.py::F_RECV": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1.0"
     },
     "Optimization/config/settings.py::INBOUND_CREW_ALLOCATION": {
       "decorators": [],
@@ -6293,6 +6321,27 @@
       "signature": null,
       "value_preview": "DEFAULT_SHIFT_SECONDS"
     },
+    "Optimization/config/settings.py::RHO_PICK": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.85"
+    },
+    "Optimization/config/settings.py::RHO_PUT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.85"
+    },
+    "Optimization/config/settings.py::RHO_RECV": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.85"
+    },
     "Optimization/config/settings.py::ROLL_OVER_UNPICKED": {
       "decorators": [],
       "doc": null,
@@ -6369,6 +6418,27 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'machine'"
+    },
+    "Optimization/config/settings.py::S_PICK_FF": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/settings.py::S_PICK_STORE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
+    "Optimization/config/settings.py::S_PUT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
     },
     "Optimization/config/settings.py::WORKERS": {
       "decorators": [],
@@ -6553,14 +6623,14 @@
     },
     "Optimization/config/sim_config.py::channel_pickers": {
       "decorators": [],
-      "doc": "The declared picker count of channel `name`, read from CONFIG at CALL time.\n\nThe `recv_crew_spec` pattern, never `put_crew_spec`'s: a flag writes CONFIG, a resume\nand a re-analysis restore into CONFIG, so CONFIG is the only place this may be read from.\nA None (a pre-record run spec restored by `run_analysis._apply_run_shape`) resolves to the\nleaf default -- that run fielded the compile-time constant of its day, which is what the\nconstant still is.  An unknown channel is a KeyError, deliberately: a third channel needs\nits own declared knob, not a silent share of someone else's.",
+      "doc": "The declared picker count of channel `name`, read from CONFIG at CALL time.\n\nThe `recv_crew_spec` pattern: a flag writes CONFIG, a resume and a re-analysis restore\ninto CONFIG, so CONFIG is the only place this may be read from.\nA None (a pre-record run spec restored by `run_analysis._apply_run_shape`) resolves to the\nleaf default -- that run fielded the compile-time constant of its day, which is what the\nconstant still is.  An unknown channel is a KeyError, deliberately: a third channel needs\nits own declared knob, not a silent share of someone else's.",
       "is_async": false,
       "kind": "function",
       "signature": "(name: str) -> int"
     },
     "Optimization/config/sim_config.py::crew_cost_spec": {
       "decorators": [],
-      "doc": "The other crews' PRICE as a picklable record:\n`{put_intercept_scale, put_item_ratio, recv_intercept_scale}`.\n\nPut-away and receiving keep picking's cost shape and coefficients by reference\n(`PutawayCost.from_pick`, `UnloadCost.from_putaway`); these three scalars are the only\nplace their numbers may differ.  Read from CONFIG at CALL time -- never from `_s.`\ndirectly, which is the trap `put_crew_spec` above still carries -- and handed to the\nworker in its payload (`workunits._shared['crew_cost']`), because a spawned worker\nre-imports this module and would get pristine defaults.\n\nA None (a pre-field run spec restored by `run_analysis._apply_run_shape`) resolves to the\nkernel default: that run priced its put crew at the pre-charge literal, which no scale\ncan reproduce, so the default is the honest reconstruction of \"no scale was declared\".",
+      "doc": "The other crews' PRICE as a picklable record:\n`{put_intercept_scale, put_item_ratio, recv_intercept_scale}`.\n\nPut-away and receiving keep picking's cost shape and coefficients by reference\n(`PutawayCost.from_pick`, `UnloadCost.from_putaway`); these three scalars are the only\nplace their numbers may differ.  Read from CONFIG at CALL time -- never from `_s.`\ndirectly, which was the trap `put_crew_spec` above carried until the era build -- and handed to the\nworker in its payload (`workunits._shared['crew_cost']`), because a spawned worker\nre-imports this module and would get pristine defaults.\n\nA None (a pre-field run spec restored by `run_analysis._apply_run_shape`) resolves to the\nkernel default: that run priced its put crew at the pre-charge literal, which no scale\ncan reproduce, so the default is the honest reconstruction of \"no scale was declared\".",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
@@ -6571,6 +6641,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(key, default)"
+    },
+    "Optimization/config/sim_config.py::era_on": {
+      "decorators": [],
+      "doc": "Whether this run is under the calibrated era: the drain-or-cap shift is on.\n\nONE predicate for \"derive the crews, refuse the legacy crew flags, price the script from\nthe calibration record\", read from CONFIG at call time.  The same key `work_day_spec()`\ncarries to the worker as `drain_or_cap`, so the parent and the worker cannot disagree\nabout which regime a run is in.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> bool"
     },
     "Optimization/config/sim_config.py::ff_fill": {
       "decorators": [],
@@ -6602,24 +6679,24 @@
     },
     "Optimization/config/sim_config.py::put_crew_spec": {
       "decorators": [],
-      "doc": "The put crew as a picklable record: `{size, mode, x_speed, y_speed}`.\n\nRead at call time like every other tunable, and handed to the worker in its payload\nrather than re-imported there -- a spawned worker re-imports this module and would get\npristine defaults.\n\nThe speed comes from the crew's MODE, which is the point of having a mode: a crew\nlabelled `foot` costed at the store's machine speed would write rows whose mode and\nduration contradict each other.",
+      "doc": "The put crew as a picklable record: `{size, mode, x_speed, y_speed}`.\n\nReads CONFIG at CALL time -- `put_crew_size` / `put_crew_mode` -- like every other\naccessor in this file.  It used to read `_s.PUT_CREW_SIZE` / `_s.PUT_CREW_MODE`\ndirectly with no CONFIG key at all, which was THE trap the other accessors' docstrings\nwarn about: a flag writing CONFIG would have been accepted and ignored forever, and a\nstandalone re-analysis would have sized against this checkout's settings instead of\nthe run's own.  Closed by \"Design the staffing record\", decision 7.\n\n`size` is the DERIVED crew under the calibrated era (`staffing.derive`), handed in by\nthe caller that holds the derived block; None reads the declared key, which is every\nflag-off run.  A None IN the key (a pre-field run spec restored by\n`run_analysis._apply_run_shape`) resolves to the settings default -- the one walker\nevery such run fielded.\n\nThe speed comes from the crew's MODE, which is the point of having a mode: a crew\nlabelled `foot` costed at the store's machine speed would write rows whose mode and\nduration contradict each other.  The mode is a DECLARED staffing input (it rides\nSTAFFING_KEYS), so it is read through `staffing_spec()`'s resolution.",
       "is_async": false,
       "kind": "function",
-      "signature": "() -> dict"
+      "signature": "(size: int | None=None) -> dict"
     },
     "Optimization/config/sim_config.py::put_queues_spec": {
       "decorators": [],
-      "doc": "The split put-away configuration as a picklable record, or **None** for one queue.\n\nNone rather than a dict with `split=False`, for the same reason `recv_crew_spec` returns\nNone: the worker tests `args.get('put_queues') is None` and skips the assignment\nentirely, so the no-op is \"the manager keeps the `single_queue()` it built in\n`__init__`\" rather than \"something reconstructed the default\".\n\nReads CONFIG at CALL time. Copying `put_crew_spec` below would have been the natural\nmove and is a trap: it reads `_s.PUT_CREW_SIZE` directly, there is no\n`CONFIG['global']['put_crew_*']` key at all, and a CLI flag writing CONFIG would\ntherefore be accepted and ignored forever.\n\nTHE CREW SIZES ARE NOT A DETAIL. Each queue gets its own crew and its own clock, so\nthree queues of size 1 is three putters where the default is one -- roughly 3x the\nput-away throughput before any other difference. A sweep comparing split against single\nmust size these against the single-queue total, or it is measuring headcount.\n\nStaging is carried as-is including None: `None` means an unbounded floor, and that is a\nmeaningfully different configuration from a large one, because it is what decides\nwhether the held list and the refill loop ever execute at all.",
+      "doc": "The split put-away configuration as a picklable record, or **None** for one queue.\n\nNone rather than a dict with `split=False`, for the same reason `recv_crew_spec` returns\nNone: the worker tests `args.get('put_queues') is None` and skips the assignment\nentirely, so the no-op is \"the manager keeps the `single_queue()` it built in\n`__init__`\" rather than \"something reconstructed the default\".\n\nReads CONFIG at CALL time. Copying the `put_crew_spec` of its day would have been the\nnatural move and was a trap: it read `_s.PUT_CREW_SIZE` directly, there was no\n`CONFIG['global']['put_crew_*']` key at all, and a CLI flag writing CONFIG would\ntherefore have been accepted and ignored forever.  (Since fixed.)\n\nTHE CREW SIZES ARE NOT A DETAIL. Each queue gets its own crew and its own clock, so\nthree queues of size 1 is three putters where the default is one -- roughly 3x the\nput-away throughput before any other difference. A sweep comparing split against single\nmust size these against the single-queue total, or it is measuring headcount.\n\nStaging is carried as-is including None: `None` means an unbounded floor, and that is a\nmeaningfully different configuration from a large one, because it is what decides\nwhether the held list and the refill loop ever execute at all.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict | None"
     },
     "Optimization/config/sim_config.py::recv_crew_spec": {
       "decorators": [],
-      "doc": "The receiving crew as a picklable record, or **None** when there is no crew.\n\nNone rather than an empty dict, and that distinction is the feature's off-switch. The\nworker tests `args.get('recv_crew') is None` and skips its whole receive block: no Crew,\nno Workers, no clocks, no Dock, no WorkDay. The no-op is therefore \"nothing was\nconstructed\" rather than \"an empty thing exists\" -- which matters because an empty dock\nwould still be an object something could fold into a clock or a snapshot.\n\nCOPIED FROM `work_day_spec`, NOT FROM `put_crew_spec`. That one reads `_s.PUT_CREW_SIZE`\ndirectly and there is no `CONFIG['global']['put_crew_*']` key at all -- so a CLI flag,\nwhich writes CONFIG, would be accepted and ignored forever, and a standalone re-analysis\nwould size against this checkout's `settings.py` instead of the run's own. Reading CONFIG\nat CALL time is what makes the other three seams reachable.\n\n`day_seconds` is resolved with an explicit `is not None`, never `or`: `--recv-day-seconds\n0` means \"the crew has no day today\", and `or` would silently turn that into \"no whistle\nat all\" -- the inverse. (The parser rejects 0 as well, so this is the second of two\nguards on the same mistake.)\n\nSpeeds come from the PUT crew's foot table. Not laziness: an unload has no travel term,\nso no speed is consumed by the cost model at all, and declaring receiving-specific\nconstants would assert a distinction the model cannot express. They are carried only so a\n`Crew` can be built and its rows labelled.",
+      "doc": "The receiving crew as a picklable record, or **None** when there is no crew.\n\n`size` is the DERIVED crew under the calibrated era (`staffing.derive`), handed in by\nthe caller that holds the derived block; None reads the declared `recv_crew_size` key,\nwhich is every flag-off run.  Derived values are never CONFIG keys, so the derivation\ncannot leak into a flag-off run by leaving a key behind.\n\nNone rather than an empty dict, and that distinction is the feature's off-switch. The\nworker tests `args.get('recv_crew') is None` and skips its whole receive block: no Crew,\nno Workers, no clocks, no Dock, no WorkDay. The no-op is therefore \"nothing was\nconstructed\" rather than \"an empty thing exists\" -- which matters because an empty dock\nwould still be an object something could fold into a clock or a snapshot.\n\nCOPIED FROM `work_day_spec`, NOT FROM the `put_crew_spec` of its day. That one read\n`_s.PUT_CREW_SIZE` directly with no `CONFIG['global']['put_crew_*']` key at all -- so a\nCLI flag, which writes CONFIG, would have been accepted and ignored forever, and a\nstandalone re-analysis would have sized against this checkout's `settings.py` instead\nof the run's own. Reading CONFIG at CALL time is what makes the other three seams\nreachable.  (`put_crew_spec` has since been fixed the same way.)\n\n`day_seconds` is resolved with an explicit `is not None`, never `or`: `--recv-day-seconds\n0` means \"the crew has no day today\", and `or` would silently turn that into \"no whistle\nat all\" -- the inverse. (The parser rejects 0 as well, so this is the second of two\nguards on the same mistake.)\n\nSpeeds come from the PUT crew's foot table. Not laziness: an unload has no travel term,\nso no speed is consumed by the cost model at all, and declaring receiving-specific\nconstants would assert a distinction the model cannot express. They are carried only so a\n`Crew` can be built and its rows labelled.",
       "is_async": false,
       "kind": "function",
-      "signature": "() -> dict | None"
+      "signature": "(size: int | None=None) -> dict | None"
     },
     "Optimization/config/sim_config.py::regime_sizing_from_config": {
       "decorators": [],
@@ -6651,7 +6728,7 @@
     },
     "Optimization/config/sim_config.py::staffing_spec": {
       "decorators": [],
-      "doc": "The staffing record's INPUTS as a picklable dict: `{store_pickers, ff_pickers}`.\n\nInputs ONLY -- the derived block (batch content, put crew, receiving crew, expected\nthroughput) is a pure module the derivation ticket adds, run after batch precompute, and\nis never a CONFIG key.  Read from CONFIG at call time for the reason every accessor in\nthis file is, and carried in `workunits._shared` so a spawned worker can check that the\ncrew it was handed is the crew the record declares.",
+      "doc": "The staffing record's INPUTS as a picklable dict, one entry per STAFFING_KEYS key.\n\nInputs ONLY -- the derived block (batch content, put crew, receiving crew, expected\nutilization) is the pure module `Optimization/simconfig/staffing.py`, run by\n`workunits._derive_staffing_for_pair` after batch precompute, and is never a CONFIG key.\nRead from CONFIG at call time for the reason every accessor in this file is, and carried\nin `workunits._shared` so a spawned worker can check that the crews it was handed are\nthe crews the record declares.\n\nThe pickers resolve through `channel_pickers` (a None is the leaf default); the scalars\nresolve a None to their settings default (`_SCALAR_DEFAULTS`); the CALIBRATION_KEYS keep\nNone, because \"no override\" is a value the calibration loader reads.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
@@ -6893,6 +6970,13 @@
       "doc": "Experiment definition for `run_simulation --whatif`: an aisle-reconstruction \u00d7 velocity-zoning \u00d7\npicker-scheduler matrix.\n\nEditing + committing this file is how a what-if sweep is DEFINED \u2014 the same way the strategies sweep\nlives in `strategies.CHANNEL_RESTOCKS` and the base warehouse knobs live in `sim_config.CONFIG`.\n`run_simulation` consumes `WHATIF`; `--whatif` is just the flag that turns it on.  The matrix\nsimulates the SAME frozen inventory + SAME batch stream across every cell, so cells differ ONLY in\nthe swept knobs \u2014 an apples-to-apples comparison.\n\nCells are the combinatorial product schedulers \u00d7 zoning \u00d7 ks \u00d7 losses (loss collapses to 0 when\nk == 1), named `k{k}[_l{loss%}]_{zone}[_{sched}]`.  The scheduler suffix (`_rr` / `_lpt`) is added\nonly when more than one scheduler is swept; the (k=1, off, round_robin) cell is the reference.\n\nCURRENT SCENARIO \u2014 picker-scheduler A/B with NO ABC aisle splitting and NO ABC velocity zoning: hold\nthe layout fixed (whole aisles, no A/B/C banding) and sweep the task\u2192picker scheduler `round_robin`\n(naive static i%num_pickers) vs `lpt` (makespan-MINIMIZING load balancer) across the full\nassignment-function suite \u2014 measuring the throughput (batch-makespan) gain of load-balancing at\nunchanged task makespan (total labor).  The ABC aisle-split and ABC velocity-zoning axes are preserved\nbelow as commented-out lines; uncomment them to sweep layout too.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/config/whatif_config.py::ERA_RUN_DEFAULTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'shift_drain_or_cap': True, 'releases_per_day': 1, 'roll_over_unpicked': True, 'cut_at_day_end': True}"
     },
     "Optimization/config/whatif_config.py::PHASE2_ARMS": {
       "decorators": [],
@@ -7753,7 +7837,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('ce01ca0095b2', '31cb7d1b1199', '8af17e7d417e'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('be2a593727be', 'ce01ca0095b2', '31cb7d1b1199'..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -7959,6 +8043,13 @@
       "signature": null,
       "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS simulation_runs (\\n run_id INTEGER PRIMARY KEY AUTOINCREMENT,\\n run_type TEXT NOT NULL,\\n created TEXT NOT NULL,\\n strategy_key TEXT, -- identity (rename-proof): same..."
     },
+    "Optimization/persistence/Picking_Data.py::_CREATE_SHIFT_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'\\n CREATE TABLE IF NOT EXISTS shift_days (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n day INTEGER NOT NULL, -- the working day, 0-based, = batch_stats.work_day\\n cap_end REAL ..."
+    },
     "Optimization/persistence/Picking_Data.py::_CREATE_SKU_SCORES": {
       "decorators": [],
       "doc": null,
@@ -8063,6 +8154,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "('num_pickers', 'x_speed', 'y_speed', 'pick_intercept', 'pick_weight_coef', 'pick_volume_coef', 'cart_swap_coef', 'k_pickers', 'n_batches', 'seed_world', 'keyframe_interval', 'optimal_sigma_fd', 'o..."
+    },
+    "Optimization/persistence/Picking_Data.py::_SHIFT_DAY_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put', 'standing_dock', 'standing_carry', 'last_finish')"
     },
     "Optimization/persistence/Picking_Data.py::_TASK_COLS": {
       "decorators": [],
@@ -8186,6 +8284,13 @@
     "Optimization/persistence/Picking_Data.py::_insert_reorder_queue": {
       "decorators": [],
       "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_insert_shift_days": {
+      "decorators": [],
+      "doc": "`(day, cap_end, end_s, drained, standing, standing_put, standing_dock, standing_carry,\nlast_finish)` tuples -- `strategy_runner`'s close-out row, one per working day.",
       "is_async": false,
       "kind": "function",
       "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
@@ -8365,6 +8470,13 @@
       "kind": "function",
       "signature": "(path: str, run_id: int, batch_id: int) -> list[dict]"
     },
+    "Optimization/persistence/Picking_Data.py::load_shift_days": {
+      "decorators": [],
+      "doc": "Every working day's close-out, in day order.  `[]` on a pre-era vintage AND on an\nera-less run of the new vintage -- both mean \"no day was ever closed out\".\n\n`drained` is the verdict the equilibrium check reads per day; the `standing_*` columns\nare LEVELS at close-out and never sum across days.  `end_s < cap_end` with `drained`\nis a day the crews got off the clock early; `last_finish > cap_end` is START-gate\novertime (a task begun before the whistle finished after it).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list"
+    },
     "Optimization/persistence/Picking_Data.py::load_sku_scores": {
       "decorators": [],
       "doc": "All per-SKU scores for a run; empty list if the table is absent (older runs).",
@@ -8458,10 +8570,10 @@
     },
     "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle": {
       "decorators": [],
-      "doc": "All per-checkpoint writers on ONE connection with ONE commit.\n\n`work_events`, `put_queue_state`, `carryover` and the two `yard_*` lists are\nkeyword-OPTIONAL, so a caller that predates them -- a test, a Diagnostics harness -- is\nunchanged and writes no rows.\n\nA bundle argument that is accepted and never inserted is this function's characteristic\nfailure: `work_events` was one for a while, and the reconciliation that was supposed to\ncatch it passed over 68 databases holding zero rows. Every new argument here needs a\ntest that reads the FILE back.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
+      "doc": "All per-checkpoint writers on ONE connection with ONE commit.\n\n`work_events`, `put_queue_state`, `carryover`, the two `yard_*` lists and `shift_days`\nare keyword-OPTIONAL, so a caller that predates them -- a test, a Diagnostics harness --\nis unchanged and writes no rows.\n\nA bundle argument that is accepted and never inserted is this function's characteristic\nfailure: `work_events` was one for a while, and the reconciliation that was supposed to\ncatch it passed over 68 databases holding zero rows. Every new argument here needs a\ntest that reads the FILE back.\n\nstrategy_runner's checkpoint flush used to call the eight `save_*` writers back to\nback, each paying its own open + commit + close against a ~1 GB WAL DB \u2014 measured\nat 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by\nthe per-writer connection churn (and the maker of the synchronized 18-worker save\nstorm early in a run).  This bundles them: the INSERT bodies are the writers' own\n(shared `_insert_*` helpers), executed in exactly the historical call order, so\nevery table receives identical rows in identical order \u2014 per-table rowids and the\nrun digest are unchanged.  The three writers that early-return on empty keep that\nskip here (parity; the tables all pre-exist from init_run_db either way).",
       "is_async": false,
       "kind": "function",
-      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list, work_events: list | None=None, put_queue_state: list | None=None, carryover: list | None=None, yard_trailers: list | None=None, yard_drains: list | None=None) -> None"
+      "signature": "(path: str, run_id: int, *, batch_stats: list, task_stats: list, picker_events: list, picks: list, bin_placements: list, bin_evictions: list, aisle_metrics: list, reorder_queue: list, work_events: list | None=None, put_queue_state: list | None=None, carryover: list | None=None, yard_trailers: list | None=None, yard_drains: list | None=None, shift_days: list | None=None) -> None"
     },
     "Optimization/persistence/Picking_Data.py::save_picker_events": {
       "decorators": [],
@@ -8490,6 +8602,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list[tuple]) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::save_shift_days": {
+      "decorators": [],
+      "doc": "Write shift close-out rows on their own connection -- the FINAL DAY's writer.\n\nThe close-out fires at the first batch of the NEXT day, so the last day of a run never\ncloses inside the loop; the runner closes it after the loop and writes it here, OUTSIDE\nthe checkpoint tail, for the same reason `save_yard_trailers` is separate: that tail only\nfires when a batch window is unflushed, which it is not when the batch count divides\nevenly by the checkpoint interval (memory `run-end-writers-miss-the-final-flush`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, records: list) -> None"
     },
     "Optimization/persistence/Picking_Data.py::save_sku_scores": {
       "decorators": [],
@@ -9194,12 +9313,26 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
     },
+    "Optimization/run_simulation.py::_apply_run_defaults": {
+      "decorators": [],
+      "doc": "Overlay a cell-matrix spec's `run_defaults` onto args, for a NEW run.\n\nA spec may carry run-level knobs (whatif_config.ERA_RUN_DEFAULTS: the calibrated era)\nbeside its cell axes.  They are DEFAULTS: a flag the user typed wins, with a note, so a\nspec cannot silently override a command line.  A resumed run never reaches this -- its\nrun spec recorded the resolved values and `_apply_run_spec` restores them.\nReturns the notes.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args, spec_dict: dict, explicit: set) -> list[str]"
+    },
     "Optimization/run_simulation.py::_apply_run_spec": {
       "decorators": [],
       "doc": "Overlay a saved run_spec onto args for --resume: the saved value is the base; a flag the\nuser explicitly typed on the resume command overrides it (with a warning).  Returns\n(store_composition_override, notes) \u2014 the resolved store composition is injected directly so\na since-deleted --s-composition file can't break resume.",
       "is_async": false,
       "kind": "function",
       "signature": "(args, spec, explicit)"
+    },
+    "Optimization/run_simulation.py::_check_era_flags": {
+      "decorators": [],
+      "doc": "Enforce and complete the calibrated era's regime on the parsed args.\n\nUnder `--shift-drain-or-cap` (\".scratch/department-calibration\", \"Define the calibrated\nera\"):\n  * the legacy crew flags (`_ERA_DERIVED_FLAGS`) typed explicitly are an ERROR -- the\n    put and receiving crews are derived from the pickers, never declared;\n  * `--put-queue-split` is an error -- single queue only for this map; per-stream sizing\n    is the out-of-scope swept-axis effort;\n  * the cadence is pinned at ONE release per day: an unset `--releases-per-day` is\n    completed to 1 (with a note), an explicit other value is an error, because the\n    derivation makes one batch one day's demand;\n  * the roll-over and the cut are completed to on (with a note): a day that reads\n    \"drained\" because cut demand was dropped is not equilibrium, and the worker forces\n    the cut anyway -- the record should say what ran.\nRaises `SystemExit` with the reason; returns the completion notes otherwise.\nModule-level so a test can hand it a Namespace.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args, explicit: set) -> list[str]"
     },
     "Optimization/run_simulation.py::_futuresight_window": {
       "decorators": [],
@@ -9235,6 +9368,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(text: str) -> int"
+    },
+    "Optimization/run_simulation.py::_unit_fraction": {
+      "decorators": [],
+      "doc": "An argparse `type=` for a utilization target: a number in (0, 1].\n\n\u03c1 is worked \u00f7 granted, so 0 means \"no work is ever done\" and above 1 means \"the crew\nworks more than the day it is granted\" -- both are not a scenario but a typo, and the\nderivation would divide by the first.  Fails at the parser, naming the flag.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(text: str) -> float"
     },
     "Optimization/run_simulation.py::main": {
       "decorators": [],
@@ -10694,6 +10834,74 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/simconfig/calibration.py": {
+      "decorators": [],
+      "doc": "calibration.py \u2014 the committed CALIBRATION RECORD and its loader.\n\nThe calibration record (`calibration_record.json`, beside this module) is the committed\ndeclaration of the labour constants a run prices its derivation with, together with the\nprovenance that produced each one (\"Choose the calibration procedure\", decision 5;\nglossary: *Calibration record*).  A run READS it and copies what it ran under onto its own\nstaffing record; it never edits it.  The reference run\n(`.scratch/department-calibration/issues/09-take-the-reference-run.md`) is what writes a\nnew one.\n\nThree constants, two of them hybrid:\n\n    s_pick   per channel   seconds per unit picked   -- measured under `fifo`, or SEEDED\n    s_put    one site value seconds per unit put     -- measured, or SEEDED\n    s_recv   exact from the script                   -- never in the record's constants;\n                                                        the derivation computes it live\n\nand one bound, `k_max` per channel (the heaviest-aisle floor's window minimum, \"bounds, it\ndoes not set\").\n\n**The pass-0 seed.**  Until a reference run exists there is no measured value for ANY\ncatalogue, so the record cannot hold a number that is right for the catalogue a run loads.\nWhat it holds instead is the seed's SHAPE: a `travel_share` per constant, and `value: null`.\nThe derivation prices the catalogue's own analytic prediction (`staffing.analytic_pick`)\nand multiplies by that share -- `s = analytic \u00d7 travel_share` -- stamping the result with\nthe record entry's provenance (`seed`).  This is the same arithmetic decision 7 uses to\nprice a NEW catalogue provisionally from a MEASURED record (`s_new = analytic_new \u00d7\ntravel_share_old`, stamped `derived`), so the loader has one resolution rule for both:\n\n    a CLI override          -> its value, `declared`\n    a recorded `value`      -> that value, the recorded provenance (`measured`)\n    a recorded travel_share -> analytic \u00d7 share, `seed` if the entry says seed else `derived`\n\n**Staleness.**  The record names the warehouse fingerprint it was measured on.  A run\nwhose catalogue fingerprints differently gets a WARNING and `calibration_stale: True`\nstamped into its staffing record; failing would block every new catalogue, a bare\nwarning gets lost, the stamp is readable from the results forever.  A record with no\nfingerprint (the seed) is stale for nobody: there is nothing to be stale against, and\n`calibration_stale` is False with `calibration_measured` False beside it so a reader can\ntell \"matched\" from \"never measured\".",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/calibration.py::CalibrationRecordError": {
+      "decorators": [],
+      "doc": "The record on disk is not one this loader understands.",
+      "kind": "class",
+      "signature": "(ValueError)"
+    },
+    "Optimization/simconfig/calibration.py::_validate_entry": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(e: dict, where: str) -> None"
+    },
+    "Optimization/simconfig/calibration.py::is_measured": {
+      "decorators": [],
+      "doc": "Whether any constant in the record was READ OFF A RUN (measured), as opposed to\nseeded.  The seed record answers False.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rec: dict) -> bool"
+    },
+    "Optimization/simconfig/calibration.py::load_record": {
+      "decorators": [],
+      "doc": "Load and validate the calibration record.  Raises `CalibrationRecordError` on a\nshape this build does not understand -- never returns a half-read record.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str | None=None) -> dict"
+    },
+    "Optimization/simconfig/calibration.py::record_stub": {
+      "decorators": [],
+      "doc": "The provenance a run copies from the record: enough to find the record again and to\ntell which pass it was, never the constants themselves (those ride `resolve_constants`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rec: dict) -> dict"
+    },
+    "Optimization/simconfig/calibration.py::resolve_constant": {
+      "decorators": [],
+      "doc": "One constant, resolved by the rule in the module docstring.\n\nReturns `{value, provenance, source, ...}` where `source` says which branch fired\n(`override` / `record` / `analytic`), so a reader of the staffing record can tell a\ntyped number from a copied one from a computed one without inferring it from the\nprovenance alone.  A seed with no analytic to scale (an absent channel, or a\ncatalogue whose section is empty) resolves to 0.0 and is flagged `unpriced`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(entry: dict, *, override: float | None, analytic: float, name: str) -> dict"
+    },
+    "Optimization/simconfig/calibration.py::resolve_constants": {
+      "decorators": [],
+      "doc": "Every constant the derivation needs, resolved against `rec`.\n\n`overrides` is `{'s_pick_store', 's_pick_ff', 's_put'}` (None = no override -- the\nthree CALIBRATION_KEYS of the staffing inputs); `analytic_pick` maps a channel name to\nits stage-A `seconds_per_unit` (absent channels omitted); `analytic_put` is the site's\nanalytic put seconds per unit (from the script, stage B) -- zero when the seed has to\nbe resolved before stage B, in which case the caller re-resolves `s_put` once it has it.\nReturns `{'s_pick': {channel: constant}, 's_put': constant, 'k_max': {channel: int|None},\n'record': <provenance stub>}`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rec: dict, *, overrides: dict, analytic_pick: dict, analytic_put: float) -> dict"
+    },
+    "Optimization/simconfig/calibration.py::staleness": {
+      "decorators": [],
+      "doc": "The two stamps the staffing record carries about the record it ran under.\n\n`calibration_stale` is True only when the record NAMES a fingerprint and the run's\ndiffers; `calibration_measured` says whether there was a measurement to be stale\nagainst at all.  Both False is the seed on any catalogue; False/True is a measured\nrecord on its own catalogue; True/True is the warning case.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rec: dict, warehouse_fingerprint: str | None) -> dict"
+    },
+    "Optimization/simconfig/calibration.py::validate_record": {
+      "decorators": [],
+      "doc": "Every constant entry carries a legal provenance and either a value or a share.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rec: dict, *, source: str='<record>') -> None"
+    },
     "Optimization/simconfig/configs/__init__.py": {
       "decorators": [],
       "doc": null,
@@ -10826,6 +11034,163 @@
       "is_async": false,
       "kind": "function",
       "signature": "(fn)"
+    },
+    "Optimization/simconfig/staffing.py": {
+      "decorators": [],
+      "doc": "staffing.py \u2014 the calibrated era's staffing DERIVATION, as a pure module.\n\nPickers per channel are the ONE declared staffing input of the calibrated era\n(.scratch/department-calibration, \"Define the calibrated era\"); everything else a run\nfields is DERIVED from them, live at setup, with a declared scalar at every step:\n\n    pick capacity      K \u00d7 S \u00d7 \u03c1_pick                        (seconds of picking per day)\n    daily demand       capacity \u00f7 s_pick                     (units per day, per channel)\n    batch content      one batch = one day's demand          (a BatchConfig mean fraction)\n    put load           units \u00d7 f_put                         (units put per unit picked)\n    put crew           ceil(put load \u00d7 s_put \u00f7 (S \u00d7 \u03c1_put))  (ONE site crew, both channels)\n    receive load       packs the script implies \u00d7 f_recv\n    receiving crew     ceil(receive seconds \u00f7 (S \u00d7 \u03c1_recv))  (ONE site crew)\n\n`s_pick` (per channel) and `s_put` (one site value) are seconds per unit and are HYBRID by\nnature: pick and put-away TRAVEL is arm-dependent and needs a measured reference run, so they\ncome from the committed calibration record (`Optimization/simconfig/calibration.py`), or --\nuntil a reference run exists -- from the script's own analytic prediction scaled by a\ndeclared TRAVEL SHARE (the record's pass-0 seed).  `s_recv` is EXACT from the script: an\nunload has no travel term, so every pack's seconds are computable from the catalogue and\nthe cost model alone.\n\nTHIS MODULE IS PURE.  Inputs, the loaded calibration record and the catalogue / script\ntotals go in; the derived dict comes out.  It imports no CONFIG, reads no settings and\ntouches no file, so the arithmetic is testable against a hand computation without a run\n(`Tests/unit/test_staffing_derivation.py`).  The harness seam that feeds it is\n`Optimization/simdriver/workunits._derive_staffing_for_pair`, which runs AFTER batch\nprecompute because the receiving crew needs the packs the script implies -- and the script\nis itself derived from the pickers, which is why the derivation has two stages:\n\n    stage A  (catalogue only)  s_pick, daily demand, batch content -- BEFORE precompute\n    stage B  (the script)      put load, packs, the two site crews -- AFTER precompute\n\nEvery scalar default below is a declared ASSUMPTION of the era, never a measurement, and the\nrecord says so (`PROVENANCE`, \"Design the staffing record\", decision 5).  The derived block\ncarries `derived`; a copied constant keeps the provenance it arrived with.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/staffing.py::PricingConfig": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The handling coefficients one channel's analytic prediction is priced with.\n\nThe subset of a `PickConfig` the script-only prediction needs -- no speeds, no height\nbrackets, because the prediction is at GROUND height with no travel term (the travel\nshare is what a reference run adds).  `from_pick_config` lifts them off the channel's\ncanonical pick config; `put()` / `recv()` derive the other two crews' prices by the\nsame chain the runner uses (`PutawayCost.from_pick`, `UnloadCost.from_putaway`).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/staffing.py::PricingConfig.from_pick_config": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, cfg, name: str='') -> 'PricingConfig'"
+    },
+    "Optimization/simconfig/staffing.py::PricingConfig.put": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, intercept_scale: float, item_ratio: float) -> PutawayCost"
+    },
+    "Optimization/simconfig/staffing.py::PricingConfig.recv": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float) -> UnloadCost"
+    },
+    "Optimization/simconfig/staffing.py::PricingConfig.var": {
+      "decorators": [],
+      "doc": "The per-unit weight/volume handling term for `order` under these coefficients.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, order) -> float"
+    },
+    "Optimization/simconfig/staffing.py::ScriptTotals": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "What one channel's precomputed batch script demands, summed over its batches.\n\n`units` / `lines` are the demand itself; `analytic_pick_s` is the same script priced\nwith `analytic_pick`'s formula line by line (so the record can hold the script-only\nprediction NEXT to the measured value, and their ratio is the travel share).  The\nput and receiving totals come from `implied_reorders`: `put_units` are merchandise\nunits put away (= units received), `put_s` their analytic put-away seconds at ground,\n`packs` the storage units the reorders pack into, `recv_s` their EXACT unload seconds.\n`unknown_skus` counts script lines whose SKU the catalogue map did not hold -- zero on\na healthy run, and reported rather than silently skipped.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/staffing.py::ScriptTotals.per_day": {
+      "decorators": [],
+      "doc": "A total as a per-DAY quantity under the era's one batch per day.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, value: float) -> float"
+    },
+    "Optimization/simconfig/staffing.py::analytic_pick": {
+      "decorators": [],
+      "doc": "The script-only prediction of a channel's picking labour per UNIT, from the catalogue.\n\nWeighted the way the sampler weights: a SKU enters a batch in proportion to its\n`relative_frequency` (affinity lift ignored -- it redistributes lines, it does not add\nthem), and a line demands `quantity_rate` units in expectation.  One intercept per LINE\n(one bin visit for one SKU) is the line-count floor (\"Choose the calibration\nprocedure\", decision 7); the per-item charge and `qty \u00d7 handle_var` are per unit; the\nheight multiplier is M(0) = 1 (ground) and there is no travel term.  Returns\n\n    {'seconds_per_unit', 'units_per_line', 'n_skus', 'pricing_config'}\n\n`seconds_per_unit` is what a travel share scales into a seeded `s_pick`.  Empty\norders yield zeros rather than raising: a store-only catalogue has no fulfillment\nsection, and the caller records that as an absent channel.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, pricing: PricingConfig) -> dict"
+    },
+    "Optimization/simconfig/staffing.py::batch_content": {
+      "decorators": [],
+      "doc": "One batch = one day's demand, as the sampler's (mean_fraction, std_fraction).\n\nThe sampler draws a LINE count ~ N(mean\u00b7N, std\u00b7N) and each line demands\n`quantity_rate` units, so the mean fraction that delivers `demand_units` is\n`(demand \u00f7 units_per_line) \u00f7 N`.  The spread keeps the DECLARED coefficient of\nvariation (the flag-off `std \u00f7 mean`, 1/3 for the store, 1/4 for fulfillment) so a\nderived script has the same relative day-to-day variability the archive's did.  A\nmean above 1.0 -- every SKU every day, and then some -- is CLAMPED and flagged: the\nsampler cannot draw more lines than SKUs, and the declared crew is then oversized for\nthe catalogue (the verifier will show the idle capacity; `saturated` says why).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(demand_units: float, units_per_line: float, n_skus: int, declared_mean: float, declared_std: float) -> dict"
+    },
+    "Optimization/simconfig/staffing.py::constant": {
+      "decorators": [],
+      "doc": "One recorded constant: `{value, provenance, ...}`.  Provenance must be one of the\nfive agreed values; a copied constant keeps the one it arrived with.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(value: float, provenance: str, **extra) -> dict"
+    },
+    "Optimization/simconfig/staffing.py::crew_size": {
+      "decorators": [],
+      "doc": "ceil(load \u00f7 (S \u00d7 \u03c1)), floored at 1 when there is load and 0 when there is none.\n\nA department with work to do fields at least one person even when the arithmetic says\n0.3; a department with NO work (a store-only catalogue's absent channel contributes\nnothing, but the site crew still forms from the other) fields nobody only when the\nwhole site has nothing for it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(load_seconds_per_day: float, day_seconds: float, rho: float) -> int"
+    },
+    "Optimization/simconfig/staffing.py::daily_demand": {
+      "decorators": [],
+      "doc": "Units per day the channel's capacity buys at `s_pick` seconds per unit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(capacity_s: float, s_pick: float) -> float"
+    },
+    "Optimization/simconfig/staffing.py::derive": {
+      "decorators": [],
+      "doc": "The derived block, from declared inputs + resolved constants + the script.\n\n`inputs` is the staffing record's INPUTS (`sim_config.staffing_spec()` shape: the two\npicker counts, `rho_pick/rho_put/rho_recv`, `f_put/f_recv`, `band_tol`,\n`put_crew_mode`, plus the three crew-cost scales the harness copies in).\n`constants` is `{'s_pick': {channel: constant}, 's_put': constant, 'k_max':\n{channel: int|None}}` as `calibration.resolve_constants` returns it.  `channels` maps\na channel name to its stage-A dict (`analytic`, `batch`, `pickers`, `n_skus`);\n`scripts` maps it to its `ScriptTotals`.  Channels absent from `channels` (a\nstore-only catalogue) are recorded as absent and contribute nothing.\n\nThe put and receiving crews are SITE totals: one crew each, summing both channels'\nper-day loads.  Each channel leaf's expected utilization for those two departments is\nits own load against the WHOLE site crew, which is why it sits well below \u03c1.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, inputs: dict, constants: dict, day_seconds: float, channels: dict, scripts: dict, pricing_names: dict) -> dict"
+    },
+    "Optimization/simconfig/staffing.py::derived_differs": {
+      "decorators": [],
+      "doc": "The paths at which two derived blocks disagree, for the restore drift check.\n\nFloats compare with a tolerance, never `==` (the repo rule); everything else exactly.\nAn empty list means \"the same derivation\".  Used on resume (raise) and on re-analysis\n(warn and stamp) -- \"Design the staffing record\", decision 3.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a: dict | None, b: dict | None, *, rel_tol: float=1e-09) -> list[str]"
+    },
+    "Optimization/simconfig/staffing.py::derived_differs._walk": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x, y, path)"
+    },
+    "Optimization/simconfig/staffing.py::expected_utilization": {
+      "decorators": [],
+      "doc": "worked \u00f7 granted for one department on one leaf: load \u00d7 s \u00f7 (crew \u00d7 S).\n\nAFTER `ceil` and AFTER the leaf's share of the site crew (\"Declare the equilibrium\nbands\", decision 3): integer crews and single-channel leaves undercut \u03c1 by\nconstruction, so the band is drawn around THIS number, never around \u03c1.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(load_seconds_per_day: float, crew: int, day_seconds: float) -> float"
+    },
+    "Optimization/simconfig/staffing.py::implied_reorders": {
+      "decorators": [],
+      "doc": "Stage B's supply side: the put-away and receiving work the script implies.\n\nSteady state (f = 1.0) replenishes every unit picked, so each SKU's expected reorders\nare `units demanded \u00f7 lot`, each lot packs into the storage units the sim's own packer\nwould produce (`Inbound.pack.receive` -> `viable_storage_units`, honouring a\n`stock_plan`), and each pack costs\n\n    put-away   M(0) \u00b7 (put_intercept + qty \u00b7 put_per_item + qty \u00b7 var)   (no travel)\n    receiving  recv_intercept + recv_per_item + qty \u00b7 var                (EXACT)\n\nFractional reorders are expectations and are kept fractional.  `f_put` scales the put\nload and `f_recv` the receiving load (\"units put per unit picked\" / packs received per\npack demanded); at 1.0 both are the steady state, any other value models a growing or\nshrinking warehouse, which is exactly why they are knobs.  Mutates and returns `totals`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *, f_put: float, f_recv: float, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float) -> ScriptTotals"
+    },
+    "Optimization/simconfig/staffing.py::pick_capacity": {
+      "decorators": [],
+      "doc": "Seconds of picking one channel's crew is expected to deliver per day: K \u00d7 S \u00d7 \u03c1.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pickers: int, day_seconds: float, rho_pick: float) -> float"
+    },
+    "Optimization/simconfig/staffing.py::regime_orders": {
+      "decorators": [],
+      "doc": "The catalogue section one channel picks from: `regime_of(order) == regime`, or the\nwhole catalogue when `regime` is None (the store-only path).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, regime: str | None) -> list"
+    },
+    "Optimization/simconfig/staffing.py::reorder_lot": {
+      "decorators": [],
+      "doc": "The quantity one reorder of `order` brings in, in expectation.\n\nThe manager's order-up-to rule (`inventory_reorder.check_reorders`): when the\ninventory position falls to the reorder point it orders `equilibrium + pipeline -\nposition`, where the pipeline allowance is `round(rp \u00d7 lead \u00f7 (lead + 1))`.  Taking\nthe position AT the reorder point gives the expected lot; the supply-cv jitter is\nzero-mean and drops out.  Floors at 1: a SKU whose reorder point sits at its\nequilibrium still reorders something.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order) -> int"
+    },
+    "Optimization/simconfig/staffing.py::script_totals": {
+      "decorators": [],
+      "doc": "Stage B's demand side: units, lines and the analytic pick seconds of a batch list.\n\n`batches` are `Workload_Builder.Batch` objects (or anything with `.items: {sku: qty}`);\n`orders_by_sku` maps a SKU to its `Order` for the handling term.  Per-SKU unit totals\nare kept for `implied_reorders`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batches, orders_by_sku: dict, pricing: PricingConfig) -> ScriptTotals"
     },
     "Optimization/simdriver/__init__.py": {
       "decorators": [],
@@ -11062,7 +11427,7 @@
     },
     "Optimization/simdriver/strategy_runner.py::_check_declared_crew": {
       "decorators": [],
-      "doc": "Refuse a payload whose sized crew is not its declared crew.\n\n`k_pickers` is the count the worker sizes its pick crew from; `args['staffing']` is the\nstaffing record's INPUTS (`{store_pickers, ff_pickers}`, `sim_config.staffing_spec`),\nkeyed here by the worker's channel.  Both were read from the same CONFIG key in the\nparent, so they can only disagree when a caller assembled the payload by hand -- and that\ncaller would otherwise run a whole arm under a count its run spec never declared.  An\nabsent record (a bench harness, a test predating it) is nothing to check against.\nModule-level so a unit test can hand it a payload without running an arm.",
+      "doc": "Refuse a payload whose sized crews are not its declared (or derived) crews.\n\n`k_pickers` is the count the worker sizes its pick crew from; `args['staffing']` is the\nstaffing record -- its INPUTS (`sim_config.staffing_spec`), keyed here by the worker's\nchannel, plus under the calibrated era the pair's `derived` block, whose put and\nreceiving crews the payload's `put_crew` / `recv_crew` records must match.  Every one of\nthese was read or derived in the parent from the same source, so they can only disagree\nwhen a caller assembled the payload by hand -- and that caller would otherwise run a\nwhole arm under a crew its run spec never declared.  An absent record (a bench harness,\na test predating it) is nothing to check against.  Module-level so a unit test can hand\nit a payload without running an arm.",
       "is_async": false,
       "kind": "function",
       "signature": "(args: dict, k_pickers: int) -> None"
@@ -11149,6 +11514,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._shift_close_out": {
+      "decorators": [],
+      "doc": "Close working day `day`: the ledger row `(day, cap_end, end_s, drained,\nstanding, standing_put, standing_dock, standing_carry, last_finish)`, and the log\nline.  A day DRAINED if nothing was cut in it and no standing work survives it (put\nqueues + held + the dock floor + carried demand -- never the lead queue: transit is\ncalendar, not labour; and releases are exhausted by construction at a day\nboundary).  The end instant is `timeline.shift_end`'s arithmetic; days stay\norigin-aligned, so this is a REPORT of when the crews got off the clock, never a\nscheduler.\n\nThe state is PASSED IN, never read live: the close-out fires at the first batch of\nthe NEXT day, after that batch has already been processed, so the manager's live\ndepths and the folded clocks belong to the new day by then.  The caller hands it\nthe snapshot the previous day's last batch left behind (`_shift_standing`) and the\nclocks and cut flag accumulated before this batch was folded in.  The log-only\nledger read them live and mis-attributed every day's first batch to the day before\n-- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which\npersisting the row was what made visible.  Called once per day boundary, and once\nmore after the loop for the final day, which has no next day to close it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(day: int, standing: tuple, last_finish: float, cut: bool) -> tuple"
     },
     "Optimization/simdriver/strategy_runner.py::_timed_build": {
       "decorators": [],
@@ -11246,12 +11618,26 @@
       "kind": "function",
       "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity)"
     },
+    "Optimization/simdriver/workunits.py::_channel_batch_plan": {
+      "decorators": [],
+      "doc": "(batch_cfg, seed_batches, channel_regime) for one channel-run's batch stream.\n\nMixed catalogue: the channel's own BatchConfig over its regime's SKU count, its own seed\noffset, its regime as the precompute filter.  Store-only: the pair-level shared\nBatchConfig (= the store channel's shape), the base seed, no filter -- byte-identical\nto the pre-channel pipeline.  ONE helper for the same reason as\n`_worker_inventory_args`: two callers computing the plan is two fingerprints.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch, inventory, mixed: bool, shared: dict) -> tuple"
+    },
     "Optimization/simdriver/workunits.py::_channel_runs_for": {
       "decorators": [],
       "doc": "Plan the channel-runs for one catalog.\n\nStore and fulfillment sweep their OWN config sets independently (a UNION, not a cross\nproduct): every STORE_CONFIGS entry drives a store channel-run, and \u2014 only when the\ncatalog is mixed (contains fulfillment units) \u2014 every FULFILLMENT_CONFIGS entry drives a\nfulfillment channel-run.  A store-only catalog yields just the store runs (byte-identical\nto the pre-fulfillment pipeline).\n\nReturns (mixed, [(channel, cfg), ...]) where each channel carries its own pick cost + pool.",
       "is_async": false,
       "kind": "function",
       "signature": "(inventory) -> tuple[bool, list[tuple]]"
+    },
+    "Optimization/simdriver/workunits.py::_derive_staffing_for_pair": {
+      "decorators": [],
+      "doc": "Run the calibrated era's staffing derivation for ONE inventory pair.\n\nReturns `(channel_runs, derived, calibration)`: the channel-runs with their batch\nfractions REPLACED by the derived batch content (a store-only pair also gets\n`shared['batch_cfg']` replaced, since that is the plan its workers read), the derived\nblock (`staffing.derive`), and the resolved calibration constants with the two stamps.\n\nTwo stages, because the script is derived from the pickers and the crews from the\nscript (`Optimization/simconfig/staffing.py`):\n\n  A. per channel, from the CATALOGUE: the analytic pick seconds per unit, `s_pick`\n     resolved against the calibration record (a typed override, a measured value, or\n     analytic x travel share), the daily demand the declared pickers buy at it, and the\n     batch content that delivers it;\n  B. per channel, from the SCRIPT: precompute the batches under the derived content\n     (the same call `_prepare_channel_run` makes, so the cache is warm for it), read\n     them back, total the demand, the implied reorders' packs and their exact unload\n     seconds, resolve `s_put` against the script's analytic put seconds, then size the\n     two site crews.\n\nThe pricing config of a channel is its FIRST config (`store` / `ful_calibrated`): the\nreference run measures `s_pick` on that leaf, and the analytic prediction is priced\nwith the same coefficients so the ratio is a travel share and not a config difference.\nWarnings, never failures: a stale record, a declared crew above `k_max`, a saturated\nbatch (the crew asks for more lines than the catalogue has SKUs), an unpriced seed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shared: dict, channel_runs: list, mixed: bool, pair_dir: str, log: logging.Logger, workers: int=1) -> tuple"
     },
     "Optimization/simdriver/workunits.py::_plan_strategy_start": {
       "decorators": [],
@@ -11280,6 +11666,27 @@
       "is_async": false,
       "kind": "function",
       "signature": "(orders_subset, x_speed, y_speed, wp_)"
+    },
+    "Optimization/simdriver/workunits.py::_record_derived": {
+      "decorators": [],
+      "doc": "Write this pair's `derived` and `calibration` blocks into the run spec's `staffing`\nrecord -- or, when the run spec ALREADY holds a derived block for the pair, check that\nthe fresh derivation agrees with it and RAISE if it does not.\n\nThe recorded block is authoritative on resume (\"Design the staffing record\", decision 3):\nan arm fields the crew it started with, so a re-derivation that disagrees -- a changed\nderivation, a changed calibration record, a changed catalogue -- is refused rather than\nquietly resuming under different crews.  A multi-cell run hits the agreeing branch on\nevery cell after the first, which is the free drift check across cells.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, label: str, derived: dict, calibration: dict, log: logging.Logger) -> None"
+    },
+    "Optimization/simdriver/workunits.py::_run_root_spec": {
+      "decorators": [],
+      "doc": "(run_root, run_spec) for a cell dir or a run root; (None, None) when no run spec\nexists (a harness that never wrote one).  The run spec lives at the RUN ROOT while\n`_build_work_units` is handed a CELL dir -- the same parent-vs-self distinction\n`run_analysis._apply_run_shape` documents.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> tuple"
+    },
+    "Optimization/simdriver/workunits.py::_worker_inventory_args": {
+      "decorators": [],
+      "doc": "(inv_db, sku_allowlist, max_skus) exactly as the workers load inventory.\n\nWorkers load the PLANNED inventory DB (grown equilibrium_qty + cross-tier stock plans)\nwhen available so they reproduce the placement the warehouse was sized for; the\nallowlist and the limit then already live in that DB.  ONE helper, because the batch\nprecompute's fingerprint is over exactly these inputs: the derivation's precompute and\n`_prepare_channel_run`'s must load the same candidates or they compute two scripts.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shared: dict) -> tuple"
     },
     "Schema/__init__.py": {
       "decorators": [],

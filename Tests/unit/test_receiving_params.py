@@ -173,9 +173,12 @@ def test_the_crew_reaches_the_worker_payload():
     it, and every spawned worker runs with no dock at all."""
     from Optimization.simdriver import workunits
     src = inspect.getsource(workunits)
-    assert 'recv_crew           = recv_crew_spec(),' in src, (
+    assert 'recv_crew           = recv_crew_spec(size=_recv_size),' in src, (
         'the worker payload does not carry the receiving crew; a spawned worker re-imports '
         'sim_config and gets pristine defaults')
+    # `_recv_size` is None flag-off (the declared key is read) and the DERIVED site crew
+    # under the calibrated era (test_era_wiring).
+    assert "_recv_size = _st['derived']['receiving']['crew'] if _st else None" in src
 
 
 def test_the_worker_reads_the_crew_only_from_its_arguments():

@@ -693,6 +693,16 @@ files:
       - {name: "FF_PICK_MODE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CREW_SIZE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CREW_MODE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "RHO_PICK", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "RHO_PUT", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "RHO_RECV", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "F_PUT", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "F_RECV", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "BAND_TOL", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "S_PICK_STORE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "S_PICK_FF", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "S_PUT", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "CALIBRATION_RECORD", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_INTERCEPT_SCALE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_ITEM_RATIO", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "RECV_INTERCEPT_SCALE", file: "Optimization/config/settings.py", kind: "const"}
@@ -731,6 +741,7 @@ files:
       - {name: "n_batches", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "channel_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "staffing_spec", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "era_on", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "k_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -766,6 +777,7 @@ files:
       - {name: "PHASE2_FINITE_W", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RECV_CREW_SIZE", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RECV_DAY_SECONDS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "ERA_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "phase2_inbound_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -914,12 +926,14 @@ files:
       - {name: "BinEvictionRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "save_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_shift_days", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_checkpoint_bundle", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_carryover", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_yard_drains", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_shift_days", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_work_hours", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
     notes: ""
@@ -1119,6 +1133,19 @@ files:
       - {name: "read_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "write_run_manifest", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
     notes: ""
+  "Optimization/simconfig/calibration.py":
+    purpose: "the committed CALIBRATION RECORD and its loader."
+    layer: "optimization"
+    key_symbols:
+      - {name: "CalibrationRecordError", file: "Optimization/simconfig/calibration.py", kind: "class"}
+      - {name: "load_record", file: "Optimization/simconfig/calibration.py", kind: "function"}
+      - {name: "validate_record", file: "Optimization/simconfig/calibration.py", kind: "function"}
+      - {name: "is_measured", file: "Optimization/simconfig/calibration.py", kind: "function"}
+      - {name: "resolve_constant", file: "Optimization/simconfig/calibration.py", kind: "function"}
+      - {name: "resolve_constants", file: "Optimization/simconfig/calibration.py", kind: "function"}
+      - {name: "record_stub", file: "Optimization/simconfig/calibration.py", kind: "function"}
+      - {name: "staleness", file: "Optimization/simconfig/calibration.py", kind: "function"}
+    notes: ""
   "Optimization/simconfig/configs/ful_calibrated.py":
     purpose: "base human-walker pick-config (FulfillmentCart, one-way lanes)."
     layer: "optimization"
@@ -1160,6 +1187,26 @@ files:
     key_symbols:
       - {name: "PickConfigSpec", file: "Optimization/simconfig/core/registry.py", kind: "class"}
       - {name: "pick_config", file: "Optimization/simconfig/core/registry.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/staffing.py":
+    purpose: "the calibrated era's staffing DERIVATION, as a pure module."
+    layer: "optimization"
+    key_symbols:
+      - {name: "PricingConfig", file: "Optimization/simconfig/staffing.py", kind: "class"}
+      - {name: "analytic_pick", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "pick_capacity", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "daily_demand", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "batch_content", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "ScriptTotals", file: "Optimization/simconfig/staffing.py", kind: "class"}
+      - {name: "script_totals", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "reorder_lot", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "implied_reorders", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "crew_size", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "expected_utilization", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "constant", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "derive", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "derived_differs", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "regime_orders", file: "Optimization/simconfig/staffing.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/batch_precompute.py":
     purpose: "compute each warehouse family's batch sequence ONCE and share it."
@@ -3190,6 +3237,37 @@ files:
       - {name: "test_the_receipt_floor_holds_even_at_an_absurd_supply_cv", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_supply_cv_is_generated_per_sku_and_survives_a_db_round_trip", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_era_wiring.py":
+    purpose: "the calibrated era is launchable from the command line, its regime is"
+    layer: "tests"
+    key_symbols:
+      - {name: "restore", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_eras_scalars_are_declared_assumptions_with_their_flags_named", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_staffing_keys_carry_the_scalars_the_mode_and_the_overrides", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_staffing_spec_resolves_a_none_scalar_to_its_default_and_keeps_a_none_override", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_era_on_reads_the_same_key_the_worker_is_handed", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_derived_size_overrides_the_declared_key_in_both_crew_accessors", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_a_bad_put_mode_is_refused_at_the_accessor", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_each_new_knob_has_a_flag", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_a_utilization_target_must_lie_in_the_unit_interval", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_campaign_specs_and_the_reference_run_default_to_the_era", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_run_defaults_overlay_args_but_an_explicit_flag_wins_with_a_note", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_era_completes_the_cadence_the_cut_and_the_roll_over", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_a_legacy_crew_flag_typed_under_the_era_is_an_error", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_a_split_put_queue_and_a_foreign_cadence_are_errors_under_the_era", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_legacy_flags_keep_working_flag_off", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_override_loop_writes_the_era_flag_and_the_put_crew_size", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_era_flag_and_put_crew_size_are_recorded_and_restored_on_resume", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_a_standalone_reanalysis_restores_the_era_and_the_scalars", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_a_pre_era_spec_restores_to_flag_off", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_payload_carries_derived_crews_under_the_era_and_the_inputs_flag_off", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_worker_refuses_a_put_or_receiving_crew_its_record_did_not_derive", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_flag_off_payload_shape_is_still_accepted", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_shift_days_rows_ride_the_bundle_and_read_back_from_the_file", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_an_era_less_run_and_a_pre_era_vintage_both_read_as_no_days", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_table_is_in_the_declared_shape_and_the_semantics_cover_it", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_forward_pick_family.py":
     purpose: "one spelling for forward-pick vs reserve."
     layer: "tests"
@@ -4041,6 +4119,7 @@ files:
       - {name: "test_the_put_crews_speed_comes_from_its_mode", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_switching_the_put_mode_switches_the_speed", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_crew_size_setting_is_actually_read", file: "Tests/unit/test_settings_module.py", kind: "function"}
+      - {name: "test_the_put_crew_accessor_reads_config_not_the_module", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_runner_builds_the_put_crew_from_the_payload_not_the_pick_config", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_worker_payload_carries_the_put_crew", file: "Tests/unit/test_settings_module.py", kind: "function"}
       - {name: "test_the_split_is_off_by_default_and_structurally_so", file: "Tests/unit/test_settings_module.py", kind: "function"}
@@ -4132,6 +4211,36 @@ files:
       - {name: "test_neither_pick_simulation_converts_by_hand_any_more", file: "Tests/unit/test_speed_profile.py", kind: "function"}
       - {name: "test_the_hand_conversion_count_only_falls", file: "Tests/unit/test_speed_profile.py", kind: "function"}
       - {name: "test_cost_model_still_imports_nothing_from_the_repo", file: "Tests/unit/test_speed_profile.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_staffing_derivation.py":
+    purpose: "the calibrated era's staffing derivation is arithmetic from"
+    layer: "tests"
+    key_symbols:
+      - {name: "S", file: "Tests/unit/test_staffing_derivation.py", kind: "const"}
+      - {name: "pricing", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "catalogue", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_analytic_pick_is_the_frequency_weighted_line_cost_per_unit", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_analytic_pick_of_an_empty_section_is_zero_not_an_error", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_the_chain_from_pickers_to_batch_content_by_hand", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_a_crew_that_asks_for_more_lines_than_skus_is_clamped_and_flagged", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_zero_s_pick_is_refused_not_divided_by", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_script_totals_count_units_lines_and_unknown_skus", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_reorder_lot_is_the_order_up_to_rule_at_the_reorder_point", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_implied_reorders_pack_each_lot_and_price_receiving_exactly", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_f_put_and_f_recv_scale_their_loads_and_nothing_else", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_crew_size_is_the_ceiling_with_a_floor_of_one", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_expected_utilization_is_after_the_ceiling_and_the_leafs_share", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_derive_sizes_the_two_site_crews_over_both_channels_by_hand", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_an_absent_channel_contributes_nothing_and_is_recorded_as_absent", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_the_k_max_warning_fires_above_the_recorded_bound_and_not_at_it", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_constant_refuses_a_provenance_outside_the_five", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_derived_differs_compares_floats_with_a_tolerance_and_names_the_path", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_regime_orders_filters_by_regime_and_none_is_the_whole_catalogue", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_the_committed_record_is_the_pass_zero_seed", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_the_loader_refuses_an_unknown_provenance_and_a_valueless_entry", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_resolution_is_override_then_recorded_value_then_analytic_times_share", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_resolve_constants_prices_only_the_channels_present", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_the_stale_stamp_fires_on_a_mismatch_and_stays_silent_on_a_match", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
     notes: ""
   "Tests/unit/test_staffing_params.py":
     purpose: "the declared picker counts reach a real run, through all six seams."

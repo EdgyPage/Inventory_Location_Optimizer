@@ -828,6 +828,42 @@ _CREATE_YARD_DRAINS = """
     ) WITHOUT ROWID
 """
 
+# ── the drain-or-cap shift's LEDGER, one row per working day ─────────────────────────────
+# The persisted form of the `[shift] day N ended ...` log line ("Declare the equilibrium bands",
+# decision 5).  Written as each close-out fires -- and the close-out fires at the FIRST batch of
+# the NEXT day, so the final day never closes inside the loop and gets its own flush at run end
+# (`save_shift_days`, outside the checkpoint tail: memory `run-end-writers-miss-the-final-flush`).
+# ZERO rows on every run without the drain-or-cap shift, which is every run before the era; its
+# own table rather than batch_stats columns for the same reason the yard tables are.
+# Joined to `batch_stats.work_day`.  Deriving drained/capped from batch_stats alone was rejected:
+# it is blind to standing put queues and the dock floor, which are exactly the coupling the
+# equilibrium check reads.
+_CREATE_SHIFT_DAYS = """
+    CREATE TABLE IF NOT EXISTS shift_days (
+        run_id         INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        day            INTEGER NOT NULL,  -- the working day, 0-based, = batch_stats.work_day
+        cap_end        REAL    NOT NULL,  -- STAMP: when the cap fell (the day's whistle) on the
+                                          -- arm's absolute clock
+        end_s          REAL    NOT NULL,  -- STAMP: when the shift ENDED -- the drain instant or
+                                          -- the cap, whichever came first (timeline.shift_end)
+        drained        INTEGER NOT NULL,  -- 1 = nothing was cut and no work stood at close-out;
+                                          -- 0 = CAPPED: declared throughput not delivered
+        standing       INTEGER NOT NULL,  -- LEVEL at close-out: standing_put + standing_dock +
+                                          -- standing_carry.  A MIXED account (packs + pieces),
+                                          -- kept because "was anything standing" is the question
+                                          -- the drained verdict answers; the three parts below
+                                          -- are the honest per-account reads
+        standing_put   INTEGER NOT NULL,  -- LEVEL: storage units in the put queues + held
+        standing_dock  INTEGER NOT NULL,  -- LEVEL: storage units on the dock floor
+        standing_carry INTEGER NOT NULL,  -- LEVEL: merchandise units of demand carried to the
+                                          -- next batch (the cut's roll-over)
+        last_finish    REAL    NOT NULL,  -- STAMP: the last instant any crew was working in
+                                          -- this day (pick, put or receive clock, whichever
+                                          -- ran latest); > cap_end is START-gate overtime
+        PRIMARY KEY (run_id, day)
+    ) WITHOUT ROWID
+"""
+
 
 def _apply_run_schema(con: sqlite3.Connection) -> None:
     """Issue every CREATE for the run DB on an already-open connection.
@@ -866,6 +902,7 @@ def _apply_run_schema(con: sqlite3.Connection) -> None:
     con.execute(_CREATE_BIN_EVICTION_IDX)
     con.execute(_CREATE_YARD_TRAILERS)
     con.execute(_CREATE_YARD_DRAINS)
+    con.execute(_CREATE_SHIFT_DAYS)
     _migrate_run_columns(con)
 
 
@@ -1008,7 +1045,13 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 measurement at all.  2026-08-25 .. 2026-08-31.  A run of this vintage
     #                 answers nothing under the `yard` capability -- which is the honest
     #                 outcome, and why the quantities reading those tables name it.
-    known_ids=('ce01ca0095b2',
+    #   be2a593727be  the yard tables, before the drain-or-cap ledger (`shift_days`): the
+    #                 pilot gate, the per-item charge and the picker staffing seam all ran on
+    #                 this shape.  2026-08-31 .. 2026-09-05.  No published run used it; a
+    #                 run of this vintage has no per-day drained/capped verdict, so the
+    #                 equilibrium check cannot be read over it.
+    known_ids=('be2a593727be',
+              'ce01ca0095b2',
               '31cb7d1b1199',
               '8af17e7d417e',
               '0ab75b4fabc2',
@@ -1111,6 +1154,11 @@ CONDITIONAL_READS = {
     # `_query_rows` and the loader returns [] — the caller cannot receive a plausible zero.
     'load_yard_trailers':  'yard_trailers',
     'load_yard_drains':    'yard_drains',
+    # The drain-or-cap ledger, added 2026-09-05 with the calibrated era.  Negotiated the
+    # same way: a pre-era vintage raises `UnsupportedQuery` inside `_query_rows` and the
+    # loader returns [] -- and an era-less run of the new vintage has the table with no rows,
+    # which is the same honest answer ("no day was ever closed out").
+    'load_shift_days':     'shift_days',
     'load_carryover':      'carryover',      # written since 2026-08-24, read from here on
     # The production-labour fold, added 2026-08-31 — `work_events` had no consumer outside
     # Diagnostics until the objective needed the put leg.  Negotiated like the yard pair.
@@ -1346,6 +1394,15 @@ _dataset.register_query(_dataset.Query(
          + ' FROM yard_drains WHERE run_id = :run_id ORDER BY batch'),
     columns=_YARD_DRAIN_COLS,
     tables={'yard_drains': ('run_id', *_YARD_DRAIN_COLS)}))
+
+_SHIFT_DAY_COLS = ('day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put',
+                   'standing_dock', 'standing_carry', 'last_finish')
+_dataset.register_query(_dataset.Query(
+    name='shift_day_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_SHIFT_DAY_COLS)
+         + ' FROM shift_days WHERE run_id = :run_id ORDER BY day'),
+    columns=_SHIFT_DAY_COLS,
+    tables={'shift_days': ('run_id', *_SHIFT_DAY_COLS)}))
 
 # Production labour, folded per (batch, role).  `work_events` is another whole-table
 # absence before its vintage, so it takes the same no-`optional` treatment as the yard
@@ -2420,6 +2477,37 @@ def _insert_yard_drains(con: sqlite3.Connection, run_id: int, records: list) -> 
          for batch, ys, fd, ye, sr in records])
 
 
+def _insert_shift_days(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    """`(day, cap_end, end_s, drained, standing, standing_put, standing_dock, standing_carry,
+    last_finish)` tuples -- `strategy_runner`'s close-out row, one per working day."""
+    con.executemany(
+        'INSERT OR REPLACE INTO shift_days '
+        '(run_id, day, cap_end, end_s, drained, standing, standing_put, standing_dock, '
+        'standing_carry, last_finish) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [(run_id, int(day), float(cap), float(end), int(bool(dr)), int(st), int(sp), int(sd),
+          int(sc), float(lf))
+         for day, cap, end, dr, st, sp, sd, sc, lf in records])
+
+
+def save_shift_days(path: str, run_id: int, records: list) -> None:
+    """Write shift close-out rows on their own connection -- the FINAL DAY's writer.
+
+    The close-out fires at the first batch of the NEXT day, so the last day of a run never
+    closes inside the loop; the runner closes it after the loop and writes it here, OUTSIDE
+    the checkpoint tail, for the same reason `save_yard_trailers` is separate: that tail only
+    fires when a batch window is unflushed, which it is not when the batch count divides
+    evenly by the checkpoint interval (memory `run-end-writers-miss-the-final-flush`).
+    """
+    if not records:
+        return
+    con = _open_db(path)
+    try:
+        _insert_shift_days(con, run_id, records)
+        con.commit()
+    finally:
+        con.close()
+
+
 def save_yard_trailers(path: str, run_id: int, records: list) -> None:
     """Write trailer stamps on their own connection — the RUN-END flush's writer.
 
@@ -2456,12 +2544,13 @@ def save_checkpoint_bundle(
     carryover      : list | None = None,
     yard_trailers  : list | None = None,
     yard_drains    : list | None = None,
+    shift_days     : list | None = None,
 ) -> None:
     """All per-checkpoint writers on ONE connection with ONE commit.
 
-    `work_events`, `put_queue_state`, `carryover` and the two `yard_*` lists are
-    keyword-OPTIONAL, so a caller that predates them -- a test, a Diagnostics harness -- is
-    unchanged and writes no rows.
+    `work_events`, `put_queue_state`, `carryover`, the two `yard_*` lists and `shift_days`
+    are keyword-OPTIONAL, so a caller that predates them -- a test, a Diagnostics harness --
+    is unchanged and writes no rows.
 
     A bundle argument that is accepted and never inserted is this function's characteristic
     failure: `work_events` was one for a while, and the reconciliation that was supposed to
@@ -2501,6 +2590,8 @@ def save_checkpoint_bundle(
             _insert_yard_trailers(con, run_id, yard_trailers)
         if yard_drains:
             _insert_yard_drains(con, run_id, yard_drains)
+        if shift_days:
+            _insert_shift_days(con, run_id, shift_days)
         con.commit()
     finally:
         con.close()
@@ -2551,6 +2642,18 @@ def load_yard_drains(path: str, run_id: int) -> list:
     pair is a COUNT OF DRAINS with either above zero.
     """
     return _query_rows('yard_drain_frame', path, run_id=run_id) or []
+
+
+def load_shift_days(path: str, run_id: int) -> list:
+    """Every working day's close-out, in day order.  `[]` on a pre-era vintage AND on an
+    era-less run of the new vintage -- both mean "no day was ever closed out".
+
+    `drained` is the verdict the equilibrium check reads per day; the `standing_*` columns
+    are LEVELS at close-out and never sum across days.  `end_s < cap_end` with `drained`
+    is a day the crews got off the clock early; `last_finish > cap_end` is START-gate
+    overtime (a task begun before the whistle finished after it).
+    """
+    return _query_rows('shift_day_frame', path, run_id=run_id) or []
 
 
 def load_work_hours(path: str, run_id: int) -> list:

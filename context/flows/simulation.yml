@@ -59,6 +59,27 @@ steps:
     reads: [inventory_db, affinity_db]
     writes: [warehouse_db, planned_inventory_db]
     guards: [Tests/unit/test_warehouse_sizing.py, Tests/unit/test_regime_sizing.py]
+    next: [derive_staffing]
+
+  - id: derive_staffing
+    summary: >
+      The calibrated era only (era_on(), --shift-drain-or-cap): per pair, before any
+      channel-run is prepared, derive the batch content and the two site crews (put,
+      receiving) from the declared pickers — stage A prices the catalogue against the
+      calibration record, stage B precomputes the derived batch script and totals its
+      implied put-away/receiving load — then record the derived + calibration blocks into
+      run_spec.json (or verify they still agree, on resume). Flag-off this step is skipped
+      and the flow is byte-identical to before.
+    functions:
+      - {name: era_on, file: Optimization/config/sim_config.py, kind: function}
+      - {name: _derive_staffing_for_pair, file: Optimization/simdriver/workunits.py, kind: function}
+      - {name: _record_derived, file: Optimization/simdriver/workunits.py, kind: function}
+      - {name: derive, file: Optimization/simconfig/staffing.py, kind: function}
+      - {name: resolve_constants, file: Optimization/simconfig/calibration.py, kind: function}
+      - {name: load_record, file: Optimization/simconfig/calibration.py, kind: function}
+    reads: [planned_inventory_db, affinity_db]
+    writes: [batches_cache, run_spec]
+    guards: [Tests/unit/test_staffing_derivation.py, Tests/unit/test_era_wiring.py]
     next: [prepare_channel_runs]
 
   - id: prepare_channel_runs

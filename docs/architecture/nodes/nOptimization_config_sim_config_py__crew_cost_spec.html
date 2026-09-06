@@ -21,14 +21,14 @@
 Put-away and receiving keep picking&#x27;s cost shape and coefficients by reference
 (`PutawayCost.from_pick`, `UnloadCost.from_putaway`); these three scalars are the only
 place their numbers may differ.  Read from CONFIG at CALL time -- never from `_s.`
-directly, which is the trap `put_crew_spec` above still carries -- and handed to the
+directly, which was the trap `put_crew_spec` above carried until the era build -- and handed to the
 worker in its payload (`workunits._shared[&#x27;crew_cost&#x27;]`), because a spawned worker
 re-imports this module and would get pristine defaults.
 
 A None (a pre-field run spec restored by `run_analysis._apply_run_shape`) resolves to the
 kernel default: that run priced its put crew at the pre-charge literal, which no scale
 can reproduce, so the default is the honest reconstruction of &quot;no scale was declared&quot;.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__crew_cost_spec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20crew_cost_spec">Source ↗</a></p>
 </article>
 </main>

@@ -41,6 +41,7 @@ if _REPO_ROOT not in sys.path:
 from Optimization.config.sim_config import (            # noqa: F401
     CONFIG, INBOUND_KEYS, STAFFING_KEYS, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
     seed_world, seed_batches, n_batches, k_pickers, channel_pickers, staffing_spec,
+    CALIBRATION_KEYS, era_on,
     store_restocks, store_fill,
     _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
     _STORE_PICKERS, _FF_PICKERS, _CART_TYPES,
@@ -173,6 +174,23 @@ def _positive_int(text: str) -> int:
     return n
 
 
+def _unit_fraction(text: str) -> float:
+    """An argparse `type=` for a utilization target: a number in (0, 1].
+
+    ρ is worked ÷ granted, so 0 means "no work is ever done" and above 1 means "the crew
+    works more than the day it is granted" -- both are not a scenario but a typo, and the
+    derivation would divide by the first.  Fails at the parser, naming the flag.
+    """
+    try:
+        v = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'{text!r} is not a number')
+    if not (0.0 < v <= 1.0):
+        raise argparse.ArgumentTypeError(
+            f'{v} is not a utilization target: worked / granted lies in (0, 1]')
+    return v
+
+
 def _futuresight_window(text: str):
     """An argparse `type=` for the futuresight window: `'all'` or a non-negative int.
 
@@ -220,6 +238,10 @@ def _apply_run_spec(args, spec, explicit):
               # started on.
               'work_day_seconds', 'releases_per_day', 'cut_at_day_end',
               'roll_over_unpicked',
+              # ...and the ERA, for the same reason squared: an arm that resumed without the
+              # drain-or-cap shift would finish on a continuous clock with declared crews
+              # where it started with a site day and derived ones.
+              'shift_drain_or_cap',
               # ...and the receiving crew, for the same reason: an arm that resumed without
               # its dock would finish having received for free.
               'recv_crew_size', 'recv_day_seconds', 'recv_day_origin',
@@ -227,7 +249,7 @@ def _apply_run_spec(args, spec, explicit):
               # without its split would finish with one crew where it started with three.
               'put_queue_split', 'put_cart_crew', 'put_pallet_crew', 'put_ff_crew',
               'put_cart_staging', 'put_pallet_staging', 'put_ff_staging',
-              'put_swap_coef',
+              'put_swap_coef', 'put_crew_size',
               # ...and the other crews' price, for the same reason: an arm that resumed
               # with this checkout's scales would bill its second half at a different rate.
               'put_intercept_scale', 'put_item_ratio', 'recv_intercept_scale',
@@ -251,6 +273,88 @@ def _apply_run_spec(args, spec, explicit):
         else:
             setattr(args, f, spec[f])
     return spec.get('s_composition'), notes
+
+
+#: The crew flags the calibrated era DERIVES.  Typed explicitly under the era, each is an
+#: error ("Design the staffing record", decision 4): the derivation sizes these crews from
+#: the pickers' daily demand, and a declared size beside a derived one is the stale-literal
+#: trap the era exists to kill.  Flag-off, every one of them keeps working verbatim.
+_ERA_DERIVED_FLAGS: tuple[str, ...] = (
+    'recv_crew_size', 'recv_day_seconds', 'recv_day_origin',
+    'put_crew_size', 'put_cart_crew', 'put_pallet_crew', 'put_ff_crew',
+)
+
+
+def _apply_run_defaults(args, spec_dict: dict, explicit: set) -> list[str]:
+    """Overlay a cell-matrix spec's `run_defaults` onto args, for a NEW run.
+
+    A spec may carry run-level knobs (whatif_config.ERA_RUN_DEFAULTS: the calibrated era)
+    beside its cell axes.  They are DEFAULTS: a flag the user typed wins, with a note, so a
+    spec cannot silently override a command line.  A resumed run never reaches this -- its
+    run spec recorded the resolved values and `_apply_run_spec` restores them.
+    Returns the notes.
+    """
+    notes = []
+    for key, val in (spec_dict.get('run_defaults') or {}).items():
+        if key in explicit:
+            if getattr(args, key) != val:
+                notes.append(f'  spec default: {key} {val!r} -> {getattr(args, key)!r} '
+                             f'(explicit flag wins)')
+            continue
+        setattr(args, key, val)
+    return notes
+
+
+def _check_era_flags(args, explicit: set) -> list[str]:
+    """Enforce and complete the calibrated era's regime on the parsed args.
+
+    Under `--shift-drain-or-cap` (".scratch/department-calibration", "Define the calibrated
+    era"):
+      * the legacy crew flags (`_ERA_DERIVED_FLAGS`) typed explicitly are an ERROR -- the
+        put and receiving crews are derived from the pickers, never declared;
+      * `--put-queue-split` is an error -- single queue only for this map; per-stream sizing
+        is the out-of-scope swept-axis effort;
+      * the cadence is pinned at ONE release per day: an unset `--releases-per-day` is
+        completed to 1 (with a note), an explicit other value is an error, because the
+        derivation makes one batch one day's demand;
+      * the roll-over and the cut are completed to on (with a note): a day that reads
+        "drained" because cut demand was dropped is not equilibrium, and the worker forces
+        the cut anyway -- the record should say what ran.
+    Raises `SystemExit` with the reason; returns the completion notes otherwise.
+    Module-level so a test can hand it a Namespace.
+    """
+    if not getattr(args, 'shift_drain_or_cap', False):
+        return []
+    bad = [f for f in _ERA_DERIVED_FLAGS if f in explicit]
+    if bad:
+        raise SystemExit(
+            f'under --shift-drain-or-cap the put and receiving crews are DERIVED from the '
+            f'pickers (Optimization/simconfig/staffing.py), so these flags are an error: '
+            f'{", ".join("--" + f.replace("_", "-") for f in bad)}. Drop them, or drop '
+            f'--shift-drain-or-cap to run the flag-off regime with declared crews.')
+    if getattr(args, 'put_queue_split', False):
+        raise SystemExit(
+            'under --shift-drain-or-cap the put crew is one derived site crew on a single '
+            'queue; --put-queue-split is an error here (per-stream sizing is the '
+            'staffing-as-a-swept-axis effort, out of this map\'s scope).')
+    notes = []
+    rpd = getattr(args, 'releases_per_day', None)
+    if rpd is None:
+        args.releases_per_day = 1
+        notes.append('  era: --releases-per-day completed to 1 (one batch is one day\'s demand)')
+    elif int(rpd) != 1:
+        raise SystemExit(
+            f'the calibrated era derives one batch per day, so --releases-per-day must be 1 '
+            f'under --shift-drain-or-cap; got {rpd}.')
+    if not getattr(args, 'roll_over_unpicked', False):
+        args.roll_over_unpicked = True
+        notes.append('  era: --roll-over-unpicked completed to on (a day that drops cut demand '
+                     'is not equilibrium)')
+    if not getattr(args, 'cut_at_day_end', False):
+        args.cut_at_day_end = True
+        notes.append('  era: --cut-at-day-end completed to on (the cap implies the cut; the '
+                     'record now says so)')
+    return notes
 
 
 def main():
@@ -363,6 +467,20 @@ def main():
         default=CONFIG['global']['roll_over_unpicked'],
         help='Demand a batch did not pick joins the next batch, whatever the cause. The '
              'largest behaviour change here: it ends comparability with the archive.')
+    # ── THE CALIBRATED ERA ──────────────────────────────────────────────────────────
+    # One flag turns the regime on: one site-wide drain-or-cap shift, one release per day,
+    # the cut and the roll-over on (completed by `_check_era_flags`), the put and receiving
+    # crews DERIVED from the pickers, the script priced from the calibration record.  The
+    # campaign specs carry it as `run_defaults` (whatif_config.ERA_RUN_DEFAULTS).
+    parser.add_argument(
+        '--shift-drain-or-cap', action='store_true',
+        default=CONFIG['global']['shift_drain_or_cap'],
+        help='THE CALIBRATED ERA. One site-wide working stretch per day that ends when no '
+             'work stands or at the cap (the day length), every crew on the same boundary; '
+             'implies --releases-per-day 1, --cut-at-day-end and --roll-over-unpicked. The '
+             'put and receiving crews are then DERIVED from --store-pickers / --ff-pickers '
+             'and the calibration record, so the legacy crew flags are an error. A '
+             'RESULTS ERA: nothing is comparable across it.')
     # ── the receiving crew ──────────────────────────────────────────────────────
     # Its day is deliberately NOT gated on --cut-at-day-end.  That flag changes which units
     # are PICKED in which batch; coupling would make receiving rollover observable only in a
@@ -421,6 +539,14 @@ def main():
         metavar='SEC',
         help='Seconds to swap a full put-away cart for an empty one. 0 (the default) '
              'leaves swaps counted and free, which is what the single queue does today.')
+    # ── the single-queue put crew ──────────────────────────────────────────────────
+    # The `put_crew_spec` trap, closed: the accessor reads CONFIG, so this flag reaches a
+    # worker.  Flag-off only -- under the era the size is derived and typing it is an error.
+    parser.add_argument(
+        '--put-crew-size', type=_positive_int, default=CONFIG['global']['put_crew_size'],
+        metavar='N',
+        help='Putters on the single catch-all queue (default 1). Flag-off only: under '
+             '--shift-drain-or-cap the put crew is DERIVED and this flag is an error.')
     # ── the other crews' price, as scalars of the pickers' ─────────────────────
     # Put-away and receiving keep picking's coefficients by reference; these three are the
     # only place their numbers may differ (settings, "the other crews' price").
@@ -449,6 +575,44 @@ def main():
              'walkers on the fulfillment channel (a store-only catalogue ignores it)')):
         parser.add_argument(_flag, type=_positive_int, default=CONFIG['global'][_key],
                             metavar='N', help=f'{_what[0].upper()}{_what[1:]}.')
+    # ── the era's declared scalars: every step of the derivation is a knob ─────────
+    # Each is a staffing INPUT (STAFFING_KEYS), recorded `declared` when typed and
+    # `assumed` when the settings default stood.  ρ is a utilization target in (0, 1];
+    # f is a replenishment ratio (1.0 = steady state); band_tol an absolute tolerance.
+    for _flag, _key, _type, _what in (
+            ('--rho-pick', 'rho_pick', _unit_fraction,
+             'picking utilization target (worked / granted); capacity = K x day x rho'),
+            ('--rho-put', 'rho_put', _unit_fraction, 'put-away utilization target'),
+            ('--rho-recv', 'rho_recv', _unit_fraction, 'receiving utilization target'),
+            ('--f-put', 'f_put', _nonneg_float,
+             'units put away per unit picked; 1.0 = steady state'),
+            ('--f-recv', 'f_recv', _nonneg_float,
+             'packs received per pack the script implies; 1.0 = steady state'),
+            ('--band-tol', 'band_tol', _nonneg_float,
+             'equilibrium band: |realized - expected| utilization tolerance, absolute')):
+        parser.add_argument(_flag, type=_type, default=CONFIG['global'][_key], metavar='X',
+                            help=f'{_what[0].upper()}{_what[1:]} (default '
+                                 f'{CONFIG["global"][_key]}).')
+    parser.add_argument(
+        '--put-crew-mode', choices=('foot', 'machine'),
+        default=CONFIG['global']['put_crew_mode'],
+        help="The put crew's travel MODE, which picks its speed table. A DECLARED staffing "
+             'input: the derivation sizes the count, the mode is a labour-model term.')
+    # ── the calibration constants' overrides ───────────────────────────────────────
+    # Seconds per unit.  Omit to take the committed calibration record
+    # (Optimization/simconfig/calibration_record.json); a number is recorded `declared`.
+    for _flag, _key, _what in (
+            ('--s-pick-store', 's_pick_store', 'seconds per unit picked, store channel'),
+            ('--s-pick-ff', 's_pick_ff', 'seconds per unit picked, fulfillment channel'),
+            ('--s-put', 's_put', 'seconds per unit put away, one site value')):
+        parser.add_argument(_flag, type=_positive_float, default=CONFIG['global'][_key],
+                            metavar='SEC',
+                            help=f'Override the calibration record: {_what}. Omit to price '
+                                 f'from the record (seeded until a reference run measures it).')
+    parser.add_argument(
+        '--calibration-record', default=CONFIG['global']['calibration_record'], metavar='PATH',
+        help='Load this calibration record instead of the committed one (a candidate a '
+             'reference run wrote, before it is adopted).')
     # ── the inbound trailer pipeline + the standing yard ────────────────────────
     # Seams 3 and 4 for the whole family, deferred by every knob this effort added ("the
     # first sweep"); the funnel IS the first sweep, so the debt falls due together.  Every
@@ -616,8 +780,17 @@ def main():
                            'code defaults + retyped flags; re-supply the original run-shaping flags '
                            'to avoid warehouse/inventory/batch-count drift']
         spec_name, spec_dict = _resolve_spec()          # after run_spec overlay (restores --spec)
+        # The era's regime, re-checked on the resume command line: a legacy crew flag typed
+        # here is as much an error as on the original launch.
+        _spec_notes.extend(_check_era_flags(args, explicit))
     else:
         spec_name, spec_dict = _resolve_spec()
+        # A spec's run-level defaults (the era) overlay a NEW run's args; a typed flag wins.
+        _spec_notes.extend(_apply_run_defaults(args, spec_dict, explicit))
+        # The calibrated era's regime: refuse the derived crews' flags, complete the cadence,
+        # the cut and the roll-over.  BEFORE the run dir exists, so a refused launch leaves no
+        # phantom run behind, and before the CONFIG write-back so the record says what ran.
+        _spec_notes.extend(_check_era_flags(args, explicit))
         n_cells  = len(_build_cells(spec_dict))          # >1 cell ⇒ a what-if sweep dir name
         ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
         prefix   = 'comparison_whatif' if n_cells > 1 else 'comparison'
@@ -645,6 +818,7 @@ def main():
     g['releases_per_day']  = args.releases_per_day
     g['cut_at_day_end']    = bool(args.cut_at_day_end)
     g['roll_over_unpicked'] = bool(args.roll_over_unpicked)
+    g['shift_drain_or_cap'] = bool(args.shift_drain_or_cap)
     g['recv_crew_size']    = args.recv_crew_size
     g['recv_day_seconds']  = args.recv_day_seconds
     g['recv_day_origin']   = args.recv_day_origin
@@ -656,6 +830,8 @@ def main():
     g['put_pallet_staging'] = args.put_pallet_staging
     g['put_ff_staging']     = args.put_ff_staging
     g['put_swap_coef']      = args.put_swap_coef
+    g['put_crew_size']      = args.put_crew_size
+    g['calibration_record'] = args.calibration_record
     g['put_intercept_scale']  = args.put_intercept_scale
     g['put_item_ratio']       = args.put_item_ratio
     g['recv_intercept_scale'] = args.recv_intercept_scale
@@ -786,6 +962,9 @@ def main():
             'releases_per_day': g['releases_per_day'],
             'cut_at_day_end'  : g['cut_at_day_end'],
             'roll_over_unpicked': g['roll_over_unpicked'],
+            # The calibrated era.  A RESULTS ERA: two runs on either side of it are not
+            # comparable, and a resume must finish under the regime it started in.
+            'shift_drain_or_cap': g['shift_drain_or_cap'],
             # The receiving crew and its own day. Read from `g` (post-overlay), not from
             # `args`, so a value that came from CONFIG rather than the command line is
             # recorded too -- otherwise two runs with different docks look identical.
@@ -802,6 +981,7 @@ def main():
             'put_pallet_staging': g['put_pallet_staging'],
             'put_ff_staging'    : g['put_ff_staging'],
             'put_swap_coef'     : g['put_swap_coef'],
+            'put_crew_size'     : g['put_crew_size'],
             # The other crews' price as scalars of the pickers' -- recorded so a resume and
             # a re-analysis price put-away and receiving as the run did.
             'put_intercept_scale' : g['put_intercept_scale'],
@@ -812,13 +992,19 @@ def main():
             # was declared (the STAFFING_KEYS, read post-overlay through the accessor so a
             # value that came from CONFIG is recorded too); `provenance` says, per input,
             # whether a flag chose it (`declared`) or a settings default did (`assumed`);
-            # the derivation ticket adds `derived` beside them.  Both restore sites read
-            # `inputs` by iterating STAFFING_KEYS, and the whole record is stamped onto
-            # sim_result for the evaluations (run_analysis, the sixth seam).
+            # `derived` and `calibration` are added PER PAIR by the derivation at setup
+            # (workunits._record_derived), after batch precompute, because the receiving
+            # crew needs the packs the script implies.  Both restore sites read `inputs` by
+            # iterating STAFFING_KEYS, and the whole record is stamped onto sim_result for
+            # the evaluations (run_analysis, the sixth seam).  The three CALIBRATION_KEYS
+            # are `declared` only when typed; untyped they are `assumed` HERE (no override
+            # was chosen) and the resolved constant under `calibration` carries the record's
+            # own provenance (`seed` / `measured` / `derived`).
             'staffing': {
                 'inputs'    : staffing_spec(),
                 'provenance': {k: ('declared' if k in explicit else 'assumed')
                                for k in STAFFING_KEYS},
+                'era'       : bool(g['shift_drain_or_cap']),
             },
             # The inbound family. Read from `g` (post-overlay) like the two families above,
             # and recorded WHOLE rather than only when on: a phase-2 cell that cannot say

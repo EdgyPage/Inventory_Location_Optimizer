@@ -119,6 +119,16 @@ regime someone chose rather than one the defaults inherited.
   from the put crew (`UnloadCost.from_putaway`, scale 1.0, per-item charge once per PACK). Three
   scale knobs with all five seams (`crew_cost_spec`, `_shared['crew_cost']`). Pre-charge archives
   are rebuilt WITHOUT the term. 1587 unit tests green; sabotage tests pin the evaluator and yardstick.
+- [Build the derivation, the calibration record, and the era wiring](issues/08-build-the-derivation-and-era-wiring.md):
+  LANDED. `--shift-drain-or-cap` is the era: it completes one release per day, the cut and the
+  roll-over, REFUSES the legacy crew flags, and `simconfig/staffing.py` (pure, two stages) derives
+  batch content, the put crew and the receiving crew per pair at setup, recorded under
+  `staffing.derived[<pair>]` / `staffing.calibration[<pair>]` and carried in the payload. The
+  committed record is the pass-0 SEED expressed as travel shares over the catalogue's analytic
+  prediction (1.01 / 1.04 / 1.05), never a number. `shift_days` persists the ledger (final day
+  flushed outside the tail; the log-only close-out mis-attributed every first batch -- fixed).
+  `put_crew_spec` trap closed; `calibration_reference` is the reference run's spec. Two smoke runs
+  end to end; 69 new tests.
 - [Build the picker staffing seam](issues/07-build-the-picker-staffing-seam.md): LANDED. Pickers
   per channel are two flat global keys on `STAFFING_KEYS` with `channel_pickers()` /
   `staffing_spec()` read at call time; `--store-pickers` / `--ff-pickers`; one nested `staffing`
@@ -132,13 +142,10 @@ regime someone chose rather than one the defaults inherited.
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
-  Three remain tickets (06 and 07 landed): the derivation + calibration-record loader + era
-  wiring + persisted ledger
-  ([Build the derivation, the calibration record, and the era wiring](issues/08-build-the-derivation-and-era-wiring.md),
-  UNBLOCKED — 03, 06 and 07 are all resolved), the equilibrium check and the throughput audit
+  Two remain tickets (06, 07 and 08 landed): the equilibrium check and the throughput audit
   ([Build the equilibrium check and the throughput audit](issues/10-build-the-equilibrium-check-and-audit.md),
-  waits on 08), and the reference run itself
-  ([Take the reference run](issues/09-take-the-reference-run.md), waits on 08, 10). Nothing of
+  UNBLOCKED — 08 is resolved), and the reference run itself
+  ([Take the reference run](issues/09-take-the-reference-run.md), waits on 10). Nothing of
   the build remains in fog; what stays dim is below.
 - **Interaction-effects reporting beyond the bands** — the user's framing names
   "interaction effects between departments"; the bands capture equilibrium, but how the

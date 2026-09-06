@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>batch_content · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_staffing_py__batch_content" data-id="Optimization/simconfig/staffing.py::batch_content">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a> <span class="sep">›</span> <span class="here"><code>batch_content</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>batch_content</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def batch_content(demand_units: float, units_per_line: float, n_skus: int, declared_mean: float, declared_std: float) -&gt; dict</code></pre>
+<section class="doc">One batch = one day&#x27;s demand, as the sampler&#x27;s (mean_fraction, std_fraction).
+
+The sampler draws a LINE count ~ N(mean·N, std·N) and each line demands
+`quantity_rate` units, so the mean fraction that delivers `demand_units` is
+`(demand ÷ units_per_line) ÷ N`.  The spread keeps the DECLARED coefficient of
+variation (the flag-off `std ÷ mean`, 1/3 for the store, 1/4 for fulfillment) so a
+derived script has the same relative day-to-day variability the archive&#x27;s did.  A
+mean above 1.0 -- every SKU every day, and then some -- is CLAMPED and flagged: the
+sampler cannot draw more lines than SKUs, and the declared crew is then oversized for
+the catalogue (the verifier will show the idle capacity; `saturated` says why).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__batch_content">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20batch_content">Source ↗</a></p>
+</article>
+</main>
+</body></html>

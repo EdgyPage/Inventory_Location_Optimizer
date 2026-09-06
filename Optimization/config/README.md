@@ -10,10 +10,15 @@ self-registering pick-config registry.
 | `sim_config.py` | `CONFIG`, the per-channel sweeps, `.env`-backed paths, config→PickConfig |
 | `channels.py` | the Channel abstraction — one operation over a shared warehouse |
 | `strategies.py` | `STRATEGIES` — initial × restock × reslot, the arms a run compares |
-| `whatif_config.py` | `SPECS` — the cell matrices a run can be launched as |
+| `whatif_config.py` | `SPECS` — the cell matrices a run can be launched as, and `ERA_RUN_DEFAULTS`, the calibrated era the campaign specs default to |
+| `../simconfig/staffing.py` | the calibrated era's staffing DERIVATION — a pure module: pickers + the calibration record + the script in, batch content and the two site crews out |
+| `../simconfig/calibration.py` + `calibration_record.json` | the committed calibration record (seconds per unit with provenance) and its loader; the pass-0 record is the SEED |
 
 **Does NOT belong here:** anything that reads or writes a run's output (→ `persistence/`,
 `runschema/`), orchestration (→ `simdriver/`), or plotting (→ `Performance_Evaluations/`).
+The derivation's harness seam — running it after batch precompute and feeding the derived
+crews into the worker payload — is `simdriver/workunits.py`, not this package; `staffing.py`
+must stay pure (no CONFIG, no files) so its arithmetic is testable without a run.
 
 ## Two things that will bite you
 

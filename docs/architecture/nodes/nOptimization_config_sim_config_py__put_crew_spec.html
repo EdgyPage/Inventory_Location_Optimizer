@@ -14,17 +14,27 @@
 <h1><span class="kind kind-function">function</span> <code>put_crew_spec</code></h1>
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def put_crew_spec() -&gt; dict</code></pre>
+<pre class="sig"><code>def put_crew_spec(size: int | None=None) -&gt; dict</code></pre>
 <section class="doc">The put crew as a picklable record: `{size, mode, x_speed, y_speed}`.
 
-Read at call time like every other tunable, and handed to the worker in its payload
-rather than re-imported there -- a spawned worker re-imports this module and would get
-pristine defaults.
+Reads CONFIG at CALL time -- `put_crew_size` / `put_crew_mode` -- like every other
+accessor in this file.  It used to read `_s.PUT_CREW_SIZE` / `_s.PUT_CREW_MODE`
+directly with no CONFIG key at all, which was THE trap the other accessors&#x27; docstrings
+warn about: a flag writing CONFIG would have been accepted and ignored forever, and a
+standalone re-analysis would have sized against this checkout&#x27;s settings instead of
+the run&#x27;s own.  Closed by &quot;Design the staffing record&quot;, decision 7.
+
+`size` is the DERIVED crew under the calibrated era (`staffing.derive`), handed in by
+the caller that holds the derived block; None reads the declared key, which is every
+flag-off run.  A None IN the key (a pre-field run spec restored by
+`run_analysis._apply_run_shape`) resolves to the settings default -- the one walker
+every such run fielded.
 
 The speed comes from the crew&#x27;s MODE, which is the point of having a mode: a crew
 labelled `foot` costed at the store&#x27;s machine speed would write rows whose mode and
-duration contradict each other.</section>
-<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_config_settings_py__PUT_CREW_SIZE.html"><code>PUT_CREW_SIZE</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_FOOT_X.html"><code>PUT_FOOT_X</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_FOOT_Y.html"><code>PUT_FOOT_Y</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_MACHINE_X.html"><code>PUT_MACHINE_X</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_MACHINE_Y.html"><code>PUT_MACHINE_Y</code></a> <span class="dim">Optimization/config/settings.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+duration contradict each other.  The mode is a DECLARED staffing input (it rides
+STAFFING_KEYS), so it is read through `staffing_spec()`&#x27;s resolution.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_config_settings_py__PUT_FOOT_X.html"><code>PUT_FOOT_X</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_FOOT_Y.html"><code>PUT_FOOT_Y</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_MACHINE_X.html"><code>PUT_MACHINE_X</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_settings_py__PUT_MACHINE_Y.html"><code>PUT_MACHINE_Y</code></a> <span class="dim">Optimization/config/settings.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__put_crew_spec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20put_crew_spec">Source ↗</a></p>
 </article>
 </main>

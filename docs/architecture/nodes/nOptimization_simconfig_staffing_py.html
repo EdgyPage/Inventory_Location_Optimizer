@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.staffing · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_staffing_py" data-id="Optimization/simconfig/staffing.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/staffing.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.staffing</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simconfig.staffing</code></pre>
+<section class="doc">staffing.py — the calibrated era&#x27;s staffing DERIVATION, as a pure module.
+
+Pickers per channel are the ONE declared staffing input of the calibrated era
+(.scratch/department-calibration, &quot;Define the calibrated era&quot;); everything else a run
+fields is DERIVED from them, live at setup, with a declared scalar at every step:
+
+    pick capacity      K × S × ρ_pick                        (seconds of picking per day)
+    daily demand       capacity ÷ s_pick                     (units per day, per channel)
+    batch content      one batch = one day&#x27;s demand          (a BatchConfig mean fraction)
+    put load           units × f_put                         (units put per unit picked)
+    put crew           ceil(put load × s_put ÷ (S × ρ_put))  (ONE site crew, both channels)
+    receive load       packs the script implies × f_recv
+    receiving crew     ceil(receive seconds ÷ (S × ρ_recv))  (ONE site crew)
+
+`s_pick` (per channel) and `s_put` (one site value) are seconds per unit and are HYBRID by
+nature: pick and put-away TRAVEL is arm-dependent and needs a measured reference run, so they
+come from the committed calibration record (`Optimization/simconfig/calibration.py`), or --
+until a reference run exists -- from the script&#x27;s own analytic prediction scaled by a
+declared TRAVEL SHARE (the record&#x27;s pass-0 seed).  `s_recv` is EXACT from the script: an
+unload has no travel term, so every pack&#x27;s seconds are computable from the catalogue and
+the cost model alone.
+
+THIS MODULE IS PURE.  Inputs, the loaded calibration record and the catalogue / script
+totals go in; the derived dict comes out.  It imports no CONFIG, reads no settings and
+touches no file, so the arithmetic is testable against a hand computation without a run
+(`Tests/unit/test_staffing_derivation.py`).  The harness seam that feeds it is
+`Optimization/simdriver/workunits._derive_staffing_for_pair`, which runs AFTER batch
+precompute because the receiving crew needs the packs the script implies -- and the script
+is itself derived from the pickers, which is why the derivation has two stages:
+
+    stage A  (catalogue only)  s_pick, daily demand, batch content -- BEFORE precompute
+    stage B  (the script)      put load, packs, the two site crews -- AFTER precompute
+
+Every scalar default below is a declared ASSUMPTION of the era, never a measurement, and the
+record says so (`PROVENANCE`, &quot;Design the staffing record&quot;, decision 5).  The derived block
+carries `derived`; a copied constant keeps the provenance it arrived with.</section>
+<section class="rel"><h2>Imports <span class="count">(6)</span></h2><ul><li><a href="nInbound_pack_py.html"><code>Inbound.pack</code></a> <span class="dim">Inbound/pack.py</span></li><li><a href="nInbound_unload_py.html"><code>Inbound.unload</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nOptimization_simconfig_constants_py.html"><code>Optimization.simconfig.constants</code></a> <span class="dim">Optimization/simconfig/constants.py</span></li><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_regime_py.html"><code>Warehouse.kernel.regime</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li><li><a href="nWarehouse_operations_putaway_py.html"><code>Warehouse.operations.putaway</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py.html"><code>Optimization.simdriver.workunits</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(21)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__PricingConfig.html"><code>PricingConfig</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__ScriptTotals.html"><code>ScriptTotals</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__derived_differs__walk.html"><code>_walk</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__analytic_pick.html"><code>analytic_pick</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__batch_content.html"><code>batch_content</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__constant.html"><code>constant</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__crew_size.html"><code>crew_size</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__daily_demand.html"><code>daily_demand</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__derive.html"><code>derive</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__derived_differs.html"><code>derived_differs</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__expected_utilization.html"><code>expected_utilization</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__PricingConfig_from_pick_config.html"><code>from_pick_config</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__implied_reorders.html"><code>implied_reorders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__ScriptTotals_per_day.html"><code>per_day</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__pick_capacity.html"><code>pick_capacity</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__PricingConfig_put.html"><code>put</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__PricingConfig_recv.html"><code>recv</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__regime_orders.html"><code>regime_orders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__reorder_lot.html"><code>reorder_lot</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__script_totals.html"><code>script_totals</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__PricingConfig_var.html"><code>var</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
