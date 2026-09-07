@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_prepare_channel_run</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_prepare_channel_run</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
-<div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span><span class="badge fanout">high fan-out</span><span class="badge crosslayer">cross-layer</span></div>
+<div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span><span class="badge fanout">high fan-out</span><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
 <pre class="sig"><code>def _prepare_channel_run(channel, cfg: dict, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str=&#x27;strategy&#x27;) -&gt; tuple[list, list]</code></pre>
 <section class="doc">Pre-initialise ONE channel-run (one config driving one channel): create DBs, get
 run_ids, build strategy_args for the flat ProcessPoolExecutor.

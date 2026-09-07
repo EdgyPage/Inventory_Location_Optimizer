@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>next_guess · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_era_coverage_py__next_guess" data-id="Optimization/simdriver/era_coverage.py::next_guess">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>next_guess</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>next_guess</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def next_guess(points: list) -&gt; float</code></pre>
+<section class="doc">The line count to rescale at next, from this channel&#x27;s `(n_in, n_out)` history.
+
+`n_out = g(n_in)` is monotone DECREASING: more lines a day means more stock, a bigger
+warehouse, more travel per pick and so fewer lines the crew can fill -- and its gain is
+above one on a real catalogue (the reference pair&#x27;s fulfillment section went 1,818 -&gt;
+14,832 -&gt; 4,048 -&gt; 10,797 under plain iteration).  So the plain iterate is used only
+until the root of `f(n) = log g(n) - log n` is BRACKETED (one point with `f &gt; 0`, one
+with `f &lt; 0`); from then on the next guess is the secant of `f` in log-space between
+the two bracket ends, pulled to the log-midpoint when it lands within 5% of either end
+(the one-sided stagnation regula falsi is known for).  Every later evaluation shrinks
+the bracket, so the loop converges on any monotone map.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__fixed_point.html"><code>fixed_point</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_era_coverage_py__next_guess">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/era_coverage.py#:~:text=def%20next_guess">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>accumulate · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_expected_travel_py__accumulate" data-id="Optimization/simconfig/expected_travel.py::accumulate">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a> <span class="sep">›</span> <span class="here"><code>accumulate</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>accumulate</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def accumulate(orders, pick_cfg, dist: PlacementDist, geometry: Geometry) -&gt; SectionRates</code></pre>
+<section class="doc">Stage 1: walk the section once and accumulate the per-line quantities.
+
+`orders` is the channel section (`staffing.regime_orders`); `pick_cfg` is the channel&#x27;s
+`PickConfig` (duck-typed: `pick_intercept`, `pick_per_item`, the four handling
+coefficients, `height_brackets`).  A SKU with no sites (nothing placed) contributes its
+line share to nothing and is counted in `unplaced_skus`.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_expected_travel_py__SectionRates.html"><code>SectionRates</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__handle_var.html"><code>handle_var</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__stage_a.html"><code>stage_a</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___arm_expected_pick.html"><code>_arm_expected_pick</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_expected_travel_py__accumulate">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/expected_travel.py#:~:text=def%20accumulate">Source ↗</a></p>
+</article>
+</main>
+</body></html>

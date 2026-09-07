@@ -2242,6 +2242,13 @@
       "signature": null,
       "value_preview": "{'sim_db': {'batch_stats.duration': 'ratio', 'batch_stats.task_makespan': 'ratio', 'batch_stats.total_items': 'ratio', 'batch_stats.avg_concurrent_pickers': 'read', 'batch_stats.picking_pct': 'read..."
     },
+    "Optimization/Performance_Evaluations/common/frames.py::_SHIFT_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['day', 'cap_end', 'end_s', 'drained', 'capped', 'standing', 'standing_put', 'standing_dock', 'standing_carry', 'standing_carry_labour', 'standing_carry_supply', 'last_finish', 'overtime_s', 'n_bat..."
+    },
     "Optimization/Performance_Evaluations/common/frames.py::_SOURCE_FRAME": {
       "decorators": [],
       "doc": null,
@@ -2291,6 +2298,13 @@
       "kind": "function",
       "signature": "(df)"
     },
+    "Optimization/Performance_Evaluations/common/frames.py::_level_or_nan": {
+      "decorators": [],
+      "doc": "A close-out LEVEL the vintage did not record (the pre-split carry halves) is NaN --\nunknown -- never 0, which would read as \"nothing stood\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(v)"
+    },
     "Optimization/Performance_Evaluations/common/frames.py::_metric_series": {
       "decorators": [],
       "doc": "Per-batch steady-state Series (indexed by batch_id) for one strategy/metric.\n\n`frames` is {'batch': df_b, 'task': df_t, 'work': df_w} for ONE strategy.  A mapping\nrather than positional frames because the set grows: each new per-batch source used to\nmean a new positional argument threaded through six call sites, and the one that was\nmissed would have fallen through to the task frame rather than failing.",
@@ -2304,6 +2318,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(df, col, win=50)"
+    },
+    "Optimization/Performance_Evaluations/common/frames.py::_sdf": {
+      "decorators": [],
+      "doc": "Per-DAY frame of the drain-or-cap ledger, joined to the batches and the labour.\n\nTHE THROUGHPUT AUDIT'S FRAME.  One row per working day the ledger closed: the verdict\n(`drained` / `capped`), the close-out levels, the START-gate overtime\n(`last_finish - cap_end`, floored at 0), and -- joined through `batch_stats.work_day`\n-- the day's batches, released-late seconds, demand and picks, and the three crews'\nworked seconds.  With `expectations` (`equilibrium.expectations_for`) each department's\nUTILIZATION is worked \u00f7 (crew \u00d7 S) for that day; without them the three columns are\nNaN, never zero -- an unknown crew is not a crew of nobody.\n\nAn EMPTY frame when `rows` is empty, by the same rule `_ydf` / `_wdf` follow: a run\nwithout the drain-or-cap shift never closed a day, and a frame of zeros would say every\nday drained.  Utilization here is per DAY for the figures; the equilibrium check\ncomputes it as a ratio of sums over the window itself and never from these rows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, df_b, df_w, expectations=None)"
     },
     "Optimization/Performance_Evaluations/common/frames.py::_tdf": {
       "decorators": [],
@@ -3304,12 +3325,26 @@
       "kind": "function",
       "signature": "(self) -> dict"
     },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.shift_df": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
+    },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.ss_lo": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.staffing_expectations": {
+      "decorators": [],
+      "doc": "This leaf's expected utilization per department, off the staffing record stamped\nonto `sim_result` -- or None, logged once, when the record carries no derived block\n(a flag-off run: nothing was derived, so nothing is expected).\n\n`equilibrium.expectations_for` is the ONE reader of the record for both the\nreference-run driver and the audit, so the two cannot disagree about which number\nis \"expected\".  Keyed by PAIR (`self.inv`) and this leaf's channel, both of which\n`run_analysis._sim_result_from_meta` stamps beside the record.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
     },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.task_df": {
       "decorators": [],
@@ -3625,7 +3660,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'batch': 'batch_stats', 'task_mean': 'task_stats', 'task_sum': 'task_stats', 'trailer': 'yard_trailers', 'drain': 'yard_drains', 'carryover': 'carryover', 'work': 'work_events'}"
+      "value_preview": "{'batch': 'batch_stats', 'task_mean': 'task_stats', 'task_sum': 'task_stats', 'trailer': 'yard_trailers', 'drain': 'yard_drains', 'carryover': 'carryover', 'work': 'work_events', 'shift': 'shift_da..."
     },
     "Optimization/Performance_Evaluations/core/quantities.py::INSPECTION": {
       "decorators": [],
@@ -4064,6 +4099,15 @@
       "kind": "function",
       "signature": "(ctx)"
     },
+    "Optimization/Performance_Evaluations/core/requests.py::_shift": {
+      "decorators": [
+        "request('shift', 'config')"
+      ],
+      "doc": "Every arm's per-day ledger frame -- `{key: shift_df}`.\n\nERA-UNMET, not Denied, when no arm closed a single day: the files were read and hold\nno drain-or-cap ledger, which is every run before the calibrated era and every\nflag-off run since.  A throughput audit over that would report \"every day drained\"\nabout a site that never had a day.  The `days_capped` quantity names the `shift_days`\ncapability, so the probe refuses the audit before this compose runs; this check is\nthe same fact found the other way round, for a caller that declared no quantity.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
     "Optimization/Performance_Evaluations/core/requests.py::_strategy_travel_handling": {
       "decorators": [],
       "doc": "Per-strategy (travel, handling) picker-time totals over a sample of steady-state\nbatches, reconstructed from picker_events.  Returns {key: (travel, handling)}.\n(Moved from core/context.py \u2014 the broker owns resource navigation.)",
@@ -4174,6 +4218,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::shift_frame": {
+      "decorators": [],
+      "doc": "One strategy's per-DAY ledger frame, memoised -- the throughput audit's frame.\n\nJoined to the batch and work frames through `work_day`, and priced against the\ncontext's staffing expectations (`ctx.staffing_expectations()`), which are None on a\nrun whose record carries no derived block: the utilization columns are then NaN and\nthe day verdicts still render.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key)"
     },
     "Optimization/Performance_Evaluations/core/requests.py::sql": {
       "decorators": [],
@@ -5083,7 +5134,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch', 'labor.delta_grid', 'throughput.volume', 'throughput.missed']"
+      "value_preview": "['trajectories.overtime', 'labor.delta_topn', 'labor.per_batch', 'labor.delta_grid', 'throughput.volume', 'throughput.missed', 'throughput.audit']"
     },
     "Optimization/Performance_Evaluations/presets.py::_keys": {
       "decorators": [],
@@ -5304,7 +5355,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('batch_id', 'is_outlier')"
+      "value_preview": "('batch_id', 'is_outlier', 'work_day')"
     },
     "Optimization/Performance_Evaluations/tables/tidy.py::_batch_long": {
       "decorators": [],
@@ -5462,6 +5513,70 @@
       "doc": "throughput.* \u2014 the throughput figure family: cumulative pick-volume curves and the\npercent lead over the FIFO baseline at matched elapsed time.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py": {
+      "decorators": [],
+      "doc": "throughput.audit \u2014 declared throughput vs delivered: the calibrated era's audit.\n\nThe second caller of the equilibrium check (\"Declare the equilibrium bands\", decision 6):\n`Optimization/simconfig/equilibrium.check_rows` judged over EVERY day the ledger closed,\nper arm, and rendered as realized-vs-expected utilization per department plus the\ndrained / capped day count.  The first caller, the reference-run driver, uses the same\nfunction as a PRECONDITION; this one REPORTS (decision 7):\n\n  - a CAPPED day is flagged \"declared throughput not delivered\";\n  - a picking utilization BELOW the band on a campaign arm is the arm's travel saving --\n    the effect being measured -- and is labelled as such, never as a failure;\n  - a nonzero `released_late` on a drained day still RAISES (`InstrumentError`): that is\n    the instrument contradicting itself, and the driver records it as an error for this\n    evaluation rather than a figure quietly not appearing.\n\nNothing here fails a run.  The sim never judges itself, and neither does the audit.\n\nA DRAINED day is a LABOUR verdict (`equilibrium.is_drained`, amending decision 4 by \"Choose\nthe coverage floor\", decision 7): the supply carry -- demand no bin could serve -- is stock\nnot delivered, `missed_share`'s quantity, and never keeps a day from draining.  The per-day\nframe carries both halves (`standing_carry_labour` / `standing_carry_supply`) and the\ndrained clause's reading lists the days that closed with supply carry standing.\n\n## Two marks, one quantity\n\n`days_capped` is the ONE quantity (ranked, absolute + percent vs baseline): a capped day\nhas an unambiguous direction.  Realized vs expected utilization has none -- the same\nbelow-band read is a saving on one arm and a broken derivation on another -- so it lives\nin an INSPECTION table, the family grammar's slot for a read-out with no baseline in it,\nexactly as `yard.scorecard` holds door utilization.  Expected values, `band_tol`, the\ncrews and the calibration stamps come off the `staffing` record stamped onto\n`sim_result` (03's sixth seam) through `ctx.staffing_expectations()`; the audit needs no\nseam work and reads nothing from CONFIG.\n\n## Gated by the ledger\n\nThe quantity names the `shift_days` capability, so the era gate refuses the render on\nevery run without a drain-or-cap ledger -- the whole archive, and every flag-off run since\n-- with a reason in the log.  A run that HAS a ledger but no staffing expectations (its\nrecord carries no derived block) still renders the day verdicts; the utilization rows\nread \"n/a\" rather than zero.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py::_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('arm', 'days', 'drained', 'capped', 'overtime', 'dept', 'crew', 'expected', 'realized', 'band', 'read')"
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py::_COL_W": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(1.4, 0.5, 0.6, 1.2, 0.7, 0.9, 0.5, 0.8, 0.8, 0.6, 1.5)"
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py::_DEPT_LABEL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'pick': 'picking', 'put': 'put-away', 'recv': 'receiving'}"
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py::_flags": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(expectations)"
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py::_read": {
+      "decorators": [],
+      "doc": "The one-word reading of a department's band position, in the audit's vocabulary.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(dept, reading, is_base, tol)"
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py::_rows": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, s, sdf, verdict, expectations)"
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py::_verdict_for": {
+      "decorators": [],
+      "doc": "The check over every day this arm's ledger closed, or None without expectations.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key, sdf, expectations)"
+    },
+    "Optimization/Performance_Evaluations/throughput/audit.py::render": {
+      "decorators": [
+        "evaluation(key='throughput.audit', label='Throughput audit: declared vs delivered', scope='config', needs=('shift', 'batch'), family='throughput', shape=('ranked', 'inspection'), quantities=('days_capped',))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
     },
     "Optimization/Performance_Evaluations/throughput/missed.py": {
       "decorators": [],
@@ -5950,19 +6065,19 @@
       "signature": null,
       "value_preview": "0.1"
     },
-    "Optimization/config/settings.py::CALIBRATION_RECORD": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "None"
-    },
     "Optimization/config/settings.py::CHECKPOINT_FRAC": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "0.1"
+    },
+    "Optimization/config/settings.py::COVERAGE_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "10.0"
     },
     "Optimization/config/settings.py::CUT_AT_DAY_END": {
       "decorators": [],
@@ -6012,6 +6127,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'foot'"
+    },
+    "Optimization/config/settings.py::FLOOR_LINES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1.0"
     },
     "Optimization/config/settings.py::F_PUT": {
       "decorators": [],
@@ -6348,6 +6470,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "False"
+    },
+    "Optimization/config/settings.py::SAFETY_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "2.0"
     },
     "Optimization/config/settings.py::SAMPLER": {
       "decorators": [],
@@ -7746,6 +7875,13 @@
       "signature": null,
       "value_preview": "'reorder_queue'"
     },
+    "Optimization/persistence/Picking_Data.py::CAP_SHIFT_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'shift_days'"
+    },
     "Optimization/persistence/Picking_Data.py::CAP_SKU_SCORES": {
       "decorators": [],
       "doc": null,
@@ -7795,6 +7931,13 @@
       "signature": null,
       "value_preview": "tuple((SIM_CAPABILITIES[n] for n in (CAP_BIN_LOG, CAP_AISLE_METRICS, CAP_BIN_INVENTORY)))"
     },
+    "Optimization/persistence/Picking_Data.py::PRE_CARRY_SPLIT_SIM_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'487a65bf83a9'"
+    },
     "Optimization/persistence/Picking_Data.py::PRE_STAMP_SIM_SCHEMA_ID": {
       "decorators": [],
       "doc": null,
@@ -7830,14 +7973,14 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{c.name: c for c in (_capability.Capability(name=CAP_WORK_EVENTS, table='work_events', exact=True, phase='per-batch, appended at each checkpoint flush', caveat=\"PER-ARM TIMELINE. A work unit is (pa..."
+      "value_preview": "{c.name: c for c in (_capability.Capability(name=CAP_SHIFT_DAYS, table='shift_days', exact=True, phase=\"per working day, at close-out (the next day's first batch; the final day flushed at run end)\"..."
     },
     "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('be2a593727be', 'ce01ca0095b2', '31cb7d1b1199'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('487a65bf83a9', 'be2a593727be', 'ce01ca0095b2'..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -8141,6 +8284,13 @@
       "signature": null,
       "value_preview": "('sku', 'quantity', 'timestamp', 'aisle_id', 'bayX', 'bayY', 'handling_type', 'category_type')"
     },
+    "Optimization/persistence/Picking_Data.py::_RECEIVE_EVENT_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('batch_id', 'sku', 'qty', 'duration')"
+    },
     "Optimization/persistence/Picking_Data.py::_RUN_ADDED_COLS": {
       "decorators": [],
       "doc": null,
@@ -8160,7 +8310,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put', 'standing_dock', 'standing_carry', 'last_finish')"
+      "value_preview": "('day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put', 'standing_dock', 'standing_carry', 'standing_carry_labour', 'standing_carry_supply', 'last_finish')"
     },
     "Optimization/persistence/Picking_Data.py::_TASK_COLS": {
       "decorators": [],
@@ -8202,7 +8352,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('batch_id', 'role', 'seconds', 'n_rows', 'n_timed')"
+      "value_preview": "('batch_id', 'role', 'seconds', 'n_rows', 'n_timed', 'units')"
     },
     "Optimization/persistence/Picking_Data.py::_YARD_DRAIN_COLS": {
       "decorators": [],
@@ -8290,7 +8440,7 @@
     },
     "Optimization/persistence/Picking_Data.py::_insert_shift_days": {
       "decorators": [],
-      "doc": "`(day, cap_end, end_s, drained, standing, standing_put, standing_dock, standing_carry,\nlast_finish)` tuples -- `strategy_runner`'s close-out row, one per working day.",
+      "doc": "`(day, cap_end, end_s, drained, standing, standing_put, standing_dock, standing_carry,\nstanding_carry_labour, standing_carry_supply, last_finish)` tuples -- `strategy_runner`'s\nclose-out row, one per working day.  `standing_carry` is the labour and supply halves\nsummed; the halves are what the drained verdict and the missed-share report read.",
       "is_async": false,
       "kind": "function",
       "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
@@ -8463,6 +8613,13 @@
       "kind": "function",
       "signature": "(row, col)"
     },
+    "Optimization/persistence/Picking_Data.py::load_receive_events": {
+      "decorators": [],
+      "doc": "Every pack the receiving crew unloaded -- `{batch_id, sku, qty, duration}` per row,\none row per storage unit -- for a check that prices each pack exactly.  `[]` on a\npre-`work_events` vintage and on a run with no receiving crew alike; the caller must\nnot read either as \"nothing was received\" without the capability saying so.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list"
+    },
     "Optimization/persistence/Picking_Data.py::load_reorder_queue": {
       "decorators": [],
       "doc": "Queue contents at the start of one batch.  Empty list if the table is absent\n(older runs predate it) so the viewer degrades gracefully.  Falls back to the\npre-enrichment columns when unit_type/storage_size are missing.",
@@ -8472,7 +8629,7 @@
     },
     "Optimization/persistence/Picking_Data.py::load_shift_days": {
       "decorators": [],
-      "doc": "Every working day's close-out, in day order.  `[]` on a pre-era vintage AND on an\nera-less run of the new vintage -- both mean \"no day was ever closed out\".\n\n`drained` is the verdict the equilibrium check reads per day; the `standing_*` columns\nare LEVELS at close-out and never sum across days.  `end_s < cap_end` with `drained`\nis a day the crews got off the clock early; `last_finish > cap_end` is START-gate\novertime (a task begun before the whistle finished after it).",
+      "doc": "Every working day's close-out, in day order.  `[]` on a pre-era vintage AND on an\nera-less run of the new vintage -- both mean \"no day was ever closed out\".\n\n`drained` is the verdict the equilibrium check reads per day -- LABOUR-ONLY\n(`simconfig.equilibrium.is_drained`): the carry is split into `standing_carry_labour`\n(the cut's, standing work) and `standing_carry_supply` (the shelf's, stock not\ndelivered), and only the first can keep a day from draining.  On the pre-split vintage\n(`PRE_CARRY_SPLIT_SIM_SCHEMA_ID`) both halves read as None and `drained` is as that\nrunner judged it.  The `standing_*` columns are LEVELS at close-out and never sum\nacross days.  `end_s < cap_end` with `drained` is a day the crews got off the clock\nearly; `last_finish > cap_end` is START-gate overtime (a task begun before the whistle\nfinished after it).",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list"
@@ -10834,74 +10991,6 @@
       "kind": "module",
       "signature": null
     },
-    "Optimization/simconfig/calibration.py": {
-      "decorators": [],
-      "doc": "calibration.py \u2014 the committed CALIBRATION RECORD and its loader.\n\nThe calibration record (`calibration_record.json`, beside this module) is the committed\ndeclaration of the labour constants a run prices its derivation with, together with the\nprovenance that produced each one (\"Choose the calibration procedure\", decision 5;\nglossary: *Calibration record*).  A run READS it and copies what it ran under onto its own\nstaffing record; it never edits it.  The reference run\n(`.scratch/department-calibration/issues/09-take-the-reference-run.md`) is what writes a\nnew one.\n\nThree constants, two of them hybrid:\n\n    s_pick   per channel   seconds per unit picked   -- measured under `fifo`, or SEEDED\n    s_put    one site value seconds per unit put     -- measured, or SEEDED\n    s_recv   exact from the script                   -- never in the record's constants;\n                                                        the derivation computes it live\n\nand one bound, `k_max` per channel (the heaviest-aisle floor's window minimum, \"bounds, it\ndoes not set\").\n\n**The pass-0 seed.**  Until a reference run exists there is no measured value for ANY\ncatalogue, so the record cannot hold a number that is right for the catalogue a run loads.\nWhat it holds instead is the seed's SHAPE: a `travel_share` per constant, and `value: null`.\nThe derivation prices the catalogue's own analytic prediction (`staffing.analytic_pick`)\nand multiplies by that share -- `s = analytic \u00d7 travel_share` -- stamping the result with\nthe record entry's provenance (`seed`).  This is the same arithmetic decision 7 uses to\nprice a NEW catalogue provisionally from a MEASURED record (`s_new = analytic_new \u00d7\ntravel_share_old`, stamped `derived`), so the loader has one resolution rule for both:\n\n    a CLI override          -> its value, `declared`\n    a recorded `value`      -> that value, the recorded provenance (`measured`)\n    a recorded travel_share -> analytic \u00d7 share, `seed` if the entry says seed else `derived`\n\n**Staleness.**  The record names the warehouse fingerprint it was measured on.  A run\nwhose catalogue fingerprints differently gets a WARNING and `calibration_stale: True`\nstamped into its staffing record; failing would block every new catalogue, a bare\nwarning gets lost, the stamp is readable from the results forever.  A record with no\nfingerprint (the seed) is stale for nobody: there is nothing to be stale against, and\n`calibration_stale` is False with `calibration_measured` False beside it so a reader can\ntell \"matched\" from \"never measured\".",
-      "kind": "module",
-      "signature": null
-    },
-    "Optimization/simconfig/calibration.py::CalibrationRecordError": {
-      "decorators": [],
-      "doc": "The record on disk is not one this loader understands.",
-      "kind": "class",
-      "signature": "(ValueError)"
-    },
-    "Optimization/simconfig/calibration.py::_validate_entry": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(e: dict, where: str) -> None"
-    },
-    "Optimization/simconfig/calibration.py::is_measured": {
-      "decorators": [],
-      "doc": "Whether any constant in the record was READ OFF A RUN (measured), as opposed to\nseeded.  The seed record answers False.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(rec: dict) -> bool"
-    },
-    "Optimization/simconfig/calibration.py::load_record": {
-      "decorators": [],
-      "doc": "Load and validate the calibration record.  Raises `CalibrationRecordError` on a\nshape this build does not understand -- never returns a half-read record.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str | None=None) -> dict"
-    },
-    "Optimization/simconfig/calibration.py::record_stub": {
-      "decorators": [],
-      "doc": "The provenance a run copies from the record: enough to find the record again and to\ntell which pass it was, never the constants themselves (those ride `resolve_constants`).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(rec: dict) -> dict"
-    },
-    "Optimization/simconfig/calibration.py::resolve_constant": {
-      "decorators": [],
-      "doc": "One constant, resolved by the rule in the module docstring.\n\nReturns `{value, provenance, source, ...}` where `source` says which branch fired\n(`override` / `record` / `analytic`), so a reader of the staffing record can tell a\ntyped number from a copied one from a computed one without inferring it from the\nprovenance alone.  A seed with no analytic to scale (an absent channel, or a\ncatalogue whose section is empty) resolves to 0.0 and is flagged `unpriced`.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(entry: dict, *, override: float | None, analytic: float, name: str) -> dict"
-    },
-    "Optimization/simconfig/calibration.py::resolve_constants": {
-      "decorators": [],
-      "doc": "Every constant the derivation needs, resolved against `rec`.\n\n`overrides` is `{'s_pick_store', 's_pick_ff', 's_put'}` (None = no override -- the\nthree CALIBRATION_KEYS of the staffing inputs); `analytic_pick` maps a channel name to\nits stage-A `seconds_per_unit` (absent channels omitted); `analytic_put` is the site's\nanalytic put seconds per unit (from the script, stage B) -- zero when the seed has to\nbe resolved before stage B, in which case the caller re-resolves `s_put` once it has it.\nReturns `{'s_pick': {channel: constant}, 's_put': constant, 'k_max': {channel: int|None},\n'record': <provenance stub>}`.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(rec: dict, *, overrides: dict, analytic_pick: dict, analytic_put: float) -> dict"
-    },
-    "Optimization/simconfig/calibration.py::staleness": {
-      "decorators": [],
-      "doc": "The two stamps the staffing record carries about the record it ran under.\n\n`calibration_stale` is True only when the record NAMES a fingerprint and the run's\ndiffers; `calibration_measured` says whether there was a measurement to be stale\nagainst at all.  Both False is the seed on any catalogue; False/True is a measured\nrecord on its own catalogue; True/True is the warning case.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(rec: dict, warehouse_fingerprint: str | None) -> dict"
-    },
-    "Optimization/simconfig/calibration.py::validate_record": {
-      "decorators": [],
-      "doc": "Every constant entry carries a legal provenance and either a value or a share.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(rec: dict, *, source: str='<record>') -> None"
-    },
     "Optimization/simconfig/configs/__init__.py": {
       "decorators": [],
       "doc": null,
@@ -11035,9 +11124,446 @@
       "kind": "function",
       "signature": "(fn)"
     },
+    "Optimization/simconfig/coverage.py": {
+      "decorators": [],
+      "doc": "coverage.py \u2014 stock coverage as a RUNTIME rescaling under declared days, never a\ngenerator knob.\n\nThe catalogue authors every SKU's order-up-to quantity in GENERATION batches\n(`generate_inventory`: `equilibrium_qty = round(coverage_batches x freq x qty)`), and a\ngeneration batch is not a unit of time -- it is \"each SKU appears with probability `freq`\",\nwhich is worth however many site days the run's pickers make it worth.  Under the calibrated\nera the demand a SKU sees per DAY is known at setup (.scratch/department-calibration, \"Derive\nthe expected-travel closed form\", decision 2; the derivation note's section 5):\n\n    d_s = n \u00b7 \u03c0_s \u00b7 E[q_s]                    units of SKU s per day\n\n`n` is the pair's fixed point (lines per day the declared crew fills its capacity at), `\u03c0_s`\nthe SKU's line share within its channel section (`freq / \u03a3 freq`) and `E[q_s]` the mean of\nthe SKU's STAMPED line law (`Demand.line.mean()`; today `max(1, Poisson(\u03bb_s))`, so\n`\u03bb_s + e^{-\u03bb_s}`) -- read off the SKU, never re-derived here (\"Stamp the line distribution\non the SKU\").  This module re-derives every\nSKU's stock levels by the GENERATOR'S OWN FORMULA with the day as the unit, floored at ONE\nLINE of the SKU's own demand (\"Choose the coverage floor\", decisions 1-2):\n\n    L_s             = ceil(floor_lines \u00b7 E[q_s])                  the LINE FLOOR, >= 1\n    equilibrium_qty = max(round(coverage_days \u00b7 d_s), L_s)\n    reorder_point   = min(Q - 1, max(round(d_s \u00b7 (lead_days + safety_days)), L_s))   (Q > 1)\n                    = 1                                                              (Q = 1)\n    pipeline_qty    = round(d_s \u00b7 lead_days)                      the lead PIPELINE, stamped\n\nThe floor is a physical number per SKU -- a pick's worth of itself, so no SKU stocks out on a\nsingle line -- and it is what replaced the generator's unit floor (`Q >= 1`), under which a\nslow mover held one unit against ten-unit lines and the store section of the reference pair\nwas 100% floored (\"Rescale stock coverage at setup\", the finding).  A SKU whose coverage is\nshorter than the interval between its lines lands on the floor with `rp = Q - 1`: every pick\nfires an order-up-to for exactly what it took -- the textbook BASE-STOCK (S-1, S) policy,\nwhich `inventory_reorder._fire_reorders` already implements on inventory position.  Coverage\nis nominal AND real only for SKUs above the floor; `rescale_section` returns the shares so the\nrecord can say how much of the section, and of its demand, sits on it.\n\nThe reorder point's lead-time content is stamped, not inferred: `pipeline_qty` is the\nin-transit allowance `_fire_reorders` adds to the order-up-to (decision 6).  The manager's\n`rp \u00d7 lead \u00f7 (lead + 1)` heuristic assumed `rp` encodes lead-time demand; under the line floor\n`rp` encodes a line, and a floored SKU with a two-day lead would have ordered up to ~1.7 lines.\nThe stamp rides the SKU (`Order.pipeline_qty`, a `cartons` column of the planned inventory) so\nthe spawned workers read it; a flag-off run never stamps it and the heuristic stands.\n\nTHIS MODULE IS PURE: orders, a line count and three declared scalars in; the orders'\n`equilibrium_qty`, `reorder_point`, `pipeline_qty` and `stock_plan` mutated and a stats dict\nout.  It imports no CONFIG and touches no file.  The harness seam that drives it -- the\npair-level fixed point Q(n) -> plan_warehouse -> geometry -> n -- is\n`Optimization/simdriver/era_coverage.py`.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/coverage.py::converged": {
+      "decorators": [],
+      "doc": "Every channel's fixed-point `n` moved by less than `tol` (relative) since the last\nround.  A channel absent from either side, or a zero previous value, is not converged.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(prev: dict, cur: dict, tol: float=DEFAULT_TOL) -> bool"
+    },
+    "Optimization/simconfig/coverage.py::daily_demand": {
+      "decorators": [],
+      "doc": "`{sku: d_s}` for one channel section at `lines_per_day` lines a day.\n\nThe line share is `freq / \u03a3 freq` over exactly the orders given -- the section the\nchannel picks from (`staffing.regime_orders`), which is also how `expected_travel\n.accumulate` weights them, so the two agree by construction.  An empty section or a\nzero weight sum yields zeros.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, lines_per_day: float) -> dict"
+    },
+    "Optimization/simconfig/coverage.py::fill_rate": {
+      "decorators": [],
+      "doc": "The expected FIRST-PASS fill rate of one section at the levels the orders carry now:\nthe units a shelf at `Q_s` serves off a line, over the units the line asks for, weighted\nby each SKU's lines per day (\"Choose the coverage floor\", decision 5):\n\n    \u03a3_s  lines_s \u00b7 E[min(q_s, Q_s)]  \u00f7  \u03a3_s  lines_s \u00b7 E[q_s]        lines_s = n \u00b7 \u03c0_s\n\nThe denominator is the section's daily units; the numerator the units served before a\nrestock.  Under base stock with NO pipeline (`pipeline_qty = 0`: a lead of zero, which is\nevery catalogue the generator authors today) the shelf sits at `Q_s` when every line\narrives -- the previous line's order landed -- so this IS the expectation `missed_share`'s\nlevel is read against: `1 - fill_rate` is the expected missed share.  With a lead the\nshelf a line meets is `Q_s` minus what is still in transit, so the number is an UPPER bound\non the fill rate there (the record carries the stamped pipeline beside it).  Call it on the\nPLANNED orders -- the planner may grow a level into leftover capacity, and the shelf that\nserves the line is the one the run fields.  Returns `{'fill_rate', 'expected_missed_share',\n'units_per_day', 'served_per_day', 'base_stock_skus', 'base_stock_share', 'n_skus',\n'pipeline_units'}` -- the last is \u03a3 `pipeline_qty` over the section, 0 when the premise\nholds exactly.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, lines_per_day: float) -> dict"
+    },
+    "Optimization/simconfig/coverage.py::implied_coverage": {
+      "decorators": [],
+      "doc": "What the section's CURRENT stock levels are worth in days at `lines_per_day` -- the\ncatalogue's implicit coverage, recorded before the first rescaling so the record can say\nwhat the generation-batch denomination amounted to on this pair.  Demand-weighted mean\nand the plain median of `Q_s / d_s`; `sum_q` for the size before/after.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, lines_per_day: float) -> dict"
+    },
+    "Optimization/simconfig/coverage.py::line_floor": {
+      "decorators": [],
+      "doc": "`L_s = ceil(floor_lines \u00d7 E[q_s])`, at least 1: the least stock a SKU ever holds, in\nunits, read off its stamped line law.  `floor_lines` is the declared number of lines\n(1.0 by default: one pick's worth); the mean is rounded UP so the shelf is never below\nthe expected line.  Refuses a non-positive `floor_lines` -- a zero would be the unit\nfloor by the back door.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(line, floor_lines: float) -> int"
+    },
+    "Optimization/simconfig/coverage.py::pipeline_qty": {
+      "decorators": [],
+      "doc": "`round(d_s \u00d7 lead)`: the units expected in transit over the lead -- the allowance\n`_fire_reorders` adds to the order-up-to so on-hand returns to the target when the lot\nlands.  Zero at lead 0, as the heuristic it replaces was.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d_s: float, lead_days: float) -> int"
+    },
+    "Optimization/simconfig/coverage.py::rescale_section": {
+      "decorators": [],
+      "doc": "Re-derive every order's stock levels for one section and return the floor shares.\n\nMUTATES the orders: `equilibrium_qty`, `reorder_point`, `pipeline_qty` (the stamped lead\npipeline) and `stock_plan` (reset to None, because a plan the warehouse planner wrote for\nthe OLD quantity would otherwise be honoured by `viable_storage_units` at the new one; the\nplanner re-packs the line-sized quantity).  Returns\n\n    {'n_skus', 'line_families', 'lines_per_day', 'coverage_days', 'safety_days',\n     'floor_lines', 'sum_q', 'units_per_day',\n     'floor_line_skus', 'floor_line_share', 'floor_line_demand_share',   # Q == L_s\n     'base_stock_skus', 'base_stock_share',                              # rp == Q - 1\n     'floor_rp_skus', 'floor_rp_share',           # above the floor, rp lifted to L_s\n     'above_floor_skus', 'realized_coverage_days'}   # \u03a3 Q / \u03a3 d over the SKUs above\n\n`floor_line_demand_share` is the share of the section's daily UNITS that lands on a SKU\nholding exactly its line floor -- the number that says whether the floor is a tail or the\nsection.  `realized_coverage_days` is the coverage the SKUs above the floor actually carry\n(their rounded Q against their demand), which the nominal number only approximates.  The\nexpected first-pass fill rate is NOT here: it depends on the levels the planner finally\nfields, so `fill_rate` prices it on the planned orders once (`era_coverage.fixed_point`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, floor_lines: float) -> dict"
+    },
+    "Optimization/simconfig/coverage.py::stock_levels": {
+      "decorators": [],
+      "doc": "`(equilibrium_qty, reorder_point)` for one SKU: the generator's formula in days,\nfloored at `floor_units` (the SKU's line floor, `line_floor`) on BOTH levels.\n\nThe order-up-to is `coverage x demand`, never less than the floor; the reorder point is\ndemand over the lead plus the safety buffer, never less than the floor, capped one below\nthe equilibrium so the trigger always fires before the target.  A SKU whose coverage\nterm falls below its floor therefore lands at `rp = Q - 1` -- base stock.  A SKU at\n`Q = 1` (a floor of one unit) takes the generator's `rp = 1` branch, as `Order.build`\nclamps it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d_s: float, lead_days: float, coverage_days: float, safety_days: float, floor_units: int) -> tuple[int, int]"
+    },
+    "Optimization/simconfig/equilibrium.py": {
+      "decorators": [],
+      "doc": "equilibrium.py \u2014 the calibrated era's pre-registered EQUILIBRIUM CHECK, as a pure module.\n\n\"Declare the equilibrium bands\" (.scratch/department-calibration, decision 4) turned \"the crews\nhave something to do, within bounds\" into one function of (db, day_lo, day_hi) returning a\nverdict with reasons: four clauses over a window of working days, all STRICT.\n\n    drained        every day in the window ended DRAINED (the persisted `shift_days` ledger) --\n                   not \"most\": with 15% headroom one capped day in twenty means the derivation\n                   is wrong, not unlucky.  A day the ledger never closed fails the same way.\n                   DRAINED IS A LABOUR JUDGMENT (`is_drained`, below -- the ONE definition;\n                   the runner's close-out calls it): nothing cut, no put or dock work\n                   standing, no `unpicked_daycut` carry.  The two SUPPLY reasons the cut\n                   rolls forward (`unpicked_unavailable`: the bin held less;\n                   `unpicked_unstocked`: no bin held the SKU) are stock not delivered, which\n                   `missed_share` already owns; counted as standing work they meant no\n                   finite stock level could ever drain a day under lumpy lines (\"Choose the\n                   coverage floor\", decision 7, amending decision 4: 0/20 days drained with\n                   pickers in band and every task realized).  The supply carry stays in the\n                   ledger (`standing_carry_supply`) and this clause REPORTS it per day.\n    released_late  = 0 behind every drained day.  A self-consistency assertion, not a clause\n                   that can fail: release waits on the picker clock and the cut is a\n                   between-bins START gate, so a day that drained leaves exactly 0 lag on\n                   the NEXT release, and lag there -- or on the first day of the run -- is\n                   an INSTRUMENT BUG.  It RAISES `InstrumentError` rather than failing.\n                   Lag behind a CAPPED day is that day's overrun and is recorded.\n    utilization    realized utilization (worked \u00f7 granted, a RATIO OF SUMS over the window,\n                   never a mean of per-day ratios) inside `band_tol` of the EXPECTED value the\n                   derivation recorded per department per leaf -- never of \u03c1, which integer\n                   site crews and single-channel leaves undercut by construction.\n    missed_share   stable: the mean of the window's second half minus the mean of its first\n                   half within \u00b10.02 absolute.  The LEVEL is recorded, never gated; no\n                   regression slope (memories `knees-hide-from-r-squared`,\n                   `per-batch-series-are-autocorrelated`).\n\nONE PURE FUNCTION, and the sim never judges itself (decision 6).  It was designed with two\ncallers; the reference-run driver that used it as a PRECONDITION is retired (\"Derive the\nexpected-travel closed form\": there are no calibration simulations), so the one caller left\nis the throughput audit (`Performance_Evaluations/throughput/audit.py`), which calls it on\nevery run and REPORTS: on a campaign arm a picking utilization below the band is the arm's travel saving --\nthe effect being measured -- and a capped day is \"declared throughput not delivered\"; neither\nfails the run (decision 7).\n\nThe arithmetic lives in `check_rows` over already-loaded rows so a test can prove every\nclause CAN fail without a database; `check` is the thin loader in front of it.  What the\ncheck reads, and where each number comes from:\n\n    the ledger      `load_shift_days`   day, drained, cap_end, end_s, last_finish\n    picking         `load_batch_stats`  task_makespan (\u03a3 task time = the crew's worked\n                                        seconds), work_day, released_late, items_demanded,\n                                        total_items\n    put / receiving `load_work_hours`   seconds per (batch, role), joined to the day\n                                        through `batch_stats.work_day`\n\nThe GRANT is the whole declared day for every crew (crew \u00d7 S per day): a day that drained\nearly still granted S, and utilization is against the grant, not the shift end.\n\nNo CONFIG, no settings, no run tree -- the same discipline `staffing.py` keeps.  The expected\nvalues arrive in an `expectations` dict built by `expectations_for` from the staffing record\n(the run spec's, or the copy stamped onto `sim_result` -- 03's sixth seam), so both callers\nread the same numbers through the same function.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/equilibrium.py::Clause": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "One clause's verdict: pass/fail, every reading it was judged on, and why.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/equilibrium.py::Clause.as_dict": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Optimization/simconfig/equilibrium.py::InstrumentError": {
+      "decorators": [],
+      "doc": "A nonzero `released_late` on a DRAINED day: the instrument contradicts itself.\n\nA drained day means nothing was cut and nothing stood at close-out, and release waits\non the picker clock, so a batch released late into such a day is impossible unless the\nledger or the release clamp is wrong.  Raised, never returned as a failed clause: a\nfailed clause says the SITE is out of equilibrium; this says the MEASUREMENT is.",
+      "kind": "class",
+      "signature": "(RuntimeError)"
+    },
+    "Optimization/simconfig/equilibrium.py::RecordError": {
+      "decorators": [],
+      "doc": "The staffing record does not carry what the check needs (no derived block for the\npair, no section for the channel): the run is not an era run, or its record is broken.",
+      "kind": "class",
+      "signature": "(ValueError)"
+    },
+    "Optimization/simconfig/equilibrium.py::Verdict": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "The check's answer over one window: pass/fail with every clause's reading.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/equilibrium.py::Verdict.as_dict": {
+      "decorators": [],
+      "doc": "A JSON-ready copy: what the calibration record and the audit carry.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Optimization/simconfig/equilibrium.py::Verdict.reasons": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list[str]"
+    },
+    "Optimization/simconfig/equilibrium.py::_WORK_ROLE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'put': 'put', 'recv': 'receive'}"
+    },
+    "Optimization/simconfig/equilibrium.py::_drained_clause": {
+      "decorators": [],
+      "doc": "Every day DRAINED, read off the ledger's own verdict (written by `is_drained`).\n\nThe SUPPLY carry is reported beside it, never judged: `supply_standing_days` are the\ndays that closed with demand the shelf could not serve still rolling forward, and\n`supply_standing_max_units` the largest such level (a LEVEL, so never summed across\ndays).  A drained day on that list is the whole point of the labour-only rule -- the\ncrew finished, the stock did not.  `supply_split_recorded` is False on a pre-split\nvintage (487a65bf83a9), whose rows carry the halves as NULL and whose `drained` was\njudged with the supply carry counted as standing work.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shift_rows, days: list[int]) -> Clause"
+    },
+    "Optimization/simconfig/equilibrium.py::_get": {
+      "decorators": [],
+      "doc": "A field off a dataclass row or a dict row -- the loaders return both shapes.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(row, name, default=0)"
+    },
+    "Optimization/simconfig/equilibrium.py::_isnan": {
+      "decorators": [],
+      "doc": "A pandas frame hands a NULL level back as NaN; the loaders hand it back as None.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(v) -> bool"
+    },
+    "Optimization/simconfig/equilibrium.py::_missed_share_clause": {
+      "decorators": [],
+      "doc": "Stable, never gated on its level.  `expected` is the record's `1 - fill_rate` for this\nleaf (the expected first-pass missed share under base stock), carried into the reading as\n`expected` / `delta` so the audit can read the level against it; it moves no verdict.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batch_rows, days: list[int], expected: float | None=None) -> Clause"
+    },
+    "Optimization/simconfig/equilibrium.py::_released_late_clause": {
+      "decorators": [],
+      "doc": "`released_late` = 0 on every drained day -- attributed to the day that CAUSED it.\n\nA batch is released late when the crew is still working the previous one, and the\nclamp erases everything but this column.  So the lag lands on the batch released INTO\nday d, but the day that overran is d - 1: a capped day 1 leaves its tail on day 2's\nrelease even when day 2 then drains (measured on the first era smoke run: 69.9 s on a\ndrained day 2 behind a capped day 1).  The self-consistency assertion is therefore that\nlag in day d exists only behind a CAPPED day d - 1; lag behind a drained day, or on the\nfirst day of the run (nothing to overrun), is the instrument contradicting itself.  A\nday d - 1 the ledger never closed cannot be judged here; the drained clause reports it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shift_rows, batch_rows, days: list[int]) -> Clause"
+    },
+    "Optimization/simconfig/equilibrium.py::_utilization_clause": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batch_rows, work_rows, days: list[int], expectations: dict) -> Clause"
+    },
+    "Optimization/simconfig/equilibrium.py::arm_expectations": {
+      "decorators": [],
+      "doc": "The expectations for ONE ARM: the pair's, with the picking band re-centred on the\narm's own expected seconds per unit under its initial placement.\n\nThe pair's pick expectation was drawn at the class-uniform `s_pick` (the demand's\nfixed point, so it equals rho by construction).  An arm whose placement makes a unit\ncheaper is EXPECTED to run below it -- by the ratio of the two expectations, since the\ndemand is shared -- and the band belongs around that number (\"Derive the expected-travel\nclosed form\": the per-arm expectation is stamped for the report only).  Without a\nstamped `expected_pick` (a flag-off arm, an older run) the pair's expectations are\nreturned unchanged; the pick department is left alone when either `s_pick` is unknown.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(expectations: dict, expected_pick: dict | None) -> dict"
+    },
+    "Optimization/simconfig/equilibrium.py::check": {
+      "decorators": [],
+      "doc": "The check over one arm's sim DB: load the three sources, judge the window.\n\n`expectations` is `expectations_for(...)` for this leaf.  The loaders are the\nversion-negotiating ones (`shift_days` and `work_events` are conditional tables: a\npre-era vintage answers `[]`, which the first clause reports as a window the ledger\nnever closed rather than as a plausible pass).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db_path: str, run_id: int, day_lo: int, day_hi: int, *, expectations: dict) -> Verdict"
+    },
+    "Optimization/simconfig/equilibrium.py::check_rows": {
+      "decorators": [],
+      "doc": "The four clauses over already-loaded rows.  See the module docstring for each.\n\n`shift_rows` are `load_shift_days` dicts; `batch_rows` are `BatchStats` (or dicts with\nthe same fields); `work_rows` are `load_work_hours` dicts.  Raises `InstrumentError`\nfrom the second clause; every other outcome is a `Verdict`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, shift_rows, batch_rows, work_rows, day_lo: int, day_hi: int, expectations: dict) -> Verdict"
+    },
+    "Optimization/simconfig/equilibrium.py::expectations_for": {
+      "decorators": [],
+      "doc": "The expected utilization per department for ONE channel leaf, off the staffing record.\n\n`staffing` is the record as the run spec holds it (`{inputs, provenance, derived,\ncalibration}`) -- the same object `run_analysis._sim_result_from_meta` stamps onto\n`sim_result`, so the audit passes `ctx.sim_result['staffing']` and the reference-run\ndriver passes `run_spec['staffing']`.  `derived` and `calibration` are keyed BY PAIR\nbecause the catalogue decides the load; `pair` is the inventory label\n(`sim_result['inventory']`, `ChannelRun.pair`).  `channel` is None on a store-only run.\n\nReturns\n\n    {'pair', 'channel', 'day_seconds', 'band_tol',\n     'departments': {dept: {'crew': int, 'expected': float}},   # only those that apply\n     'absent': {dept: why},\n     'flags': {'overridden', 'saturated'}}\n\nA department with no crew on this site, or whose expected value the record does not\ncarry for this channel, is ABSENT rather than expected at zero: a band around 0.0 would\npass a crew that did nothing and fail one that did anything, and neither is a finding.\nRaises `RecordError` on a record with no derived block for the pair (a flag-off run) or\nno section for the channel.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(staffing: dict, *, pair: str, channel: str | None) -> dict"
+    },
+    "Optimization/simconfig/equilibrium.py::is_drained": {
+      "decorators": [],
+      "doc": "THE drained verdict: did working day end with its LABOUR done?\n\nTrue when nothing was cut in the day and no standing labour survives it -- no storage\nunits in the put queues or held, none on the dock floor, and no demand the CUT left\nunpicked (`unpicked_daycut`, the labour carry).  The SUPPLY carry -- demand no bin could\nserve (`unpicked_unavailable`, `unpicked_unstocked`) -- is deliberately NOT an argument:\nit is stock not delivered, `missed_share`'s quantity, and a crew that realized every task\nit was given has drained its day whatever the shelf held.  Counting it made the verdict\nunreachable: under lumpy lines some SKU is always short, so 0/20 days drained on the\nreference run with pickers in band (\"Choose the coverage floor\", decision 7).\n\nThe lead queue is never standing work either (transit is calendar, not labour), and\nreleases are exhausted by construction at a day boundary, so neither is read.\n\nONE definition, two readers: `strategy_runner._shift_close_out` writes the ledger's\n`drained` with it; `_drained_clause` reads that column rather than re-deriving, so a\npre-split vintage's verdicts stand as its runner judged them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, cut: bool, standing_put: int, standing_dock: int, standing_carry_labour: int) -> bool"
+    },
+    "Optimization/simconfig/equilibrium.py::picker_key": {
+      "decorators": [],
+      "doc": "The staffing-inputs key holding this channel's declared picker count.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(channel: str | None) -> str"
+    },
+    "Optimization/simconfig/equilibrium.py::summarize": {
+      "decorators": [],
+      "doc": "One log line per clause, for the reference-run driver and the audit's INFO output.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(verdict: Verdict) -> str"
+    },
+    "Optimization/simconfig/equilibrium.py::window_of": {
+      "decorators": [],
+      "doc": "(first day, last day) the ledger closed, or None when no day was ever closed out.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shift_rows) -> tuple[int, int] | None"
+    },
+    "Optimization/simconfig/expected_travel.py": {
+      "decorators": [],
+      "doc": "expected_travel.py \u2014 the calibrated era's pick and put-away seconds per unit as a\nCLOSED-FORM EXPECTATION over the demand distribution and the built geometry.\n\nThere are no calibration simulations (.scratch/department-calibration, \"Derive the\nexpected-travel closed form\", user decision 2026-09-06).  Every input is known at setup --\nthe catalogue's line shares and quantity rates, the warehouse the run just built, the\nplacement distribution, the travel speeds, the handling coefficients, the cart -- so the\nseconds a day of picking costs is an expectation computed here, and the staffing derivation\nbalances around it (`staffing.py`).  The derivation of every formula, its assumptions and\nthe development-time residual against the reference passes are in\n`.scratch/department-calibration/assets/expected-travel-derivation.md`; this docstring only\nrestates what the code needs a reader to know.\n\n## What the simulator charges (the rules this reproduces -- `fast_pick`, `putaway`)\n\nA TASK is one aisle visit.  The picker starts at the mouth (0, 0), walks the bins in\n`_plan_aisle_path` order (columns ascending in x; inside a column toward the nearer end\nfirst), pays `|\u0394x|\u00b7x_pace + |\u0394y|\u00b7y_pace` per segment -- to EVERY bin on the path, empty\nones included -- a `cart_swap_coef` per next-fit swap, `M(y)\u00b7(intercept + q\u00b7per_item +\nq\u00b7var)` per non-empty bin, and on a one-way lane an exit to the far end and down to the\nground.  No travel between tasks.  A put is costed from the mouth with no travel between\nplacements.\n\nTwo identities follow and are what the tests pin: on a two-way lane a task's x travel is\nexactly `x_max` of its bins (the path is monotone in x); on a one-way lane it is exactly\nthe aisle length.\n\n## The expectation, in one paragraph\n\nA day is `N ~ Normal(n, cv\u00b7n)` i.i.d. lines over the section's SKUs (share `\u03c0_s`), each\ndemanding units drawn from the SKU's STAMPED line law (`Demand.line`; today\n`max(1, Poisson(\u03bb_s))`), drained through the SKU's bins in the sim's drain\norder (forward-pick first, then location).  Bin k of a SKU is REACHED when the line's\nquantity exceeds the stock before it -- the law's tail, `line.survival` -- so every bin carries a visit RATE\nper line.  Poissonisation makes bins independent given N, and each aisle then yields, in\nclosed form: its visit probability (a task), `E[x_max]` (a product-sum over columns), the\nexpected y walk (a Markov chain over height levels, one transition per column) and the\none-way exit.  Swaps are the renewal count of next-fit over per-visit volumes.  Handling is\nthe catalogue priced line by line at the bins' heights.  Seconds per unit is the ratio of the\nday's expected seconds to its expected units, and the fixed point `n\u00b7s(n)\u00b7\u2026 = K\u00b7S\u00b7\u03c1` is one\nscalar root-find.\n\n## The seam: `PlacementDist`\n\nThe same formula takes two placement distributions, because two genuinely exist:\n`initial` (an arm's own bin map, after its initial stock -- what the arm's report is\njudged against) and `uniform` (each unit spread evenly over the free bins of its class --\nwhat the pair's DEMAND derives from, arm-independent, and the long-run steady state of a\nFIFO restock, which reorders onto a uniformly random free bin).  The check that separated\nthem is in the derivation note, \u00a73.\n\nTHIS MODULE IS PURE: geometry, orders, a pick/put config and numbers in; dicts out.  It\nimports no CONFIG and touches no file.  `scipy` is already a dependency (the affinity CSR).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/expected_travel.py::AisleGeom": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One aisle's grid: `C` columns of `x_step`, `R` rows of `y_step`, a `key` (BinKey).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/expected_travel.py::AisleGeom.length": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The one-way exit's far end (`Aisle.aisle_width`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Optimization/simconfig/expected_travel.py::AisleGeom.x_of": {
+      "decorators": [],
+      "doc": "Bin centre x of 1-based column `col` -- `Aisle.Bin.x_phys`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, col: int) -> float"
+    },
+    "Optimization/simconfig/expected_travel.py::AisleGeom.y_of": {
+      "decorators": [],
+      "doc": "Bin centre y of 1-based row `row` -- `Aisle.Bin.y_phys` of a uniform aisle.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, row: int) -> float"
+    },
+    "Optimization/simconfig/expected_travel.py::Geometry": {
+      "decorators": [],
+      "doc": "The built warehouse as the expectation reads it: aisles grouped by BinKey.\n\n`from_warehouse` reads a `Warehouse` (the pair-level `warehouse_meta` or a worker's\nown build); `from_layout_rows` reads `warehouse.db`'s `aisle_layout` rows, so an\nanalysis can recompute an expectation off the archive without rebuilding.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/expected_travel.py::Geometry.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aisles: list[AisleGeom]) -> None"
+    },
+    "Optimization/simconfig/expected_travel.py::Geometry.class_bins": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key: tuple) -> int"
+    },
+    "Optimization/simconfig/expected_travel.py::Geometry.class_mean_height_mult": {
+      "decorators": [],
+      "doc": "The height multiplier averaged over every bin of the class (uniform placement).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key: tuple, brackets) -> float"
+    },
+    "Optimization/simconfig/expected_travel.py::Geometry.class_mean_travel": {
+      "decorators": [],
+      "doc": "Mouth-to-bin seconds averaged over every bin of the class (a put's travel).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key: tuple, x_pace: float, y_pace: float) -> float"
+    },
+    "Optimization/simconfig/expected_travel.py::Geometry.from_layout_rows": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "`rows`: dicts with aisle_id, handling_type, category, unit_type, storage_size,\nbay_x, bay_y (the `aisle_layout` table / `save_aisle_layout` rows).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, rows) -> 'Geometry'"
+    },
+    "Optimization/simconfig/expected_travel.py::Geometry.from_warehouse": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, warehouse) -> 'Geometry'"
+    },
+    "Optimization/simconfig/expected_travel.py::PlacementDist": {
+      "decorators": [],
+      "doc": "`sites[sku] -> [Site, ...]` in the sim's drain order, plus which kind it is.\n\n`initial(bin_map, geometry)`: `bin_map[sku] = [(aisle_id, bayX, bayY, qty), ...]` as an\narm's manager holds them after the initial stock; sorted forward-pick first, then\nlocation -- `Task.from_batch`'s order.\n`uniform(units_by_sku)`: `units_by_sku[sku] = [StorageUnit, ...]` (the packs\n`viable_storage_units` produces for the SKU's stock); each unit is spread over its\nclass.  Forward-pick units first, then the given order.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/expected_travel.py::PlacementDist.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, kind: str, sites: dict) -> None"
+    },
+    "Optimization/simconfig/expected_travel.py::PlacementDist.initial": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, bin_map: dict, geometry: Geometry) -> 'PlacementDist'"
+    },
+    "Optimization/simconfig/expected_travel.py::PlacementDist.uniform": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, units_by_sku: dict) -> 'PlacementDist'"
+    },
+    "Optimization/simconfig/expected_travel.py::SectionRates": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "Everything a day of `n` lines scales linearly from.  Per LINE: expected units,\nbin visits, handling seconds, per-visit volume moments; and the visit rates -- per\naisle (C, R) matrices for `initial`, one scalar per class for `uniform`.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/expected_travel.py::Site": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One storage unit of a SKU, in drain order: its quantity and WHERE it is -- a concrete\nbin (`initial`: aisle_id, col, row set) or only its class (`uniform`).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simconfig/expected_travel.py::_aisle_routing": {
+      "decorators": [],
+      "doc": "(P(aisle visited), E[x travel], E[y travel]) in INCHES for visit-rate matrix `m`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(m: np.ndarray, a: AisleGeom, one_way: bool) -> tuple[float, float, float]"
+    },
+    "Optimization/simconfig/expected_travel.py::_nodes": {
+      "decorators": [],
+      "doc": "(scale, weight) pairs averaging over N ~ Normal(n, cv\u00b7n) -- one pair when cv = 0.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cv: float) -> list[tuple[float, float]]"
+    },
+    "Optimization/simconfig/expected_travel.py::_steps_for": {
+      "decorators": [],
+      "doc": "(x_step, y_step) of a uniform aisle, by the same rule `Aisle.__init__` applies.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(unit_type: str, storage_size: str) -> tuple[int, int]"
+    },
+    "Optimization/simconfig/expected_travel.py::accumulate": {
+      "decorators": [],
+      "doc": "Stage 1: walk the section once and accumulate the per-line quantities.\n\n`orders` is the channel section (`staffing.regime_orders`); `pick_cfg` is the channel's\n`PickConfig` (duck-typed: `pick_intercept`, `pick_per_item`, the four handling\ncoefficients, `height_brackets`).  A SKU with no sites (nothing placed) contributes its\nline share to nothing and is counted in `unplaced_skus`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, pick_cfg, dist: PlacementDist, geometry: Geometry) -> SectionRates"
+    },
+    "Optimization/simconfig/expected_travel.py::expected_pick": {
+      "decorators": [],
+      "doc": "The expected day at `n` lines: every component per day, and `s_pick`.\n\n`pick_cfg` supplies `x_speed`/`y_speed` (ft/s), `one_way`, `cart_swap_coef` and\n`cart` (its `capacity()`).  `units == 0` yields `s_pick = 0.0` (an empty section).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rates: SectionRates, geometry: Geometry, pick_cfg, n: float, cv: float) -> dict"
+    },
+    "Optimization/simconfig/expected_travel.py::expected_swaps": {
+      "decorators": [],
+      "doc": "Next-fit swaps per day as a renewal count over per-visit volumes: the cart holds\n`(cap - E[v] + E[v\u00b2]/2E[v]) / E[v]` visits in expectation (Wald + the residual).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vol_per_day: float, e_v: float, e_v2: float, cart_cap: float) -> float"
+    },
+    "Optimization/simconfig/expected_travel.py::put_site_pricer": {
+      "decorators": [],
+      "doc": "A `(unit) -> (travel_s, height_mult)` for `staffing.implied_reorders`: the put's\ntravel from the mouth and its height multiplier under the placement distribution --\nthe class-uniform mean for `uniform`; for `initial`, the mean over the SKU's own bins\n(a reorder refills the SKU's locations).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(geometry: Geometry, dist: PlacementDist, put_cost, put_speed, brackets=None)"
+    },
+    "Optimization/simconfig/expected_travel.py::put_site_pricer.price": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(unit)"
+    },
+    "Optimization/simconfig/expected_travel.py::routing": {
+      "decorators": [],
+      "doc": "Stage 2 at `n` lines a day: `{tasks, x_inches, y_inches}` per day, averaged over the\nday-to-day line count.  `initial` walks every aisle with rates; `uniform` walks each\nclass once and multiplies by its replica count.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rates: SectionRates, geometry: Geometry, n: float, cv: float, one_way: bool) -> dict"
+    },
+    "Optimization/simconfig/expected_travel.py::solve_n": {
+      "decorators": [],
+      "doc": "The fixed point: the `n` lines a day at which the expected day exactly fills the\ncrew's capacity `K\u00b7S\u00b7\u03c1`.  `total_s(n)` is increasing in n, so the root is unique;\nBrent's method finds it to 1e-6 relative in ~10 evaluations.  A capacity the section\ncannot absorb even at `n_max` lines (every SKU every day) returns the day at `n_max`\nwith `saturated = True` -- the same clamp `staffing.batch_content` applies.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rates: SectionRates, geometry: Geometry, pick_cfg, cv: float, *, capacity_s: float, n_max: float) -> dict"
+    },
+    "Optimization/simconfig/expected_travel.py::solve_n.g": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(n)"
+    },
     "Optimization/simconfig/staffing.py": {
       "decorators": [],
-      "doc": "staffing.py \u2014 the calibrated era's staffing DERIVATION, as a pure module.\n\nPickers per channel are the ONE declared staffing input of the calibrated era\n(.scratch/department-calibration, \"Define the calibrated era\"); everything else a run\nfields is DERIVED from them, live at setup, with a declared scalar at every step:\n\n    pick capacity      K \u00d7 S \u00d7 \u03c1_pick                        (seconds of picking per day)\n    daily demand       capacity \u00f7 s_pick                     (units per day, per channel)\n    batch content      one batch = one day's demand          (a BatchConfig mean fraction)\n    put load           units \u00d7 f_put                         (units put per unit picked)\n    put crew           ceil(put load \u00d7 s_put \u00f7 (S \u00d7 \u03c1_put))  (ONE site crew, both channels)\n    receive load       packs the script implies \u00d7 f_recv\n    receiving crew     ceil(receive seconds \u00f7 (S \u00d7 \u03c1_recv))  (ONE site crew)\n\n`s_pick` (per channel) and `s_put` (one site value) are seconds per unit and are HYBRID by\nnature: pick and put-away TRAVEL is arm-dependent and needs a measured reference run, so they\ncome from the committed calibration record (`Optimization/simconfig/calibration.py`), or --\nuntil a reference run exists -- from the script's own analytic prediction scaled by a\ndeclared TRAVEL SHARE (the record's pass-0 seed).  `s_recv` is EXACT from the script: an\nunload has no travel term, so every pack's seconds are computable from the catalogue and\nthe cost model alone.\n\nTHIS MODULE IS PURE.  Inputs, the loaded calibration record and the catalogue / script\ntotals go in; the derived dict comes out.  It imports no CONFIG, reads no settings and\ntouches no file, so the arithmetic is testable against a hand computation without a run\n(`Tests/unit/test_staffing_derivation.py`).  The harness seam that feeds it is\n`Optimization/simdriver/workunits._derive_staffing_for_pair`, which runs AFTER batch\nprecompute because the receiving crew needs the packs the script implies -- and the script\nis itself derived from the pickers, which is why the derivation has two stages:\n\n    stage A  (catalogue only)  s_pick, daily demand, batch content -- BEFORE precompute\n    stage B  (the script)      put load, packs, the two site crews -- AFTER precompute\n\nEvery scalar default below is a declared ASSUMPTION of the era, never a measurement, and the\nrecord says so (`PROVENANCE`, \"Design the staffing record\", decision 5).  The derived block\ncarries `derived`; a copied constant keeps the provenance it arrived with.",
+      "doc": "staffing.py \u2014 the calibrated era's staffing DERIVATION, as a pure module.\n\nPickers per channel are the ONE declared staffing input of the calibrated era\n(.scratch/department-calibration, \"Define the calibrated era\"); everything else a run\nfields is DERIVED from them, live at setup, with a declared scalar at every step:\n\n    pick capacity      K \u00d7 S \u00d7 \u03c1_pick                        (seconds of picking per day)\n    daily demand       capacity \u00f7 s_pick                     (units per day, per channel)\n    batch content      one batch = one day's demand          (a BatchConfig mean fraction)\n    put load           units \u00d7 f_put                         (units put per unit picked)\n    put crew           ceil(put load \u00d7 s_put \u00f7 (S \u00d7 \u03c1_put))  (ONE site crew, both channels)\n    receive load       packs the script implies \u00d7 f_recv\n    receiving crew     ceil(receive seconds \u00f7 (S \u00d7 \u03c1_recv))  (ONE site crew)\n\n`s_pick` (per channel) and `s_put` (one site value) are seconds per unit and are CLOSED-FORM\nEXPECTATIONS over the catalogue's demand distribution and the warehouse geometry the run\nbuilt (`Optimization/simconfig/expected_travel.py`, \"Derive the expected-travel closed form\"):\nthere are no calibration simulations and no calibration record.  The harness computes them\nat setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put` override\nreplaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the script: an\nunload has no travel term, so every pack's seconds are computable from the catalogue and\nthe cost model alone.\n\nTHIS MODULE IS PURE.  Inputs, the resolved constants and the catalogue / script totals go\nin; the derived dict comes out.  It imports no CONFIG, reads no settings and\ntouches no file, so the arithmetic is testable against a hand computation without a run\n(`Tests/unit/test_staffing_derivation.py`).  The harness seam that feeds it is\n`Optimization/simdriver/workunits._derive_staffing_for_pair`, which runs AFTER batch\nprecompute because the receiving crew needs the packs the script implies -- and the script\nis itself derived from the pickers, which is why the derivation has two stages:\n\n    stage A  (catalogue only)  s_pick, daily demand, batch content -- BEFORE precompute\n    stage B  (the script)      put load, packs, the two site crews -- AFTER precompute\n\nEvery scalar default below is a declared ASSUMPTION of the era, never a measurement, and the\nrecord says so (`PROVENANCE`, \"Design the staffing record\", decision 5).  The derived block\ncarries `derived`; a copied constant keeps the provenance it arrived with.",
       "kind": "module",
       "signature": null
     },
@@ -11096,14 +11622,14 @@
     },
     "Optimization/simconfig/staffing.py::analytic_pick": {
       "decorators": [],
-      "doc": "The script-only prediction of a channel's picking labour per UNIT, from the catalogue.\n\nWeighted the way the sampler weights: a SKU enters a batch in proportion to its\n`relative_frequency` (affinity lift ignored -- it redistributes lines, it does not add\nthem), and a line demands `quantity_rate` units in expectation.  One intercept per LINE\n(one bin visit for one SKU) is the line-count floor (\"Choose the calibration\nprocedure\", decision 7); the per-item charge and `qty \u00d7 handle_var` are per unit; the\nheight multiplier is M(0) = 1 (ground) and there is no travel term.  Returns\n\n    {'seconds_per_unit', 'units_per_line', 'n_skus', 'pricing_config'}\n\n`seconds_per_unit` is what a travel share scales into a seeded `s_pick`.  Empty\norders yield zeros rather than raising: a store-only catalogue has no fulfillment\nsection, and the caller records that as an absent channel.",
+      "doc": "The script-only prediction of a channel's picking labour per UNIT, from the catalogue.\n\nWeighted the way the sampler weights: a SKU enters a batch in proportion to its\n`relative_frequency` (affinity lift ignored -- it redistributes lines, it does not add\nthem), and a line demands the MEAN of the SKU's stamped line law (`Demand.line.mean()`).\nBefore the stamp this read `max(1, quantity_rate)` -- a drift from the `\u03bb + e^-\u03bb` the\nsampler and the expectation use, corrected by \"Stamp the line distribution on the SKU\":\nthe recorded `analytic` block moves by the `e^-\u03bb` term; the era's batch content never read\nit (it reads `expected_travel`'s `units_per_line`).  One intercept per LINE\n(one bin visit for one SKU) is the line-count floor (\"Choose the calibration\nprocedure\", decision 7); the per-item charge and `qty \u00d7 handle_var` are per unit; the\nheight multiplier is M(0) = 1 (ground) and there is no travel term.  Returns\n\n    {'seconds_per_unit', 'units_per_line', 'n_skus', 'pricing_config', 'line_families'}\n\n`seconds_per_unit` is what a travel share scales into a seeded `s_pick`.  Empty\norders yield zeros rather than raising: a store-only catalogue has no fulfillment\nsection, and the caller records that as an absent channel.",
       "is_async": false,
       "kind": "function",
       "signature": "(orders, pricing: PricingConfig) -> dict"
     },
     "Optimization/simconfig/staffing.py::batch_content": {
       "decorators": [],
-      "doc": "One batch = one day's demand, as the sampler's (mean_fraction, std_fraction).\n\nThe sampler draws a LINE count ~ N(mean\u00b7N, std\u00b7N) and each line demands\n`quantity_rate` units, so the mean fraction that delivers `demand_units` is\n`(demand \u00f7 units_per_line) \u00f7 N`.  The spread keeps the DECLARED coefficient of\nvariation (the flag-off `std \u00f7 mean`, 1/3 for the store, 1/4 for fulfillment) so a\nderived script has the same relative day-to-day variability the archive's did.  A\nmean above 1.0 -- every SKU every day, and then some -- is CLAMPED and flagged: the\nsampler cannot draw more lines than SKUs, and the declared crew is then oversized for\nthe catalogue (the verifier will show the idle capacity; `saturated` says why).",
+      "doc": "One batch = one day's demand, as the sampler's (mean_fraction, std_fraction).\n\nThe sampler draws a LINE count ~ N(mean\u00b7N, std\u00b7N) and each line demands its stamped\nlaw's mean units (`units_per_line`), so the mean fraction that delivers `demand_units` is\n`(demand \u00f7 units_per_line) \u00f7 N`.  The spread keeps the DECLARED coefficient of\nvariation (the flag-off `std \u00f7 mean`, 1/3 for the store, 1/4 for fulfillment) so a\nderived script has the same relative day-to-day variability the archive's did.  A\nmean above 1.0 -- every SKU every day, and then some -- is CLAMPED and flagged: the\nsampler cannot draw more lines than SKUs, and the declared crew is then oversized for\nthe catalogue (the verifier will show the idle capacity; `saturated` says why).",
       "is_async": false,
       "kind": "function",
       "signature": "(demand_units: float, units_per_line: float, n_skus: int, declared_mean: float, declared_std: float) -> dict"
@@ -11131,7 +11657,7 @@
     },
     "Optimization/simconfig/staffing.py::derive": {
       "decorators": [],
-      "doc": "The derived block, from declared inputs + resolved constants + the script.\n\n`inputs` is the staffing record's INPUTS (`sim_config.staffing_spec()` shape: the two\npicker counts, `rho_pick/rho_put/rho_recv`, `f_put/f_recv`, `band_tol`,\n`put_crew_mode`, plus the three crew-cost scales the harness copies in).\n`constants` is `{'s_pick': {channel: constant}, 's_put': constant, 'k_max':\n{channel: int|None}}` as `calibration.resolve_constants` returns it.  `channels` maps\na channel name to its stage-A dict (`analytic`, `batch`, `pickers`, `n_skus`);\n`scripts` maps it to its `ScriptTotals`.  Channels absent from `channels` (a\nstore-only catalogue) are recorded as absent and contribute nothing.\n\nThe put and receiving crews are SITE totals: one crew each, summing both channels'\nper-day loads.  Each channel leaf's expected utilization for those two departments is\nits own load against the WHOLE site crew, which is why it sits well below \u03c1.",
+      "doc": "The derived block, from declared inputs + resolved constants + the script.\n\n`inputs` is the staffing record's INPUTS (`sim_config.staffing_spec()` shape: the two\npicker counts, `rho_pick/rho_put/rho_recv`, `f_put/f_recv`, `band_tol`,\n`put_crew_mode`, plus the three crew-cost scales the harness copies in).\n`constants` is `{'s_pick': {channel: constant}, 's_put': constant}` as the harness\nresolves them (the expectation, or a declared override).  `channels` maps a channel\nname to its stage-A dict (`analytic`, `batch`, `pickers`, `n_skus`, and `expected` --\nthe expected day the constant was read off, recorded beside it);\n`scripts` maps it to its `ScriptTotals`.  Channels absent from `channels` (a\nstore-only catalogue) are recorded as absent and contribute nothing.\n\nThe put and receiving crews are SITE totals: one crew each, summing both channels'\nper-day loads.  Each channel leaf's expected utilization for those two departments is\nits own load against the WHOLE site crew, which is why it sits well below \u03c1.",
       "is_async": false,
       "kind": "function",
       "signature": "(*, inputs: dict, constants: dict, day_seconds: float, channels: dict, scripts: dict, pricing_names: dict) -> dict"
@@ -11159,10 +11685,10 @@
     },
     "Optimization/simconfig/staffing.py::implied_reorders": {
       "decorators": [],
-      "doc": "Stage B's supply side: the put-away and receiving work the script implies.\n\nSteady state (f = 1.0) replenishes every unit picked, so each SKU's expected reorders\nare `units demanded \u00f7 lot`, each lot packs into the storage units the sim's own packer\nwould produce (`Inbound.pack.receive` -> `viable_storage_units`, honouring a\n`stock_plan`), and each pack costs\n\n    put-away   M(0) \u00b7 (put_intercept + qty \u00b7 put_per_item + qty \u00b7 var)   (no travel)\n    receiving  recv_intercept + recv_per_item + qty \u00b7 var                (EXACT)\n\nFractional reorders are expectations and are kept fractional.  `f_put` scales the put\nload and `f_recv` the receiving load (\"units put per unit picked\" / packs received per\npack demanded); at 1.0 both are the steady state, any other value models a growing or\nshrinking warehouse, which is exactly why they are knobs.  Mutates and returns `totals`.",
+      "doc": "Stage B's supply side: the put-away and receiving work the script implies.\n\nSteady state (f = 1.0) replenishes every unit picked, so each SKU's expected reorders\nare `units demanded \u00f7 lot`, each lot packs into the storage units the sim's own packer\nwould produce (`Inbound.pack.receive` -> `viable_storage_units`, honouring a\n`stock_plan`), and each pack costs\n\n    put-away   travel + M(y) \u00b7 (put_intercept + qty \u00b7 put_per_item + qty \u00b7 var)\n    receiving  recv_intercept + recv_per_item + qty \u00b7 var                (EXACT)\n\n`put_site`, when given, is `(unit) -> (travel_s, height_mult)` -- the expected travel\nfrom the aisle mouth and the height multiplier of the pack's destination under the run's\nplacement distribution (`expected_travel.put_site_pricer`).  None prices every put at\nthe ground with no travel (the script-only prediction).\n\nFractional reorders are expectations and are kept fractional.  `f_put` scales the put\nload and `f_recv` the receiving load (\"units put per unit picked\" / packs received per\npack demanded); at 1.0 both are the steady state, any other value models a growing or\nshrinking warehouse, which is exactly why they are knobs.  Mutates and returns `totals`.",
       "is_async": false,
       "kind": "function",
-      "signature": "(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *, f_put: float, f_recv: float, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float) -> ScriptTotals"
+      "signature": "(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *, f_put: float, f_recv: float, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float, put_site=None) -> ScriptTotals"
     },
     "Optimization/simconfig/staffing.py::pick_capacity": {
       "decorators": [],
@@ -11180,10 +11706,10 @@
     },
     "Optimization/simconfig/staffing.py::reorder_lot": {
       "decorators": [],
-      "doc": "The quantity one reorder of `order` brings in, in expectation.\n\nThe manager's order-up-to rule (`inventory_reorder.check_reorders`): when the\ninventory position falls to the reorder point it orders `equilibrium + pipeline -\nposition`, where the pipeline allowance is `round(rp \u00d7 lead \u00f7 (lead + 1))`.  Taking\nthe position AT the reorder point gives the expected lot; the supply-cv jitter is\nzero-mean and drops out.  Floors at 1: a SKU whose reorder point sits at its\nequilibrium still reorders something.",
+      "doc": "The quantity one reorder of `order` brings in, in expectation.\n\nThe manager's order-up-to rule (`inventory_reorder._fire_reorders`): when the inventory\nposition falls to the reorder point it orders `equilibrium + pipeline - position`, the\npipeline allowance being `Order.pipeline_allowance()` (the era's stamp, else the\n`round(rp \u00d7 lead \u00f7 (lead + 1))` heuristic).  Two regimes:\n\n  * BASE STOCK (`rp >= Q - 1`, every SKU on the line floor -- \"Choose the coverage\n    floor\", decision 1): the sampler draws distinct SKUs per batch, so a floored SKU is\n    picked at most one LINE per batch.  The target is the position `Q + P` (`P` the\n    pipeline allowance) and a fire needs the position at or below `Q - 1`, i.e. at\n    least `P + 1` units taken since the last fire.  At `P = 0` -- every catalogue the\n    generator authors today (`LEAD_TIME_MEAN_BATCHES = 0.0`) -- EVERY line fires for\n    exactly what it took and the expected lot is the SKU's mean line,\n    `Demand.line.mean()`.  With a pipeline, a line smaller than `P + 1` does not fire\n    alone, so the lot is at least `P + 1`: `max(E[line], P + 1)`, exact at `P = 0` and\n    a floor on the truth otherwise.  The old rule's answer here was\n    `max(1, Q + pipeline - rp)` = 1 at lead 0: one PACK per unit, a tenfold over-count\n    of the receiving load on a ten-unit line.\n  * above the floor: the position AT the reorder point gives the expected lot,\n    `Q + pipeline - rp`; the supply-cv jitter is zero-mean and drops out.  Floors at 1.\n\nA duck-typed order without a line law (a test double) takes the second rule.",
       "is_async": false,
       "kind": "function",
-      "signature": "(order) -> int"
+      "signature": "(order) -> float"
     },
     "Optimization/simconfig/staffing.py::script_totals": {
       "decorators": [],
@@ -11344,6 +11870,55 @@
       "kind": "function",
       "signature": "(cells, fallback: str | None=None) -> str"
     },
+    "Optimization/simdriver/era_coverage.py": {
+      "decorators": [],
+      "doc": "era_coverage.py \u2014 the calibrated era's stage-A expectation per channel, and the\npair-level FIXED POINT that sizes the warehouse from stock levels denominated in days.\n\nTwo things live here because they are one loop:\n\n  * `stage_a` -- for each channel, the class-uniform placement distribution over the\n    section's packs, the expected day at every line count and the fixed point `n` at which\n    that day fills the declared crew's capacity (`expected_travel.solve_n`), or the demand a\n    declared `--s-pick-*` override buys.  This is the first half of\n    `workunits._derive_staffing_for_pair` (\"Derive the expected-travel closed form\"), factored\n    out so the coverage loop and the derivation compute it with ONE function -- two copies\n    would be two answers.\n\n  * `fixed_point` -- \"Rescale stock coverage at setup\" (.scratch/department-calibration,\n    decision 2 of the closed form): coverage is a RUNTIME rescaling under declared days.\n    Every SKU's `equilibrium_qty` / `reorder_point` follow from its daily demand `d_s`, which\n    needs `n`; the warehouse is sized from those quantities (`plan_warehouse`); `n` depends on\n    the built geometry.  So\n\n        Q(n) -> plan_warehouse -> geometry -> expected_travel.solve_n -> n\n\n    is iterated at PAIR level until every channel's `n` moves by less than `tol`, or\n    `max_rounds` is spent and the residual is recorded.  Round 0 plans the catalogue's own\n    levels (what the generation-batch denomination amounted to on this pair is recorded as\n    `catalogue`); each later round rescales the WHOLE catalogue at the previous round's `n`\n    and re-plans.  The last plan stands: its sampled orders, its geometry and its stage-A\n    expectation are what the run fields, so the derivation reuses them rather than pricing\n    the section twice.\n\nThe loop is driven from `sim_assets.build_shared_assets` behind `era_on()`; flag-off it is\nnever entered and the planner is called exactly once, as before.  `plan_fn` is injected (a\nclosure over the planner's arguments) so the loop is testable with a fake planner and knows\nnothing about sizing.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/era_coverage.py::ChannelSpec": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "What stage A needs to know about one channel: its name, the regime its section is\nfiltered by (None on a store-only catalogue: the whole catalogue), the pick config it is\npriced with and the name of that config (the channel's FIRST config).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/era_coverage.py::_lines": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sa: dict) -> dict"
+    },
+    "Optimization/simdriver/era_coverage.py::channel_specs": {
+      "decorators": [],
+      "doc": "`(mixed, [ChannelSpec, ...])` for a catalogue, one spec per channel, from the same\nchannel plan the run's work units are built from (`workunits._channel_runs_for`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inventory) -> tuple[bool, list[ChannelSpec]]"
+    },
+    "Optimization/simdriver/era_coverage.py::fixed_point": {
+      "decorators": [],
+      "doc": "Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns\n`(plan, warehouse_meta, stage_a_result, record)` for the LAST round.\n\n`plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and\nbuilds the warehouse: `(plan, warehouse_meta)`.  `orders_all` is the whole catalogue; the\nplan's `sampled` subset (or the whole list when the planner samples nothing) is what\nstage A prices.  The record is JSON-shaped and rides `staffing.calibration[<pair>]\n['coverage']`:\n\n    {'coverage_days', 'safety_days', 'floor_lines', 'tol', 'max_rounds', 'rounds': [...],\n     'catalogue': {channel: implied_coverage},      # the levels the catalogue authored\n     'final': {channel: rescale stats + 'fill'},    # the rescaled levels, pre-plan, and\n                                                    #   the fill rate at the PLANNED ones\n     'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},\n     'converged': bool}\n\n`final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields\n(the planner grows a level into leftover capacity, so the shelf that serves a line is the\nplanned one): the expected first-pass fill rate the audit reads `missed_share` against,\nand the base-stock share AFTER planning.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders_all: list, plan_fn, specs: list, *, coverage_days: float, safety_days: float, floor_lines: float, inputs: dict, day_seconds: float, log: logging.Logger, tol: float=_cov.DEFAULT_TOL, max_rounds: int=_cov.DEFAULT_MAX_ROUNDS) -> tuple"
+    },
+    "Optimization/simdriver/era_coverage.py::next_guess": {
+      "decorators": [],
+      "doc": "The line count to rescale at next, from this channel's `(n_in, n_out)` history.\n\n`n_out = g(n_in)` is monotone DECREASING: more lines a day means more stock, a bigger\nwarehouse, more travel per pick and so fewer lines the crew can fill -- and its gain is\nabove one on a real catalogue (the reference pair's fulfillment section went 1,818 ->\n14,832 -> 4,048 -> 10,797 under plain iteration).  So the plain iterate is used only\nuntil the root of `f(n) = log g(n) - log n` is BRACKETED (one point with `f > 0`, one\nwith `f < 0`); from then on the next guess is the secant of `f` in log-space between\nthe two bracket ends, pulled to the log-midpoint when it lands within 5% of either end\n(the one-sided stagnation regula falsi is known for).  Every later evaluation shrinks\nthe bracket, so the loop converges on any monotone map.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(points: list) -> float"
+    },
+    "Optimization/simdriver/era_coverage.py::stage_a": {
+      "decorators": [],
+      "doc": "Stage A of the staffing derivation for every channel: `{name: {...}}`.\n\nPer channel the dict carries `orders` (the section), `pricing`, `dist` (class-uniform),\n`pick_cfg`, `rates`, `analytic`, `expected` (the expected day at the fixed point),\n`pickers`, `daily_demand_units`, `batch` and `s_pick` (the recorded constant) -- exactly\nwhat `_derive_staffing_for_pair` reads.  `n` is the section's lines per day.\nWarnings, never failures: an empty section prices nothing; a saturated batch is flagged.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, geometry: _et.Geometry, specs: list, *, inputs: dict, day_seconds: float, log: logging.Logger) -> dict"
+    },
     "Optimization/simdriver/scenario.py": {
       "decorators": [],
       "doc": "simdriver.scenario \u2014 one scenario + the cell-matrix driver.\n\n_run_scenario is the inner pipeline for a SINGLE warehouse cell (manifest + shared\nassets + flat pool + blank-arm check); _run_whatif_matrix loops _build_cells over one\nfrozen inventory so every run is a cell matrix (a plain run is the single cell k1_off).",
@@ -11398,6 +11973,27 @@
       "kind": "function",
       "signature": "(key)"
     },
+    "Optimization/simdriver/sim_assets.py::build_shared_assets._build": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cfg)"
+    },
+    "Optimization/simdriver/sim_assets.py::build_shared_assets._plan": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/simdriver/sim_assets.py::load_run_inventory": {
+      "decorators": [],
+      "doc": "`load_inventory_from_db`, then honour the era's `pipeline_qty` stamp ONLY under the era.\n\nThe stamp is written by the coverage rescaling into the planned inventory\n(\"Build the line floor\").  Flag-off, the manager's `rp x lead / (lead + 1)` heuristic must\nstand byte for byte whatever file was handed in -- a frozen planned inventory stamped by\nan era run included -- so a flag-off load clears the stamp and `Order.pipeline_allowance`\nfalls back.  `Warehouse/` may not import the era predicate, which is why the guard sits\nhere, on the ONE loader both the parent (`build_shared_assets`) and the workers\n(`strategy_runner`) use.\n\n`era` is EXPLICIT because a spawned worker's CONFIG is pristine: `era_on()` there is the\nsettings default, not the run's flag (memory `config-knob-has-five-seams`).  The parent\npasses `era_on()`; the worker passes the `drain_or_cap` its work-day payload carries.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, limit: int | None=None, *, era: bool)"
+    },
     "Optimization/simdriver/strategy_runner.py": {
       "decorators": [],
       "doc": "strategy_runner.py \u2014 concurrent strategy worker for run_simulation.py.\n\nSeparates all parallel/CPU machinery from the configuration, analysis, and\nplotting logic in run_simulation.py.\n\nPublic API\n----------\n_run_strategy_worker(args) -> dict\n    Simulate one assignment strategy end-to-end (one process in the flat pool\n    owned by run_simulation._run_workers_flat).\n\nsave_worker_checkpoint(run_dir, strategy, next_batch_id)\nload_worker_checkpoint(run_dir, strategy) -> int\n    Per-strategy crash-recovery checkpoints written inside each worker.\n\nImplementation notes\n--------------------\n_run_strategy_worker must be a module-level function so ProcessPoolExecutor\ncan pickle it by reference in Windows spawn mode.  The child resolves it by\nqualified name (Optimization.simdriver.strategy_runner._run_strategy_worker): spawn's\nprepare() propagates the parent's sys.path \u2014 which the entry script seeded\nwith the repo root \u2014 before anything is unpickled, so this module needs no\nsys.path bootstrap of its own.",
@@ -11424,6 +12020,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "gc.get_threshold()"
+    },
+    "Optimization/simdriver/strategy_runner.py::_arm_expected_pick": {
+      "decorators": [],
+      "doc": "The arm's expected day under ITS OWN initial placement, or None flag-off.\n\nThe pair's demand was derived at setup from the class-uniform expectation\n(`workunits._derive_staffing_for_pair`); this is the SAME closed form\n(`simconfig/expected_travel`) over the bins the arm just filled, at the pair's derived\nline count and spread, stamped for the throughput audit's per-arm band\n(`equilibrium.arm_expectations`).  It sizes nothing.  Flag-off (no derived block in\nthe payload) it computes nothing and returns None, so the store-only path is untouched.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict, warehouse, orders, pick_cfg, log) -> dict | None"
     },
     "Optimization/simdriver/strategy_runner.py::_check_declared_crew": {
       "decorators": [],
@@ -11517,7 +12120,7 @@
     },
     "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._shift_close_out": {
       "decorators": [],
-      "doc": "Close working day `day`: the ledger row `(day, cap_end, end_s, drained,\nstanding, standing_put, standing_dock, standing_carry, last_finish)`, and the log\nline.  A day DRAINED if nothing was cut in it and no standing work survives it (put\nqueues + held + the dock floor + carried demand -- never the lead queue: transit is\ncalendar, not labour; and releases are exhausted by construction at a day\nboundary).  The end instant is `timeline.shift_end`'s arithmetic; days stay\norigin-aligned, so this is a REPORT of when the crews got off the clock, never a\nscheduler.\n\nThe state is PASSED IN, never read live: the close-out fires at the first batch of\nthe NEXT day, after that batch has already been processed, so the manager's live\ndepths and the folded clocks belong to the new day by then.  The caller hands it\nthe snapshot the previous day's last batch left behind (`_shift_standing`) and the\nclocks and cut flag accumulated before this batch was folded in.  The log-only\nledger read them live and mis-attributed every day's first batch to the day before\n-- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which\npersisting the row was what made visible.  Called once per day boundary, and once\nmore after the loop for the final day, which has no next day to close it.",
+      "doc": "Close working day `day`: the ledger row `(day, cap_end, end_s, drained,\nstanding, standing_put, standing_dock, standing_carry, standing_carry_labour,\nstanding_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing\nwas cut in it and no standing LABOUR survives it: put queues + held + the dock floor\n+ the cut's own carry (`unpicked_daycut`).  Never the lead queue (transit is\ncalendar, not labour; and releases are exhausted by construction at a day\nboundary), and never the SUPPLY carry (`unpicked_unavailable` /\n`unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as\nstanding work it made every finite stock level cap every day).\n`equilibrium.is_drained` is the one definition; this closure only gathers its\narguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay\norigin-aligned, so this is a REPORT of when the crews got off the clock, never a\nscheduler.\n\nThe state is PASSED IN, never read live: the close-out fires at the first batch of\nthe NEXT day, after that batch has already been processed, so the manager's live\ndepths and the folded clocks belong to the new day by then.  The caller hands it\nthe snapshot the previous day's last batch left behind (`_shift_standing`) and the\nclocks and cut flag accumulated before this batch was folded in.  The log-only\nledger read them live and mis-attributed every day's first batch to the day before\n-- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which\npersisting the row was what made visible.  Called once per day boundary, and once\nmore after the loop for the final day, which has no next day to close it.",
       "is_async": false,
       "kind": "function",
       "signature": "(day: int, standing: tuple, last_finish: float, cut: bool) -> tuple"
@@ -11542,6 +12145,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(run_dir: str, strategy: str) -> int"
+    },
+    "Optimization/simdriver/strategy_runner.py::placement_fingerprint": {
+      "decorators": [],
+      "doc": "A rename-proof hash of a placement: `bin_map[sku] = [(aisle_id, bayX, bayY, qty), ...]`.\n\nSorted by SKU and by location, so two managers holding the same units in the same bins\nagree whatever order they were filled in; sixteen hex digits, the size of the geometry\nfingerprint it sits beside.  An empty placement hashes to a fixed value rather than\nraising: an arm that placed nothing still stamps.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(bin_map: dict) -> str"
     },
     "Optimization/simdriver/strategy_runner.py::reset_strategy_db": {
       "decorators": [],
@@ -11634,7 +12244,7 @@
     },
     "Optimization/simdriver/workunits.py::_derive_staffing_for_pair": {
       "decorators": [],
-      "doc": "Run the calibrated era's staffing derivation for ONE inventory pair.\n\nReturns `(channel_runs, derived, calibration)`: the channel-runs with their batch\nfractions REPLACED by the derived batch content (a store-only pair also gets\n`shared['batch_cfg']` replaced, since that is the plan its workers read), the derived\nblock (`staffing.derive`), and the resolved calibration constants with the two stamps.\n\nTwo stages, because the script is derived from the pickers and the crews from the\nscript (`Optimization/simconfig/staffing.py`):\n\n  A. per channel, from the CATALOGUE: the analytic pick seconds per unit, `s_pick`\n     resolved against the calibration record (a typed override, a measured value, or\n     analytic x travel share), the daily demand the declared pickers buy at it, and the\n     batch content that delivers it;\n  B. per channel, from the SCRIPT: precompute the batches under the derived content\n     (the same call `_prepare_channel_run` makes, so the cache is warm for it), read\n     them back, total the demand, the implied reorders' packs and their exact unload\n     seconds, resolve `s_put` against the script's analytic put seconds, then size the\n     two site crews.\n\nThe pricing config of a channel is its FIRST config (`store` / `ful_calibrated`): the\nreference run measures `s_pick` on that leaf, and the analytic prediction is priced\nwith the same coefficients so the ratio is a travel share and not a config difference.\nWarnings, never failures: a stale record, a declared crew above `k_max`, a saturated\nbatch (the crew asks for more lines than the catalogue has SKUs), an unpriced seed.",
+      "doc": "Run the calibrated era's staffing derivation for ONE inventory pair.\n\nReturns `(channel_runs, derived, calibration)`: the channel-runs with their batch\nfractions REPLACED by the derived batch content (a store-only pair also gets\n`shared['batch_cfg']` replaced, since that is the plan its workers read), the derived\nblock (`staffing.derive`), and the `calibration` block -- which, since \"Derive the\nexpected-travel closed form\", records HOW the constants were computed (the method,\nthe placement distribution, the geometry fingerprint, any declared override) rather\nthan which record they were copied from.  There is no calibration record.\n\nTwo stages, because the script is derived from the pickers and the crews from the\nscript (`Optimization/simconfig/staffing.py`):\n\n  A. per channel, from the CATALOGUE and the BUILT GEOMETRY: the class-uniform\n     placement distribution over the section's packs (`expected_travel.PlacementDist\n     .uniform` -- arm-independent, and the FIFO restock's steady state), the\n     expected day at every line count, and the FIXED POINT `n` at which that day\n     fills the declared crew's capacity (`expected_travel.solve_n`); `s_pick` is the\n     expected seconds per unit AT that point, the daily demand its units, and the\n     batch content follows.  A declared `--s-pick-*` override replaces the fixed point\n     with the demand that number buys, and the expectation is still recorded beside it.\n  B. per channel, from the SCRIPT: precompute the batches under the derived content\n     (the same call `_prepare_channel_run` makes, so the cache is warm for it), read\n     them back, total the demand, the implied reorders' packs priced with the\n     expected put travel (`expected_travel.put_site_pricer`) and their exact unload\n     seconds, then size the two site crews.\n\nThe pricing config of a channel is its FIRST config (`store` / `ful_calibrated`).\nWarnings, never failures: a saturated batch (the crew asks for more lines than the\ncatalogue has SKUs), an unpriced section (empty), SKUs the packer placed nowhere.",
       "is_async": false,
       "kind": "function",
       "signature": "(shared: dict, channel_runs: list, mixed: bool, pair_dir: str, log: logging.Logger, workers: int=1) -> tuple"
@@ -14285,7 +14895,7 @@
     },
     "Warehouse/catalog/Demand.py": {
       "decorators": [],
-      "doc": null,
+      "doc": "Demand.py \u2014 a SKU's demand rates, and the LAW one line's quantity is drawn from.\n\nTwo scalars and one object per SKU:\n\n  * `relative_frequency` \u2014 the SKU's pick weight as a [0, 1] RELATIVE share (batch\n    selection is weighted by it; it is not an absolute rate);\n  * `quantity_rate`      \u2014 the rate parameter of the line law (\u03bb for the Poisson family);\n    the ranking heuristics (velocity = freq \u00d7 rate) read this scalar as a weight;\n  * `line`               \u2014 the `LineDistribution`: the law one LINE's quantity is drawn\n    from, stamped on the SKU (.scratch/department-calibration, \"Choose the coverage\n    floor\", decision 10).  Every distribution-dependent number \u2014 the sampler's draw, the\n    mean units a line demands, the tail past a bin's stock, a fill rate \u2014 is READ off this\n    object, never re-derived by a consumer.  Before the stamp, `staffing.py` took a line as\n    `max(1, \u03bb)` and `coverage.py` as `\u03bb + e^-\u03bb`: two answers for one quantity, the drift\n    the stamp ends.\n\nThe one family today is `poisson_max1`, `max(1, Poisson(\u03bb))`: its sampler is Knuth's\n(`poisson_sample`, unchanged), so a stamped catalogue draws exactly what the unstamped one\ndid.  Two of the staffing record's five provenance values apply here (`Optimization/\nsimconfig/constants.py:PROVENANCE`, which this leaf may not import): `declared` \u2014 the law\nwas authored by the generator or read from the inventory file's stamp; `assumed` \u2014 the law\nwas RECONSTRUCTED as Poisson(`demand_qty_rate`) from a pre-stamp catalogue (or by a caller\nthat passed none), and the staffing record names that reconstruction.",
       "kind": "module",
       "signature": null
     },
@@ -14306,10 +14916,10 @@
       "decorators": [
         "classmethod"
       ],
-      "doc": "Create a Demand with specific, pre-determined rates (used for reorders).",
+      "doc": "Create a Demand with specific, pre-determined rates (used for reorders and every\nDB/generator construction).  `line` is the stamped law; absent, it is reconstructed\nas Poisson(`quantity_rate`) with provenance `assumed`.",
       "is_async": false,
       "kind": "function",
-      "signature": "(cls, relative_frequency: float, quantity_rate: float) -> 'Demand'"
+      "signature": "(cls, relative_frequency: float, quantity_rate: float, line: LineDistribution | None=None) -> 'Demand'"
     },
     "Warehouse/catalog/Demand.py::Demand.rate": {
       "decorators": [
@@ -14322,10 +14932,111 @@
     },
     "Warehouse/catalog/Demand.py::Demand.sample": {
       "decorators": [],
-      "doc": null,
+      "doc": "One LINE's quantity, drawn from the stamped law \u2014 never below one.  (Before the\nstamp this returned the bare Poisson draw and the batch sampler floored it; the\nfloor is the law's now, and the draws are identical.)",
       "is_async": false,
       "kind": "function",
       "signature": "(self, rng: random.Random | None=None) -> int"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution": {
+      "decorators": [],
+      "doc": "The law one LINE's quantity `q` is drawn from \u2014 family + parameters, and every\ndistribution-dependent reading a consumer needs, so no consumer names a family:\n\n    mean()            E[q]\n    cdf(k)            P(q <= k)\n    quantile(p)       the smallest k with P(q <= k) >= p\n    survival(upto)    P(q > j) for j = 0..upto-1, as an ndarray (the tail a bin's stock\n                      is reached past; `expected_travel.accumulate` reads it per bin)\n    expected_min(S)   E[min(q, S)] = \u03a3_{j<S} P(q > j)  (the fill a stock level S buys)\n    sample(rng)       one draw, from `rng` (a `random.Random`) or the global module\n\nFamilies:\n    poisson_max1  {'lam': \u03bb}   q = max(1, X), X ~ Poisson(\u03bb).  mean = \u03bb + e^-\u03bb;\n                               P(q > 0) = 1 and P(q > j) = P(X > j) for j >= 1;\n                               sampled by Knuth's `poisson_sample`, floored at one.\n\n`to_row()` / `from_row()` are the inventory file's two columns (`line_family`,\n`line_params` JSON \u2014 the `creation_plan` table's precedent).  `provenance` is metadata\n(see the module docstring), not part of the law.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, family: str, params: dict, provenance: str='declared') -> None"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution._pmf_x": {
+      "decorators": [],
+      "doc": "P(X = i) for i = 0..upto-1 of the underlying Poisson, by the running product.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, upto: int)"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.cdf": {
+      "decorators": [],
+      "doc": "P(q <= k); zero below one, since a line always demands at least one unit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k: int) -> float"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.expected_min": {
+      "decorators": [],
+      "doc": "E[min(q, S)] \u2014 the units a stock level `S` is expected to deliver against one\nline (a fill rate's numerator).  \u03a3_{j<S} P(q > j) by the running product.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, S: int) -> float"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.from_row": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "Rebuild from the inventory file's two columns.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, family: str, params_json: str | None, provenance: str='declared') -> 'LineDistribution'"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.mean": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.poisson": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "`max(1, Poisson(lam))` \u2014 the founding family.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, lam: float, provenance: str='declared') -> 'LineDistribution'"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.quantile": {
+      "decorators": [],
+      "doc": "The smallest k with P(q <= k) >= p, for 0 <= p < 1 (p <= 0 is one).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, p: float) -> int"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.sample": {
+      "decorators": [],
+      "doc": "One line's quantity: Knuth's Poisson draw, floored at one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, rng: random.Random | None=None) -> int"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.survival": {
+      "decorators": [],
+      "doc": "P(q > j) for j = 0..upto-1: `1.0` at j = 0, the Poisson upper tail after.\n\nThe regularised lower gamma `P(j+1, \u03bb)` IS `P(X > j)`; vectorised because the\nexpected-travel closed form reads it for every bin of every SKU.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, upto: int) -> np.ndarray"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.to_row": {
+      "decorators": [],
+      "doc": "`(line_family, line_params)` \u2014 the JSON is NULL when the family takes none.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple[str, str | None]"
+    },
+    "Warehouse/catalog/Demand.py::line_law_census": {
+      "decorators": [],
+      "doc": "What laws a catalogue carries and where they came from \u2014 the staffing record's\n`line_law` block: `{'n_skus', 'families': {family: n}, 'provenance': {p: n},\n'reconstructed_skus'}` (the last is the `assumed` count: SKUs whose law was rebuilt\nas Poisson(demand_qty_rate) from a pre-stamp file).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders) -> dict"
     },
     "Warehouse/catalog/Demand.py::poisson_sample": {
       "decorators": [],
@@ -14434,10 +15145,10 @@
       "decorators": [
         "classmethod"
       ],
-      "doc": "Construct a order from supplied physical + demand values (not random sampling),\napplying all physical guardrails.  The single construction path for generated and\nDB-loaded orders \u2014 accepts demand/quantity as params so the default random Demand()\nis never invoked.  Does NOT touch Order.next_sku (sku is explicit).",
+      "doc": "Construct a order from supplied physical + demand values (not random sampling),\napplying all physical guardrails.  The single construction path for generated and\nDB-loaded orders \u2014 accepts demand/quantity as params so the default random Demand()\nis never invoked.  `line` is the SKU's stamped line law (`Demand.line`); absent, it\nis reconstructed as Poisson(qty_rate) with provenance `assumed`.  The scalar is the\nlaw's rate parameter and every reader must see ONE value, so a Poisson law authored at\nthe unclamped rate follows the clamp (what every pre-stamp load sampled), and a law\nthat agrees with neither RAISES.  `pipeline_qty` is the era's stamped lead pipeline\n(None = not stamped; see `pipeline_allowance`).  Does NOT touch Order.next_sku (sku\nis explicit).",
       "is_async": false,
       "kind": "function",
-      "signature": "(cls, sku: int, handling: str, category: str, length: float, width: float, height: float, weight: float, relative_frequency: float, qty_rate: float, *, equilibrium_qty: int, reorder_point: int, lead_time_mean: float=0.0, supply_cv: float=0.0, stock_plan=None) -> 'Order'"
+      "signature": "(cls, sku: int, handling: str, category: str, length: float, width: float, height: float, weight: float, relative_frequency: float, qty_rate: float, *, equilibrium_qty: int, reorder_point: int, lead_time_mean: float=0.0, supply_cv: float=0.0, stock_plan=None, line: LineDistribution | None=None, pipeline_qty: int | None=None) -> 'Order'"
     },
     "Warehouse/catalog/Order.py::Order.compute_labor_cost": {
       "decorators": [],
@@ -14463,6 +15174,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> float"
+    },
+    "Warehouse/catalog/Order.py::Order.pipeline_allowance": {
+      "decorators": [],
+      "doc": "The units expected in transit over the lead -- what the order-up-to is raised by\nso on-hand returns to the equilibrium when the lot lands (`inventory_reorder\n._fire_reorders`), and what the staffing derivation's expected lot reads.\n\nThe ONE definition.  Stamped (`pipeline_qty`, the era's `round(d_s x lead)` from\n`simconfig/coverage.py`), the stamp is the answer.  Unstamped -- every flag-off run,\nevery pre-stamp file -- the manager's heuristic stands, byte for byte:\n`round(rp x lead / (lead + 1))`, which assumed the reorder point encodes ~(lead + 1)\nbatches of demand.  Under the line floor `rp` encodes a LINE, which is why the era\nstamps the pipeline instead of inferring it (\"Choose the coverage floor\", decision 6).\nZero at lead 0 either way.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
     },
     "Warehouse/catalog/Order.py::Order.popularity": {
       "decorators": [
@@ -14833,7 +15551,21 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='inventory_db', declared_shape=declared_inventory_shape, meta_table='run_metadata'))"
+      "value_preview": "_identity.register(_identity.Family(name='inventory_db', declared_shape=declared_inventory_shape, meta_table='run_metadata', known_ids=(PRE_LINE_LAW_INVENTORY_SCHEMA_ID, PRE_PIPELINE_INVENTORY_SCHE..."
+    },
+    "Warehouse/generation/generate_inventory.py::PRE_LINE_LAW_INVENTORY_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'0e234fbfc739'"
+    },
+    "Warehouse/generation/generate_inventory.py::PRE_PIPELINE_INVENTORY_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'4ff06991df47'"
     },
     "Warehouse/generation/generate_inventory.py::UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID": {
       "decorators": [],
@@ -14848,6 +15580,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "(_SCHEMA,)"
+    },
+    "Warehouse/generation/generate_inventory.py::_CARTON_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('sku', 'handling', 'category', 'length', 'width', 'height', 'weight', 'relative_frequency', 'demand_qty_rate', 'equilibrium_qty', 'reorder_point', 'lead_time_mean', 'supply_cv', 'stock_plan', 'lin..."
     },
     "Warehouse/generation/generate_inventory.py::_CARTON_MAX_DIM": {
       "decorators": [],
@@ -14954,6 +15693,13 @@
       "signature": null,
       "value_preview": "os.path.dirname(_HERE)"
     },
+    "Warehouse/generation/generate_inventory.py::_cartons_override_sql": {
+      "decorators": [],
+      "doc": "The `cartons` query for a vintage holding the first `n_present` of `_CARTON_COLS`:\nthe columns it has by name, every later one as NULL, in the canonical order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(n_present: int) -> str"
+    },
     "Warehouse/generation/generate_inventory.py::_ff_subtypes": {
       "decorators": [],
       "doc": "Subtypes present in the fulfillment frame, in canonical order (rect, cubes ascending).",
@@ -15054,7 +15800,7 @@
     },
     "Warehouse/generation/generate_inventory.py::load_inventory_from_db": {
       "decorators": [],
-      "doc": "Reconstruct an Inventory from a DB written by save_inventory_to_db.\n\nCanonical schema only (no legacy fallbacks).  Every order is rebuilt through\nOrder.build, so the same physical guardrails (integer dims/weight, min-1, caps)\nare enforced on load as on generation.\n\nHARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:\nevery caller is a simulation about to consume ~500 GB of compute and WRITE the result.  The\n`SELECT` below already names its fourteen columns, so a shape mismatch surfaces one way or\nanother \u2014 but as a bare `OperationalError: no such column`, which says nothing about WHICH\nvintage the file is or what else differs.  `UnsupportedSchema` names the id and the whole\nstructural diff before a single row is read.",
+      "doc": "Reconstruct an Inventory from a DB written by save_inventory_to_db.\n\nBound to the file's OWN vintage (`Schema.dataset.bind`) and read by NAME (the `cartons`\nquery above): the current shape serves the stamped line law; the pre-stamp vintage's\noverride serves NULLs and the law is reconstructed as Poisson(demand_qty_rate) with\nprovenance `assumed` -- built by `Order.build` from the CLAMPED rate, which is exactly\nwhat every pre-stamp load sampled.  Every order is rebuilt through Order.build, so the\nsame physical guardrails (integer dims/weight, min-1, caps) are enforced on load as on\ngeneration.\n\nHARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:\nevery caller is a simulation about to consume ~500 GB of compute and WRITE the result.\n`bind` raises `UnsupportedSchema` naming the id and the whole structural diff before a\nsingle row is read, and `UnsupportedQuery` if a vetted vintage has no SQL to serve it --\nnever a bare `OperationalError: no such column` that says nothing about WHICH vintage.",
       "is_async": false,
       "kind": "function",
       "signature": "(db_path: str, limit: int | None=None) -> Inventory"
@@ -15402,7 +16148,7 @@
     },
     "Warehouse/generation/inventory_semantics.py": {
       "decorators": [],
-      "doc": "inventory_semantics \u2014 the profiles-tree (inventory) family's column semantics.\n\nThe catalogue's per-SKU constants: physical dimensions in inches (the inch/second boundary\nis `cost_model.sec_per_inch`), demand rates per BATCH, and the batch-denominated lead the\ntrailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a\nplanned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery\ncan produce FEWER units \u2014 \"splitting is worse\" is not a safe assumption on most of a\ngenerated catalogue.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
+      "doc": "inventory_semantics \u2014 the profiles-tree (inventory) family's column semantics.\n\nThe catalogue's per-SKU constants: physical dimensions in inches (the inch/second boundary\nis `cost_model.sec_per_inch`), demand rates per BATCH, the stamped line law (`line_family` +\n`line_params`, department-calibration \"Stamp the line distribution on the SKU\"), and the\nbatch-denominated lead the trailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a\nplanned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery\ncan produce FEWER units \u2014 \"splitting is worse\" is not a safe assumption on most of a\ngenerated catalogue.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
       "kind": "module",
       "signature": null
     },

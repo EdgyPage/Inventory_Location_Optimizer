@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.expected_travel · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_expected_travel_py" data-id="Optimization/simconfig/expected_travel.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/expected_travel.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.expected_travel</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simconfig.expected_travel</code></pre>
+<section class="doc">expected_travel.py — the calibrated era&#x27;s pick and put-away seconds per unit as a
+CLOSED-FORM EXPECTATION over the demand distribution and the built geometry.
+
+There are no calibration simulations (.scratch/department-calibration, &quot;Derive the
+expected-travel closed form&quot;, user decision 2026-09-06).  Every input is known at setup --
+the catalogue&#x27;s line shares and quantity rates, the warehouse the run just built, the
+placement distribution, the travel speeds, the handling coefficients, the cart -- so the
+seconds a day of picking costs is an expectation computed here, and the staffing derivation
+balances around it (`staffing.py`).  The derivation of every formula, its assumptions and
+the development-time residual against the reference passes are in
+`.scratch/department-calibration/assets/expected-travel-derivation.md`; this docstring only
+restates what the code needs a reader to know.
+
+## What the simulator charges (the rules this reproduces -- `fast_pick`, `putaway`)
+
+A TASK is one aisle visit.  The picker starts at the mouth (0, 0), walks the bins in
+`_plan_aisle_path` order (columns ascending in x; inside a column toward the nearer end
+first), pays `|Δx|·x_pace + |Δy|·y_pace` per segment -- to EVERY bin on the path, empty
+ones included -- a `cart_swap_coef` per next-fit swap, `M(y)·(intercept + q·per_item +
+q·var)` per non-empty bin, and on a one-way lane an exit to the far end and down to the
+ground.  No travel between tasks.  A put is costed from the mouth with no travel between
+placements.
+
+Two identities follow and are what the tests pin: on a two-way lane a task&#x27;s x travel is
+exactly `x_max` of its bins (the path is monotone in x); on a one-way lane it is exactly
+the aisle length.
+
+## The expectation, in one paragraph
+
+A day is `N ~ Normal(n, cv·n)` i.i.d. lines over the section&#x27;s SKUs (share `π_s`), each
+demanding units drawn from the SKU&#x27;s STAMPED line law (`Demand.line`; today
+`max(1, Poisson(λ_s))`), drained through the SKU&#x27;s bins in the sim&#x27;s drain
+order (forward-pick first, then location).  Bin k of a SKU is REACHED when the line&#x27;s
+quantity exceeds the stock before it -- the law&#x27;s tail, `line.survival` -- so every bin carries a visit RATE
+per line.  Poissonisation makes bins independent given N, and each aisle then yields, in
+closed form: its visit probability (a task), `E[x_max]` (a product-sum over columns), the
+expected y walk (a Markov chain over height levels, one transition per column) and the
+one-way exit.  Swaps are the renewal count of next-fit over per-visit volumes.  Handling is
+the catalogue priced line by line at the bins&#x27; heights.  Seconds per unit is the ratio of the
+day&#x27;s expected seconds to its expected units, and the fixed point `n·s(n)·… = K·S·ρ` is one
+scalar root-find.
+
+## The seam: `PlacementDist`
+
+The same formula takes two placement distributions, because two genuinely exist:
+`initial` (an arm&#x27;s own bin map, after its initial stock -- what the arm&#x27;s report is
+judged against) and `uniform` (each unit spread evenly over the free bins of its class --
+what the pair&#x27;s DEMAND derives from, arm-independent, and the long-run steady state of a
+FIFO restock, which reorders onto a uniformly random free bin).  The check that separated
+them is in the derivation note, §3.
+
+THIS MODULE IS PURE: geometry, orders, a pick/put config and numbers in; dicts out.  It
+imports no CONFIG and touches no file.  `scipy` is already a dependency (the affinity CSR).</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py.html"><code>Warehouse.inventory.inventory_common</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_layout_Aisle_Dimensions_py.html"><code>Warehouse.layout.Aisle_Dimensions</code></a> <span class="dim">Warehouse/layout/Aisle_Dimensions.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py.html"><code>Optimization.simdriver.era_coverage</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_workunits_py.html"><code>Optimization.simdriver.workunits</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(28)</span></h2><ul><li><a href="nOptimization_simconfig_expected_travel_py__AisleGeom.html"><code>AisleGeom</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__Geometry.html"><code>Geometry</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__PlacementDist.html"><code>PlacementDist</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__SectionRates.html"><code>SectionRates</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__Site.html"><code>Site</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__Geometry___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__PlacementDist___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py___aisle_routing.html"><code>_aisle_routing</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py___nodes.html"><code>_nodes</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py___steps_for.html"><code>_steps_for</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__accumulate.html"><code>accumulate</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__Geometry_class_bins.html"><code>class_bins</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__Geometry_class_mean_height_mult.html"><code>class_mean_height_mult</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__Geometry_class_mean_travel.html"><code>class_mean_travel</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__expected_pick.html"><code>expected_pick</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__expected_swaps.html"><code>expected_swaps</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__Geometry_from_layout_rows.html"><code>from_layout_rows</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__Geometry_from_warehouse.html"><code>from_warehouse</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__solve_n_g.html"><code>g</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__PlacementDist_initial.html"><code>initial</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__AisleGeom_length.html"><code>length</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__put_site_pricer_price.html"><code>price</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__put_site_pricer.html"><code>put_site_pricer</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__routing.html"><code>routing</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__solve_n.html"><code>solve_n</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__PlacementDist_uniform.html"><code>uniform</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__AisleGeom_x_of.html"><code>x_of</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__AisleGeom_y_of.html"><code>y_of</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_expected_travel_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/expected_travel.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

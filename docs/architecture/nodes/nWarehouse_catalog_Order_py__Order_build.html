@@ -15,12 +15,18 @@
 <p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Order_py.html"><code>Warehouse/catalog/Order.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>@classmethod
-def build(cls, sku: int, handling: str, category: str, length: float, width: float, height: float, weight: float, relative_frequency: float, qty_rate: float, *, equilibrium_qty: int, reorder_point: int, lead_time_mean: float=0.0, supply_cv: float=0.0, stock_plan=None) -&gt; &#x27;Order&#x27;</code></pre>
+def build(cls, sku: int, handling: str, category: str, length: float, width: float, height: float, weight: float, relative_frequency: float, qty_rate: float, *, equilibrium_qty: int, reorder_point: int, lead_time_mean: float=0.0, supply_cv: float=0.0, stock_plan=None, line: LineDistribution | None=None, pipeline_qty: int | None=None) -&gt; &#x27;Order&#x27;</code></pre>
 <section class="doc">Construct a order from supplied physical + demand values (not random sampling),
 applying all physical guardrails.  The single construction path for generated and
 DB-loaded orders — accepts demand/quantity as params so the default random Demand()
-is never invoked.  Does NOT touch Order.next_sku (sku is explicit).</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_catalog_Demand_py__Demand_from_rates.html"><code>from_rates</code></a> <span class="dim">Warehouse/catalog/Demand.py</span></li><li><a href="nWarehouse_catalog_Order_py__StorageHandleConfig.html"><code>StorageHandleConfig</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_generation_generate_inventory_py__build_inventory_from_plan.html"><code>build_inventory_from_plan</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__load_inventory_from_db.html"><code>load_inventory_from_db</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section>
+is never invoked.  `line` is the SKU&#x27;s stamped line law (`Demand.line`); absent, it
+is reconstructed as Poisson(qty_rate) with provenance `assumed`.  The scalar is the
+law&#x27;s rate parameter and every reader must see ONE value, so a Poisson law authored at
+the unclamped rate follows the clamp (what every pre-stamp load sampled), and a law
+that agrees with neither RAISES.  `pipeline_qty` is the era&#x27;s stamped lead pipeline
+(None = not stamped; see `pipeline_allowance`).  Does NOT touch Order.next_sku (sku
+is explicit).</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_catalog_Demand_py__Demand_from_rates.html"><code>from_rates</code></a> <span class="dim">Warehouse/catalog/Demand.py</span></li><li><a href="nWarehouse_catalog_Demand_py__LineDistribution_poisson.html"><code>poisson</code></a> <span class="dim">Warehouse/catalog/Demand.py</span></li><li><a href="nWarehouse_catalog_Order_py__StorageHandleConfig.html"><code>StorageHandleConfig</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_generation_generate_inventory_py__build_inventory_from_plan.html"><code>build_inventory_from_plan</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__load_inventory_from_db.html"><code>load_inventory_from_db</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Order_py__Order_build">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Order.py#:~:text=def%20build">Source ↗</a></p>
 </article>
 </main>

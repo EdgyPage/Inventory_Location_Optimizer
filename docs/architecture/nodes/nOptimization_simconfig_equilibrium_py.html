@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.equilibrium · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py" data-id="Optimization/simconfig/equilibrium.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/equilibrium.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.equilibrium</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simconfig.equilibrium</code></pre>
+<section class="doc">equilibrium.py — the calibrated era&#x27;s pre-registered EQUILIBRIUM CHECK, as a pure module.
+
+&quot;Declare the equilibrium bands&quot; (.scratch/department-calibration, decision 4) turned &quot;the crews
+have something to do, within bounds&quot; into one function of (db, day_lo, day_hi) returning a
+verdict with reasons: four clauses over a window of working days, all STRICT.
+
+    drained        every day in the window ended DRAINED (the persisted `shift_days` ledger) --
+                   not &quot;most&quot;: with 15% headroom one capped day in twenty means the derivation
+                   is wrong, not unlucky.  A day the ledger never closed fails the same way.
+                   DRAINED IS A LABOUR JUDGMENT (`is_drained`, below -- the ONE definition;
+                   the runner&#x27;s close-out calls it): nothing cut, no put or dock work
+                   standing, no `unpicked_daycut` carry.  The two SUPPLY reasons the cut
+                   rolls forward (`unpicked_unavailable`: the bin held less;
+                   `unpicked_unstocked`: no bin held the SKU) are stock not delivered, which
+                   `missed_share` already owns; counted as standing work they meant no
+                   finite stock level could ever drain a day under lumpy lines (&quot;Choose the
+                   coverage floor&quot;, decision 7, amending decision 4: 0/20 days drained with
+                   pickers in band and every task realized).  The supply carry stays in the
+                   ledger (`standing_carry_supply`) and this clause REPORTS it per day.
+    released_late  = 0 behind every drained day.  A self-consistency assertion, not a clause
+                   that can fail: release waits on the picker clock and the cut is a
+                   between-bins START gate, so a day that drained leaves exactly 0 lag on
+                   the NEXT release, and lag there -- or on the first day of the run -- is
+                   an INSTRUMENT BUG.  It RAISES `InstrumentError` rather than failing.
+                   Lag behind a CAPPED day is that day&#x27;s overrun and is recorded.
+    utilization    realized utilization (worked ÷ granted, a RATIO OF SUMS over the window,
+                   never a mean of per-day ratios) inside `band_tol` of the EXPECTED value the
+                   derivation recorded per department per leaf -- never of ρ, which integer
+                   site crews and single-channel leaves undercut by construction.
+    missed_share   stable: the mean of the window&#x27;s second half minus the mean of its first
+                   half within ±0.02 absolute.  The LEVEL is recorded, never gated; no
+                   regression slope (memories `knees-hide-from-r-squared`,
+                   `per-batch-series-are-autocorrelated`).
+
+ONE PURE FUNCTION, and the sim never judges itself (decision 6).  It was designed with two
+callers; the reference-run driver that used it as a PRECONDITION is retired (&quot;Derive the
+expected-travel closed form&quot;: there are no calibration simulations), so the one caller left
+is the throughput audit (`Performance_Evaluations/throughput/audit.py`), which calls it on
+every run and REPORTS: on a campaign arm a picking utilization below the band is the arm&#x27;s travel saving --
+the effect being measured -- and a capped day is &quot;declared throughput not delivered&quot;; neither
+fails the run (decision 7).
+
+The arithmetic lives in `check_rows` over already-loaded rows so a test can prove every
+clause CAN fail without a database; `check` is the thin loader in front of it.  What the
+check reads, and where each number comes from:
+
+    the ledger      `load_shift_days`   day, drained, cap_end, end_s, last_finish
+    picking         `load_batch_stats`  task_makespan (Σ task time = the crew&#x27;s worked
+                                        seconds), work_day, released_late, items_demanded,
+                                        total_items
+    put / receiving `load_work_hours`   seconds per (batch, role), joined to the day
+                                        through `batch_stats.work_day`
+
+The GRANT is the whole declared day for every crew (crew × S per day): a day that drained
+early still granted S, and utilization is against the grant, not the shift end.
+
+No CONFIG, no settings, no run tree -- the same discipline `staffing.py` keeps.  The expected
+values arrive in an `expectations` dict built by `expectations_for` from the staffing record
+(the run spec&#x27;s, or the copy stamped onto `sim_result` -- 03&#x27;s sixth seam), so both callers
+read the same numbers through the same function.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization.Performance_Evaluations.core.context</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py.html"><code>Optimization.Performance_Evaluations.throughput.audit</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(22)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Clause.html"><code>Clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__InstrumentError.html"><code>InstrumentError</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__RecordError.html"><code>RecordError</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__Verdict.html"><code>Verdict</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___WORK_ROLE.html"><code>_WORK_ROLE</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___drained_clause.html"><code>_drained_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___get.html"><code>_get</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___isnan.html"><code>_isnan</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___missed_share_clause.html"><code>_missed_share_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___released_late_clause.html"><code>_released_late_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___utilization_clause.html"><code>_utilization_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__arm_expectations.html"><code>arm_expectations</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__Clause_as_dict.html"><code>as_dict</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__Verdict_as_dict.html"><code>as_dict</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__check.html"><code>check</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__expectations_for.html"><code>expectations_for</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__is_drained.html"><code>is_drained</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__picker_key.html"><code>picker_key</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__Verdict_reasons.html"><code>reasons</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__summarize.html"><code>summarize</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__window_of.html"><code>window_of</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

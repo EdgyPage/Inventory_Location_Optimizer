@@ -17,17 +17,20 @@
 <pre class="sig"><code>def load_inventory_from_db(db_path: str, limit: int | None=None) -&gt; Inventory</code></pre>
 <section class="doc">Reconstruct an Inventory from a DB written by save_inventory_to_db.
 
-Canonical schema only (no legacy fallbacks).  Every order is rebuilt through
-Order.build, so the same physical guardrails (integer dims/weight, min-1, caps)
-are enforced on load as on generation.
+Bound to the file&#x27;s OWN vintage (`Schema.dataset.bind`) and read by NAME (the `cartons`
+query above): the current shape serves the stamped line law; the pre-stamp vintage&#x27;s
+override serves NULLs and the law is reconstructed as Poisson(demand_qty_rate) with
+provenance `assumed` -- built by `Order.build` from the CLAMPED rate, which is exactly
+what every pre-stamp load sampled.  Every order is rebuilt through Order.build, so the
+same physical guardrails (integer dims/weight, min-1, caps) are enforced on load as on
+generation.
 
 HARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:
-every caller is a simulation about to consume ~500 GB of compute and WRITE the result.  The
-`SELECT` below already names its fourteen columns, so a shape mismatch surfaces one way or
-another — but as a bare `OperationalError: no such column`, which says nothing about WHICH
-vintage the file is or what else differs.  `UnsupportedSchema` names the id and the whole
-structural diff before a single row is read.</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nSchema_identity_py__check.html"><code>check</code></a> <span class="dim">Schema/identity.py</span></li><li><a href="nWarehouse_catalog_Inventory_Builder_py__Inventory.html"><code>Inventory</code></a> <span class="dim">Warehouse/catalog/Inventory_Builder.py</span></li><li><a href="nWarehouse_catalog_Order_py__Order_build.html"><code>build</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(5)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_bucket_fill_py__sizing_view.html"><code>sizing_view</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nOptimization_simdriver_batch_precompute_py___load_worker_inventory.html"><code>_load_worker_inventory</code></a> <span class="dim">Optimization/simdriver/batch_precompute.py</span></li><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+every caller is a simulation about to consume ~500 GB of compute and WRITE the result.
+`bind` raises `UnsupportedSchema` naming the id and the whole structural diff before a
+single row is read, and `UnsupportedQuery` if a vetted vintage has no SQL to serve it --
+never a bare `OperationalError: no such column` that says nothing about WHICH vintage.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nSchema_dataset_py__bind.html"><code>bind</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nWarehouse_catalog_Demand_py__LineDistribution_from_row.html"><code>from_row</code></a> <span class="dim">Warehouse/catalog/Demand.py</span></li><li><a href="nWarehouse_catalog_Inventory_Builder_py__Inventory.html"><code>Inventory</code></a> <span class="dim">Warehouse/catalog/Inventory_Builder.py</span></li><li><a href="nWarehouse_catalog_Order_py__Order_build.html"><code>build</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_bucket_fill_py__sizing_view.html"><code>sizing_view</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nOptimization_simdriver_batch_precompute_py___load_worker_inventory.html"><code>_load_worker_inventory</code></a> <span class="dim">Optimization/simdriver/batch_precompute.py</span></li><li><a href="nOptimization_simdriver_sim_assets_py__load_run_inventory.html"><code>load_run_inventory</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_generation_generate_inventory_py__load_inventory_from_db">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_inventory.py#:~:text=def%20load_inventory_from_db">Source ↗</a></p>
 </article>
 </main>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LineDistribution · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_catalog_Demand_py__LineDistribution" data-id="Warehouse/catalog/Demand.py::LineDistribution">
+<nav class="crumbs"><a href="../layers.html">wh_catalog</a> <span class="sep">›</span> <a href="../files/nWarehouse_catalog_Demand_py.html"><code>Warehouse/catalog/Demand.py</code></a> <span class="sep">›</span> <span class="here"><code>LineDistribution</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>LineDistribution</code></h1>
+<p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Demand_py.html"><code>Warehouse/catalog/Demand.py</code></a></p>
+
+<pre class="sig"><code>class LineDistribution</code></pre>
+<section class="doc">The law one LINE&#x27;s quantity `q` is drawn from — family + parameters, and every
+distribution-dependent reading a consumer needs, so no consumer names a family:
+
+    mean()            E[q]
+    cdf(k)            P(q &lt;= k)
+    quantile(p)       the smallest k with P(q &lt;= k) &gt;= p
+    survival(upto)    P(q &gt; j) for j = 0..upto-1, as an ndarray (the tail a bin&#x27;s stock
+                      is reached past; `expected_travel.accumulate` reads it per bin)
+    expected_min(S)   E[min(q, S)] = Σ_{j&lt;S} P(q &gt; j)  (the fill a stock level S buys)
+    sample(rng)       one draw, from `rng` (a `random.Random`) or the global module
+
+Families:
+    poisson_max1  {&#x27;lam&#x27;: λ}   q = max(1, X), X ~ Poisson(λ).  mean = λ + e^-λ;
+                               P(q &gt; 0) = 1 and P(q &gt; j) = P(X &gt; j) for j &gt;= 1;
+                               sampled by Knuth&#x27;s `poisson_sample`, floored at one.
+
+`to_row()` / `from_row()` are the inventory file&#x27;s two columns (`line_family`,
+`line_params` JSON — the `creation_plan` table&#x27;s precedent).  `provenance` is metadata
+(see the module docstring), not part of the law.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Demand_py__LineDistribution">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Demand.py#:~:text=class%20LineDistribution">Source ↗</a></p>
+</article>
+</main>
+</body></html>

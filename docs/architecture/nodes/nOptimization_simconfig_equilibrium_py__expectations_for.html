@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>expectations_for · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py__expectations_for" data-id="Optimization/simconfig/equilibrium.py::expectations_for">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a> <span class="sep">›</span> <span class="here"><code>expectations_for</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>expectations_for</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def expectations_for(staffing: dict, *, pair: str, channel: str | None) -&gt; dict</code></pre>
+<section class="doc">The expected utilization per department for ONE channel leaf, off the staffing record.
+
+`staffing` is the record as the run spec holds it (`{inputs, provenance, derived,
+calibration}`) -- the same object `run_analysis._sim_result_from_meta` stamps onto
+`sim_result`, so the audit passes `ctx.sim_result[&#x27;staffing&#x27;]` and the reference-run
+driver passes `run_spec[&#x27;staffing&#x27;]`.  `derived` and `calibration` are keyed BY PAIR
+because the catalogue decides the load; `pair` is the inventory label
+(`sim_result[&#x27;inventory&#x27;]`, `ChannelRun.pair`).  `channel` is None on a store-only run.
+
+Returns
+
+    {&#x27;pair&#x27;, &#x27;channel&#x27;, &#x27;day_seconds&#x27;, &#x27;band_tol&#x27;,
+     &#x27;departments&#x27;: {dept: {&#x27;crew&#x27;: int, &#x27;expected&#x27;: float}},   # only those that apply
+     &#x27;absent&#x27;: {dept: why},
+     &#x27;flags&#x27;: {&#x27;overridden&#x27;, &#x27;saturated&#x27;}}
+
+A department with no crew on this site, or whose expected value the record does not
+carry for this channel, is ABSENT rather than expected at zero: a band around 0.0 would
+pass a crew that did nothing and fail one that did anything, and neither is a finding.
+Raises `RecordError` on a record with no derived block for the pair (a flag-off run) or
+no section for the channel.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__RecordError.html"><code>RecordError</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__picker_key.html"><code>picker_key</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_context_py__EvalContext_staffing_expectations.html"><code>staffing_expectations</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py__expectations_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20expectations_for">Source ↗</a></p>
+</article>
+</main>
+</body></html>

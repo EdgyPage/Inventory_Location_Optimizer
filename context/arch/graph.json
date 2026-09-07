@@ -1541,6 +1541,11 @@
       "src": "Optimization/Performance_Evaluations/common/frames.py::_bdf"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_level_or_nan",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/common/frames.py::_sdf"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/units.py::SECONDS_PER_DAY",
       "kind": "ref",
       "src": "Optimization/Performance_Evaluations/common/frames.py::_ydf"
@@ -2141,6 +2146,11 @@
       "src": "Optimization/Performance_Evaluations/core/context.py"
     },
     {
+      "dst": "Optimization/simconfig/equilibrium.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/context.py"
+    },
+    {
       "dst": "Schema/capability.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/core/context.py"
@@ -2246,9 +2256,19 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.series"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::shift_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.shift_df"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.maxb",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.ss_lo"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::expectations_for",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.staffing_expectations"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/requests.py::task_frame",
@@ -2661,6 +2681,26 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::_series"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::EraUnmet",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_shift"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_deny_absent",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_shift"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::request",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_shift"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::shift_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::_shift"
+    },
+    {
       "dst": "Optimization/metrics/Simulation_Analytics.py::task_time_breakdown",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::_strategy_travel_handling"
@@ -2829,6 +2869,26 @@
       "dst": "Optimization/Performance_Evaluations/core/requests.py::yard_frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::series_dict"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_sdf",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::shift_frame"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::shift_frame"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::work_frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::shift_frame"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_shift_days",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::shift_frame"
     },
     {
       "dst": "Schema/dataset.py::sql_for",
@@ -5128,6 +5188,116 @@
     {
       "dst": "Optimization/Performance_Evaluations/common/chartkit.py",
       "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/marks.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/quantities.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::_rows"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/throughput/audit.py::_read",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::_rows"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::check_rows",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::_verdict_for"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::height_for_categories",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::make",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/marks.py::ranked",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py::_stitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/quantities.py::derive_views",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/throughput/audit.py::_flags",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/throughput/audit.py::_rows",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/throughput/audit.py::_verdict_for",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::arm_expectations",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::summarize",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py",
+      "kind": "imports",
       "src": "Optimization/Performance_Evaluations/throughput/missed.py"
     },
     {
@@ -5961,6 +6131,16 @@
       "src": "Optimization/config/sim_config.py"
     },
     {
+      "dst": "Optimization/config/settings.py::COVERAGE_DAYS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Optimization/config/settings.py::FLOOR_LINES",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
       "dst": "Optimization/config/settings.py::F_PUT",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py"
@@ -5987,6 +6167,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::RHO_RECV",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Optimization/config/settings.py::SAFETY_DAYS",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py"
     },
@@ -6046,12 +6231,12 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
-      "dst": "Optimization/config/settings.py::CALIBRATION_RECORD",
+      "dst": "Optimization/config/settings.py::CHECKPOINT_FRAC",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
-      "dst": "Optimization/config/settings.py::CHECKPOINT_FRAC",
+      "dst": "Optimization/config/settings.py::COVERAGE_DAYS",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -6087,6 +6272,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::FF_PICK_MODE",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::FLOOR_LINES",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -6307,6 +6497,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::ROLL_OVER_UNPICKED",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::SAFETY_DAYS",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -7031,6 +7226,11 @@
       "src": "Optimization/persistence/Picking_Data.py"
     },
     {
+      "dst": "Schema/dataset.py::override",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py"
+    },
+    {
       "dst": "Schema/dataset.py::register_query",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py"
@@ -7199,6 +7399,11 @@
       "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::load_picker_events"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::load_receive_events"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
@@ -10246,51 +10451,6 @@
       "src": "Optimization/simconfig/__init__.py"
     },
     {
-      "dst": "Optimization/simconfig/constants.py",
-      "kind": "imports",
-      "src": "Optimization/simconfig/calibration.py"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::CalibrationRecordError",
-      "kind": "calls",
-      "src": "Optimization/simconfig/calibration.py::_validate_entry"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::validate_record",
-      "kind": "calls",
-      "src": "Optimization/simconfig/calibration.py::load_record"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::is_measured",
-      "kind": "calls",
-      "src": "Optimization/simconfig/calibration.py::record_stub"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::record_stub",
-      "kind": "calls",
-      "src": "Optimization/simconfig/calibration.py::resolve_constants"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::resolve_constant",
-      "kind": "calls",
-      "src": "Optimization/simconfig/calibration.py::resolve_constants"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::is_measured",
-      "kind": "calls",
-      "src": "Optimization/simconfig/calibration.py::staleness"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::CalibrationRecordError",
-      "kind": "calls",
-      "src": "Optimization/simconfig/calibration.py::validate_record"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::_validate_entry",
-      "kind": "calls",
-      "src": "Optimization/simconfig/calibration.py::validate_record"
-    },
-    {
       "dst": "Optimization/simconfig/core/registry.py",
       "kind": "imports",
       "src": "Optimization/simconfig/configs/ful_calibrated.py"
@@ -10339,6 +10499,281 @@
       "dst": "Optimization/simconfig/core/registry.py::PickConfigSpec",
       "kind": "calls",
       "src": "Optimization/simconfig/core/registry.py::pick_config._wrap"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::daily_demand",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::fill_rate"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::daily_demand",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::implied_coverage"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::daily_demand",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::rescale_section"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::line_floor",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::rescale_section"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::pipeline_qty",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::rescale_section"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::stock_levels",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::rescale_section"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/equilibrium.py"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::Clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_drained_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_get",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_drained_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_isnan",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_drained_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::Clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_missed_share_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_get",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_missed_share_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::Clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_released_late_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::InstrumentError",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_released_late_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_get",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_released_late_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::Clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_utilization_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_get",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_utilization_clause"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_batch_stats",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_shift_days",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_work_hours",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::check_rows",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::Verdict",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check_rows"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_drained_clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check_rows"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_missed_share_clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check_rows"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_released_late_clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check_rows"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_utilization_clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check_rows"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::RecordError",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::expectations_for"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::picker_key",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::expectations_for"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_get",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::window_of"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/expected_travel.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/expected_travel.py"
+    },
+    {
+      "dst": "Warehouse/layout/Aisle_Dimensions.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/expected_travel.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.class_mean_height_mult"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::AisleGeom",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.from_layout_rows"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::_steps_for",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.from_layout_rows"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::AisleGeom",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.from_warehouse"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::_steps_for",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.from_warehouse"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.from_warehouse"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::Site",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::PlacementDist.initial"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::Site",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::PlacementDist.uniform"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::PlacementDist.uniform"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::PlacementDist.uniform"
+    },
+    {
+      "dst": "Warehouse/layout/Aisle_Dimensions.py::unit_bin_width",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::_steps_for"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::SectionRates",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::accumulate"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::handle_var",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::accumulate"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::accumulate"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::expected_swaps",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::expected_pick"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::routing",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::expected_pick"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::expected_pick"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::put_site_pricer.price"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::put_site_pricer.price"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::_aisle_routing",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::routing"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::_nodes",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::routing"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::expected_pick",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::solve_n"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::expected_pick",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::solve_n.g"
     },
     {
       "dst": "Inbound/pack.py",
@@ -10553,6 +10988,141 @@
     {
       "dst": "Optimization/config/sim_config.py",
       "kind": "imports",
+      "src": "Optimization/simdriver/era_coverage.py"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/era_coverage.py"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/era_coverage.py"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/era_coverage.py"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/era_coverage.py"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/era_coverage.py"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::ChannelSpec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::channel_specs"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_channel_runs_for",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::channel_specs"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::converged",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::fill_rate",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::implied_coverage",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::rescale_section",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::regime_orders",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::_lines",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::next_guess",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::stage_a",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::channel_pickers",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::accumulate",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::expected_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::solve_n",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::analytic_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::batch_content",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::constant",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::daily_demand",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::pick_capacity",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::regime_orders",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::stage_a"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py",
+      "kind": "imports",
       "src": "Optimization/simdriver/scenario.py"
     },
     {
@@ -10666,6 +11236,11 @@
       "src": "Optimization/simdriver/sim_assets.py"
     },
     {
+      "dst": "Optimization/simdriver/era_coverage.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/sim_assets.py"
+    },
+    {
       "dst": "Warehouse/catalog/Affinity_Store.py",
       "kind": "imports",
       "src": "Optimization/simdriver/sim_assets.py"
@@ -10706,12 +11281,22 @@
       "src": "Optimization/simdriver/sim_assets.py"
     },
     {
-      "dst": "Optimization/config/sim_config.py::seed_world",
+      "dst": "Optimization/config/sim_config.py::era_on",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::staffing_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
       "dst": "Optimization/config/sim_config.py::store_fill",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::work_day_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
@@ -10736,22 +11321,27 @@
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
+      "dst": "Optimization/simdriver/era_coverage.py::channel_specs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::fixed_point",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
+      "dst": "Optimization/simdriver/sim_assets.py::load_run_inventory",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
       "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
-      "dst": "Warehouse/generation/generate_inventory.py::load_inventory_from_db",
-      "kind": "calls",
-      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
-    },
-    {
       "dst": "Warehouse/generation/generate_inventory.py::save_inventory_to_db",
-      "kind": "calls",
-      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
@@ -10771,14 +11361,39 @@
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
-      "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
+      "dst": "Warehouse/picking/Workload_Builder.py::BatchConfig",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
-      "dst": "Warehouse/picking/Workload_Builder.py::BatchConfig",
+      "dst": "Optimization/config/sim_config.py::seed_world",
       "kind": "calls",
-      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._build"
+    },
+    {
+      "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._build"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::seed_world",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._plan"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::store_fill",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._plan"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._plan"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::load_inventory_from_db",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::load_run_inventory"
     },
     {
       "dst": "Inbound/dock.py",
@@ -10841,7 +11456,22 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/simconfig/equilibrium.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/simdriver/batch_precompute.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Optimization/simdriver/sim_assets.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
     },
@@ -10929,6 +11559,21 @@
       "dst": "Warehouse/placement/Capacity_Reloader.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::accumulate",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::expected_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::placement_fingerprint",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick"
     },
     {
       "dst": "Inbound/gain.py::GainBundle",
@@ -11106,6 +11751,16 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Optimization/simdriver/sim_assets.py::load_run_inventory",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::_check_declared_crew",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -11157,11 +11812,6 @@
     },
     {
       "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
-    },
-    {
-      "dst": "Warehouse/generation/generate_inventory.py::load_inventory_from_db",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -11346,6 +11996,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._arm_aisle_state"
     },
     {
+      "dst": "Optimization/simconfig/equilibrium.py::is_drained",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._shift_close_out"
+    },
+    {
       "dst": "Warehouse/kernel/timeline.py::shift_end",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._shift_close_out"
@@ -11486,7 +12141,7 @@
       "src": "Optimization/simdriver/workunits.py"
     },
     {
-      "dst": "Optimization/simconfig/calibration.py",
+      "dst": "Optimization/simconfig/expected_travel.py",
       "kind": "imports",
       "src": "Optimization/simdriver/workunits.py"
     },
@@ -11501,12 +12156,27 @@
       "src": "Optimization/simdriver/workunits.py"
     },
     {
+      "dst": "Optimization/simdriver/era_coverage.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/workunits.py"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py",
       "kind": "imports",
       "src": "Optimization/simdriver/workunits.py"
     },
     {
+      "dst": "Warehouse/catalog/Demand.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/workunits.py"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/workunits.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Optimization/simdriver/workunits.py"
     },
@@ -11591,12 +12261,12 @@
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
-      "dst": "Optimization/config/sim_config.py::channel_pickers",
+      "dst": "Optimization/config/sim_config.py::crew_cost_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
-      "dst": "Optimization/config/sim_config.py::crew_cost_spec",
+      "dst": "Optimization/config/sim_config.py::put_crew_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
@@ -11611,37 +12281,12 @@
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
-      "dst": "Optimization/simconfig/calibration.py::load_record",
+      "dst": "Optimization/simconfig/expected_travel.py::put_site_pricer",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
-      "dst": "Optimization/simconfig/calibration.py::resolve_constant",
-      "kind": "calls",
-      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::resolve_constants",
-      "kind": "calls",
-      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
-    },
-    {
-      "dst": "Optimization/simconfig/calibration.py::staleness",
-      "kind": "calls",
-      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
-    },
-    {
-      "dst": "Optimization/simconfig/staffing.py::analytic_pick",
-      "kind": "calls",
-      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
-    },
-    {
-      "dst": "Optimization/simconfig/staffing.py::batch_content",
-      "kind": "calls",
-      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
-    },
-    {
-      "dst": "Optimization/simconfig/staffing.py::daily_demand",
+      "dst": "Optimization/simconfig/staffing.py::constant",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
@@ -11652,16 +12297,6 @@
     },
     {
       "dst": "Optimization/simconfig/staffing.py::implied_reorders",
-      "kind": "calls",
-      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
-    },
-    {
-      "dst": "Optimization/simconfig/staffing.py::pick_capacity",
-      "kind": "calls",
-      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
-    },
-    {
-      "dst": "Optimization/simconfig/staffing.py::regime_orders",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
@@ -11681,12 +12316,32 @@
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
+      "dst": "Optimization/simdriver/era_coverage.py::ChannelSpec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::stage_a",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
       "dst": "Optimization/simdriver/workunits.py::_channel_batch_plan",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
       "dst": "Optimization/simdriver/workunits.py::_worker_inventory_args",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::line_law_census",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
@@ -14051,9 +14706,29 @@
       "src": "Warehouse/catalog/Affinity_Store.py::AffinityStore.close"
     },
     {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution.poisson",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Demand.py::Demand.__init__"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution.poisson",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Demand.py::Demand.from_rates"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution._pmf_x",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Demand.py::LineDistribution.cdf"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution._pmf_x",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Demand.py::LineDistribution.expected_min"
+    },
+    {
       "dst": "Warehouse/catalog/Demand.py::poisson_sample",
       "kind": "calls",
-      "src": "Warehouse/catalog/Demand.py::Demand.sample"
+      "src": "Warehouse/catalog/Demand.py::LineDistribution.sample"
     },
     {
       "dst": "Warehouse/catalog/Order.py",
@@ -14117,6 +14792,11 @@
     },
     {
       "dst": "Warehouse/catalog/Demand.py::Demand.from_rates",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Order.py::Order.build"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution.poisson",
       "kind": "calls",
       "src": "Warehouse/catalog/Order.py::Order.build"
     },
@@ -14321,6 +15001,26 @@
       "src": "Warehouse/generation/generate_inventory.py"
     },
     {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
+      "dst": "Schema/dataset.py::Query",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
+      "dst": "Schema/dataset.py::override",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
+      "dst": "Schema/dataset.py::register_query",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_inventory.py"
@@ -14343,6 +15043,11 @@
     {
       "dst": "Warehouse/catalog/Order.py",
       "kind": "imports",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::_cartons_override_sql",
+      "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py"
     },
     {
@@ -14374,6 +15079,11 @@
       "dst": "Schema/compat.py::stamp_checked",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py::_init_db"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution.poisson",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::build_inventory_from_plan"
     },
     {
       "dst": "Warehouse/catalog/Inventory_Builder.py::Inventory",
@@ -14411,7 +15121,17 @@
       "src": "Warehouse/generation/generate_inventory.py::build_inventory_with_profile"
     },
     {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution.poisson",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::build_inventory_with_profile"
+    },
+    {
       "dst": "Warehouse/catalog/Inventory_Builder.py::Inventory",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::build_inventory_with_profile"
+    },
+    {
+      "dst": "Warehouse/catalog/Order.py::Order._clamp_int",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py::build_inventory_with_profile"
     },
@@ -14526,7 +15246,12 @@
       "src": "Warehouse/generation/generate_inventory.py::generate_run"
     },
     {
-      "dst": "Schema/identity.py::check",
+      "dst": "Schema/dataset.py::bind",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::load_inventory_from_db"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution.from_row",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py::load_inventory_from_db"
     },
@@ -20368,6 +21093,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/frames.py",
+      "id": "Optimization/Performance_Evaluations/common/frames.py::_SHIFT_COLS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/common/frames.py",
+      "name": "_SHIFT_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/frames.py",
       "id": "Optimization/Performance_Evaluations/common/frames.py::_SOURCE_FRAME",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/common/frames.py",
@@ -20424,6 +21157,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/frames.py",
+      "id": "Optimization/Performance_Evaluations/common/frames.py::_level_or_nan",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/frames.py",
+      "name": "_level_or_nan",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/frames.py",
       "id": "Optimization/Performance_Evaluations/common/frames.py::_metric_series",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/frames.py",
@@ -20436,6 +21177,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/frames.py",
       "name": "_roll",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/frames.py",
+      "id": "Optimization/Performance_Evaluations/common/frames.py::_sdf",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/frames.py",
+      "name": "_sdf",
       "public": false
     },
     {
@@ -21592,10 +22341,26 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.shift_df",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "shift_df",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
       "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.ss_lo",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
       "name": "ss_lo",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.staffing_expectations",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "staffing_expectations",
       "public": true
     },
     {
@@ -22424,6 +23189,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_shift",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_shift",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
       "id": "Optimization/Performance_Evaluations/core/requests.py::_strategy_travel_handling",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
@@ -22540,6 +23313,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
       "name": "series_dict",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::shift_frame",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "shift_frame",
       "public": true
     },
     {
@@ -23999,6 +24780,78 @@
       "public": true
     },
     {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "Optimization.Performance_Evaluations.throughput.audit",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::_COLS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::_COL_W",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "_COL_W",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::_DEPT_LABEL",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "_DEPT_LABEL",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::_flags",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "_flags",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::_read",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "_read",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::_rows",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "_rows",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::_verdict_for",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "_verdict_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "render",
+      "public": true
+    },
+    {
       "file": "Optimization/Performance_Evaluations/throughput/missed.py",
       "id": "Optimization/Performance_Evaluations/throughput/missed.py",
       "kind": "module",
@@ -24552,18 +25405,18 @@
     },
     {
       "file": "Optimization/config/settings.py",
-      "id": "Optimization/config/settings.py::CALIBRATION_RECORD",
-      "kind": "const",
-      "module": "Optimization/config/settings.py",
-      "name": "CALIBRATION_RECORD",
-      "public": true
-    },
-    {
-      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::CHECKPOINT_FRAC",
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "CHECKPOINT_FRAC",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::COVERAGE_DAYS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "COVERAGE_DAYS",
       "public": true
     },
     {
@@ -24620,6 +25473,14 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "FF_PICK_MODE",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::FLOOR_LINES",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "FLOOR_LINES",
       "public": true
     },
     {
@@ -25004,6 +25865,14 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "ROLL_OVER_UNPICKED",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::SAFETY_DAYS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "SAFETY_DAYS",
       "public": true
     },
     {
@@ -26608,6 +27477,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_SHIFT_DAYS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_SHIFT_DAYS",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::CAP_SKU_SCORES",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -26660,6 +27537,14 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "OCCUPANCY_LADDER",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::PRE_CARRY_SPLIT_SIM_SCHEMA_ID",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "PRE_CARRY_SPLIT_SIM_SCHEMA_ID",
       "public": true
     },
     {
@@ -27056,6 +27941,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_RECEIVE_EVENT_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_RECEIVE_EVENT_COLS",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_RUN_ADDED_COLS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -27421,6 +28314,14 @@
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_g",
       "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::load_receive_events",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "load_receive_events",
+      "public": true
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
@@ -30151,86 +31052,6 @@
       "public": true
     },
     {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py",
-      "kind": "module",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "Optimization.simconfig.calibration",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::CalibrationRecordError",
-      "kind": "class",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "CalibrationRecordError",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::_validate_entry",
-      "kind": "function",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "_validate_entry",
-      "public": false
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::is_measured",
-      "kind": "function",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "is_measured",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::load_record",
-      "kind": "function",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "load_record",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::record_stub",
-      "kind": "function",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "record_stub",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::resolve_constant",
-      "kind": "function",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "resolve_constant",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::resolve_constants",
-      "kind": "function",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "resolve_constants",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::staleness",
-      "kind": "function",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "staleness",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/calibration.py",
-      "id": "Optimization/simconfig/calibration.py::validate_record",
-      "kind": "function",
-      "module": "Optimization/simconfig/calibration.py",
-      "name": "validate_record",
-      "public": true
-    },
-    {
       "file": "Optimization/simconfig/configs/__init__.py",
       "id": "Optimization/simconfig/configs/__init__.py",
       "kind": "module",
@@ -30381,6 +31202,494 @@
       "module": "Optimization/simconfig/core/registry.py",
       "name": "_wrap",
       "public": false
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "Optimization.simconfig.coverage",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::converged",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "converged",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::daily_demand",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "daily_demand",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::fill_rate",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "fill_rate",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::implied_coverage",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "implied_coverage",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::line_floor",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "line_floor",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::pipeline_qty",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "pipeline_qty",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::rescale_section",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "rescale_section",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::stock_levels",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "stock_levels",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "Optimization.simconfig.equilibrium",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::Clause",
+      "kind": "class",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "Clause",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::Clause.as_dict",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "as_dict",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::InstrumentError",
+      "kind": "class",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "InstrumentError",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::RecordError",
+      "kind": "class",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "RecordError",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::Verdict",
+      "kind": "class",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "Verdict",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::Verdict.as_dict",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "as_dict",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::Verdict.reasons",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "reasons",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_WORK_ROLE",
+      "kind": "const",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_WORK_ROLE",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_drained_clause",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_drained_clause",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_get",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_get",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_isnan",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_isnan",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_missed_share_clause",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_missed_share_clause",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_released_late_clause",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_released_late_clause",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_utilization_clause",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_utilization_clause",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::arm_expectations",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "arm_expectations",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::check",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "check",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::check_rows",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "check_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::expectations_for",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "expectations_for",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::is_drained",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "is_drained",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::picker_key",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "picker_key",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::summarize",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "summarize",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::window_of",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "window_of",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "Optimization.simconfig.expected_travel",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::AisleGeom",
+      "kind": "class",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "AisleGeom",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::AisleGeom.length",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "length",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::AisleGeom.x_of",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "x_of",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::AisleGeom.y_of",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "y_of",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Geometry",
+      "kind": "class",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "Geometry",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Geometry.__init__",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Geometry.class_bins",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "class_bins",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Geometry.class_mean_height_mult",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "class_mean_height_mult",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Geometry.class_mean_travel",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "class_mean_travel",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Geometry.from_layout_rows",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "from_layout_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Geometry.from_warehouse",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "from_warehouse",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::PlacementDist",
+      "kind": "class",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "PlacementDist",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::PlacementDist.__init__",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::PlacementDist.initial",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "initial",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::PlacementDist.uniform",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "uniform",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::SectionRates",
+      "kind": "class",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "SectionRates",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Site",
+      "kind": "class",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "Site",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::_aisle_routing",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "_aisle_routing",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::_nodes",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "_nodes",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::_steps_for",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "_steps_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::accumulate",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "accumulate",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::expected_pick",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "expected_pick",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::expected_swaps",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "expected_swaps",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::put_site_pricer",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "put_site_pricer",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::put_site_pricer.price",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "price",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::routing",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "routing",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::solve_n",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "solve_n",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::solve_n.g",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "g",
+      "public": true
     },
     {
       "file": "Optimization/simconfig/staffing.py",
@@ -30735,6 +32044,62 @@
       "public": true
     },
     {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "Optimization.simdriver.era_coverage",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::ChannelSpec",
+      "kind": "class",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "ChannelSpec",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::_lines",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "_lines",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::channel_specs",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "channel_specs",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::fixed_point",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "fixed_point",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::next_guess",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "next_guess",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::stage_a",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "stage_a",
+      "public": true
+    },
+    {
       "file": "Optimization/simdriver/scenario.py",
       "id": "Optimization/simdriver/scenario.py",
       "kind": "module",
@@ -30799,6 +32164,30 @@
       "public": false
     },
     {
+      "file": "Optimization/simdriver/sim_assets.py",
+      "id": "Optimization/simdriver/sim_assets.py::build_shared_assets._build",
+      "kind": "function",
+      "module": "Optimization/simdriver/sim_assets.py",
+      "name": "_build",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/sim_assets.py",
+      "id": "Optimization/simdriver/sim_assets.py::build_shared_assets._plan",
+      "kind": "function",
+      "module": "Optimization/simdriver/sim_assets.py",
+      "name": "_plan",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/sim_assets.py",
+      "id": "Optimization/simdriver/sim_assets.py::load_run_inventory",
+      "kind": "function",
+      "module": "Optimization/simdriver/sim_assets.py",
+      "name": "load_run_inventory",
+      "public": true
+    },
+    {
       "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py",
       "kind": "module",
@@ -30828,6 +32217,14 @@
       "kind": "const",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_GC_THRESHOLD_DEFAULT",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_arm_expected_pick",
       "public": false
     },
     {
@@ -30972,6 +32369,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "load_worker_checkpoint",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::placement_fingerprint",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "placement_fingerprint",
       "public": true
     },
     {
@@ -34144,6 +35549,118 @@
     },
     {
       "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution",
+      "kind": "class",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "LineDistribution",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.__init__",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.__repr__",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution._pmf_x",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "_pmf_x",
+      "public": false
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.cdf",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "cdf",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.expected_min",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "expected_min",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.from_row",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "from_row",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.mean",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "mean",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.poisson",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "poisson",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.quantile",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "quantile",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.sample",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "sample",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.survival",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "survival",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.to_row",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "to_row",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::line_law_census",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "line_law_census",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
       "id": "Warehouse/catalog/Demand.py::poisson_sample",
       "kind": "function",
       "module": "Warehouse/catalog/Demand.py",
@@ -34292,6 +35809,14 @@
       "kind": "function",
       "module": "Warehouse/catalog/Order.py",
       "name": "expected_popularity",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Order.py",
+      "id": "Warehouse/catalog/Order.py::Order.pipeline_allowance",
+      "kind": "function",
+      "module": "Warehouse/catalog/Order.py",
+      "name": "pipeline_allowance",
       "public": true
     },
     {
@@ -34720,6 +36245,22 @@
     },
     {
       "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::PRE_LINE_LAW_INVENTORY_SCHEMA_ID",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "PRE_LINE_LAW_INVENTORY_SCHEMA_ID",
+      "public": true
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::PRE_PIPELINE_INVENTORY_SCHEMA_ID",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "PRE_PIPELINE_INVENTORY_SCHEMA_ID",
+      "public": true
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
       "id": "Warehouse/generation/generate_inventory.py::UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID",
       "kind": "const",
       "module": "Warehouse/generation/generate_inventory.py",
@@ -34732,6 +36273,14 @@
       "kind": "const",
       "module": "Warehouse/generation/generate_inventory.py",
       "name": "_ALL_DDL",
+      "public": false
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::_CARTON_COLS",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "_CARTON_COLS",
       "public": false
     },
     {
@@ -34852,6 +36401,14 @@
       "kind": "const",
       "module": "Warehouse/generation/generate_inventory.py",
       "name": "_WH",
+      "public": false
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::_cartons_override_sql",
+      "kind": "function",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "_cartons_override_sql",
       "public": false
     },
     {

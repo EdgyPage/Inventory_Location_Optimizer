@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlacementDist · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_expected_travel_py__PlacementDist" data-id="Optimization/simconfig/expected_travel.py::PlacementDist">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a> <span class="sep">›</span> <span class="here"><code>PlacementDist</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>PlacementDist</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a></p>
+
+<pre class="sig"><code>class PlacementDist</code></pre>
+<section class="doc">`sites[sku] -&gt; [Site, ...]` in the sim&#x27;s drain order, plus which kind it is.
+
+`initial(bin_map, geometry)`: `bin_map[sku] = [(aisle_id, bayX, bayY, qty), ...]` as an
+arm&#x27;s manager holds them after the initial stock; sorted forward-pick first, then
+location -- `Task.from_batch`&#x27;s order.
+`uniform(units_by_sku)`: `units_by_sku[sku] = [StorageUnit, ...]` (the packs
+`viable_storage_units` produces for the SKU&#x27;s stock); each unit is spread over its
+class.  Forward-pick units first, then the given order.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_expected_travel_py__PlacementDist">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/expected_travel.py#:~:text=class%20PlacementDist">Source ↗</a></p>
+</article>
+</main>
+</body></html>

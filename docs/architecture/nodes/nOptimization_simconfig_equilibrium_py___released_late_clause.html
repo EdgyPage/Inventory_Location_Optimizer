@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_released_late_clause · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py___released_late_clause" data-id="Optimization/simconfig/equilibrium.py::_released_late_clause">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a> <span class="sep">›</span> <span class="here"><code>_released_late_clause</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_released_late_clause</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+
+<pre class="sig"><code>def _released_late_clause(shift_rows, batch_rows, days: list[int]) -&gt; Clause</code></pre>
+<section class="doc">`released_late` = 0 on every drained day -- attributed to the day that CAUSED it.
+
+A batch is released late when the crew is still working the previous one, and the
+clamp erases everything but this column.  So the lag lands on the batch released INTO
+day d, but the day that overran is d - 1: a capped day 1 leaves its tail on day 2&#x27;s
+release even when day 2 then drains (measured on the first era smoke run: 69.9 s on a
+drained day 2 behind a capped day 1).  The self-consistency assertion is therefore that
+lag in day d exists only behind a CAPPED day d - 1; lag behind a drained day, or on the
+first day of the run (nothing to overrun), is the instrument contradicting itself.  A
+day d - 1 the ledger never closed cannot be judged here; the drained clause reports it.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Clause.html"><code>Clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__InstrumentError.html"><code>InstrumentError</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___get.html"><code>_get</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___released_late_clause">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_released_late_clause">Source ↗</a></p>
+</article>
+</main>
+</body></html>

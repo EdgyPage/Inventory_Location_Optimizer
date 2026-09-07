@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.throughput.audit · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_throughput_audit_py" data-id="Optimization/Performance_Evaluations/throughput/audit.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/throughput/audit.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.throughput.audit</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_throughput_audit_py.html"><code>Optimization/Performance_Evaluations/throughput/audit.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.throughput.audit</code></pre>
+<section class="doc">throughput.audit — declared throughput vs delivered: the calibrated era&#x27;s audit.
+
+The second caller of the equilibrium check (&quot;Declare the equilibrium bands&quot;, decision 6):
+`Optimization/simconfig/equilibrium.check_rows` judged over EVERY day the ledger closed,
+per arm, and rendered as realized-vs-expected utilization per department plus the
+drained / capped day count.  The first caller, the reference-run driver, uses the same
+function as a PRECONDITION; this one REPORTS (decision 7):
+
+  - a CAPPED day is flagged &quot;declared throughput not delivered&quot;;
+  - a picking utilization BELOW the band on a campaign arm is the arm&#x27;s travel saving --
+    the effect being measured -- and is labelled as such, never as a failure;
+  - a nonzero `released_late` on a drained day still RAISES (`InstrumentError`): that is
+    the instrument contradicting itself, and the driver records it as an error for this
+    evaluation rather than a figure quietly not appearing.
+
+Nothing here fails a run.  The sim never judges itself, and neither does the audit.
+
+A DRAINED day is a LABOUR verdict (`equilibrium.is_drained`, amending decision 4 by &quot;Choose
+the coverage floor&quot;, decision 7): the supply carry -- demand no bin could serve -- is stock
+not delivered, `missed_share`&#x27;s quantity, and never keeps a day from draining.  The per-day
+frame carries both halves (`standing_carry_labour` / `standing_carry_supply`) and the
+drained clause&#x27;s reading lists the days that closed with supply carry standing.
+
+## Two marks, one quantity
+
+`days_capped` is the ONE quantity (ranked, absolute + percent vs baseline): a capped day
+has an unambiguous direction.  Realized vs expected utilization has none -- the same
+below-band read is a saving on one arm and a broken derivation on another -- so it lives
+in an INSPECTION table, the family grammar&#x27;s slot for a read-out with no baseline in it,
+exactly as `yard.scorecard` holds door utilization.  Expected values, `band_tol`, the
+crews and the calibration stamps come off the `staffing` record stamped onto
+`sim_result` (03&#x27;s sixth seam) through `ctx.staffing_expectations()`; the audit needs no
+seam work and reads nothing from CONFIG.
+
+## Gated by the ledger
+
+The quantity names the `shift_days` capability, so the era gate refuses the render on
+every run without a drain-or-cap ledger -- the whole archive, and every flag-off run since
+-- with a reason in the log.  A run that HAS a ledger but no staffing expectations (its
+record carries no derived block) still renders the day verdicts; the utilization rows
+read &quot;n/a&quot; rather than zero.</section>
+<section class="rel"><h2>Imports <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_marks_py.html"><code>Optimization.Performance_Evaluations.common.marks</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_style_py.html"><code>Optimization.Performance_Evaluations.common.style</code></a> <span class="dim">Optimization/Performance_Evaluations/common/style.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py.html"><code>Optimization.Performance_Evaluations.core.quantities</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py.html"><code>Optimization.simconfig.equilibrium</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py___COLS.html"><code>_COLS</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py___COL_W.html"><code>_COL_W</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py___DEPT_LABEL.html"><code>_DEPT_LABEL</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py___flags.html"><code>_flags</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py___read.html"><code>_read</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py___rows.html"><code>_rows</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py___verdict_for.html"><code>_verdict_for</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_throughput_audit_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/throughput/audit.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

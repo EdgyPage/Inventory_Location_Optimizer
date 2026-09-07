@@ -19,17 +19,21 @@
 
 Weighted the way the sampler weights: a SKU enters a batch in proportion to its
 `relative_frequency` (affinity lift ignored -- it redistributes lines, it does not add
-them), and a line demands `quantity_rate` units in expectation.  One intercept per LINE
+them), and a line demands the MEAN of the SKU&#x27;s stamped line law (`Demand.line.mean()`).
+Before the stamp this read `max(1, quantity_rate)` -- a drift from the `λ + e^-λ` the
+sampler and the expectation use, corrected by &quot;Stamp the line distribution on the SKU&quot;:
+the recorded `analytic` block moves by the `e^-λ` term; the era&#x27;s batch content never read
+it (it reads `expected_travel`&#x27;s `units_per_line`).  One intercept per LINE
 (one bin visit for one SKU) is the line-count floor (&quot;Choose the calibration
 procedure&quot;, decision 7); the per-item charge and `qty × handle_var` are per unit; the
 height multiplier is M(0) = 1 (ground) and there is no travel term.  Returns
 
-    {&#x27;seconds_per_unit&#x27;, &#x27;units_per_line&#x27;, &#x27;n_skus&#x27;, &#x27;pricing_config&#x27;}
+    {&#x27;seconds_per_unit&#x27;, &#x27;units_per_line&#x27;, &#x27;n_skus&#x27;, &#x27;pricing_config&#x27;, &#x27;line_families&#x27;}
 
 `seconds_per_unit` is what a travel share scales into a seeded `s_pick`.  Empty
 orders yield zeros rather than raising: a store-only catalogue has no fulfillment
 section, and the caller records that as an absent channel.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__stage_a.html"><code>stage_a</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__analytic_pick">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20analytic_pick">Source ↗</a></p>
 </article>
 </main>

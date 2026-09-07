@@ -14,15 +14,30 @@
 <h1><span class="kind kind-function">function</span> <code>reorder_lot</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
 
-<pre class="sig"><code>def reorder_lot(order) -&gt; int</code></pre>
+<pre class="sig"><code>def reorder_lot(order) -&gt; float</code></pre>
 <section class="doc">The quantity one reorder of `order` brings in, in expectation.
 
-The manager&#x27;s order-up-to rule (`inventory_reorder.check_reorders`): when the
-inventory position falls to the reorder point it orders `equilibrium + pipeline -
-position`, where the pipeline allowance is `round(rp × lead ÷ (lead + 1))`.  Taking
-the position AT the reorder point gives the expected lot; the supply-cv jitter is
-zero-mean and drops out.  Floors at 1: a SKU whose reorder point sits at its
-equilibrium still reorders something.</section>
+The manager&#x27;s order-up-to rule (`inventory_reorder._fire_reorders`): when the inventory
+position falls to the reorder point it orders `equilibrium + pipeline - position`, the
+pipeline allowance being `Order.pipeline_allowance()` (the era&#x27;s stamp, else the
+`round(rp × lead ÷ (lead + 1))` heuristic).  Two regimes:
+
+  * BASE STOCK (`rp &gt;= Q - 1`, every SKU on the line floor -- &quot;Choose the coverage
+    floor&quot;, decision 1): the sampler draws distinct SKUs per batch, so a floored SKU is
+    picked at most one LINE per batch.  The target is the position `Q + P` (`P` the
+    pipeline allowance) and a fire needs the position at or below `Q - 1`, i.e. at
+    least `P + 1` units taken since the last fire.  At `P = 0` -- every catalogue the
+    generator authors today (`LEAD_TIME_MEAN_BATCHES = 0.0`) -- EVERY line fires for
+    exactly what it took and the expected lot is the SKU&#x27;s mean line,
+    `Demand.line.mean()`.  With a pipeline, a line smaller than `P + 1` does not fire
+    alone, so the lot is at least `P + 1`: `max(E[line], P + 1)`, exact at `P = 0` and
+    a floor on the truth otherwise.  The old rule&#x27;s answer here was
+    `max(1, Q + pipeline - rp)` = 1 at lead 0: one PACK per unit, a tenfold over-count
+    of the receiving load on a ten-unit line.
+  * above the floor: the position AT the reorder point gives the expected lot,
+    `Q + pipeline - rp`; the supply-cv jitter is zero-mean and drops out.  Floors at 1.
+
+A duck-typed order without a line law (a test double) takes the second rule.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__implied_reorders.html"><code>implied_reorders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__reorder_lot">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20reorder_lot">Source ↗</a></p>
 </article>

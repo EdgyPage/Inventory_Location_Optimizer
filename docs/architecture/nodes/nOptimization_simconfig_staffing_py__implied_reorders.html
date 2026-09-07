@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>implied_reorders</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *, f_put: float, f_recv: float, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float) -&gt; ScriptTotals</code></pre>
+<pre class="sig"><code>def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *, f_put: float, f_recv: float, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float, put_site=None) -&gt; ScriptTotals</code></pre>
 <section class="doc">Stage B&#x27;s supply side: the put-away and receiving work the script implies.
 
 Steady state (f = 1.0) replenishes every unit picked, so each SKU&#x27;s expected reorders
@@ -22,8 +22,13 @@ are `units demanded ÷ lot`, each lot packs into the storage units the sim&#x27;
 would produce (`Inbound.pack.receive` -&gt; `viable_storage_units`, honouring a
 `stock_plan`), and each pack costs
 
-    put-away   M(0) · (put_intercept + qty · put_per_item + qty · var)   (no travel)
+    put-away   travel + M(y) · (put_intercept + qty · put_per_item + qty · var)
     receiving  recv_intercept + recv_per_item + qty · var                (EXACT)
+
+`put_site`, when given, is `(unit) -&gt; (travel_s, height_mult)` -- the expected travel
+from the aisle mouth and the height multiplier of the pack&#x27;s destination under the run&#x27;s
+placement distribution (`expected_travel.put_site_pricer`).  None prices every put at
+the ground with no travel (the script-only prediction).
 
 Fractional reorders are expectations and are kept fractional.  `f_put` scales the put
 load and `f_recv` the receiving load (&quot;units put per unit picked&quot; / packs received per

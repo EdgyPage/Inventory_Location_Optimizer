@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>solve_n · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_expected_travel_py__solve_n" data-id="Optimization/simconfig/expected_travel.py::solve_n">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a> <span class="sep">›</span> <span class="here"><code>solve_n</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>solve_n</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def solve_n(rates: SectionRates, geometry: Geometry, pick_cfg, cv: float, *, capacity_s: float, n_max: float) -&gt; dict</code></pre>
+<section class="doc">The fixed point: the `n` lines a day at which the expected day exactly fills the
+crew&#x27;s capacity `K·S·ρ`.  `total_s(n)` is increasing in n, so the root is unique;
+Brent&#x27;s method finds it to 1e-6 relative in ~10 evaluations.  A capacity the section
+cannot absorb even at `n_max` lines (every SKU every day) returns the day at `n_max`
+with `saturated = True` -- the same clamp `staffing.batch_content` applies.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_expected_travel_py__expected_pick.html"><code>expected_pick</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__stage_a.html"><code>stage_a</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_expected_travel_py__solve_n">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/expected_travel.py#:~:text=def%20solve_n">Source ↗</a></p>
+</article>
+</main>
+</body></html>

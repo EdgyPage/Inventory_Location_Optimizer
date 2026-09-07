@@ -18,8 +18,9 @@
 <section class="doc">inventory_semantics — the profiles-tree (inventory) family&#x27;s column semantics.
 
 The catalogue&#x27;s per-SKU constants: physical dimensions in inches (the inch/second boundary
-is `cost_model.sec_per_inch`), demand rates per BATCH, and the batch-denominated lead the
-trailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a
+is `cost_model.sec_per_inch`), demand rates per BATCH, the stamped line law (`line_family` +
+`line_params`, department-calibration &quot;Stamp the line distribution on the SKU&quot;), and the
+batch-denominated lead the trailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a
 planned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery
 can produce FEWER units — &quot;splitting is worse&quot; is not a safe assumption on most of a
 generated catalogue.

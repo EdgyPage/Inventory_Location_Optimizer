@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_sdf · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_frames_py___sdf" data-id="Optimization/Performance_Evaluations/common/frames.py::_sdf">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a> <span class="sep">›</span> <span class="here"><code>_sdf</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_sdf</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a></p>
+
+<pre class="sig"><code>def _sdf(rows, df_b, df_w, expectations=None)</code></pre>
+<section class="doc">Per-DAY frame of the drain-or-cap ledger, joined to the batches and the labour.
+
+THE THROUGHPUT AUDIT&#x27;S FRAME.  One row per working day the ledger closed: the verdict
+(`drained` / `capped`), the close-out levels, the START-gate overtime
+(`last_finish - cap_end`, floored at 0), and -- joined through `batch_stats.work_day`
+-- the day&#x27;s batches, released-late seconds, demand and picks, and the three crews&#x27;
+worked seconds.  With `expectations` (`equilibrium.expectations_for`) each department&#x27;s
+UTILIZATION is worked ÷ (crew × S) for that day; without them the three columns are
+NaN, never zero -- an unknown crew is not a crew of nobody.
+
+An EMPTY frame when `rows` is empty, by the same rule `_ydf` / `_wdf` follow: a run
+without the drain-or-cap shift never closed a day, and a frame of zeros would say every
+day drained.  Utilization here is per DAY for the figures; the equilibrium check
+computes it as a ratio of sums over the window itself and never from these rows.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_frames_py___level_or_nan.html"><code>_level_or_nan</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__shift_frame.html"><code>shift_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_frames_py___sdf">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/frames.py#:~:text=def%20_sdf">Source ↗</a></p>
+</article>
+</main>
+</body></html>

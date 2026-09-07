@@ -20,9 +20,10 @@
 `inputs` is the staffing record&#x27;s INPUTS (`sim_config.staffing_spec()` shape: the two
 picker counts, `rho_pick/rho_put/rho_recv`, `f_put/f_recv`, `band_tol`,
 `put_crew_mode`, plus the three crew-cost scales the harness copies in).
-`constants` is `{&#x27;s_pick&#x27;: {channel: constant}, &#x27;s_put&#x27;: constant, &#x27;k_max&#x27;:
-{channel: int|None}}` as `calibration.resolve_constants` returns it.  `channels` maps
-a channel name to its stage-A dict (`analytic`, `batch`, `pickers`, `n_skus`);
+`constants` is `{&#x27;s_pick&#x27;: {channel: constant}, &#x27;s_put&#x27;: constant}` as the harness
+resolves them (the expectation, or a declared override).  `channels` maps a channel
+name to its stage-A dict (`analytic`, `batch`, `pickers`, `n_skus`, and `expected` --
+the expected day the constant was read off, recorded beside it);
 `scripts` maps it to its `ScriptTotals`.  Channels absent from `channels` (a
 store-only catalogue) are recorded as absent and contribute nothing.
 

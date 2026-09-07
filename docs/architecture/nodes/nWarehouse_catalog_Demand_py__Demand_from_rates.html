@@ -15,9 +15,11 @@
 <p class="meta">layer <span class="chip">wh_catalog</span> · file <a href="../files/nWarehouse_catalog_Demand_py.html"><code>Warehouse/catalog/Demand.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>@classmethod
-def from_rates(cls, relative_frequency: float, quantity_rate: float) -&gt; &#x27;Demand&#x27;</code></pre>
-<section class="doc">Create a Demand with specific, pre-determined rates (used for reorders).</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_catalog_Order_py__Order_build.html"><code>build</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li><li><a href="nWarehouse_catalog_Order_py__Order_reorder.html"><code>reorder</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__build_inventory_with_profile.html"><code>build_inventory_with_profile</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section>
+def from_rates(cls, relative_frequency: float, quantity_rate: float, line: LineDistribution | None=None) -&gt; &#x27;Demand&#x27;</code></pre>
+<section class="doc">Create a Demand with specific, pre-determined rates (used for reorders and every
+DB/generator construction).  `line` is the stamped law; absent, it is reconstructed
+as Poisson(`quantity_rate`) with provenance `assumed`.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_catalog_Demand_py__LineDistribution_poisson.html"><code>poisson</code></a> <span class="dim">Warehouse/catalog/Demand.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_catalog_Order_py__Order_build.html"><code>build</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li><li><a href="nWarehouse_catalog_Order_py__Order_reorder.html"><code>reorder</code></a> <span class="dim">Warehouse/catalog/Order.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__build_inventory_with_profile.html"><code>build_inventory_with_profile</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_catalog_Demand_py__Demand_from_rates">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/catalog/Demand.py#:~:text=def%20from_rates">Source ↗</a></p>
 </article>
 </main>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>staffing_expectations · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_context_py__EvalContext_staffing_expectations" data-id="Optimization/Performance_Evaluations/core/context.py::EvalContext.staffing_expectations">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a> <span class="sep">›</span> <a href="nOptimization_Performance_Evaluations_core_context_py__EvalContext.html"><code>EvalContext</code></a> <span class="sep">›</span> <span class="here"><code>staffing_expectations</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>staffing_expectations</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def staffing_expectations(self)</code></pre>
+<section class="doc">This leaf&#x27;s expected utilization per department, off the staffing record stamped
+onto `sim_result` -- or None, logged once, when the record carries no derived block
+(a flag-off run: nothing was derived, so nothing is expected).
+
+`equilibrium.expectations_for` is the ONE reader of the record for both the
+reference-run driver and the audit, so the two cannot disagree about which number
+is &quot;expected&quot;.  Keyed by PAIR (`self.inv`) and this leaf&#x27;s channel, both of which
+`run_analysis._sim_result_from_meta` stamps beside the record.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__expectations_for.html"><code>expectations_for</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_context_py__EvalContext_staffing_expectations">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/context.py#:~:text=def%20staffing_expectations">Source ↗</a></p>
+</article>
+</main>
+</body></html>

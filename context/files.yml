@@ -382,6 +382,7 @@ files:
       - {name: "drain_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "missed_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "work_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "shift_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "metric_frames", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "series_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "breakdown_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -573,6 +574,12 @@ files:
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/task_time/duration.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/throughput/audit.py":
+    purpose: "declared throughput vs delivered: the calibrated era's audit."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "render", file: "Optimization/Performance_Evaluations/throughput/audit.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/throughput/missed.py":
     purpose: "demand the floor was asked for and could not pick."
     layer: "evaluations"
@@ -699,10 +706,12 @@ files:
       - {name: "F_PUT", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "F_RECV", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "BAND_TOL", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "COVERAGE_DAYS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "SAFETY_DAYS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FLOOR_LINES", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "S_PICK_STORE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "S_PICK_FF", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "S_PUT", file: "Optimization/config/settings.py", kind: "const"}
-      - {name: "CALIBRATION_RECORD", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_INTERCEPT_SCALE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_ITEM_RATIO", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "RECV_INTERCEPT_SCALE", file: "Optimization/config/settings.py", kind: "const"}
@@ -894,8 +903,10 @@ files:
       - {name: "CAP_VIZ_CACHE", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_YARD", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_CARRYOVER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_SHIFT_DAYS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "SIM_CAPABILITIES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "OCCUPANCY_LADDER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "PRE_CARRY_SPLIT_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "KEYFRAME_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -935,6 +946,7 @@ files:
       - {name: "load_yard_drains", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_shift_days", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_work_hours", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_receive_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
     notes: ""
   "Optimization/persistence/Warehouse_Data.py":
@@ -1133,19 +1145,6 @@ files:
       - {name: "read_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "write_run_manifest", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
     notes: ""
-  "Optimization/simconfig/calibration.py":
-    purpose: "the committed CALIBRATION RECORD and its loader."
-    layer: "optimization"
-    key_symbols:
-      - {name: "CalibrationRecordError", file: "Optimization/simconfig/calibration.py", kind: "class"}
-      - {name: "load_record", file: "Optimization/simconfig/calibration.py", kind: "function"}
-      - {name: "validate_record", file: "Optimization/simconfig/calibration.py", kind: "function"}
-      - {name: "is_measured", file: "Optimization/simconfig/calibration.py", kind: "function"}
-      - {name: "resolve_constant", file: "Optimization/simconfig/calibration.py", kind: "function"}
-      - {name: "resolve_constants", file: "Optimization/simconfig/calibration.py", kind: "function"}
-      - {name: "record_stub", file: "Optimization/simconfig/calibration.py", kind: "function"}
-      - {name: "staleness", file: "Optimization/simconfig/calibration.py", kind: "function"}
-    notes: ""
   "Optimization/simconfig/configs/ful_calibrated.py":
     purpose: "base human-walker pick-config (FulfillmentCart, one-way lanes)."
     layer: "optimization"
@@ -1188,6 +1187,52 @@ files:
       - {name: "PickConfigSpec", file: "Optimization/simconfig/core/registry.py", kind: "class"}
       - {name: "pick_config", file: "Optimization/simconfig/core/registry.py", kind: "function"}
     notes: ""
+  "Optimization/simconfig/coverage.py":
+    purpose: "stock coverage as a RUNTIME rescaling under declared days, never a generation knob."
+    layer: "optimization"
+    key_symbols:
+      - {name: "daily_demand", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "line_floor", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "pipeline_qty", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "stock_levels", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "rescale_section", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "fill_rate", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "implied_coverage", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "converged", file: "Optimization/simconfig/coverage.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/equilibrium.py":
+    purpose: "the calibrated era's pre-registered EQUILIBRIUM CHECK, as a pure module."
+    layer: "optimization"
+    key_symbols:
+      - {name: "is_drained", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "InstrumentError", file: "Optimization/simconfig/equilibrium.py", kind: "class"}
+      - {name: "RecordError", file: "Optimization/simconfig/equilibrium.py", kind: "class"}
+      - {name: "Clause", file: "Optimization/simconfig/equilibrium.py", kind: "class"}
+      - {name: "Verdict", file: "Optimization/simconfig/equilibrium.py", kind: "class"}
+      - {name: "picker_key", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "expectations_for", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "arm_expectations", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "window_of", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "check_rows", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "check", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "summarize", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/expected_travel.py":
+    purpose: "the calibrated era's pick and put-away seconds per unit as a closed-form expectation over demand and geometry."
+    layer: "optimization"
+    key_symbols:
+      - {name: "AisleGeom", file: "Optimization/simconfig/expected_travel.py", kind: "class"}
+      - {name: "Geometry", file: "Optimization/simconfig/expected_travel.py", kind: "class"}
+      - {name: "Site", file: "Optimization/simconfig/expected_travel.py", kind: "class"}
+      - {name: "PlacementDist", file: "Optimization/simconfig/expected_travel.py", kind: "class"}
+      - {name: "SectionRates", file: "Optimization/simconfig/expected_travel.py", kind: "class"}
+      - {name: "accumulate", file: "Optimization/simconfig/expected_travel.py", kind: "function"}
+      - {name: "routing", file: "Optimization/simconfig/expected_travel.py", kind: "function"}
+      - {name: "expected_swaps", file: "Optimization/simconfig/expected_travel.py", kind: "function"}
+      - {name: "expected_pick", file: "Optimization/simconfig/expected_travel.py", kind: "function"}
+      - {name: "solve_n", file: "Optimization/simconfig/expected_travel.py", kind: "function"}
+      - {name: "put_site_pricer", file: "Optimization/simconfig/expected_travel.py", kind: "function"}
+    notes: ""
   "Optimization/simconfig/staffing.py":
     purpose: "the calibrated era's staffing DERIVATION, as a pure module."
     layer: "optimization"
@@ -1225,6 +1270,16 @@ files:
       - {name: "Cell", file: "Optimization/simdriver/cells.py", kind: "class"}
       - {name: "reference_cell", file: "Optimization/simdriver/cells.py", kind: "function"}
     notes: ""
+  "Optimization/simdriver/era_coverage.py":
+    purpose: "the calibrated era's stage-A expectation per channel, and the pair-level fixed point that sizes the warehouse in stock days."
+    layer: "opt_simdriver"
+    key_symbols:
+      - {name: "ChannelSpec", file: "Optimization/simdriver/era_coverage.py", kind: "class"}
+      - {name: "channel_specs", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "stage_a", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "next_guess", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "fixed_point", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+    notes: ""
   "Optimization/simdriver/scenario.py":
     purpose: "One scenario (manifest + shared assets + flat pool + blank-arm check) + the cell-matrix driver _run_whatif_matrix that loops _build_cells so every run is a cell matrix."
     layer: "opt_simdriver"
@@ -1234,12 +1289,14 @@ files:
     purpose: "per-pair shared-asset construction for a run."
     layer: "opt_simdriver"
     key_symbols:
+      - {name: "load_run_inventory", file: "Optimization/simdriver/sim_assets.py", kind: "function"}
       - {name: "build_shared_assets", file: "Optimization/simdriver/sim_assets.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/strategy_runner.py":
     purpose: "concurrent strategy worker for run_simulation.py."
     layer: "opt_simdriver"
     key_symbols:
+      - {name: "placement_fingerprint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "save_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "load_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "reset_strategy_db", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
@@ -3171,6 +3228,41 @@ files:
       - {name: "test_an_exhausted_pool_reports_nothing", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
       - {name: "test_a_stale_winner_key_would_send_the_next_unit_to_the_wrong_aisle", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_coverage_rescale.py":
+    purpose: "stock coverage is a RUNTIME rescaling under declared days."
+    layer: "tests"
+    key_symbols:
+      - {name: "section", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "restore", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_module_carries_no_line_law_of_its_own", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_daily_demand_is_lines_times_line_share_times_the_stamped_mean", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_line_floor_is_the_mean_line_rounded_up_scaled_by_the_declared_lines", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_pipeline_is_demand_over_the_lead_rounded", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_stock_levels_are_the_generators_formula_with_the_day_as_the_unit_above_the_floor", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_a_floored_sku_runs_base_stock", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_stock_levels_refuse_bad_days_and_a_zero_floor", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_rescale_section_mutates_the_levels_stamps_the_pipeline_resets_the_plan", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_floor_shares_count_skus_and_the_demand_they_carry", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_fill_rate_is_the_units_a_shelf_serves_off_a_line_for_a_known_poisson", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_implied_coverage_reads_the_catalogues_own_levels", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_converged_needs_every_channel_inside_the_tolerance", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_fixed_point_rescales_at_the_previous_rounds_n_and_stops_when_converged", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_fixed_point_stops_at_max_rounds_and_records_the_residual", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_next_guess_iterates_plainly_until_bracketed_then_takes_the_log_secant", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_fixed_point_converges_on_a_decreasing_map_with_gain_above_one", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_fixed_point_rescales_each_channel_section_by_its_own_regime", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_three_knobs_are_declared_assumptions_with_their_flags_named", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_three_knobs_ride_staffing_keys_and_resolve_a_none_to_their_default", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_each_knob_has_a_flag", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_asset_builder_hands_the_floor_to_the_loop", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_a_stamped_file_reads_as_unstamped_flag_off_and_keeps_its_stamp_under_the_era", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_asset_builder_enters_the_loop_only_under_the_era_and_only_where_it_samples", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_flag_off_the_planner_runs_once_and_its_plan_is_the_plan", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_under_the_era_the_planned_inventory_carries_the_rescaled_levels_and_the_stamp", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_derivation_reuses_the_loops_stage_a_and_records_the_coverage", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_placement_fingerprint_names_the_placement_and_not_the_fill_order", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_arm_stamp_carries_the_fingerprint_beside_its_expected_day", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_crew_clock.py":
     purpose: "the five rules every timed work stream shares, in one place."
     layer: "tests"
@@ -3215,6 +3307,37 @@ files:
       - {name: "test_carry_residue_accumulates_into_a_shared_dict", file: "Tests/unit/test_day_cut.py", kind: "function"}
       - {name: "test_a_task_the_picker_never_started_carries_whole", file: "Tests/unit/test_day_cut.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_equilibrium_check.py":
+    purpose: "the calibrated era's equilibrium check CAN FAIL, clause by clause, and reads its expectations off the staffing record."
+    layer: "tests"
+    key_symbols:
+      - {name: "S", file: "Tests/unit/test_equilibrium_check.py", kind: "const"}
+      - {name: "TOL", file: "Tests/unit/test_equilibrium_check.py", kind: "const"}
+      - {name: "test_the_reference_window_passes_and_every_clause_reports_its_reading", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_one_capped_day_in_twenty_fails_the_drained_clause_and_names_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_day_the_ledger_never_closed_fails_rather_than_passing_vacuously", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_is_drained_reads_labour_only_and_never_the_supply_carry", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_day_with_supply_carry_only_is_drained_and_the_clause_reports_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_day_with_daycut_carry_only_is_capped", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_pre_split_ledger_reads_as_no_split_recorded_and_its_verdicts_stand", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_late_release_behind_a_drained_day_raises_as_an_instrument_bug", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_late_release_on_the_first_day_raises_nothing_could_overrun_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_late_release_behind_a_capped_day_is_that_days_overrun_and_does_not_raise", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_department_outside_the_band_fails_the_utilization_clause", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_the_band_is_around_the_expected_value_not_around_rho", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_utilization_is_a_ratio_of_sums_over_the_window_never_a_mean_of_days", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_trending_missed_share_fails_and_the_level_is_recorded_not_gated", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_an_absent_department_is_not_gated_and_says_why", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_an_empty_window_is_refused", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_expectations_are_read_per_department_off_the_derived_block", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_arm_expectations_recentre_the_pick_band_by_the_ratio_of_expected_seconds", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_department_with_no_crew_is_absent_not_expected_at_zero", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_the_expected_missed_share_comes_off_the_stamped_fill_rate_or_is_none", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_the_missed_share_clause_carries_the_expectation_but_never_gates_on_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_record_without_the_pair_or_the_channel_is_a_record_error", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_check_reads_the_three_sources_off_a_sim_db", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_run_that_never_closed_a_day_fails_on_the_ledger_not_on_a_plausible_pass", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_equilibrium_reorder.py":
     purpose: "test_equilibrium_reorder.py"
     layer: "tests"
@@ -3230,6 +3353,7 @@ files:
       - {name: "test_an_in_flight_order_blocks_a_second_reorder_for_the_same_sku", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_inventory_position_counts_queued_units_toward_the_threshold", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_the_order_size_is_measured_from_position_not_on_hand", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_a_stamped_pipeline_replaces_the_heuristic_and_an_unstamped_one_keeps_it", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_equilibrium_qty_accessor_covers_all_three_order_shapes", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_fill_does_not_drift_down_over_thirty_batches", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_supply_cv_zero_delivers_exactly_the_ordered_quantity", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
@@ -3250,7 +3374,7 @@ files:
       - {name: "test_a_bad_put_mode_is_refused_at_the_accessor", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_each_new_knob_has_a_flag", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_a_utilization_target_must_lie_in_the_unit_interval", file: "Tests/unit/test_era_wiring.py", kind: "function"}
-      - {name: "test_the_campaign_specs_and_the_reference_run_default_to_the_era", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_campaign_specs_default_to_the_era_and_the_reference_run_is_gone", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_run_defaults_overlay_args_but_an_explicit_flag_wins_with_a_note", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_the_era_completes_the_cadence_the_cut_and_the_roll_over", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_a_legacy_crew_flag_typed_under_the_era_is_an_error", file: "Tests/unit/test_era_wiring.py", kind: "function"}
@@ -3264,9 +3388,32 @@ files:
       - {name: "test_the_worker_refuses_a_put_or_receiving_crew_its_record_did_not_derive", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_the_flag_off_payload_shape_is_still_accepted", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_shift_days_rows_ride_the_bundle_and_read_back_from_the_file", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as_written", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_an_era_less_run_and_a_pre_era_vintage_both_read_as_no_days", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_the_table_is_in_the_declared_shape_and_the_semantics_cover_it", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_expected_travel.py":
+    purpose: "the expected-travel closed form against hand computations on a toy warehouse."
+    layer: "tests"
+    key_symbols:
+      - {name: "KEY", file: "Tests/unit/test_expected_travel.py", kind: "const"}
+      - {name: "cfg", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_geometry_positions_match_the_bin_centre_rule", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_class_means_are_uniform_over_every_bin_of_the_class", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_units_per_line_is_the_mean_of_max_one_poisson", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_a_second_bin_is_reached_with_the_poisson_tail_past_the_first_bins_stock", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_handling_is_the_catalogue_priced_at_the_bins_height", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_a_certain_single_visit_travels_to_the_bin_and_back_only_on_one_way", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_two_certain_visits_walk_x_max_and_the_y_span_toward_the_nearer_end", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_an_unvisited_aisle_costs_nothing_and_a_rarely_visited_one_costs_its_visit", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_averaging_over_the_line_count_lowers_the_task_count", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_uniform_smears_one_class_evenly_and_one_bin_classes_agree_with_initial", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_a_sku_with_nothing_placed_is_counted_not_priced", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_swaps_are_the_renewal_count_and_never_below_one_per_cart_of_volume", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_expected_pick_sums_the_four_terms_over_the_expected_units", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_solve_n_balances_the_capacity_and_clamps_when_saturated", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+      - {name: "test_a_put_priced_at_one_known_bin_is_put_cost_exactly", file: "Tests/unit/test_expected_travel.py", kind: "function"}
     notes: ""
   "Tests/unit/test_forward_pick_family.py":
     purpose: "one spelling for forward-pick vs reserve."
@@ -3455,6 +3602,29 @@ files:
       - {name: "test_one_check_reorders_advances_every_in_transit_order_by_exactly_one", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
       - {name: "test_an_order_can_go_past_zero_rather_than_clamping", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
       - {name: "test_the_decision_is_written_down_where_the_tick_is", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_line_distribution.py":
+    purpose: "the line law is STAMPED on the SKU, and every reader reads it."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_poisson_identities_by_hand", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_quantile_is_the_smallest_k_with_cdf_at_least_p", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_the_row_round_trip_and_the_refusals", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_sample_is_knuths_draw_floored_at_one", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_an_absent_law_is_reconstructed_as_poisson_and_says_so", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_a_stamped_law_is_kept_and_rides_the_reorder", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_a_law_authored_at_the_unclamped_rate_follows_the_clamp_and_a_stranger_raises", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_the_census_names_the_families_and_the_reconstructions", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_the_batches_are_byte_identical_to_the_pre_stamp_goldens", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_the_draws_are_byte_identical_to_the_pre_stamp_goldens", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_the_batch_cache_fingerprints_are_byte_identical", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_a_second_family_can_never_be_served_from_a_poisson_cache", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_the_two_columns_survive_a_save_and_load", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_both_generator_paths_stamp_a_declared_law_at_the_rate_the_file_carries", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_a_pre_pipeline_file_loads_through_its_override_with_no_stamp", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_a_stamped_pipeline_survives_the_file_round_trip", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_a_pre_stamp_file_loads_through_the_override_with_the_law_reconstructed", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_the_readers_hold_no_line_law_of_their_own", file: "Tests/unit/test_line_distribution.py", kind: "function"}
     notes: ""
   "Tests/unit/test_marks.py":
     purpose: "a stance cannot be mislabelled, and an interval estimates the dot."
@@ -4225,22 +4395,17 @@ files:
       - {name: "test_a_crew_that_asks_for_more_lines_than_skus_is_clamped_and_flagged", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_zero_s_pick_is_refused_not_divided_by", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_script_totals_count_units_lines_and_unknown_skus", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
-      - {name: "test_reorder_lot_is_the_order_up_to_rule_at_the_reorder_point", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_reorder_lot_is_the_order_up_to_rule_at_the_reorder_point_above_the_floor", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_reorder_lot_under_base_stock_is_the_mean_line", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_implied_reorders_pack_each_lot_and_price_receiving_exactly", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_f_put_and_f_recv_scale_their_loads_and_nothing_else", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_crew_size_is_the_ceiling_with_a_floor_of_one", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_expected_utilization_is_after_the_ceiling_and_the_leafs_share", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_derive_sizes_the_two_site_crews_over_both_channels_by_hand", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_an_absent_channel_contributes_nothing_and_is_recorded_as_absent", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
-      - {name: "test_the_k_max_warning_fires_above_the_recorded_bound_and_not_at_it", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_constant_refuses_a_provenance_outside_the_five", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_derived_differs_compares_floats_with_a_tolerance_and_names_the_path", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_regime_orders_filters_by_regime_and_none_is_the_whole_catalogue", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
-      - {name: "test_the_committed_record_is_the_pass_zero_seed", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
-      - {name: "test_the_loader_refuses_an_unknown_provenance_and_a_valueless_entry", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
-      - {name: "test_resolution_is_override_then_recorded_value_then_analytic_times_share", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
-      - {name: "test_resolve_constants_prices_only_the_channels_present", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
-      - {name: "test_the_stale_stamp_fires_on_a_mismatch_and_stays_silent_on_a_match", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
     notes: ""
   "Tests/unit/test_staffing_params.py":
     purpose: "the declared picker counts reach a real run, through all six seams."
@@ -4353,6 +4518,20 @@ files:
       - {name: "test_a_zero_duration_batch_is_unmeasured_rather_than_zero", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
       - {name: "test_an_empty_frame_still_carries_the_columns", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
       - {name: "test_the_metric_is_registered_and_reads_only_the_guaranteed_surface", file: "Tests/unit/test_thr_elapsed.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_throughput_audit.py":
+    purpose: "the audit's per-day frame and its reading vocabulary."
+    layer: "tests"
+    key_symbols:
+      - {name: "S", file: "Tests/unit/test_throughput_audit.py", kind: "const"}
+      - {name: "test_no_ledger_means_an_empty_frame_with_its_columns_never_a_frame_of_zeros", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_the_day_frame_joins_the_ledger_to_the_batches_and_the_legs", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_the_carry_halves_ride_the_frame_and_a_pre_split_row_reads_nan_never_zero", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_without_expectations_the_verdicts_render_and_every_utilization_is_nan", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_a_day_with_no_batch_carries_zero_batches_and_nan_legs", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_the_reading_vocabulary_tells_a_saving_from_a_failure", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_the_flags_line_names_an_override_and_the_closed_form", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_the_evaluation_is_registered_gated_and_grouped", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
     notes: ""
   "Tests/unit/test_timeline.py":
     purpose: "what the simulation's clock counts in, and where batches sit on it."
@@ -4669,6 +4848,8 @@ files:
     layer: "wh_catalog"
     key_symbols:
       - {name: "poisson_sample", file: "Warehouse/catalog/Demand.py", kind: "function"}
+      - {name: "LineDistribution", file: "Warehouse/catalog/Demand.py", kind: "class"}
+      - {name: "line_law_census", file: "Warehouse/catalog/Demand.py", kind: "function"}
       - {name: "Demand", file: "Warehouse/catalog/Demand.py", kind: "class"}
     notes: ""
   "Warehouse/catalog/Inventory_Builder.py":
@@ -4729,6 +4910,8 @@ files:
       - {name: "build_inventory_with_profile", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "declared_inventory_shape", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
+      - {name: "PRE_LINE_LAW_INVENTORY_SCHEMA_ID", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
+      - {name: "PRE_PIPELINE_INVENTORY_SCHEMA_ID", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
       - {name: "INVENTORY_DB_FAMILY", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
       - {name: "save_inventory_to_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "load_inventory_from_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}

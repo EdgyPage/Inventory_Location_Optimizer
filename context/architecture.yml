@@ -138,7 +138,7 @@ backbone:
   # simulation entry -> scenario -> shared assets -> warehouse sizing
   - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
      dst: {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function}, via: calls}
-  - {src: {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function},
+  - {src: {name: _plan, file: Optimization/simdriver/sim_assets.py, kind: function},
      dst: {name: plan_warehouse, file: Warehouse/inventory/inventory_planning.py, kind: function}, via: calls}
   # scenario -> supervisor -> build units -> per-channel prep -> batches
   - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},

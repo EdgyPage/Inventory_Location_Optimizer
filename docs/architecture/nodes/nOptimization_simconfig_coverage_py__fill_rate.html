@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fill_rate · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_coverage_py__fill_rate" data-id="Optimization/simconfig/coverage.py::fill_rate">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>fill_rate</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>fill_rate</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def fill_rate(orders, lines_per_day: float) -&gt; dict</code></pre>
+<section class="doc">The expected FIRST-PASS fill rate of one section at the levels the orders carry now:
+the units a shelf at `Q_s` serves off a line, over the units the line asks for, weighted
+by each SKU&#x27;s lines per day (&quot;Choose the coverage floor&quot;, decision 5):
+
+    Σ_s  lines_s · E[min(q_s, Q_s)]  ÷  Σ_s  lines_s · E[q_s]        lines_s = n · π_s
+
+The denominator is the section&#x27;s daily units; the numerator the units served before a
+restock.  Under base stock with NO pipeline (`pipeline_qty = 0`: a lead of zero, which is
+every catalogue the generator authors today) the shelf sits at `Q_s` when every line
+arrives -- the previous line&#x27;s order landed -- so this IS the expectation `missed_share`&#x27;s
+level is read against: `1 - fill_rate` is the expected missed share.  With a lead the
+shelf a line meets is `Q_s` minus what is still in transit, so the number is an UPPER bound
+on the fill rate there (the record carries the stamped pipeline beside it).  Call it on the
+PLANNED orders -- the planner may grow a level into leftover capacity, and the shelf that
+serves the line is the one the run fields.  Returns `{&#x27;fill_rate&#x27;, &#x27;expected_missed_share&#x27;,
+&#x27;units_per_day&#x27;, &#x27;served_per_day&#x27;, &#x27;base_stock_skus&#x27;, &#x27;base_stock_share&#x27;, &#x27;n_skus&#x27;,
+&#x27;pipeline_units&#x27;}` -- the last is Σ `pipeline_qty` over the section, 0 when the premise
+holds exactly.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__daily_demand.html"><code>daily_demand</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__fixed_point.html"><code>fixed_point</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_coverage_py__fill_rate">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/coverage.py#:~:text=def%20fill_rate">Source ↗</a></p>
+</article>
+</main>
+</body></html>

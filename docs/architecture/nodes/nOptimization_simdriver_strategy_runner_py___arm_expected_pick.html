@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_arm_expected_pick · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___arm_expected_pick" data-id="Optimization/simdriver/strategy_runner.py::_arm_expected_pick">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_arm_expected_pick</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_arm_expected_pick</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _arm_expected_pick(args: dict, warehouse, orders, pick_cfg, log) -&gt; dict | None</code></pre>
+<section class="doc">The arm&#x27;s expected day under ITS OWN initial placement, or None flag-off.
+
+The pair&#x27;s demand was derived at setup from the class-uniform expectation
+(`workunits._derive_staffing_for_pair`); this is the SAME closed form
+(`simconfig/expected_travel`) over the bins the arm just filled, at the pair&#x27;s derived
+line count and spread, stamped for the throughput audit&#x27;s per-arm band
+(`equilibrium.arm_expectations`).  It sizes nothing.  Flag-off (no derived block in
+the payload) it computes nothing and returns None, so the store-only path is untouched.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_expected_travel_py__accumulate.html"><code>accumulate</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__expected_pick.html"><code>expected_pick</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py__placement_fingerprint.html"><code>placement_fingerprint</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___arm_expected_pick">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_arm_expected_pick">Source ↗</a></p>
+</article>
+</main>
+</body></html>

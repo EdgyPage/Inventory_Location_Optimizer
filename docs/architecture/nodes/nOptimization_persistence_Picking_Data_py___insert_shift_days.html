@@ -16,7 +16,9 @@
 
 <pre class="sig"><code>def _insert_shift_days(con: sqlite3.Connection, run_id: int, records: list) -&gt; None</code></pre>
 <section class="doc">`(day, cap_end, end_s, drained, standing, standing_put, standing_dock, standing_carry,
-last_finish)` tuples -- `strategy_runner`&#x27;s close-out row, one per working day.</section>
+standing_carry_labour, standing_carry_supply, last_finish)` tuples -- `strategy_runner`&#x27;s
+close-out row, one per working day.  `standing_carry` is the labour and supply halves
+summed; the halves are what the drained verdict and the missed-share report read.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__save_checkpoint_bundle.html"><code>save_checkpoint_bundle</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__save_shift_days.html"><code>save_shift_days</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py___insert_shift_days">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20_insert_shift_days">Source ↗</a></p>
 </article>
