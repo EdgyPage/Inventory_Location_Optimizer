@@ -30,6 +30,28 @@ from Optimization.config.sim_config import (
 _HERE = os.path.dirname(os.path.abspath(__file__))   # recovered_params.json lives here
 
 
+def load_run_inventory(path: str, limit: int | None = None, *, era: bool):
+    """`load_inventory_from_db`, then honour the era's `pipeline_qty` stamp ONLY under the era.
+
+    The stamp is written by the coverage rescaling into the planned inventory
+    ("Build the line floor").  Flag-off, the manager's `rp x lead / (lead + 1)` heuristic must
+    stand byte for byte whatever file was handed in -- a frozen planned inventory stamped by
+    an era run included -- so a flag-off load clears the stamp and `Order.pipeline_allowance`
+    falls back.  `Warehouse/` may not import the era predicate, which is why the guard sits
+    here, on the ONE loader both the parent (`build_shared_assets`) and the workers
+    (`strategy_runner`) use.
+
+    `era` is EXPLICIT because a spawned worker's CONFIG is pristine: `era_on()` there is the
+    settings default, not the run's flag (memory `config-knob-has-five-seams`).  The parent
+    passes `era_on()`; the worker passes the `drain_or_cap` its work-day payload carries.
+    """
+    inventory = load_inventory_from_db(path, limit=limit)
+    if not era:
+        for c in inventory.orders:
+            c.pipeline_qty = None
+    return inventory
+
+
 # ── shared asset loader ────────────────────────────────────────────────────────
 
 def build_shared_assets(
@@ -62,7 +84,7 @@ def build_shared_assets(
              + ('  (frozen)' if frozen_inventory_db else '')
              + (f'  (limit {max_skus:,} SKUs)' if max_skus else ''))
     t0        = time.perf_counter()
-    inventory = load_inventory_from_db(_src_db, limit=max_skus)
+    inventory = load_run_inventory(_src_db, limit=max_skus, era=era_on())
     n_skus    = len(inventory.orders)
     log.info(f'  {n_skus:,} orders  ({time.perf_counter()-t0:.2f}s)')
 
@@ -126,7 +148,8 @@ def build_shared_assets(
         plan, warehouse_meta, _sa, coverage = _era_cov.fixed_point(
             inventory.orders, lambda: (lambda p: (p, _build(p.warehouse_cfg)))(_plan()),
             _specs, coverage_days=float(_inputs['coverage_days']),
-            safety_days=float(_inputs['safety_days']), inputs=_inputs,
+            safety_days=float(_inputs['safety_days']),
+            floor_lines=float(_inputs['floor_lines']), inputs=_inputs,
             day_seconds=float(work_day_spec()['seconds']), log=log)
         era_stage_a = {'channels': _sa, 'n_orders': len(plan.sampled or inventory.orders),
                        'aisles': len(warehouse_meta.aisles)}

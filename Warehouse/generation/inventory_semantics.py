@@ -45,6 +45,14 @@ INVENTORY_SEMANTICS: dict = {
                                      note='the batch-denominated lead the trailer feature '
                                           'replaces flag-on'),
         'supply_cv':             Col(SCORE, 'cv', 'sku'),
+        'pipeline_qty':          Col(COUNT, 'items', 'sku', account=PIECES,
+                                     null_means='not stamped: the manager infers the lead '
+                                                'pipeline as rp x lead / (lead + 1)',
+                                     note='the era STAMPS the in-transit allowance '
+                                          '(round(d_s x lead), simconfig/coverage.py) because '
+                                          'under the line floor rp encodes a LINE, not '
+                                          'lead-time demand; written to the planned inventory '
+                                          'only, read through Order.pipeline_allowance'),
         'stock_plan':            Col(LABEL, 'plan', 'sku',
                                      null_means='no plan — the default pallet/singleton '
                                                 'packing rule applies',

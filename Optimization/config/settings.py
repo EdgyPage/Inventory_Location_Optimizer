@@ -265,21 +265,28 @@ BAND_TOL = 0.10                        # |realized - expected| utilization toler
                                        # absolute number for all three departments.
                                        # --band-tol
 
-# ── stock coverage, in DAYS of each SKU's own expected demand ───────────────────
+# ── stock coverage, in DAYS of each SKU's own expected demand, floored at a LINE ──
 # Under the era every SKU's order-up-to quantity and reorder point are RE-DERIVED at setup
-# from its daily demand (Optimization/simconfig/coverage.py: `Q = max(1, round(coverage x
-# d_s))`, the generator's own formula with the day as the unit) and the warehouse is sized
-# from those levels through a pair-level fixed point (Optimization/simdriver/era_coverage.py).
-# The catalogue's `equilibrium_coverage_batches` stays the flag-off shape -- a generation
-# batch is not a unit of time, which is the whole reason these are runtime knobs
-# (.scratch/department-calibration, "Rescale stock coverage at setup").  Both defaults
-# mirror the generator's constants (10 coverage batches, 2 safety batches), now in days,
-# and are ASSUMPTIONS: the record says so, and the floor shares the loop logs say what
-# they amount to on a given catalogue.
+# from its daily demand (Optimization/simconfig/coverage.py: `Q = max(round(coverage x
+# d_s), L_s)`, the generator's own formula with the day as the unit and the SKU's own mean
+# line as the floor) and the warehouse is sized from those levels through a pair-level
+# fixed point (Optimization/simdriver/era_coverage.py).  The catalogue's
+# `equilibrium_coverage_batches` stays the flag-off shape -- a generation batch is not a
+# unit of time, which is the whole reason these are runtime knobs (.scratch/
+# department-calibration, "Rescale stock coverage at setup").  The two day counts mirror
+# the generator's constants (10 coverage batches, 2 safety batches), now in days; the floor
+# is one pick's worth of the SKU ("Choose the coverage floor": a SKU whose coverage is
+# shorter than its inter-line interval lands on the floor and runs base stock).  All three
+# are ASSUMPTIONS: the record says so, and the floor shares the loop logs say what they
+# amount to on a given catalogue (both sections of the reference pair sit 100% on the
+# floor, so the two day counts are inert there and the record says that too).
 COVERAGE_DAYS = 10.0                   # order-up-to = coverage_days x daily demand.
                                        # --coverage-days
 SAFETY_DAYS = 2.0                      # reorder point = demand over (lead + safety) days.
                                        # --safety-days
+FLOOR_LINES = 1.0                      # the line floor, in lines of the SKU's own mean line:
+                                       # Q and rp never below ceil(floor_lines x E[line]).
+                                       # --floor-lines
 
 # ── the expected constants' OVERRIDES ───────────────────────────────────────────
 # None = take the closed-form expectation over the catalogue and the built geometry

@@ -175,7 +175,7 @@ def next_guess(points: list) -> float:
 
 
 def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
-                safety_days: float, inputs: dict, day_seconds: float,
+                safety_days: float, floor_lines: float, inputs: dict, day_seconds: float,
                 log: logging.Logger, tol: float = _cov.DEFAULT_TOL,
                 max_rounds: int = _cov.DEFAULT_MAX_ROUNDS) -> tuple:
     """Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns
@@ -187,18 +187,28 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     stage A prices.  The record is JSON-shaped and rides `staffing.calibration[<pair>]
     ['coverage']`:
 
-        {'coverage_days', 'safety_days', 'tol', 'max_rounds', 'rounds': [...],
+        {'coverage_days', 'safety_days', 'floor_lines', 'tol', 'max_rounds', 'rounds': [...],
          'catalogue': {channel: implied_coverage},      # the levels the catalogue authored
-         'final': {channel: rescale stats},             # the levels the run fields, pre-plan
+         'final': {channel: rescale stats + 'fill'},    # the rescaled levels, pre-plan, and
+                                                        #   the fill rate at the PLANNED ones
          'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},
          'converged': bool}
+
+    `final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields
+    (the planner grows a level into leftover capacity, so the shelf that serves a line is the
+    planned one): the expected first-pass fill rate the audit reads `missed_share` against,
+    and the base-stock share AFTER planning.
     """
+    if int(max_rounds) < 1:
+        raise ValueError(f'the coverage loop needs at least one rescaling round; got '
+                         f'max_rounds={max_rounds!r}')
     record: dict = {'coverage_days': float(coverage_days), 'safety_days': float(safety_days),
+                    'floor_lines': float(floor_lines),
                     'tol': float(tol), 'max_rounds': int(max_rounds), 'rounds': []}
     t_all = time.perf_counter()
     log.info(f'  [coverage] rescaling stock coverage at setup: {coverage_days:g} days of each '
-             f"SKU's own demand, {safety_days:g} safety days (round 0 plans the catalogue's "
-             f'own levels)')
+             f"SKU's own demand, {safety_days:g} safety days, floored at {floor_lines:g} "
+             f"line(s) of the SKU's own mean line (round 0 plans the catalogue's own levels)")
     plan, meta = plan_fn()
     sampled = plan.sampled or orders_all
     sa = stage_a(sampled, _et.Geometry.from_warehouse(meta), specs, inputs=inputs,
@@ -225,7 +235,7 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
         prev = n if r == 1 else {name: next_guess(history[name]) for name in n}
         stats = {s.name: _cov.rescale_section(_staffing.regime_orders(orders_all, s.regime),
                                               prev[s.name], coverage_days=coverage_days,
-                                              safety_days=safety_days)
+                                              safety_days=safety_days, floor_lines=floor_lines)
                  for s in specs}
         plan, meta = plan_fn()
         sampled = plan.sampled or orders_all
@@ -242,14 +252,26 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
         for name, st in stats.items():
             log.info(f"  [coverage] round {r} {name}: Q from {prev[name]:,.0f} lines/day -> "
                      f"sum Q {st['sum_q']:,} ({st['units_per_day']:,.0f} units/day); "
-                     f"{st['floor_q_share']:.1%} of SKUs hold ONE unit, carrying "
-                     f"{st['floor_q_demand_share']:.1%} of the demand; SKUs above the floor "
+                     f"{st['floor_line_share']:.1%} of SKUs sit on the LINE floor, carrying "
+                     f"{st['floor_line_demand_share']:.1%} of the demand "
+                     f"({st['base_stock_share']:.1%} run base stock); SKUs above the floor "
                      f"carry {st['realized_coverage_days']:.1f} days; n now {n[name]:,.0f} "
                      f"({(n[name] / prev[name] - 1.0) if prev[name] else 0.0:+.2%})")
         log.info(f'  [coverage] round {r}: {plan.total_aisles} aisles / {plan.total_bins:,} bins'
                  + ('  -- converged' if converged else ''))
         if converged:
             break
+    # The expected first-pass fill rate at the levels the run FIELDS: the last plan's orders
+    # (grown into leftover capacity where the planner found some), priced once per channel at
+    # the fixed point's line count -- `missed_share`'s expectation, and the base-stock share
+    # after planning.
+    for s in specs:
+        fill = _cov.fill_rate(_staffing.regime_orders(sampled, s.regime), n[s.name])
+        stats[s.name]['fill'] = fill
+        log.info(f"  [coverage] {s.name}: expected first-pass fill rate {fill['fill_rate']:.3f} "
+                 f"(expected missed share {fill['expected_missed_share']:.3f}) over the planned "
+                 f"levels; {fill['base_stock_share']:.1%} of {fill['n_skus']:,} planned SKUs run "
+                 f"base stock")
     record['final'] = stats
     record['lines_per_day'] = n
     record['residual'] = {k: (n[k] / prev[k] - 1.0) if prev.get(k) else 0.0 for k in n}

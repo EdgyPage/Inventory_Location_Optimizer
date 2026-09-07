@@ -311,13 +311,72 @@ def test_both_generator_paths_stamp_a_declared_law_at_the_rate_the_file_carries(
         assert b.demand.quantity_rate == a.demand.quantity_rate
 
 
+def _pre_pipeline_ddl() -> str:
+    """The pre-pipeline `_SCHEMA` (the line-law vintage, 4ff06991df47): today's DDL with the
+    `pipeline_qty` column (and its comment) removed -- the test below proves that is EXACTLY
+    the vetted vintage between the line-law stamp and the line floor."""
+    ddl, n = re.subn(r"\n\s*-- The era's STAMPED lead pipeline.*?pipeline_qty\s+INTEGER,", '',
+                     gi._SCHEMA, flags=re.S)
+    assert n == 1, 'the DDL comment block anchoring the pipeline column moved'
+    assert 'pipeline_qty' not in ddl
+    return ddl
+
+
 def _pre_stamp_ddl() -> str:
-    """The pre-stamp `_SCHEMA`: today's DDL with the two stamped columns (and their comment)
-    removed -- and the test below proves that is EXACTLY the vetted pre-stamp shape."""
-    ddl, n = re.subn(r'\n\s*-- The LINE LAW.*?line_params\s+TEXT,', '', gi._SCHEMA, flags=re.S)
+    """The pre-stamp `_SCHEMA`: the pre-pipeline DDL with the two line-law columns (and their
+    comment) removed too -- and the test below proves that is EXACTLY the vetted pre-stamp
+    shape."""
+    ddl, n = re.subn(r'\n\s*-- The LINE LAW.*?line_params\s+TEXT,', '', _pre_pipeline_ddl(),
+                     flags=re.S)
     assert n == 1, 'the DDL comment block anchoring the pre-stamp reconstruction moved'
     assert 'line_family' not in ddl and 'line_params' not in ddl
     return ddl
+
+
+def test_a_pre_pipeline_file_loads_through_its_override_with_no_stamp(tmp_path):
+    """The vintage BEFORE `pipeline_qty` ("Build the line floor"): the law is on the file,
+    the pipeline is not; the override serves it NULL, and `Order.pipeline_allowance` falls
+    back to the manager's heuristic -- what every run of that vintage fired."""
+    inv = _golden_inventory(4)
+    path = str(tmp_path / 'law_no_pipeline.db')
+    con = sqlite3.connect(path)
+    con.executescript(_pre_pipeline_ddl())
+    assert _shape.observed_id(con) == gi.PRE_PIPELINE_INVENTORY_SCHEMA_ID
+    con.executemany(
+        'INSERT INTO cartons (sku, handling, category, length, width, height, weight, '
+        ' relative_frequency, demand_qty_rate, line_family, line_params, expected_batch_demand, '
+        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan, subtype) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        [(c.sku, 'conveyable', 'seasonal', 10, 10, 10, 10, c.demand.relative_frequency,
+          c.demand.quantity_rate, *c.demand.line.to_row(), 0.0, 60, 20, 2.0, 0.0, None, None)
+         for c in inv.orders])
+    con.commit()
+    con.close()
+    back = gi.load_inventory_from_db(path)
+    assert len(back.orders) == 4
+    for a, b in zip(inv.orders, back.orders):
+        assert b.demand.line.provenance == 'declared' and b.demand.line.params == a.demand.line.params
+        assert b.pipeline_qty is None
+        assert b.pipeline_allowance() == round(20 * 2.0 / 3.0)      # the heuristic, byte for byte
+
+
+def test_a_stamped_pipeline_survives_the_file_round_trip(tmp_path):
+    inv = _golden_inventory(4)
+    for i, c in enumerate(inv.orders):
+        c.pipeline_qty = i * 3                    # 0 is a stamp; None would be "not stamped"
+    path = str(tmp_path / 'stamped.db')
+    gi.save_inventory_to_db(inv, path, {'test': True})
+    back = gi.load_inventory_from_db(path)
+    assert [c.pipeline_qty for c in back.orders] == [0, 3, 6, 9]
+    assert [c.pipeline_allowance() for c in back.orders] == [0, 3, 6, 9]
+    # ...and a generated catalogue is never stamped: the column is NULL and the manager's
+    # heuristic stands.
+    fresh = _golden_inventory(3)
+    assert all(c.pipeline_qty is None for c in fresh.orders)
+    gi.save_inventory_to_db(fresh, str(tmp_path / 'fresh.db'), {'test': True})
+    con = sqlite3.connect(str(tmp_path / 'fresh.db'))
+    assert con.execute('SELECT COUNT(*) FROM cartons WHERE pipeline_qty IS NOT NULL').fetchone()[0] == 0
+    con.close()
 
 
 def test_a_pre_stamp_file_loads_through_the_override_with_the_law_reconstructed(tmp_path):

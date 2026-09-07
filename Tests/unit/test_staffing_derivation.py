@@ -121,13 +121,33 @@ def test_script_totals_count_units_lines_and_unknown_skus(catalogue, pricing):
     assert t.per_day(t.units) == 4.5
 
 
-def test_reorder_lot_is_the_order_up_to_rule_at_the_reorder_point():
+def test_reorder_lot_is_the_order_up_to_rule_at_the_reorder_point_above_the_floor():
     c = _order(7, freq=0.1, qty=1.0, eq=60, rp=20, lead=0.0)
     assert st.reorder_lot(c) == 40
     c2 = _order(8, freq=0.1, qty=1.0, eq=60, rp=20, lead=1.0)   # pipeline = round(20·1/2) = 10
     assert st.reorder_lot(c2) == 50
+    # The era's STAMPED pipeline replaces the heuristic (`Order.pipeline_allowance`).
+    c2.pipeline_qty = 4
+    assert st.reorder_lot(c2) == 44
+
+
+def test_reorder_lot_under_base_stock_is_the_mean_line():
+    """`rp = Q - 1` ("Choose the coverage floor", decision 1): the sampler draws distinct
+    SKUs per batch, so every line fires an order for exactly what it took -- the expected lot
+    is E[line] = λ + e^-λ, NOT the old `max(1, Q + pipeline - rp)` = 1, which priced one PACK
+    per unit and over-counted a ten-unit line's receiving load tenfold."""
     c3 = _order(9, freq=0.1, qty=1.0, eq=5, rp=4)
-    assert st.reorder_lot(c3) == 1
+    assert math.isclose(st.reorder_lot(c3), 1.0 + math.exp(-1.0))
+    c4 = _order(10, freq=0.1, qty=10.0, eq=11, rp=10, lead=2.0)
+    assert math.isclose(st.reorder_lot(c4), 10.0 + math.exp(-10.0))
+    c4.pipeline_qty = 7                                  # a line clears P + 1 = 8: every line fires
+    assert math.isclose(st.reorder_lot(c4), 10.0 + math.exp(-10.0))
+    c4.pipeline_qty = 12                                 # a line does not: the lot is at least P + 1
+    assert st.reorder_lot(c4) == 13.0
+    # A duck-typed order with no line law takes the position-at-rp rule.
+    class _Duck:
+        equilibrium_qty, reorder_point, lead_time_mean = 5, 4, 0.0
+    assert st.reorder_lot(_Duck()) == 1
 
 
 def test_implied_reorders_pack_each_lot_and_price_receiving_exactly(catalogue, pricing):
@@ -247,11 +267,18 @@ def test_derive_sizes_the_two_site_crews_over_both_channels_by_hand():
     assert math.isclose(d['receiving']['s_recv']['value'], 36_000 / 3_500)
     assert d['receiving']['s_recv']['provenance'] == 'derived'
     assert math.isclose(d['receiving']['expected_utilization']['store'], 30_000 / (2 * S))
-    # picking: the SCRIPT's units per day at s_pick against K x S
+    # picking: the SERVED units per day (`daily_demand_units` = capacity / s_pick, the fixed
+    # point) at s_pick against K x S -- which is ρ by construction, the declared headroom.
+    # The script's DEMANDED units (20,000 / 8,000 a day here) are recorded beside it and do
+    # not move the band ("Build the line floor": under the floor they exceed the served ones
+    # by the first-pass shortfall, and pricing them read the crews at 0.98 with no headroom).
     assert math.isclose(d['channels']['store']['expected_utilization']['pick'],
-                        20_000 * 12.0 / (10 * S))
+                        20_400 * 12.0 / (10 * S))
+    assert math.isclose(d['channels']['store']['expected_utilization']['pick'], 0.85)
     assert math.isclose(d['channels']['fulfillment']['expected_utilization']['pick'],
-                        8_000 * 6.0 / (4 * S))
+                        16_320 * 6.0 / (4 * S))
+    assert math.isclose(d['channels']['fulfillment']['expected_utilization']['pick'], 0.85)
+    assert d['channels']['store']['script']['units_per_day'] == 20_000
     assert d['channels']['store']['pick_capacity_s'] == 10 * S * 0.85
     assert d['channels']['store']['script']['analytic_s_pick'] == 5.0
     assert 'k_max_exceeded' not in d, 'k_max retired with the calibration record'

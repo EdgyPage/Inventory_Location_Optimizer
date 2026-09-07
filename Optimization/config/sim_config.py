@@ -252,6 +252,7 @@ CONFIG = {
         # setup re-derives every SKU's stock levels from (simdriver/era_coverage.py).
         'coverage_days'       : _s.COVERAGE_DAYS,
         'safety_days'         : _s.SAFETY_DAYS,
+        'floor_lines'         : _s.FLOOR_LINES,
         # The calibration constants' overrides (None = the committed record) -- the
         # CALIBRATION_KEYS, also staffing inputs: typed, they are `declared`; untyped,
         # the resolved constant carries the record's own provenance.
@@ -361,7 +362,7 @@ def n_batches() -> int:
 STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
                                   'rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv',
                                   'band_tol', 'put_crew_mode',
-                                  'coverage_days', 'safety_days',
+                                  'coverage_days', 'safety_days', 'floor_lines',
                                   's_pick_store', 's_pick_ff', 's_put')
 
 #: The subset of STAFFING_KEYS that override an EXPECTED constant.  None = "take the
@@ -378,6 +379,7 @@ _SCALAR_DEFAULTS: dict = {
     'f_put': _s.F_PUT, 'f_recv': _s.F_RECV, 'band_tol': _s.BAND_TOL,
     'put_crew_mode': _s.PUT_CREW_MODE,
     'coverage_days': _s.COVERAGE_DAYS, 'safety_days': _s.SAFETY_DAYS,
+    'floor_lines': _s.FLOOR_LINES,
 }
 
 #: Which global key each channel's pick crew is sized from.  A module-level table rather than

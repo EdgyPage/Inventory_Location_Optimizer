@@ -124,6 +124,11 @@ def _flags(expectations):
         bits.append('a declared override replaced the expected seconds per unit')
     if f.get('saturated'):
         bits.append('batch content saturated (every SKU every day)')
+    exp_miss = expectations.get('expected_missed_share')
+    if exp_miss is not None:
+        # The record's stamped first-pass fill rate ("Choose the coverage floor", decision 5):
+        # the level `missed_share` is read against, printed per arm by `summarize` in the log.
+        bits.append(f'expected missed share {exp_miss:.3f} (1 - the stamped fill rate)')
     return (' · '.join(bits) if bits
             else "expectations from the closed form on this run's geometry")
 

@@ -598,7 +598,10 @@ def main():
             ('--coverage-days', 'coverage_days', _positive_float,
              "stock coverage: order-up-to = days x the SKU's daily demand (era only)"),
             ('--safety-days', 'safety_days', _nonneg_float,
-             'safety stock: reorder point = demand over (lead + safety) days (era only)')):
+             'safety stock: reorder point = demand over (lead + safety) days (era only)'),
+            ('--floor-lines', 'floor_lines', _positive_float,
+             "the line floor: Q and the reorder point never below this many of the SKU's "
+             'own mean line, rounded up; a floored SKU runs base stock (era only)')):
         parser.add_argument(_flag, type=_type, default=CONFIG['global'][_key], metavar='X',
                             help=f'{_what[0].upper()}{_what[1:]} (default '
                                  f'{CONFIG["global"][_key]}).')

@@ -348,10 +348,11 @@ _Avoid_: reorder wave, min-max, one-unit shelf
 
 **Staffing record**:
 A run's declaration of who worked it: the declared inputs (pickers per channel, the utilization
-and replenishment scalars, the put crew's mode, the stock coverage in days), the expected labour constants it ran under
-with their provenance and the expected day they were read off, and the crews and expected
-throughput derived from them. Recorded with the run and authoritative on resume; never edited
-by hand.
+and replenishment scalars, the put crew's mode, the stock coverage in days and the line floor),
+the expected labour constants it ran under with their provenance and the expected day they were
+read off, the crews and expected throughput derived from them, and the expected first-pass fill
+rate the coverage rescaling stamped at the planned levels. Recorded with the run and
+authoritative on resume; never edited by hand.
 _Avoid_: crew config, headcount
 
 **Pilot gate**:

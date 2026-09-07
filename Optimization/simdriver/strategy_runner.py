@@ -752,7 +752,13 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # ── inventory ─────────────────────────────────────────────────────────────
     log.info(f'Loading inventory: {inv_db}')
     t0        = time.perf_counter()
-    inventory = load_inventory_from_db(inv_db, limit=max_skus)
+    # The era's `pipeline_qty` stamp is honoured only under the era: flag-off, a planned file
+    # stamped by an era run (a frozen inventory) reads as unstamped and the manager's
+    # heuristic stands byte for byte (`sim_assets.load_run_inventory`).  The flag is THIS
+    # worker's `_drain_or_cap` off its work-day payload -- a spawned worker's CONFIG is
+    # pristine, so `era_on()` here would be the settings default.
+    from Optimization.simdriver.sim_assets import load_run_inventory              # noqa: E402
+    inventory = load_run_inventory(inv_db, limit=max_skus, era=_drain_or_cap)
     if sku_allowlist is not None:
         inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]
     if channel_regime is not None:

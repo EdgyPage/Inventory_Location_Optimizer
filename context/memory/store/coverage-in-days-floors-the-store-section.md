@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 6cbf7fb6-ff44-4fc0-ab07-fd51c5082bd3
-  modified: 2026-09-06T22:22:54.743Z
+  modified: 2026-09-07T03:19:14.423Z
 ---
 
 Measured 2026-09-06 while building "Rescale stock coverage at setup" (department-calibration
@@ -26,8 +26,12 @@ on the store side and 278 on fulfillment. Under `Q = max(1, round(coverage_days 
 A Q=1 SKU picked in ~10-unit lines stocks out on every line, so the store channel under the
 default is a one-unit shelf, not a warehouse.
 
-**How to apply:** treat `COVERAGE_DAYS`/`SAFETY_DAYS` (10/2, `assumed`) as provisional; read
-`staffing.calibration[<pair>].coverage.final[<channel>].floor_q_demand_share` before trusting
-any era run's store numbers; the decision (a line-sized floor, per-channel coverage, or the
-catalogue's own levels) is the map's open ticket, not something to guess in a run.
+**How to apply:** the decision landed 2026-09-06 (department-calibration 15 + 17): the floor is
+a LINE (`floor_lines`, 1.0, `Optimization/simconfig/coverage.py:line_floor`), a floored SKU runs
+base stock (`rp = Q - 1`), and on this catalogue BOTH sections sit ~100% on it, so
+`COVERAGE_DAYS`/`SAFETY_DAYS` (10/2) are inert here by design, not provisional. Read
+`staffing.calibration[<pair>].coverage.final[<channel>].floor_line_demand_share` and
+`.fill['fill_rate']` (the expected first-pass fill rate `missed_share` is read against) before
+interpreting an era run's store numbers; "a wave inside the window" is retired -- base stock is a
+trickle from day `lead`, and the store's answer is explicitly no wave.
 See [[fifo-restock-drifts-to-class-uniform]], [[no-calibration-simulations]].

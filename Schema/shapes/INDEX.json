@@ -1,8 +1,8 @@
 {
-  "source_fingerprint": "sha256:a9baf16381b622e955e51d2319509d91e168525d63737e04fc8ba311bf00d55d",
+  "source_fingerprint": "sha256:6568a8bfbb823b16ec642a623dc7b7b6ef5e5a428f2b5d6139d003fb896d227a",
   "families": {
     "affinity_db": "349e081a59fc",
-    "inventory_db": "4ff06991df47",
+    "inventory_db": "025f4b1548a9",
     "keyframes_db": "d761133a4df7",
     "runtime_metrics_db": "cd91e75b27ba",
     "sim_db": "798778f4fae1",

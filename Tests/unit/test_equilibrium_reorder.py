@@ -454,6 +454,30 @@ def test_the_order_size_is_measured_from_position_not_on_hand():
         f'34 would mean it measured from on-hand(6) instead of position')
 
 
+def test_a_stamped_pipeline_replaces_the_heuristic_and_an_unstamped_one_keeps_it():
+    """The era stamps `pipeline_qty = round(d_s x lead)` on the SKU ("Choose the coverage
+    floor", decision 6; `Order.pipeline_allowance` is the one definition).  Same order as
+    above with the stamp: ordered = eq(30) + STAMP(3) - position(12) = 21, not 28.  An
+    unstamped order -- every flag-off run -- reads the heuristic byte for byte."""
+    _, mgr = _small_warehouse(seed=22)
+    c = _make_carton(sku=32, eq_qty=30, rp=12, lt=5.0, supply_cv=0.0)
+    assert c.pipeline_allowance() == 10                     # unstamped: round(12 x 5/6)
+    c.pipeline_qty = 3
+    assert c.pipeline_allowance() == 3
+    assert c.reorder().pipeline_allowance() == 3, 'the stamp rides the reorder copy'
+    mgr._originals[32] = c
+    mgr._current_quantities[32] = 6
+    mgr._queued_qty[32]          = 6
+    before = mgr._deferred_qty.get(32, 0)
+    mgr._depleted_skus.add(32)
+    mgr.check_reorders()
+    assert mgr._deferred_qty.get(32, 0) - before == 21
+    # `pipeline_qty = 0` is a stamp too (a lead-0 SKU under the era), not "absent".
+    c0 = _make_carton(sku=33, eq_qty=30, rp=12, lt=5.0)
+    c0.pipeline_qty = 0
+    assert c0.pipeline_allowance() == 0
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Part E: the _equilibrium_qty accessor
 # ═════════════════════════════════════════════════════════════════════════════

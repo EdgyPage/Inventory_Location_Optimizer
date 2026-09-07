@@ -48,6 +48,9 @@ regime someone chose rather than one the defaults inherited.
     less than one pick's worth of itself, floored SKUs run base-stock, the line distribution is
     stamped on the SKU and every closed form reads it -- no consumer re-derives a law. The
     drained clause judges labour only; the window verifies a steady state, never a wave.
+    LANDED 2026-09-06 ([Build the line floor](issues/17-build-the-line-floor.md)); the 40-day
+    check did NOT read in band -- the floor is not FIELDED on fulfillment (19) and not KEPT
+    on the store (20), and overtime behind a labour-drained day raises the instrument (21).
   - **No bespoke conversions implicit in the inventory.** A standing preference from the
     same decision: nothing authored on the catalogue may carry an implicit batch or day (the
     coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
@@ -247,13 +250,33 @@ regime someone chose rather than one the defaults inherited.
   `Workload_Builder`), and the `max(1, lam)` drift lived only in the recorded `analytic` block --
   era batch content already read the exact mean, so nothing about it moves.  17 is unblocked.
 
+- [Build the line floor](issues/17-build-the-line-floor.md): BUILD LANDED; the 40-day
+  check ran and did NOT read in band.  `coverage.line_floor` (`ceil(floor_lines x E[line])`,
+  so `L = λ + 1` on every Poisson SKU) floors Q and rp, a floored SKU runs base stock,
+  `pipeline_qty` is stamped on the SKU (an `Order` slot and a `cartons` column, `inventory_db`
+  4ff06991df47 -> 025f4b1548a9; `Order.pipeline_allowance` the one reader, cleared flag-off at
+  both load sites with an EXPLICIT era flag because a worker's CONFIG is pristine), the record
+  carries `final[<ch>].fill` priced on the PLANNED levels, `floor_lines` rides the seams.  Two
+  derivation corrections: the base-stock lot is the mean line (was 1: a tenfold receiving
+  over-count) and the pick load is SERVED units x s_pick (= ρ; demanded units read 0.98).
+  THE CHECK (`comparison_20260906_222118`, fifo, 40 days): fixed point in 2 rounds, both
+  sections 100% on the floor, no wave confirmed -- but fulfillment's planner fielded 30% of
+  SKUs BELOW their floor (a treadmill: missed share 0.663 rising, 88,857 units of supply carry,
+  39/40 capped), the store fielded its floor and fragmented (put-away never tops up an
+  occupied bin: 215k of 240k SKUs on >1 bin by day 40, missed share 0.127 -> 0.283 vs 0.095),
+  and the store audit RAISED on overtime behind a labour-drained day.  Graduated 19, 20, 21;
+  every era number stays PROVISIONAL until they resolve and the check is re-read.
+
 ## Not yet specified
 
-- **The build** — every decision is now made; one task ticket carries the last build
-  ([Build the line floor](issues/17-build-the-line-floor.md), unblocked: the stamp landed and
-  the drained clause is labour-only, both 2026-09-06). The era's coverage default is decided
-  (10 / 2 with the line floor) but the store's era numbers stay PROVISIONAL until 17's
-  verification run reads in band. What stays dim is below.
+- **Re-reading the check.** Once [Field the floor](issues/19-field-the-floor.md),
+  [Let a base-stock top-up reach the shelf](issues/20-let-a-base-stock-top-up-reach-the-shelf.md)
+  and [Overtime behind a drained day](issues/21-overtime-behind-a-drained-day.md) resolve, ONE
+  40-day run on the reference pair re-reads 17's check; its shape (which arms, whether the
+  fulfillment warehouse grows) is dim until 19 decides whether the floor is a promise or a
+  request. Until then the era's numbers on both sections are provisional and the inbound
+  funnel's lift ([Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md)) has
+  not happened.
 - **Ranked arms' steady-state placement.** 13 found FIFO drifts to the class-uniform smear; a
   ranked restock keeps its placement concentrated, so its initial-placement expectation is a
   proxy, not a steady state. Whether the audit's per-arm band should follow the placement as it

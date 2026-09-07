@@ -314,6 +314,35 @@ def test_a_department_with_no_crew_is_absent_not_expected_at_zero():
     assert e['absent'] == {'recv': 'no site crew derived'}
 
 
+# ── the stamped fill rate: missed share is read against 1 - fill ("Build the line floor") ──
+
+
+def test_the_expected_missed_share_comes_off_the_stamped_fill_rate_or_is_none():
+    rec = _staffing()
+    e = eq.expectations_for(rec, pair='pairA', channel='store')
+    assert e['fill_rate'] is None and e['expected_missed_share'] is None   # pre-floor record
+    rec['calibration']['pairA']['coverage'] = {
+        'final': {'store': {'fill': {'fill_rate': 0.93, 'expected_missed_share': 0.07}}}}
+    e = eq.expectations_for(rec, pair='pairA', channel='store')
+    assert e['fill_rate'] == 0.93 and math.isclose(e['expected_missed_share'], 0.07)
+    # another channel's stamp is not this leaf's
+    with pytest.raises(eq.RecordError):
+        eq.expectations_for(rec, pair='pairA', channel='fulfillment')
+
+
+def test_the_missed_share_clause_carries_the_expectation_but_never_gates_on_it():
+    v = _check(*_window(missed=0.05), exp=_expectations(expected_missed_share=0.20))
+    r = v.clauses['missed_share'].reading
+    assert r['expected'] == 0.20 and math.isclose(r['delta'], 0.05 - 0.20)
+    assert v.clauses['missed_share'].passed, 'a level far off its expectation is REPORTED'
+    assert 'expected 0.200' in eq.summarize(v) and '-0.150' in eq.summarize(v)
+    # no expectation on the record: the reading says so and the line does not pretend
+    v0 = _check(*_window(missed=0.05))
+    r0 = v0.clauses['missed_share'].reading
+    assert r0['expected'] is None and r0['delta'] is None
+    assert 'expected' not in eq.summarize(v0)
+
+
 def test_a_record_without_the_pair_or_the_channel_is_a_record_error():
     with pytest.raises(eq.RecordError, match='no derived block for pair'):
         eq.expectations_for(_staffing(), pair='pairB', channel='store')

@@ -524,6 +524,7 @@ def build_inventory_with_profile(
         # warehouse reaches full target inventory.
         raw_rp          = round(expected * (c.lead_time_mean + reorder_safety_batches))
         c.reorder_point = max(1, min(c.equilibrium_qty - 1, raw_rp))
+        c.pipeline_qty  = None       # a generated catalogue is never stamped; the era does it
 
         # Per-SKU supply reliability: abs(N(0, supply_cv_mean)) keeps values ≥ 0.
         # SKUs with higher supply_cv have less predictable fulfillment quantities.
@@ -570,6 +571,14 @@ _SCHEMA = '''
         lead_time_mean        REAL    NOT NULL DEFAULT 0.0,
         supply_cv             REAL    NOT NULL DEFAULT 0.0,
         stock_plan            TEXT,
+        -- The era's STAMPED lead pipeline (department-calibration, "Build the line floor",
+        -- decision 6 of "Choose the coverage floor"): `round(d_s x lead)`, the in-transit
+        -- allowance `_fire_reorders` adds to the order-up-to, written by the coverage
+        -- rescaling into the PLANNED inventory only.  NULL = not stamped (every generated
+        -- catalogue, every flag-off run): `Order.pipeline_allowance` falls back to the
+        -- rp x lead / (lead + 1) heuristic, byte for byte.  Pre-stamp vintages 0e234fbfc739
+        -- and 4ff06991df47 lack the column; their `cartons` overrides serve NULL.
+        pipeline_qty          INTEGER,
         -- Fine-grained family label for distribution plots: store rows carry their
         -- `category`; fulfillment rows carry 'rect' | 'cube_4' | 'cube_6' | 'cube_8'
         -- (the rect/cube split + cube size that is otherwise lost at Order.build).
@@ -650,33 +659,54 @@ UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID = 'c59cc6aa5fd3'
 #: forced, and the staffing record names the reconstruction (`calibration[<pair>].line_law`).
 PRE_LINE_LAW_INVENTORY_SCHEMA_ID = '0e234fbfc739'
 
+#: The vintage BEFORE the lead pipeline was stamped on the SKU: every file written between
+#: the line-law stamp and the line floor (both 2026-09-06) — `cartons` with the two line-law
+#: columns and without `pipeline_qty`.  Still vetted: its `cartons` override serves the column
+#: as NULL and `Order.pipeline_allowance` falls back to the manager's heuristic, which is what
+#: every run of that vintage fired.  Nothing is regenerated.
+PRE_PIPELINE_INVENTORY_SCHEMA_ID = '4ff06991df47'
+
 INVENTORY_DB_FAMILY = _identity.register(_identity.Family(
     name='inventory_db',
     declared_shape=declared_inventory_shape,
     meta_table='run_metadata',      # already declared above; shared with the params_json row
-    # Commit window: dce445b.. (2026-07-09) to the line-law stamp (2026-09-06).  Before that
-    # entry landed the tuple was empty by RESULT, not omission: every file from 2026-07-09 on
-    # re-derived to one id.
-    known_ids=(PRE_LINE_LAW_INVENTORY_SCHEMA_ID,),
+    # Commit windows: dce445b.. (2026-07-09) to the line-law stamp (43a8dce2, 2026-09-06), then
+    # the line-law stamp to the line floor (same day).  Before the first entry landed the tuple
+    # was empty by RESULT, not omission: every file from 2026-07-09 on re-derived to one id.
+    known_ids=(PRE_LINE_LAW_INVENTORY_SCHEMA_ID, PRE_PIPELINE_INVENTORY_SCHEMA_ID),
 ))
 
 # ── the read, by NAME (Schema.dataset) ────────────────────────────────────────
 # The publisher side of the versioned read: `load_inventory_from_db` binds a file to ITS OWN
-# vintage and asks for `cartons`; the current shape is served by the canonical SQL, the
-# pre-stamp vintage by the override, and the consumer never branches on a version.  `:limit`
-# is SQLite's `LIMIT -1` = no limit.
+# vintage and asks for `cartons`; the current shape is served by the canonical SQL, each
+# earlier vintage by its override (the columns it lacks served as NULL), and the consumer never
+# branches on a version.  `:limit` is SQLite's `LIMIT -1` = no limit.  New columns go at the
+# END of `_CARTON_COLS`, so every older override is "the prefix it has + NULLs for the rest".
 _CARTON_COLS = ('sku', 'handling', 'category', 'length', 'width', 'height', 'weight',
                 'relative_frequency', 'demand_qty_rate', 'equilibrium_qty', 'reorder_point',
-                'lead_time_mean', 'supply_cv', 'stock_plan', 'line_family', 'line_params')
+                'lead_time_mean', 'supply_cv', 'stock_plan', 'line_family', 'line_params',
+                'pipeline_qty')
 _dataset.register_query(_dataset.Query(
     name='cartons', family='inventory_db',
     sql='SELECT ' + ', '.join(_CARTON_COLS) + ' FROM cartons ORDER BY sku LIMIT :limit',
     columns=_CARTON_COLS,
     tables={'cartons': _CARTON_COLS}))
-_dataset.override(
-    'inventory_db', 'cartons', PRE_LINE_LAW_INVENTORY_SCHEMA_ID,
-    'SELECT ' + ', '.join(_CARTON_COLS[:-2])
-    + ', NULL AS line_family, NULL AS line_params FROM cartons ORDER BY sku LIMIT :limit')
+
+
+def _cartons_override_sql(n_present: int) -> str:
+    """The `cartons` query for a vintage holding the first `n_present` of `_CARTON_COLS`:
+    the columns it has by name, every later one as NULL, in the canonical order."""
+    have = _CARTON_COLS[:n_present]
+    missing = _CARTON_COLS[n_present:]
+    return ('SELECT ' + ', '.join(have)
+            + ''.join(f', NULL AS {c}' for c in missing)
+            + ' FROM cartons ORDER BY sku LIMIT :limit')
+
+
+_dataset.override('inventory_db', 'cartons', PRE_LINE_LAW_INVENTORY_SCHEMA_ID,
+                  _cartons_override_sql(len(_CARTON_COLS) - 3))   # no law, no pipeline
+_dataset.override('inventory_db', 'cartons', PRE_PIPELINE_INVENTORY_SCHEMA_ID,
+                  _cartons_override_sql(len(_CARTON_COLS) - 1))   # the law, no pipeline
 
 
 def _init_db(db_path: str) -> sqlite3.Connection:
@@ -728,14 +758,16 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
             getattr(c, 'lead_time_mean',        0.0),
             getattr(c, 'supply_cv',             0.0),
             json.dumps(sp) if sp else None,
+            getattr(c, 'pipeline_qty', None),        # the era's stamp; NULL = not stamped
             getattr(c, 'subtype', None),
         ))
     conn.executemany(
         'INSERT OR REPLACE INTO cartons '
         '(sku, handling, category, length, width, height, weight, '
         ' relative_frequency, demand_qty_rate, line_family, line_params, expected_batch_demand, '
-        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan, subtype) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan, pipeline_qty, '
+        ' subtype) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         rows,
     )
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
@@ -824,6 +856,7 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
             equilibrium_qty=r['equilibrium_qty'], reorder_point=r['reorder_point'],
             lead_time_mean=r['lead_time_mean'], supply_cv=r['supply_cv'],
             stock_plan=stock_plan, line=line,
+            pipeline_qty=r['pipeline_qty'],          # NULL off an older vintage = not stamped
         ))
         max_sku = max(max_sku, sku)
 

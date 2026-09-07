@@ -242,21 +242,43 @@ def script_totals(batches, orders_by_sku: dict, pricing: PricingConfig) -> Scrip
     return t
 
 
-def reorder_lot(order) -> int:
+def reorder_lot(order) -> float:
     """The quantity one reorder of `order` brings in, in expectation.
 
-    The manager's order-up-to rule (`inventory_reorder.check_reorders`): when the
-    inventory position falls to the reorder point it orders `equilibrium + pipeline -
-    position`, where the pipeline allowance is `round(rp × lead ÷ (lead + 1))`.  Taking
-    the position AT the reorder point gives the expected lot; the supply-cv jitter is
-    zero-mean and drops out.  Floors at 1: a SKU whose reorder point sits at its
-    equilibrium still reorders something.
+    The manager's order-up-to rule (`inventory_reorder._fire_reorders`): when the inventory
+    position falls to the reorder point it orders `equilibrium + pipeline - position`, the
+    pipeline allowance being `Order.pipeline_allowance()` (the era's stamp, else the
+    `round(rp × lead ÷ (lead + 1))` heuristic).  Two regimes:
+
+      * BASE STOCK (`rp >= Q - 1`, every SKU on the line floor -- "Choose the coverage
+        floor", decision 1): the sampler draws distinct SKUs per batch, so a floored SKU is
+        picked at most one LINE per batch.  The target is the position `Q + P` (`P` the
+        pipeline allowance) and a fire needs the position at or below `Q - 1`, i.e. at
+        least `P + 1` units taken since the last fire.  At `P = 0` -- every catalogue the
+        generator authors today (`LEAD_TIME_MEAN_BATCHES = 0.0`) -- EVERY line fires for
+        exactly what it took and the expected lot is the SKU's mean line,
+        `Demand.line.mean()`.  With a pipeline, a line smaller than `P + 1` does not fire
+        alone, so the lot is at least `P + 1`: `max(E[line], P + 1)`, exact at `P = 0` and
+        a floor on the truth otherwise.  The old rule's answer here was
+        `max(1, Q + pipeline - rp)` = 1 at lead 0: one PACK per unit, a tenfold over-count
+        of the receiving load on a ten-unit line.
+      * above the floor: the position AT the reorder point gives the expected lot,
+        `Q + pipeline - rp`; the supply-cv jitter is zero-mean and drops out.  Floors at 1.
+
+    A duck-typed order without a line law (a test double) takes the second rule.
     """
     eq = int(getattr(order, 'equilibrium_qty', getattr(order, 'stock_qty', 1)))
     rp = int(getattr(order, 'reorder_point', 0))
-    lead = max(0.0, float(getattr(order, 'lead_time_mean', 0.0)))
-    pipeline = round(rp * lead / (lead + 1.0)) if lead > 0.0 else 0
-    return max(1, eq + pipeline - rp)
+    allowance = getattr(order, 'pipeline_allowance', None)
+    if allowance is not None:
+        pipeline = int(allowance())
+    else:
+        lead = max(0.0, float(getattr(order, 'lead_time_mean', 0.0)))
+        pipeline = round(rp * lead / (lead + 1.0)) if lead > 0.0 else 0
+    line = getattr(getattr(order, 'demand', None), 'line', None)
+    if rp >= eq - 1 and line is not None:
+        return max(float(line.mean()), float(pipeline + 1))
+    return float(max(1, eq + pipeline - rp))
 
 
 def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *,
@@ -290,8 +312,8 @@ def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: Pricing
     for sku, units in totals.per_sku_units.items():
         c = orders_by_sku[sku]
         lot = reorder_lot(c)
-        reorders = units / lot
-        plan = _receive(c, lot)
+        reorders = units / lot                       # an expectation: kept fractional
+        plan = _receive(c, max(1, int(round(lot))))  # the packer packs whole units
         var = pricing.var(c)
         put_s = 0.0
         for u in plan.units:
@@ -384,6 +406,16 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
         K = int(ch['pickers'])
         cap = pick_capacity(K, S, float(inputs['rho_pick']))
         units_day = t.per_day(t.units)
+        # The picking LOAD is the units the shelf is expected to SERVE per day
+        # (`daily_demand_units`: the closed form's fixed point, `expected_travel.solve_n`)
+        # at `s_pick`, which that same expectation priced per SERVED unit -- so at the fixed
+        # point the load IS the capacity and the expected utilization IS ρ, the declared
+        # headroom.  The script's DEMANDED units (`units_day`, recorded beside it) exceed the
+        # served ones by the first-pass shortfall under the line floor ("Build the line
+        # floor": 10% store / 22% fulfillment on the reference pair); pricing them at a
+        # per-served-unit constant read the crews at 0.98 with no headroom left.  A declared
+        # `--s-pick-*` override keeps the same identity (its demand is `capacity ÷ s_pick`).
+        served_day = float(ch.get('daily_demand_units') or 0.0)
         rec = {
             'pickers': K,
             'pricing_config': pricing_names[name],
@@ -406,7 +438,7 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
                 'unknown_skus': t.unknown_skus,
             },
             'expected_utilization': {
-                'pick': expected_utilization(units_day * s_pick, K, S),
+                'pick': expected_utilization(served_day * s_pick, K, S),
             },
         }
         # Site loads, per day.  Put-away is priced at s_put (one site value, the expected

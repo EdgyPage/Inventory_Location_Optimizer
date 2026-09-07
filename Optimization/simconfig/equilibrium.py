@@ -218,9 +218,16 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
             absent[dept] = ('no site crew derived' if crew <= 0
                             else f'no expected value recorded for {ch!r}')
     cal = (staffing.get('calibration') or {}).get(pair) or {}
+    # The expected first-pass fill rate the coverage loop stamped for this channel at the
+    # planned levels ("Choose the coverage floor", decision 5): `missed_share`'s LEVEL is read
+    # against `1 - fill_rate`.  None on a run whose record predates the line floor.
+    fill = (((cal.get('coverage') or {}).get('final') or {}).get(ch) or {}).get('fill') or {}
+    fill_rate = fill.get('fill_rate')
     return {
         'pair': pair, 'channel': ch, 'day_seconds': S, 'band_tol': float(band_tol),
         'departments': departments, 'absent': absent,
+        'fill_rate': (float(fill_rate) if fill_rate is not None else None),
+        'expected_missed_share': (1.0 - float(fill_rate) if fill_rate is not None else None),
         'flags': {
             # A declared `--s-pick-*` / `--s-put` replaced the expectation for this pair.
             'overridden': bool(cal.get('overrides')),
@@ -393,7 +400,10 @@ def _utilization_clause(batch_rows, work_rows, days: list[int], expectations: di
     return Clause('utilization', not out_of_band, reading, reason)
 
 
-def _missed_share_clause(batch_rows, days: list[int]) -> Clause:
+def _missed_share_clause(batch_rows, days: list[int], expected: float | None = None) -> Clause:
+    """Stable, never gated on its level.  `expected` is the record's `1 - fill_rate` for this
+    leaf (the expected first-pass missed share under base stock), carried into the reading as
+    `expected` / `delta` so the audit can read the level against it; it moves no verdict."""
     in_window = set(days)
     rows = sorted((b for b in batch_rows if int(_get(b, 'work_day')) in in_window),
                   key=lambda b: (int(_get(b, 'work_day')), int(_get(b, 'batch_id'))))
@@ -405,16 +415,23 @@ def _missed_share_clause(batch_rows, days: list[int]) -> Clause:
         shares.append((demanded - float(_get(b, 'total_items', 0) or 0)) / demanded)
     n = len(shares)
     if n < 2:
+        lvl = shares[0] if shares else None
         return Clause('missed_share', False,
-                      {'n': n, 'level': (shares[0] if shares else None)},
+                      {'n': n, 'level': lvl,
+                       'expected': (float(expected) if expected is not None else None),
+                       'delta': (lvl - float(expected)
+                                 if expected is not None and lvl is not None else None)},
                       f'only {n} batch(es) with demand in the window; a trend needs two halves')
     half = n // 2
     first = sum(shares[:half]) / half
     second = sum(shares[half:]) / (n - half)
     trend = second - first
     ok = abs(trend) <= MISSED_TREND_TOL
-    reading = {'n': n, 'level': sum(shares) / n, 'first_half': first,
-               'second_half': second, 'trend': trend, 'tol': MISSED_TREND_TOL}
+    level = sum(shares) / n
+    reading = {'n': n, 'level': level, 'first_half': first,
+               'second_half': second, 'trend': trend, 'tol': MISSED_TREND_TOL,
+               'expected': (float(expected) if expected is not None else None),
+               'delta': (level - float(expected) if expected is not None else None)}
     reason = ('' if ok else
               f'missed share trending: second half {second:.3f} vs first half {first:.3f} '
               f'({trend:+.3f}, tolerance ±{MISSED_TREND_TOL:.2f})')
@@ -436,7 +453,8 @@ def check_rows(*, shift_rows, batch_rows, work_rows, day_lo: int, day_hi: int,
         'drained': _drained_clause(shift_rows, days),
         'released_late': _released_late_clause(shift_rows, batch_rows, days),
         'utilization': _utilization_clause(batch_rows, work_rows, days, expectations),
-        'missed_share': _missed_share_clause(batch_rows, days),
+        'missed_share': _missed_share_clause(
+            batch_rows, days, (expectations or {}).get('expected_missed_share')),
     }
     return Verdict(all(c.passed for c in clauses.values()), int(day_lo), int(day_hi), clauses)
 
@@ -475,7 +493,11 @@ def summarize(verdict: Verdict) -> str:
         elif name == 'missed_share':
             r = c.reading
             lvl = r.get('level')
-            parts.append(f'{name}={tag} (level {lvl:.3f}, trend {r.get("trend", float("nan")):+.3f})'
+            exp = r.get('expected')
+            against = (f', expected {exp:.3f} off the stamped fill rate ({r["delta"]:+.3f})'
+                       if isinstance(exp, (int, float)) else '')
+            parts.append(f'{name}={tag} (level {lvl:.3f}, trend {r.get("trend", float("nan")):+.3f}'
+                         f'{against})'
                          if isinstance(lvl, (int, float)) and not (isinstance(lvl, float) and math.isnan(lvl))
                          else f'{name}={tag} (n={r.get("n")})')
         else:

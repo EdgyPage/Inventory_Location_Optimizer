@@ -507,13 +507,14 @@ class ReorderMixin:
                 continue            # on-hand + on-order already covers the threshold
             rc     = orig.reorder()
             # Order-up-to is lead-aware, scaled to the WAREHOUSE equilibrium (not the full
-            # generated demand).  reorder_point already encodes ~(lead+1) batches of
-            # warehouse-scale demand, so one batch is rp/(lead+1) and the expected in-transit
-            # pipeline over the lead is rp·lead/(lead+1).  Raising the order-up-to by this
-            # keeps on-hand at the equilibrium target without overshooting the sampled-down
-            # eq.  lead==0 ⇒ pipeline 0 ⇒ no-op; general for all lead times.
-            lead_f   = max(0.0, getattr(rc, 'lead_time_mean', 0.0))
-            pipeline = round(rp * lead_f / (lead_f + 1.0)) if lead_f > 0.0 else 0
+            # generated demand): the order-up-to is raised by the units expected in transit
+            # over the lead so on-hand lands at the equilibrium target without overshooting
+            # the sampled-down eq.  `Order.pipeline_allowance` is the ONE definition -- the
+            # era's stamped `pipeline_qty` (round(d_s x lead), simconfig/coverage.py) when the
+            # SKU carries it, else the heuristic this loop always used: reorder_point encodes
+            # ~(lead+1) batches of demand, so the pipeline is rp·lead/(lead+1).  lead==0 ⇒
+            # pipeline 0 ⇒ no-op either way.
+            pipeline = rc.pipeline_allowance()
             ideal    = _equilibrium_qty(rc) + pipeline - position   # OUP fill-back vs position
             if ideal <= 0:
                 continue

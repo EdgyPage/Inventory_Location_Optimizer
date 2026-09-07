@@ -35,11 +35,14 @@ class Order:
     # inventory_common's hasattr probe must stay False until something assigns it) and
     # '_is_reorder' (set only by reorder(); every reader is getattr-with-default).
     # 'subtype' is set on generated orders and read back via getattr(c, 'subtype', None).
+    # 'pipeline_qty' is the era's STAMPED lead pipeline (department-calibration, "Build the
+    # line floor"): None = not stamped, and `pipeline_allowance()` falls back to the
+    # manager's rp x lead / (lead + 1) heuristic -- every reader goes through that method.
     # ~263k live orders at production scale — slots drop the per-instance __dict__.
     __slots__ = ('_sku', 'storage_type', 'storage_handle_config', 'lift_group',
                  'length', 'width', 'height', 'weight', 'demand',
                  'expected_batch_demand', 'equilibrium_qty', 'reorder_point',
-                 'lead_time_mean', 'supply_cv', 'stock_plan',
+                 'lead_time_mean', 'supply_cv', 'stock_plan', 'pipeline_qty',
                  'labor_cost', 'handle_var', 'subtype', 'stock_qty', '_is_reorder')
 
     next_sku: int = 1
@@ -70,7 +73,8 @@ class Order:
               relative_frequency: float, qty_rate: float, *,
               equilibrium_qty: int, reorder_point: int,
               lead_time_mean: float = 0.0, supply_cv: float = 0.0,
-              stock_plan=None, line: LineDistribution | None = None) -> 'Order':
+              stock_plan=None, line: LineDistribution | None = None,
+              pipeline_qty: int | None = None) -> 'Order':
         """Construct a order from supplied physical + demand values (not random sampling),
         applying all physical guardrails.  The single construction path for generated and
         DB-loaded orders — accepts demand/quantity as params so the default random Demand()
@@ -78,7 +82,9 @@ class Order:
         is reconstructed as Poisson(qty_rate) with provenance `assumed`.  The scalar is the
         law's rate parameter and every reader must see ONE value, so a Poisson law authored at
         the unclamped rate follows the clamp (what every pre-stamp load sampled), and a law
-        that agrees with neither RAISES.  Does NOT touch Order.next_sku (sku is explicit)."""
+        that agrees with neither RAISES.  `pipeline_qty` is the era's stamped lead pipeline
+        (None = not stamped; see `pipeline_allowance`).  Does NOT touch Order.next_sku (sku
+        is explicit)."""
         c = object.__new__(cls)
         c._sku = sku
         c.storage_type          = (handling, category)
@@ -107,6 +113,7 @@ class Order:
         c.lead_time_mean  = float(lead_time_mean)
         c.supply_cv       = float(supply_cv)
         c.stock_plan      = stock_plan
+        c.pipeline_qty    = None if pipeline_qty is None else max(0, int(pipeline_qty))
         c.labor_cost      = 0.0     # until compute_labor_cost() — was the class default
         c.handle_var      = 0.0
         return c
@@ -122,6 +129,7 @@ class Order:
         Order.next_sku += 1
         self.demand: Demand = Demand()
         self.lift_group: tuple[str, str] = storage_type
+        self.pipeline_qty = None
         self.labor_cost: float = 0.0    # until compute_labor_cost() — was the class default
         self.handle_var: float = 0.0
 
@@ -131,6 +139,28 @@ class Order:
     @property
     def sku(self) -> int:
         return self._sku
+
+    def pipeline_allowance(self) -> int:
+        """The units expected in transit over the lead -- what the order-up-to is raised by
+        so on-hand returns to the equilibrium when the lot lands (`inventory_reorder
+        ._fire_reorders`), and what the staffing derivation's expected lot reads.
+
+        The ONE definition.  Stamped (`pipeline_qty`, the era's `round(d_s x lead)` from
+        `simconfig/coverage.py`), the stamp is the answer.  Unstamped -- every flag-off run,
+        every pre-stamp file -- the manager's heuristic stands, byte for byte:
+        `round(rp x lead / (lead + 1))`, which assumed the reorder point encodes ~(lead + 1)
+        batches of demand.  Under the line floor `rp` encodes a LINE, which is why the era
+        stamps the pipeline instead of inferring it ("Choose the coverage floor", decision 6).
+        Zero at lead 0 either way.
+        """
+        pq = getattr(self, 'pipeline_qty', None)
+        if pq is not None:
+            return int(pq)
+        lead = max(0.0, float(getattr(self, 'lead_time_mean', 0.0)))
+        if lead <= 0.0:
+            return 0
+        rp = getattr(self, 'reorder_point', 0)
+        return round(rp * lead / (lead + 1.0))
 
     def reorder(self) -> 'Order':
         """Return a new shipment of this order: same SKU, dimensions, weight, type, and demand rates."""
@@ -153,6 +183,7 @@ class Order:
         c.supply_cv             = getattr(self, 'supply_cv',             0.0)
         # Preserve the multi-tier stock plan so reorders rebuild the same tier mix.
         c.stock_plan            = getattr(self, 'stock_plan',            None)
+        c.pipeline_qty          = getattr(self, 'pipeline_qty',          None)   # the stamp rides along
         # Carry the precomputed per-unit labor cost forward (same weight/coeffs);
         # expected_popularity/expected_labor are properties so they follow demand.
         c.labor_cost            = getattr(self, 'labor_cost',            0.0)
