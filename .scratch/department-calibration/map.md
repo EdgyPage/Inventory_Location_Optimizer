@@ -51,6 +51,11 @@ regime someone chose rather than one the defaults inherited.
     LANDED 2026-09-06 ([Build the line floor](issues/17-build-the-line-floor.md)); the 40-day
     check did NOT read in band -- the floor is not FIELDED on fulfillment (19) and not KEPT
     on the store (20), and overtime behind a labour-drained day raises the instrument (21).
+    AMENDED 2026-09-07 ([Field the floor](issues/19-field-the-floor.md)): the floor is a
+    PROMISE -- the warehouse is sized to hold it, the planner fields the REQUIREMENT exactly,
+    a run that cannot refuses -- and the catalogue carries NO stock levels: stock is a run's
+    declaration derived at setup in EVERY mode (ADR-0002). The era-only planner rule never
+    existed; there is one planner contract.
   - **No bespoke conversions implicit in the inventory.** A standing preference from the
     same decision: nothing authored on the catalogue may carry an implicit batch or day (the
     coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
@@ -267,14 +272,29 @@ regime someone chose rather than one the defaults inherited.
   and the store audit RAISED on overtime behind a labour-drained day.  Graduated 19, 20, 21;
   every era number stays PROVISIONAL until they resolve and the check is re-read.
 
+- [Field the floor](issues/19-field-the-floor.md): the floor is a PROMISE and the catalogue
+  carries NO stock levels. The check's shortfall was the tier MIX, not the section's size:
+  fulfillment's fixed 0.5/0.3/0.2 split against a required 11/63/26 drained ff_medium, and
+  demand mode alone leaves 15.8% short because `_add_one` charges the emptiest bucket by
+  absolute count, not the requirement's tier (the store's 7.9% too). So: the planner sizes
+  every bucket from `bucket_requirements` and fields each SKU at exactly that packing (no
+  growth, no shrink), checked against EMITTED capacity, refusing when a cap binds; the fixed
+  tier distribution is retired (depth classes / aisle split survive); the record stamps a
+  `fielded` block. The user's reframing removed `equilibrium_qty` / `reorder_point` /
+  `stock_plan` from the catalogue as a schema vintage, the generator's coverage-in-batches
+  knobs with them; the fixed point runs in every mode on the reporting frame's day -- a hard
+  break for flag-off inventories (ADR-0002). Graduated 22 -> 23.
+
 ## Not yet specified
 
-- **Re-reading the check.** Once [Field the floor](issues/19-field-the-floor.md),
-  [Let a base-stock top-up reach the shelf](issues/20-let-a-base-stock-top-up-reach-the-shelf.md)
-  and [Overtime behind a drained day](issues/21-overtime-behind-a-drained-day.md) resolve, ONE
-  40-day run on the reference pair re-reads 17's check; its shape (which arms, whether the
-  fulfillment warehouse grows) is dim until 19 decides whether the floor is a promise or a
-  request. Until then the era's numbers on both sections are provisional and the inbound
+- **Re-reading the check.** Once
+  [Let a base-stock top-up reach the shelf](issues/20-let-a-base-stock-top-up-reach-the-shelf.md),
+  [Overtime behind a drained day](issues/21-overtime-behind-a-drained-day.md),
+  [Retire the authored stock levels](issues/22-retire-the-authored-stock-levels.md) and
+  [Field the requirement](issues/23-field-the-requirement.md) resolve, ONE 40-day run on the
+  reference pair re-reads 17's check. 19 settled that the floor is a promise, so the
+  fulfillment warehouse WILL grow (demand sizing alone took it 977 -> 1,232 aisles; exact
+  fielding is 23's number to report); which arms is still dim. Until then the era's numbers on both sections are provisional and the inbound
   funnel's lift ([Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md)) has
   not happened.
 - **Ranked arms' steady-state placement.** 13 found FIFO drifts to the class-uniform smear; a

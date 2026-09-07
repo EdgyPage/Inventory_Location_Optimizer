@@ -316,13 +316,14 @@ calibration simulations; a formula error shows in the equilibrium report)
 
 **Stock coverage**:
 How long a SKU's order-up-to quantity lasts, in days of its OWN expected demand — never in
-generation batches, which are not a unit of time. Under an era it is a declared input
+generation batches, which are not a unit of time. It is a declared input of every run
 (`coverage_days`, with `safety_days` for the reorder point) and every SKU's levels are
-re-derived from it at setup, the warehouse sized from them through a pair-level fixed point.
+derived from it at setup, the warehouse sized from them through a pair-level fixed point.
+The catalogue carries no stock levels: a level is a run's declaration, never a SKU's fact.
 It means "hold this many days of demand, never less than one pick's worth": a SKU whose
 coverage is shorter than the interval between its lines sits on the line floor and runs
 base stock, and the record states how much of a section, and of its demand, does.
-_Avoid_: coverage batches, equilibrium coverage (the catalogue's flag-off shape), unit floor
+_Avoid_: coverage batches, equilibrium coverage, authored levels, initial stock, unit floor
 
 **Line distribution**:
 The law one line of a SKU's demand is drawn from — the quantity a single pick asks for. A
@@ -337,7 +338,9 @@ _Avoid_: quantity rate (the parameter, not the law), Poisson (one family, not th
 The least stock a SKU ever holds: one line's expected quantity, rounded up, read off its line
 distribution — a pick's worth of itself. Applied to both the order-up-to quantity and the
 reorder point. A declared number of lines (`floor_lines`, one by default) scales it.
-_Avoid_: unit floor, minimum stock, Q = 1
+The floor is a promise, not a request: the warehouse is sized to hold it, a planned level
+is never below it, and a run that cannot field it refuses rather than fielding less.
+_Avoid_: unit floor, minimum stock, Q = 1, the floor yields to capacity
 
 **Base stock**:
 The replenishment regime of a SKU on the line floor: every pick reorders exactly what it took,
