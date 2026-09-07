@@ -846,17 +846,27 @@ _CREATE_SHIFT_DAYS = """
                                           -- arm's absolute clock
         end_s          REAL    NOT NULL,  -- STAMP: when the shift ENDED -- the drain instant or
                                           -- the cap, whichever came first (timeline.shift_end)
-        drained        INTEGER NOT NULL,  -- 1 = nothing was cut and no work stood at close-out;
+        drained        INTEGER NOT NULL,  -- 1 = nothing was cut and no LABOUR stood at close-out
+                                          -- (equilibrium.is_drained: put + dock + carry_labour;
+                                          -- the supply carry is stock, not labour);
                                           -- 0 = CAPPED: declared throughput not delivered
         standing       INTEGER NOT NULL,  -- LEVEL at close-out: standing_put + standing_dock +
                                           -- standing_carry.  A MIXED account (packs + pieces),
-                                          -- kept because "was anything standing" is the question
-                                          -- the drained verdict answers; the three parts below
-                                          -- are the honest per-account reads
+                                          -- kept because "was anything standing" is the first
+                                          -- question; the drained verdict reads the LABOUR
+                                          -- part (put + dock + carry_labour), and the parts
+                                          -- below are the honest per-account reads
         standing_put   INTEGER NOT NULL,  -- LEVEL: storage units in the put queues + held
         standing_dock  INTEGER NOT NULL,  -- LEVEL: storage units on the dock floor
         standing_carry INTEGER NOT NULL,  -- LEVEL: merchandise units of demand carried to the
-                                          -- next batch (the cut's roll-over)
+                                          -- next batch (the cut's roll-over) = labour + supply
+        standing_carry_labour INTEGER NOT NULL,  -- LEVEL: the part the CUT left
+                                          -- (`unpicked_daycut`): standing LABOUR, the only
+                                          -- carry the drained verdict reads
+        standing_carry_supply INTEGER NOT NULL,  -- LEVEL: the part the SHELF left
+                                          -- (`unpicked_unavailable` + `unpicked_unstocked`):
+                                          -- stock not delivered, judged by missed share,
+                                          -- never by the drained verdict
         last_finish    REAL    NOT NULL,  -- STAMP: the last instant any crew was working in
                                           -- this day (pick, put or receive clock, whichever
                                           -- ran latest); > cap_end is START-gate overtime
@@ -1050,7 +1060,14 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 this shape.  2026-08-31 .. 2026-09-05.  No published run used it; a
     #                 run of this vintage has no per-day drained/capped verdict, so the
     #                 equilibrium check cannot be read over it.
-    known_ids=('be2a593727be',
+    #   487a65bf83a9  the ledger before the CARRY SPLIT: one `standing_carry`, and `drained`
+    #                 counted the supply carry as standing work, so a day with unstocked
+    #                 demand could never drain.  2026-09-05 .. 2026-09-06 (the reference-run
+    #                 passes of "Take the reference run" and the coverage smoke runs; no
+    #                 published run).  Served by a `shift_day_frame` override that reads the
+    #                 two halves as NULL; its `drained` verdicts stand as written.
+    known_ids=('487a65bf83a9',  # the ledger before the carry split, 2026-09-05 .. 2026-09-06
+              'be2a593727be',
               'ce01ca0095b2',
               '31cb7d1b1199',
               '8af17e7d417e',
@@ -1200,11 +1217,18 @@ SIM_CAPABILITIES = {c.name: c for c in (
         name=CAP_SHIFT_DAYS, table='shift_days', exact=True,
         phase='per working day, at close-out (the next day\'s first batch; the final day '
               'flushed at run end)',
-        caveat='ONE ROW PER WORKING DAY of ONE ARM. `drained` is the per-day verdict; the '
-               '`standing_*` columns are LEVELS at close-out and never sum across days. '
+        caveat='ONE ROW PER WORKING DAY of ONE ARM. `drained` is the per-day verdict -- '
+               'LABOUR-ONLY since the carry split (equilibrium.is_drained: the supply carry '
+               'is stock not delivered, never standing work); the `standing_*` columns are '
+               'LEVELS at close-out and never sum across days. The split halves '
+               '(standing_carry_labour / standing_carry_supply) are NOT part of this '
+               'capability: the pre-split vintage 487a65bf83a9 lacks them, so they are '
+               'served only through the `shift_day_frame` query, NULL on that vintage. '
                'Written only under --shift-drain-or-cap: zero rows on every run before the '
                'calibrated era and on every flag-off run since, both of which mean "no day '
                'was ever closed out", not "every day drained".',
+        # The INTERSECTION over every vetted shape that has the table (the gate insists);
+        # the carry halves ride the named query, not the capability.
         columns=('run_id', 'day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put',
                  'standing_dock', 'standing_carry', 'last_finish')),
     _capability.Capability(
@@ -1414,13 +1438,24 @@ _dataset.register_query(_dataset.Query(
     tables={'yard_drains': ('run_id', *_YARD_DRAIN_COLS)}))
 
 _SHIFT_DAY_COLS = ('day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put',
-                   'standing_dock', 'standing_carry', 'last_finish')
+                   'standing_dock', 'standing_carry', 'standing_carry_labour',
+                   'standing_carry_supply', 'last_finish')
 _dataset.register_query(_dataset.Query(
     name='shift_day_frame', family='sim_db',
     sql=('SELECT ' + ', '.join(_SHIFT_DAY_COLS)
          + ' FROM shift_days WHERE run_id = :run_id ORDER BY day'),
     columns=_SHIFT_DAY_COLS,
     tables={'shift_days': ('run_id', *_SHIFT_DAY_COLS)}))
+#: The ledger before the carry split: one `standing_carry` with no cause.  The two halves
+#: are read as NULL -- unknown, never 0 -- and the row's `drained` stands as that vintage's
+#: runner judged it (the supply carry counted as standing work): re-deriving it here would be
+#: a second definition of "drained", and there is exactly one (`simconfig.equilibrium.is_drained`).
+PRE_CARRY_SPLIT_SIM_SCHEMA_ID = '487a65bf83a9'
+_dataset.override(
+    'sim_db', 'shift_day_frame', PRE_CARRY_SPLIT_SIM_SCHEMA_ID,
+    'SELECT ' + ', '.join(c for c in _SHIFT_DAY_COLS if not c.startswith('standing_carry_'))
+    + ', NULL AS standing_carry_labour, NULL AS standing_carry_supply'
+    + ' FROM shift_days WHERE run_id = :run_id ORDER BY day')
 
 # Production labour, folded per (batch, role).  `work_events` is another whole-table
 # absence before its vintage, so it takes the same no-`optional` treatment as the yard
@@ -2517,14 +2552,17 @@ def _insert_yard_drains(con: sqlite3.Connection, run_id: int, records: list) -> 
 
 def _insert_shift_days(con: sqlite3.Connection, run_id: int, records: list) -> None:
     """`(day, cap_end, end_s, drained, standing, standing_put, standing_dock, standing_carry,
-    last_finish)` tuples -- `strategy_runner`'s close-out row, one per working day."""
+    standing_carry_labour, standing_carry_supply, last_finish)` tuples -- `strategy_runner`'s
+    close-out row, one per working day.  `standing_carry` is the labour and supply halves
+    summed; the halves are what the drained verdict and the missed-share report read."""
     con.executemany(
         'INSERT OR REPLACE INTO shift_days '
         '(run_id, day, cap_end, end_s, drained, standing, standing_put, standing_dock, '
-        'standing_carry, last_finish) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        'standing_carry, standing_carry_labour, standing_carry_supply, last_finish) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
         [(run_id, int(day), float(cap), float(end), int(bool(dr)), int(st), int(sp), int(sd),
-          int(sc), float(lf))
-         for day, cap, end, dr, st, sp, sd, sc, lf in records])
+          int(sc), int(scl), int(scs), float(lf))
+         for day, cap, end, dr, st, sp, sd, sc, scl, scs, lf in records])
 
 
 def save_shift_days(path: str, run_id: int, records: list) -> None:
@@ -2686,10 +2724,15 @@ def load_shift_days(path: str, run_id: int) -> list:
     """Every working day's close-out, in day order.  `[]` on a pre-era vintage AND on an
     era-less run of the new vintage -- both mean "no day was ever closed out".
 
-    `drained` is the verdict the equilibrium check reads per day; the `standing_*` columns
-    are LEVELS at close-out and never sum across days.  `end_s < cap_end` with `drained`
-    is a day the crews got off the clock early; `last_finish > cap_end` is START-gate
-    overtime (a task begun before the whistle finished after it).
+    `drained` is the verdict the equilibrium check reads per day -- LABOUR-ONLY
+    (`simconfig.equilibrium.is_drained`): the carry is split into `standing_carry_labour`
+    (the cut's, standing work) and `standing_carry_supply` (the shelf's, stock not
+    delivered), and only the first can keep a day from draining.  On the pre-split vintage
+    (`PRE_CARRY_SPLIT_SIM_SCHEMA_ID`) both halves read as None and `drained` is as that
+    runner judged it.  The `standing_*` columns are LEVELS at close-out and never sum
+    across days.  `end_s < cap_end` with `drained` is a day the crews got off the clock
+    early; `last_finish > cap_end` is START-gate overtime (a task begun before the whistle
+    finished after it).
     """
     return _query_rows('shift_day_frame', path, run_id=run_id) or []
 

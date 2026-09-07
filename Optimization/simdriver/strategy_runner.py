@@ -80,6 +80,8 @@ from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
+# The ONE definition of a drained day (labour-only); the ledger's `drained` is written with it.
+from Optimization.simconfig.equilibrium import is_drained as _is_drained
 from Optimization.metrics.bin_recorder import BinRecorder
 from Optimization.metrics.Simulation_Analytics import (
     extract_batch_stats, extract_task_stats, extract_picker_events, extract_picks,
@@ -669,16 +671,25 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     _shift_prev_day = None          # per-day close-out state for the shift ledger
     _shift_cut_today = False
     _shift_last_finish = 0.0
-    _shift_standing = (0, 0, 0)     # (put queues + held, dock floor, carried demand) after
-                                    # the LAST batch processed -- the state a day is closed on
+    _shift_standing = (0, 0, 0, 0)  # (put queues + held, dock floor, LABOUR carry, SUPPLY
+                                    # carry) after the LAST batch processed -- the state a
+                                    # day is closed on.  The carry is split by cause because
+                                    # only the cut's own half (`unpicked_daycut`) is standing
+                                    # work; the shelf's half is stock not delivered
+                                    # (`equilibrium.is_drained` reads the first alone)
 
     def _shift_close_out(day: int, standing: tuple, last_finish: float, cut: bool) -> tuple:
         """Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
-        standing, standing_put, standing_dock, standing_carry, last_finish)`, and the log
-        line.  A day DRAINED if nothing was cut in it and no standing work survives it (put
-        queues + held + the dock floor + carried demand -- never the lead queue: transit is
+        standing, standing_put, standing_dock, standing_carry, standing_carry_labour,
+        standing_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing
+        was cut in it and no standing LABOUR survives it: put queues + held + the dock floor
+        + the cut's own carry (`unpicked_daycut`).  Never the lead queue (transit is
         calendar, not labour; and releases are exhausted by construction at a day
-        boundary).  The end instant is `timeline.shift_end`'s arithmetic; days stay
+        boundary), and never the SUPPLY carry (`unpicked_unavailable` /
+        `unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as
+        standing work it made every finite stock level cap every day).
+        `equilibrium.is_drained` is the one definition; this closure only gathers its
+        arguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay
         origin-aligned, so this is a REPORT of when the crews got off the clock, never a
         scheduler.
 
@@ -691,16 +702,19 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         -- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which
         persisting the row was what made visible.  Called once per day boundary, and once
         more after the loop for the final day, which has no next day to close it."""
-        _s_put, _s_dock, _s_carry = (int(x) for x in standing)
+        _s_put, _s_dock, _s_labour, _s_supply = (int(x) for x in standing)
+        _s_carry = _s_labour + _s_supply
         _standing = _s_put + _s_dock + _s_carry
-        _drained = (not cut) and _standing == 0
+        _drained = _is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,
+                               standing_carry_labour=_s_labour)
         _cap_end = _release.day.end_of(day)
         _end = _tl_shift_end(_cap_end, last_finish, _drained)
         log.info(f'  [shift] day {day} ended at {_end:,.0f} s '
                  f'({"drained" if _drained and _end < _cap_end else "capped"}; '
-                 f'standing={_standing})')
+                 f'standing={_standing}: put={_s_put} dock={_s_dock} '
+                 f'carry labour={_s_labour} supply={_s_supply})')
         return (day, _cap_end, _end, _drained, _standing, _s_put, _s_dock, _s_carry,
-                float(last_finish))
+                _s_labour, _s_supply, float(last_finish))
     # Whether unpicked demand joins the next batch.  Independent of the cut: two of the three
     # causes below happen with no day boundary in sight.
     _roll_over = bool(_wd.get('roll_over_unpicked'))
@@ -1625,6 +1639,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # observation and cost nothing; feeding them back into the next batch is the
         # behaviour change, and it is the one that ends comparability with the archive.
         _carry_now: dict = {}
+        # The same carry split by CAUSE FAMILY for the shift ledger: the cut's own carry is
+        # standing LABOUR; the two supply reasons are stock not delivered, and only the
+        # first can keep a day from draining (`equilibrium.is_drained`).
+        _carry_labour = 0
+        _carry_supply = 0
         for _reason, _src in (('unpicked_daycut', sim.carried),
                               ('unpicked_unavailable', sim.unmet),
                               ('unpicked_unstocked', _shortfall or {})):
@@ -1633,7 +1652,13 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                     continue
                 _carry_now[_sku] = _carry_now.get(_sku, 0) + _q
                 cov.append((i, _reason, _sku, _q))
+                if _reason == 'unpicked_daycut':
+                    _carry_labour += _q
+                else:
+                    _carry_supply += _q
         _pending = _carry_now if _roll_over else {}
+        # What the ledger sees as standing carry: exactly what rolls forward, by cause.
+        _pending_split = (_carry_labour, _carry_supply) if _roll_over else (0, 0)
         # ── demand ledger ────────────────────────────────────────────────────
         # A pick can never exceed the demand that asked for it.  Same discipline as the
         # conservation ledger below: LOGGED, never raised, and only on the first break, so
@@ -1710,9 +1735,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
 
         # ── the drain-or-cap shift's ledger ───────────────────────────────────
         # Per-DAY close-out, decided at the first batch of the NEXT day: a day drained if
-        # nothing was cut in it and no standing work survives it (put queues + held + the
-        # dock floor + carried demand — never the lead queue: transit is calendar, not
-        # labour; and releases are exhausted by construction at a day boundary).  The end
+        # nothing was cut in it and no standing LABOUR survives it (put queues + held + the
+        # dock floor + the cut's own carry — never the lead queue: transit is calendar, not
+        # labour; never the supply carry: stock not delivered is missed share's quantity,
+        # `equilibrium.is_drained`; and releases are exhausted by construction at a day
+        # boundary).  The end
         # instant is `timeline.shift_end`'s arithmetic; days stay origin-aligned, so this
         # is a REPORT of when the crews got off the clock, never a scheduler.
         #
@@ -1731,7 +1758,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             _shift_cut_today = (_shift_cut_today or bool(sim.carried)
                                 or bool(bs.recv_cut))
             _shift_last_finish = max(_shift_last_finish, arm_clock, put_clock, recv_clock)
-            _shift_standing = (mgr.queue_depth, mgr.dock_depth, sum(_pending.values()))
+            _shift_standing = (mgr.queue_depth, mgr.dock_depth, *_pending_split)
 
         if len(pb) >= checkpoint:
             t_s0 = time.perf_counter()

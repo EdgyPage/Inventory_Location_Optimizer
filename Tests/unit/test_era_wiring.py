@@ -307,21 +307,54 @@ def test_shift_days_rows_ride_the_bundle_and_read_back_from_the_file(tmp_path):
     save_checkpoint_bundle(db, run_id, batch_stats=[], task_stats=[], picker_events=[],
                            picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
                            reorder_queue=[],
-                           shift_days=[(0, 28800.0, 20000.0, True, 0, 0, 0, 0, 20000.0),
-                                       (1, 57600.0, 57600.0, False, 233, 200, 30, 3, 58000.0)])
-    save_shift_days(db, run_id, [(2, 86400.0, 86400.0, False, 5, 5, 0, 0, 86400.0)])
+                           shift_days=[(0, 28800.0, 20000.0, True, 0, 0, 0, 0, 0, 0, 20000.0),
+                                       (1, 57600.0, 57600.0, False, 233, 200, 30, 3, 1, 2,
+                                        58000.0)])
+    save_shift_days(db, run_id, [(2, 86400.0, 86400.0, False, 5, 5, 0, 0, 0, 0, 86400.0)])
     rows = load_shift_days(db, run_id)
     assert [r['day'] for r in rows] == [0, 1, 2]
     assert rows[0]['drained'] == 1 and rows[0]['end_s'] == 20000.0
     assert (rows[1]['standing'], rows[1]['standing_put'], rows[1]['standing_dock'],
             rows[1]['standing_carry']) == (233, 200, 30, 3)
+    # the carry by cause: the cut's (labour) and the shelf's (supply) halves
+    assert (rows[1]['standing_carry_labour'], rows[1]['standing_carry_supply']) == (1, 2)
     assert rows[1]['last_finish'] == 58000.0 > rows[1]['cap_end'], 'START-gate overtime kept'
     # INSERT OR REPLACE: re-flushing a day (a resume replaying a window) does not duplicate
-    save_shift_days(db, run_id, [(2, 86400.0, 80000.0, True, 0, 0, 0, 0, 80000.0)])
+    save_shift_days(db, run_id, [(2, 86400.0, 80000.0, True, 0, 0, 0, 0, 0, 0, 80000.0)])
     rows = load_shift_days(db, run_id)
     assert len(rows) == 3 and rows[2]['drained'] == 1
     with sqlite3.connect(db) as con:
         assert con.execute('SELECT COUNT(*) FROM shift_days').fetchone()[0] == 3
+
+
+def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as_written(
+        tmp_path):
+    """487a65bf83a9's ledger has one `standing_carry` and a `drained` judged with the supply
+    carry counted as standing work.  The `shift_day_frame` override serves it with the two
+    halves as NULL -- unknown, never 0 -- and the verdict is NOT re-derived (one definition:
+    `equilibrium.is_drained`, and it lives in the writer)."""
+    from Optimization.persistence.Picking_Data import (
+        PRE_CARRY_SPLIT_SIM_SCHEMA_ID, load_shift_days, save_shift_days)
+    db, run_id = _fresh_db(tmp_path)
+    save_shift_days(db, run_id, [(0, 28800.0, 28800.0, False, 7, 0, 0, 7, 0, 7, 28800.0)])
+    con = sqlite3.connect(db)
+    con.execute('ALTER TABLE shift_days DROP COLUMN standing_carry_labour')
+    con.execute('ALTER TABLE shift_days DROP COLUMN standing_carry_supply')
+    con.execute('UPDATE simulation_runs SET sim_schema_id = ?',
+                (PRE_CARRY_SPLIT_SIM_SCHEMA_ID,))
+    con.commit()
+    # fold the WAL into the main file: the loaders open IMMUTABLE and never read a hot WAL
+    con.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+    con.close()
+    # the file now IS the pre-split vintage -- stamped, and the observed shape agrees
+    from Schema import dataset
+    with dataset.bind(db, 'sim_db', immutable=True) as ds:
+        assert (ds.schema_id, ds.source) == (PRE_CARRY_SPLIT_SIM_SCHEMA_ID, 'stamped')
+    rows = load_shift_days(db, run_id)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r['drained'] == 0 and r['standing_carry'] == 7, 'the old verdict stands as written'
+    assert r['standing_carry_labour'] is None and r['standing_carry_supply'] is None
 
 
 def test_an_era_less_run_and_a_pre_era_vintage_both_read_as_no_days(tmp_path):
@@ -346,6 +379,13 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     assert 'sd.append(_shift_close_out(_shift_prev_day, _shift_standing,' in src
     assert src.count('shift_days=sd') == 2, 'both bundle flushes carry the ledger'
     assert 'sd.clear()' in src
+    # ONE definition of drained, and it is labour-only: the close-out calls
+    # `equilibrium.is_drained` with the LABOUR half of the carry and never re-derives it
+    assert ('_is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,\n'
+            '                               standing_carry_labour=_s_labour)') in src
+    assert '_drained = (not cut)' not in src, 'the verdict must not be re-derived inline'
+    assert '_shift_standing = (mgr.queue_depth, mgr.dock_depth, *_pending_split)' in src
+    assert "if _reason == 'unpicked_daycut':" in src, 'the carry is split by cause family'
     # The boundary test precedes the fold of this batch's clocks/cut/depths, so a day closes
     # on ITS last batch's state (the log-only ledger mis-attributed every first batch).
     fold = src.index('_shift_last_finish = max(_shift_last_finish, arm_clock')

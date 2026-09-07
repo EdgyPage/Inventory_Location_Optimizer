@@ -15,6 +15,12 @@ function as a PRECONDITION; this one REPORTS (decision 7):
 
 Nothing here fails a run.  The sim never judges itself, and neither does the audit.
 
+A DRAINED day is a LABOUR verdict (`equilibrium.is_drained`, amending decision 4 by "Choose
+the coverage floor", decision 7): the supply carry -- demand no bin could serve -- is stock
+not delivered, `missed_share`'s quantity, and never keeps a day from draining.  The per-day
+frame carries both halves (`standing_carry_labour` / `standing_carry_supply`) and the
+drained clause's reading lists the days that closed with supply carry standing.
+
 ## Two marks, one quantity
 
 `days_capped` is the ONE quantity (ranked, absolute + percent vs baseline): a capped day

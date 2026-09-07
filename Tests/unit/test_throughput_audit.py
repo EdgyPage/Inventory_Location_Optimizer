@@ -25,9 +25,11 @@ S = 28800.0
 def _ledger():
     return [{'day': 0, 'cap_end': S, 'end_s': S - 400, 'drained': 1, 'standing': 0,
              'standing_put': 0, 'standing_dock': 0, 'standing_carry': 0,
+             'standing_carry_labour': 0, 'standing_carry_supply': 0,
              'last_finish': S - 400},
             {'day': 1, 'cap_end': 2 * S, 'end_s': 2 * S, 'drained': 0, 'standing': 7,
              'standing_put': 5, 'standing_dock': 2, 'standing_carry': 0,
+             'standing_carry_labour': 0, 'standing_carry_supply': 0,
              'last_finish': 2 * S + 90.0}]
 
 
@@ -67,6 +69,22 @@ def test_the_day_frame_joins_the_ledger_to_the_batches_and_the_legs():
     assert df['pick_utilization'].tolist() == pytest.approx([0.25, 20000.0 / (2 * S)])
     assert df['put_utilization'].tolist() == pytest.approx([3000.0 / S, 5000.0 / S])
     assert df['recv_utilization'].isna().all(), 'no receiving crew expected: NaN, not zero'
+
+
+def test_the_carry_halves_ride_the_frame_and_a_pre_split_row_reads_nan_never_zero():
+    ledger = _ledger()
+    ledger[1].update({'standing': 16, 'standing_carry': 9,
+                      'standing_carry_labour': 2, 'standing_carry_supply': 7})
+    df = _sdf(ledger, _batches(), _work(), _expectations())
+    assert list(df['standing_carry_labour']) == [0, 2]
+    assert list(df['standing_carry_supply']) == [0, 7]
+    # the pre-split vintage: the loader hands the halves back as None -> NaN, never 0
+    old = [{k: (None if k.startswith('standing_carry_') else v) for k, v in r.items()}
+           for r in _ledger()]
+    df = _sdf(old, _batches(), _work(), _expectations())
+    assert df['standing_carry_labour'].isna().all()
+    assert df['standing_carry_supply'].isna().all()
+    assert list(df['standing_carry']) == [0, 0] and list(df['capped']) == [0, 1]
 
 
 def test_without_expectations_the_verdicts_render_and_every_utilization_is_nan():

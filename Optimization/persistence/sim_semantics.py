@@ -413,9 +413,11 @@ SIM_DB_SEMANTICS: dict = {
                               note='the drain instant or the cap, whichever came first '
                                    '(timeline.shift_end); < cap_end only when drained'),
         'drained':        Col(LABEL, 'flag', 'row',
-                              note='1 = nothing cut and nothing standing at close-out; 0 = '
-                                   'CAPPED, "declared throughput not delivered". The '
-                                   'equilibrium check reads this per day, never a sum'),
+                              note='1 = nothing cut and no LABOUR standing at close-out (put + '
+                                   'dock + carry_labour; the supply carry is stock, not '
+                                   'labour -- equilibrium.is_drained); 0 = CAPPED, "declared '
+                                   'throughput not delivered". The equilibrium check reads '
+                                   'this per day, never a sum'),
         'standing':       Col(LEVEL, 'units', 'row',
                               note='a MIXED account — standing_put + standing_dock (packs) + '
                                    'standing_carry (pieces) — kept because "was anything '
@@ -426,7 +428,16 @@ SIM_DB_SEMANTICS: dict = {
         'standing_dock':  Col(LEVEL, 'units', 'row', account=PACKS,
                               note='storage units on the dock floor at close-out'),
         'standing_carry': Col(LEVEL, 'units', 'row', account=PIECES,
-                              note='demand the cut rolled into the next batch'),
+                              note='demand rolled into the next batch = labour + supply'),
+        'standing_carry_labour': Col(LEVEL, 'units', 'row', account=PIECES,
+                                     note="the cut's own carry (unpicked_daycut): standing "
+                                          'LABOUR, the only carry the drained verdict reads. '
+                                          'NULL on the pre-split vintage 487a65bf83a9'),
+        'standing_carry_supply': Col(LEVEL, 'units', 'row', account=PIECES,
+                                     note="the shelf's carry (unpicked_unavailable + "
+                                          'unpicked_unstocked): stock not delivered, judged '
+                                          'by missed share, never by the drained verdict. '
+                                          'NULL on the pre-split vintage'),
         'last_finish':    Col(STAMP, 's', 'arm', clock=SIM,
                               note='the latest crew clock in the day; > cap_end is START-gate '
                                    'overtime'),

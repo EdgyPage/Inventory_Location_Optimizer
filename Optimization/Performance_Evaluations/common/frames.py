@@ -58,7 +58,8 @@ SEMANTIC_USES = {'sim_db': {
     'shift_days.day': 'read', 'shift_days.cap_end': 'read', 'shift_days.end_s': 'read',
     'shift_days.drained': 'read', 'shift_days.standing': 'read',
     'shift_days.standing_put': 'read', 'shift_days.standing_dock': 'read',
-    'shift_days.standing_carry': 'read', 'shift_days.last_finish': 'read',
+    'shift_days.standing_carry': 'read', 'shift_days.standing_carry_labour': 'read',
+    'shift_days.standing_carry_supply': 'read', 'shift_days.last_finish': 'read',
 }}
 
 
@@ -385,10 +386,17 @@ def _wdf(rows, df_b, df_t):
 
 
 _SHIFT_COLS = ['day', 'cap_end', 'end_s', 'drained', 'capped', 'standing', 'standing_put',
-               'standing_dock', 'standing_carry', 'last_finish', 'overtime_s', 'n_batches',
+               'standing_dock', 'standing_carry', 'standing_carry_labour',
+               'standing_carry_supply', 'last_finish', 'overtime_s', 'n_batches',
                'released_late_s', 'items_demanded', 'total_items', 'pick_seconds',
                'put_seconds', 'unload_seconds', 'pick_utilization', 'put_utilization',
                'recv_utilization']
+
+
+def _level_or_nan(v):
+    """A close-out LEVEL the vintage did not record (the pre-split carry halves) is NaN --
+    unknown -- never 0, which would read as "nothing stood"."""
+    return np.nan if v is None else int(v)
 
 
 def _sdf(rows, df_b, df_w, expectations=None):
@@ -418,6 +426,10 @@ def _sdf(rows, df_b, df_w, expectations=None):
         'standing_put'  : int(r['standing_put']),
         'standing_dock' : int(r['standing_dock']),
         'standing_carry': int(r['standing_carry']),
+        # The carry by cause: labour (the cut's) is what the drained verdict read; supply
+        # (the shelf's) is reported beside it.  NaN on the pre-split vintage.
+        'standing_carry_labour': _level_or_nan(r.get('standing_carry_labour')),
+        'standing_carry_supply': _level_or_nan(r.get('standing_carry_supply')),
         'last_finish'   : float(r['last_finish']),
     } for r in rows]).sort_values('day').reset_index(drop=True)
     df['capped'] = 1 - df['drained']

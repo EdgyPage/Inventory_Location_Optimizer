@@ -281,8 +281,10 @@ days stay origin-aligned — the shift timers happen at the same time every day.
 _Avoid_: shift (for the reporting frame that merely labels hours)
 
 **Standing work**:
-The labor a shift can end on: released-but-unpicked demand, queued puts and held items, and
-the dock floor. Merchandise in transit is calendar, not standing work.
+The labor a shift can end on: demand the cut left unpicked, queued puts and held items, and
+the dock floor. Merchandise in transit is calendar, not standing work; demand the shelf could
+not serve (unstocked or unavailable stock) is missed share, not standing work — a day drains
+on its labor alone, and no finite stock level is asked to drain it.
 
 **Duty cycle**:
 The share of the site's production time a crew is actually granted to work. Denominated

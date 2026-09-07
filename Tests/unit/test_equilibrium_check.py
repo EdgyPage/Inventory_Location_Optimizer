@@ -39,13 +39,19 @@ def _expectations(**over):
     return base
 
 
-def _shift(day, *, drained=True, cap=None, end=None, last=None, standing=0):
+def _shift(day, *, drained=True, cap=None, end=None, last=None, standing=0, labour=0,
+           supply=0):
+    """One ledger row.  `standing` is put-queue units; `labour` / `supply` are the two
+    halves of the carry (the cut's, the shelf's).  `drained` is the ROW'S verdict, as the
+    runner wrote it -- the clause reads it, never re-derives it."""
     cap = S * (day + 1) if cap is None else cap
     end = (cap - 1000.0 if drained else cap) if end is None else end
     last = end if last is None else last
     return {'day': day, 'cap_end': cap, 'end_s': end, 'drained': int(drained),
-            'standing': standing, 'standing_put': standing, 'standing_dock': 0,
-            'standing_carry': 0, 'last_finish': last}
+            'standing': standing + labour + supply, 'standing_put': standing,
+            'standing_dock': 0, 'standing_carry': labour + supply,
+            'standing_carry_labour': labour, 'standing_carry_supply': supply,
+            'last_finish': last}
 
 
 def _batch(day, *, makespan, items, demanded, late=0.0, batch_id=None):
@@ -110,6 +116,61 @@ def test_a_day_the_ledger_never_closed_fails_rather_than_passing_vacuously():
     v = _check(shift, batch, work)
     assert not v.passed and v.clauses['drained'].reading['missing'] == [3]
     assert 'never closed out' in v.clauses['drained'].reason
+
+
+# ── the drained verdict is LABOUR-ONLY ("Choose the coverage floor", decision 7) ─────
+
+
+def test_is_drained_reads_labour_only_and_never_the_supply_carry():
+    import inspect
+    # a crew that realized every task drained its day, whatever the shelf held
+    assert eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0)
+    # each labour term, ALONE, caps the day
+    assert not eq.is_drained(cut=True, standing_put=0, standing_dock=0, standing_carry_labour=0)
+    assert not eq.is_drained(cut=False, standing_put=1, standing_dock=0, standing_carry_labour=0)
+    assert not eq.is_drained(cut=False, standing_put=0, standing_dock=1, standing_carry_labour=0)
+    assert not eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=1)
+    # the supply carry is not even an argument: there is nothing to pass that could cap a day
+    params = inspect.signature(eq.is_drained).parameters
+    assert 'standing_carry_supply' not in params and 'standing_carry' not in params
+
+
+def test_a_day_with_supply_carry_only_is_drained_and_the_clause_reports_it():
+    shift, batch, work = _window()
+    # day 2 closed with 40 units the shelf could not serve rolling forward, and nothing else
+    verdict = eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0)
+    shift[2] = _shift(2, drained=verdict, supply=40)
+    assert shift[2]['standing'] == 40, 'the mixed level still counts it'
+    v = _check(shift, batch, work)
+    assert v.passed, v.reasons
+    r = v.clauses['drained'].reading
+    assert r['capped'] == [] and r['drained'] == 6
+    assert r['supply_standing_days'] == [2] and r['supply_standing_max_units'] == 40
+    assert r['supply_split_recorded'] is True
+    assert '1 with supply carry standing' in eq.summarize(v)
+
+
+def test_a_day_with_daycut_carry_only_is_capped():
+    shift, batch, work = _window()
+    verdict = eq.is_drained(cut=True, standing_put=0, standing_dock=0, standing_carry_labour=15)
+    shift[2] = _shift(2, drained=verdict, labour=15)
+    v = _check(shift, batch, work)
+    assert not v.passed and v.clauses['drained'].reading['capped'] == [2]
+    assert v.clauses['drained'].reading['supply_standing_days'] == []
+
+
+def test_a_pre_split_ledger_reads_as_no_split_recorded_and_its_verdicts_stand():
+    """487a65bf83a9's rows carry the halves as NULL (None off the loader, NaN off a frame);
+    the clause reports the split as unrecorded and judges the row's own `drained`."""
+    shift, batch, work = _window()
+    for k, row in enumerate(shift):
+        row['standing_carry_labour'] = None if k < 3 else float('nan')
+        row['standing_carry_supply'] = None if k < 3 else float('nan')
+    v = _check(shift, batch, work)
+    assert v.passed, v.reasons
+    r = v.clauses['drained'].reading
+    assert r['supply_split_recorded'] is False and r['supply_standing_days'] == []
+    assert r['supply_standing_max_units'] == 0
 
 
 def test_a_late_release_behind_a_drained_day_raises_as_an_instrument_bug():
@@ -307,9 +368,10 @@ def test_check_reads_the_three_sources_off_a_sim_db(tmp_path):
                            picker_events=[], picks=[], bin_placements=[],
                            bin_evictions=[], aisle_metrics=[], reorder_queue=[],
                            work_events=work,
-                           shift_days=[(0, S, S - 500, True, 0, 0, 0, 0, S - 500),
-                                       (1, 2 * S, 2 * S - 500, True, 0, 0, 0, 0, 2 * S - 500)])
-    save_shift_days(db, run_id, [(2, 3 * S, 3 * S, False, 9, 9, 0, 0, 3 * S + 40)])
+                           shift_days=[(0, S, S - 500, True, 0, 0, 0, 0, 0, 0, S - 500),
+                                       (1, 2 * S, 2 * S - 500, True, 0, 0, 0, 0, 0, 0,
+                                        2 * S - 500)])
+    save_shift_days(db, run_id, [(2, 3 * S, 3 * S, False, 9, 9, 0, 0, 0, 0, 3 * S + 40)])
     # the fold now carries units: Σ qty per (batch, role), the reference run's denominator
     rows = load_work_hours(db, run_id)
     assert {(r['role'], r['units']) for r in rows if r['batch_id'] == 0} == \

@@ -126,3 +126,14 @@ itself would fail every honest run.
 since its window precondition is 10's function; [Build the derivation, the calibration record, and
 the era wiring](08-build-the-derivation-and-era-wiring.md) gains the `shift_days` ledger, the
 `expected_utilization` derived values and the `band_tol` input (comment).
+
+## Comments
+
+**2026-09-06 -- decision 4's first clause AMENDED** by
+[Narrow the drained clause to labour](18-narrow-the-drained-clause-to-labour.md) (from "Choose the
+coverage floor", decision 7): "every day DRAINED" is a LABOUR judgment -- nothing cut, no put or
+dock work standing, no `unpicked_daycut` carry. The two SUPPLY carry reasons are stock not
+delivered, which the `missed_share` clause already owns; counted as standing work they made the
+clause unreachable under lumpy lines (09: 0/20 drained with pickers in band). The ledger carries
+the split (`standing_carry_labour` / `standing_carry_supply`); `equilibrium.is_drained` is the one
+definition. Everything else in this answer stands.

@@ -7,6 +7,16 @@ verdict with reasons: four clauses over a window of working days, all STRICT.
     drained        every day in the window ended DRAINED (the persisted `shift_days` ledger) --
                    not "most": with 15% headroom one capped day in twenty means the derivation
                    is wrong, not unlucky.  A day the ledger never closed fails the same way.
+                   DRAINED IS A LABOUR JUDGMENT (`is_drained`, below -- the ONE definition;
+                   the runner's close-out calls it): nothing cut, no put or dock work
+                   standing, no `unpicked_daycut` carry.  The two SUPPLY reasons the cut
+                   rolls forward (`unpicked_unavailable`: the bin held less;
+                   `unpicked_unstocked`: no bin held the SKU) are stock not delivered, which
+                   `missed_share` already owns; counted as standing work they meant no
+                   finite stock level could ever drain a day under lumpy lines ("Choose the
+                   coverage floor", decision 7, amending decision 4: 0/20 days drained with
+                   pickers in band and every task realized).  The supply carry stays in the
+                   ledger (`standing_carry_supply`) and this clause REPORTS it per day.
     released_late  = 0 behind every drained day.  A self-consistency assertion, not a clause
                    that can fail: release waits on the picker clock and the cut is a
                    between-bins START gate, so a day that drained leaves exactly 0 lag on
@@ -67,6 +77,30 @@ MISSED_TREND_TOL: float = 0.02
 
 #: `work_events.role` values for the two crews the check reads through `load_work_hours`.
 _WORK_ROLE = {'put': 'put', 'recv': 'receive'}
+
+
+def is_drained(*, cut: bool, standing_put: int, standing_dock: int,
+               standing_carry_labour: int) -> bool:
+    """THE drained verdict: did working day end with its LABOUR done?
+
+    True when nothing was cut in the day and no standing labour survives it -- no storage
+    units in the put queues or held, none on the dock floor, and no demand the CUT left
+    unpicked (`unpicked_daycut`, the labour carry).  The SUPPLY carry -- demand no bin could
+    serve (`unpicked_unavailable`, `unpicked_unstocked`) -- is deliberately NOT an argument:
+    it is stock not delivered, `missed_share`'s quantity, and a crew that realized every task
+    it was given has drained its day whatever the shelf held.  Counting it made the verdict
+    unreachable: under lumpy lines some SKU is always short, so 0/20 days drained on the
+    reference run with pickers in band ("Choose the coverage floor", decision 7).
+
+    The lead queue is never standing work either (transit is calendar, not labour), and
+    releases are exhausted by construction at a day boundary, so neither is read.
+
+    ONE definition, two readers: `strategy_runner._shift_close_out` writes the ledger's
+    `drained` with it; `_drained_clause` reads that column rather than re-deriving, so a
+    pre-split vintage's verdicts stand as its runner judged them.
+    """
+    return (not cut) and int(standing_put) == 0 and int(standing_dock) == 0 \
+        and int(standing_carry_labour) == 0
 
 
 class InstrumentError(RuntimeError):
@@ -231,6 +265,11 @@ def _get(row, name, default=0):
     return getattr(row, name, default)
 
 
+def _isnan(v) -> bool:
+    """A pandas frame hands a NULL level back as NaN; the loaders hand it back as None."""
+    return isinstance(v, float) and math.isnan(v)
+
+
 def window_of(shift_rows) -> tuple[int, int] | None:
     """(first day, last day) the ledger closed, or None when no day was ever closed out."""
     days = [int(_get(r, 'day')) for r in shift_rows]
@@ -238,6 +277,16 @@ def window_of(shift_rows) -> tuple[int, int] | None:
 
 
 def _drained_clause(shift_rows, days: list[int]) -> Clause:
+    """Every day DRAINED, read off the ledger's own verdict (written by `is_drained`).
+
+    The SUPPLY carry is reported beside it, never judged: `supply_standing_days` are the
+    days that closed with demand the shelf could not serve still rolling forward, and
+    `supply_standing_max_units` the largest such level (a LEVEL, so never summed across
+    days).  A drained day on that list is the whole point of the labour-only rule -- the
+    crew finished, the stock did not.  `supply_split_recorded` is False on a pre-split
+    vintage (487a65bf83a9), whose rows carry the halves as NULL and whose `drained` was
+    judged with the supply carry counted as standing work.
+    """
     ledger = {int(_get(r, 'day')): r for r in shift_rows}
     missing = [d for d in days if d not in ledger]
     capped = [d for d in days if d in ledger and not int(_get(ledger[d], 'drained'))]
@@ -245,9 +294,16 @@ def _drained_clause(shift_rows, days: list[int]) -> Clause:
                 and float(_get(ledger[d], 'last_finish')) > float(_get(ledger[d], 'cap_end'))]
     early = [d for d in days if d in ledger and int(_get(ledger[d], 'drained'))
              and float(_get(ledger[d], 'end_s')) < float(_get(ledger[d], 'cap_end'))]
+    supply = {d: int(_get(ledger[d], 'standing_carry_supply', None))
+              for d in days if d in ledger
+              and _get(ledger[d], 'standing_carry_supply', None) is not None
+              and not _isnan(_get(ledger[d], 'standing_carry_supply', None))}
     reading = {'days': len(days), 'drained': len(days) - len(missing) - len(capped),
                'capped': capped, 'missing': missing,
-               'overtime_days': overtime, 'drained_early_days': early}
+               'overtime_days': overtime, 'drained_early_days': early,
+               'supply_standing_days': [d for d, q in supply.items() if q > 0],
+               'supply_standing_max_units': max(supply.values(), default=0),
+               'supply_split_recorded': bool(supply) or not any(d in ledger for d in days)}
     reason = ''
     if missing:
         reason = (f'{len(missing)} day(s) in the window were never closed out by the ledger '
@@ -410,7 +466,8 @@ def summarize(verdict: Verdict) -> str:
         if name == 'drained':
             r = c.reading
             parts.append(f'{name}={tag} ({r["drained"]}/{r["days"]} drained, '
-                         f'{len(r["capped"])} capped, {len(r["missing"])} missing)')
+                         f'{len(r["capped"])} capped, {len(r["missing"])} missing, '
+                         f'{len(r.get("supply_standing_days", ()))} with supply carry standing)')
         elif name == 'utilization':
             bits = [f'{d}={v["realized"]:.3f}/{v["expected"]:.3f}'
                     for d, v in c.reading.items() if 'realized' in v]

@@ -122,6 +122,9 @@ regime someone chose rather than one the defaults inherited.
   missed share not trending (half-window means within ±0.02). One pure function, two callers: a
   PRECONDITION for the reference run, a REPORT on every other run (below-band picking is the arm's
   saving; a capped day is "declared throughput not delivered"). The sim never judges itself.
+  **AMENDED 2026-09-06** by
+  [Narrow the drained clause to labour](issues/18-narrow-the-drained-clause-to-labour.md): "every
+  day drained" is a LABOUR judgment -- the supply carry is missed share's, never standing work.
 - [Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md): HOLD phase 1; the lift
   is [Take the reference run](issues/09-take-the-reference-run.md) resolving, not the map closing. The
   pilot's committed regime (crew 4, 12-hour day) is an ERROR under the era, so the pilot gate becomes a
@@ -223,6 +226,16 @@ regime someone chose rather than one the defaults inherited.
   found `staffing.py` and `coverage.py` already carried two different line means. Three task
   tickets graduated (16 -> 17, and 18).
 
+- [Narrow the drained clause to labour](issues/18-narrow-the-drained-clause-to-labour.md):
+  LANDED. `equilibrium.is_drained` is the ONE definition (nothing cut, no put/dock standing, no
+  `unpicked_daycut` carry; the supply carry is not an argument); the runner writes the ledger's
+  `drained` with it and the clause reads the column, never re-derives. `shift_days` carries the
+  carry split (`standing_carry_labour` / `standing_carry_supply`; sim_db 487a65bf83a9 ->
+  798778f4fae1, the old vintage served NULL through a `shift_day_frame` override), the clause
+  REPORTS the days that drained with supply carry standing, `days_capped` follows. A 6-day era
+  smoke run: the fulfillment leaf drained days 2-5 with 4-11 units of supply carry standing,
+  every one CAPPED under the old rule. Amends 04; *Standing work* amended in the glossary.
+
 - [Stamp the line distribution on the SKU](issues/16-stamp-the-line-distribution-on-the-sku.md):
   LANDED. `Demand.line` (`LineDistribution`: `mean`/`cdf`/`quantile`/`survival`/`expected_min`/
   `sample`; one family `poisson_max1`, Knuth's draws) is read by the batch sampler,
@@ -236,12 +249,11 @@ regime someone chose rather than one the defaults inherited.
 
 ## Not yet specified
 
-- **The builds** — every decision is now made; two task tickets carry the last builds
-  ([Build the line floor](issues/17-build-the-line-floor.md), unblocked since the stamp landed
-  2026-09-06, and
-  [Narrow the drained clause to labour](issues/18-narrow-the-drained-clause-to-labour.md)).
-  The era's coverage default is decided (10 / 2 with the line floor) but the store's era
-  numbers stay PROVISIONAL until 17's verification run reads in band. What stays dim is below.
+- **The build** — every decision is now made; one task ticket carries the last build
+  ([Build the line floor](issues/17-build-the-line-floor.md), unblocked: the stamp landed and
+  the drained clause is labour-only, both 2026-09-06). The era's coverage default is decided
+  (10 / 2 with the line floor) but the store's era numbers stay PROVISIONAL until 17's
+  verification run reads in band. What stays dim is below.
 - **Ranked arms' steady-state placement.** 13 found FIFO drifts to the class-uniform smear; a
   ranked restock keeps its placement concentrated, so its initial-placement expectation is a
   proxy, not a steady state. Whether the audit's per-arm band should follow the placement as it
