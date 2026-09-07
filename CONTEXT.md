@@ -348,8 +348,22 @@ _Avoid_: unit floor, minimum stock, Q = 1, the floor yields to capacity
 The replenishment regime of a SKU on the line floor: every pick reorders exactly what it took,
 so the shelf returns to one line's worth after each line. Replenishment is then a trickle in
 lockstep with picks — there is no reorder wave — and a line larger than the shelf is served in
-part now and in part after the restock, a reported shortfall, never a capped day.
-_Avoid_: reorder wave, min-max, one-unit shelf
+part now and in part after the restock, a reported shortfall, never a capped day. The top-up
+lands in an empty bin the arm chooses; only when no empty bin fits does it consolidate into a
+bin already holding the SKU.
+_Avoid_: reorder wave, min-max, one-unit shelf, home bin
+
+**Top-up**:
+The unit a base-stock reorder arrives as — exactly what the picks since the last one took. Put
+first to an empty bin, and to the SKU's own bin only when none fits; a pick drains the SKU's
+smallest bin first so remnants clear and bins return to the free index.
+_Avoid_: restock (the act, not the unit), replenishment lot
+
+**Repack**:
+Receiving work done when a unit fits no empty bin and no bin of its own: the unit is packed
+again into smaller units that fit. Priced to the receiving crew per resulting pack and recorded;
+expected to happen never, so a recorded repack is a finding about the warehouse's sizing.
+_Avoid_: rescue, split
 
 **Staffing record**:
 A run's declaration of who worked it: the declared inputs (pickers per channel, the utilization

@@ -88,6 +88,12 @@ regime someone chose rather than one the defaults inherited.
 - Root `CONTEXT.md` already carries the settled terms (*Working day* amended, *Duty
   cycle* added, 2026-09-01).
 - Tracker conventions: `docs/agents/issue-tracker.md` (Wayfinding operations).
+- **Put-away fills an empty bin first** (decided 2026-09-07,
+  [Let a base-stock top-up reach the shelf](issues/20-let-a-base-stock-top-up-reach-the-shelf.md),
+  ADR-0003): a top-up consolidates into the SKU's own bin only when no empty bin fits, ahead of
+  the rescues and of pending -- the new-bin decision is where optimisation happens. The rescues
+  are receiving work (inbound does the repacking), priced and recorded; expected repacks are
+  stamped zero. Picks drain a SKU's smallest bin first.
 
 ## Decisions so far
 
@@ -297,10 +303,21 @@ regime someone chose rather than one the defaults inherited.
   `days_capped` follow. The store leaf of 17's check re-reads without raising: 36/40 capped
   (35 + day 3), day 4's 138 s recorded behind it; fulfillment unchanged at 39/40.
 
+- [Let a base-stock top-up reach the shelf](issues/20-let-a-base-stock-top-up-reach-the-shelf.md):
+  DECIDED (user, overruling the home-bin recommendation): put-away fills an EMPTY bin first and
+  consolidates into the SKU's own bin only when none fits -- the new-bin decision is where
+  optimisation happens (ADR-0003). Premise corrected: picks already sum across bins; the real
+  failure was the free index running dry against one-bin-per-SKU sizing, units pending forever.
+  Chain: empty -> own bin (fullest first) -> rescues -> pending; picks drain the smallest bin
+  first. Inbound does the repacking: rescues are priced to the receiving crew per resulting pack
+  and recorded (a `sim_db` vintage: `repack` work events, bin state on `bin_placement`, three
+  flows + free-bin depth on `batch_stats`); expected repacks stamped zero and flagged. No knob --
+  a no-op wherever the index never exhausts. Graduated -> 24.
+
 ## Not yet specified
 
 - **Re-reading the check.** Once
-  [Let a base-stock top-up reach the shelf](issues/20-let-a-base-stock-top-up-reach-the-shelf.md),
+  [Build the empty-first top-up](issues/24-build-the-empty-first-top-up.md),
   [Retire the authored stock levels](issues/22-retire-the-authored-stock-levels.md) and
   [Field the requirement](issues/23-field-the-requirement.md) resolve, ONE 40-day run on the
   reference pair re-reads 17's check (21 resolved 2026-09-07: the store leaf's audit renders
