@@ -8,11 +8,13 @@ which is worth however many site days the run's pickers make it worth.  Under th
 era the demand a SKU sees per DAY is known at setup (.scratch/department-calibration, "Derive
 the expected-travel closed form", decision 2; the derivation note's section 5):
 
-    d_s = n · π_s · (λ_s + e^{-λ_s})          units of SKU s per day
+    d_s = n · π_s · E[q_s]                    units of SKU s per day
 
 `n` is the pair's fixed point (lines per day the declared crew fills its capacity at), `π_s`
-the SKU's line share within its channel section (`freq / Σ freq`) and `λ_s + e^{-λ_s}` the
-mean of `max(1, Poisson(λ_s))` -- the sampler's line quantity.  This module re-derives every
+the SKU's line share within its channel section (`freq / Σ freq`) and `E[q_s]` the mean of
+the SKU's STAMPED line law (`Demand.line.mean()`; today `max(1, Poisson(λ_s))`, so
+`λ_s + e^{-λ_s}`) -- read off the SKU, never re-derived here ("Stamp the line distribution
+on the SKU").  This module re-derives every
 SKU's stock levels by the GENERATOR'S OWN FORMULA with the day as the unit:
 
     equilibrium_qty = max(1, round(coverage_days · d_s))
@@ -32,20 +34,12 @@ no file.  The harness seam that drives it -- the pair-level fixed point Q(n) -> 
 """
 from __future__ import annotations
 
-import math
-
 #: Relative change of a channel's fixed-point `n` below which the coverage loop has converged.
 DEFAULT_TOL: float = 0.01
 #: Rounds the loop may take before it stops and records the residual it stopped at.  The
 #: bracketed secant (`era_coverage.next_guess`) needs ~2 rounds to bracket and ~4-6 to close
 #: to 1% on the reference pair; each full-scale round costs about a minute.
 DEFAULT_MAX_ROUNDS: int = 12
-
-
-def line_units(quantity_rate: float) -> float:
-    """`E[max(1, Poisson(λ))] = λ + e^{-λ}` -- the units one line of the SKU demands."""
-    lam = float(quantity_rate)
-    return lam + math.exp(-lam)
 
 
 def daily_demand(orders, lines_per_day: float) -> dict:
@@ -61,7 +55,7 @@ def daily_demand(orders, lines_per_day: float) -> dict:
         return {c.sku: 0.0 for c in orders}
     n = float(lines_per_day)
     return {c.sku: n * (float(c.demand.relative_frequency) / W)
-                   * line_units(c.demand.quantity_rate)
+                   * c.demand.line.mean()
             for c in orders}
 
 
@@ -93,7 +87,7 @@ def rescale_section(orders, lines_per_day: float, *, coverage_days: float,
     because a plan the warehouse planner wrote for the OLD quantity would otherwise be
     honoured by `viable_storage_units` at the new one).  Returns
 
-        {'n_skus', 'lines_per_day', 'coverage_days', 'safety_days',
+        {'n_skus', 'line_families', 'lines_per_day', 'coverage_days', 'safety_days',
          'sum_q', 'units_per_day',
          'floor_q_skus', 'floor_q_share', 'floor_q_demand_share',     # Q == 1
          'floor_rp_skus', 'floor_rp_share',                            # rp formula < 1, floored
@@ -112,7 +106,9 @@ def rescale_section(orders, lines_per_day: float, *, coverage_days: float,
     floor_rp = 0
     q2_sum_q = 0
     q2_units = 0.0
+    fams: dict = {}                       # law family -> SKUs read (the record's provenance)
     for c in orders:
+        fams[c.demand.line.family] = fams.get(c.demand.line.family, 0) + 1
         ds = d[c.sku]
         lead = max(0.0, float(getattr(c, 'lead_time_mean', 0.0)))
         q, rp = stock_levels(ds, lead, coverage_days, safety_days)
@@ -132,6 +128,7 @@ def rescale_section(orders, lines_per_day: float, *, coverage_days: float,
     n = len(orders)
     return {
         'n_skus': n,
+        'line_families': fams,
         'lines_per_day': float(lines_per_day),
         'coverage_days': float(coverage_days),
         'safety_days': float(safety_days),

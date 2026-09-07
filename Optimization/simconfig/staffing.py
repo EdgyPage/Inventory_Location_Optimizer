@@ -109,12 +109,16 @@ def analytic_pick(orders, pricing: PricingConfig) -> dict:
 
     Weighted the way the sampler weights: a SKU enters a batch in proportion to its
     `relative_frequency` (affinity lift ignored -- it redistributes lines, it does not add
-    them), and a line demands `quantity_rate` units in expectation.  One intercept per LINE
+    them), and a line demands the MEAN of the SKU's stamped line law (`Demand.line.mean()`).
+    Before the stamp this read `max(1, quantity_rate)` -- a drift from the `λ + e^-λ` the
+    sampler and the expectation use, corrected by "Stamp the line distribution on the SKU":
+    the recorded `analytic` block moves by the `e^-λ` term; the era's batch content never read
+    it (it reads `expected_travel`'s `units_per_line`).  One intercept per LINE
     (one bin visit for one SKU) is the line-count floor ("Choose the calibration
     procedure", decision 7); the per-item charge and `qty × handle_var` are per unit; the
     height multiplier is M(0) = 1 (ground) and there is no travel term.  Returns
 
-        {'seconds_per_unit', 'units_per_line', 'n_skus', 'pricing_config'}
+        {'seconds_per_unit', 'units_per_line', 'n_skus', 'pricing_config', 'line_families'}
 
     `seconds_per_unit` is what a travel share scales into a seeded `s_pick`.  Empty
     orders yield zeros rather than raising: a store-only catalogue has no fulfillment
@@ -124,20 +128,24 @@ def analytic_pick(orders, pricing: PricingConfig) -> dict:
     wq_sum = 0.0
     sec_sum = 0.0
     n = 0
+    fams: dict = {}                                     # law family -> SKUs read (provenance)
     for c in orders:
         w = float(c.demand.relative_frequency)
-        q = max(1.0, float(c.demand.quantity_rate))     # `max(1, sample)` in Batch
+        line = c.demand.line
+        q = line.mean()                                 # E[units per line], off the stamped law
+        fams[line.family] = fams.get(line.family, 0) + 1
         w_sum += w
         wq_sum += w * q
         sec_sum += w * per_pick(1.0, pricing.intercept, pricing.var(c), q, pricing.per_item)
         n += 1
     if wq_sum <= 0.0:
         return {'seconds_per_unit': 0.0, 'units_per_line': 0.0, 'n_skus': n,
-                'pricing_config': pricing.name}
+                'pricing_config': pricing.name, 'line_families': fams}
     return {'seconds_per_unit': sec_sum / wq_sum,
             'units_per_line': wq_sum / w_sum,
             'n_skus': n,
-            'pricing_config': pricing.name}
+            'pricing_config': pricing.name,
+            'line_families': fams}
 
 
 def pick_capacity(pickers: int, day_seconds: float, rho_pick: float) -> float:
@@ -156,8 +164,8 @@ def batch_content(demand_units: float, units_per_line: float, n_skus: int,
                   declared_mean: float, declared_std: float) -> dict:
     """One batch = one day's demand, as the sampler's (mean_fraction, std_fraction).
 
-    The sampler draws a LINE count ~ N(mean·N, std·N) and each line demands
-    `quantity_rate` units, so the mean fraction that delivers `demand_units` is
+    The sampler draws a LINE count ~ N(mean·N, std·N) and each line demands its stamped
+    law's mean units (`units_per_line`), so the mean fraction that delivers `demand_units` is
     `(demand ÷ units_per_line) ÷ N`.  The spread keeps the DECLARED coefficient of
     variation (the flag-off `std ÷ mean`, 1/3 for the store, 1/4 for fulfillment) so a
     derived script has the same relative day-to-day variability the archive's did.  A

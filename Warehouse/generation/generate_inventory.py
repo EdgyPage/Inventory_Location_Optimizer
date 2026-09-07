@@ -83,9 +83,10 @@ if _REPO_ROOT not in sys.path:
 from Schema import compat as _compat
 from Schema import identity as _identity
 from Schema import connect as _connect
+from Schema import dataset as _dataset
 from Schema import shape as _shape
 from Warehouse.catalog.Order import Order, StorageHandleConfig
-from Warehouse.catalog.Demand import Demand
+from Warehouse.catalog.Demand import Demand, LineDistribution
 from Warehouse.catalog.Inventory_Builder import Inventory
 from Warehouse.layout.Storage_Primitive import Storage_Type
 
@@ -424,6 +425,7 @@ def build_inventory_from_plan(
             relative_frequency=freq, qty_rate=qty_rate,
             equilibrium_qty=eq, reorder_point=rp,
             lead_time_mean=lead, supply_cv=sv,
+            line=LineDistribution.poisson(qr_c),        # the stamped law, at the clamped rate
         )
         o.subtype = subtype
         orders.append(o)
@@ -500,7 +502,11 @@ def build_inventory_with_profile(
         c.width        = w
         c.height       = h
         c.weight       = wt
-        c.demand       = Demand.from_rates(freq, qty_rate)
+        # The rate is clamped to the integer every reader of the file sees (`Order.build`
+        # re-clamps on load) and the law is stamped AT that value -- one value on disk and in
+        # memory.  `expected` above keeps the drawn float, so eq/rp are what they always were.
+        qr_c           = Order._clamp_int(qty_rate, Order.MIN_QTY, Order.MAX_QTY)
+        c.demand       = Demand.from_rates(freq, qr_c, LineDistribution.poisson(qr_c))
 
         c.expected_batch_demand = expected
         c.equilibrium_qty       = max(1, round(equilibrium_coverage_batches * expected))
@@ -549,6 +555,15 @@ _SCHEMA = '''
         weight                INTEGER NOT NULL,
         relative_frequency    REAL    NOT NULL,
         demand_qty_rate       REAL    NOT NULL,
+        -- The LINE LAW, stamped per SKU (department-calibration, "Stamp the line distribution
+        -- on the SKU"): the family one pick line's quantity is drawn from and its parameters
+        -- as JSON (the creation_plan precedent; NULL = the family takes none).  Every reader
+        -- -- the sampler, expected_travel, staffing, coverage -- goes through `Demand.line`;
+        -- none re-derives a law from demand_qty_rate.  Pre-stamp vintage 0e234fbfc739 lacks
+        -- both columns: the `cartons` query's override serves NULLs and the loader
+        -- reconstructs Poisson(demand_qty_rate), provenance `assumed`.
+        line_family           TEXT    NOT NULL,
+        line_params           TEXT,
         expected_batch_demand REAL    NOT NULL DEFAULT 0,
         equilibrium_qty       INTEGER NOT NULL DEFAULT 1,
         reorder_point         INTEGER NOT NULL DEFAULT 1,
@@ -627,14 +642,41 @@ def declared_inventory_shape() -> dict:
 #: a read that raises `OperationalError` two lines later, with a worse message.
 UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID = 'c59cc6aa5fd3'
 
+#: The vintage BEFORE the line law was stamped on the SKU: every generated `inventory.db` and
+#: every frozen `planned_inventory.db` from 2026-07-09 to 2026-09-06 (the reference pair
+#: included) — `cartons` without `line_family` / `line_params`.  Still vetted: the `cartons`
+#: query's override below serves the two columns as NULL and `load_inventory_from_db`
+#: reconstructs Poisson(demand_qty_rate) with provenance `assumed`; regeneration is never
+#: forced, and the staffing record names the reconstruction (`calibration[<pair>].line_law`).
+PRE_LINE_LAW_INVENTORY_SCHEMA_ID = '0e234fbfc739'
+
 INVENTORY_DB_FAMILY = _identity.register(_identity.Family(
     name='inventory_db',
     declared_shape=declared_inventory_shape,
     meta_table='run_metadata',      # already declared above; shared with the params_json row
-    # No known_ids, and that is a RESULT, not an omission: every generated `inventory.db` and
-    # every frozen `planned_inventory.db` from 2026-07-09 onward — 12 files across five runs and
-    # both catalogue pairs — re-derives to the current declared id.
+    # Commit window: dce445b.. (2026-07-09) to the line-law stamp (2026-09-06).  Before that
+    # entry landed the tuple was empty by RESULT, not omission: every file from 2026-07-09 on
+    # re-derived to one id.
+    known_ids=(PRE_LINE_LAW_INVENTORY_SCHEMA_ID,),
 ))
+
+# ── the read, by NAME (Schema.dataset) ────────────────────────────────────────
+# The publisher side of the versioned read: `load_inventory_from_db` binds a file to ITS OWN
+# vintage and asks for `cartons`; the current shape is served by the canonical SQL, the
+# pre-stamp vintage by the override, and the consumer never branches on a version.  `:limit`
+# is SQLite's `LIMIT -1` = no limit.
+_CARTON_COLS = ('sku', 'handling', 'category', 'length', 'width', 'height', 'weight',
+                'relative_frequency', 'demand_qty_rate', 'equilibrium_qty', 'reorder_point',
+                'lead_time_mean', 'supply_cv', 'stock_plan', 'line_family', 'line_params')
+_dataset.register_query(_dataset.Query(
+    name='cartons', family='inventory_db',
+    sql='SELECT ' + ', '.join(_CARTON_COLS) + ' FROM cartons ORDER BY sku LIMIT :limit',
+    columns=_CARTON_COLS,
+    tables={'cartons': _CARTON_COLS}))
+_dataset.override(
+    'inventory_db', 'cartons', PRE_LINE_LAW_INVENTORY_SCHEMA_ID,
+    'SELECT ' + ', '.join(_CARTON_COLS[:-2])
+    + ', NULL AS line_family, NULL AS line_params FROM cartons ORDER BY sku LIMIT :limit')
 
 
 def _init_db(db_path: str) -> sqlite3.Connection:
@@ -679,6 +721,7 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
             c.sku, c.storage_type[0], c.storage_type[1],
             c.length, c.width, c.height, c.weight,
             c.demand.relative_frequency, c.demand.quantity_rate,
+            *c.demand.line.to_row(),
             getattr(c, 'expected_batch_demand', 0.0),
             getattr(c, 'equilibrium_qty',       1),
             getattr(c, 'reorder_point',         1),
@@ -690,9 +733,9 @@ def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> No
     conn.executemany(
         'INSERT OR REPLACE INTO cartons '
         '(sku, handling, category, length, width, height, weight, '
-        ' relative_frequency, demand_qty_rate, expected_batch_demand, '
+        ' relative_frequency, demand_qty_rate, line_family, line_params, expected_batch_demand, '
         ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan, subtype) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         rows,
     )
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
@@ -746,44 +789,41 @@ def _save_creation_plan(conn: sqlite3.Connection, plan: list) -> None:
 def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     """Reconstruct an Inventory from a DB written by save_inventory_to_db.
 
-    Canonical schema only (no legacy fallbacks).  Every order is rebuilt through
-    Order.build, so the same physical guardrails (integer dims/weight, min-1, caps)
-    are enforced on load as on generation.
+    Bound to the file's OWN vintage (`Schema.dataset.bind`) and read by NAME (the `cartons`
+    query above): the current shape serves the stamped line law; the pre-stamp vintage's
+    override serves NULLs and the law is reconstructed as Poisson(demand_qty_rate) with
+    provenance `assumed` -- built by `Order.build` from the CLAMPED rate, which is exactly
+    what every pre-stamp load sampled.  Every order is rebuilt through Order.build, so the
+    same physical guardrails (integer dims/weight, min-1, caps) are enforced on load as on
+    generation.
 
     HARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:
-    every caller is a simulation about to consume ~500 GB of compute and WRITE the result.  The
-    `SELECT` below already names its fourteen columns, so a shape mismatch surfaces one way or
-    another — but as a bare `OperationalError: no such column`, which says nothing about WHICH
-    vintage the file is or what else differs.  `UnsupportedSchema` names the id and the whole
-    structural diff before a single row is read.
+    every caller is a simulation about to consume ~500 GB of compute and WRITE the result.
+    `bind` raises `UnsupportedSchema` naming the id and the whole structural diff before a
+    single row is read, and `UnsupportedQuery` if a vetted vintage has no SQL to serve it --
+    never a bare `OperationalError: no such column` that says nothing about WHICH vintage.
     """
-    _identity.check(db_path, 'inventory_db', verify=True)
-    conn = sqlite3.connect(db_path)
-    select = (
-        'SELECT sku, handling, category, length, width, height, weight, '
-        'relative_frequency, demand_qty_rate, equilibrium_qty, reorder_point, '
-        'lead_time_mean, supply_cv, stock_plan '
-        'FROM cartons ORDER BY sku'
-        + (f' LIMIT {limit}' if limit is not None else '')
-    )
-    rows = conn.execute(select).fetchall()
-    conn.close()
+    with _dataset.bind(db_path, 'inventory_db') as ds:
+        rows = ds.query('cartons', limit=-1 if limit is None else int(limit))
 
     orders = []
     max_sku = 0
-    for (sku, handling, category, length, width, height, weight, freq, qty_rate,
-         equilibrium_qty, reorder_point, lead_time_mean, supply_cv, raw_sp) in rows:
+    for r in rows:
         stock_plan = None
+        raw_sp = r['stock_plan']
         if raw_sp:
             # JSON stores tuples as lists; restore (is_singleton, qty, count) tuples.
             stock_plan = [(bool(s), int(q), int(n)) for s, q, n in json.loads(raw_sp)]
-
+        fam = r['line_family']
+        line = LineDistribution.from_row(fam, r['line_params'], 'declared') if fam else None
+        sku = int(r['sku'])
         orders.append(Order.build(
-            sku=sku, handling=handling, category=category,
-            length=length, width=width, height=height, weight=weight,
-            relative_frequency=freq, qty_rate=qty_rate,
-            equilibrium_qty=equilibrium_qty, reorder_point=reorder_point,
-            lead_time_mean=lead_time_mean, supply_cv=supply_cv, stock_plan=stock_plan,
+            sku=sku, handling=r['handling'], category=r['category'],
+            length=r['length'], width=r['width'], height=r['height'], weight=r['weight'],
+            relative_frequency=r['relative_frequency'], qty_rate=r['demand_qty_rate'],
+            equilibrium_qty=r['equilibrium_qty'], reorder_point=r['reorder_point'],
+            lead_time_mean=r['lead_time_mean'], supply_cv=r['supply_cv'],
+            stock_plan=stock_plan, line=line,
         ))
         max_sku = max(max_sku, sku)
 

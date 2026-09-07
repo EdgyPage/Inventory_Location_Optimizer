@@ -326,7 +326,9 @@ _Avoid_: coverage batches, equilibrium coverage (the catalogue's flag-off shape)
 The law one line of a SKU's demand is drawn from — the quantity a single pick asks for. A
 first-class fact stamped on the SKU (its family and parameters), read by the sampler and by
 every expectation alike, so the units a pick takes and the units a formula expects are one law
-by construction. Never re-derived by a consumer from a rate.
+by construction. Never re-derived by a consumer from a rate. Lives on the SKU as `Demand.line`
+(`Warehouse/catalog/Demand.py:LineDistribution`) and in the inventory file as `line_family` +
+`line_params`; a pre-stamp catalogue reconstructs Poisson(rate) at load, provenance `assumed`.
 _Avoid_: quantity rate (the parameter, not the law), Poisson (one family, not the concept)
 
 **Line floor**:

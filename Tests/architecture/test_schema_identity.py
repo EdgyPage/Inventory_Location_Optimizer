@@ -69,7 +69,8 @@ VERIFIED_BY = {
     ],
     'inventory_db': [
         ('Warehouse/generation/generate_inventory.py',
-         'load_inventory_from_db; HARD FAIL, every caller is a simulation about to write'),
+         'load_inventory_from_db -> dataset.bind; HARD FAIL, every caller is a simulation '
+         'about to write'),
     ],
     # The one family verified by `check_tables` rather than `check` — its registration lives in
     # a matplotlib-importing data-gen CLI that a simulation worker must not load.  See
@@ -81,13 +82,15 @@ VERIFIED_BY = {
     ],
 }
 
-#: Two call shapes, and in both the family name is a string LITERAL — which is the only reason
-#: this is greppable, and a good reason to keep it that way:
+#: Three call shapes, and in all of them the family name is a string LITERAL — which is the
+#: only reason this is greppable, and a good reason to keep it that way:
 #:     identity.check(path, 'warehouse_db') / identity.check_or_warn(path, 'warehouse_db')
 #:     identity.check_tables(..., label='affinity_db(...)')
+#:     dataset.bind(path, 'inventory_db')   — bind resolves + vets the id before any read
 _CHECK_CALL = re.compile(
     r"""\bcheck(?:_or_warn)?\s*\(\s*[^,()]+,\s*['"](\w+_db)['"]"""     # positional family
-    r"""|\blabel\s*=\s*f?['"](\w+_db)""")                              # check_tables label
+    r"""|\blabel\s*=\s*f?['"](\w+_db)"""                               # check_tables label
+    r"""|\bbind\s*\(\s*[^,()]+,\s*['"](\w+_db)['"]""")                 # dataset.bind
 
 
 def test_the_expected_families_are_registered():

@@ -85,6 +85,17 @@ def batch_fingerprint(inventory, batch_cfg, seed_batches: int, n_batches: int, a
     _sampler = getattr(batch_cfg, 'sampler', 'v1')
     if _sampler != 'v1':
         h.update(f'sampler={_sampler}'.encode('ascii'))
+    # The line LAW (`Demand.line`): hashed only for SKUs carrying a family other than the
+    # founding `poisson_max1` -- whose one parameter IS `qty`, already hashed -- so every
+    # fingerprint ever computed stays byte-identical while a catalogue stamped with another
+    # law can never be served from (or poison) a Poisson cache.
+    # (`getattr`: a demand stub with no law -- the v2 sampler tests' `_Demand` -- is the
+    # founding family, exactly as `Demand.from_rates` reconstructs an absent law.)
+    laws = [(int(c.sku), *c.demand.line.to_row()) for c in orders
+            if getattr(c.demand, 'line', None) is not None
+            and c.demand.line.family != 'poisson_max1']
+    if laws:
+        h.update(repr(laws).encode('utf-8'))
     return h.hexdigest()
 
 

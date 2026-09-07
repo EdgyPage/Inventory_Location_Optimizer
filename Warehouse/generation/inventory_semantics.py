@@ -1,8 +1,9 @@
 """inventory_semantics — the profiles-tree (inventory) family's column semantics.
 
 The catalogue's per-SKU constants: physical dimensions in inches (the inch/second boundary
-is `cost_model.sec_per_inch`), demand rates per BATCH, and the batch-denominated lead the
-trailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a
+is `cost_model.sec_per_inch`), demand rates per BATCH, the stamped line law (`line_family` +
+`line_params`, department-calibration "Stamp the line distribution on the SKU"), and the
+batch-denominated lead the trailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a
 planned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery
 can produce FEWER units — "splitting is worse" is not a safe assumption on most of a
 generated catalogue.
@@ -31,6 +32,12 @@ INVENTORY_SEMANTICS: dict = {
                                      note='catalogue constant'),
         'relative_frequency':    Col(SHARE, '1', 'sku'),
         'demand_qty_rate':       Col(RATE, 'items/batch', 'sku', per='batch'),
+        'line_family':           Col(LABEL, 'enum', 'sku',
+                                     note='the family one pick LINE\'s quantity is drawn from '
+                                          '(Demand.line); every reader goes through the object, '
+                                          'none re-derives a law from demand_qty_rate'),
+        'line_params':           Col(LABEL, 'json', 'sku',
+                                     null_means='the family takes no parameters'),
         'expected_batch_demand': Col(RATE, 'items/batch', 'sku', per='batch'),
         'equilibrium_qty':       Col(COUNT, 'items', 'sku', account=PIECES),
         'reorder_point':         Col(COUNT, 'items', 'sku', account=PIECES),

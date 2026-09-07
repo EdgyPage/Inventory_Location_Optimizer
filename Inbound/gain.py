@@ -275,9 +275,14 @@ class _Evaluator:
             q = total / hits          # >= 1 by construction: batch draws floor at 1
             visits = max(1.0, min(unit.quantity / q, float(hits)))
         else:
-            q = order.demand.quantity_rate
-            if q <= 0:
+            # A zero demand RATE is this evaluator's never-picked sentinel (put only; see
+            # the docstring) -- an ARRIVAL fact, not a line quantity.  Production catalogues
+            # clamp the rate to >= 1, so it fires only in tests.
+            if order.demand.quantity_rate <= 0:
                 return put
+            # E[units per line] off the SKU's stamped law (>= 1 by construction, like the
+            # measured branch above) -- never the rate scalar re-read as a line's units.
+            q = order.demand.line.mean()
             visits = max(1.0, unit.quantity / q)
         if hm is None:
             hm = height_multiplier(wp.height_brackets, y)

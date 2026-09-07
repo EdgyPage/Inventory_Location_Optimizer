@@ -223,11 +223,22 @@ regime someone chose rather than one the defaults inherited.
   found `staffing.py` and `coverage.py` already carried two different line means. Three task
   tickets graduated (16 -> 17, and 18).
 
+- [Stamp the line distribution on the SKU](issues/16-stamp-the-line-distribution-on-the-sku.md):
+  LANDED. `Demand.line` (`LineDistribution`: `mean`/`cdf`/`quantile`/`survival`/`expected_min`/
+  `sample`; one family `poisson_max1`, Knuth's draws) is read by the batch sampler,
+  `expected_travel`, `staffing` and `coverage`; two `cartons` columns ride the schema pipeline
+  (`inventory_db` 0e234fbfc739 -> 4ff06991df47, the pre-stamp vintage vetted with a `dataset`
+  override, its reconstruction `assumed` and named in `calibration[<pair>].line_law`); goldens
+  captured pre-stamp prove draws, batches and both cache fingerprints byte-identical.  Two
+  corrections: the ticket's `Order.py` site is the WEIGHT law (the sampler lives in
+  `Workload_Builder`), and the `max(1, lam)` drift lived only in the recorded `analytic` block --
+  era batch content already read the exact mean, so nothing about it moves.  17 is unblocked.
+
 ## Not yet specified
 
-- **The builds** — every decision is now made; three task tickets carry the last builds
-  ([Stamp the line distribution on the SKU](issues/16-stamp-the-line-distribution-on-the-sku.md)
-  -> [Build the line floor](issues/17-build-the-line-floor.md), and
+- **The builds** — every decision is now made; two task tickets carry the last builds
+  ([Build the line floor](issues/17-build-the-line-floor.md), unblocked since the stamp landed
+  2026-09-06, and
   [Narrow the drained clause to labour](issues/18-narrow-the-drained-clause-to-labour.md)).
   The era's coverage default is decided (10 / 2 with the line floor) but the store's era
   numbers stay PROVISIONAL until 17's verification run reads in band. What stays dim is below.

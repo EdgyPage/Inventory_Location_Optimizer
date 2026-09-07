@@ -28,9 +28,10 @@ the aisle length.
 ## The expectation, in one paragraph
 
 A day is `N ~ Normal(n, cv·n)` i.i.d. lines over the section's SKUs (share `π_s`), each
-demanding `max(1, Poisson(λ_s))` units, drained through the SKU's bins in the sim's drain
+demanding units drawn from the SKU's STAMPED line law (`Demand.line`; today
+`max(1, Poisson(λ_s))`), drained through the SKU's bins in the sim's drain
 order (forward-pick first, then location).  Bin k of a SKU is REACHED when the line's
-quantity exceeds the stock before it -- a Poisson tail -- so every bin carries a visit RATE
+quantity exceeds the stock before it -- the law's tail, `line.survival` -- so every bin carries a visit RATE
 per line.  Poissonisation makes bins independent given N, and each aisle then yields, in
 closed form: its visit probability (a task), `E[x_max]` (a product-sum over columns), the
 expected y walk (a Markov chain over height levels, one transition per column) and the
@@ -58,7 +59,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from scipy.optimize import brentq
-from scipy.special import gammainc
 
 from Warehouse.inventory.inventory_common import binkey_of, is_forward_pick
 from Warehouse.kernel.cost_model import (DEFAULT_HEIGHT_BRACKETS, SpeedProfile, handle_var,
@@ -239,14 +239,7 @@ class SectionRates:
     unplaced_skus: int = 0
     aisle_rates: dict = field(default_factory=dict)     # aisle_id -> ndarray (C, R)
     class_rates: dict = field(default_factory=dict)     # key -> float (per bin)
-
-
-def _poisson_tail(upto: int, lam: float) -> np.ndarray:
-    """`P(X > j)` for j = 0..upto-1, X ~ Poisson(lam); `P(q > 0) = 1` for q = max(1, X)."""
-    t = gammainc(np.arange(1, upto + 1, dtype=float), lam)     # regularised lower gamma
-    if upto > 0:
-        t[0] = 1.0
-    return t
+    line_families: dict = field(default_factory=dict)   # law family -> SKUs read (provenance)
 
 
 def accumulate(orders, pick_cfg, dist: PlacementDist, geometry: Geometry) -> SectionRates:
@@ -272,13 +265,14 @@ def accumulate(orders, pick_cfg, dist: PlacementDist, geometry: Geometry) -> Sec
             out.unplaced_skus += 1
             continue
         pi = float(wi / W)               # Python floats from here on: the record is JSON
-        lam = float(c.demand.quantity_rate)
+        line = c.demand.line             # the stamped law: every reading below is its
+        out.line_families[line.family] = out.line_families.get(line.family, 0) + 1
         var = handle_var(c.weight, c.volume(), pick_cfg.pick_weight_coef,
                          pick_cfg.pick_volume_coef, pick_cfg.pick_weight_fn,
                          pick_cfg.pick_volume_fn)
         vol = float(c.volume())
         total = sum(s.qty for s in sites)
-        tail = _poisson_tail(total, lam)            # P(q > j), j = 0..total-1
+        tail = line.survival(total)                 # P(q > j), j = 0..total-1
         cum = 0
         for s in sites:
             reach = 1.0 if cum == 0 else float(tail[cum]) if cum < total else 0.0

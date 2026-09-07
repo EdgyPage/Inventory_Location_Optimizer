@@ -88,6 +88,7 @@ def test_units_per_line_is_the_mean_of_max_one_poisson():
     r = et.accumulate([c], PickConfig(pick_intercept=1.0), dist, g)
     assert math.isclose(r.units_per_line, lam + math.exp(-lam), rel_tol=1e-9)
     assert math.isclose(r.visits_per_line, 1.0)
+    assert r.line_families == {'poisson_max1': 1}      # the rates name the law they read
 
 
 def test_a_second_bin_is_reached_with_the_poisson_tail_past_the_first_bins_stock():

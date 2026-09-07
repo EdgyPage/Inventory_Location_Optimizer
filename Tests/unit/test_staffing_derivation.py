@@ -62,19 +62,25 @@ class _Batch:
 
 def test_analytic_pick_is_the_frequency_weighted_line_cost_per_unit(catalogue, pricing):
     """One intercept per LINE, the per-item charge per unit, handling zero here (coefs 0):
-    Σ w·(1 + 0.5·q) ÷ Σ w·q, and units per line = Σ w·q ÷ Σ w."""
+    Σ w·(1 + 0.5·q) ÷ Σ w·q, and units per line = Σ w·q ÷ Σ w -- where `q` is the MEAN of
+    the SKU's stamped line law, `λ + e^-λ` for `max(1, Poisson(λ))`.  Before "Stamp the line
+    distribution on the SKU" this read `max(1, λ)` = 4.5 units per line here; the `e^-λ` term
+    is the drift the stamp ended."""
     a = st.analytic_pick(catalogue, pricing)
-    w_q = 0.5 * 4 + 0.25 * 2 + 0.25 * 8           # 4.5
-    sec = 0.5 * (1 + 2.0) + 0.25 * (1 + 1.0) + 0.25 * (1 + 4.0)   # 1.5 + 0.5 + 1.25 = 3.25
+    q = {sku: lam + math.exp(-lam) for sku, lam in ((1, 4.0), (2, 2.0), (3, 8.0))}
+    w_q = 0.5 * q[1] + 0.25 * q[2] + 0.25 * q[3]
+    assert w_q > 4.5, 'the exact mean sits above the old max(1, λ) reading'
+    sec = 0.5 * (1 + 0.5 * q[1]) + 0.25 * (1 + 0.5 * q[2]) + 0.25 * (1 + 0.5 * q[3])
     assert math.isclose(a['seconds_per_unit'], sec / w_q)
     assert math.isclose(a['units_per_line'], w_q / 1.0)
     assert a['n_skus'] == 3 and a['pricing_config'] == 't'
+    assert a['line_families'] == {'poisson_max1': 3}      # every derived number names its law
 
 
 def test_analytic_pick_of_an_empty_section_is_zero_not_an_error(pricing):
     a = st.analytic_pick([], pricing)
     assert a == {'seconds_per_unit': 0.0, 'units_per_line': 0.0, 'n_skus': 0,
-                 'pricing_config': 't'}
+                 'pricing_config': 't', 'line_families': {}}
 
 
 def test_the_chain_from_pickers_to_batch_content_by_hand():

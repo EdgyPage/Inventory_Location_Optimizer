@@ -69,18 +69,30 @@ def restore():
 # The pure module
 # ═════════════════════════════════════════════════════════════════════════════════════════
 
-def test_line_units_is_the_mean_of_max_one_poisson():
-    assert math.isclose(cov.line_units(3.0), 3.0 + math.exp(-3.0), rel_tol=1e-12)
-    assert math.isclose(cov.line_units(0.0), 1.0)      # a zero rate still demands one unit
+def _mean(lam):
+    """The mean of `max(1, Poisson(lam))` BY HAND -- the test's own oracle for the stamped law."""
+    return lam + math.exp(-lam)
 
 
-def test_daily_demand_is_lines_times_line_share_times_line_units(section):
+def test_the_module_carries_no_line_law_of_its_own():
+    """"Stamp the line distribution on the SKU": the units a line demands are read off
+    `Demand.line`, never re-derived here -- the old `line_units(λ)` is gone."""
+    assert not hasattr(cov, 'line_units')
+    src = inspect.getsource(cov)
+    assert 'math.exp' not in src and 'quantity_rate' not in src
+
+
+def test_daily_demand_is_lines_times_line_share_times_the_stamped_mean(section):
     d = cov.daily_demand(section, 100.0)
-    assert math.isclose(d[1], 100.0 * 0.5 * cov.line_units(4.0), rel_tol=1e-12)
-    assert math.isclose(d[2], 100.0 * 0.25 * cov.line_units(2.0), rel_tol=1e-12)
+    assert math.isclose(d[1], 100.0 * 0.5 * _mean(4.0), rel_tol=1e-12)
+    assert math.isclose(d[2], 100.0 * 0.25 * _mean(2.0), rel_tol=1e-12)
     assert math.isclose(sum(d.values()),
-                        100.0 * (0.5 * cov.line_units(4.0) + 0.25 * cov.line_units(2.0)
-                                 + 0.25 * cov.line_units(8.0)), rel_tol=1e-12)
+                        100.0 * (0.5 * _mean(4.0) + 0.25 * _mean(2.0) + 0.25 * _mean(8.0)),
+                        rel_tol=1e-12)
+    # ...and it IS the object's reading: a SKU stamped with a different rate moves it.
+    for c in section:
+        assert math.isclose(d[c.sku], 100.0 * (c.demand.relative_frequency / 1.0)
+                            * c.demand.line.mean(), rel_tol=1e-12)
     assert cov.daily_demand(section, 0.0) == {1: 0.0, 2: 0.0, 3: 0.0}
     assert cov.daily_demand([], 10.0) == {}
 
@@ -116,6 +128,7 @@ def test_rescale_section_mutates_the_levels_resets_the_plan_and_reports_the_floo
         assert (c.equilibrium_qty, c.reorder_point) == (q, rp)
         assert c.stock_plan is None, 'a plan written for the old quantity must not survive'
     assert st['n_skus'] == 3 and st['sum_q'] == sum(c.equilibrium_qty for c in section)
+    assert st['line_families'] == {'poisson_max1': 3}      # the record names the law it read
     assert math.isclose(st['units_per_day'], sum(d.values()), rel_tol=1e-12)
     assert st['floor_q_skus'] == 0 and st['q_ge2_skus'] == 3
     assert st['floor_q_demand_share'] == 0.0

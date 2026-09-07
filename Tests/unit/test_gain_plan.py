@@ -356,16 +356,17 @@ def test_window_visits_cap_at_the_event_count():
 
 def test_window_matching_the_static_rates_reproduces_forecast_exactly():
     """The window swaps KNOWLEDGE, not machinery: realized rates that agree with the
-    static ones (per-event draw == quantity_rate, more events than any quantity can
-    use) price every pair identically, so the plan IS gain_forecast's.  128 is a
-    power of two, so total/events reproduces quantity_rate to the exact float.  And
-    `_window_rates` aggregates (total, events) per SKU."""
+    static ones (per-event draw == the stamped line law's MEAN, which is what the
+    static branch reads since "Stamp the line distribution on the SKU"; more events
+    than any quantity can use) price every pair identically, so the plan IS
+    gain_forecast's.  128 is a power of two, so total/events reproduces the mean to
+    the exact float.  And `_window_rates` aggregates (total, events) per SKU."""
     from Inbound.gain import _window_rates
     assert _window_rates(({1: 3, 2: 1}, {1: 2})) == {1: (5, 2), 2: (1, 1)}
     for seed in range(3):
         trailers, view = _random_scene(seed)
         orders = {it.unit.order for t in trailers for it in t.pending}
-        wr = {o.sku: (o.demand.quantity_rate * 128.0, 128) for o in orders}
+        wr = {o.sku: (o.demand.line.mean() * 128.0, 128) for o in orders}
         bundle = _bundle()
         assert (_seqs(plan_order(trailers, bundle, view, predicted=True,
                                  window_rates=wr))

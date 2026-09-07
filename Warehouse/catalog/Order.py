@@ -1,7 +1,7 @@
 import math
 import random
 from collections import namedtuple
-from Warehouse.catalog.Demand import Demand, poisson_sample
+from Warehouse.catalog.Demand import Demand, LineDistribution, poisson_sample
 from Warehouse.kernel.cost_model import handle_var as _handle_var, per_pick as _per_pick
 from Warehouse.physical import PALLET_FOOTPRINT
 
@@ -22,6 +22,8 @@ def _sample_dim(max_dim: int = _MAX_DIM) -> int:
 def _sample_weight(length: int, width: int, height: int) -> int:
     # λ = cube root of volume so weight correlates with linear size, not volume;
     # large pallets average ~48 weight units, small singletons average ~3–16.
+    # (The WEIGHT law -- a physical attribute drawn once per order.  The LINE law, the
+    # quantity a pick line demands, is stamped on the SKU as `Demand.line`; this is not it.)
     lam = (length * width * height) ** (1 / 3)
     return max(1, poisson_sample(lam))
 
@@ -68,11 +70,15 @@ class Order:
               relative_frequency: float, qty_rate: float, *,
               equilibrium_qty: int, reorder_point: int,
               lead_time_mean: float = 0.0, supply_cv: float = 0.0,
-              stock_plan=None) -> 'Order':
+              stock_plan=None, line: LineDistribution | None = None) -> 'Order':
         """Construct a order from supplied physical + demand values (not random sampling),
         applying all physical guardrails.  The single construction path for generated and
         DB-loaded orders — accepts demand/quantity as params so the default random Demand()
-        is never invoked.  Does NOT touch Order.next_sku (sku is explicit)."""
+        is never invoked.  `line` is the SKU's stamped line law (`Demand.line`); absent, it
+        is reconstructed as Poisson(qty_rate) with provenance `assumed`.  The scalar is the
+        law's rate parameter and every reader must see ONE value, so a Poisson law authored at
+        the unclamped rate follows the clamp (what every pre-stamp load sampled), and a law
+        that agrees with neither RAISES.  Does NOT touch Order.next_sku (sku is explicit)."""
         c = object.__new__(cls)
         c._sku = sku
         c.storage_type          = (handling, category)
@@ -84,7 +90,16 @@ class Order:
         c.weight = cls._clamp_int(weight, cls.MIN_WEIGHT, cls.MAX_WEIGHT)
         qr = cls._clamp_int(qty_rate, cls.MIN_QTY, cls.MAX_QTY)   # integer units/pick
         fr = min(1.0, max(1e-6, float(relative_frequency)))       # fractional pick rate (0, 1]
-        c.demand = Demand.from_rates(fr, qr)
+        if line is not None and line.family == 'poisson_max1' \
+                and abs(line.params['lam'] - qr) > 1e-9:
+            if abs(line.params['lam'] - float(qty_rate)) <= 1e-9:
+                line = LineDistribution.poisson(qr, line.provenance)   # the law follows the clamp
+            else:
+                raise ValueError(
+                    f'SKU {sku}: the stamped line law is Poisson(lam={line.params["lam"]}) but '
+                    f'the quantity rate is {qty_rate} (clamped {qr}); the scalar is the rate '
+                    f'parameter of the law and every reader must see one value')
+        c.demand = Demand.from_rates(fr, qr, line)
         c.expected_batch_demand = fr * qr
         c.equilibrium_qty = max(1, int(equilibrium_qty))
         c.reorder_point   = max(1, min(c.equilibrium_qty - 1, int(reorder_point))) \
@@ -128,7 +143,8 @@ class Order:
         c.storage_type = self.storage_type
         c.storage_handle_config = self.storage_handle_config
         c._sku = self._sku
-        c.demand = Demand.from_rates(self.demand.relative_frequency, self.demand.quantity_rate)
+        c.demand = Demand.from_rates(self.demand.relative_frequency, self.demand.quantity_rate,
+                                     self.demand.line)          # the stamped law rides along
         c.lift_group = self.lift_group
         c.expected_batch_demand = getattr(self, 'expected_batch_demand', 0.0)
         c.equilibrium_qty       = getattr(self, 'equilibrium_qty',       1)

@@ -263,7 +263,10 @@ class Batch:
                 f'{type(affinity).__name__}. Refusing to silently fall back to '
                 f'uniform sampling.')
 
-        self.items: dict[int, int] = {c.sku: max(1, c.demand.sample(rng=r)) for c in selected}
+        # One LINE's quantity per selected SKU, drawn from the law stamped on it
+        # (`Demand.line`, .scratch/department-calibration "Stamp the line distribution on
+        # the SKU"): the floor at one is the law's own, so no hand-coded `max(1, ...)` here.
+        self.items: dict[int, int] = {c.sku: c.demand.sample(rng=r) for c in selected}
 
         # For a plain dict, store it directly for use in analytics.
         # For AffinityStore, lift_sum is computed on-demand per task in

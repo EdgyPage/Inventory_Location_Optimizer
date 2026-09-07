@@ -31,6 +31,7 @@ from Optimization.simconfig import staffing as _staffing
 from Optimization.simdriver import era_coverage as _era_cov
 from Optimization.config.strategies import strategies_for
 from Optimization.simdriver.strategy_runner import load_worker_checkpoint, reset_strategy_db
+from Warehouse.catalog.Demand import line_law_census
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.kernel.cost_model import SpeedProfile
 from Warehouse.kernel.regime import FULFILLMENT
@@ -594,6 +595,10 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
         # floor shares of the levels the run fields.  None when the assets were built
         # without the loop (a frozen inventory, an analysis-shape rebuild).
         'coverage': shared.get('coverage'),
+        # The line law every closed form above read ("Stamp the line distribution on the
+        # SKU"): which families the catalogue carries and how many SKUs were RECONSTRUCTED
+        # (`assumed`: a pre-stamp file, Poisson(demand_qty_rate) rebuilt at load).
+        'line_law': line_law_census(inventory.orders),
     }
     log.info(f"  [staffing] put crew={derived['put']['crew']} "
              f"(s_put={constants['s_put']['value']:.3f} s/unit, "
