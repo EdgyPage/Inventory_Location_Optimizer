@@ -284,7 +284,9 @@ _Avoid_: shift (for the reporting frame that merely labels hours)
 The labor a shift can end on: demand the cut left unpicked, queued puts and held items, and
 the dock floor. Merchandise in transit is calendar, not standing work; demand the shelf could
 not serve (unstocked or unavailable stock) is missed share, not standing work — a day drains
-on its labor alone, and no finite stock level is asked to drain it.
+on its labor alone, and no finite stock level is asked to drain it. Labor that finished after
+the whistle (start-gate overtime) is labor that did not fit the day: a day whose last task
+finished past its cap is capped, not drained.
 
 **Duty cycle**:
 The share of the site's production time a crew is actually granted to work. Denominated

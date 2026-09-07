@@ -413,9 +413,12 @@ SIM_DB_SEMANTICS: dict = {
                               note='the drain instant or the cap, whichever came first '
                                    '(timeline.shift_end); < cap_end only when drained'),
         'drained':        Col(LABEL, 'flag', 'row',
-                              note='1 = nothing cut and no LABOUR standing at close-out (put + '
+                              note='1 = nothing cut, no LABOUR standing at close-out (put + '
                                    'dock + carry_labour; the supply carry is stock, not '
-                                   'labour -- equilibrium.is_drained); 0 = CAPPED, "declared '
+                                   'labour -- equilibrium.is_drained) and no task finished '
+                                   'past cap_end (overtime, since 2026-09-07; the '
+                                   'shift_day_frame query serves a row stamped before that '
+                                   'with the term folded in); 0 = CAPPED, "declared '
                                    'throughput not delivered". The equilibrium check reads '
                                    'this per day, never a sum'),
         'standing':       Col(LEVEL, 'units', 'row',

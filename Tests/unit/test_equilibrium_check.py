@@ -124,21 +124,31 @@ def test_a_day_the_ledger_never_closed_fails_rather_than_passing_vacuously():
 def test_is_drained_reads_labour_only_and_never_the_supply_carry():
     import inspect
     # a crew that realized every task drained its day, whatever the shelf held
-    assert eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0)
-    # each labour term, ALONE, caps the day
-    assert not eq.is_drained(cut=True, standing_put=0, standing_dock=0, standing_carry_labour=0)
-    assert not eq.is_drained(cut=False, standing_put=1, standing_dock=0, standing_carry_labour=0)
-    assert not eq.is_drained(cut=False, standing_put=0, standing_dock=1, standing_carry_labour=0)
-    assert not eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=1)
-    # the supply carry is not even an argument: there is nothing to pass that could cap a day
+    assert eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0,
+                         overtime=False)
+    # each labour term, ALONE, caps the day -- overtime included: labour that did not fit it
+    assert not eq.is_drained(cut=True, standing_put=0, standing_dock=0, standing_carry_labour=0,
+                             overtime=False)
+    assert not eq.is_drained(cut=False, standing_put=1, standing_dock=0, standing_carry_labour=0,
+                             overtime=False)
+    assert not eq.is_drained(cut=False, standing_put=0, standing_dock=1, standing_carry_labour=0,
+                             overtime=False)
+    assert not eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=1,
+                             overtime=False)
+    assert not eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0,
+                             overtime=True)
+    # the supply carry is not even an argument: there is nothing to pass that could cap a day;
+    # overtime is one, and a caller must state it (no default to inherit the old verdict)
     params = inspect.signature(eq.is_drained).parameters
     assert 'standing_carry_supply' not in params and 'standing_carry' not in params
+    assert params['overtime'].default is inspect.Parameter.empty
 
 
 def test_a_day_with_supply_carry_only_is_drained_and_the_clause_reports_it():
     shift, batch, work = _window()
     # day 2 closed with 40 units the shelf could not serve rolling forward, and nothing else
-    verdict = eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0)
+    verdict = eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0,
+                            overtime=False)
     shift[2] = _shift(2, drained=verdict, supply=40)
     assert shift[2]['standing'] == 40, 'the mixed level still counts it'
     v = _check(shift, batch, work)
@@ -152,11 +162,66 @@ def test_a_day_with_supply_carry_only_is_drained_and_the_clause_reports_it():
 
 def test_a_day_with_daycut_carry_only_is_capped():
     shift, batch, work = _window()
-    verdict = eq.is_drained(cut=True, standing_put=0, standing_dock=0, standing_carry_labour=15)
+    verdict = eq.is_drained(cut=True, standing_put=0, standing_dock=0, standing_carry_labour=15,
+                            overtime=False)
     shift[2] = _shift(2, drained=verdict, labour=15)
     v = _check(shift, batch, work)
     assert not v.passed and v.clauses['drained'].reading['capped'] == [2]
     assert v.clauses['drained'].reading['supply_standing_days'] == []
+
+
+# ── overtime caps a day ("Overtime behind a drained day raises the instrument") ─────────
+
+
+def test_a_day_that_ended_at_its_cap_with_a_late_last_finish_is_capped_not_drained():
+    """The store leaf of the line-floor check, day 3: ended AT the cap, the last picker
+    finished 138 s past it, nothing standing.  Labour that did not fit the day."""
+    shift, batch, work = _window()
+    late = eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0,
+                         overtime=True)
+    assert late is False
+    shift[1] = _shift(1, drained=late, end=2 * S, last=2 * S + 138.0)
+    batch[2] = _batch(2, makespan=0.50 * 2 * S, items=950, demanded=1000, late=138.0)
+    v = _check(shift, batch, work)
+    assert not v.passed
+    r = v.clauses['drained'].reading
+    assert r['capped'] == [1] and r['overtime_days'] == [1]
+    # named apart from a day that left work standing: this one delivered everything, late
+    assert r['overtime_only_days'] == [1]
+    assert 'declared throughput not delivered' in v.clauses['drained'].reason
+    assert '1 of them by overtime alone' in v.clauses['drained'].reason
+    assert '1 capped (1 by overtime alone)' in eq.summarize(v)
+    # overtime with labour standing is not "overtime alone"
+    shift[1] = _shift(1, drained=False, end=2 * S, last=2 * S + 138.0, standing=12)
+    r2 = _check(shift, batch, work).clauses['drained'].reading
+    assert r2['overtime_days'] == [1] and r2['overtime_only_days'] == []
+    # the lag on day 2's release is day 1's overrun, recorded -- not an instrument bug
+    assert v.clauses['released_late'].passed
+    assert v.clauses['released_late'].reading['lag_s_behind_capped_days'] == {2: 138.0}
+
+
+def test_a_day_that_ended_early_with_nothing_standing_is_drained():
+    early = eq.is_drained(cut=False, standing_put=0, standing_dock=0, standing_carry_labour=0,
+                          overtime=False)
+    assert early is True
+    shift, batch, work = _window()
+    shift[1] = _shift(1, drained=early, end=2 * S - 900.0, last=2 * S - 900.0)
+    v = _check(shift, batch, work)
+    assert v.passed, v.reasons
+    assert v.clauses['drained'].reading['overtime_days'] == []
+    assert 1 in v.clauses['drained'].reading['drained_early_days']
+
+
+def test_the_pre_amendment_stamp_is_the_contradiction_the_released_late_clause_raises_on():
+    """What the store leaf's ledger said before the amendment: day 1 stamped DRAINED with
+    a finish past its cap, and 138 s of lag on the batch released into day 2.  Handed to the
+    check RAW (the loaders fold the overtime term in; this bypasses them) it raises -- the
+    instrument bug the clause exists to catch, and why the term belongs in the verdict."""
+    shift, batch, work = _window()
+    shift[1] = _shift(1, drained=True, end=2 * S, last=2 * S + 138.0)
+    batch[2] = _batch(2, makespan=0.50 * 2 * S, items=950, demanded=1000, late=138.0)
+    with pytest.raises(eq.InstrumentError, match='day 1 is recorded DRAINED'):
+        _check(shift, batch, work)
 
 
 def test_a_pre_split_ledger_reads_as_no_split_recorded_and_its_verdicts_stand():

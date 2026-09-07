@@ -21,6 +21,12 @@ not delivered, `missed_share`'s quantity, and never keeps a day from draining.  
 frame carries both halves (`standing_carry_labour` / `standing_carry_supply`) and the
 drained clause's reading lists the days that closed with supply carry standing.
 
+Overtime caps a day ("Overtime behind a drained day raises the instrument", 2026-09-07):
+a day whose last task finished past its cap is labour that did not fit the day, and the
+loader serves a pre-amendment ledger's `drained` with that term folded in -- which is what
+lets the store leaf of the line-floor check render at all (its day 3, stamped drained with
+138 s of overtime, raised the released-late clause behind it).
+
 ## Two marks, one quantity
 
 `days_capped` is the ONE quantity (ranked, absolute + percent vs baseline): a capped day

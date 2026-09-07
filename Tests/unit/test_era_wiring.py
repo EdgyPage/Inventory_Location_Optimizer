@@ -336,7 +336,9 @@ def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as
     from Optimization.persistence.Picking_Data import (
         PRE_CARRY_SPLIT_SIM_SCHEMA_ID, load_shift_days, save_shift_days)
     db, run_id = _fresh_db(tmp_path)
-    save_shift_days(db, run_id, [(0, 28800.0, 28800.0, False, 7, 0, 0, 7, 0, 7, 28800.0)])
+    save_shift_days(db, run_id, [(0, 28800.0, 28800.0, False, 7, 0, 0, 7, 0, 7, 28800.0),
+                                 # an overtime day that vintage's runner stamped DRAINED
+                                 (1, 57600.0, 57600.0, True, 0, 0, 0, 0, 0, 0, 57738.0)])
     con = sqlite3.connect(db)
     con.execute('ALTER TABLE shift_days DROP COLUMN standing_carry_labour')
     con.execute('ALTER TABLE shift_days DROP COLUMN standing_carry_supply')
@@ -351,10 +353,36 @@ def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as
     with dataset.bind(db, 'sim_db', immutable=True) as ds:
         assert (ds.schema_id, ds.source) == (PRE_CARRY_SPLIT_SIM_SCHEMA_ID, 'stamped')
     rows = load_shift_days(db, run_id)
-    assert len(rows) == 1
+    assert len(rows) == 2
     r = rows[0]
     assert r['drained'] == 0 and r['standing_carry'] == 7, 'the old verdict stands as written'
     assert r['standing_carry_labour'] is None and r['standing_carry_supply'] is None
+    # ... except for the overtime term, folded in for this vintage as for every other
+    assert rows[1]['drained'] == 0 and rows[1]['last_finish'] == 57738.0
+
+
+def test_a_ledger_stamped_before_the_overtime_amendment_reads_its_overtime_days_capped(
+        tmp_path):
+    """Until 2026-09-07 the runner stamped an overtime day DRAINED (the store leaf of the
+    line-floor check, day 3: ended at its cap, last finish 138 s past it, nothing standing),
+    and the lag it left on the next release raised the released-late clause.  The
+    amendment moved no column, so the loader folds the term in off the row's own two
+    stamps for every vintage -- and `_sdf`'s `capped`, hence `days_capped`, follows."""
+    from Optimization.persistence.Picking_Data import load_shift_days, save_shift_days
+    from Optimization.Performance_Evaluations.common.frames import _sdf
+    db, run_id = _fresh_db(tmp_path)
+    S = 28800.0
+    save_shift_days(db, run_id, [
+        (3, 4 * S, 4 * S, True, 0, 0, 0, 0, 0, 0, 4 * S + 138.1),           # the old stamp
+        (4, 5 * S, 5 * S - 500.0, True, 0, 0, 0, 0, 0, 0, 5 * S - 500.0),   # drained early
+        (5, 6 * S, 6 * S, False, 9, 9, 0, 0, 0, 0, 6 * S + 40.0)])          # capped anyway
+    rows = load_shift_days(db, run_id)
+    assert [r['drained'] for r in rows] == [0, 1, 0]
+    assert rows[0]['last_finish'] == 4 * S + 138.1 and rows[0]['end_s'] == 4 * S, \
+        'the stamps stand; only the verdict is served amended'
+    df = _sdf(rows, None, None)
+    assert list(df['capped']) == [1, 0, 1]
+    assert [bool(x) for x in df['overtime_s'] > 0] == [True, False, True]
 
 
 def test_an_era_less_run_and_a_pre_era_vintage_both_read_as_no_days(tmp_path):
@@ -380,9 +408,12 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     assert src.count('shift_days=sd') == 2, 'both bundle flushes carry the ledger'
     assert 'sd.clear()' in src
     # ONE definition of drained, and it is labour-only: the close-out calls
-    # `equilibrium.is_drained` with the LABOUR half of the carry and never re-derives it
+    # `equilibrium.is_drained` with the LABOUR half of the carry and the overtime stamp
+    # (the last finish past the cap) and never re-derives it
     assert ('_is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,\n'
-            '                               standing_carry_labour=_s_labour)') in src
+            '                               standing_carry_labour=_s_labour, overtime=_overtime)') in src
+    assert '_overtime = float(last_finish) > _cap_end' in src, \
+        'overtime is the last finish past the cap, computed before the verdict'
     assert '_drained = (not cut)' not in src, 'the verdict must not be re-derived inline'
     assert '_shift_standing = (mgr.queue_depth, mgr.dock_depth, *_pending_split)' in src
     assert "if _reason == 'unpicked_daycut':" in src, 'the carry is split by cause family'

@@ -243,6 +243,9 @@ regime someone chose rather than one the defaults inherited.
   REPORTS the days that drained with supply carry standing, `days_capped` follows. A 6-day era
   smoke run: the fulfillment leaf drained days 2-5 with 4-11 units of supply carry standing,
   every one CAPPED under the old rule. Amends 04; *Standing work* amended in the glossary.
+  **AMENDED 2026-09-07** by
+  [Overtime behind a drained day raises the instrument](issues/21-overtime-behind-a-drained-day.md):
+  overtime is labour that did not fit the day -- `is_drained`'s fifth term.
 
 - [Stamp the line distribution on the SKU](issues/16-stamp-the-line-distribution-on-the-sku.md):
   LANDED. `Demand.line` (`LineDistribution`: `mean`/`cdf`/`quantile`/`survival`/`expected_min`/
@@ -285,14 +288,23 @@ regime someone chose rather than one the defaults inherited.
   knobs with them; the fixed point runs in every mode on the reporting frame's day -- a hard
   break for flag-off inventories (ADR-0002). Graduated 22 -> 23.
 
+- [Overtime behind a drained day raises the instrument](issues/21-overtime-behind-a-drained-day.md):
+  LANDED. `is_drained` gains `overtime` (`last_finish > cap_end`) as a fifth required term --
+  labour that did not fit the day caps it -- and the runner passes the stamp. The amendment
+  moves no column (sim_db stays 798778f4fae1), so the `shift_day_frame` query folds the term
+  into `drained` off the row's own two stamps for every vintage (the ONE stated exception to
+  18's read-the-column rule; a no-op on an amended ledger), and the check, the audit frame and
+  `days_capped` follow. The store leaf of 17's check re-reads without raising: 36/40 capped
+  (35 + day 3), day 4's 138 s recorded behind it; fulfillment unchanged at 39/40.
+
 ## Not yet specified
 
 - **Re-reading the check.** Once
   [Let a base-stock top-up reach the shelf](issues/20-let-a-base-stock-top-up-reach-the-shelf.md),
-  [Overtime behind a drained day](issues/21-overtime-behind-a-drained-day.md),
   [Retire the authored stock levels](issues/22-retire-the-authored-stock-levels.md) and
   [Field the requirement](issues/23-field-the-requirement.md) resolve, ONE 40-day run on the
-  reference pair re-reads 17's check. 19 settled that the floor is a promise, so the
+  reference pair re-reads 17's check (21 resolved 2026-09-07: the store leaf's audit renders
+  again, so that run's store audit will be read, not raised). 19 settled that the floor is a promise, so the
   fulfillment warehouse WILL grow (demand sizing alone took it 977 -> 1,232 aisles; exact
   fielding is 23's number to report); which arms is still dim. Until then the era's numbers on both sections are provisional and the inbound
   funnel's lift ([Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md)) has

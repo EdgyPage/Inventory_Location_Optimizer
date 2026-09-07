@@ -17,6 +17,16 @@ verdict with reasons: four clauses over a window of working days, all STRICT.
                    coverage floor", decision 7, amending decision 4: 0/20 days drained with
                    pickers in band and every task realized).  The supply carry stays in the
                    ledger (`standing_carry_supply`) and this clause REPORTS it per day.
+                   OVERTIME CAPS A DAY ("Overtime behind a drained day raises the
+                   instrument", 2026-09-07, amending 18): a day whose last task finished
+                   after its cap (`last_finish > cap_end`, START-gate overtime) is labour
+                   that did not fit the day, so `is_drained` takes it as its fifth term.
+                   Before the amendment such a day was stamped DRAINED with its lag on
+                   the next release, and the second clause raised on a healthy run (the
+                   store leaf of the line-floor check, day 3: 138 s).  The amendment
+                   moved no column, so no vintage records it: `load_shift_days` serves
+                   the amended verdict off the row's own two stamps for every ledger, a
+                   no-op on one the amended runner wrote.
     released_late  = 0 behind every drained day.  A self-consistency assertion, not a clause
                    that can fail: release waits on the picker clock and the cut is a
                    between-bins START gate, so a day that drained leaves exactly 0 lag on
@@ -80,12 +90,18 @@ _WORK_ROLE = {'put': 'put', 'recv': 'receive'}
 
 
 def is_drained(*, cut: bool, standing_put: int, standing_dock: int,
-               standing_carry_labour: int) -> bool:
+               standing_carry_labour: int, overtime: bool) -> bool:
     """THE drained verdict: did working day end with its LABOUR done?
 
-    True when nothing was cut in the day and no standing labour survives it -- no storage
+    True when nothing was cut in the day, no standing labour survives it -- no storage
     units in the put queues or held, none on the dock floor, and no demand the CUT left
-    unpicked (`unpicked_daycut`, the labour carry).  The SUPPLY carry -- demand no bin could
+    unpicked (`unpicked_daycut`, the labour carry) -- and no task finished past the cap
+    (`overtime`: `last_finish > cap_end`, START-gate overtime).  Overtime is labour that
+    did not fit the day, so it caps the day exactly as standing work does ("Overtime
+    behind a drained day raises the instrument", 2026-09-07, amending 18): a day stamped
+    drained with a finish past the whistle leaves lag on the next release, and the
+    released-late clause then raises on a healthy run -- the store leaf of the line-floor
+    check, day 3, 138 s of overtime with nothing standing.  The SUPPLY carry -- demand no bin could
     serve (`unpicked_unavailable`, `unpicked_unstocked`) -- is deliberately NOT an argument:
     it is stock not delivered, `missed_share`'s quantity, and a crew that realized every task
     it was given has drained its day whatever the shelf held.  Counting it made the verdict
@@ -97,10 +113,14 @@ def is_drained(*, cut: bool, standing_put: int, standing_dock: int,
 
     ONE definition, two readers: `strategy_runner._shift_close_out` writes the ledger's
     `drained` with it; `_drained_clause` reads that column rather than re-deriving, so a
-    pre-split vintage's verdicts stand as its runner judged them.
+    pre-split vintage's verdicts stand as its runner judged them.  The overtime term is
+    the one exception, and it lives in the LOADER, not the clause: the amendment moved no
+    column, so no vintage separates a ledger stamped before it from one stamped after,
+    and `Picking_Data.load_shift_days` serves `drained` with the term folded in off the
+    row's own `last_finish` / `cap_end` -- a no-op on a ledger this definition wrote.
     """
-    return (not cut) and int(standing_put) == 0 and int(standing_dock) == 0 \
-        and int(standing_carry_labour) == 0
+    return (not cut) and (not overtime) and int(standing_put) == 0 \
+        and int(standing_dock) == 0 and int(standing_carry_labour) == 0
 
 
 class InstrumentError(RuntimeError):
@@ -292,7 +312,14 @@ def _drained_clause(shift_rows, days: list[int]) -> Clause:
     days).  A drained day on that list is the whole point of the labour-only rule -- the
     crew finished, the stock did not.  `supply_split_recorded` is False on a pre-split
     vintage (487a65bf83a9), whose rows carry the halves as NULL and whose `drained` was
-    judged with the supply carry counted as standing work.
+    judged with the supply carry counted as standing work.  `overtime_days` are CAPPED
+    days since the overtime amendment; through the loaders a drained day never appears
+    on that list (a pre-amendment ledger is served with the term folded in).
+    `overtime_only_days` are the capped days that overtime ALONE capped -- nothing
+    standing at close-out, the last task a few seconds past the whistle -- named in the
+    reason because "declared throughput not delivered" overstates such a day: it
+    delivered everything, late.  A day whose labour carry the vintage did not record
+    (NULL) is never counted there.
     """
     ledger = {int(_get(r, 'day')): r for r in shift_rows}
     missing = [d for d in days if d not in ledger]
@@ -301,13 +328,22 @@ def _drained_clause(shift_rows, days: list[int]) -> Clause:
                 and float(_get(ledger[d], 'last_finish')) > float(_get(ledger[d], 'cap_end'))]
     early = [d for d in days if d in ledger and int(_get(ledger[d], 'drained'))
              and float(_get(ledger[d], 'end_s')) < float(_get(ledger[d], 'cap_end'))]
+
+    def _nothing_standing(r) -> bool:
+        lab = _get(r, 'standing_carry_labour', None)
+        return (int(_get(r, 'standing_put', 0) or 0) == 0
+                and int(_get(r, 'standing_dock', 0) or 0) == 0
+                and lab is not None and not _isnan(lab) and int(lab) == 0)
+
+    overtime_only = [d for d in overtime if d in capped and _nothing_standing(ledger[d])]
     supply = {d: int(_get(ledger[d], 'standing_carry_supply', None))
               for d in days if d in ledger
               and _get(ledger[d], 'standing_carry_supply', None) is not None
               and not _isnan(_get(ledger[d], 'standing_carry_supply', None))}
     reading = {'days': len(days), 'drained': len(days) - len(missing) - len(capped),
                'capped': capped, 'missing': missing,
-               'overtime_days': overtime, 'drained_early_days': early,
+               'overtime_days': overtime, 'overtime_only_days': overtime_only,
+               'drained_early_days': early,
                'supply_standing_days': [d for d, q in supply.items() if q > 0],
                'supply_standing_max_units': max(supply.values(), default=0),
                'supply_split_recorded': bool(supply) or not any(d in ledger for d in days)}
@@ -318,6 +354,10 @@ def _drained_clause(shift_rows, days: list[int]) -> Clause:
     elif capped:
         reason = (f'{len(capped)} of {len(days)} day(s) ended CAPPED -- declared throughput '
                   f'not delivered ({capped[:6]}{" ..." if len(capped) > 6 else ""})')
+        if overtime_only:
+            reason += (f'; {len(overtime_only)} of them by overtime alone -- nothing standing, '
+                       f'the last task finished past the cap ({overtime_only[:6]}'
+                       f'{" ..." if len(overtime_only) > 6 else ""})')
     return Clause('drained', not missing and not capped, reading, reason)
 
 
@@ -484,7 +524,9 @@ def summarize(verdict: Verdict) -> str:
         if name == 'drained':
             r = c.reading
             parts.append(f'{name}={tag} ({r["drained"]}/{r["days"]} drained, '
-                         f'{len(r["capped"])} capped, {len(r["missing"])} missing, '
+                         f'{len(r["capped"])} capped '
+                         f'({len(r.get("overtime_only_days", ()))} by overtime alone), '
+                         f'{len(r["missing"])} missing, '
                          f'{len(r.get("supply_standing_days", ()))} with supply carry standing)')
         elif name == 'utilization':
             bits = [f'{d}={v["realized"]:.3f}/{v["expected"]:.3f}'

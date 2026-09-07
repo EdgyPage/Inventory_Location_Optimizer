@@ -682,8 +682,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         """Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
         standing, standing_put, standing_dock, standing_carry, standing_carry_labour,
         standing_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing
-        was cut in it and no standing LABOUR survives it: put queues + held + the dock floor
-        + the cut's own carry (`unpicked_daycut`).  Never the lead queue (transit is
+        was cut in it, no standing LABOUR survives it -- put queues + held + the dock floor
+        + the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap
+        (START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is
         calendar, not labour; and releases are exhausted by construction at a day
         boundary), and never the SUPPLY carry (`unpicked_unavailable` /
         `unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as
@@ -705,9 +706,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         _s_put, _s_dock, _s_labour, _s_supply = (int(x) for x in standing)
         _s_carry = _s_labour + _s_supply
         _standing = _s_put + _s_dock + _s_carry
-        _drained = _is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,
-                               standing_carry_labour=_s_labour)
         _cap_end = _release.day.end_of(day)
+        # START-gate overtime: the last task any crew began before the whistle finished
+        # after it.  Labour that did not fit the day -- the verdict's fifth term.
+        _overtime = float(last_finish) > _cap_end
+        _drained = _is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,
+                               standing_carry_labour=_s_labour, overtime=_overtime)
         _end = _tl_shift_end(_cap_end, last_finish, _drained)
         log.info(f'  [shift] day {day} ended at {_end:,.0f} s '
                  f'({"drained" if _drained and _end < _cap_end else "capped"}; '
@@ -1741,7 +1745,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
 
         # ── the drain-or-cap shift's ledger ───────────────────────────────────
         # Per-DAY close-out, decided at the first batch of the NEXT day: a day drained if
-        # nothing was cut in it and no standing LABOUR survives it (put queues + held + the
+        # nothing was cut in it, no task finished past its cap (overtime is labour that did
+        # not fit the day) and no standing LABOUR survives it (put queues + held + the
         # dock floor + the cut's own carry — never the lead queue: transit is calendar, not
         # labour; never the supply carry: stock not delivered is missed share's quantity,
         # `equilibrium.is_drained`; and releases are exhausted by construction at a day

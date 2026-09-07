@@ -403,7 +403,9 @@ def _sdf(rows, df_b, df_w, expectations=None):
     """Per-DAY frame of the drain-or-cap ledger, joined to the batches and the labour.
 
     THE THROUGHPUT AUDIT'S FRAME.  One row per working day the ledger closed: the verdict
-    (`drained` / `capped`), the close-out levels, the START-gate overtime
+    (`drained` / `capped` -- as `load_shift_days` serves it, with overtime folded in, so an
+    `overtime_s` above 0 is always a capped row and `days_capped` follows), the close-out
+    levels, the START-gate overtime
     (`last_finish - cap_end`, floored at 0), and -- joined through `batch_stats.work_day`
     -- the day's batches, released-late seconds, demand and picks, and the three crews'
     worked seconds.  With `expectations` (`equilibrium.expectations_for`) each department's

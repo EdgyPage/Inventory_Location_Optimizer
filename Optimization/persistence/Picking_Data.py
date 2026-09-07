@@ -846,9 +846,12 @@ _CREATE_SHIFT_DAYS = """
                                           -- arm's absolute clock
         end_s          REAL    NOT NULL,  -- STAMP: when the shift ENDED -- the drain instant or
                                           -- the cap, whichever came first (timeline.shift_end)
-        drained        INTEGER NOT NULL,  -- 1 = nothing was cut and no LABOUR stood at close-out
+        drained        INTEGER NOT NULL,  -- 1 = nothing was cut, no LABOUR stood at close-out
                                           -- (equilibrium.is_drained: put + dock + carry_labour;
-                                          -- the supply carry is stock, not labour);
+                                          -- the supply carry is stock, not labour) and no
+                                          -- task finished past cap_end (overtime, since
+                                          -- 2026-09-07; a row stamped before that is served
+                                          -- with the term folded in by shift_day_frame);
                                           -- 0 = CAPPED: declared throughput not delivered
         standing       INTEGER NOT NULL,  -- LEVEL at close-out: standing_put + standing_dock +
                                           -- standing_carry.  A MIXED account (packs + pieces),
@@ -1066,6 +1069,11 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 passes of "Take the reference run" and the coverage smoke runs; no
     #                 published run).  Served by a `shift_day_frame` override that reads the
     #                 two halves as NULL; its `drained` verdicts stand as written.
+    #   798778f4fae1  the carry split, 2026-09-06 .. : two verdict rules share this shape.
+    #                 Until 2026-09-07 an overtime day (last_finish > cap_end) was stamped
+    #                 DRAINED ("Overtime behind a drained day raises the instrument"); the
+    #                 amendment moved no column, so `shift_day_frame` folds the term in for
+    #                 every vintage (`_SHIFT_DAY_DRAINED_SQL`) rather than keying on an id.
     known_ids=('487a65bf83a9',  # the ledger before the carry split, 2026-09-05 .. 2026-09-06
               'be2a593727be',
               'ce01ca0095b2',
@@ -1219,7 +1227,9 @@ SIM_CAPABILITIES = {c.name: c for c in (
               'flushed at run end)',
         caveat='ONE ROW PER WORKING DAY of ONE ARM. `drained` is the per-day verdict -- '
                'LABOUR-ONLY since the carry split (equilibrium.is_drained: the supply carry '
-               'is stock not delivered, never standing work); the `standing_*` columns are '
+               'is stock not delivered, never standing work), and since 2026-09-07 overtime '
+               'caps a day (last_finish > cap_end), served folded in for every vintage by '
+               'the `shift_day_frame` query; the `standing_*` columns are '
                'LEVELS at close-out and never sum across days. The split halves '
                '(standing_carry_labour / standing_carry_supply) are NOT part of this '
                'capability: the pre-split vintage 487a65bf83a9 lacks them, so they are '
@@ -1440,9 +1450,25 @@ _dataset.register_query(_dataset.Query(
 _SHIFT_DAY_COLS = ('day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put',
                    'standing_dock', 'standing_carry', 'standing_carry_labour',
                    'standing_carry_supply', 'last_finish')
+#: `drained` is served as the AMENDED verdict: overtime caps a day ("Overtime behind a
+#: drained day raises the instrument", 2026-09-07 -- `equilibrium.is_drained`'s fifth term,
+#: `last_finish > cap_end`).  The amendment moved no column, so no vintage separates a ledger
+#: stamped before it (an overtime day written DRAINED, its lag on the next release raising the
+#: released-late clause) from one stamped after; both stamps the term reads are on the row,
+#: so the query folds it in for every vintage, and on a ledger the amended runner wrote the
+#: CASE is a no-op.  This is the ONE place the read side touches the verdict: the clauses,
+#: the frames and `days_capped` all read the column as served here.
+_SHIFT_DAY_DRAINED_SQL = 'CASE WHEN last_finish > cap_end THEN 0 ELSE drained END AS drained'
+
+
+def _shift_day_select(cols) -> str:
+    """The select list for a `shift_days` query: every column by name, `drained` amended."""
+    return ', '.join(_SHIFT_DAY_DRAINED_SQL if c == 'drained' else c for c in cols)
+
+
 _dataset.register_query(_dataset.Query(
     name='shift_day_frame', family='sim_db',
-    sql=('SELECT ' + ', '.join(_SHIFT_DAY_COLS)
+    sql=('SELECT ' + _shift_day_select(_SHIFT_DAY_COLS)
          + ' FROM shift_days WHERE run_id = :run_id ORDER BY day'),
     columns=_SHIFT_DAY_COLS,
     tables={'shift_days': ('run_id', *_SHIFT_DAY_COLS)}))
@@ -1450,10 +1476,13 @@ _dataset.register_query(_dataset.Query(
 #: are read as NULL -- unknown, never 0 -- and the row's `drained` stands as that vintage's
 #: runner judged it (the supply carry counted as standing work): re-deriving it here would be
 #: a second definition of "drained", and there is exactly one (`simconfig.equilibrium.is_drained`).
+#: The overtime term is folded in as for every vintage (`_SHIFT_DAY_DRAINED_SQL`): not a
+#: re-derivation from the labour terms, but the definition's own stamp read off the row.
 PRE_CARRY_SPLIT_SIM_SCHEMA_ID = '487a65bf83a9'
 _dataset.override(
     'sim_db', 'shift_day_frame', PRE_CARRY_SPLIT_SIM_SCHEMA_ID,
-    'SELECT ' + ', '.join(c for c in _SHIFT_DAY_COLS if not c.startswith('standing_carry_'))
+    'SELECT ' + _shift_day_select(c for c in _SHIFT_DAY_COLS
+                                  if not c.startswith('standing_carry_'))
     + ', NULL AS standing_carry_labour, NULL AS standing_carry_supply'
     + ' FROM shift_days WHERE run_id = :run_id ORDER BY day')
 
@@ -2732,7 +2761,11 @@ def load_shift_days(path: str, run_id: int) -> list:
     runner judged it.  The `standing_*` columns are LEVELS at close-out and never sum
     across days.  `end_s < cap_end` with `drained` is a day the crews got off the clock
     early; `last_finish > cap_end` is START-gate overtime (a task begun before the whistle
-    finished after it).
+    finished after it) -- and such a day is CAPPED: overtime is labour that did not fit the
+    day ("Overtime behind a drained day raises the instrument", 2026-09-07).  A ledger
+    stamped before that amendment wrote an overtime day DRAINED; the query serves every
+    vintage's `drained` with the term folded in (`_SHIFT_DAY_DRAINED_SQL`), so a row here
+    never reads drained with a finish past its cap.
     """
     return _query_rows('shift_day_frame', path, run_id=run_id) or []
 
