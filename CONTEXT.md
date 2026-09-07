@@ -317,10 +317,30 @@ How long a SKU's order-up-to quantity lasts, in days of its OWN expected demand 
 generation batches, which are not a unit of time. Under an era it is a declared input
 (`coverage_days`, with `safety_days` for the reorder point) and every SKU's levels are
 re-derived from it at setup, the warehouse sized from them through a pair-level fixed point.
-Nominal and real only for SKUs holding two or more units: the unit floor makes a slow mover
-hold one unit and reorder on its first pick whatever the coverage says, and the record states
-how much of a section, and of its demand, sits on that floor.
-_Avoid_: coverage batches, equilibrium coverage (the catalogue's flag-off shape)
+It means "hold this many days of demand, never less than one pick's worth": a SKU whose
+coverage is shorter than the interval between its lines sits on the line floor and runs
+base stock, and the record states how much of a section, and of its demand, does.
+_Avoid_: coverage batches, equilibrium coverage (the catalogue's flag-off shape), unit floor
+
+**Line distribution**:
+The law one line of a SKU's demand is drawn from — the quantity a single pick asks for. A
+first-class fact stamped on the SKU (its family and parameters), read by the sampler and by
+every expectation alike, so the units a pick takes and the units a formula expects are one law
+by construction. Never re-derived by a consumer from a rate.
+_Avoid_: quantity rate (the parameter, not the law), Poisson (one family, not the concept)
+
+**Line floor**:
+The least stock a SKU ever holds: one line's expected quantity, rounded up, read off its line
+distribution — a pick's worth of itself. Applied to both the order-up-to quantity and the
+reorder point. A declared number of lines (`floor_lines`, one by default) scales it.
+_Avoid_: unit floor, minimum stock, Q = 1
+
+**Base stock**:
+The replenishment regime of a SKU on the line floor: every pick reorders exactly what it took,
+so the shelf returns to one line's worth after each line. Replenishment is then a trickle in
+lockstep with picks — there is no reorder wave — and a line larger than the shelf is served in
+part now and in part after the restock, a reported shortfall, never a capped day.
+_Avoid_: reorder wave, min-max, one-unit shelf
 
 **Staffing record**:
 A run's declaration of who worked it: the declared inputs (pickers per channel, the utilization

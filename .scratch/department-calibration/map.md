@@ -43,6 +43,11 @@ regime someone chose rather than one the defaults inherited.
     LANDED 2026-09-06: the expectation takes a placement DISTRIBUTION -- class-uniform for
     the pair's demand (one shared script; FIFO's long-run state), the arm's own initial
     placement for its report -- because a churning FIFO section migrates to the smear.
+  - **The floor is a line, and the SKU carries its law** (decided 2026-09-06,
+    [Choose the coverage floor](issues/15-choose-the-coverage-floor.md)): a SKU never holds
+    less than one pick's worth of itself, floored SKUs run base-stock, the line distribution is
+    stamped on the SKU and every closed form reads it -- no consumer re-derives a law. The
+    drained clause judges labour only; the window verifies a steady state, never a wave.
   - **No bespoke conversions implicit in the inventory.** A standing preference from the
     same decision: nothing authored on the catalogue may carry an implicit batch or day (the
     coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
@@ -205,12 +210,27 @@ regime someone chose rather than one the defaults inherited.
   picks 3.8% of demand. A wave inside the window and a store that is a warehouse are mutually
   exclusive under the unit floor; the default is provisional and the floor is ticket 15.
 
+- [Choose the coverage floor](issues/15-choose-the-coverage-floor.md): the floor is ONE
+  LINE of the SKU's own mean line, on Q and the reorder point, so a floored SKU runs base-stock
+  (`rp = Q - 1`, every pick reorders what it took); `floor_lines` (1.0, `assumed`) joins
+  `STAFFING_KEYS`; 10 / 2 stay and are inert on this catalogue (both sections 100% on the floor,
+  the record says so). The record stamps the expected first-pass fill rate; the lead pipeline is
+  stamped per SKU, not inferred from `rp`; the drained clause becomes labour-only (amends 04);
+  "a wave inside the window" is retired -- base-stock is a trickle from day `lead`, and the
+  store's answer is explicitly no wave. USER AMENDMENT: the line distribution is stamped on the
+  SKU (two inventory columns through the schema pipeline; pre-stamp vintages reconstruct at
+  load) and every reader -- sampler and closed forms alike -- reads the one object; the grilling
+  found `staffing.py` and `coverage.py` already carried two different line means. Three task
+  tickets graduated (16 -> 17, and 18).
+
 ## Not yet specified
 
-- **The builds** — every implementation graduated and landed (06, 07, 08, 10, 13, 14). The
-  one live ticket is the decision 14 surfaced
-  ([Choose the coverage floor](issues/15-choose-the-coverage-floor.md)); the era's default
-  coverage is PROVISIONAL until it closes. What stays dim is below.
+- **The builds** — every decision is now made; three task tickets carry the last builds
+  ([Stamp the line distribution on the SKU](issues/16-stamp-the-line-distribution-on-the-sku.md)
+  -> [Build the line floor](issues/17-build-the-line-floor.md), and
+  [Narrow the drained clause to labour](issues/18-narrow-the-drained-clause-to-labour.md)).
+  The era's coverage default is decided (10 / 2 with the line floor) but the store's era
+  numbers stay PROVISIONAL until 17's verification run reads in band. What stays dim is below.
 - **Ranked arms' steady-state placement.** 13 found FIFO drifts to the class-uniform smear; a
   ranked restock keeps its placement concentrated, so its initial-placement expectation is a
   proxy, not a steady state. Whether the audit's per-arm band should follow the placement as it
