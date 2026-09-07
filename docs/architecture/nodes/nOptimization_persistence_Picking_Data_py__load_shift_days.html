@@ -26,7 +26,11 @@ delivered), and only the first can keep a day from draining.  On the pre-split v
 runner judged it.  The `standing_*` columns are LEVELS at close-out and never sum
 across days.  `end_s &lt; cap_end` with `drained` is a day the crews got off the clock
 early; `last_finish &gt; cap_end` is START-gate overtime (a task begun before the whistle
-finished after it).</section>
+finished after it) -- and such a day is CAPPED: overtime is labour that did not fit the
+day (&quot;Overtime behind a drained day raises the instrument&quot;, 2026-09-07).  A ledger
+stamped before that amendment wrote an overtime day DRAINED; the query serves every
+vintage&#x27;s `drained` with the term folded in (`_SHIFT_DAY_DRAINED_SQL`), so a row here
+never reads drained with a finish past its cap.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___query_rows.html"><code>_query_rows</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__shift_frame.html"><code>shift_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__check.html"><code>check</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__load_shift_days">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20load_shift_days">Source ↗</a></p>
 </article>

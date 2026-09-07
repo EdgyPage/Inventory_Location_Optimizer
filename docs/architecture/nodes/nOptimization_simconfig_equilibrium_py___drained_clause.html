@@ -23,7 +23,14 @@ days that closed with demand the shelf could not serve still rolling forward, an
 days).  A drained day on that list is the whole point of the labour-only rule -- the
 crew finished, the stock did not.  `supply_split_recorded` is False on a pre-split
 vintage (487a65bf83a9), whose rows carry the halves as NULL and whose `drained` was
-judged with the supply carry counted as standing work.</section>
+judged with the supply carry counted as standing work.  `overtime_days` are CAPPED
+days since the overtime amendment; through the loaders a drained day never appears
+on that list (a pre-amendment ledger is served with the term folded in).
+`overtime_only_days` are the capped days that overtime ALONE capped -- nothing
+standing at close-out, the last task a few seconds past the whistle -- named in the
+reason because &quot;declared throughput not delivered&quot; overstates such a day: it
+delivered everything, late.  A day whose labour carry the vintage did not record
+(NULL) is never counted there.</section>
 <section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Clause.html"><code>Clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___get.html"><code>_get</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___isnan.html"><code>_isnan</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___drained_clause">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_drained_clause">Source ↗</a></p>
 </article>

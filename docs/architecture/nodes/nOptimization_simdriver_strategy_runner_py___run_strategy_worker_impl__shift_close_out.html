@@ -18,8 +18,9 @@
 <section class="doc">Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
 standing, standing_put, standing_dock, standing_carry, standing_carry_labour,
 standing_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing
-was cut in it and no standing LABOUR survives it: put queues + held + the dock floor
-+ the cut&#x27;s own carry (`unpicked_daycut`).  Never the lead queue (transit is
+was cut in it, no standing LABOUR survives it -- put queues + held + the dock floor
++ the cut&#x27;s own carry (`unpicked_daycut`) -- and no task finished past its cap
+(START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is
 calendar, not labour; and releases are exhausted by construction at a day
 boundary), and never the SUPPLY carry (`unpicked_unavailable` /
 `unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as

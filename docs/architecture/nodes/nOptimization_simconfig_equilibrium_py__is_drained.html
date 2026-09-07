@@ -14,12 +14,18 @@
 <h1><span class="kind kind-function">function</span> <code>is_drained</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def is_drained(*, cut: bool, standing_put: int, standing_dock: int, standing_carry_labour: int) -&gt; bool</code></pre>
+<pre class="sig"><code>def is_drained(*, cut: bool, standing_put: int, standing_dock: int, standing_carry_labour: int, overtime: bool) -&gt; bool</code></pre>
 <section class="doc">THE drained verdict: did working day end with its LABOUR done?
 
-True when nothing was cut in the day and no standing labour survives it -- no storage
+True when nothing was cut in the day, no standing labour survives it -- no storage
 units in the put queues or held, none on the dock floor, and no demand the CUT left
-unpicked (`unpicked_daycut`, the labour carry).  The SUPPLY carry -- demand no bin could
+unpicked (`unpicked_daycut`, the labour carry) -- and no task finished past the cap
+(`overtime`: `last_finish &gt; cap_end`, START-gate overtime).  Overtime is labour that
+did not fit the day, so it caps the day exactly as standing work does (&quot;Overtime
+behind a drained day raises the instrument&quot;, 2026-09-07, amending 18): a day stamped
+drained with a finish past the whistle leaves lag on the next release, and the
+released-late clause then raises on a healthy run -- the store leaf of the line-floor
+check, day 3, 138 s of overtime with nothing standing.  The SUPPLY carry -- demand no bin could
 serve (`unpicked_unavailable`, `unpicked_unstocked`) -- is deliberately NOT an argument:
 it is stock not delivered, `missed_share`&#x27;s quantity, and a crew that realized every task
 it was given has drained its day whatever the shelf held.  Counting it made the verdict
@@ -31,7 +37,11 @@ releases are exhausted by construction at a day boundary, so neither is read.
 
 ONE definition, two readers: `strategy_runner._shift_close_out` writes the ledger&#x27;s
 `drained` with it; `_drained_clause` reads that column rather than re-deriving, so a
-pre-split vintage&#x27;s verdicts stand as its runner judged them.</section>
+pre-split vintage&#x27;s verdicts stand as its runner judged them.  The overtime term is
+the one exception, and it lives in the LOADER, not the clause: the amendment moved no
+column, so no vintage separates a ledger stamped before it from one stamped after,
+and `Picking_Data.load_shift_days` serves `drained` with the term folded in off the
+row&#x27;s own `last_finish` / `cap_end` -- a no-op on a ledger this definition wrote.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl__shift_close_out.html"><code>_shift_close_out</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py__is_drained">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20is_drained">Source ↗</a></p>
 </article>

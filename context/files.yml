@@ -3319,6 +3319,9 @@ files:
       - {name: "test_is_drained_reads_labour_only_and_never_the_supply_carry", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_day_with_supply_carry_only_is_drained_and_the_clause_reports_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_day_with_daycut_carry_only_is_capped", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_day_that_ended_at_its_cap_with_a_late_last_finish_is_capped_not_drained", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_day_that_ended_early_with_nothing_standing_is_drained", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_the_pre_amendment_stamp_is_the_contradiction_the_released_late_clause_raises_on", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_pre_split_ledger_reads_as_no_split_recorded_and_its_verdicts_stand", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_late_release_behind_a_drained_day_raises_as_an_instrument_bug", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_late_release_on_the_first_day_raises_nothing_could_overrun_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
@@ -3389,6 +3392,7 @@ files:
       - {name: "test_the_flag_off_payload_shape_is_still_accepted", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_shift_days_rows_ride_the_bundle_and_read_back_from_the_file", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as_written", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+      - {name: "test_a_ledger_stamped_before_the_overtime_amendment_reads_its_overtime_days_capped", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_an_era_less_run_and_a_pre_era_vintage_both_read_as_no_days", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_the_table_is_in_the_declared_shape_and_the_semantics_cover_it", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail", file: "Tests/unit/test_era_wiring.py", kind: "function"}
