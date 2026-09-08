@@ -25,6 +25,13 @@ what every pre-stamp load sampled.  Every order is rebuilt through Order.build, 
 same physical guardrails (integer dims/weight, min-1, caps) are enforced on load as on
 generation.
 
+The STOCK DECLARATION rides a second named query (ADR-0002).  A file that declares one --
+a run&#x27;s own planned inventory, or any pre-split vintage, whose override reads the four
+columns out of `cartons` -- has `declare_stock` called for each SKU it names; a generated
+catalogue declares nothing and its orders come back with the level slots UNSET, which
+`Order.stock_declared()` reports.  The two reads share `ORDER BY sku LIMIT :limit`, so a
+limited load sees the same SKUs on both sides.
+
 HARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:
 every caller is a simulation about to consume ~500 GB of compute and WRITE the result.
 `bind` raises `UnsupportedSchema` naming the id and the whole structural diff before a

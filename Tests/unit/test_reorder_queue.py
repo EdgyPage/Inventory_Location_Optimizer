@@ -21,15 +21,26 @@ under test is that they are ABSORBED rather than ACCUMULATED — the queue ends 
 started.  Nothing here asserts the queue empties; it cannot, and an assertion that it does
 would be asserting the warehouse is big enough, not that the policy is stable.
 
-Reorder policy under test (OUP equilibrium model)
--------------------------------------------------
-Each Order carries, set at profile-generation time:
-    expected_batch_demand = demand.relative_frequency * demand.quantity_rate
-    equilibrium_qty       = max(1, round(coverage_batches * expected_batch_demand))
-    reorder_point         = max(1, min(eq-1, round(demand * (lead_time + safety_batches))))
+Reorder policy under test (the RUN's declaration — ADR-0002)
+-----------------------------------------------------------
+The catalogue carries NO stock level.  A level is a run's declaration, so this file makes one
+the way a run does — `simconfig/coverage.rescale_section`, the single production derivation,
+at a declared lines-per-day:
 
-`_notify_pick` reads `order.reorder_point` directly.  `check_reorders` fires an Order-Up-To
-reorder for `equilibrium_qty - position` units.  Units that cannot be placed stay queued
+    d_s             = lines_per_day * (freq_s / Σ freq) * E[q_s]        units of s per day
+    L_s             = ceil(FLOOR_LINES * E[q_s])                        the line floor, >= 1
+    equilibrium_qty = max(round(COVERAGE_DAYS * d_s), L_s)
+    reorder_point   = min(Q-1, max(round(d_s * (lead_time + SAFETY_DAYS)), L_s))
+
+`LINES_PER_DAY` is picked so the declared section sums to ~27,300 units of order-up-to
+against the 1,440-bin warehouse below — within ~4% of the total the retired generator used
+to author — so the pressure this file depends on is the pressure it always had.  A real run
+gets its lines a day from the pair's fixed point (`simdriver/era_coverage.fixed_point`);
+nothing here needs that geometry loop, only ONE declaration made the production way.
+
+`_notify_pick` reads `order.reorder_point` directly and RAISES on a SKU no run has declared.
+`check_reorders` fires an Order-Up-To reorder for `equilibrium_qty + pipeline - position`
+units (the lead is 0 here, so the pipeline is 0).  Units that cannot be placed stay queued
 (FIFO) until a bin opens.
 
     python -m pytest Tests/unit/test_reorder_queue.py -q
@@ -56,6 +67,7 @@ from Warehouse.generation.generate_inventory import (
     build_inventory_with_profile,
 )
 from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
+from Optimization.simconfig import coverage as cov
 
 # ── parameters ────────────────────────────────────────────────────────────────
 # Sized so the whole fixture runs in ~2s.  SEED feeds every stream (see _run_50_batches).
@@ -67,6 +79,14 @@ N_PICKERS       = 5
 BATCH_MEAN_FRAC = 0.25
 STABLE_WINDOW   = 20      # trailing batches used for the growth test
 MIN_FILL        = 0.40
+
+# The run's stock declaration (ADR-0002).  Coverage/safety/floor are the production defaults;
+# LINES_PER_DAY is this file's knob — see the module docstring for why it is 250.
+LINES_PER_DAY   = 250.0
+COVERAGE_DAYS   = 10.0
+SAFETY_DAYS     = 2.0
+FLOOR_LINES     = 1.0
+MAX_FLOOR_SHARE = 0.50    # the declaration must SIZE the section, not floor it
 
 # Physical aisle dimensions: 6 pallet-column widths x 4 extra_large-height levels.
 # With density expansion, singleton aisles get 3x more X bins and small-tier bins
@@ -124,7 +144,7 @@ def _build_wh_cfg(n_skus: int) -> WarehouseConfig:
 
 class _Trace:
     """Everything the assertions below need, recorded from a single 50-batch run."""
-    __slots__ = ('orders', 'total_bins', 'init_queue', 'queue_depths', 'fill_rates',
+    __slots__ = ('orders', 'declared', 'total_bins', 'init_queue', 'queue_depths', 'fill_rates',
                  'total_triggered', 'total_ordered', 'pallet_occupied', 'singleton_occupied')
 
 
@@ -143,6 +163,16 @@ def run() -> _Trace:
         seed               = SEED,
     )
     t.orders = inventory.orders
+
+    # ── the run's stock declaration ───────────────────────────────────────────
+    # The catalogue authors no level (ADR-0002), so nothing below this line would work
+    # without it: `enqueue_all` reads the order-up-to through `_equilibrium_qty`, which
+    # RAISES on an undeclared SKU, and `_notify_pick` raises on a missing reorder point.
+    # One call, the production one, pure over the orders.
+    t.declared = cov.rescale_section(inventory.orders, LINES_PER_DAY,
+                                     coverage_days = COVERAGE_DAYS,
+                                     safety_days   = SAFETY_DAYS,
+                                     floor_lines   = FLOOR_LINES)
 
     # ── warehouse ─────────────────────────────────────────────────────────────
     # Warehouse_Builder, Batch and PickSimulation all draw from the module-level
@@ -200,24 +230,76 @@ def run() -> _Trace:
 
 # ── the reorder policy the run depends on ─────────────────────────────────────
 
-def test_generated_orders_carry_a_coherent_reorder_policy(run):
-    """Every SKU must have the three attributes `check_reorders` reads, with sane values.
+def test_a_generated_catalogue_declares_no_stock_level():
+    """The premise of the fixture above: nothing this file picks from arrives with a level.
+
+    Its own catalogue is built here rather than read off the module fixture, which has
+    already declared on those orders.  If a generator ever re-authored a level, the fixture's
+    `rescale_section` call would silently become a no-op-looking overwrite and the queue
+    pressure this file measures would be somebody else's number.
+    """
+    from Warehouse.inventory.inventory_common import UndeclaredStock, _equilibrium_qty
+
+    fresh = build_inventory_with_profile(
+        num_skus           = 8,
+        handling_splits    = [0.5, 0.5],
+        category_splits    = [1 / 6] * 6,
+        singleton_fraction = 0.5,
+        dim_spec           = DEFAULT_DIM_SPEC,
+        weight_spec        = DEFAULT_WEIGHT_SPEC,
+        seed               = SEED,
+    )
+    assert fresh.orders and not any(c.stock_declared() for c in fresh.orders)
+    with pytest.raises(UndeclaredStock):
+        _equilibrium_qty(fresh.orders[0])
+
+    # ...and one declaration is all it takes to make the same SKU answerable.
+    fresh.orders[0].declare_stock(7, 3)
+    assert fresh.orders[0].stock_declared()
+    assert _equilibrium_qty(fresh.orders[0]) == 7
+
+
+def test_the_declared_levels_are_a_coherent_reorder_policy(run):
+    """Every SKU must carry the three values `check_reorders` reads, with sane ones.
 
     `_notify_pick` reads `reorder_point` and `check_reorders` reads `equilibrium_qty`; a SKU
-    missing either is never restocked and silently bleeds to zero.  `reorder_point > eq`
-    would be worse — it fires a reorder on a full bin, every batch, forever.
+    missing either now raises rather than silently bleeding to zero, but a DECLARED level can
+    still be incoherent: `reorder_point >= eq` fires a reorder on a full bin, every batch,
+    forever, and `reorder_point < 1` never fires one at all.
     """
+    assert all(c.stock_declared() for c in run.orders), 'the fixture declared no levels'
+
     bad_eq  = [(c.sku, c.equilibrium_qty) for c in run.orders if c.equilibrium_qty < 1]
     bad_rp  = [(c.sku, c.reorder_point, c.equilibrium_qty) for c in run.orders
-               if not 1 <= c.reorder_point <= c.equilibrium_qty]
+               if not 1 <= c.reorder_point <= max(1, c.equilibrium_qty - 1)]
     bad_ebd = [(c.sku, c.expected_batch_demand) for c in run.orders
                if c.expected_batch_demand <= 0.0]
 
     assert not bad_eq,  f'{len(bad_eq)} SKUs with equilibrium_qty < 1, e.g. {bad_eq[:3]}'
-    assert not bad_rp,  (f'{len(bad_rp)} SKUs violate 1 <= reorder_point <= equilibrium_qty, '
+    assert not bad_rp,  (f'{len(bad_rp)} SKUs violate 1 <= reorder_point <= equilibrium_qty-1, '
                          f'e.g. (sku, rp, eq) = {bad_rp[:3]}')
     assert not bad_ebd, (f'{len(bad_ebd)} SKUs with non-positive expected_batch_demand — the '
-                         f'OUP target collapses to 1, e.g. {bad_ebd[:3]}')
+                         f'declared target collapses to the line floor, e.g. {bad_ebd[:3]}')
+
+
+def test_the_declaration_sizes_the_section_rather_than_flooring_it(run):
+    """A declaration that puts every SKU on its one-line floor is a warehouse sized from
+    nothing — the failure the store section really hit once ("coverage in days floors the
+    store section").  It would leave this file's queue trivially bounded for the most boring
+    possible reason, so the coverage knob has to be doing the sizing.
+    """
+    st = run.declared
+    assert st['floor_line_share'] <= MAX_FLOOR_SHARE, (
+        f'{st["floor_line_share"]:.1%} of SKUs sit on their line floor at '
+        f'{COVERAGE_DAYS} days / {LINES_PER_DAY} lines a day — the coverage term is not '
+        f'sizing this section')
+    assert st['sum_q'] > run.total_bins, (
+        f'declared {st["sum_q"]} units against {run.total_bins} bins — the warehouse is not '
+        f'undersized any more, so nothing below is under pressure')
+    # Coverage is nominal AND real only above the floor; a tolerance, never ==.
+    assert abs(st['realized_coverage_days'] - COVERAGE_DAYS) < 0.5, (
+        f'SKUs above the floor carry {st["realized_coverage_days"]:.2f} days, not the '
+        f'{COVERAGE_DAYS} declared')
 
 
 # ── the headline property: the queue is bounded ───────────────────────────────

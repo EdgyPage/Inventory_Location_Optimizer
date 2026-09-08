@@ -85,12 +85,13 @@ def _order(sku: int, eq_qty: int) -> Order:
     c.height                = 6
     c.weight                = 2
     c.demand                = Demand.from_rates(0.8, 4.0)
-    c.equilibrium_qty       = eq_qty
-    c.reorder_point         = 1
     c.lead_time_mean        = 0.0
     c.supply_cv             = 0.0
     c.expected_batch_demand = 3.2
-    return c
+    # The level is the run's declaration and `declare_stock` is its one mutation site
+    # (ADR-0002).  eq_qty is what `enqueue` stocks, so it fixes the bin count every
+    # location expectation below is computed from; rp is 1 and never fires here.
+    return c.declare_stock(eq_qty, 1)
 
 
 def _stocked(skus: dict[int, int]):

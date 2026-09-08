@@ -6,10 +6,19 @@ run_simulation's discover_db_pairs consumes.
 Families = the 6 categories, each with its own multimodal length/width/height/weight
 specs and a per-family conveyable/non-conveyable propensity (aggregate ~0.75/0.25).
 Dimensions are sampled INDEPENDENTLY per axis; every stored number is a grounded
-integer >= 1, capped (enforced in Order.build).  Initial stock is the equilibrium
-point loaded by the sim; reorder is the JIT "day-before-runout" rule
-    reorder_point = ceil(expected * (lead_time + 1))
-with lead_time a deterministic per-dataset knob (e.g. 0 vs 1 -> two datasets).
+integer >= 1, capped (enforced in Order.build).
+
+What a leaf carries is the SKU's own facts: geometry, demand (relative frequency, the
+quantity rate, the stamped line law) and the supply side -- lead_time_mean and supply_cv.
+It carries NO STOCK LEVEL (ADR-0002): an order-up-to quantity, a reorder point and a
+packing plan are a RUN's declaration, derived at setup from a declared coverage in DAYS
+(Optimization/simconfig/coverage.py, in every mode) and written to that run's own
+planned_inventory.db.  The catalogue's `stock_levels` table is created empty and stays
+empty -- which is why this generator has no coverage knob to offer.
+
+lead_time is therefore the one supply-side dial a leaf varies: a deterministic per-dataset
+value (e.g. 0 vs 1 -> two sibling datasets) for how many batches pass before a placed order
+arrives.  Same seed, same cartons; only the lead differs.
 
 Output layout
 -------------
@@ -20,9 +29,9 @@ Output layout
 Usage
 -----
 python generate_mixed_profile.py --estimate
-python generate_mixed_profile.py --num-skus 3000 --lead-time 1 --name smoke
-python generate_mixed_profile.py --num-skus 76500 --lead-time 0   # JIT, immediate
-python generate_mixed_profile.py --num-skus 76500 --lead-time 1   # JIT, 1-batch transit
+python generate_mixed_profile.py --num-skus 3000 --lead-times 1 --name smoke
+python generate_mixed_profile.py --num-skus 76500 --lead-times 0   # immediate arrival
+python generate_mixed_profile.py --num-skus 76500 --lead-times 1   # 1-batch transit
 """
 
 import matplotlib
@@ -234,11 +243,11 @@ def main() -> None:
                              'per-SKU lead in batches) OR the word "random" (per-SKU lead ~ '
                              'randint(--lead-random-range)).  e.g. --lead-times 0 random -> '
                              'mixed_<ts>/{lt0, ltrand0-5}/ — identical inventories, differing only '
-                             'in lead/reorder.')
+                             'in lead.')
     parser.add_argument('--lead-random-range', type=int, nargs=2, default=[0, 5], metavar=('LO', 'HI'),
                         help='inclusive per-SKU lead range for the "random" lead-times spec')
-    parser.add_argument('--coverage', type=float, default=10.0,
-                        help='equilibrium coverage batches (initial loaded stock = coverage * expected)')
+    # No coverage knob: the retired --coverage set an equilibrium in generation BATCHES, which
+    # is not a unit of time.  A run declares its own coverage in DAYS at setup (ADR-0002).
     parser.add_argument('--supply-cv-max', type=float, default=0.15,
                         help='per-SKU supply_cv ~ Uniform(0, this); drives reorder-quantity variation')
     parser.add_argument('--top-k', type=int, default=20)
@@ -312,7 +321,7 @@ def main() -> None:
     print(f'\n{"="*64}')
     print(f'  Mixed run     : {run_name}')
     print(f'  Dir           : {run_dir}')
-    print(f'  num_skus={args.num_skus:,}  seed={args.seed}  coverage={args.coverage}')
+    print(f'  num_skus={args.num_skus:,}  seed={args.seed}  supply_cv_max={args.supply_cv_max}')
     print(f'  freq profile  : {args.freq_profile}')
     print(f'  lead specs    : {args.lead_times}  ->  ' + ', '.join(n for n, _, _ in lead_specs))
     print(f'  expected conveyable fraction ~ {_expected_conveyable_fraction(CREATION_PLAN):.3f}  (store-only)')
@@ -350,16 +359,15 @@ def main() -> None:
 
         t0      = time.perf_counter()
         inv_run = _inv_run(
-            name                         = 'inventory',
-            num_skus                     = args.num_skus,
-            seed                         = args.seed,           # same seed → datasets differ only by lead
-            out_dir                      = leaf,
-            creation_plan                = plan,
-            lead_time                    = lead_time,
-            lead_time_range              = lead_range,
-            equilibrium_coverage_batches = args.coverage,
-            supply_cv_max                = args.supply_cv_max,
-            demand_override              = demand_override,
+            name             = 'inventory',
+            num_skus         = args.num_skus,
+            seed             = args.seed,           # same seed → datasets differ only by lead
+            out_dir          = leaf,
+            creation_plan    = plan,
+            lead_time        = lead_time,
+            lead_time_range  = lead_range,
+            supply_cv_max    = args.supply_cv_max,
+            demand_override  = demand_override,
         )
         inv_db = os.path.join(inv_run, 'inventory.db')
         print(f'  inventory done in {time.perf_counter()-t0:.1f}s → {inv_db}')

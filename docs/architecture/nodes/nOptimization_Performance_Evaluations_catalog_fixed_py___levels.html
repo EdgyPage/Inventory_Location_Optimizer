@@ -15,7 +15,13 @@
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_catalog_fixed_py.html"><code>Optimization/Performance_Evaluations/catalog/fixed.py</code></a></p>
 
 <pre class="sig"><code>def _levels(ctx) -&gt; dict</code></pre>
-<section class="doc">{factor: sorted distinct values} across the whole run, from the tree and the leaves.</section>
+<section class="doc">{factor: sorted distinct values} across the whole run — the tree, the leaves, the spec.
+
+Three sources, one rule.  The tree supplies the sweep&#x27;s own axes (cell, inventory, pick
+config, channel); each leaf&#x27;s `config_json` supplies `_CONFIG_FACTORS`; the run spec&#x27;s
+staffing record supplies `_SPEC_FACTORS`, which no leaf carries.  Whatever the source, a
+factor with one distinct value is FIXED and one with several is VARIED, so a run-level
+declaration is reported exactly as honestly as a per-leaf one.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_catalog_fixed_py__register.html"><code>register</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/fixed.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_catalog_fixed_py___levels">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/catalog/fixed.py#:~:text=def%20_levels">Source ↗</a></p>
 </article>

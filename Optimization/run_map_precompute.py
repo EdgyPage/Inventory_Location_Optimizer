@@ -48,7 +48,7 @@ if _REPO_ROOT not in sys.path:
 from Optimization.config.objectives import OBJECTIVES
 from Optimization.config.sim_config import _OUTPUT_DIR, _setup_logging, regime_sizing_from_config
 from Optimization.persistence import runtime_metrics as rm
-from Optimization.run_analysis import _apply_run_shape
+from Optimization.run_analysis import _apply_run_shape, _coverage_record
 from Optimization.runschema import resolver_for
 
 #: The rules that HAVE an offline build, straight from the rule registry — so adding a
@@ -153,8 +153,12 @@ def measure_pair(base_dir, rt, pair, metas, rows, log, max_skus=None) -> list:
     # inventory and the run's own per-regime sizing.  Sizing this differently from the run
     # is the silent wrong-warehouse bug the gate below exists to catch.
     log.info(f'  {pair}: rebuilding the warehouse shape')
+    # Plus the run's OWN stock declaration (ADR-0002: the catalogue carries none, and the
+    # bin count is demand-derived from the levels) -- without it the rebuild would size from
+    # nothing and `_identity_matches` below would refuse every row.
     shared = build_shared_assets(inv_db, aff_db, log, max_skus=max_skus,
-                                 regime_sizing=regime_sizing_from_config())
+                                 regime_sizing=regime_sizing_from_config(),
+                                 coverage_record=_coverage_record(pair))
     orders = shared['inventory'].orders
     n_skus = len(orders)
 

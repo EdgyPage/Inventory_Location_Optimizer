@@ -8,6 +8,20 @@ divergence (see ASSIGNMENT_DIVERGENCE_PLAN.md):
 2. The _stock coupling guard raises if init_travel_costs() (mgr half) and an
    index-consuming assignment_fn (fn half) are armed independently, so the two
    can never silently diverge again.
+
+The stock level these tests field
+--------------------------------
+`perf_simulation._build_inventory` hands back a CATALOGUE — geometry and demand, no stock level
+(ADR-0002: a level is a run's declaration, never a SKU's fact) — so every manager built here
+declares one first, through `_declare`, at Q = 1 unit per SKU.  Q = 1 is the level this file has
+always fielded (`_equilibrium_qty` used to answer 1 by default) and the only one its warehouse
+can hold: `_build_warehouse_cfg` sizes the building at ~1.15 bins per SKU.
+
+The declaration is also what finally makes `_run`'s `check_reorders()` do something.  Until it,
+an undeclared order had no `reorder_point` attribute at all, `_notify_pick` read that absence as
+"never flag", and no reorder ever fired — so the "full reorder+pick simulation" this file claims
+to compare was a pick-only one, and the index fast path was never exercised at reorder time,
+which is the one moment it runs on a warehouse that is already half full.  It is now.
 """
 import os
 import sys
@@ -31,6 +45,31 @@ SEED, N_SKUS, BINS_PER_AISLE, N_BATCHES, N_PICKERS = 42, 2000, 100, 60, 5
 class _WP:
     x_speed = 1.0
     y_speed = 0.5
+
+
+def _declare(orders, qty: int = 1):
+    """Declare this file's stock level — `qty` units per SKU — on a catalogue.
+
+    Two reads need it and both used to answer from a silent default: `enqueue_all` takes the
+    Order-Up-To as the quantity to stock (it defaulted to 1), and `_notify_pick` /
+    `_fire_reorders` need a reorder point to trigger on (its absence meant "never fire").
+    Both raise `UndeclaredStock` now.
+
+    Q = 1 keeps the stocking identical to what this file always placed — one unit per SKU into a
+    warehouse sized for ~1.15 bins per SKU — so the aisle-level state the two paths are compared
+    on is built from the same units in the same order.  `declare_stock` clamps rp into [1, Q-1]
+    and so takes rp = 1 at Q = 1: a one-unit SKU is emptied by any pick, so every picked SKU is
+    flagged and restocked to one unit, one unit per reorder.
+
+    An explicit loop rather than `simconfig.coverage.rescale_section`, and only the four level
+    slots are written: this is an equivalence test, so the level must be a hand-checkable
+    constant, and `expected_batch_demand` / `lead_time_mean` / `supply_cv` stay unset exactly as
+    `Order.__init__` left them (every reader of those on this path is a `getattr` with the same
+    default — see `Order.reorder`).
+    """
+    for o in orders:
+        o.declare_stock(qty, 1)
+    return orders
 
 
 def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
@@ -58,6 +97,7 @@ def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
 
 def _run(wh, mgr, pick_cfg, batch_cfg, inventory):
     random.seed(SEED + 100)
+    base_placements = mgr._reorder_placements     # counts every placement, initial included
     for _ in range(N_BATCHES):
         mgr.check_reorders()
         batch = Batch(batch_cfg, inventory, affinity=None)
@@ -65,14 +105,17 @@ def _run(wh, mgr, pick_cfg, batch_cfg, inventory):
         if tasks:
             PickSimulation(tasks, pick_cfg, manager=mgr).run()
     # Aisle-level placement state: sku->aisle counts (bin-level identity may differ
-    # on same-D ties, but only aisle assignment feeds back into reorders).
-    return {aid: dict(c) for aid, c in mgr._aisle_sku_counts.items() if c}
+    # on same-D ties, but only aisle assignment feeds back into reorders).  The reorder
+    # placement count rides along so the caller can prove the restock path actually ran.
+    return ({aid: dict(c) for aid, c in mgr._aisle_sku_counts.items() if c},
+            mgr._reorder_placements - base_placements)
 
 
 @pytest.fixture(scope='module')
 def assets():
     random.seed(SEED)
     inventory = _build_inventory(N_SKUS, SEED)
+    _declare(inventory.orders)          # the run's declaration; the catalogue carries none
     wh_cfg    = _build_warehouse_cfg(N_SKUS, BINS_PER_AISLE)
     affinity  = _build_affinity_store(inventory, top_k=20, seed=SEED)
     pick_cfg  = PickConfig(num_pickers=N_PICKERS, x_speed=1.0, y_speed=0.5,
@@ -93,8 +136,12 @@ def test_cluster_index_matches_scan(assets):
     assert mgr1.placement.uses_aisle_index is False
     assert mgr2.placement.uses_aisle_index is True
 
-    state_scan  = _run(wh1, mgr1, pick_cfg, batch_cfg, inventory)
-    state_index = _run(wh2, mgr2, pick_cfg, batch_cfg, inventory)
+    state_scan,  scan_reord  = _run(wh1, mgr1, pick_cfg, batch_cfg, inventory)
+    state_index, index_reord = _run(wh2, mgr2, pick_cfg, batch_cfg, inventory)
+    # Not vacuous: bins are occupied, and reorder-time placement — the one moment the index
+    # fast path runs against a half-full warehouse — actually fired on both managers.
+    assert state_scan, 'no aisle holds a SKU; the comparison below is between two empty dicts'
+    assert scan_reord > 0 and index_reord > 0, (scan_reord, index_reord)
     assert state_scan == state_index
 
 
@@ -104,7 +151,7 @@ def _fresh_mgr(wh_cfg):
     wh  = Warehouse_Builder().from_config(wh_cfg).build()
     mgr = Inventory_Manager(wh, affinity=None)
     random.seed(SEED + 1)
-    mgr.enqueue_all(_build_inventory(200, SEED).orders)
+    mgr.enqueue_all(_declare(_build_inventory(200, SEED).orders))
     return mgr
 
 

@@ -314,12 +314,30 @@ regime someone chose rather than one the defaults inherited.
   flows + free-bin depth on `batch_stats`); expected repacks stamped zero and flagged. No knob --
   a no-op wherever the index never exhausts. Graduated -> 24.
 
+- [Retire the authored stock levels](issues/22-retire-the-authored-stock-levels.md): LANDED. The
+  catalogue carries no level; a level is a run's DECLARATION, made in every mode and recorded by
+  the run that made it. The four columns (`pipeline_qty` too -- same kind of fact, and leaving it
+  would keep the always-NULL column decision 7 rejected) left `cartons` for a new `stock_levels`
+  table a generated catalogue leaves EMPTY; `inventory_db` 025f4b1548a9 -> 4536857cb860, the
+  outgoing vintage still served by an override reading the four out of ITS `cartons`.
+  `Order.declare_stock` is the one mutation site. The dangerous half was the DEFAULT, not the drop:
+  the bin count is demand-derived from the levels on EVERY path (`sample=False` skips only the SKU
+  sampling), so `_equilibrium_qty`'s fallback of 1 would have built a warehouse an order of
+  magnitude too small in silence -- it now RAISES (memory `warehouse-size-comes-from-the-levels`).
+  Three consequences the ticket did not foresee: a REBUILD must re-declare from the run's own
+  recorded `lines_per_day` (`declare_from_record`, one pass, not a fresh fixed point); so the
+  declaration must be RECORDED in every mode including at the multi-cell freeze (preflight's 2-cell
+  canary caught this -- a full run tree and an empty analysis one); and round 0 stopped planning,
+  becoming an ANALYTIC SEED (`seed_lines`), killing the record's `catalogue` block and
+  `implied_coverage`. Flag-off and era-on derive IDENTICAL levels and the identical warehouse
+  (measured). All nine gates green.
+
 ## Not yet specified
 
 - **Re-reading the check.** Once
-  [Build the empty-first top-up](issues/24-build-the-empty-first-top-up.md),
-  [Retire the authored stock levels](issues/22-retire-the-authored-stock-levels.md) and
-  [Field the requirement](issues/23-field-the-requirement.md) resolve, ONE 40-day run on the
+  [Build the empty-first top-up](issues/24-build-the-empty-first-top-up.md) and
+  [Field the requirement](issues/23-field-the-requirement.md) resolve (22 landed 2026-09-07,
+  unblocking 23), ONE 40-day run on the
   reference pair re-reads 17's check (21 resolved 2026-09-07: the store leaf's audit renders
   again, so that run's store audit will be read, not raised). 19 settled that the floor is a promise, so the
   fulfillment warehouse WILL grow (demand sizing alone took it 977 -> 1,232 aisles; exact

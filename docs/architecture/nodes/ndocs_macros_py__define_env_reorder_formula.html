@@ -16,14 +16,24 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@env.macro
 def reorder_formula(*args)</code></pre>
-<section class="doc">This run&#x27;s realised inventory averages — deliberately NOT a closed form.
+<section class="doc">How this run&#x27;s stock levels were SET, and the averages it fielded.
 
-It used to print one, and the formula it printed did not reproduce the catalogue:
-the planner&#x27;s equilibrium target is rescaled to fit the warehouse afterwards, so
-the stated form was out by an order of magnitude, and neither candidate
-reorder-point expression matched more than about half the stored values. A macro
-that prints an equation asserts the equation holds. This prints the averages the
-run recorded; `inventory_model()` publishes the distribution behind them.</section>
+Two vintages, told apart by `_stock_declaration` off the staged inventory
+document, and the page describes ITS OWN run either way:
+
+  * a run that DECLARED its levels (ADR-0002 onward) gets the derivation it
+    actually used — a coverage in DAYS against each SKU&#x27;s expected daily demand,
+    floored at a line of that SKU&#x27;s own demand — with the declared inputs quoted
+    when the snapshot records them;
+  * an archived run gets the authored model it ran, NAMED as retired: its
+    catalogue carried the levels and the planner rescaled them to fit the
+    warehouse afterwards, which is why no closed form reproduced the stored
+    values.
+
+What this will not do is print an equation beside numbers it does not produce.
+The archived branch says so outright; the declared branch&#x27;s formulas ARE the ones
+that produced its averages, which is the whole of the difference ADR-0002 made.
+`inventory_model()` publishes the distribution behind the averages in both.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env_reorder_formula">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20reorder_formula">Source ↗</a></p>
 </article>

@@ -36,22 +36,34 @@ from Optimization.simdriver import batch_precompute as BP                   # no
 _N_E2E_BATCHES = 6
 
 
-def _store_only_current_schema(inv_db):
-    """True if inv_db is loadable by the current code (has relative_frequency) AND store-only
-    (no fulfillment SKUs).
+def _store_only_vetted_schema(inv_db):
+    """True if inv_db is loadable by the current code AND store-only (no fulfillment SKUs).
 
     Store-only because this e2e asserts ONE shared batches file per pair: a mixed catalogue runs
     multi-channel and `ensure_batches` produces one cache per channel family, so the single-file
     assertion would not hold.  (It does still precompute — an earlier version of this docstring
     claimed a fulfillment dataset samples inline, which is wrong.)
 
-    The relative_frequency probe is a data-vintage check: a catalogue generated before `418d6bf`
-    still has the old `demand_frequency` column and raises in load_inventory_from_db."""
+    The loadability half is a data-VINTAGE check, and it now asks the identity gate instead of
+    guessing from a column name.  `load_inventory_from_db` binds the file to its own schema id
+    (`Schema.dataset.bind`) and refuses anything the `inventory_db` family does not vet, before
+    a single row is read — so `bind` succeeding is exactly the precondition, and it is the same
+    call the loader makes.  Three vintages ARE vetted and must NOT be rejected here: the
+    pre-line-law, pre-pipeline and pre-stock-split shapes all load (their `stock_levels`
+    overrides read the declaration out of that vintage's `cartons`, ADR-0002).  What is refused
+    is `UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID` — the pre-`418d6bf` archive shape carrying
+    `demand_frequency` where every later one has `relative_frequency`; that one raises
+    `UnsupportedSchema` at bind, which is why a pair holding it has to be skipped rather than
+    run.  (Before the identity gate existed the same file died later, on a missing column.)"""
+    from Schema import dataset as _dataset
+    import Warehouse.generation.generate_inventory as _gi     # registers the family + overrides
+    assert _gi.INVENTORY_DB_FAMILY.name == 'inventory_db'
+    try:
+        _dataset.bind(inv_db, 'inventory_db').close()
+    except Exception:
+        return False
     try:
         c = sqlite3.connect(inv_db)
-        cols = [r[1] for r in c.execute('PRAGMA table_info(cartons)')]
-        if 'relative_frequency' not in cols:
-            return False
         ff = c.execute("SELECT COUNT(*) FROM cartons WHERE handling='fulfillment'").fetchone()[0]
         c.close()
         return ff == 0
@@ -65,9 +77,9 @@ def _pair_or_skip():
     except Exception:
         pairs = []
     for pair in pairs:
-        if _store_only_current_schema(pair[1]):
+        if _store_only_vetted_schema(pair[1]):
             return pair
-    pytest.skip('no store-only, current-schema inventory/affinity pair for the precompute e2e')
+    pytest.skip('no store-only, vetted-schema inventory/affinity pair for the precompute e2e')
 
 
 def _store_channel_run(shared, pair_dir, cfg, log, workers=1):

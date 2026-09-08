@@ -62,17 +62,43 @@ _HANDLINGS = ['conveyable', 'non-conveyable']
 _GRID_COLS = 6
 
 
-# ── order equilibrium (OUP) fields — mirrors Tests/bench/profile_lifecycle._set_equilibrium ──
+# ── the probe's stock declaration ─────────────────────────────────────────────
+# A stock level is a RUN's declaration, never a SKU's fact (ADR-0002).  `_build_inventory`
+# hands back a pure catalogue — geometry and demand, the four level slots UNSET — so this
+# probe must declare a level of its own before anything can be stocked.  In production that
+# job belongs to the coverage derivation at setup (`Optimization/simconfig/coverage.py`,
+# driven by `Optimization/simdriver/era_coverage.py`), which turns a declared coverage in
+# DAYS into Q and rp; here it is a deliberately crude stand-in, because the trace is about
+# the lifecycle, not about the level.
+#
+# It writes through `Order.declare_stock`, which is the ONE mutation site for all four
+# slots.  Direct assignment still works — they are declared `__slots__` — and that is
+# precisely why the single writer earns its keep: when a level looks wrong there is one
+# method to read and one place to break, instead of every `c.equilibrium_qty = …` scattered
+# across the tree.  `declare_stock` also owns the invariants (Q ≥ 1; rp ≥ 1 and at most Q-1,
+# so the trigger always fires before the target — a Q = 1 SKU takes rp = 1, the one case the
+# two bounds cannot both hold) and clears `stock_plan` / `pipeline_qty`, so a hand-written
+# stand-in cannot field a level the reorder logic is unable to act on.
 
-def _set_equilibrium(orders, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
+def _declare_stock(orders, lead_time: float = 2.0, supply_cv: float = 0.1) -> None:
+    """Declare Q = 2 x expected batch demand (capped at 3) with rp = 1 on every order.
+
+    Both numbers survive `declare_stock`'s clamps unchanged — `eq_qty` is already ≥ 1,
+    `min(Q-1, 1)` is 1 for every Q ≥ 2, and the Q = 1 orders this cap does produce (a SKU
+    whose expected batch demand rounds below one unit) take rp = 1 from the Q = 1 branch —
+    so this is the same level the probe has always fielded; only the writer moved.
+
+    `expected_batch_demand`, `lead_time_mean` and `supply_cv` stay direct assignments:
+    they are demand and supply facts of the SKU, not a level, and `Order.__init__` (the
+    construction path `_build_inventory` uses) leaves all three unset.
+    """
     for c in orders:
         expected = c.demand.relative_frequency * c.demand.quantity_rate
         eq_qty   = max(1, min(3, round(expected * 2)))
         c.expected_batch_demand = expected
-        c.equilibrium_qty       = eq_qty
-        c.reorder_point         = 1
         c.lead_time_mean        = lead_time
         c.supply_cv             = supply_cv
+        c.declare_stock(eq_qty, 1)
 
 
 # ── per-batch lifecycle tracer ────────────────────────────────────────────────
@@ -207,7 +233,7 @@ def trace_strategy(strategy_key: str, *, n_skus: int, bins_per_aisle: int,
     # ── assets (plan_warehouse sizes + samples to target fill, like production) ──
     random.seed(seed); np.random.seed(seed)
     pool = _build_inventory(n_skus, seed)
-    _set_equilibrium(pool.orders)
+    _declare_stock(pool.orders)          # the catalogue carries none — see above
     n_cols = max(1, bins_per_aisle // 20)
     plan = Inventory_Manager.plan_warehouse(
         pool.orders, categories=_CATEGORIES, handlings=_HANDLINGS,

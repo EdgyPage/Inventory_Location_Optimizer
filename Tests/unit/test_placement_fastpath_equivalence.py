@@ -17,6 +17,17 @@ Locked-in invariants:
   5. The ``map`` ranked WAVE gives identical aisle-level placement to the per-unit SCAN across a
      full reorder+pick sim, and keeps the reorder queue bounded.
 
+The stock level these tests field
+--------------------------------
+``perf_simulation._build_inventory`` hands back a CATALOGUE — geometry and demand, no stock
+level (ADR-0002: a level is a run's declaration, never a SKU's fact) — so the end-to-end tests
+below declare their own in ``_declare``, at ``Q = 1`` unit per SKU.  That is the level this file
+has always fielded and the only one its warehouse can hold: ``_build_warehouse_cfg`` sizes the
+building at ~1.15 bins per SKU, so a demand-proportional coverage would ask for several bins per
+SKU in a warehouse that has one, and the surplus would sit in the stock queue instead of being
+placed — changing the very quantity (how many units each path places, and where) that the
+equivalence assertions compare.
+
 Run:  python -m pytest Tests/unit/test_placement_fastpath_equivalence.py -q
 """
 import random
@@ -205,6 +216,35 @@ def test_cluster_map_choose_aisle_matches_reference():
 SEED, N_SKUS, BINS_PER_AISLE, N_BATCHES = 42, 1500, 100, 40
 
 
+def _declare(orders, qty: int = 1):
+    """Declare this file's stock level — ``qty`` units per SKU — on a catalogue.
+
+    The end-to-end tests below need a level for two reads: ``enqueue_all`` takes the
+    Order-Up-To as the quantity to stock, and ``_notify_pick`` / ``_fire_reorders`` need a
+    reorder point to trigger on.  Both used to answer from a silent default (``1`` and "never
+    fire" respectively); both now raise ``UndeclaredStock``, so a run has to say what it fields.
+
+    ``Q = 1`` reproduces exactly the volume of placement work this file measured before: the
+    old ``_equilibrium_qty`` default was 1, so ``enqueue_all`` stocked one unit per SKU, and the
+    warehouse is sized for that (``_build_warehouse_cfg``, ~1.15 bins per SKU).  ``declare_stock``
+    clamps the reorder point into ``[1, Q-1]`` and so takes ``rp = 1`` at ``Q = 1``, which fires
+    on exactly the same event as the hand-set ``reorder_point = 0`` this replaces: a one-unit SKU
+    is emptied by any pick, so its inventory position after a pick is 0 either way.  The
+    high-churn regime is therefore unchanged — one reorder per depleting pick, one unit per
+    reorder (``ideal = Q + pipeline - position = 1``) — and that is the regime that drives
+    thousands of reorder placements through the map path over the run.
+
+    An explicit loop rather than ``simconfig.coverage.rescale_section``: these are equivalence
+    tests, so the level has to be a hand-checkable constant that cannot move underneath them.
+    Only the four level slots are written; ``expected_batch_demand`` / ``lead_time_mean`` /
+    ``supply_cv`` stay unset exactly as ``Order.__init__`` left them, because every reader of
+    those on this path is a ``getattr`` with the same default (``Order.reorder``).
+    """
+    for o in orders:
+        o.declare_stock(qty, 1)
+    return orders
+
+
 def _build_map_mgr(wh_cfg, inventory, wp, mode):
     """A map manager placing by `mode`: the per-unit SCAN, the ranked WAVE, or the POOL."""
     assert mode in ('scan', 'wave', 'pool'), mode
@@ -215,11 +255,12 @@ def _build_map_mgr(wh_cfg, inventory, wp, mode):
     from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
     wh  = Warehouse_Builder().from_config(wh_cfg).build()
     mgr = Inventory_Manager(wh, affinity=None)
-    # _build_inventory orders carry no reorder_point (1 unit/SKU stock); set it to 0 so a
-    # single pick depletes and fires a reorder — a high-churn regime that heavily exercises
-    # the map placement path (thousands of reorder placements over the run).
-    for o in inventory.orders:
-        o.reorder_point = 0
+    # _build_inventory hands back a catalogue with NO level (ADR-0002).  Declare 1 unit/SKU:
+    # a single pick then depletes the SKU and fires a reorder — a high-churn regime that
+    # heavily exercises the map placement path (thousands of reorder placements over the run).
+    # Idempotent, and both managers in a test share the fixture's orders, so both see the same
+    # declaration.  See `_declare` for why Q = 1 and not a demand-proportional coverage.
+    _declare(inventory.orders)
     random.seed(SEED + 1)
     mgr.enqueue_all(inventory.orders)
     freq_by_sku = {c.sku: c.demand.relative_frequency for c in inventory.orders}

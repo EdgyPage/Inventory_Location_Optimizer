@@ -36,8 +36,14 @@ S = 28800.0
 
 def _order(sku, *, freq, qty, eq=60, rp=20, lead=0.0, weight=10, dims=(10, 10, 10),
            handling='conveyable', category='seasonal'):
+    """Build the SKU the production way, then DECLARE its level the production way.
+
+    `Order.build` takes no level since ADR-0002 -- the catalogue carries demand and geometry,
+    a level is a run's declaration -- so `declare_stock` is the second half of the fixture.
+    It is load-bearing here: `reorder_lot` reads `equilibrium_qty` / `reorder_point`, and the
+    whole supply side of the derivation (`implied_reorders`) is priced off the lot."""
     return Order.build(sku, handling, category, *dims, weight, freq, qty,
-                       equilibrium_qty=eq, reorder_point=rp, lead_time_mean=lead, supply_cv=0.0)
+                       lead_time_mean=lead, supply_cv=0.0).declare_stock(eq, rp)
 
 
 @pytest.fixture()

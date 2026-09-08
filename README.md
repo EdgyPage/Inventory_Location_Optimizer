@@ -178,11 +178,17 @@ python Warehouse/generation/generate_mixed_profile.py --num-skus 150000 --seed 4
 | `--fulfillment-fraction` | 0.0 | share of SKUs that are fulfillment SKUs; **> 0 makes the catalogue mixed**, which is what creates the two-channel run |
 | `--freq-profile` | `uniform` | demand shape: `uniform` or `bell` |
 | `--lead-times` | `1` | one profile leaf per value; `random` uses `--lead-random-range` |
-| `--coverage` | 10.0 | equilibrium coverage in batches (target stock) |
 | `--supply-cv-max` | 0.15 | supply variability cap |
 | `--top-k` | 20 | affinity partners stored per SKU |
 | `--out-dir` | `$PROFILE_INPUT_DIR` | parent output dir |
 | `--estimate` | — | print the plan and expected sizes, then exit |
+
+**No stock knob, deliberately.** A catalogue describes SKUs — shape, weight, demand, lead time —
+and nothing about how many of each you hold; the `cartons` table carries no order-up-to quantity,
+reorder point or packing plan, and a generated catalogue leaves `stock_levels` empty. Every run
+derives those at setup from a coverage declared in **days** and records what it fielded in its own
+`planned_inventory.db`. The retired `--coverage` flag set a coverage in generation *batches*, which
+is not a unit of time — see `docs/adr/0002-the-catalogue-carries-no-stock-levels.md`.
 
 **Writes the exact leaf layout the simulator discovers** — this matters, because anything else is
 invisible to it:

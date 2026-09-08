@@ -13,10 +13,26 @@
 <nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_catalog_inventory_py.html"><code>Optimization/Performance_Evaluations/catalog/inventory.py</code></a> <span class="sep">›</span> <span class="here"><code>pair_model</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>pair_model</code></h1>
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_catalog_inventory_py.html"><code>Optimization/Performance_Evaluations/catalog/inventory.py</code></a></p>
-
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def pair_model(db_path: str) -&gt; dict</code></pre>
-<section class="doc">Realised distributions + formula reproduction rates for one frozen catalogue.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___dist.html"><code>_dist</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li></ul></section>
+<section class="doc">Realised distributions for one pair&#x27;s planned inventory, read by LOGICAL name.
+
+`dataset.bind` resolves the file to its OWN vintage and refuses one the family does not
+vet — deliberately left to raise.  This path publishes: a level read out of a shape
+nobody has vetted is exactly the plausible-wrong-number the schema layer exists to stop,
+and a run&#x27;s pairs are all written by one build, so catching per pair would rescue
+nothing anyway.
+
+A pair that declares NOTHING is not an error and does not raise: `stock_levels` comes
+back empty (a generated catalogue frozen without a derivation, or a rebuild from an
+inventory that carried none), the level distributions are `{}`, and `n_declared` says so.
+
+No `requires=` is passed, deliberately.  A `Requires` names PHYSICAL tables and would
+refuse every pre-split vintage — whose `stock_levels` table does not exist, because its
+override reads the declaration out of `cartons` — which is exactly the file this tool
+most needs to read.  The named-query registry is the guarantee here: `UnsupportedQuery`
+names the (vintage, query) pair when no SQL can serve it, by name and before any row.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___dist.html"><code>_dist</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nSchema_dataset_py__bind.html"><code>bind</code></a> <span class="dim">Schema/dataset.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_catalog_inventory_py__pair_model">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/catalog/inventory.py#:~:text=def%20pair_model">Source ↗</a></p>
 </article>
 </main>

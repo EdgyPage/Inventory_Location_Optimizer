@@ -18,10 +18,16 @@
 def inventory_model(inv_key=None)</code></pre>
 <section class="doc">The realised inventory model — distributions, not a formula.
 
-The pages used to state an equilibrium formula that, measured against the run&#x27;s own
-catalogue, is off by an order of magnitude: the planner&#x27;s figures are rescaled to
-fit the warehouse after they are computed.  A distribution is the only honest thing
-to publish for a quantity nothing closed-form reproduces.</section>
+Publishing a distribution is not a retreat from a formula that would not hold: a
+stock level is a RUN&#x27;s declaration, never a SKU&#x27;s fact (ADR-0002).  The catalogue
+carries none, every run derives its own at setup from a coverage in DAYS, and
+what that produced across the SKUs it fielded IS the model — there is nothing
+closed-form behind it to publish instead.
+
+The table renders whichever quantities the staged document carries, so each
+vintage shows its own: a pre-ADR-0002 snapshot measured the per-wave demand its
+authored level was coverage of, a current one measures the lead pipeline the run
+stamps.  `_stock_footnote` carries the sentence underneath.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=ndocs_macros_py__define_env_inventory_model">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/docs/macros.py#:~:text=def%20inventory_model">Source ↗</a></p>
 </article>

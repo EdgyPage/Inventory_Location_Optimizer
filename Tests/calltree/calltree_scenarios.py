@@ -2,12 +2,15 @@
 calltree_scenarios.py — seeded, deterministic scenario tiers for the calltree framework.
 
 Every scenario here fires REAL reorder-time placement. That sentence earns its caps:
-`Tests/bench/perf_simulation.py::_build_inventory` builds orders with no
-equilibrium_qty/reorder_point, so `_notify_pick` never flags a SKU and the entire t_reord
-section — every assignment function — silently never executes in tools built on it
-(`profile_lifecycle.py` also runs the non-production `PickSimulation` engine). This module
-wraps the same builders, then sets real reorder fields per order and stocks to equilibrium,
-so depletion actually crosses the reorder point. The production engine is
+`Tests/bench/perf_simulation.py::_build_inventory` hands back a pure CATALOGUE — geometry
+and demand, the four stock-level slots UNSET (ADR-0002: a level is a run's declaration,
+never a SKU's fact). A tool built directly on it and never declaring one used to get
+silence (`_notify_pick` read `reorder_point` through a `getattr` default of None, flagged
+nothing, and the entire t_reord section — every assignment function — never executed);
+today it gets `inventory_common.UndeclaredStock` from the first pick instead. This module
+wraps the same builders and then DECLARES a production-shaped level per order
+(`set_reorder_fields` -> `Order.declare_stock`) and stocks to that equilibrium, so
+depletion actually crosses the reorder point. The production engine is
 `fast_pick.DeferredPickSimulation`, same as `strategy_runner`.
 
 Tiers
@@ -80,10 +83,15 @@ class ScenarioUnavailable(RuntimeError):
 
 def set_reorder_fields(orders, seed: int, *, coverage: float = 10.0, safety: float = 2.0,
                        lead_time: float = 0.0, supply_cv: float = 0.0) -> None:
-    """Give every order the PRODUCTION-SHAPED equilibrium/reorder model so placement fires
-    with production scaling.
+    """DECLARE the PRODUCTION-SHAPED equilibrium/reorder level on every order so placement
+    fires with production scaling.
 
-    Mirrors Warehouse/generation/generate_inventory.py::build_inventory_equilibrium:
+    THIS SCENARIO IS THE RUN. The catalogue carries no levels (ADR-0002), so nothing is
+    stocked, sized or reordered until something declares one; in production that is the
+    coverage derivation at setup (`Optimization/simconfig/coverage.rescale_section`, driven
+    by `simdriver/era_coverage.fixed_point`), and here it is this function. The numbers are
+    the ones the generator used to author, i.e. the retired
+    `EQUILIBRIUM_COVERAGE_BATCHES`/`REORDER_SAFETY_BATCHES` model:
         expected = f · q                    (relative_frequency × quantity_rate — NOT ×k;
                                              production absorbs batch size into coverage)
         eq  = max(1, round(coverage · expected))
@@ -96,6 +104,17 @@ def set_reorder_fields(orders, seed: int, *, coverage: float = 10.0, safety: flo
     rp = eq−1 — reorder-nearly-every-batch, which would inflate t_reord in every
     measurement). lead_time=0 releases reorders in the same check_reorders pass.
 
+    The write goes through `Order.declare_stock`, the ONE mutation site for the four level
+    slots, which owns the clamps this function used to spell out itself (Q ≥ 1; rp ≥ 1 and
+    at most Q−1, with rp = 1 the only option when Q = 1) and clears `stock_plan` /
+    `pipeline_qty`. Same arithmetic, same numbers, one writer — 18 test files reach this
+    helper through `build_assets(coverage=, safety=)`, so the signature and the levels it
+    fields are load-bearing and must not drift.
+
+    `expected_batch_demand`, `lead_time_mean` and `supply_cv` stay direct assignments: they
+    are demand and supply facts of the SKU, not a level, and `Order.__init__` (the
+    construction path `_build_inventory` uses) leaves all three unset.
+
     The seed parameter is kept for API stability (production draws no randomness here).
     """
     del seed  # deterministic: a pure function of each order's demand
@@ -103,11 +122,9 @@ def set_reorder_fields(orders, seed: int, *, coverage: float = 10.0, safety: flo
         expected = c.demand.relative_frequency * c.demand.quantity_rate
         eq = max(1, round(coverage * expected))
         c.expected_batch_demand = expected
-        c.equilibrium_qty       = eq
-        c.reorder_point         = (max(1, min(eq - 1, round(expected * (lead_time + safety))))
-                                   if eq > 1 else 1)
         c.lead_time_mean        = float(lead_time)
         c.supply_cv             = float(supply_cv)
+        c.declare_stock(eq, round(expected * (lead_time + safety)))
 
 
 # ── assets ────────────────────────────────────────────────────────────────────
@@ -136,10 +153,18 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
     """Deterministic single-arm assets with production placement wiring.
 
     Mirrors Diagnostics/trace_lifecycle.py's recipe (plan_warehouse to a target fill,
-    StrategyContext + the strategies-registry build), with the reorder fields set BEFORE
-    sampling so every sampled order carries them. coverage/safety default to production's
+    StrategyContext + the strategies-registry build), with the stock level DECLARED BEFORE
+    sampling so every sampled order carries one. coverage/safety default to production's
     equilibrium model (10/2); fast tests shrink coverage AND scale safety with it
     (safety ≈ 2·coverage/10) to keep the rp/eq fraction production-shaped.
+
+    The order of the next two statements is a CONTRACT, not a style: `plan_warehouse`'s very
+    first act is `bucket_requirements`, which runs every order through
+    `inventory_common._equilibrium_qty` to size each bin bucket — and that raises
+    `UndeclaredStock` on an order no run has declared a level for (ADR-0002). Declaring
+    after the plan would therefore not merely mis-size the warehouse, it would not build one
+    at all. `sample_to_capacity` then RE-declares each sampled order at the quantity it
+    actually packed, keeping the rp/eq ratio fielded here.
     """
     strat = STRATEGY_BY_KEY[strategy]
 

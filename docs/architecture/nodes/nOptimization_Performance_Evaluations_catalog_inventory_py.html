@@ -15,22 +15,43 @@
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_catalog_inventory_py.html"><code>Optimization/Performance_Evaluations/catalog/inventory.py</code></a></p>
 
 <pre class="sig"><code>Optimization.Performance_Evaluations.catalog.inventory</code></pre>
-<section class="doc">catalog.inventory — the inventory model the run PRODUCED, not the one its formula states.
+<section class="doc">catalog.inventory — the stock levels this run DECLARED, published as a distribution.
 
-WHY THIS EXISTS.  The published pages carried an equilibrium/reorder model in prose:
-`q_eq = round(coverage x dbar)` and `ROP = round(dbar x (lead + safety))`.  Checked against
-the run&#x27;s own frozen catalogue, the stated equilibrium is off by an order of magnitude
-(coverage 10 x mean demand ~= 39 against a realised mean of ~3.5) and neither ROP formula
-reproduces even 55 % of the stored values.  Nothing was wrong with the simulation; the
-prose described the planner&#x27;s intent and the catalogue records what survived
-`sample_to_capacity`, which rescales both to fit the warehouse.  A page cannot state a
-formula for that — it has to publish the distribution.
+WHY THIS EXISTS.  A page has to say how much stock the simulation held, and the honest answer
+has never been a formula.  It used to fail to be a formula for a particular reason: the
+CATALOGUE authored each SKU&#x27;s order-up-to quantity and reorder point, the published pages
+restated the generator&#x27;s closed form, and measured against the run&#x27;s own file that form
+reproduced neither quantity — `sample_to_capacity` rescaled both to fit the warehouse after
+the planner had spoken.  So this tool scored the candidate closed forms against the stored
+values and published the implied rescale beside them, on the principle that &quot;neither formula
+holds&quot; should be a measurement rather than an assertion.
 
-WHAT THIS EMITS.  Realised distributions for the four quantities the pages talk about, the
-per-SKU reproduction rate of each candidate formula (so &quot;neither one&quot; is a measurement
-rather than an assertion), and the implied rescale factor.  A page renders these instead of
-restating a formula, and the next time the planner changes, the page changes with it.</section>
-<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__SEMANTIC_USES.html"><code>SEMANTIC_USES</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___FIELDS.html"><code>_FIELDS</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___ROP_FORMULAS.html"><code>_ROP_FORMULAS</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___dist.html"><code>_dist</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__pair_model.html"><code>pair_model</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___dist_q.html"><code>q</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li></ul></section>
+Both of those measurements are now about a mechanism that no longer exists.  ADR-0002 retired
+the authored level: a stock level is not a fact about a SKU, and a generated catalogue carries
+none.  Every run DERIVES its levels at setup from a coverage in DAYS
+(`Optimization/simconfig/coverage.py`, driven to a pair-level fixed point by
+`Optimization/simdriver/era_coverage.py`) and records them in its own planned inventory.  No
+closed form authors a level any more, so a reproduction rate would score the agreement of two
+things the run never used, and the planner growth the rescale ratio measured has no generator
+figure left to grow away from.  Both blocks are gone.  What remains is the reason the tool
+existed in the first place: PUBLISH THE DISTRIBUTION the run actually stocked.
+
+WHAT THIS EMITS.  Per inventory pair: the realised distribution of the three declared levels
+(order-up-to quantity, reorder point, lead pipeline) and of the lead time the reorder point is
+denominated in, how many SKUs the run declared on, how many carry a hand-written packing plan,
+and THE DECLARATION ITSELF — `coverage_days` / `safety_days` / `floor_lines`, read off the
+run&#x27;s own staffing record (`staffing.calibration[&lt;pair&gt;].coverage`), which is where a run
+states what produced these numbers.  A page renders the distribution and names the
+declaration; change the declaration and both change with it.
+
+WHICH FILE, AND HOW IT IS READ.  The `planned_inventory` contract alias — a RUN&#x27;S OWN planned
+inventory, never a generated catalogue, because only a run declares.  Read through
+`Schema.dataset`&#x27;s named queries instead of hand-written SQL against `cartons`: the
+`stock_levels` query serves the declaration out of the table that holds it on a current file
+and, through its per-vintage override, out of `cartons` on every archived one.  So an old run
+still reports the levels it fielded, under the same logical names, with no version branch
+here.</section>
+<section class="rel"><h2>Imports <span class="count">(4)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li><li><a href="nSchema_dataset_py.html"><code>Schema.dataset</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py.html"><code>Warehouse.generation.generate_inventory</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(10)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__SEMANTIC_USES.html"><code>SEMANTIC_USES</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___CARTON_FIELDS.html"><code>_CARTON_FIELDS</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___CSV_FIELDS.html"><code>_CSV_FIELDS</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___FIELDS.html"><code>_FIELDS</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___LEVEL_FIELDS.html"><code>_LEVEL_FIELDS</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___declaration.html"><code>_declaration</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___dist.html"><code>_dist</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__pair_model.html"><code>pair_model</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py___dist_q.html"><code>q</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li><li><a href="nOptimization_Performance_Evaluations_catalog_inventory_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/catalog/inventory.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_catalog_inventory_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/catalog/inventory.py">Source ↗</a></p>
 </article>
 </main>

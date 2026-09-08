@@ -6,11 +6,21 @@ Localises the per-(handling, category, size, unit_type) bucket mismatch behind a
   SIZING  — per bucket: built capacity (bins), the `stock_plan` SPREAD footprint that
             initial stock places, and the DEFAULT-PACK footprint a dumb-JIT warehouse
             would need (bucket_requirements with stock_plan stripped).  Plus default-pack
-            timing, since retiring stock_plan puts that cost back on the hot path.
+            timing, since retiring stock_plan would put that packing back on the hot path.
 
   RUNTIME — runs a short single-process FIFO sim (mirrors strategy_runner's loop) and
             snapshots per-bucket {occupied, free, queued units} + the global fill / queue
             trajectory, flagging buckets >95% full (overflow) and <40% full (waste).
+
+BOTH SIDES OF THE SIZING VIEW READ THE RUN'S PLANNED INVENTORY, never the catalogue.
+A stock level is a run's declaration and a generated catalogue carries none (ADR-0002):
+`load_inventory_from_db` on a profile DB returns orders whose level slots are UNSET, and
+`bucket_requirements` over those is a caller bug — `_equilibrium_qty` raises
+`UndeclaredStock` rather than answering the 1 it used to, which would have sized the
+DEFAULT column at one unit per SKU instead of at what default packing needs.  The
+warehouse planner's `stock_plan` survives ADR-0002 untouched; only its provenance moved,
+from a column the generator authored to the packing the planner writes for the level a
+run declared.
 
 Nothing here mutates production data; it only reads DBs and runs an in-memory sim.
 
@@ -98,7 +108,15 @@ def _fmt_bucket(b: Bucket) -> str:
 
 # ── sizing view ─────────────────────────────────────────────────────────────────
 
-def sizing_view(inv_db: str, allowlist: set, warehouse, planned_cartons: list, log) -> None:
+def sizing_view(planned_inv_db: str, warehouse, planned_cartons: list, log) -> None:
+    """Per-bucket capacity vs the two footprints the SAME declared levels produce.
+
+    The A/B is the PACKING and nothing else: both sides are the run's planned inventory,
+    so every SKU brings the equilibrium quantity this run declared (ADR-0002 — the
+    catalogue has no level to bring).  The spread side keeps the planner's `stock_plan`
+    and the default side has it stripped, which is what makes the two columns comparable
+    and the two timings a like-for-like measure of what packing costs.
+    """
     cap = _capacity_by_bucket(warehouse)
 
     # SPREAD footprint: planned orders carry stock_plan -> viable_storage_units reproduces it.
@@ -106,10 +124,23 @@ def sizing_view(inv_db: str, allowlist: set, warehouse, planned_cartons: list, l
     spread = Inventory_Manager.bucket_requirements(planned_cartons)
     t_spread = time.perf_counter() - t0
 
-    # DEFAULT-PACK footprint: same SKUs, original equilibrium, NO stock_plan -> dumb-JIT packing.
-    orig = load_inventory_from_db(inv_db)
-    subset = [c for c in orig.orders if c.sku in allowlist] if allowlist else orig.orders
-    for c in subset:                       # ensure no plan sneaks in from the DB
+    # DEFAULT-PACK footprint: the same SKUs at the same declared equilibrium, with NO
+    # stock_plan -> the default pallet/singleton rule (dumb-JIT packing).
+    #
+    # Loaded from the PLANNED inventory, a second independent copy of the orders
+    # `planned_cartons` already holds, for two reasons.  (1) Only the planned DB carries a
+    # `stock_levels` row per SKU.  The profile/catalogue DB this used to read carries none
+    # since ADR-0002, so its orders come back with the level slots unset and there is no
+    # Order-Up-To to pack: `_equilibrium_qty` raises `UndeclaredStock` on the first one, and
+    # before it did, it answered 1 — a DEFAULT column reading "one unit per SKU", printed
+    # beside a spread column an order of magnitude larger, with nothing to say why.
+    # (2) A fresh load, rather than reusing `planned_cartons`, so stripping the plan below
+    # cannot reach the orders the runtime view is about to stock.
+    #
+    # No allowlist filter: the planned inventory IS the sampled, stocked set.
+    orig = load_inventory_from_db(planned_inv_db)
+    subset = orig.orders
+    for c in subset:                       # strip the planner's packing, keep its level
         c.stock_plan = None
     t0 = time.perf_counter()
     default = Inventory_Manager.bucket_requirements(subset)
@@ -118,6 +149,7 @@ def sizing_view(inv_db: str, allowlist: set, warehouse, planned_cartons: list, l
     total_bins = sum(cap.values())
     print('\n' + '=' * 96)
     print('SIZING VIEW  — capacity vs stock_plan SPREAD vs default-pack (dumb-JIT) demand')
+    print('               both footprints at the levels THIS RUN declared (planned inventory)')
     print('=' * 96)
     print(f'{"bucket":<32}{"capacity":>9}{"spread":>9}{"sprd%":>7}'
           f'{"default":>9}{"dflt%":>7}')
@@ -332,13 +364,16 @@ def main() -> None:
         warehouse_db_path=os.path.join(base, label, 'warehouse.db'),
     )
 
+    # The run's own planned inventory: the sampled SKUs, each carrying the level this run
+    # declared and the packing the planner wrote for it.  `inv_db` above is the CATALOGUE
+    # and carries neither (ADR-0002), so it sizes nothing — it is only the input identity
+    # logged above and the argument `build_shared_assets` planned from.
     planned_inv = load_inventory_from_db(shared['planned_inv_db'])
     Aisle.next_aisle_id = 1
     random.seed(rs.seed_world())
     warehouse = Warehouse_Builder().from_config(shared['warehouse_cfg']).build()
 
-    sizing_view(inv_db, shared.get('sku_allowlist') or set(),
-                warehouse, planned_inv.orders, log)
+    sizing_view(shared['planned_inv_db'], warehouse, planned_inv.orders, log)
     runtime_view(planned_inv, warehouse, shared['affinity_store'],
                  shared['batch_cfg'], args.batches, args.strategy, log)
 

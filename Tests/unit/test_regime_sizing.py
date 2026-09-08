@@ -5,10 +5,27 @@ INDEPENDENTLY (store demand-driven, fulfillment a FIXED tier distribution), each
 bin caps + fill headroom.  Asserts caps are isolated per regime and the ff distribution ratio
 + scale are honored.
 
-Run:  python -m pytest Tests/test_regime_sizing.py -q
+The catalogue here DECLARES its stock, in one place
+---------------------------------------------------
+`plan_warehouse` counts bins from every SKU's order-up-to on EVERY path (`sample=False`, which
+this file uses throughout, skips only the SKU sampling — never `bucket_requirements`), and a
+generated catalogue carries no level: ADR-0002 made a level a RUN's declaration, and
+`inventory_common._equilibrium_qty` raises `UndeclaredStock` rather than defaulting to 1.  So
+`_mixed_orders` declares one, explicitly, reproducing the retired generator's arithmetic (see
+`_declare`) — this file is about SIZING, so the numbers stay hand-checkable and every ratio
+asserted below keeps the meaning it was tuned against.
+
+That declaration lives in ONE helper on purpose.  Four tests here are INVARIANCE assertions —
+a store cap must not move a fulfillment bin, `depth_classes=None` and `aisle_split k=1` must be
+byte-identical — and each compares two plans built from the SAME order list.  A declaration
+made per-plan instead of per-catalogue could drift by a unit between the two sides, and the
+test would report a sizing regression that was really a fixture bug.
+
+Run:  python -m pytest Tests/unit/test_regime_sizing.py -q
 """
 from __future__ import annotations
 
+import math
 import os
 import random
 import sys
@@ -27,12 +44,44 @@ _COMMON = dict(categories=['food', 'clothing', 'electronic', 'furniture', 'seaso
                handlings=['conveyable', 'non-conveyable'],
                aisle_width=2400, aisle_height=480, sample=False)
 
+# The coverage this file declares at.  A HISTORICAL SHAPE, not a live formula: it is the
+# constant `build_inventory_from_plan` used to author with (`EQUILIBRIUM_COVERAGE_BATCHES`),
+# reproduced verbatim so the bin and aisle counts every ratio below is measured against stay
+# exactly where they were.  Nothing in production derives a level this way any more — a run
+# declares from a coverage in DAYS (`Optimization.simconfig.coverage.rescale_section`).
+_COVERAGE_BATCHES = 10.0
+
+
+def _declare(orders):
+    """Declare this file's stock level on every SKU of *orders*, and return them.
+
+    The retired generator's arithmetic, unchanged:
+
+        Q  = round(10 batches x expected batch demand)
+        rp = ceil(expected x (lead + 1))          # lead is 0 for every SKU built here
+
+    `declare_stock` — the ONE mutation site for the four level slots — applies the clamps the
+    generator spelled out inline (`max(1, ...)` on Q; `max(1, min(Q - 1, ...))` on rp, and
+    rp == 1 at Q == 1), so the declared pair is identical to the pair this catalogue used to
+    arrive carrying.
+    """
+    already = [c.sku for c in orders if c.stock_declared()]
+    assert not already, (
+        f'{len(already)} generated SKU(s) already carry a stock level, e.g. {already[:3]} — '
+        f'the catalogue is authoring stock again (ADR-0002) and this fixture is no longer the '
+        f'only source of the levels every count below is measured from')
+    for c in orders:
+        e = c.expected_batch_demand
+        c.declare_stock(round(_COVERAGE_BATCHES * e),
+                        math.ceil(e * (c.lead_time_mean + 1.0)))
+    return orders
+
 
 def _mixed_orders(n=400, seed=1):
     plan = [Family('food', 0.35, (0.5, 0.5), _DIM, _DIM, _DIM, _WT),
             Family('clothing', 0.25, (0.5, 0.5), _DIM, _DIM, _DIM, _WT),
             fulfillment_family(share=0.4, cube_sizes=(4, 6, 8))]
-    return build_inventory_from_plan(num_skus=n, plan=plan, seed=seed).orders
+    return _declare(build_inventory_from_plan(num_skus=n, plan=plan, seed=seed).orders)
 
 
 def _bins_by_regime(plan):

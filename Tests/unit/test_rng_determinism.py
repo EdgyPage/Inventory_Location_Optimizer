@@ -30,6 +30,8 @@ import os
 import random
 import sys
 
+import pytest
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
 
@@ -51,6 +53,10 @@ from Warehouse.generation.generate_inventory import (
 # ── helpers ─────────────────────────────────────────────────────────────────────
 
 def _inventory(num_skus: int = 80, seed: int = 42):
+    """A generated catalogue.  It carries demand + geometry and NO stock level (ADR-0002):
+    the retired `equilibrium_coverage_batches` / `reorder_safety_batches` knobs are gone, and
+    with them the level formulas — which drew nothing from `rng`, so the generator's draw
+    sequence (and therefore every fingerprint below) is unchanged by their removal."""
     return build_inventory_with_profile(
         num_skus=num_skus, seed=seed,
         handling_splits=[0.5, 0.5],
@@ -58,8 +64,6 @@ def _inventory(num_skus: int = 80, seed: int = 42):
         singleton_fraction=0.3,
         dim_spec=DEFAULT_DIM_SPEC,
         weight_spec=DEFAULT_WEIGHT_SPEC,
-        equilibrium_coverage_batches=10.0,
-        reorder_safety_batches=2.0,
     )
 
 
@@ -113,12 +117,13 @@ def _make_carton(sku: int, eq_qty: int, rp: int, lt: float, supply_cv: float) ->
     c.height = 6
     c.weight = 2
     c.demand = Demand.from_rates(0.8, 4.0)
-    c.equilibrium_qty       = eq_qty
-    c.reorder_point         = rp
     c.lead_time_mean        = lt
     c.supply_cv             = supply_cv
     c.expected_batch_demand = 0.8 * 4.0
-    return c
+    # The level is a RUN's declaration, written only here (ADR-0002).  Unstamped pipeline, so
+    # `pipeline_allowance()` uses the manager's rp x lead / (lead + 1) heuristic — which is
+    # exactly what `_expected_order_qty` below models.
+    return c.declare_stock(eq_qty, rp)
 
 
 _EQ_QTY, _RP, _POSITION = 30, 12, 12   # on_hand(6) + on-order(6) = 12 == rp ⇒ reorder fires
@@ -159,6 +164,34 @@ def _fire_reorder_qty(mgr_seed: int, supply_cv: float, lead: float = 5.0,
     # The order raises inventory POSITION to the lead-aware order-up-to regardless of
     # whether it is still in transit (lead>0) or already released+placed (lead==0).
     return _position() - before
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Fixture premise — what the two fixtures above carry
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_generated_catalogue_carries_no_stock_declaration() -> None:
+    """`_inventory()` used to be handed coverage-in-batches knobs and got back a levelled
+    catalogue.  Those knobs are retired (ADR-0002): the generator declares NOTHING, so every
+    order comes back undeclared and reading a level off one raises.  This is the premise the
+    batch tests rest on — `Batch` may only read demand, never a level."""
+    inv = _inventory(num_skus=8, seed=1)
+    assert inv.orders, 'the generator produced no orders — the rest proves nothing'
+    assert not any(c.stock_declared() for c in inv.orders), (
+        'a generated catalogue declared stock; the level is a run\'s fact, not the SKU\'s')
+    with pytest.raises(AttributeError):
+        _ = inv.orders[0].equilibrium_qty
+
+
+def test_make_carton_declares_through_the_one_mutation_site() -> None:
+    """`_make_carton` writes its level through `declare_stock`, and the numbers the reorder
+    tests below expect survive its clamping unchanged (rp stays strictly under Q)."""
+    c = _make_carton(sku=1, eq_qty=_EQ_QTY, rp=_RP, lt=5.0, supply_cv=0.0)
+    assert c.stock_declared()
+    assert (c.equilibrium_qty, c.reorder_point) == (_EQ_QTY, _RP)
+    assert c.stock_plan is None and c.pipeline_qty is None, (
+        'the fixture must stay unstamped so pipeline_allowance() takes the heuristic branch')
+    assert c.pipeline_allowance() == round(_RP * 5.0 / 6.0)
 
 
 # ═════════════════════════════════════════════════════════════════════════════

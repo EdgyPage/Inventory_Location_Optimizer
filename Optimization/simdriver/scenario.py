@@ -19,6 +19,7 @@ from Optimization.simdriver.cells import (
     _apply_cell, _build_cells, _cell_complete, _tightest_split, reference_cell,
 )
 from Optimization.simdriver.supervisor import _run_workers_flat
+from Optimization.simdriver.workunits import _record_coverage
 
 
 def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
@@ -151,6 +152,15 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
                 regime_sizing=regime_sizing_from_config(), keyframe_interval=g['keyframe_interval'],
                 warehouse_db_path=os.path.join(base_dir, '_frozen', label, 'warehouse.db'))
             frozen[label] = shared['planned_inv_db']
+            # THE FREEZE IS WHERE A MULTI-CELL RUN DECLARES ITS STOCK, so it is where the
+            # declaration has to be recorded (ADR-0002).  Every cell after this one loads the
+            # frozen inventory with `sample=False` and declares nothing, so `_build_work_units`
+            # -- which records the block on a single-cell run -- sees no coverage to record and
+            # the run would end up with levels nobody could reproduce.  Its own analysis stage
+            # would then refuse to rebuild the warehouse from the catalogue and emit no figures
+            # at all, which is exactly how this was found: preflight's 2-cell canary produced
+            # a complete run tree and an empty analysis one.
+            _record_coverage(base_dir, label, shared.get('coverage'), log)
 
     # ── 2. Each cell: reshape the warehouse (from FROZEN inv when multi-cell) + simulate ──
     n_cells = len(cells)

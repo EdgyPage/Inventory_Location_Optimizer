@@ -243,10 +243,17 @@ def _prepare_channel_run(
         # infer it.  (The artifact is named once in this file, above -- the run-tree ratchet
         # counts prose, and spelling a contract path twice is the debt it exists to stop.)
         'catalogue_scope'    : 'all_regimes',
-        'avg_equilibrium_qty': round(sum(getattr(c, 'equilibrium_qty', 1)
-                                         for c in inventory.orders) / max(len(inventory.orders), 1), 1),
-        'avg_reorder_point'  : round(sum(getattr(c, 'reorder_point', 1)
-                                         for c in inventory.orders) / max(len(inventory.orders), 1), 2),
+        # The levels THIS RUN declared, averaged over the orders it fielded (ADR-0002: the
+        # catalogue authors none).  An undeclared order contributes nothing -- a default of 1
+        # here would publish a fabricated level into every leaf's config document.
+        'avg_equilibrium_qty': round(sum(c.equilibrium_qty for c in inventory.orders
+                                         if c.stock_declared())
+                                     / max(sum(1 for c in inventory.orders
+                                               if c.stock_declared()), 1), 1),
+        'avg_reorder_point'  : round(sum(c.reorder_point for c in inventory.orders
+                                         if c.stock_declared())
+                                     / max(sum(1 for c in inventory.orders
+                                               if c.stock_declared()), 1), 2),
         'avg_lead_time_mean' : round(sum(getattr(c, 'lead_time_mean', 0.0)
                                          for c in inventory.orders) / max(len(inventory.orders), 1), 3),
         'avg_supply_cv'      : round(sum(getattr(c, 'supply_cv', 0.0)
@@ -655,6 +662,39 @@ def _record_derived(base_dir: str, label: str, derived: dict, calibration: dict,
     log.info(f'  [staffing] recorded derived + calibration blocks for {label} in the run spec')
 
 
+def _record_coverage(base_dir: str, label: str, coverage: dict | None,
+                     log: logging.Logger) -> None:
+    """Record this pair's COVERAGE block in the run spec, in every mode.
+
+    A run declares its own stock levels whether or not the era flag is on (ADR-0002), and the
+    only thing that varies between one run's declaration and another's is the fixed point's
+    line count -- so this block is what lets anything reproduce the levels the run FIELDED.
+    `run_analysis` and `run_map_precompute` re-plan a finished run's warehouse from its
+    original catalogue, which holds no level, and re-declare from exactly this record
+    (`era_coverage.declare_from_record`).
+
+    Under the era the record rides `_record_derived`'s calibration block and this is a no-op
+    on it; flag-off there is no derivation to record, and without this a flag-off run would
+    declare levels nobody could ever reproduce -- its own analysis stage would then refuse to
+    rebuild the warehouse and silently emit no graphs, which is how this was found.
+    """
+    if coverage is None:
+        return
+    root, spec = _run_root_spec(base_dir)
+    if spec is None:
+        log.warning('  [coverage] no run spec at the run root -- this run cannot be '
+                    're-analysed from its catalogue, because the levels it declared are '
+                    'recorded nowhere')
+        return
+    st = spec.setdefault('staffing', {}).setdefault('calibration', {}).setdefault(label, {})
+    if st.get('coverage') is not None:
+        return                      # already recorded (the era path, or an earlier cell)
+    st['coverage'] = coverage
+    _write_run_spec(root, spec)
+    log.info(f'  [coverage] recorded the declaration for {label} in the run spec '
+             f'({", ".join(f"{k} {v:,.0f} lines/day" for k, v in coverage["lines_per_day"].items())})')
+
+
 def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
     """Plan the channel-runs for one catalog.
 
@@ -732,6 +772,11 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
                 shared, channel_runs, mixed, pair_dir, log, workers=max_workers)
             shared['staffing'] = {'derived': _derived, 'calibration': _cal}
             _record_derived(base_dir, label, _derived, _cal, log)
+        # The declaration itself is recorded in EVERY mode, because it is MADE in every mode:
+        # a rebuild re-declares from this block, and a run whose levels are recorded nowhere
+        # can never have its warehouse reproduced from its catalogue again.  Under the era the
+        # line above already wrote it, and this is a no-op.
+        _record_coverage(base_dir, label, shared.get('coverage'), log)
         for ch, cfg in channel_runs:
             cfg_name = _config_name(cfg)
             # Outputs live at <cfg>/<channel>/ (mixed) or <cfg>/ (store-only); the skip guard

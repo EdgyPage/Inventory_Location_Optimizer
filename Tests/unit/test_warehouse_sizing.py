@@ -21,6 +21,15 @@ Groups
     placement     optimal layout, requeue, reloaders, and the named assignment scorers
     round-trip    the planned inventory survives to a worker process unchanged
 
+Every fixture here DECLARES a stock level
+-----------------------------------------
+A generated catalogue carries none (ADR-0002): `equilibrium_qty` is a run's declaration, not
+a SKU's fact, and `bucket_requirements` raises `UndeclaredStock` rather than defaulting — a
+default there would size every bucket for one unit per SKU and build a warehouse an order of
+magnitude too small, with no error.  A production run declares through the coverage fixed
+point; this file declares explicitly in `_declare`, at the coverage the generator used to
+author, so every hand-tuned threshold below still means what it meant.
+
 A note on speeds
 ----------------
 `x_speed`/`y_speed` are **ft/s** and positions are inches, so travel is
@@ -40,12 +49,14 @@ from __future__ import annotations
 import math
 import os
 import random
+import sqlite3
 import tempfile
 import types
 from collections import defaultdict
 from statistics import mean
 
 import numpy as np
+import pytest
 from scipy.sparse import csr_matrix
 
 from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
@@ -61,6 +72,7 @@ from Warehouse.generation.generate_inventory import (
 from Warehouse.inventory.Inventory_Management import (
     Inventory_Manager, Placement, _SIZE_RANKS,
 )
+from Warehouse.inventory.inventory_common import UndeclaredStock
 from Warehouse.placement.Assignment_Functions import (
     build_ranked_minimizing_assignment_fn, build_ranked_maximizing_assignment_fn,
     build_uniform_aisle_trip_min_assignment_fn,
@@ -95,7 +107,16 @@ def _close(a: float, b: float, rel: float = 1e-9, abs_: float = 1e-6) -> bool:
     return math.isclose(a, b, rel_tol=rel, abs_tol=abs_)
 
 
-def _inventory(n_skus: int, seed: int = 7):
+# The coverage this file declares with.  These are the two numbers the generator used to
+# author into the catalogue (its retired `EQUILIBRIUM_COVERAGE_BATCHES` /
+# `REORDER_SAFETY_BATCHES`), reproduced here verbatim so the sizing thresholds below —
+# expected_fill floors, per-tier usage fractions, cap arithmetic — keep their meaning.
+_COVERAGE_BATCHES = 10.0
+_SAFETY_BATCHES   = 2.0
+
+
+def _catalogue(n_skus: int, seed: int = 7):
+    """A generated catalogue, exactly as it comes off the generator: NO stock levels."""
     return build_inventory_with_profile(
         num_skus=n_skus, seed=seed,
         handling_splits=[0.5, 0.5],
@@ -103,13 +124,44 @@ def _inventory(n_skus: int, seed: int = 7):
         singleton_fraction=0.3,
         dim_spec=DEFAULT_DIM_SPEC,
         weight_spec=DEFAULT_WEIGHT_SPEC,
-        equilibrium_coverage_batches=10.0,
-        reorder_safety_batches=2.0,
     )
 
 
+def _declare(inv):
+    """Declare this file's stock level on every SKU of *inv*, and return it.
+
+    A level is a run's declaration, never the catalogue's (ADR-0002), so a sizing test has
+    to make one before `plan_warehouse` will count anything.  An explicit loop rather than
+    `simconfig.coverage.rescale_section` because these tests are ABOUT the sizing arithmetic:
+    the numbers must stay hand-checkable, and they are exactly what the generator used to
+    author —
+
+        Q  = round(10 batches x expected batch demand)
+        rp = round(expected x (lead + 2 batches))
+
+    `declare_stock` applies the clamps (Q >= 1; 1 <= rp <= Q-1, rp == 1 at Q == 1), which is
+    where the old generator's `max(1, min(eq - 1, ...))` lived.
+    """
+    for c in inv.orders:
+        e = c.expected_batch_demand
+        c.declare_stock(round(_COVERAGE_BATCHES * e),
+                        round(e * (c.lead_time_mean + _SAFETY_BATCHES)))
+    return inv
+
+
+def _inventory(n_skus: int, seed: int = 7):
+    """The catalogue every test here plans from: generated, then declared."""
+    return _declare(_catalogue(n_skus, seed))
+
+
 def _make_carton(sku: int, eq_qty: int, length=8, width=8, height=6,
-                 handling='conveyable', category='food') -> Order:
+                 handling='conveyable', category='food', stock_plan=None) -> Order:
+    """One hand-built order carrying a hand-built declaration.
+
+    `declare_stock` is the ONE mutation site for the four level slots, so the fixture goes
+    through it rather than assigning them; the values are unchanged (rp = eq // 2, floored
+    at 1 and capped at eq - 1 by the clamp).
+    """
     c = object.__new__(Order)
     c._sku                  = sku
     c.storage_type          = (handling, category)
@@ -117,12 +169,10 @@ def _make_carton(sku: int, eq_qty: int, length=8, width=8, height=6,
     c.lift_group            = (handling, category)
     c.length, c.width, c.height, c.weight = length, width, height, 2
     c.demand                = Demand.from_rates(0.8, 4.0)
-    c.equilibrium_qty       = eq_qty
-    c.reorder_point         = max(1, eq_qty // 2)
     c.lead_time_mean        = 0.0
     c.supply_cv             = 0.0
     c.expected_batch_demand = 0.8 * 4.0
-    return c
+    return c.declare_stock(eq_qty, max(1, eq_qty // 2), stock_plan=stock_plan)
 
 
 def _plan(inv, **kw):
@@ -168,6 +218,32 @@ def _aff_store(skus, pairs):
 # ═════════════════════════════════════════════════════════════════════════════
 # Sizing: buckets, the floor, caps
 # ═════════════════════════════════════════════════════════════════════════════
+
+def test_sizing_refuses_a_catalogue_that_has_declared_no_stock_level():
+    """The precondition every other test in this file satisfies through `_declare`.
+
+    A generated catalogue authors no level (ADR-0002), and `bucket_requirements` reads one
+    per SKU.  The old default of 1 is the failure this asserts against: it would count one
+    unit per SKU, size every bucket for it, and hand back a warehouse an order of magnitude
+    too small — no exception, no log line, and nothing downstream able to tell.  Sizing from
+    nothing must be an ERROR, so the raise is the contract.
+    """
+    cat = _catalogue(20, seed=2)
+    undeclared = [c.sku for c in cat.orders if not c.stock_declared()]
+    assert len(undeclared) == len(cat.orders), (
+        f'{len(cat.orders) - len(undeclared)} generated SKU(s) already carry a level; the '
+        f'catalogue is authoring stock again and `_declare` is no longer the only source')
+
+    with pytest.raises(UndeclaredStock):
+        Inventory_Manager.bucket_requirements(cat.orders)
+    with pytest.raises(UndeclaredStock):
+        _plan(cat)                       # and the whole planner, not just the counter
+
+    # Declared, the same catalogue sizes normally — so the raise is about the declaration,
+    # not about this catalogue.
+    assert Inventory_Manager.bucket_requirements(_declare(cat).orders), (
+        'a declared catalogue produced no bucket requirements at all')
+
 
 def test_bucket_requirements_track_the_full_four_part_key():
     """A bucket is `(handling, category, storage_size, unit_type)` — the size tier is part
@@ -492,8 +568,8 @@ def test_a_partially_placeable_order_queues_the_remainder_and_drains_as_space_fr
     n_bins = len(wh.bins)
     assert n_bins == 6, f'fixture expects exactly 6 singleton bins, built {n_bins}'
 
-    c = _make_carton(1, eq_qty=10)
-    c.stock_plan = [(True, 1, 10)]               # 10 singleton units of 1 item each
+    # 10 singleton units of 1 item each — the packing rides the declaration.
+    c = _make_carton(1, eq_qty=10, stock_plan=[(True, 1, 10)])
     mgr.enqueue(c, quantity=10)
 
     placed = len(mgr.unavailable)
@@ -545,7 +621,9 @@ def test_an_oversized_tier_unit_splits_into_a_free_smaller_tier():
         'sets up the rescue it is testing')
     assert _SIZE_RANKS[tier] >= _SIZE_RANKS['medium'], tier
 
-    c.stock_plan = [(False, big_q, 1)]
+    # Same level, now with the packing that forces the oversized tier — re-declared rather
+    # than assigned, because `declare_stock` is the one mutation site for the level slots.
+    c.declare_stock(c.equilibrium_qty, c.reorder_point, stock_plan=[(False, big_q, 1)])
     mgr.enqueue(c, quantity=big_q)
 
     assert mgr.queue_depth == 0, (
@@ -626,6 +704,13 @@ def test_the_planned_inventory_reproduces_exactly_after_a_db_round_trip():
     fall back to default palletization, target the natural tier only, and queue everything
     the cross-tier fill was counting on — in a subprocess, where the queue depth is not
     printed and nothing raises.
+
+    The contract survives ADR-0002; its FILE does not.  `cartons` no longer has the four
+    level columns — a run's declaration rides the separate `stock_levels` table — so the
+    round trip is asserted at both ends: the table physically carries a row per planned SKU,
+    and every reloaded order comes back DECLARED with the same level and packing.  Without
+    the physical check, a save that quietly wrote nothing and a load that quietly read from
+    somewhere else would look the same as success.
     """
     plan = _plan(_inventory(120, seed=5))
     planned = Inventory.__new__(Inventory)
@@ -636,23 +721,49 @@ def test_the_planned_inventory_reproduces_exactly_after_a_db_round_trip():
         os.remove(db)
     try:
         save_inventory_to_db(planned, db, {'planned': True})
+
+        conn = sqlite3.connect(db)
+        try:
+            level_skus  = {r[0] for r in conn.execute('SELECT sku FROM stock_levels')}
+            carton_cols = {r[1] for r in conn.execute('PRAGMA table_info(cartons)')}
+        finally:
+            conn.close()
+
         reloaded = load_inventory_from_db(db)
     finally:
         if os.path.exists(db):
             os.remove(db)
 
+    assert carton_cols.isdisjoint({'equilibrium_qty', 'reorder_point', 'stock_plan'}), (
+        f'`cartons` still carries level columns {sorted(carton_cols & {"equilibrium_qty", "reorder_point", "stock_plan"})} '
+        f'— the round trip below may be going through the retired catalogue-authored path')
+    assert level_skus == {c.sku for c in plan.sampled}, (
+        f'`stock_levels` holds {len(level_skus)} row(s) for {len(plan.sampled)} planned '
+        f'SKUs — the run\'s declaration is not reaching the file the workers read')
+
     assert reloaded.orders, 'nothing reloaded from the planned DB'
+    undeclared = [c.sku for c in reloaded.orders if not c.stock_declared()]
+    assert not undeclared, (
+        f'{len(undeclared)}/{len(reloaded.orders)} reloaded SKUs came back with NO stock '
+        f'declaration, e.g. {undeclared[:3]} — a worker would raise UndeclaredStock on them')
     no_plan = [c.sku for c in reloaded.orders if not getattr(c, 'stock_plan', None)]
     assert not no_plan, (
         f'{len(no_plan)}/{len(reloaded.orders)} reloaded SKUs lost their stock_plan, '
         f'e.g. {no_plan[:3]}')
 
     eq_by_sku = {c.sku: c.equilibrium_qty for c in plan.sampled}
+    rp_by_sku = {c.sku: c.reorder_point   for c in plan.sampled}
     changed = [(c.sku, eq_by_sku[c.sku], c.equilibrium_qty)
                for c in reloaded.orders if c.equilibrium_qty != eq_by_sku[c.sku]]
     assert not changed, (
         f'{len(changed)} grown equilibrium_qty value(s) changed in the DB; '
         f'(sku, planned, reloaded) = {changed[:3]}')
+    rp_changed = [(c.sku, rp_by_sku[c.sku], c.reorder_point)
+                  for c in reloaded.orders if c.reorder_point != rp_by_sku[c.sku]]
+    assert not rp_changed, (
+        f'{len(rp_changed)} reorder_point value(s) changed in the DB; the declaration is '
+        f'both levels, and a worker restocking at the wrong trigger runs empty silently; '
+        f'(sku, planned, reloaded) = {rp_changed[:3]}')
 
     # Worker flow: build the planned warehouse, enqueue the RELOADED orders.
     mgr = Inventory_Manager(_build_wh(plan, 5))

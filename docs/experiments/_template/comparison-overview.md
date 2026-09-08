@@ -11,7 +11,7 @@ committed snapshots. Symbols are defined in the [Glossary](glossary.md).
 
 - [Lifecycle at a glance](#lifecycle-at-a-glance)
 - [1. Generation](#1-generation) — the synthetic SKU catalogue
-- [2. Stock](#2-stock-initial-layout) — the initial warehouse layout
+- [2. Stock](#2-stock-initial-layout) — the stock levels the run declares, and the initial layout
 - [3. Pick](#3-pick) — batch → tasks, the pick-time cost, and task labor
 - [4. Reorder](#4-reorder) — when replenishment is triggered
 - [5. Restock](#5-restock) — how replenishment is placed (the assignment function)
@@ -29,10 +29,10 @@ A run is one synthetic inventory, stocked once, then picked over many batches. O
                          ┌──────────────────────── repeat × N_BATCHES ────────────────────────┐
                          │                                                                     │
   generate_inventory ─►  stock warehouse  ─►  sample batch ─► pick / deplete ─► check_reorders ─┘
-   (catalogue +           (opt | uni            (demand +        (t_pick per       │        ▲
-    q_eq, ROP, lead        initial layout)       affinity)        task, W)         │        │
-    from params.json)                                                        reorder│        │restock
-                                                                             (ROP)  ▼        │(lead arrives)
+   (catalogue: size,      (declare q_eq and     (demand +        (t_pick per       │        ▲
+    weight, demand,        ROP from declared     affinity)        task, W)         │        │
+    lead — and no          days of cover, then                               reorder│        │restock
+    stock levels)          the opt | uni layout)                             (ROP)  ▼        │(lead arrives)
                                                                            lead queue ───────┘
                                                                           (wait `lead` batches,
                                                                            then place via the
@@ -48,17 +48,15 @@ strategies, so any performance gap is attributable to placement alone.
 
 The synthetic SKU catalogue is produced once by
 [`Warehouse/generation/generate_inventory.py`](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_inventory.py)
-and snapshotted to `params.json`. Each SKU gets size, weight, handling, a per-batch demand,
-and — derived from that demand — an equilibrium quantity and a reorder point:
+and snapshotted to `params.json`. Each SKU gets a size, a weight, a handling class, a per-batch
+demand, a replenishment lead time and a supply reliability — and **no stock levels**. A
+catalogue describes the goods a site sells; how much of each to keep on the shelf is a decision
+about how *this* site is run, so the run declares it at setup
+([§2 below](#stock-declaration)) instead of inheriting it from the SKU. Two runs on
+the same catalogue can therefore hold quite different stock.
 
-!!! abstract "Equilibrium / reorder model"
-    {{ reorder_formula(inv0) }}
-
-    Coverage is **{{ inv_params(inv0)['equilibrium_coverage_batches'] }}**
-    batches of expected demand; the reorder point triggers replenishment `lead + safety`
-    batches ahead of stock-out. The full creation plan — shares, dimension, weight, handling,
-    and demand distributions — is on the [Inventory distributions](inventory.md) page,
-    generated from the same snapshot.
+The full creation plan — shares, dimension, weight, handling, and demand distributions — is on
+the [Inventory distributions](inventory.md) page, generated from the same snapshot.
 
 This experiment's inventory variants:
 {% for key, inv in experiment().inventories.items() %}
@@ -67,7 +65,43 @@ This experiment's inventory variants:
 
 ## 2. Stock (initial layout)
 
-Before batch 1 the whole catalogue is stocked once, into bins grouped by
+Before batch 1 the run settles the two questions the catalogue leaves open: **how much** of each
+SKU to hold, and **where** to put it.
+
+### How much — the stock declaration { #stock-declaration }
+
+Stock is declared in **days of cover**. The run first works out how many pick lines a day its
+declared crew can clear; that turns each SKU's share of the demand into an expected number of
+units per day, $d_s$. Three declared inputs then fix that SKU's two levels:
+
+| Declared input | What it means | Default |
+|----------------|---------------|---------|
+| `coverage_days` | days of its own demand a SKU holds when it is full | 10 |
+| `safety_days` | extra days of buffer folded into the reorder trigger | 2 |
+| `floor_lines` | the least a SKU ever holds, in lines of its own average pick | 1 |
+
+```text
+line floor L    = ceil(floor_lines × the SKU's average line)      (at least 1 unit)
+equilibrium_qty = max(round(coverage_days × d_s), L)              the order-up-to target
+reorder_point   = min(equilibrium_qty − 1,
+                      max(round(d_s × (lead + safety_days)), L))  the trigger
+```
+
+The floor is the operational safeguard: a SKU never holds less than one pick's worth of itself,
+so a single line can always be filled off the shelf. A slow mover whose cover is shorter than
+the interval between its own picks lands **on** that floor, with a trigger one unit below its
+target — every pick reorders exactly what it took, which is the textbook base-stock policy. How
+much of a catalogue sits there is worth checking before reading a coverage figure as the binding
+constraint: on a slow-moving assortment it can be most of it.
+
+The three inputs are recorded per run in the run spec under `staffing.inputs`. The derivation
+that follows from them — the declared days, each round of the sizing loop, the share of SKUs
+(and of demand) sitting on the floor, and the expected first-pass fill rate — is recorded under
+`staffing.calibration[<pair>].coverage`.
+
+### Where — the initial layout { #initial-layout }
+
+The declared stock is then put away once, into bins grouped by
 `BinKey = (handling, category, storage_size, unit_type)`. Two initial layouts bracket the
 starting point (see [strategy_runner.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py) — the `stock_mode` branch):
 
@@ -78,7 +112,8 @@ starting point (see [strategy_runner.py](https://github.com/EdgyPage/Inventory_L
   at **its own** ideal layout (not a generic optimum). The batch loop then perturbs it and the
   reorder rule must hold it.
 
-The headline setup for a representative variant:
+The headline setup for a representative variant — including the levels this run declared,
+averaged over the SKUs it actually fielded:
 
 {{ setup_table(inv0) }}
 
@@ -120,7 +155,9 @@ if position ≤ reorder_point:
 ```
 
 The position check fires an order **at most once** per SKU while stock is in transit, so
-orders don't stack.
+orders don't stack. `pipeline` is the stock expected to be in transit over the lead — stamped
+onto the SKU by the same declaration that set its levels ([§2](#stock-declaration)) — so on-hand
+lands back **at** the target when the delivery arrives rather than short of it.
 
 ## 5. Restock
 
@@ -146,11 +183,15 @@ Everything a result page can vary, and everything it holds fixed so a comparison
 
 **Invariants** — identical across every run on these pages:
 
+<!-- The stock-coverage row names the run's declared inputs; no macro exposes their values, so
+     write this run's numbers in by hand from its run spec (`staffing.inputs`) — or leave the
+     row as it stands, which is true of any run under the defaults. -->
+
 | Held constant | Value | Source |
 |---------------|-------|--------|
 | Catalogue seed | {{ inv_params(inv0)['seed'] }} | `params.json` |
 | SKUs | {{ '{:,}'.format(inv_params(inv0)['num_skus']) }} | `params.json` |
-| Equilibrium coverage | {{ inv_params(inv0)['equilibrium_coverage_batches'] }} batches | `params.json` |
+| Stock coverage | declared in days, once per run — `coverage_days` / `safety_days` / `floor_lines` (see [§2](#stock-declaration)) | run spec, `staffing.inputs` |
 | Supply-CV ceiling | {{ inv_params(inv0)['supply_cv_max'] }} | `params.json` |
 | Batches / pickers | see setup table above | `config.json` |
 | Warehouse geometry, pick-time model | identical across variants | `config.json` / [run_simulation.py](https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py) |

@@ -35,9 +35,18 @@ class Order:
     # inventory_common's hasattr probe must stay False until something assigns it) and
     # '_is_reorder' (set only by reorder(); every reader is getattr-with-default).
     # 'subtype' is set on generated orders and read back via getattr(c, 'subtype', None).
-    # 'pipeline_qty' is the era's STAMPED lead pipeline (department-calibration, "Build the
-    # line floor"): None = not stamped, and `pipeline_allowance()` falls back to the
-    # manager's rp x lead / (lead + 1) heuristic -- every reader goes through that method.
+    #
+    # THE STOCK DECLARATION -- 'equilibrium_qty', 'reorder_point', 'stock_plan' and
+    # 'pipeline_qty' -- is a RUN's fact, never the SKU's (ADR-0002, department-calibration
+    # "Field the floor", decision 5).  No construction path sets it: a freshly built or
+    # generated order carries NO level (the slots are UNSET, `stock_declared()` is False), and
+    # exactly one method, `declare_stock`, writes all four -- called by the coverage
+    # derivation at setup (`simconfig/coverage.rescale_section`), by the warehouse planner
+    # when it packs the level (`inventory_planning.sample_to_capacity`) and by the loader for
+    # a run's own planned inventory, whose `stock_levels` table carries the declaration.
+    # 'pipeline_qty' is the stamped lead pipeline (department-calibration, "Build the line
+    # floor"): None = not stamped, and `pipeline_allowance()` falls back to the manager's
+    # rp x lead / (lead + 1) heuristic -- every reader goes through that method.
     # ~263k live orders at production scale — slots drop the per-instance __dict__.
     __slots__ = ('_sku', 'storage_type', 'storage_handle_config', 'lift_group',
                  'length', 'width', 'height', 'weight', 'demand',
@@ -71,10 +80,8 @@ class Order:
     def build(cls, sku: int, handling: str, category: str,
               length: float, width: float, height: float, weight: float,
               relative_frequency: float, qty_rate: float, *,
-              equilibrium_qty: int, reorder_point: int,
               lead_time_mean: float = 0.0, supply_cv: float = 0.0,
-              stock_plan=None, line: LineDistribution | None = None,
-              pipeline_qty: int | None = None) -> 'Order':
+              line: LineDistribution | None = None) -> 'Order':
         """Construct a order from supplied physical + demand values (not random sampling),
         applying all physical guardrails.  The single construction path for generated and
         DB-loaded orders — accepts demand/quantity as params so the default random Demand()
@@ -82,9 +89,11 @@ class Order:
         is reconstructed as Poisson(qty_rate) with provenance `assumed`.  The scalar is the
         law's rate parameter and every reader must see ONE value, so a Poisson law authored at
         the unclamped rate follows the clamp (what every pre-stamp load sampled), and a law
-        that agrees with neither RAISES.  `pipeline_qty` is the era's stamped lead pipeline
-        (None = not stamped; see `pipeline_allowance`).  Does NOT touch Order.next_sku (sku
-        is explicit)."""
+        that agrees with neither RAISES.
+
+        Takes NO stock level: the catalogue carries demand and geometry only, and a level is
+        the run's declaration (`declare_stock`, ADR-0002).  Does NOT touch Order.next_sku
+        (sku is explicit)."""
         c = object.__new__(cls)
         c._sku = sku
         c.storage_type          = (handling, category)
@@ -107,16 +116,34 @@ class Order:
                     f'parameter of the law and every reader must see one value')
         c.demand = Demand.from_rates(fr, qr, line)
         c.expected_batch_demand = fr * qr
-        c.equilibrium_qty = max(1, int(equilibrium_qty))
-        c.reorder_point   = max(1, min(c.equilibrium_qty - 1, int(reorder_point))) \
-            if c.equilibrium_qty > 1 else 1
         c.lead_time_mean  = float(lead_time_mean)
         c.supply_cv       = float(supply_cv)
-        c.stock_plan      = stock_plan
-        c.pipeline_qty    = None if pipeline_qty is None else max(0, int(pipeline_qty))
         c.labor_cost      = 0.0     # until compute_labor_cost() — was the class default
         c.handle_var      = 0.0
         return c
+
+    def declare_stock(self, equilibrium_qty: int, reorder_point: int, *,
+                      stock_plan=None, pipeline_qty: int | None = None) -> 'Order':
+        """Write the run's stock declaration onto this SKU -- THE one mutation site for the
+        four level slots (ADR-0002: a level is a run's fact, never the SKU's).
+
+        The order-up-to is at least one unit; the reorder point at least one and at most one
+        below it, so the trigger always fires before the target (a `Q = 1` SKU takes
+        `rp = 1`).  `stock_plan` is the packing the warehouse planner wrote for exactly this
+        quantity (None = the default pallet/singleton rule); `pipeline_qty` the stamped lead
+        pipeline (None = not stamped, see `pipeline_allowance`).  Returns self.
+        """
+        q = max(1, int(equilibrium_qty))
+        self.equilibrium_qty = q
+        self.reorder_point   = max(1, min(q - 1, int(reorder_point))) if q > 1 else 1
+        self.stock_plan      = stock_plan
+        self.pipeline_qty    = None if pipeline_qty is None else max(0, int(pipeline_qty))
+        return self
+
+    def stock_declared(self) -> bool:
+        """Whether a run has declared this SKU's stock level (`declare_stock` ran).  False on
+        every freshly generated or catalogue-loaded order: the catalogue carries none."""
+        return hasattr(self, 'equilibrium_qty')
 
     def __init__(self, storage_type: tuple[str, str], max_dim: int = _MAX_DIM) -> None:
         self.length: int = _sample_dim(max_dim)
@@ -177,13 +204,20 @@ class Order:
                                      self.demand.line)          # the stamped law rides along
         c.lift_group = self.lift_group
         c.expected_batch_demand = getattr(self, 'expected_batch_demand', 0.0)
-        c.equilibrium_qty       = getattr(self, 'equilibrium_qty',       1)
-        c.reorder_point         = getattr(self, 'reorder_point',         1)
         c.lead_time_mean        = getattr(self, 'lead_time_mean',        0.0)
         c.supply_cv             = getattr(self, 'supply_cv',             0.0)
-        # Preserve the multi-tier stock plan so reorders rebuild the same tier mix.
-        c.stock_plan            = getattr(self, 'stock_plan',            None)
-        c.pipeline_qty          = getattr(self, 'pipeline_qty',          None)   # the stamp rides along
+        # The DECLARATION rides along when there is one, and does NOT get invented when there
+        # is not.  These four used to default to 1 / 1 / None / None, which made a shipment of
+        # an undeclared SKU answer "hold one unit, reorder at one" -- a fabricated policy, and
+        # the one shape that would slip past the guards `inventory_common._equilibrium_qty`
+        # and `inventory_reorder._undeclared_stock` now raise from, because the copy would
+        # answer where the template refuses (ADR-0002).  A shipment carries what its SKU was
+        # declared to hold, or carries no declaration at all.
+        if self.stock_declared():
+            # Preserve the multi-tier stock plan so reorders rebuild the same tier mix.
+            c.declare_stock(self.equilibrium_qty, self.reorder_point,
+                            stock_plan=getattr(self, 'stock_plan', None),
+                            pipeline_qty=getattr(self, 'pipeline_qty', None))
         # Carry the precomputed per-unit labor cost forward (same weight/coeffs);
         # expected_popularity/expected_labor are properties so they follow demand.
         c.labor_cost            = getattr(self, 'labor_cost',            0.0)

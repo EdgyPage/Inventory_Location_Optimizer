@@ -38,6 +38,10 @@ _CATS = [('manual', 'standard'), ('manual', 'fragile'), ('automated', 'standard'
 
 # ── fixtures: small inventory + affinity DBs written exactly like the real pipeline ──────────────
 def _make_inventory_db(path: str, n: int, seed: int = 0) -> str:
+    """A GENERATED catalogue, written exactly as the generator writes one: demand and geometry
+    only, no stock declaration (ADR-0002 — a level is a run's fact, so `stock_levels` is empty
+    on this file and every order loads back with `stock_declared()` False).  Batch sampling
+    reads only `relative_frequency` / `demand_qty_rate`, so that is all a batch fixture owes."""
     rng = random.Random(seed)
     orders = []
     for s in range(1, n + 1):
@@ -47,8 +51,7 @@ def _make_inventory_db(path: str, n: int, seed: int = 0) -> str:
             length=rng.randint(5, 40), width=rng.randint(5, 40),
             height=rng.randint(5, 40), weight=rng.randint(1, 50),
             relative_frequency=rng.uniform(0.01, 1.0), qty_rate=rng.randint(1, 10),
-            equilibrium_qty=rng.randint(2, 20), reorder_point=1,
-            lead_time_mean=0.0, supply_cv=0.0, stock_plan=None))
+            lead_time_mean=0.0, supply_cv=0.0))
     save_inventory_to_db(Inventory(orders), path, {'test': True})
     return path
 

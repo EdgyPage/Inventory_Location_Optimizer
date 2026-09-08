@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_declare_stock · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_trace_lifecycle_py___declare_stock" data-id="Diagnostics/trace_lifecycle.py::_declare_stock">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_trace_lifecycle_py.html"><code>Diagnostics/trace_lifecycle.py</code></a> <span class="sep">›</span> <span class="here"><code>_declare_stock</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_declare_stock</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_trace_lifecycle_py.html"><code>Diagnostics/trace_lifecycle.py</code></a></p>
+
+<pre class="sig"><code>def _declare_stock(orders, lead_time: float=2.0, supply_cv: float=0.1) -&gt; None</code></pre>
+<section class="doc">Declare Q = 2 x expected batch demand (capped at 3) with rp = 1 on every order.
+
+Both numbers survive `declare_stock`&#x27;s clamps unchanged — `eq_qty` is already ≥ 1,
+`min(Q-1, 1)` is 1 for every Q ≥ 2, and the Q = 1 orders this cap does produce (a SKU
+whose expected batch demand rounds below one unit) take rp = 1 from the Q = 1 branch —
+so this is the same level the probe has always fielded; only the writer moved.
+
+`expected_batch_demand`, `lead_time_mean` and `supply_cv` stay direct assignments:
+they are demand and supply facts of the SKU, not a level, and `Order.__init__` (the
+construction path `_build_inventory` uses) leaves all three unset.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy.html"><code>trace_strategy</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_trace_lifecycle_py___declare_stock">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/trace_lifecycle.py#:~:text=def%20_declare_stock">Source ↗</a></p>
+</article>
+</main>
+</body></html>

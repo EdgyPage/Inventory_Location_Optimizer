@@ -15,15 +15,16 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
 
 <pre class="sig"><code>Optimization.simconfig.coverage</code></pre>
-<section class="doc">coverage.py — stock coverage as a RUNTIME rescaling under declared days, never a
-generator knob.
+<section class="doc">coverage.py — stock coverage as a RUNTIME declaration in days, never a generator knob.
 
-The catalogue authors every SKU&#x27;s order-up-to quantity in GENERATION batches
-(`generate_inventory`: `equilibrium_qty = round(coverage_batches x freq x qty)`), and a
-generation batch is not a unit of time -- it is &quot;each SKU appears with probability `freq`&quot;,
-which is worth however many site days the run&#x27;s pickers make it worth.  Under the calibrated
-era the demand a SKU sees per DAY is known at setup (.scratch/department-calibration, &quot;Derive
-the expected-travel closed form&quot;, decision 2; the derivation note&#x27;s section 5):
+The catalogue carries NO stock level (ADR-0002, department-calibration &quot;Field the floor&quot;,
+decision 5): a level is a RUN&#x27;s declaration, and this module is where every run makes it.  It
+used to be authored at generation in GENERATION batches (`equilibrium_qty = round(
+coverage_batches x freq x qty)`), and a generation batch is not a unit of time -- it is &quot;each
+SKU appears with probability `freq`&quot;, which is worth however many site days the run&#x27;s pickers
+make it worth (1,771 of them on the reference catalogue&#x27;s store section).  The demand a SKU
+sees per DAY is known at setup (.scratch/department-calibration, &quot;Derive the expected-travel
+closed form&quot;, decision 2; the derivation note&#x27;s section 5):
 
     d_s = n · π_s · E[q_s]                    units of SKU s per day
 
@@ -59,11 +60,12 @@ The stamp rides the SKU (`Order.pipeline_qty`, a `cartons` column of the planned
 the spawned workers read it; a flag-off run never stamps it and the heuristic stands.
 
 THIS MODULE IS PURE: orders, a line count and three declared scalars in; the orders&#x27;
-`equilibrium_qty`, `reorder_point`, `pipeline_qty` and `stock_plan` mutated and a stats dict
-out.  It imports no CONFIG and touches no file.  The harness seam that drives it -- the
-pair-level fixed point Q(n) -&gt; plan_warehouse -&gt; geometry -&gt; n -- is
-`Optimization/simdriver/era_coverage.py`.</section>
-<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py.html"><code>Optimization.simdriver.era_coverage</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__converged.html"><code>converged</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__daily_demand.html"><code>daily_demand</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__fill_rate.html"><code>fill_rate</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__implied_coverage.html"><code>implied_coverage</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__line_floor.html"><code>line_floor</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__pipeline_qty.html"><code>pipeline_qty</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__rescale_section.html"><code>rescale_section</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__stock_levels.html"><code>stock_levels</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section>
+stock DECLARATION written through `Order.declare_stock` (the one mutation site for the four
+level slots) and a stats dict out.  It imports no CONFIG and touches no file.  The harness seam
+that drives it -- the pair-level fixed point Q(n) -&gt; plan_warehouse -&gt; geometry -&gt; n -- is
+`Optimization/simdriver/era_coverage.py`, and it runs in EVERY mode: the calibrated era decides
+whether the clock cuts and caps, never whether a run declares its stock (ADR-0002, decision 6).</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py.html"><code>Optimization.simdriver.era_coverage</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__converged.html"><code>converged</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__daily_demand.html"><code>daily_demand</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__fill_rate.html"><code>fill_rate</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__line_floor.html"><code>line_floor</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__pipeline_qty.html"><code>pipeline_qty</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__rescale_section.html"><code>rescale_section</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__stock_levels.html"><code>stock_levels</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_coverage_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/coverage.py">Source ↗</a></p>
 </article>
 </main>

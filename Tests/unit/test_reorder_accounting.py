@@ -42,12 +42,12 @@ def _carton(sku, eq_qty=20, rp=8, lt=0.0):
     c.lift_group = ('conveyable', 'food')
     c.length, c.width, c.height, c.weight = 8, 8, 6, 2
     c.demand = Demand.from_rates(0.8, 4.0)
-    c.equilibrium_qty = eq_qty
-    c.reorder_point = rp
     c.lead_time_mean = lt
     c.supply_cv = 0.0
     c.expected_batch_demand = 3.2
-    return c
+    # A level is the run's declaration, written only through `declare_stock` (ADR-0002).
+    # rp(8) < eq(20/40), so the clamp is a no-op and U below is still eq - position.
+    return c.declare_stock(eq_qty, rp)
 
 
 def test_units_ordered_tracks_qty_and_resets():

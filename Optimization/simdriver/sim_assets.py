@@ -24,32 +24,29 @@ from Warehouse.picking.Workload_Builder import BatchConfig
 
 from Optimization.config.sim_config import (
     CONFIG, seed_world, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, store_fill,
-    era_on, staffing_spec, work_day_spec,
+    staffing_spec, work_day_spec,
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # recovered_params.json lives here
 
 
-def load_run_inventory(path: str, limit: int | None = None, *, era: bool):
-    """`load_inventory_from_db`, then honour the era's `pipeline_qty` stamp ONLY under the era.
+def load_run_inventory(path: str, limit: int | None = None):
+    """The ONE loader both the parent (`build_shared_assets`) and the workers
+    (`strategy_runner`) use for a run's inventory.
 
-    The stamp is written by the coverage rescaling into the planned inventory
-    ("Build the line floor").  Flag-off, the manager's `rp x lead / (lead + 1)` heuristic must
-    stand byte for byte whatever file was handed in -- a frozen planned inventory stamped by
-    an era run included -- so a flag-off load clears the stamp and `Order.pipeline_allowance`
-    falls back.  `Warehouse/` may not import the era predicate, which is why the guard sits
-    here, on the ONE loader both the parent (`build_shared_assets`) and the workers
-    (`strategy_runner`) use.
-
-    `era` is EXPLICIT because a spawned worker's CONFIG is pristine: `era_on()` there is the
-    settings default, not the run's flag (memory `config-knob-has-five-seams`).  The parent
-    passes `era_on()`; the worker passes the `drain_or_cap` its work-day payload carries.
+    It is a thin pass-through today, and the reason it survives as a named seam is the reason
+    it stopped branching.  It used to CLEAR the `pipeline_qty` stamp on a flag-off load, so the
+    manager's `rp x lead / (lead + 1)` heuristic stood byte for byte whatever file was handed
+    in.  That guard existed because the era was the only regime that declared its own levels;
+    flag-off inherited the catalogue's authored ones and had to stay byte-identical with the
+    archive.  Since ADR-0002 there is ONE planner contract: every run declares its levels at
+    setup, in days, and stamps the lead pipeline that goes with them ("Field the floor",
+    decision 6).  Honouring the stamp in one mode and discarding it in the other would field a
+    level whose reorder point encodes a LINE while pricing its pipeline by a heuristic that
+    assumes the reorder point encodes lead-time demand -- the exact defect the stamp was
+    introduced to fix.  The era flag now decides only whether the clock cuts and caps.
     """
-    inventory = load_inventory_from_db(path, limit=limit)
-    if not era:
-        for c in inventory.orders:
-            c.pipeline_qty = None
-    return inventory
+    return load_inventory_from_db(path, limit=limit)
 
 
 # ── shared asset loader ────────────────────────────────────────────────────────
@@ -67,6 +64,7 @@ def build_shared_assets(
     keyframe_interval : int = CONFIG['global']['keyframe_interval'],
     warehouse_db_path : str | None = None,
     frozen_inventory_db : str | None = None,
+    coverage_record   : dict | None = None,
 ) -> dict:
     """Load inventory + affinity from DB and build warehouse A.
 
@@ -78,13 +76,21 @@ def build_shared_assets(
     fingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.
     The warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the
     sampled inventory is held fixed.  None ⇒ current behavior (byte-identical).
+
+    coverage_record (the REBUILD path): one finished run's own
+    `staffing.calibration[<pair>].coverage` block.  A rebuild loads that run's CATALOGUE, which
+    since ADR-0002 carries no stock level, and the warehouse is sized from levels on every path
+    -- so a rebuild must re-declare before it plans, and must declare what the RUN declared.
+    Passing the record re-declares from it exactly (`era_coverage.declare_from_record`); passing
+    None on a path that samples is normal (the run derives its own), and on a path that does not
+    means "the orders already carry a declaration", which is true of a frozen inventory.
     """
     _src_db = frozen_inventory_db or inventory_db
     log.info(f'  Loading inventory  : {_src_db}'
              + ('  (frozen)' if frozen_inventory_db else '')
              + (f'  (limit {max_skus:,} SKUs)' if max_skus else ''))
     t0        = time.perf_counter()
-    inventory = load_run_inventory(_src_db, limit=max_skus, era=era_on())
+    inventory = load_run_inventory(_src_db, limit=max_skus)
     n_skus    = len(inventory.orders)
     log.info(f'  {n_skus:,} orders  ({time.perf_counter()-t0:.2f}s)')
 
@@ -94,9 +100,10 @@ def build_shared_assets(
     # then samples SKUs to fill to store_fill().  All sizing/sampling lives in
     # the Warehouse layer — run_simulation just supplies the shape + constraints.
     t_size = time.perf_counter()
-    avg_eq = sum(c.equilibrium_qty for c in inventory.orders) / max(n_skus, 1)
-    log.info(f'  Inventory model  : avg equilibrium_qty={avg_eq:.1f}'
-             f'  avg reorder_point={sum(c.reorder_point for c in inventory.orders)/max(n_skus,1):.1f}'
+    # The SUPPLY side only: a loaded catalogue carries no stock level to average (ADR-0002).
+    # The levels this run DECLARES are logged by the coverage loop below and averaged onto
+    # `warehouse_stats` further down, off the planned orders.
+    log.info(f'  Inventory model  : {n_skus:,} SKUs'
              f'  avg lead_time={sum(getattr(c,"lead_time_mean",0.0) for c in inventory.orders)/max(n_skus,1):.2f}'
              f'  avg supply_cv={sum(getattr(c,"supply_cv",0.0) for c in inventory.orders)/max(n_skus,1):.3f}')
 
@@ -130,18 +137,24 @@ def build_shared_assets(
         random.seed(seed_world())
         return Warehouse_Builder().from_config(cfg).build()
 
-    # ── THE CALIBRATED ERA: stock coverage in days, a pair-level fixed point ───────
-    # Under the era every SKU's stock levels are re-derived from its DAILY demand, which
-    # needs the fixed-point line count, which needs the built geometry, which is sized from
-    # the stock levels -- so plan/build/price iterate here (`era_coverage.fixed_point`;
-    # .scratch/department-calibration, "Rescale stock coverage at setup").  Only where a
-    # plan SAMPLES: an analysis-shape rebuild and a frozen inventory keep the levels they
-    # were handed.  Flag-off this branch is never entered and the planner runs exactly once,
-    # below, as it always has.
+    # ── THE RUN'S STOCK DECLARATION: coverage in days, a pair-level fixed point ────────
+    # Every SKU's stock levels are derived from its DAILY demand, which needs the fixed-point
+    # line count, which needs the built geometry, which is sized from the stock levels -- so
+    # plan/build/price iterate here (`era_coverage.fixed_point`; .scratch/department-calibration,
+    # "Rescale stock coverage at setup").  In EVERY mode, not only under the era: the catalogue
+    # carries no level to fall back on (ADR-0002), and the era flag decides only whether the
+    # clock cuts and caps.  Flag-off the day the loop declares against is the reporting frame,
+    # which `work_day_spec()['seconds']` already falls back to.
+    #
+    # Only where a plan SAMPLES.  An analysis-shape rebuild and a frozen inventory do not
+    # declare: the frozen file carries the declaration its freeze made, and an analysis rebuild
+    # re-declares from the run's OWN recorded line count instead of re-running the loop
+    # (`declare_from_record`), because a rebuild must reproduce the run's warehouse, not
+    # re-derive one.
     warehouse_meta = None
     era_stage_a: dict | None = None
     coverage: dict | None = None
-    if _sample and era_on():
+    if _sample:
         from Optimization.simdriver import era_coverage as _era_cov          # noqa: E402
         _inputs = staffing_spec()
         _mixed, _specs = _era_cov.channel_specs(inventory)
@@ -154,6 +167,18 @@ def build_shared_assets(
         era_stage_a = {'channels': _sa, 'n_orders': len(plan.sampled or inventory.orders),
                        'aisles': len(warehouse_meta.aisles)}
     else:
+        # A rebuild re-declares from the run's own record before planning; a frozen inventory
+        # already carries the declaration its freeze wrote.  Neither re-derives.
+        if coverage_record is not None:
+            from Optimization.simdriver import era_coverage as _era_cov      # noqa: E402
+            _mixed, _specs = _era_cov.channel_specs(inventory)
+            _era_cov.declare_from_record(inventory.orders, _specs, coverage_record, log=log)
+        elif not any(c.stock_declared() for c in inventory.orders):
+            raise RuntimeError(
+                f'{_src_db}: this inventory carries no stock declaration and none was handed '
+                f'in, so the warehouse would be sized from nothing (ADR-0002 -- a catalogue '
+                f"holds no level). A rebuild must pass `coverage_record=` (the run's own "
+                f'`staffing.calibration[<pair>].coverage`); a run that samples derives its own.')
         plan = _plan()
     if plan.sampled:                 # empty when sample=False (analysis / frozen path)
         inventory.orders = plan.sampled
@@ -171,8 +196,12 @@ def build_shared_assets(
                                  in plan.capacity.items() if u == 'pallet')
     total_singleton_needed = sum(n for (h, c, s, u), n
                                  in plan.capacity.items() if u == 'singleton')
+    # Storage units the fielded levels occupy -- only over orders a run has DECLARED a level
+    # on (ADR-0002).  A shape-only rebuild off a catalogue declares none and the sum is 0,
+    # which is what "no re-stock" means; the log line below already says so.
     total_units_needed     = sum(
-        len(_vsu(c, c.equilibrium_qty)) for c in (plan.sampled or inventory.orders))
+        len(_vsu(c, c.equilibrium_qty))
+        for c in (plan.sampled or inventory.orders) if c.stock_declared())
 
     log.info(f'  Warehouse : {total_aisles} aisles / {total_bins:,} bins'
              + (f'  {n_skus:,} SKUs sampled  expected_fill={expected_fill:.1%}'
@@ -216,11 +245,12 @@ def build_shared_assets(
     if warehouse_meta is None:
         warehouse_meta = _build(warehouse_cfg)
 
-    # ── persist the PLANNED inventory (grown equilibrium_qty + multi-tier
-    # stock_plan) so worker processes reproduce the exact cross-tier placement
-    # the warehouse was sized for.  Workers reload from this DB instead of the
-    # original, otherwise they palletize with the default scheme and the queue
-    # explodes (tiers the warehouse was sized for never get filled). ───────────
+    # ── persist the PLANNED inventory: THE RUN'S OWN STOCK DECLARATION (the levels this
+    # run derived and the multi-tier stock_plan the planner packed them into) so worker
+    # processes reproduce the exact cross-tier placement the warehouse was sized for.
+    # Workers reload from this DB and NOT from the catalogue -- which since ADR-0002 carries
+    # no level at all, so a worker reading it would have nothing to stock, where before it
+    # would merely palletize with the default scheme and explode the queue. ───────────
     planned_inv_db: str | None = None
     _pair_dir = (os.path.dirname(os.path.abspath(warehouse_db_path))
                  if warehouse_db_path is not None else None)
@@ -276,8 +306,11 @@ def build_shared_assets(
                 size_large_pct     = pcts[2],
                 size_xlarge_pct    = pcts[3],
             ))
-        avg_eq = sum(c.equilibrium_qty for c in inventory.orders) / max(n_skus, 1)
-        avg_rp = sum(c.reorder_point   for c in inventory.orders) / max(n_skus, 1)
+        # The levels this run DECLARED, averaged for the stats row.  Undeclared orders (a
+        # shape-only rebuild) contribute nothing rather than a fabricated 1.
+        _declared = [c for c in inventory.orders if c.stock_declared()]
+        avg_eq = sum(c.equilibrium_qty for c in _declared) / max(len(_declared), 1)
+        avg_rp = sum(c.reorder_point   for c in _declared) / max(len(_declared), 1)
         # Per-aisle physical layout for reconstruction/visualization (and DB-only
         # analysis maps).  warehouse_meta is built from the same seed the workers
         # use, so aisle_ids match the task_stats / picker_events they record.  The same

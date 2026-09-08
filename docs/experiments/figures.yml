@@ -23,10 +23,15 @@
 #   legacy    true = rendered by a no-manifest experiment.  Experiment 1 is the only one and
 #             its sweep predates everything since, so this set is FROZEN — the registry
 #             golden test pins it byte-for-byte.  Never add to it.
-#   retired   true = the producing evaluation no longer exists (the chart-family redesign
-#             superseded the figure).  The entry stays so archived experiment snapshots keep
-#             resolving, but it may not start a new experiment, and the writer-tie test
-#             skips it because there is no writer left to tie to.
+#   retired   true = the WRITER no longer exists — an evaluation the chart-family redesign
+#             superseded, or a generator plot whose function was deleted.  The entry stays so
+#             archived experiment snapshots keep resolving (ingest's prune pass and
+#             `context/guards/experiment_guard.py` both read retired entries as declared, so
+#             a staged copy a published page cites is never treated as an orphan), but it may
+#             not start a new experiment, and the writer-tie test skips it because there is no
+#             writer left to tie to.  Retiring does NOT touch `legacy`: that flag records what
+#             a no-manifest snapshot RENDERS, which is a fact about a frozen page and cannot
+#             change retroactively.
 #   width     image width in the rendered section (omit = 820)
 #   caption   the reader-facing caption; null for inventory plots (rendered caption-less)
 #
@@ -303,11 +308,25 @@ figures:
     default: true
     legacy: true
     caption: null
+  # RETIRED with its writer (ADR-0002, 2026-09-07): a generated catalogue no longer authors a
+  # SKU's order-up-to quantity or reorder point — stock is a run's declaration, derived at setup
+  # from a coverage in DAYS — so `plot_equilibrium_qty` was deleted from generate_inventory.py
+  # and no future catalogue writes this plot.  Retiring rather than deleting the entry is the
+  # point: eight experiments have a staged copy their inventory page cites, and only a declared
+  # name survives ingest's orphan prune and the experiment guard's ad-hoc-graph check.
+  #
+  # `default: false` because a scaffolded manifest must name figures a run can still produce.
+  # `legacy: true` STAYS: Experiment 1 renders its own staged copy, and the legacy set records
+  # what a no-manifest snapshot shows — the same reason the retired top3/full_suite entries
+  # above keep theirs.  Retiring is also what keeps the writer-tie test honest here: the string
+  # `equilibrium_qty` still occurs in the generator as a `stock_levels` DDL column, so the tie
+  # would go on passing on a name no plotter mints.
   - name: equilibrium_qty.png
     eval: null
     section: inventory
-    default: true
+    default: false
     legacy: true
+    retired: true
     caption: null
   # opt-in extras every committed manifest since experiment-2 lists
   - name: weight.png

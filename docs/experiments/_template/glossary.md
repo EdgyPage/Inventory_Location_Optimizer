@@ -48,7 +48,9 @@ so it shows up in every travel-weighted score: hot SKUs are the ones worth putti
 Units taken per pick of SKU *s* (`demand_qty_rate`). `f_s·q_s` is the SKU's demand mass.
 
 ### expected_batch_demand { #expected-demand }
-A SKU's expected units picked per batch, `≈ f_s·q_s`. Feeds the equilibrium and reorder model.
+A SKU's expected units picked per batch, `≈ f_s·q_s`. Its per-**day** counterpart, `d_s`, is
+what the run's [stock declaration](comparison-overview.md#stock-declaration) sizes the SKU's
+levels from.
 
 ### Batch { #batch }
 One picking wave: $n \sim \mathcal N(0.15\,N,\ 0.05\,N)$ distinct SKUs sampled by demand and
@@ -93,14 +95,23 @@ function has to place well to hold the layout.
 ## Inventory control
 
 ### q_eq — equilibrium quantity { #q-eq }
-Target steady-state stock, `q_eq = round(coverage × d̄)` for expected per-batch demand *d̄*.
+Target steady-state stock — the level a replenishment fills back up to. **Declared by the run**,
+not carried by the catalogue: `q_eq = max(round(coverage_days × d_s), L)` for the SKU's expected
+units per day *d_s* and its [line floor](#coverage-safety) *L*.
 
 ### ROP — reorder point { #rop }
-Threshold that triggers replenishment: `ROP = round(d̄ × (lead + safety))`.
+Threshold that triggers replenishment: the demand expected over the replenishment lead plus the
+safety buffer, never below the [line floor](#coverage-safety) and always at least one unit below
+`q_eq`. A SKU sitting on its floor therefore reorders on every pick, for exactly what was taken
+(base stock).
 
-### coverage / safety { #coverage-safety }
-`coverage` = batches of demand held at equilibrium (10 here); `safety` = extra batches of
-buffer folded into the ROP (2 here).
+### coverage / safety / floor { #coverage-safety }
+The three inputs a run declares for its stock, recorded in its run spec under
+`staffing.inputs` — see [the stock declaration](comparison-overview.md#stock-declaration).
+`coverage_days` = days of its own demand a SKU holds when full (10 by default); `safety_days` =
+extra days of buffer folded into the ROP (2 by default); `floor_lines` = the least a SKU ever
+holds, in lines of its own average pick (1 by default), so a single line is always fillable off
+the shelf.
 
 ### Lead time { #lead-time }
 Batches between ordering and arrival. `lt0` = immediate (0); `ltrand0-5` = uniform 0–5.

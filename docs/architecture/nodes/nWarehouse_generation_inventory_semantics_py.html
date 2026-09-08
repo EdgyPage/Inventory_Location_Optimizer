@@ -17,13 +17,25 @@
 <pre class="sig"><code>Warehouse.generation.inventory_semantics</code></pre>
 <section class="doc">inventory_semantics — the profiles-tree (inventory) family&#x27;s column semantics.
 
-The catalogue&#x27;s per-SKU constants: physical dimensions in inches (the inch/second boundary
-is `cost_model.sec_per_inch`), demand rates per BATCH, the stamped line law (`line_family` +
-`line_params`, department-calibration &quot;Stamp the line distribution on the SKU&quot;), and the
-batch-denominated lead the trailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a
-planned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery
-can produce FEWER units — &quot;splitting is worse&quot; is not a safe assumption on most of a
-generated catalogue.
+Two tables, two different kinds of statement.  `cartons` holds the SKU&#x27;s own facts: physical
+dimensions in inches (the inch/second boundary is `cost_model.sec_per_inch`), demand rates
+per BATCH, the stamped line law (`line_family` + `line_params`, department-calibration &quot;Stamp
+the line distribution on the SKU&quot;), and the batch-denominated lead the trailer feature
+replaces flag-on.  It declares NO stock level at all (ADR-0002, department-calibration &quot;Field
+the floor&quot;, decision 5): an order-up-to quantity is a decision a run makes about a warehouse,
+not a fact about a carton, and while it lived here it was authored as
+`coverage_batches x expected_batch_demand` — a generation batch is not a unit of time, so the
+authored level was worth 1,771 store days on the reference catalogue.
+
+`stock_levels` is where that decision lands instead.  A run derives its levels at setup from
+a declared coverage in DAYS (`Optimization/simconfig/coverage.py`) and records them in its
+own `planned_inventory.db`; a GENERATED catalogue leaves the table empty.  That emptiness is
+the contract — the absence of a ROW, not a NULL column, is what &quot;no declaration&quot; means, so
+`Order.stock_declared()` can tell &quot;nobody has decided yet&quot; from &quot;decided, and the answer is
+missing&quot;.  `stock_plan` still earns the loudest note in the family, now from its new home: a
+planned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery can
+produce FEWER units — &quot;splitting is worse&quot; is not a safe assumption on any run that planned
+its packing.
 
 Tags are metadata: importing this module changes no DDL, no shape id, no result.</section>
 <section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nSchema_semantics_py.html"><code>Schema.semantics</code></a> <span class="dim">Schema/semantics.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_generation_inventory_semantics_py___DIM.html"><code>_DIM</code></a> <span class="dim">Warehouse/generation/inventory_semantics.py</span></li><li><a href="nWarehouse_generation_inventory_semantics_py___ENUM.html"><code>_ENUM</code></a> <span class="dim">Warehouse/generation/inventory_semantics.py</span></li><li><a href="nWarehouse_generation_inventory_semantics_py___KEY.html"><code>_KEY</code></a> <span class="dim">Warehouse/generation/inventory_semantics.py</span></li></ul></section>

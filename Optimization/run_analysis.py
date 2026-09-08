@@ -67,6 +67,17 @@ _SLIM_KEYS = ('aisle_unittype_map', 'aisle_handling_map', 'total_bins')
 _RUN_STAFFING: dict | None = None
 
 
+def _coverage_record(pair: str) -> dict | None:
+    """The coverage block this run recorded for `pair`, or None when it recorded none.
+
+    A rebuild re-declares the run's stock levels from it before planning: the catalogue
+    carries none (ADR-0002) and the warehouse is sized from levels, so without this a
+    re-analysis would size from nothing.  None is the honest answer for a run written before
+    the record existed, and `build_shared_assets` refuses rather than fabricating.
+    """
+    return (((_RUN_STAFFING or {}).get('calibration') or {}).get(pair) or {}).get('coverage')
+
+
 def _staffing_record() -> dict:
     """The staffing record to stamp onto sim_result: the run's own when it recorded one,
     else a reconstruction from the restored inputs with every value marked `assumed` --
@@ -243,10 +254,21 @@ def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=
             # max_skus AND the per-regime sizing both come from the run's own run_spec
             # (see _apply_run_shape) — sizing this differently from the run is the silent
             # wrong-warehouse bug this argument exists to close.
+            # The run's OWN stock declaration, re-applied before the rebuild plans: the
+            # catalogue holds none, and the warehouse is sized from levels on this path too.
             shared = build_shared_assets(inv_db, aff_db, log, max_skus=max_skus,
-                                         regime_sizing=regime_sizing_from_config())
+                                         regime_sizing=regime_sizing_from_config(),
+                                         coverage_record=_coverage_record(pair_name))
         except Exception as exc:
-            log.error(f'  build_shared_assets failed for {pair_name}: {exc}', exc_info=True)
+            # LOUD, and it has to be: a swallowed failure here leaves the pair with no jobs
+            # and the stage reports "Config stage: 0 job(s)" and exits 0 -- the silent success
+            # CLAUDE.md section 3 warns about, one level up.  The message names the likeliest
+            # cause because it is now a real one: a run whose catalogue carries no stock levels
+            # and whose spec recorded no coverage block cannot have its warehouse rebuilt.
+            log.error(f'  build_shared_assets FAILED for {pair_name}: {exc}', exc_info=True)
+            log.error(f'  -> {pair_name} contributes NO analysis jobs. If this says the '
+                      f'inventory carries no stock declaration, the run recorded no coverage '
+                      f'block and its warehouse shape cannot be reproduced from its catalogue.')
             continue
         slim = {k: shared.get(k) for k in _SLIM_KEYS}   # small picklable subset per pair
         for meta in config_metas:

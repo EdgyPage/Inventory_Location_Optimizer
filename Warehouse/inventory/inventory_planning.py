@@ -612,7 +612,10 @@ class PlanningMixin:
             base = eq0[id(c)]
             f    = (c.reorder_point / base) if base else 0.5
             total = qty_sum[id(c)]
-            c.stock_plan      = plans[id(c)]
-            c.equilibrium_qty = total
-            c.reorder_point   = max(1, min(total - 1, round(f * total)))
+            # The planner RE-DECLARES: it fields `total` units packed exactly as `plans`
+            # packed them, keeping the run's declared reorder RATIO and its pipeline stamp.
+            # `declare_stock` is the one mutation site for the four level slots (ADR-0002).
+            c.declare_stock(total, max(1, min(total - 1, round(f * total))),
+                            stock_plan=plans[id(c)],
+                            pipeline_qty=getattr(c, 'pipeline_qty', None))
         return selected, {c.sku for c in selected}

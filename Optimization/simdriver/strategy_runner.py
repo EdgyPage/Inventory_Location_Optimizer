@@ -756,13 +756,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # ── inventory ─────────────────────────────────────────────────────────────
     log.info(f'Loading inventory: {inv_db}')
     t0        = time.perf_counter()
-    # The era's `pipeline_qty` stamp is honoured only under the era: flag-off, a planned file
-    # stamped by an era run (a frozen inventory) reads as unstamped and the manager's
-    # heuristic stands byte for byte (`sim_assets.load_run_inventory`).  The flag is THIS
-    # worker's `_drain_or_cap` off its work-day payload -- a spawned worker's CONFIG is
-    # pristine, so `era_on()` here would be the settings default.
+    # The run's PLANNED inventory, carrying the levels this run declared and the lead pipeline
+    # stamped with them -- honoured in every mode since ADR-0002, so this load takes no flag
+    # (`sim_assets.load_run_inventory` says why).
     from Optimization.simdriver.sim_assets import load_run_inventory              # noqa: E402
-    inventory = load_run_inventory(inv_db, limit=max_skus, era=_drain_or_cap)
+    inventory = load_run_inventory(inv_db, limit=max_skus)
     if sku_allowlist is not None:
         inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]
     if channel_regime is not None:
@@ -1134,11 +1132,15 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                              _d, _m, _d + _m, _pref.get(id(_b))))
         save_bin_scores(db_path, run_id, bin_rows)
         _tgt = mgr._map_target              # {} unless this is a map/map_rank arm
+        # The levels are read DIRECTLY, not through a getattr default: a worker always loads
+        # the run's planned inventory, whose every order carries the run's declaration
+        # (ADR-0002), and a default of 1 here would record a fabricated level per SKU rather
+        # than surfacing a worker that was handed a catalogue.  The reorder machinery raises
+        # on an undeclared order long before this point (`inventory_common._equilibrium_qty`).
         sku_rows = [
             (c.sku, _tgt.get(c.sku), c.labor_cost, c.handle_var,
              c.expected_popularity, c.expected_labor,
-             getattr(c, 'equilibrium_qty', 1), getattr(c, 'reorder_point', 1),
-             getattr(c, 'lead_time_mean', 0.0))
+             c.equilibrium_qty, c.reorder_point, getattr(c, 'lead_time_mean', 0.0))
             for c in inventory.orders
         ]
         save_sku_scores(db_path, run_id, sku_rows)

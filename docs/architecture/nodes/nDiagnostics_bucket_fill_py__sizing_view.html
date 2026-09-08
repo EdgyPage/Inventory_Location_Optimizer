@@ -14,8 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>sizing_view</code></h1>
 <p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_bucket_fill_py.html"><code>Diagnostics/bucket_fill.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def sizing_view(inv_db: str, allowlist: set, warehouse, planned_cartons: list, log) -&gt; None</code></pre>
-<section class="doc empty">No docstring.</section>
+<pre class="sig"><code>def sizing_view(planned_inv_db: str, warehouse, planned_cartons: list, log) -&gt; None</code></pre>
+<section class="doc">Per-bucket capacity vs the two footprints the SAME declared levels produce.
+
+The A/B is the PACKING and nothing else: both sides are the run&#x27;s planned inventory,
+so every SKU brings the equilibrium quantity this run declared (ADR-0002 — the
+catalogue has no level to bring).  The spread side keeps the planner&#x27;s `stock_plan`
+and the default side has it stripped, which is what makes the two columns comparable
+and the two timings a like-for-like measure of what packing costs.</section>
 <section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py___capacity_by_bucket.html"><code>_capacity_by_bucket</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_bucket_fill_py___fmt_bucket.html"><code>_fmt_bucket</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nWarehouse_generation_generate_inventory_py__load_inventory_from_db.html"><code>load_inventory_from_db</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_bucket_requirements.html"><code>bucket_requirements</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_bucket_fill_py__sizing_view">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/bucket_fill.py#:~:text=def%20sizing_view">Source ↗</a></p>
 </article>

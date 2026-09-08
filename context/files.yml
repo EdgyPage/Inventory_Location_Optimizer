@@ -1197,7 +1197,6 @@ files:
       - {name: "stock_levels", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "rescale_section", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "fill_rate", file: "Optimization/simconfig/coverage.py", kind: "function"}
-      - {name: "implied_coverage", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "converged", file: "Optimization/simconfig/coverage.py", kind: "function"}
     notes: ""
   "Optimization/simconfig/equilibrium.py":
@@ -1277,6 +1276,9 @@ files:
       - {name: "ChannelSpec", file: "Optimization/simdriver/era_coverage.py", kind: "class"}
       - {name: "channel_specs", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "stage_a", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "seed_lines", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "MissingCoverageRecord", file: "Optimization/simdriver/era_coverage.py", kind: "class"}
+      - {name: "declare_from_record", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "next_guess", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "fixed_point", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
     notes: ""
@@ -3244,9 +3246,9 @@ files:
       - {name: "test_rescale_section_mutates_the_levels_stamps_the_pipeline_resets_the_plan", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_floor_shares_count_skus_and_the_demand_they_carry", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_fill_rate_is_the_units_a_shelf_serves_off_a_line_for_a_known_poisson", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
-      - {name: "test_implied_coverage_reads_the_catalogues_own_levels", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_module_reads_no_level_it_did_not_declare", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_converged_needs_every_channel_inside_the_tolerance", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
-      - {name: "test_fixed_point_rescales_at_the_previous_rounds_n_and_stops_when_converged", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_fixed_point_rescales_at_the_seed_then_at_the_previous_round", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_fixed_point_stops_at_max_rounds_and_records_the_residual", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_next_guess_iterates_plainly_until_bracketed_then_takes_the_log_secant", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_fixed_point_converges_on_a_decreasing_map_with_gain_above_one", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
@@ -3255,10 +3257,11 @@ files:
       - {name: "test_the_three_knobs_ride_staffing_keys_and_resolve_a_none_to_their_default", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_each_knob_has_a_flag", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_asset_builder_hands_the_floor_to_the_loop", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
-      - {name: "test_a_stamped_file_reads_as_unstamped_flag_off_and_keeps_its_stamp_under_the_era", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
-      - {name: "test_the_asset_builder_enters_the_loop_only_under_the_era_and_only_where_it_samples", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
-      - {name: "test_flag_off_the_planner_runs_once_and_its_plan_is_the_plan", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
-      - {name: "test_under_the_era_the_planned_inventory_carries_the_rescaled_levels_and_the_stamp", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_pipeline_stamp_is_honoured_in_every_mode", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_asset_builder_enters_the_loop_wherever_it_samples_in_every_mode", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_flag_off_the_run_declares_its_own_levels_and_fields_them", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_a_rebuild_re_declares_from_the_record_and_refuses_without_one", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_declared_levels_are_the_ones_the_run_fields_with_the_stamp", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_derivation_reuses_the_loops_stage_a_and_records_the_coverage", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_placement_fingerprint_names_the_placement_and_not_the_fill_order", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_arm_stamp_carries_the_fingerprint_beside_its_expected_day", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
@@ -3345,10 +3348,11 @@ files:
     purpose: "test_equilibrium_reorder.py"
     layer: "tests"
     key_symbols:
-      - {name: "test_every_generated_sku_carries_the_three_oup_attributes", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_equilibrium_and_reorder_point_match_their_formulas_exactly", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_reorder_point_rises_with_demand", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
-      - {name: "test_oup_attributes_survive_a_db_round_trip", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_every_generated_sku_carries_demand_and_supply_but_declares_no_stock", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_the_four_level_slots_are_unset_until_a_run_declares_them", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_the_retired_coverage_knobs_are_gone_from_every_builder", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_a_generated_catalogue_round_trips_with_an_empty_stock_levels_table", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
+      - {name: "test_a_declared_inventory_round_trips_all_four_level_values", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_a_reorder_refills_all_the_way_to_the_equilibrium_target", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_a_reorder_never_overshoots_the_equilibrium_target", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
       - {name: "test_lead_time_zero_arrives_in_the_same_batch", file: "Tests/unit/test_equilibrium_reorder.py", kind: "function"}
@@ -3440,6 +3444,7 @@ files:
     key_symbols:
       - {name: "test_regime_of_across_entity_kinds", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
       - {name: "test_fulfillment_bin_tiers_and_fit", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
+      - {name: "test_the_fixtures_declare_a_level_that_build_alone_does_not", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
       - {name: "test_viable_storage_units_routing", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
       - {name: "test_plan_warehouse_mixed_has_both_regimes_no_junk", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
       - {name: "test_plan_warehouse_store_only_has_no_fulfillment", file: "Tests/unit/test_fulfillment_channels.py", kind: "function"}
@@ -3625,8 +3630,11 @@ files:
       - {name: "test_a_second_family_can_never_be_served_from_a_poisson_cache", file: "Tests/unit/test_line_distribution.py", kind: "function"}
       - {name: "test_the_two_columns_survive_a_save_and_load", file: "Tests/unit/test_line_distribution.py", kind: "function"}
       - {name: "test_both_generator_paths_stamp_a_declared_law_at_the_rate_the_file_carries", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_every_reconstructed_vintage_hashes_to_the_id_the_family_vets", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_a_pre_split_file_still_yields_the_levels_its_run_fielded", file: "Tests/unit/test_line_distribution.py", kind: "function"}
       - {name: "test_a_pre_pipeline_file_loads_through_its_override_with_no_stamp", file: "Tests/unit/test_line_distribution.py", kind: "function"}
       - {name: "test_a_stamped_pipeline_survives_the_file_round_trip", file: "Tests/unit/test_line_distribution.py", kind: "function"}
+      - {name: "test_a_current_catalogue_with_an_empty_stock_levels_loads_undeclared", file: "Tests/unit/test_line_distribution.py", kind: "function"}
       - {name: "test_a_pre_stamp_file_loads_through_the_override_with_the_law_reconstructed", file: "Tests/unit/test_line_distribution.py", kind: "function"}
       - {name: "test_the_readers_hold_no_line_law_of_their_own", file: "Tests/unit/test_line_distribution.py", kind: "function"}
     notes: ""
@@ -4142,8 +4150,15 @@ files:
       - {name: "BATCH_MEAN_FRAC", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
       - {name: "STABLE_WINDOW", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
       - {name: "MIN_FILL", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "LINES_PER_DAY", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "COVERAGE_DAYS", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "SAFETY_DAYS", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "FLOOR_LINES", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
+      - {name: "MAX_FLOOR_SHARE", file: "Tests/unit/test_reorder_queue.py", kind: "const"}
       - {name: "run", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
-      - {name: "test_generated_orders_carry_a_coherent_reorder_policy", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
+      - {name: "test_a_generated_catalogue_declares_no_stock_level", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
+      - {name: "test_the_declared_levels_are_a_coherent_reorder_policy", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
+      - {name: "test_the_declaration_sizes_the_section_rather_than_flooring_it", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
       - {name: "test_the_queue_absorbs_restock_rather_than_accumulating_it", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
       - {name: "test_the_queue_is_flat_over_the_trailing_window", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
       - {name: "test_reorders_actually_fire_during_the_pick_loop", file: "Tests/unit/test_reorder_queue.py", kind: "function"}
@@ -4189,6 +4204,8 @@ files:
     purpose: "test_rng_determinism.py"
     layer: "tests"
     key_symbols:
+      - {name: "test_generated_catalogue_carries_no_stock_declaration", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+      - {name: "test_make_carton_declares_through_the_one_mutation_site", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
       - {name: "test_batch_rng_immune_to_global_stream", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
       - {name: "test_batch_rng_immune_to_global_stream_with_affinity", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
       - {name: "test_two_arms_see_identical_batch_sequence", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
@@ -4645,6 +4662,7 @@ files:
     purpose: "test_warehouse_sizing.py"
     layer: "tests"
     key_symbols:
+      - {name: "test_sizing_refuses_a_catalogue_that_has_declared_no_stock_level", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_bucket_requirements_track_the_full_four_part_key", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_every_one_of_the_sixty_buckets_gets_at_least_one_aisle", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_every_sampled_sku_places_and_the_queue_empties", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
@@ -4916,6 +4934,7 @@ files:
       - {name: "UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
       - {name: "PRE_LINE_LAW_INVENTORY_SCHEMA_ID", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
       - {name: "PRE_PIPELINE_INVENTORY_SCHEMA_ID", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
+      - {name: "PRE_STOCK_SPLIT_INVENTORY_SCHEMA_ID", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
       - {name: "INVENTORY_DB_FAMILY", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
       - {name: "save_inventory_to_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "load_inventory_from_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
@@ -4924,7 +4943,6 @@ files:
       - {name: "plot_dimensions", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "plot_weight", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "plot_demand", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
-      - {name: "plot_equilibrium_qty", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "plot_volume_vs_weight", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "plot_singleton_split", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "plot_dim_kde_overlay", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
@@ -4977,6 +4995,7 @@ files:
       - {name: "binkey_of", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
       - {name: "FORWARD_PICK_FAMILY", file: "Warehouse/inventory/inventory_common.py", kind: "const"}
       - {name: "is_forward_pick", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
+      - {name: "UndeclaredStock", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/inventory_optimal.py":
     purpose: "optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map."

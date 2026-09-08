@@ -47,10 +47,17 @@ def _carton(sku: int, length: int, width: int, height: int,
             equilibrium_qty: int = 20,
             handling: str = 'conveyable',
             category: str = 'food') -> Order:
-    """A bare Order with known dimensions — no DB, no profile generation.
+    """A bare Order with known dimensions and a hand-made stock declaration.
 
     `object.__new__` skips Order.__init__ because that path draws demand from the generator;
     every attribute the palletizer and the manager read is set explicitly below.
+
+    The level goes on through `declare_stock` — the one mutation site for the four level
+    slots (ADR-0002: a generated or catalogue-loaded order carries none, and `enqueue_all`
+    reads `equilibrium_qty` per SKU, so a fixture that skipped this would raise
+    `UndeclaredStock` instead of packing anything).  The numbers are unchanged: the clamp
+    inside `declare_stock` (rp floored at 1, capped at eq - 1) reproduces the
+    `max(1, equilibrium_qty // 2)` this used to assign.
     """
     from Warehouse.catalog.Order import StorageHandleConfig
     c = object.__new__(Order)
@@ -63,10 +70,8 @@ def _carton(sku: int, length: int, width: int, height: int,
     c.height          = height
     c.weight          = 5
     c.demand          = Demand.from_rates(0.8, 2.0)
-    c.equilibrium_qty = equilibrium_qty
-    c.reorder_point   = max(1, equilibrium_qty // 2)
     c.lead_time_mean  = 0.0
-    return c
+    return c.declare_stock(equilibrium_qty, max(1, equilibrium_qty // 2))
 
 
 # ── warehouse factory ─────────────────────────────────────────────────────────

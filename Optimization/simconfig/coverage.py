@@ -1,12 +1,13 @@
-"""coverage.py — stock coverage as a RUNTIME rescaling under declared days, never a
-generator knob.
+"""coverage.py — stock coverage as a RUNTIME declaration in days, never a generator knob.
 
-The catalogue authors every SKU's order-up-to quantity in GENERATION batches
-(`generate_inventory`: `equilibrium_qty = round(coverage_batches x freq x qty)`), and a
-generation batch is not a unit of time -- it is "each SKU appears with probability `freq`",
-which is worth however many site days the run's pickers make it worth.  Under the calibrated
-era the demand a SKU sees per DAY is known at setup (.scratch/department-calibration, "Derive
-the expected-travel closed form", decision 2; the derivation note's section 5):
+The catalogue carries NO stock level (ADR-0002, department-calibration "Field the floor",
+decision 5): a level is a RUN's declaration, and this module is where every run makes it.  It
+used to be authored at generation in GENERATION batches (`equilibrium_qty = round(
+coverage_batches x freq x qty)`), and a generation batch is not a unit of time -- it is "each
+SKU appears with probability `freq`", which is worth however many site days the run's pickers
+make it worth (1,771 of them on the reference catalogue's store section).  The demand a SKU
+sees per DAY is known at setup (.scratch/department-calibration, "Derive the expected-travel
+closed form", decision 2; the derivation note's section 5):
 
     d_s = n · π_s · E[q_s]                    units of SKU s per day
 
@@ -42,10 +43,11 @@ The stamp rides the SKU (`Order.pipeline_qty`, a `cartons` column of the planned
 the spawned workers read it; a flag-off run never stamps it and the heuristic stands.
 
 THIS MODULE IS PURE: orders, a line count and three declared scalars in; the orders'
-`equilibrium_qty`, `reorder_point`, `pipeline_qty` and `stock_plan` mutated and a stats dict
-out.  It imports no CONFIG and touches no file.  The harness seam that drives it -- the
-pair-level fixed point Q(n) -> plan_warehouse -> geometry -> n -- is
-`Optimization/simdriver/era_coverage.py`.
+stock DECLARATION written through `Order.declare_stock` (the one mutation site for the four
+level slots) and a stats dict out.  It imports no CONFIG and touches no file.  The harness seam
+that drives it -- the pair-level fixed point Q(n) -> plan_warehouse -> geometry -> n -- is
+`Optimization/simdriver/era_coverage.py`, and it runs in EVERY mode: the calibrated era decides
+whether the clock cuts and caps, never whether a run declares its stock (ADR-0002, decision 6).
 """
 from __future__ import annotations
 
@@ -124,10 +126,10 @@ def rescale_section(orders, lines_per_day: float, *, coverage_days: float,
                     safety_days: float, floor_lines: float) -> dict:
     """Re-derive every order's stock levels for one section and return the floor shares.
 
-    MUTATES the orders: `equilibrium_qty`, `reorder_point`, `pipeline_qty` (the stamped lead
-    pipeline) and `stock_plan` (reset to None, because a plan the warehouse planner wrote for
-    the OLD quantity would otherwise be honoured by `viable_storage_units` at the new one; the
-    planner re-packs the line-sized quantity).  Returns
+    MUTATES the orders through `Order.declare_stock`: the order-up-to, the reorder point and
+    the stamped lead `pipeline_qty`, with `stock_plan` reset to None -- a plan the warehouse
+    planner wrote for the OLD quantity would otherwise be honoured by `viable_storage_units` at
+    the new one, and the planner re-packs the line-sized quantity.  Returns
 
         {'n_skus', 'line_families', 'lines_per_day', 'coverage_days', 'safety_days',
          'floor_lines', 'sum_q', 'units_per_day',
@@ -160,10 +162,7 @@ def rescale_section(orders, lines_per_day: float, *, coverage_days: float,
         lead = max(0.0, float(getattr(c, 'lead_time_mean', 0.0)))
         L = line_floor(line, floor_lines)
         q, rp = stock_levels(ds, lead, coverage_days, safety_days, L)
-        c.equilibrium_qty = q
-        c.reorder_point = rp
-        c.pipeline_qty = pipeline_qty(ds, lead)
-        c.stock_plan = None
+        c.declare_stock(q, rp, stock_plan=None, pipeline_qty=pipeline_qty(ds, lead))
         sum_q += q
         units += ds
         if rp >= q - 1:
@@ -245,30 +244,6 @@ def fill_rate(orders, lines_per_day: float) -> dict:
             'base_stock_skus': int(base_stock), 'base_stock_share': (base_stock / n) if n else 0.0,
             'n_skus': n, 'pipeline_units': int(pipeline_units)}
 
-
-def implied_coverage(orders, lines_per_day: float) -> dict:
-    """What the section's CURRENT stock levels are worth in days at `lines_per_day` -- the
-    catalogue's implicit coverage, recorded before the first rescaling so the record can say
-    what the generation-batch denomination amounted to on this pair.  Demand-weighted mean
-    and the plain median of `Q_s / d_s`; `sum_q` for the size before/after."""
-    d = daily_demand(orders, lines_per_day)
-    covs = []
-    weighted = 0.0
-    units = 0.0
-    sum_q = 0
-    for c in orders:
-        ds = d[c.sku]
-        q = int(getattr(c, 'equilibrium_qty', getattr(c, 'stock_qty', 1)))
-        sum_q += q
-        if ds > 0.0:
-            covs.append(q / ds)
-            weighted += q
-            units += ds
-    covs.sort()
-    median = covs[len(covs) // 2] if covs else 0.0
-    return {'n_skus': len(orders), 'lines_per_day': float(lines_per_day), 'sum_q': int(sum_q),
-            'demand_weighted_days': (weighted / units) if units > 0.0 else 0.0,
-            'median_days': float(median)}
 
 
 def converged(prev: dict, cur: dict, tol: float = DEFAULT_TOL) -> bool:

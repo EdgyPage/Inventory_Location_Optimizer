@@ -344,14 +344,35 @@ def is_forward_pick(obj) -> bool:
     return binkey_of(obj)[3] == FORWARD_PICK_FAMILY
 
 
+class UndeclaredStock(RuntimeError):
+    """A SKU's Order-Up-To target was read before any run declared one."""
+
+
 def _equilibrium_qty(order: Order) -> int:
     """Return the Order-Up-To target for *order*.
 
-    Reads equilibrium_qty if present (new schema); falls back to the legacy
-    stock_qty attribute so old in-memory inventories still work correctly.
+    Reads `equilibrium_qty` if a run has DECLARED one (`Order.declare_stock`); falls back to
+    the legacy duck-typed `stock_qty` attribute so old in-memory inventories still work.
+
+    RAISES on an undeclared order rather than defaulting.  It used to answer 1, and a default
+    here is the worst possible silence: the catalogue no longer authors a level (ADR-0002), so
+    every SKU of a freshly loaded catalogue would answer 1, `bucket_requirements` would size
+    every bucket for one unit per SKU, and the run would build a warehouse an order of
+    magnitude too small -- with no error, at the one moment nothing downstream can detect it.
+    A level is a run's declaration; asking for one before it is made is a bug in the caller.
     """
-    return getattr(order, 'equilibrium_qty',
-                   getattr(order, 'stock_qty', 1))
+    q = getattr(order, 'equilibrium_qty', None)
+    if q is not None:
+        return q
+    q = getattr(order, 'stock_qty', None)
+    if q is not None:
+        return q
+    raise UndeclaredStock(
+        f'SKU {getattr(order, "sku", "?")}: no stock level has been declared for this order, so '
+        f'it has no Order-Up-To target to read. The catalogue carries no levels (ADR-0002): a '
+        f'run declares them at setup through Optimization/simconfig/coverage.rescale_section, '
+        f'driven by simdriver/era_coverage.fixed_point from sim_assets.build_shared_assets. '
+        f'Reading a level before that is what this error exists to catch.')
 
 
 def _max_qty_fitting_size(order: Order, target_size: str,

@@ -17,6 +17,17 @@ Phases timed
   tasks            Task.from_batch() × 3
   sim_A/B/C        PickSimulation.run() per strategy
   stats            extract_batch_stats + extract_task_stats × 3
+
+Stock levels
+------------
+`_build_inventory` builds a CATALOGUE — geometry and demand, no stock level (ADR-0002: a
+level is a run's declaration, never a SKU's fact), and that is what every consumer of it
+in `Tests/` and `Diagnostics/` relies on. This benchmark is one such run, so it declares
+its own level (`_declare_stock`, one unit per SKU) before stocking. Historical numbers
+from this tool predate that declaration and are not comparable: the run used to stock one
+unit per SKU with NO reorder point at all, so `check_reorders` found nothing to do and
+`reorders` timed an empty loop — reorder-time placement, the most expensive thing the
+simulation does, never ran. It runs now.
 """
 from __future__ import annotations
 
@@ -107,6 +118,21 @@ _ALL_SIZES  = ['small', 'medium', 'large', 'extra_large']
 
 
 def _build_inventory(n_skus: int, seed: int = 42) -> Inventory:
+    """A seeded synthetic CATALOGUE: geometry and demand, and NO stock level.
+
+    The four level slots (`equilibrium_qty`, `reorder_point`, `stock_plan`, `pipeline_qty`)
+    are left UNSET on purpose — a level is a run's declaration, never a SKU's fact
+    (ADR-0002) — so `order.stock_declared()` is False on everything returned here and
+    `order.equilibrium_qty` raises AttributeError. Every consumer (this module's own
+    `run_benchmark`, `bin_log_harness`, `profile_lifecycle`, `calltree_scenarios`,
+    `Diagnostics/trace_lifecycle`) declares the level its experiment wants, through
+    `Order.declare_stock`. Deliberately NOT declared here: this is the shared builder behind
+    a dozen test files, and a level chosen in it would move every one of their numbers at
+    once, for a quantity none of them asked this function for.
+
+    A consumer that forgets is not silent any more: sizing raises `UndeclaredStock` from
+    `bucket_requirements`, and a pick raises it from `_notify_pick`.
+    """
     rng = random.Random(seed)
     # Reset the class-level SKU counter for reproducibility across runs
     Order.next_sku = 1
@@ -119,6 +145,29 @@ def _build_inventory(n_skus: int, seed: int = 42) -> Inventory:
         c = Order((handling, category))
         orders.append(c)
     return Inventory(orders)
+
+
+def _declare_stock(orders: list, qty: int = 1) -> None:
+    """Declare this benchmark's stock level: `qty` units per SKU, reorder at 1.
+
+    The benchmark has always stocked exactly one unit per SKU (`enqueue_all(..., quantity=1)`
+    on all three managers) against a warehouse sized at ~1.15 bins per SKU by
+    `_build_warehouse_cfg`, so the level that matches what it fields is Q = 1 — declaring a
+    demand-proportional coverage here would ask for several bins per SKU in a warehouse that
+    has one. `declare_stock` clamps rp into [1, Q-1] and takes rp = 1 at Q = 1, so a SKU
+    picked to zero is flagged and restocked to one unit: the `reorders` phase finally times
+    reorder-time placement instead of an empty scan.
+
+    A benchmark that wants demand-proportional depth (per-SKU bin multiplicity growing with
+    demand mass — the second factor of Task.from_batch's quadratic) should use
+    `Tests/calltree/calltree_scenarios.build_assets`, which sizes the warehouse from the
+    declared level with `plan_warehouse` instead of a fixed bin budget.
+    """
+    for c in orders:
+        c.expected_batch_demand = c.demand.relative_frequency * c.demand.quantity_rate
+        c.lead_time_mean        = 0.0
+        c.supply_cv             = 0.0
+        c.declare_stock(qty, 1)
 
 
 def _build_warehouse_cfg(

@@ -11,14 +11,55 @@ from __future__ import annotations
 
 import random
 from collections import deque
+from typing import NoReturn
 
 from Warehouse.kernel.allocation import partition
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units
 from Warehouse.inventory.inventory_common import (
-    PutawayItem, is_forward_pick, _equilibrium_qty)
+    PutawayItem, UndeclaredStock, is_forward_pick, _equilibrium_qty)
 
 
+# ── the stock declaration, on the READ side ──────────────────────────────────────────
+# A stock level is a RUN's declaration, never a SKU's fact (ADR-0002): the catalogue carries
+# none, and `Order.declare_stock` -- the single mutation site -- writes all four level slots
+# together at setup.  `Order` uses __slots__, so an order no run has declared on does not
+# carry an unset `reorder_point`; it has NO SUCH ATTRIBUTE, and `getattr(order,
+# 'reorder_point', <default>)` answers that question with the default.  Both reorder sites
+# below used to do exactly that, and both defaults were silent:
+#
+#   * `None` in `_notify_pick` flags no SKU depleted, so NO REORDER EVER FIRES -- no error,
+#     no log line, and a run whose picks, travel and labour all look healthy while
+#     replenishment is entirely off.
+#   * `0` in `_fire_reorders` makes `position > rp` true for every SKU that still holds a
+#     unit anywhere, which is that same silence with a worse tail: a SKU picked to exactly
+#     zero falls through to an order-up-to taken from the reorder COPY, whose level slots
+#     default to 1 -- a one-unit dribble that reads as a working restock in every table.
+#
+# Nothing downstream can detect either (the conservation ledger is bin-only; a run that
+# never restocks conserves perfectly), so both now raise.  There is deliberately no
+# `stock_qty`-style legacy fallback for the threshold the way `_equilibrium_qty` has one for
+# the target: nothing has ever duck-typed a reorder point, and inventing one here would be a
+# reorder POLICY written inside an error handler.
+
+
+def _undeclared_stock(order) -> NoReturn:
+    """Raise `UndeclaredStock` for an order no run has declared a stock level on.
+
+    The `inventory_common._equilibrium_qty` precedent, at the other end of the same
+    declaration and for the same reason.  A RAISER rather than a `_reorder_point(order)`
+    accessor on purpose: `_notify_pick` is the pick loop's O(1) hook -- once per pick
+    mutation, hundreds of thousands of times a batch -- and both call sites already had the
+    `is None` test they need.  Written this way the guard costs the fast path nothing at all,
+    so no future profile can argue it back out of existence.
+    """
+    raise UndeclaredStock(
+        f'SKU {getattr(order, "sku", "?")}: no stock level has been declared for this order, '
+        f'so it has no reorder point to trigger on. The catalogue carries no levels '
+        f'(ADR-0002): a run declares them at setup from coverage_days / safety_days / '
+        f'floor_lines through Optimization/simconfig/coverage.rescale_section, and records '
+        f'the fielded levels in its own planned inventory (the stock_levels table). '
+        f'Replenishing against a level nobody declared is what this error exists to catch.')
 
 
 class BatchTransit:
@@ -220,6 +261,10 @@ class ReorderMixin:
         on-hand alone.  A SKU that has already been reordered but whose units are
         still waiting for a bin is therefore not flagged again — preventing
         duplicate reorders every batch for unbinned items.
+
+        TWO ABSENCES, TWO ANSWERS, and they used to be one test.  A SKU with no TEMPLATE is
+        tolerated; a template with no DECLARED level raises.  See the guards below — the
+        difference is the whole reason this method is not three lines.
         """
         cur = self._current_quantities.get(sku, 0)
         if cur <= 0:
@@ -227,11 +272,29 @@ class ReorderMixin:
         new_qty = max(0, cur - qty)
         self._current_quantities[sku] = new_qty
         orig = self._originals.get(sku)
-        rp = getattr(orig, 'reorder_point', None) if orig is not None else None
-        if rp is not None:
-            on_order = self._queued_qty.get(sku, 0) + self._deferred_qty.get(sku, 0)
-            if new_qty + on_order <= rp:
-                self._depleted_skus.add(sku)
+        if orig is None:
+            # NO TEMPLATE, NO REPLENISHMENT — a contract, not the ADR-0002 hole below.
+            # `_originals` is filled by INTAKE (`enqueue` / `enqueue_all` / `place_optimal`);
+            # a manager driven over bins it did not take in — the constructor accepts a
+            # warehouse whose bins already hold storage, and `init_lift_state` rebuilds
+            # `_current_quantities` from them — can legitimately pick a SKU it has no
+            # template for.  It also cannot restock one: `.reorder()` needs that template, so
+            # `_fire_reorders` ALREADY skips such a SKU (`if sku not in self._originals:
+            # continue`) and a flag set here could only be a flag that phase drops.  The two
+            # guards state one contract between them; keep them agreeing.
+            return
+        rp = getattr(orig, 'reorder_point', None)
+        if rp is None:
+            # THE SITE THAT ATE REPLENISHMENT WHOLE.  This used to fold into the test above
+            # and answer `None`, so an undeclared SKU was never flagged, never reordered, and
+            # never complained.  Reachable: setup places through `_equilibrium_qty` (which
+            # raises), but `enqueue(order, quantity=N)` takes an explicit quantity and skips
+            # that read entirely — so an undeclared order can reach a bin, and from a bin it
+            # reaches this line.  Do not restore a default here; a default is the silence.
+            _undeclared_stock(orig)
+        on_order = self._queued_qty.get(sku, 0) + self._deferred_qty.get(sku, 0)
+        if new_qty + on_order <= rp:
+            self._depleted_skus.add(sku)
 
     def _notify_bin_emptied(self, bin_: Aisle.Bin, at: float | None = None) -> None:
         """Queue an emptied bin for reclaim at the next check_reorders call.
@@ -500,7 +563,14 @@ class ReorderMixin:
             if sku not in self._originals:
                 continue
             orig     = self._originals[sku]
-            rp       = getattr(orig, 'reorder_point', 0)
+            rp       = getattr(orig, 'reorder_point', None)
+            if rp is None:
+                # THE TEMPLATE IS THE ONLY THING THAT CAN RAISE — see the copy below.  The
+                # old default was 0, which is not a conservative threshold but an invisible
+                # one: `position > 0` holds for every SKU still holding a unit, so an
+                # undeclared SKU simply never reordered, and the one that reached zero
+                # ordered a single unit off the copy's defaults.
+                _undeclared_stock(orig)
             cur_qty  = self._current_quantities.get(sku, 0)
             position = cur_qty + self._queued_qty.get(sku, 0) + self._deferred_qty.get(sku, 0)
             if position > rp:
@@ -514,6 +584,14 @@ class ReorderMixin:
             # SKU carries it, else the heuristic this loop always used: reorder_point encodes
             # ~(lead+1) batches of demand, so the pipeline is rp·lead/(lead+1).  lead==0 ⇒
             # pipeline 0 ⇒ no-op either way.
+            # BOTH READS BELOW ARE ON THE COPY, AND THE COPY CANNOT RAISE.  `Order.reorder()`
+            # fills every level slot from a `getattr` DEFAULT (equilibrium_qty 1,
+            # reorder_point 1, pipeline_qty None), so `rc` always answers — an undeclared SKU
+            # would take a target of 1, order one unit a batch forever, and look like a
+            # working restock in every table.  The `rp is None` test on `orig` above, before
+            # `.reorder()` is called, is the ONLY thing standing between that and this
+            # arithmetic: do not hoist these reads above it, and do not delete it on the
+            # grounds that `_equilibrium_qty` raises — here it cannot.
             pipeline = rc.pipeline_allowance()
             ideal    = _equilibrium_qty(rc) + pipeline - position   # OUP fill-back vs position
             if ideal <= 0:

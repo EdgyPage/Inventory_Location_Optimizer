@@ -57,8 +57,23 @@ WAREHOUSE_SEMANTICS: dict = {
                                      null_means='no cap configured'),
         'max_bins_cap':          Col(LEVEL, 'bins', 'run',
                                      null_means='no cap configured'),
-        'avg_equilibrium_qty':   Col(LEVEL, 'items', 'run'),
-        'avg_reorder_point':     Col(LEVEL, 'items', 'run'),
+        'avg_equilibrium_qty':   Col(LEVEL, 'items', 'run',
+                                     note='the level THIS RUN declared at setup and the '
+                                          'planner then packed, averaged for the stats row; '
+                                          'since ADR-0002 the catalogue authors none, so a '
+                                          'pre-ADR-0002 row averages something else — a '
+                                          'level grown from the catalogue’s authored one — '
+                                          'and the two eras’ means do not compare. TWO more '
+                                          'cautions: the denominator is the DECLARED orders, '
+                                          'not n_skus, and a build that declared none '
+                                          'averages an empty set and writes a computed 0.0 '
+                                          'the NOT NULL column cannot tell from a real mean. '
+                                          'A setup snapshot; the run’s reorders never move it'),
+        'avg_reorder_point':     Col(LEVEL, 'items', 'run',
+                                     note='the same setup snapshot, same denominator and '
+                                          'same 0.0, for the reorder point; both are means '
+                                          'and neither reconstructs any one SKU’s '
+                                          'declaration'),
         'warehouse_fingerprint': Col(LABEL, 'digest', 'run',
                                      null_means='pre-fingerprint vintage'),
     },

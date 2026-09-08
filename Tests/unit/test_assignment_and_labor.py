@@ -483,11 +483,11 @@ def _mk_carton(sku, f=0.8, q=3.0, weight=5, dims=(8, 8, 6), eq=12):
     c.length, c.width, c.height = dims
     c.weight = weight
     c.demand = Demand.from_rates(f, q)
-    c.equilibrium_qty = eq
-    c.reorder_point = max(1, eq // 2)
     c.lead_time_mean = 0.0
     c.expected_batch_demand = f * q
-    return c
+    # The level is the run's declaration, written only through `declare_stock` (ADR-0002).
+    # eq(12) > 1, so `rp <= Q - 1` leaves max(1, eq // 2) == 6 untouched.
+    return c.declare_stock(eq, max(1, eq // 2))
 
 
 def _wp_work():

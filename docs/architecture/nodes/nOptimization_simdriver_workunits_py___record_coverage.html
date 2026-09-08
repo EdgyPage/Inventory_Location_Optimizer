@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_record_coverage · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___record_coverage" data-id="Optimization/simdriver/workunits.py::_record_coverage">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_record_coverage</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_record_coverage</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _record_coverage(base_dir: str, label: str, coverage: dict | None, log: logging.Logger) -&gt; None</code></pre>
+<section class="doc">Record this pair&#x27;s COVERAGE block in the run spec, in every mode.
+
+A run declares its own stock levels whether or not the era flag is on (ADR-0002), and the
+only thing that varies between one run&#x27;s declaration and another&#x27;s is the fixed point&#x27;s
+line count -- so this block is what lets anything reproduce the levels the run FIELDED.
+`run_analysis` and `run_map_precompute` re-plan a finished run&#x27;s warehouse from its
+original catalogue, which holds no level, and re-declare from exactly this record
+(`era_coverage.declare_from_record`).
+
+Under the era the record rides `_record_derived`&#x27;s calibration block and this is a no-op
+on it; flag-off there is no derivation to record, and without this a flag-off run would
+declare levels nobody could ever reproduce -- its own analysis stage would then refuse to
+rebuild the warehouse and silently emit no graphs, which is how this was found.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_sim_manifest_py___write_run_spec.html"><code>_write_run_spec</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li><li><a href="nOptimization_simdriver_workunits_py___run_root_spec.html"><code>_run_root_spec</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_scenario_py___run_whatif_matrix.html"><code>_run_whatif_matrix</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li><li><a href="nOptimization_simdriver_workunits_py___build_work_units.html"><code>_build_work_units</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___record_coverage">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_record_coverage">Source ↗</a></p>
+</article>
+</main>
+</body></html>

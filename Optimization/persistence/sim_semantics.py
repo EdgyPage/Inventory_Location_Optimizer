@@ -354,13 +354,27 @@ SIM_DB_SEMANTICS: dict = {
         'expected_labor':      Col(RATE, 's/batch', 'sku', clock=SIM, per='batch',
                                    null_means='not recorded by this vintage'),
         'equilibrium_qty':     Col(COUNT, 'items', 'sku', account=PIECES,
-                                   null_means='not recorded by this vintage'),
+                                   null_means='not recorded by this vintage',
+                                   note='the RUN’s declaration as this arm fielded it, read '
+                                        'off the planned inventory at batch 0 — since '
+                                        'ADR-0002 a generated catalogue carries no level at '
+                                        'all and the declaration lives in '
+                                        'inventory_db.stock_levels. NOT comparable ACROSS '
+                                        'that break: a pre-ADR-0002 row records a level the '
+                                        'planner grew from the catalogue’s authored coverage '
+                                        'in BATCHES, which was no span of time'),
         'reorder_point':       Col(COUNT, 'items', 'sku', account=PIECES,
-                                   null_means='not recorded by this vintage'),
+                                   null_means='not recorded by this vintage',
+                                   note='declared with equilibrium_qty by the same setup '
+                                        'derivation (a coverage in DAYS); under the line '
+                                        'floor it encodes a LINE, not lead-time demand'),
         'lead_time_mean':      Col(SPAN, 'batches', 'sku', clock=BATCHES,
                                    null_means='not recorded by this vintage',
                                    note='the batch-denominated lead the trailer feature '
-                                        'replaces flag-on'),
+                                        'replaces flag-on; unlike the two columns above it '
+                                        'this one IS the SKU’s own fact, straight off '
+                                        'cartons, because ADR-0002 retired the stock levels '
+                                        'and not the supply side'),
     },
     'yard_trailers': {
         'run_id':    _KEY,

@@ -48,9 +48,15 @@ _LOG = logging.getLogger('test_coverage_rescale')
 
 # ── a tiny catalogue, built the production way ───────────────────────────────────────────
 
-def _order(sku, *, freq, qty, eq=60, rp=20, lead=0.0):
-    return Order.build(sku, 'conveyable', 'seasonal', 10, 10, 10, 10, freq, qty,
-                       equilibrium_qty=eq, reorder_point=rp, lead_time_mean=lead, supply_cv=0.0)
+def _order(sku, *, freq, qty, eq=60, rp=20, lead=0.0, declare=True):
+    """One catalogue SKU, built the production way.
+
+    `Order.build` takes no level since ADR-0002 -- a catalogue carries none -- so a fixture that
+    wants one DECLARES it, exactly as a run does.  `declare=False` yields the shape a freshly
+    loaded catalogue actually has: the four level slots unset."""
+    c = Order.build(sku, 'conveyable', 'seasonal', 10, 10, 10, 10, freq, qty,
+                    lead_time_mean=lead, supply_cv=0.0)
+    return c.declare_stock(eq, rp) if declare else c
 
 
 @pytest.fixture()
@@ -233,13 +239,23 @@ def test_the_fill_rate_is_the_units_a_shelf_serves_off_a_line_for_a_known_poisso
     assert cov.fill_rate([], 40.0)['fill_rate'] == 0.0
 
 
-def test_implied_coverage_reads_the_catalogues_own_levels(section):
-    d = cov.daily_demand(section, 10.0)
-    got = cov.implied_coverage(section, 10.0)
-    assert got['sum_q'] == 180
-    assert math.isclose(got['demand_weighted_days'], 180.0 / sum(d.values()), rel_tol=1e-12)
-    covs = sorted(60.0 / d[c.sku] for c in section)
-    assert math.isclose(got['median_days'], covs[1], rel_tol=1e-12)
+def test_the_module_reads_no_level_it_did_not_declare():
+    """`implied_coverage` is GONE with the levels it read (ADR-0002).
+
+    It answered "what are the catalogue's own levels worth in days", and a catalogue no longer
+    has any.  What replaced it is this: an order arrives UNDECLARED, and `rescale_section` is
+    what puts a level on it.  The old function's absence is asserted too, so a well-meaning
+    restore has to argue with a test rather than land quietly."""
+    assert not hasattr(cov, 'implied_coverage'), (
+        'implied_coverage priced the levels the CATALOGUE authored; the catalogue authors none '
+        '(ADR-0002), so there is nothing for it to read')
+    fresh = _order(1, freq=0.5, qty=4.0, declare=False)
+    assert not fresh.stock_declared()
+    with pytest.raises(AttributeError):
+        _ = fresh.equilibrium_qty
+    st = cov.rescale_section([fresh], 10.0, coverage_days=10.0, safety_days=2.0, floor_lines=1.0)
+    assert fresh.stock_declared() and fresh.equilibrium_qty >= 1
+    assert st['n_skus'] == 1 and st['sum_q'] == fresh.equilibrium_qty
 
 
 def test_converged_needs_every_channel_inside_the_tolerance():
@@ -279,13 +295,24 @@ def _fake_stage_a(lines_of_sum_q):
     return stage_a
 
 
-def test_fixed_point_rescales_at_the_previous_rounds_n_and_stops_when_converged(
-        monkeypatch, section):
+def _fake_seed(n):
+    """A `seed_lines` stand-in: round 0 prices the catalogue alone, so the loop's opening line
+    count is an input to these tests rather than something a fake planner produces."""
+    def seed_lines(orders_all, specs, *, inputs, day_seconds, log):
+        return {s.name: float(n) for s in specs}
+    return seed_lines
+
+
+def test_fixed_point_rescales_at_the_seed_then_at_the_previous_round(monkeypatch, section):
     calls = []
 
     def plan_fn():
         calls.append([c.equilibrium_qty for c in section])
         return _Plan(section), _Meta()
+
+    # Round 0 is the SEED and plans NOTHING (ADR-0002: there is no authored level to plan), so
+    # the first plan the loop makes is at the seed's line count, not at the catalogue's levels.
+    monkeypatch.setattr(ec, 'seed_lines', _fake_seed(60.0))
 
     # n = 60 + 0.001 x ΣQ -- a contraction, as the real fixed point is (n moves weakly with
     # the geometry): the first rescaling moves n ~4%, the second ~0.2%.
@@ -294,21 +321,28 @@ def test_fixed_point_rescales_at_the_previous_rounds_n_and_stops_when_converged(
     plan, meta, sa, rec = ec.fixed_point(section, plan_fn, specs, coverage_days=10.0,
                                          safety_days=2.0, floor_lines=1.0, inputs={},
                                          day_seconds=28800.0, log=_LOG, tol=0.01, max_rounds=6)
-    # Round 0 planned the catalogue's own levels (ΣQ = 180 -> n = 60.18).
-    assert calls[0] == [60, 60, 60]
-    assert rec['rounds'][0]['round'] == 0
-    assert math.isclose(rec['rounds'][0]['lines_per_day']['store'], 60.0 + 0.001 * 180)
-    assert rec['catalogue']['store']['sum_q'] == 180
-    # Every later round rescaled the SECTION at the previous round's n before planning.
+    # Round 0 is the analytic seed: no plan, no stage A, no levels read.
+    assert rec['rounds'][0] == {'round': 0, 'seed': 'analytic_pick',
+                                'lines_per_day': {'store': 60.0}}
+    assert rec['seed'] == {'method': 'analytic_pick', 'lines_per_day': {'store': 60.0}}
+    assert 'catalogue' not in rec, "the catalogue's implied coverage died with its levels"
+    # ...so the FIRST plan is of the levels declared at the seed, never of authored ones.
+    d0 = cov.daily_demand(section, 60.0)
+    assert calls[0] == [cov.stock_levels(d0[c.sku], c.lead_time_mean, 10.0, 2.0,
+                                         cov.line_floor(c.demand.line, 1.0))[0]
+                        for c in section]
+    # Every round rescales the SECTION at the previous round's n BEFORE planning; round r's
+    # plan is `calls[r - 1]`, because round 0 made none.
     for r in rec['rounds'][1:]:
         prev = r['rescaled_at']['store']
         d = cov.daily_demand(section, prev)
         want = [cov.stock_levels(d[c.sku], c.lead_time_mean, 10.0, 2.0,
                                  cov.line_floor(c.demand.line, 1.0))[0] for c in section]
-        assert calls[r['round']] == want
+        assert calls[r['round'] - 1] == want
         assert r['stats']['store']['sum_q'] == sum(want)
     assert rec['converged'] is True
-    assert len(calls) == len(rec['rounds'])
+    # One plan per round EXCEPT round 0, which plans nothing.
+    assert len(calls) == len(rec['rounds']) - 1
     assert 1 < len(rec['rounds']) <= 7
     assert all(abs(v) < 0.01 for v in rec['residual'].values())
     assert rec['lines_per_day'] == {'store': sa['store']['n']}
@@ -327,6 +361,7 @@ def test_fixed_point_rescales_at_the_previous_rounds_n_and_stops_when_converged(
 def test_fixed_point_stops_at_max_rounds_and_records_the_residual(monkeypatch, section):
     # n alternates with ΣQ so it never converges (180 -> 50 lines -> ~2,270 units -> 5
     # lines -> ~227 units -> 50 lines ...): the loop must stop and say so.
+    monkeypatch.setattr(ec, 'seed_lines', _fake_seed(50.0))
     monkeypatch.setattr(ec, 'stage_a',
                         _fake_stage_a(lambda sq: 5.0 if sq > 1000 else 50.0))
     specs = [ec.ChannelSpec('store', None, None, 'store')]
@@ -335,7 +370,7 @@ def test_fixed_point_stops_at_max_rounds_and_records_the_residual(monkeypatch, s
                                          inputs={}, day_seconds=28800.0, log=_LOG, tol=0.01,
                                          max_rounds=3)
     assert rec['converged'] is False
-    assert len(rec['rounds']) == 4                           # round 0 + 3
+    assert len(rec['rounds']) == 4                           # the seed + 3 planning rounds
     assert any(abs(v) >= 0.01 for v in rec['residual'].values())
 
 
@@ -361,6 +396,7 @@ def test_fixed_point_converges_on_a_decreasing_map_with_gain_above_one(monkeypat
     # root, so plain iteration oscillates and only the bracketed secant closes.  ΣQ ~ 45.4 n,
     # so the root sits near n = 200.
     K = 45.4 ** 1.5 * 200.0 ** 2.5
+    monkeypatch.setattr(ec, 'seed_lines', _fake_seed(60.0))
     monkeypatch.setattr(ec, 'stage_a', _fake_stage_a(lambda sq: K / max(sq, 1) ** 1.5))
     specs = [ec.ChannelSpec('store', None, None, 'store')]
     plan, meta, sa, rec = ec.fixed_point(section, lambda: (_Plan(section), _Meta()), specs,
@@ -370,10 +406,17 @@ def test_fixed_point_converges_on_a_decreasing_map_with_gain_above_one(monkeypat
     assert rec['converged'] is True
     assert abs(rec['residual']['store']) < 0.01
     assert 150.0 < rec['lines_per_day']['store'] < 260.0
-    # Plain iteration from the same start would have oscillated: the first two rounds do.
+    # Plain iteration from the same start would have oscillated: the first two rounds
+    # straddle the root, overshooting in OPPOSITE directions.  The directions themselves
+    # depend on where the seed lands, so the test pins the straddle -- which is what brackets
+    # the root and is the only reason the secant can close -- and not a fixed sign.
     r1, r2 = rec['rounds'][1], rec['rounds'][2]
-    assert r1['lines_per_day']['store'] < r1['rescaled_at']['store']
-    assert r2['lines_per_day']['store'] > r2['rescaled_at']['store']
+    o1 = r1['lines_per_day']['store'] - r1['rescaled_at']['store']
+    o2 = r2['lines_per_day']['store'] - r2['rescaled_at']['store']
+    assert o1 * o2 < 0.0, (f'the first two iterates did not straddle the root '
+                           f'(overshoots {o1:+,.0f} then {o2:+,.0f}); with a gain above one '
+                           f'plain iteration must oscillate, and without a bracket the secant '
+                           f'has nothing to close on')
 
 
 def test_fixed_point_rescales_each_channel_section_by_its_own_regime(monkeypatch, section):
@@ -383,6 +426,7 @@ def test_fixed_point_rescales_each_channel_section_by_its_own_regime(monkeypatch
         return {s.name: {'n': 10.0, 'expected': {'lines': 10.0}, 'orders': orders}
                 for s in specs}
 
+    monkeypatch.setattr(ec, 'seed_lines', _fake_seed(10.0))
     monkeypatch.setattr(ec, 'stage_a', stage_a)
     real = cov.rescale_section
 
@@ -439,42 +483,58 @@ def test_the_asset_builder_hands_the_floor_to_the_loop():
     assert "floor_lines=float(_inputs['floor_lines'])" in src
 
 
-def test_a_stamped_file_reads_as_unstamped_flag_off_and_keeps_its_stamp_under_the_era(
-        tmp_path, restore):
-    """Flag-off byte-identity is a property of the CODE, not of the file handed in: a frozen
-    planned inventory stamped by an era run must fire the manager's heuristic under a
-    flag-off run.  Both production load sites go through `load_run_inventory`."""
+def test_the_pipeline_stamp_is_honoured_in_every_mode(tmp_path, restore):
+    """ONE planner contract, so one pipeline contract (ADR-0002).
+
+    `load_run_inventory` used to CLEAR the stamp flag-off, so the manager's
+    rp x lead / (lead + 1) heuristic stood byte for byte against an archive whose levels the
+    catalogue authored.  Now every run declares its own levels and stamps the pipeline that
+    goes with them, so honouring the stamp in one mode and discarding it in the other would
+    field a level whose reorder point encodes a LINE while pricing its pipeline by a heuristic
+    that assumes the reorder point encodes lead-time demand.  Both production load sites go
+    through this one loader, and it takes no flag.
+    """
     from Optimization.simdriver import sim_assets, strategy_runner
     from Warehouse.generation.generate_inventory import save_inventory_to_db
+    from Warehouse.catalog.Inventory_Builder import Inventory
     Order.next_sku = 1
     inv_orders = [_order(1, freq=0.5, qty=4.0, lead=2.0), _order(2, freq=0.5, qty=2.0, lead=2.0)]
-    inv_orders[0].pipeline_qty, inv_orders[1].pipeline_qty = 3, 0
-    from Warehouse.catalog.Inventory_Builder import Inventory
+    inv_orders[0].declare_stock(60, 20, pipeline_qty=3)
+    inv_orders[1].declare_stock(60, 20, pipeline_qty=0)
     path = str(tmp_path / 'stamped_planned.db')
     save_inventory_to_db(Inventory(inv_orders), path, {'test': True})
-    off = sim_assets.load_run_inventory(path, era=False)
-    assert [c.pipeline_qty for c in off.orders] == [None, None]
-    assert [c.pipeline_allowance() for c in off.orders] == [round(20 * 2 / 3)] * 2   # the heuristic
-    on = sim_assets.load_run_inventory(path, era=True)
-    assert [c.pipeline_qty for c in on.orders] == [3, 0]
-    assert [c.pipeline_allowance() for c in on.orders] == [3, 0]
-    # The flag is explicit because a spawned worker's CONFIG is pristine (`era_on()` there is
-    # the settings default): the parent passes `era_on()`, the worker its payload's flag.
-    assert 'load_run_inventory(_src_db, limit=max_skus, era=era_on())' in \
-        inspect.getsource(sim_assets.build_shared_assets)
+    # No `era` argument exists to pass: the loader has one behaviour.
+    assert 'era' not in inspect.signature(sim_assets.load_run_inventory).parameters
+    back = sim_assets.load_run_inventory(path)
+    assert [c.pipeline_qty for c in back.orders] == [3, 0]
+    assert [c.pipeline_allowance() for c in back.orders] == [3, 0]
+    # An UNSTAMPED declaration still falls back to the heuristic -- the stamp is what decides,
+    # never the mode.  (rp 20, lead 2 -> round(20 x 2 / 3) = 13.)
+    Order.next_sku = 1
+    plain = [_order(1, freq=0.5, qty=4.0, lead=2.0)]
+    p2 = str(tmp_path / 'unstamped_planned.db')
+    save_inventory_to_db(Inventory(plain), p2, {'test': True})
+    got = sim_assets.load_run_inventory(p2)
+    assert got.orders[0].pipeline_qty is None
+    assert got.orders[0].pipeline_allowance() == round(20 * 2 / 3)
+    # Both production load sites go through the one loader, neither passing a flag.
+    assert 'load_run_inventory(_src_db, limit=max_skus)' in         inspect.getsource(sim_assets.build_shared_assets)
     sr = inspect.getsource(strategy_runner)
-    assert 'load_run_inventory(inv_db, limit=max_skus, era=_drain_or_cap)' in sr
+    assert 'load_run_inventory(inv_db, limit=max_skus)' in sr
     assert 'load_inventory_from_db(inv_db' not in sr
-    assert "_drain_or_cap = bool(_wd.get('drain_or_cap'))" in sr
 
 
-def test_the_asset_builder_enters_the_loop_only_under_the_era_and_only_where_it_samples():
+def test_the_asset_builder_enters_the_loop_wherever_it_samples_in_every_mode():
+    """The gate is `_sample`, NOT the era (ADR-0002, decision 6): a level is a run's
+    declaration in every mode, and the catalogue carries none to fall back on.  The era flag
+    decides only whether the clock cuts and caps."""
     from Optimization.simdriver import sim_assets
     src = inspect.getsource(sim_assets.build_shared_assets)
-    assert 'if _sample and era_on():' in src
+    assert 'if _sample:' in src
+    assert 'era_on()' not in src, 'the declaration must not be gated on the era any more'
     assert '_era_cov.fixed_point(' in src
-    assert 'plan = _plan()' in src, 'flag-off the planner is called directly, once'
-    assert 'if warehouse_meta is None:' in src, 'flag-off the build happens where it always did'
+    assert '_era_cov.declare_from_record(' in src, 'a rebuild re-declares from the record'
+    assert 'if warehouse_meta is None:' in src, 'the non-sampling build happens where it did'
 
 
 def _tiny_pair(tmp_path):
@@ -485,8 +545,7 @@ def _tiny_pair(tmp_path):
     Order.next_sku = 1
     inv = build_inventory_with_profile(
         num_skus=90, seed=11, handling_splits=[0.5, 0.5], category_splits=[1 / 6] * 6,
-        singleton_fraction=0.3, dim_spec=DEFAULT_DIM_SPEC, weight_spec=DEFAULT_WEIGHT_SPEC,
-        equilibrium_coverage_batches=10.0, reorder_safety_batches=2.0)
+        singleton_fraction=0.3, dim_spec=DEFAULT_DIM_SPEC, weight_spec=DEFAULT_WEIGHT_SPEC)
     inv_db = str(tmp_path / 'inventory.db')
     save_inventory_to_db(inv, inv_db, {'name': 'coverage_test', 'num_skus': 90})
     aff_db = str(tmp_path / 'affinity.db')
@@ -495,9 +554,18 @@ def _tiny_pair(tmp_path):
     return inv_db, aff_db
 
 
-def test_flag_off_the_planner_runs_once_and_its_plan_is_the_plan(tmp_path, monkeypatch, restore):
+def test_flag_off_the_run_declares_its_own_levels_and_fields_them(tmp_path, monkeypatch,
+                                                                  restore):
+    """Flag-off is no longer the mode that inherits a level -- there is nothing to inherit.
+
+    The whole point of ADR-0002 decision 6: ONE planner contract. A run with the era flag OFF
+    enters the same fixed point, declares the same way from the same three knobs, and fields
+    what it declared. The day it declares against is the REPORTING FRAME, which exists
+    flag-off; the flag only decides whether the clock cuts and caps.
+    """
     from Optimization.simdriver import sim_assets
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
+    from Warehouse.generation.generate_inventory import load_inventory_from_db
     restore['shift_drain_or_cap'] = False
     inv_db, aff_db = _tiny_pair(tmp_path)
     calls = []
@@ -508,37 +576,52 @@ def test_flag_off_the_planner_runs_once_and_its_plan_is_the_plan(tmp_path, monke
         return real(cls, orders, **kw)
 
     monkeypatch.setattr(Inventory_Manager, 'plan_warehouse', classmethod(spy))
-    monkeypatch.setattr(ec, 'fixed_point',
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('loop entered')))
     shared = sim_assets.build_shared_assets(
         inv_db, aff_db, _LOG, warehouse_db_path=str(tmp_path / 'wh' / 'warehouse.db'))
-    assert len(calls) == 1 and calls[0]['sample'] is True
-    assert shared['coverage'] is None and shared['era_stage_a'] is None
-    # The plan the builder kept IS the planner's plan: the same sampled levels, the same
-    # shape, from the same seed -- what the pre-loop code produced.
-    from Warehouse.generation.generate_inventory import load_inventory_from_db
-    from Optimization.config.sim_config import seed_world
+    # The loop RAN with the flag off, and planned once per round (never at round 0).
+    rec = shared['coverage']
+    assert rec is not None, 'flag-off must declare its own levels, not inherit any'
+    assert len(calls) == len(rec['rounds']) - 1 >= 1
+    assert all(kw['sample'] is True for kw in calls)
+    assert rec['seed']['method'] == 'analytic_pick'
+    # The catalogue it read still declares nothing; the planned file the workers load does.
     Order.next_sku = 1
-    ref = load_inventory_from_db(inv_db)
-    # The builder's own sampling RNG was consumed by its call; the reference draws a fresh
-    # one from the same seed, exactly as the builder constructed it.
-    ref_plan = real(Inventory_Manager, ref.orders,
-                    **{**calls[0], 'rng': random.Random(seed_world() + 1)})
-    assert {c.sku: c.equilibrium_qty for c in shared['inventory'].orders} == \
-           {c.sku: c.equilibrium_qty for c in ref_plan.sampled}
-    assert (shared['total_aisles'], shared['total_bins']) == \
-           (ref_plan.total_aisles, ref_plan.total_bins)
-    # ...and the planned DB the workers load carries exactly those levels -- and NO pipeline
-    # stamp: flag-off the manager keeps its rp x lead / (lead + 1) heuristic, byte for byte.
+    assert not any(c.stock_declared() for c in load_inventory_from_db(inv_db).orders)
     planned = load_inventory_from_db(shared['planned_inv_db'])
-    assert {c.sku: (c.equilibrium_qty, c.reorder_point) for c in planned.orders} == \
-           {c.sku: (c.equilibrium_qty, c.reorder_point) for c in ref_plan.sampled}
-    assert all(c.pipeline_qty is None for c in planned.orders)
-    assert all(c.pipeline_qty is None for c in shared['inventory'].orders)
+    assert planned.orders and all(c.stock_declared() for c in planned.orders)
+    assert rec['planned_sum_q'] == sum(c.equilibrium_qty for c in planned.orders)
 
 
-def test_under_the_era_the_planned_inventory_carries_the_rescaled_levels_and_the_stamp(
-        tmp_path, restore):
+def test_a_rebuild_re_declares_from_the_record_and_refuses_without_one(tmp_path, restore):
+    """The REBUILD path (`run_analysis`, `run_map_precompute`): a finished run's catalogue
+    carries no level, and the warehouse bin count is demand-derived from levels on EVERY path,
+    so a rebuild must re-declare -- and must declare what the RUN declared, not what this
+    checkout would derive. One rescaling at the recorded lines/day reproduces it exactly.
+    """
+    from Optimization.simdriver import sim_assets, era_coverage as _ec
+    restore['shift_drain_or_cap'] = False
+    inv_db, aff_db = _tiny_pair(tmp_path)
+    run = sim_assets.build_shared_assets(
+        inv_db, aff_db, _LOG, warehouse_db_path=str(tmp_path / 'wh' / 'warehouse.db'))
+    rebuilt = sim_assets.build_shared_assets(inv_db, aff_db, _LOG,
+                                             coverage_record=run['coverage'])
+    assert (rebuilt['total_aisles'], rebuilt['total_bins'])         == (run['total_aisles'], run['total_bins']),         "a rebuild from the record must reproduce the run's warehouse exactly"
+    # Without a record it REFUSES rather than sizing from nothing.
+    with pytest.raises(RuntimeError, match='no stock declaration'):
+        sim_assets.build_shared_assets(inv_db, aff_db, _LOG)
+    # And the record itself must be complete: a missing channel is refused, not guessed.
+    Order.next_sku = 1
+    section = [_order(1, freq=0.5, qty=4.0, declare=False)]
+    specs = [_ec.ChannelSpec('store', None, None, 'store')]
+    with pytest.raises(_ec.MissingCoverageRecord):
+        _ec.declare_from_record(section, specs, None, log=_LOG)
+    with pytest.raises(_ec.MissingCoverageRecord):
+        _ec.declare_from_record(section, specs,
+                                {'lines_per_day': {'fulfillment': 10.0}, 'coverage_days': 10.0,
+                                 'safety_days': 2.0, 'floor_lines': 1.0}, log=_LOG)
+
+
+def test_the_declared_levels_are_the_ones_the_run_fields_with_the_stamp(tmp_path, restore):
     from Optimization.simdriver import sim_assets
     from Warehouse.generation.generate_inventory import load_inventory_from_db
     restore.update(shift_drain_or_cap=True, coverage_days=10.0, safety_days=2.0, floor_lines=1.0)
@@ -547,13 +630,13 @@ def test_under_the_era_the_planned_inventory_carries_the_rescaled_levels_and_the
         inv_db, aff_db, _LOG, warehouse_db_path=str(tmp_path / 'wh' / 'warehouse.db'))
     rec = shared['coverage']
     assert rec is not None and len(rec['rounds']) >= 2
-    assert set(rec['final']) == {'store'} and set(rec['catalogue']) == {'store'}
-    assert rec['rounds'][0]['aisles'] > 0
+    assert set(rec['final']) == {'store'}
+    assert 'catalogue' not in rec, "the catalogue's implied coverage died with its levels"
     assert rec['floor_lines'] == 1.0
-    # The levels the run fields: each sampled SKU's Q is AT LEAST the rescaled one (the
-    # planner grows a level into leftover capacity, never shrinks it) and its reorder point
-    # keeps the rescaled ratio; and they are what the planned DB holds, with the stamped
-    # pipeline beside them (zero here: the tiny pair has no lead -- stamped, not absent).
+    # The levels the run FIELDS: each sampled SKU's Q is at least the declared one (the planner
+    # grows a level into leftover capacity, never shrinks it) and never below its line floor;
+    # and they are what the planned DB holds, with the stamped pipeline beside them (zero here:
+    # the tiny pair has no lead -- stamped, not absent).
     last = rec['rounds'][-1]
     n_prev = last['rescaled_at']['store']
     Order.next_sku = 1

@@ -10,10 +10,28 @@ drives a mixed warehouse and PER-CHANNEL simulation:
     regime-pure, and simulates with its OWN picker cost — so the same fulfillment tasks cost
     differently under the walker vs the machine regression.
 
-Run:  python -m pytest Tests/test_mixed_catalog_channels.py -v
+Both regimes DECLARE a stock level before planning
+--------------------------------------------------
+A generated catalogue carries none (ADR-0002: a level is a RUN's declaration, and
+`inventory_common._equilibrium_qty` raises `UndeclaredStock` rather than defaulting), so
+`_build_mixed_warehouse` declares one on EVERY SKU — store and fulfillment alike, from the same
+`_declare` — before `plan_warehouse` counts a bin.  Declaring only one regime would size the
+other for nothing and quietly starve one channel of the stocked SKUs it picks from.
+
+What the levels never decided is which BUCKETS exist: the (handling, category, tier) floor and
+the fulfillment family come from the catalogue's BinKeys, and a level only ever set a bucket's
+replica COUNT.  So `test_mixed_plan_has_both_aisle_kinds` still asserts what it always did —
+a mixed catalogue routes to both a store pallet family and the fulfillment family.
+
+The DB round-trip test above it declares nothing on purpose: it is about geometry and the
+fulfillment BinKey surviving persistence, and a catalogue with no `stock_levels` rows is
+exactly what the generator now writes.
+
+Run:  python -m pytest Tests/unit/test_mixed_catalog_channels.py -v
 """
 from __future__ import annotations
 
+import math
 import os
 import sys
 import random
@@ -50,6 +68,38 @@ def _mixed_plan():
             fulfillment_family(share=0.3, cube_sizes=(4, 6, 8))]
 
 
+# The coverage this file declares at — a HISTORICAL SHAPE, not a live formula.  It is the
+# constant `build_inventory_from_plan` used to author with (`EQUILIBRIUM_COVERAGE_BATCHES`),
+# reproduced verbatim so the mixed warehouse this test plans keeps the size and the store/ff
+# mix it had when the catalogue still carried levels.  A production run derives its levels from
+# a coverage in DAYS instead (`Optimization.simconfig.coverage.rescale_section`).
+_COVERAGE_BATCHES = 10.0
+
+
+def _declare(orders):
+    """Declare the run's stock level on every SKU of *orders* — both regimes — and return them.
+
+    The retired generator's arithmetic, unchanged:
+
+        Q  = round(10 batches x expected batch demand)
+        rp = ceil(expected x (lead + 1))          # lead is 0 for every SKU built here
+
+    `declare_stock` is the ONE mutation site for the four level slots and applies the clamps
+    the generator spelled out inline (`max(1, ...)` on Q; `max(1, min(Q - 1, ...))` on rp), so
+    the declared pair is identical to the pair this catalogue used to arrive carrying.
+    """
+    already = [c.sku for c in orders if c.stock_declared()]
+    assert not already, (
+        f'{len(already)} generated SKU(s) already carry a stock level, e.g. {already[:3]} — '
+        f'the catalogue is authoring stock again (ADR-0002) and this fixture is no longer the '
+        f'only source of the levels the plan below is sized from')
+    for c in orders:
+        e = c.expected_batch_demand
+        c.declare_stock(round(_COVERAGE_BATCHES * e),
+                        math.ceil(e * (c.lead_time_mean + 1.0)))
+    return orders
+
+
 def test_mixed_catalog_build_and_db_roundtrip(tmp_path):
     inv = build_inventory_from_plan(num_skus=150, plan=_mixed_plan(), seed=1)
     ff = [c for c in inv.orders if regime_of(c) == FULFILLMENT]
@@ -71,7 +121,8 @@ def test_mixed_catalog_build_and_db_roundtrip(tmp_path):
 
 
 def _build_mixed_warehouse(seed=2, num_skus=240):
-    orders = build_inventory_from_plan(num_skus=num_skus, plan=_mixed_plan(), seed=seed).orders
+    orders = _declare(
+        build_inventory_from_plan(num_skus=num_skus, plan=_mixed_plan(), seed=seed).orders)
     plan = Inventory_Manager.plan_warehouse(
         orders, categories=['food', 'clothing'], handlings=['conveyable', 'non-conveyable'],
         aisle_width=aisle_width_for(50), aisle_height=aisle_height_for(10),

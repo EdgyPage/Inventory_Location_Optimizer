@@ -17,10 +17,10 @@
 <pre class="sig"><code>def rescale_section(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, floor_lines: float) -&gt; dict</code></pre>
 <section class="doc">Re-derive every order&#x27;s stock levels for one section and return the floor shares.
 
-MUTATES the orders: `equilibrium_qty`, `reorder_point`, `pipeline_qty` (the stamped lead
-pipeline) and `stock_plan` (reset to None, because a plan the warehouse planner wrote for
-the OLD quantity would otherwise be honoured by `viable_storage_units` at the new one; the
-planner re-packs the line-sized quantity).  Returns
+MUTATES the orders through `Order.declare_stock`: the order-up-to, the reorder point and
+the stamped lead `pipeline_qty`, with `stock_plan` reset to None -- a plan the warehouse
+planner wrote for the OLD quantity would otherwise be honoured by `viable_storage_units` at
+the new one, and the planner re-packs the line-sized quantity.  Returns
 
     {&#x27;n_skus&#x27;, &#x27;line_families&#x27;, &#x27;lines_per_day&#x27;, &#x27;coverage_days&#x27;, &#x27;safety_days&#x27;,
      &#x27;floor_lines&#x27;, &#x27;sum_q&#x27;, &#x27;units_per_day&#x27;,
@@ -35,7 +35,7 @@ section.  `realized_coverage_days` is the coverage the SKUs above the floor actu
 (their rounded Q against their demand), which the nominal number only approximates.  The
 expected first-pass fill rate is NOT here: it depends on the levels the planner finally
 fields, so `fill_rate` prices it on the planned orders once (`era_coverage.fixed_point`).</section>
-<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__daily_demand.html"><code>daily_demand</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__line_floor.html"><code>line_floor</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__pipeline_qty.html"><code>pipeline_qty</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__stock_levels.html"><code>stock_levels</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__fixed_point.html"><code>fixed_point</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__daily_demand.html"><code>daily_demand</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__line_floor.html"><code>line_floor</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__pipeline_qty.html"><code>pipeline_qty</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__stock_levels.html"><code>stock_levels</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__declare_from_record.html"><code>declare_from_record</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__fixed_point.html"><code>fixed_point</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_coverage_py__rescale_section">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/coverage.py#:~:text=def%20rescale_section">Source ↗</a></p>
 </article>
 </main>

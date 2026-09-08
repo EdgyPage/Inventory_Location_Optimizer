@@ -103,15 +103,16 @@ DEFAULT_WEIGHT_SPEC   = {'dist': 'volume_poisson'}
 DEFAULT_FREQ_SPEC     = {'dist': 'uniform', 'low': 0.0,  'high': 1.0}
 DEFAULT_QTY_SPEC      = {'dist': 'uniform', 'low': 1.0,  'high': 20.0}
 
-# Equilibrium inventory model
+# Supply model
 # ─────────────────────────────────────────────────────────────────────────────
-# equilibrium_qty    = coverage_batches × expected_batch_demand
-#   → target steady-state inventory; controls warehouse size.
-#
-# reorder_point      = max(1, min(eq-1, round(expected × (lead_time + safety_batches))))
-#   → classic ROP formula: demand during lead time + safety stock buffer.
-#   → scales with actual demand: popular items reorder sooner (higher absolute
-#     threshold), slow movers reorder later (lower threshold).  No fixed fraction.
+# The catalogue carries NO stock levels (ADR-0002, department-calibration "Field the floor",
+# decision 5).  It used to author each SKU's order-up-to quantity and reorder point as
+# `coverage_batches x expected_batch_demand` -- a generation batch is not a unit of time, so
+# the authored level was a bespoke conversion implicit in the inventory (worth 1,771 store
+# days on the reference catalogue).  Every run now derives its levels at setup from a
+# declared coverage in DAYS (`Optimization/simconfig/coverage.py`, driven by
+# `simdriver/era_coverage.fixed_point` in every mode) and records them in its own planned
+# inventory's `stock_levels` table.  What the catalogue keeps of the supply side:
 #
 # lead_time_mean     = mean batches before a placed order arrives (per-SKU).
 #   → 0.0 = immediate; >0 = delayed orders sampled per-SKU at run time.
@@ -119,8 +120,6 @@ DEFAULT_QTY_SPEC      = {'dist': 'uniform', 'low': 1.0,  'high': 20.0}
 # supply_cv          = coefficient of variation for received reorder quantity.
 #   → 0.0 = perfect fulfillment; 0.1 = "ordered 50, got 45".
 #   → drawn from HalfNormal(supply_cv_mean) per SKU at profile time.
-EQUILIBRIUM_COVERAGE_BATCHES: float = 10.0
-REORDER_SAFETY_BATCHES:       float = 2.0   # safety stock: batches of demand to keep as buffer
 LEAD_TIME_MEAN_BATCHES:       float = 0.0
 LEAD_TIME_CV:                 float = 0.50
 SUPPLY_CV_MEAN:               float = 0.0
@@ -354,7 +353,6 @@ def build_inventory_from_plan(
     plan           : list,                      # list[Family]
     seed           : int,
     *,
-    coverage_batches : float        = EQUILIBRIUM_COVERAGE_BATCHES,
     lead_time        : float        = 0.0,      # fixed per-SKU lead time (batches) when no range
     lead_time_range  : tuple | None = None,     # (lo, hi): per-SKU lead ~ randint(lo, hi) if set
     supply_cv_max    : float        = 0.15,     # per-SKU supply_cv ~ Uniform(0, supply_cv_max)
@@ -363,14 +361,13 @@ def build_inventory_from_plan(
     """Build one mixed inventory from a per-category creation plan.
 
     Per SKU: pick a family by share; handling by the family's propensity; sample each
-    dimension independently + weight + demand; compute the JIT equilibrium/reorder model:
-        equilibrium_qty = max(1, round(coverage_batches * expected))
-        reorder_point   = max(1, min(eq-1, ceil(expected * (lead + 1))))   # day-before-runout + transit
+    dimension independently + weight + demand + the supply side (lead, supply_cv).
     `lead` is the fixed `lead_time` unless `lead_time_range=(lo,hi)` is given, in which case each
     SKU draws lead ~ randint(lo, hi) from a SEPARATE rng — so two profiles built with the same seed
-    (e.g. lead 0 vs random) have IDENTICAL physical inventory, differing only in lead/reorder_point.
+    (e.g. lead 0 vs random) have IDENTICAL physical inventory, differing only in lead.
     All physical guardrails (integer, min 1, caps) are applied inside Order.build.
-    Initial stock is NOT sampled here — the sim loads it from equilibrium_qty.
+    NO stock level is authored here: a run derives every SKU's order-up-to and reorder point
+    at setup from its declared coverage in days (ADR-0002).
     """
     rng      = random.Random(seed)
     # Dedicated rng for per-SKU lead so it never perturbs the physical-attribute sequence.
@@ -397,16 +394,13 @@ def build_inventory_from_plan(
         freq     = sample_rate(fspec, rng)
         qty_rate = sample_rate(qspec, rng)
 
-        # Clamp consistently here for the equilibrium/reorder math; Order.build re-clamps
-        # the stored values identically, so eq/reorder match the persisted physical numbers.
-        fr_c     = min(1.0, max(1e-6, freq))
+        # The rate is clamped to the integer every reader of the file sees (Order.build
+        # re-clamps on load) and the law is stamped AT that value -- one value on disk and
+        # in memory.
         qr_c     = Order._clamp_int(qty_rate, Order.MIN_QTY, Order.MAX_QTY)
-        expected = fr_c * qr_c
 
         lead = (lead_rng.randint(int(lead_time_range[0]), int(lead_time_range[1]))
                 if lead_time_range else lead_time)
-        eq = max(1, round(coverage_batches * expected))
-        rp = max(1, min(eq - 1, math.ceil(expected * (lead + 1)))) if eq > 1 else 1
         # per-SKU supply reliability ~ Uniform(0, supply_cv_max): drives the reorder-quantity
         # variation in check_reorders so restocks can split across different storage units.
         sv = rng.uniform(0.0, supply_cv_max) if supply_cv_max > 0.0 else 0.0
@@ -423,7 +417,6 @@ def build_inventory_from_plan(
             sku=i + 1, handling=handling, category=fam.category,
             length=L, width=W, height=H, weight=wt,
             relative_frequency=freq, qty_rate=qty_rate,
-            equilibrium_qty=eq, reorder_point=rp,
             lead_time_mean=lead, supply_cv=sv,
             line=LineDistribution.poisson(qr_c),        # the stamped law, at the clamped rate
         )
@@ -444,25 +437,17 @@ def build_inventory_with_profile(
     dim_spec                     : dict,
     weight_spec                  : dict,
     seed                         : int,
-    equilibrium_coverage_batches : float = EQUILIBRIUM_COVERAGE_BATCHES,
-    reorder_safety_batches       : float = REORDER_SAFETY_BATCHES,
     lead_time_mean_batches       : float = LEAD_TIME_MEAN_BATCHES,
     lead_time_cv                 : float = LEAD_TIME_CV,
     supply_cv_mean               : float = SUPPLY_CV_MEAN,
 ) -> Inventory:
-    """Build an Inventory using the equilibrium inventory model.
+    """Build an Inventory from one dimension spec + one weight spec (the profile suite path).
 
     Bypasses Order.__init__ so any distribution can be used.
     Order.next_sku is reset to 1 at the start of this function.
 
     Per-SKU attributes (all stored in DB):
       expected_batch_demand = freq × qty_rate
-      equilibrium_qty   = max(1, round(coverage_batches × expected_batch_demand))
-                          Target steady-state inventory; warehouse sized for this.
-      reorder_point     = max(1, min(eq-1, round(expected × (lead_time_mean + safety_batches))))
-                          Classic ROP = demand during lead time + safety stock.
-                          Scales with actual demand: popular items reorder sooner
-                          (higher absolute threshold), slow movers reorder later.
       lead_time_mean    = mean batches before a placed order arrives.
                           0 = immediate.  Sampled per-SKU from N(mean, mean*cv)
                           when lead_time_mean_batches > 0, else fixed at 0.
@@ -470,7 +455,10 @@ def build_inventory_with_profile(
                           0.0 = perfect; 0.1 → "ordered 50, got 45".
                           Per-SKU value drawn from HalfNormal(supply_cv_mean).
 
-    At runtime: ideal = equilibrium_qty - current_qty; received = max(1, round(N(ideal, ideal*supply_cv))).
+    NO stock level is authored (ADR-0002): the order-up-to and the reorder point are a run's
+    declaration, derived at setup from its coverage in days; the reorder rule at runtime is
+    `ideal = equilibrium_qty + pipeline - position; received = max(1, round(N(ideal, ideal*supply_cv)))`
+    over the levels the run declared.
     """
     storage = Storage_Type()
     rng     = random.Random(seed)
@@ -492,7 +480,7 @@ def build_inventory_with_profile(
         qty_rate = rng.uniform(0.5, 20.0)
         expected = freq * qty_rate
 
-        c              = object.__new__(Order)
+        c              = object.__new__(Order)   # noqa: the inline path predates Order.build
         c._sku         = Order.next_sku
         Order.next_sku += 1
         c.storage_type          = (handling, category)
@@ -504,27 +492,20 @@ def build_inventory_with_profile(
         c.weight       = wt
         # The rate is clamped to the integer every reader of the file sees (`Order.build`
         # re-clamps on load) and the law is stamped AT that value -- one value on disk and in
-        # memory.  `expected` above keeps the drawn float, so eq/rp are what they always were.
+        # memory.  `expected` above keeps the drawn float, which is what the recorded
+        # `expected_batch_demand` has always been.
         qr_c           = Order._clamp_int(qty_rate, Order.MIN_QTY, Order.MAX_QTY)
         c.demand       = Demand.from_rates(freq, qr_c, LineDistribution.poisson(qr_c))
 
         c.expected_batch_demand = expected
-        c.equilibrium_qty       = max(1, round(equilibrium_coverage_batches * expected))
+        # NO stock declaration here (ADR-0002): the four level slots stay UNSET on a generated
+        # order, and `declare_stock` is the one thing that ever writes them.
 
-        # Sample per-SKU lead time first so ROP can account for it.
         if lead_time_mean_batches > 0.0:
             lt = rng.gauss(lead_time_mean_batches, lead_time_mean_batches * lead_time_cv)
             c.lead_time_mean = max(0.0, lt)
         else:
             c.lead_time_mean = 0.0
-
-        # ROP = demand × (lead_time + safety_batches): classic inventory theory.
-        # Popular items produce a higher absolute threshold; slow movers a lower one.
-        # Capped at equilibrium_qty - 1 so the trigger always fires before the
-        # warehouse reaches full target inventory.
-        raw_rp          = round(expected * (c.lead_time_mean + reorder_safety_batches))
-        c.reorder_point = max(1, min(c.equilibrium_qty - 1, raw_rp))
-        c.pipeline_qty  = None       # a generated catalogue is never stamped; the era does it
 
         # Per-SKU supply reliability: abs(N(0, supply_cv_mean)) keeps values ≥ 0.
         # SKUs with higher supply_cv have less predictable fulfillment quantities.
@@ -566,23 +547,42 @@ _SCHEMA = '''
         line_family           TEXT    NOT NULL,
         line_params           TEXT,
         expected_batch_demand REAL    NOT NULL DEFAULT 0,
-        equilibrium_qty       INTEGER NOT NULL DEFAULT 1,
-        reorder_point         INTEGER NOT NULL DEFAULT 1,
         lead_time_mean        REAL    NOT NULL DEFAULT 0.0,
         supply_cv             REAL    NOT NULL DEFAULT 0.0,
-        stock_plan            TEXT,
-        -- The era's STAMPED lead pipeline (department-calibration, "Build the line floor",
-        -- decision 6 of "Choose the coverage floor"): `round(d_s x lead)`, the in-transit
-        -- allowance `_fire_reorders` adds to the order-up-to, written by the coverage
-        -- rescaling into the PLANNED inventory only.  NULL = not stamped (every generated
-        -- catalogue, every flag-off run): `Order.pipeline_allowance` falls back to the
-        -- rp x lead / (lead + 1) heuristic, byte for byte.  Pre-stamp vintages 0e234fbfc739
-        -- and 4ff06991df47 lack the column; their `cartons` overrides serve NULL.
-        pipeline_qty          INTEGER,
         -- Fine-grained family label for distribution plots: store rows carry their
         -- `category`; fulfillment rows carry 'rect' | 'cube_4' | 'cube_6' | 'cube_8'
         -- (the rect/cube split + cube size that is otherwise lost at Order.build).
         subtype               TEXT
+    );
+    -- THE RUN'S STOCK DECLARATION, and the reason `cartons` no longer holds one (ADR-0002,
+    -- department-calibration "Field the floor", decision 5).  A stock level is not a fact
+    -- about a SKU: `equilibrium_qty` / `reorder_point` / `stock_plan` used to be authored at
+    -- generation as `coverage_batches x expected_batch_demand`, and a generation batch is not
+    -- a unit of time -- on the reference catalogue that level was worth 1,771 store days.
+    -- Every run now DERIVES its levels at setup from a declared coverage in days
+    -- (`Optimization/simconfig/coverage.py`) and records them here, in its own
+    -- `planned_inventory.db`, which its workers reload.
+    --
+    -- A GENERATED CATALOGUE LEAVES THIS TABLE EMPTY.  That emptiness is the contract: no row
+    -- means no declaration (`Order.stock_declared()` is False), as against a NULL column,
+    -- which would read as an authored level that happens to be missing.  Both files are one
+    -- family and one shape -- only the rows differ.
+    --
+    -- `stock_plan` is the packing the warehouse planner wrote for exactly this quantity, as
+    -- JSON run-lengths (NULL = the default pallet/singleton rule).  `pipeline_qty` is the
+    -- stamped lead pipeline (department-calibration, "Build the line floor", decision 6 of
+    -- "Choose the coverage floor"): `round(d_s x lead)`, the in-transit allowance
+    -- `_fire_reorders` adds to the order-up-to.  NULL = not stamped, and
+    -- `Order.pipeline_allowance` falls back to the rp x lead / (lead + 1) heuristic.
+    -- Vintages 0e234fbfc739 / 4ff06991df47 / 025f4b1548a9 carry all four in `cartons`
+    -- instead; their `stock_levels` overrides read them from there, so an archived planned
+    -- inventory still yields the levels its run fielded.
+    CREATE TABLE IF NOT EXISTS stock_levels (
+        sku             INTEGER PRIMARY KEY,
+        equilibrium_qty INTEGER NOT NULL,
+        reorder_point   INTEGER NOT NULL,
+        stock_plan      TEXT,
+        pipeline_qty    INTEGER
     );
     CREATE TABLE IF NOT EXISTS run_metadata (
         key   TEXT PRIMARY KEY,
@@ -666,31 +666,53 @@ PRE_LINE_LAW_INVENTORY_SCHEMA_ID = '0e234fbfc739'
 #: every run of that vintage fired.  Nothing is regenerated.
 PRE_PIPELINE_INVENTORY_SCHEMA_ID = '4ff06991df47'
 
+#: The vintage BEFORE the stock declaration left the catalogue (ADR-0002): `cartons` still
+#: carrying `equilibrium_qty` / `reorder_point` / `stock_plan` / `pipeline_qty` and no
+#: `stock_levels` table — every file written between the line floor (2026-09-06) and this
+#: change.  Still vetted, and the `stock_levels` override below is what makes it readable: it
+#: reads the four columns out of THAT vintage's `cartons`, so an archived planned inventory
+#: still yields the levels its run fielded, under the same logical names.  A generated
+#: catalogue of this vintage yields its AUTHORED levels — the loader reports what the file
+#: says; whether to keep them is the caller's business, and every run re-derives.
+PRE_STOCK_SPLIT_INVENTORY_SCHEMA_ID = '025f4b1548a9'
+
 INVENTORY_DB_FAMILY = _identity.register(_identity.Family(
     name='inventory_db',
     declared_shape=declared_inventory_shape,
     meta_table='run_metadata',      # already declared above; shared with the params_json row
-    # Commit windows: dce445b.. (2026-07-09) to the line-law stamp (43a8dce2, 2026-09-06), then
-    # the line-law stamp to the line floor (same day).  Before the first entry landed the tuple
-    # was empty by RESULT, not omission: every file from 2026-07-09 on re-derived to one id.
-    known_ids=(PRE_LINE_LAW_INVENTORY_SCHEMA_ID, PRE_PIPELINE_INVENTORY_SCHEMA_ID),
+    # Commit windows: dce445b.. (2026-07-09) to the line-law stamp (43a8dce2, 2026-09-06), the
+    # line-law stamp to the line floor (same day), and the line floor to the stock split
+    # (2026-09-07).  Before the first entry landed the tuple was empty by RESULT, not omission:
+    # every file from 2026-07-09 on re-derived to one id.
+    known_ids=(PRE_LINE_LAW_INVENTORY_SCHEMA_ID, PRE_PIPELINE_INVENTORY_SCHEMA_ID,
+               PRE_STOCK_SPLIT_INVENTORY_SCHEMA_ID),
 ))
 
 # ── the read, by NAME (Schema.dataset) ────────────────────────────────────────
 # The publisher side of the versioned read: `load_inventory_from_db` binds a file to ITS OWN
-# vintage and asks for `cartons`; the current shape is served by the canonical SQL, each
-# earlier vintage by its override (the columns it lacks served as NULL), and the consumer never
-# branches on a version.  `:limit` is SQLite's `LIMIT -1` = no limit.  New columns go at the
-# END of `_CARTON_COLS`, so every older override is "the prefix it has + NULLs for the rest".
+# vintage and asks for `cartons` and `stock_levels`; the current shape is served by the
+# canonical SQL, each earlier vintage by its override, and the consumer never branches on a
+# version.  `:limit` is SQLite's `LIMIT -1` = no limit.  New columns go at the END of
+# `_CARTON_COLS`, so every older override is "the prefix it has + NULLs for the rest".
 _CARTON_COLS = ('sku', 'handling', 'category', 'length', 'width', 'height', 'weight',
-                'relative_frequency', 'demand_qty_rate', 'equilibrium_qty', 'reorder_point',
-                'lead_time_mean', 'supply_cv', 'stock_plan', 'line_family', 'line_params',
-                'pipeline_qty')
+                'relative_frequency', 'demand_qty_rate', 'lead_time_mean', 'supply_cv',
+                'line_family', 'line_params')
 _dataset.register_query(_dataset.Query(
     name='cartons', family='inventory_db',
     sql='SELECT ' + ', '.join(_CARTON_COLS) + ' FROM cartons ORDER BY sku LIMIT :limit',
     columns=_CARTON_COLS,
     tables={'cartons': _CARTON_COLS}))
+
+#: The run's stock declaration, by logical name.  ONE query serves both physical homes: the
+#: `stock_levels` table on a current file, and `cartons` on every older vintage — which is
+#: exactly what the per-vintage override mechanism is for.  A consumer asks for the levels and
+#: never learns which table answered.
+_LEVEL_COLS = ('sku', 'equilibrium_qty', 'reorder_point', 'stock_plan', 'pipeline_qty')
+_dataset.register_query(_dataset.Query(
+    name='stock_levels', family='inventory_db',
+    sql='SELECT ' + ', '.join(_LEVEL_COLS) + ' FROM stock_levels ORDER BY sku LIMIT :limit',
+    columns=_LEVEL_COLS,
+    tables={'stock_levels': _LEVEL_COLS}))
 
 
 def _cartons_override_sql(n_present: int) -> str:
@@ -703,10 +725,26 @@ def _cartons_override_sql(n_present: int) -> str:
             + ' FROM cartons ORDER BY sku LIMIT :limit')
 
 
+def _levels_from_cartons_sql(*, pipeline: bool) -> str:
+    """The `stock_levels` query for a pre-split vintage, which holds the declaration in
+    `cartons`.  `pipeline=False` is a vintage older than the stamp: the column is served NULL
+    and `Order.pipeline_allowance` falls back to the manager's heuristic, as those runs fired.
+    """
+    return ('SELECT sku, equilibrium_qty, reorder_point, stock_plan, '
+            + ('pipeline_qty' if pipeline else 'NULL AS pipeline_qty')
+            + ' FROM cartons ORDER BY sku LIMIT :limit')
+
+
+# `cartons`: only the pre-line-law vintage is short of a column now — the other two hold every
+# name the canonical SQL selects, so they are served by it unchanged.
 _dataset.override('inventory_db', 'cartons', PRE_LINE_LAW_INVENTORY_SCHEMA_ID,
-                  _cartons_override_sql(len(_CARTON_COLS) - 3))   # no law, no pipeline
-_dataset.override('inventory_db', 'cartons', PRE_PIPELINE_INVENTORY_SCHEMA_ID,
-                  _cartons_override_sql(len(_CARTON_COLS) - 1))   # the law, no pipeline
+                  _cartons_override_sql(len(_CARTON_COLS) - 2))   # no law
+_dataset.override('inventory_db', 'stock_levels', PRE_LINE_LAW_INVENTORY_SCHEMA_ID,
+                  _levels_from_cartons_sql(pipeline=False))
+_dataset.override('inventory_db', 'stock_levels', PRE_PIPELINE_INVENTORY_SCHEMA_ID,
+                  _levels_from_cartons_sql(pipeline=False))
+_dataset.override('inventory_db', 'stock_levels', PRE_STOCK_SPLIT_INVENTORY_SCHEMA_ID,
+                  _levels_from_cartons_sql(pipeline=True))
 
 
 def _init_db(db_path: str) -> sqlite3.Connection:
@@ -743,33 +781,48 @@ def _init_db(db_path: str) -> sqlite3.Connection:
 # ── save / load ────────────────────────────────────────────────────────────────
 
 def save_inventory_to_db(inventory: Inventory, db_path: str, params: dict) -> None:
+    """Write an inventory to `db_path`: the SKUs' own facts into `cartons`, and — only for the
+    orders a run has DECLARED a level on — the declaration into `stock_levels`.
+
+    A generated catalogue declares nothing, so its `stock_levels` is empty; a run's
+    `planned_inventory.db` carries one row per fielded SKU (ADR-0002).  Both are one shape.
+    """
     conn = _init_db(db_path)
     rows = []
+    levels = []
     for c in inventory.orders:
-        sp = getattr(c, 'stock_plan', None)
         rows.append((
             c.sku, c.storage_type[0], c.storage_type[1],
             c.length, c.width, c.height, c.weight,
             c.demand.relative_frequency, c.demand.quantity_rate,
             *c.demand.line.to_row(),
             getattr(c, 'expected_batch_demand', 0.0),
-            getattr(c, 'equilibrium_qty',       1),
-            getattr(c, 'reorder_point',         1),
             getattr(c, 'lead_time_mean',        0.0),
             getattr(c, 'supply_cv',             0.0),
-            json.dumps(sp) if sp else None,
-            getattr(c, 'pipeline_qty', None),        # the era's stamp; NULL = not stamped
             getattr(c, 'subtype', None),
         ))
+        if c.stock_declared():
+            sp = getattr(c, 'stock_plan', None)
+            levels.append((
+                c.sku, int(c.equilibrium_qty), int(c.reorder_point),
+                json.dumps(sp) if sp else None,
+                getattr(c, 'pipeline_qty', None),   # the era's stamp; NULL = not stamped
+            ))
     conn.executemany(
         'INSERT OR REPLACE INTO cartons '
         '(sku, handling, category, length, width, height, weight, '
         ' relative_frequency, demand_qty_rate, line_family, line_params, expected_batch_demand, '
-        ' equilibrium_qty, reorder_point, lead_time_mean, supply_cv, stock_plan, pipeline_qty, '
-        ' subtype) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        ' lead_time_mean, supply_cv, subtype) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         rows,
     )
+    if levels:
+        conn.executemany(
+            'INSERT OR REPLACE INTO stock_levels '
+            '(sku, equilibrium_qty, reorder_point, stock_plan, pipeline_qty) '
+            'VALUES (?,?,?,?,?)',
+            levels,
+        )
     conn.execute('INSERT OR REPLACE INTO run_metadata VALUES (?,?)',
                  ('params_json', json.dumps(params, indent=2)))
 
@@ -829,35 +882,45 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     same physical guardrails (integer dims/weight, min-1, caps) are enforced on load as on
     generation.
 
+    The STOCK DECLARATION rides a second named query (ADR-0002).  A file that declares one --
+    a run's own planned inventory, or any pre-split vintage, whose override reads the four
+    columns out of `cartons` -- has `declare_stock` called for each SKU it names; a generated
+    catalogue declares nothing and its orders come back with the level slots UNSET, which
+    `Order.stock_declared()` reports.  The two reads share `ORDER BY sku LIMIT :limit`, so a
+    limited load sees the same SKUs on both sides.
+
     HARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:
     every caller is a simulation about to consume ~500 GB of compute and WRITE the result.
     `bind` raises `UnsupportedSchema` naming the id and the whole structural diff before a
     single row is read, and `UnsupportedQuery` if a vetted vintage has no SQL to serve it --
     never a bare `OperationalError: no such column` that says nothing about WHICH vintage.
     """
+    lim = -1 if limit is None else int(limit)
     with _dataset.bind(db_path, 'inventory_db') as ds:
-        rows = ds.query('cartons', limit=-1 if limit is None else int(limit))
+        rows = ds.query('cartons', limit=lim)
+        levels = {int(r['sku']): r for r in ds.query('stock_levels', limit=lim)}
 
     orders = []
     max_sku = 0
     for r in rows:
-        stock_plan = None
-        raw_sp = r['stock_plan']
-        if raw_sp:
-            # JSON stores tuples as lists; restore (is_singleton, qty, count) tuples.
-            stock_plan = [(bool(s), int(q), int(n)) for s, q, n in json.loads(raw_sp)]
         fam = r['line_family']
         line = LineDistribution.from_row(fam, r['line_params'], 'declared') if fam else None
         sku = int(r['sku'])
-        orders.append(Order.build(
+        c = Order.build(
             sku=sku, handling=r['handling'], category=r['category'],
             length=r['length'], width=r['width'], height=r['height'], weight=r['weight'],
             relative_frequency=r['relative_frequency'], qty_rate=r['demand_qty_rate'],
-            equilibrium_qty=r['equilibrium_qty'], reorder_point=r['reorder_point'],
-            lead_time_mean=r['lead_time_mean'], supply_cv=r['supply_cv'],
-            stock_plan=stock_plan, line=line,
-            pipeline_qty=r['pipeline_qty'],          # NULL off an older vintage = not stamped
-        ))
+            lead_time_mean=r['lead_time_mean'], supply_cv=r['supply_cv'], line=line)
+        lv = levels.get(sku)
+        if lv is not None:
+            raw_sp = lv['stock_plan']
+            # JSON stores tuples as lists; restore (is_singleton, qty, count) tuples.
+            stock_plan = ([(bool(s), int(q), int(n)) for s, q, n in json.loads(raw_sp)]
+                          if raw_sp else None)
+            c.declare_stock(lv['equilibrium_qty'], lv['reorder_point'],
+                            stock_plan=stock_plan,
+                            pipeline_qty=lv['pipeline_qty'])   # NULL = not stamped
+        orders.append(c)
         max_sku = max(max_sku, sku)
 
     Order.next_sku = max_sku + 1
@@ -900,8 +963,6 @@ def compute_stats(df: pd.DataFrame) -> dict:
             'relative_frequency': _summary(df['relative_frequency']),
             'quantity_rate'     : _summary(df['demand_qty_rate']),
         },
-        'equilibrium_qty': _summary(df['equilibrium_qty']) if 'equilibrium_qty' in df.columns else {},
-        'reorder_point'  : _summary(df['reorder_point'])   if 'reorder_point'   in df.columns else {},
         'lead_time_mean' : _summary(df['lead_time_mean'])  if 'lead_time_mean'  in df.columns else {},
         'supply_cv'      : _summary(df['supply_cv'])       if 'supply_cv'       in df.columns else {},
     }
@@ -1002,44 +1063,6 @@ def plot_demand(df: pd.DataFrame, out_dir: str) -> None:
     plt.tight_layout()
     _save_close(fig, os.path.join(out_dir, 'demand.png'))
 
-
-def plot_equilibrium_qty(df: pd.DataFrame, out_dir: str) -> None:
-    """Histogram + KDE of equilibrium_qty and reorder_point distributions."""
-    col = 'equilibrium_qty' if 'equilibrium_qty' in df.columns else None
-    if col is None:
-        return
-    eq_vals = np.asarray(df[col], dtype=float)
-    rp_col  = 'reorder_point'
-    rp_vals = np.asarray(df[rp_col], dtype=float) if rp_col in df.columns else None
-
-    fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
-    fig.suptitle('Equilibrium Inventory Quantities', fontsize=13, fontweight='bold')
-
-    axes[0].hist(eq_vals, bins=60, color='#9966cc', alpha=0.75, edgecolor='white',
-                 label='equilibrium_qty')
-    if rp_vals is not None:
-        axes[0].hist(rp_vals, bins=60, color='#cc6699', alpha=0.55, edgecolor='white',
-                     label='reorder_point')
-    axes[0].axvline(eq_vals.mean(), color='red',    lw=1.5, linestyle='--',
-                    label=f'EQ mean {eq_vals.mean():.1f}')
-    axes[0].set_xlabel('Units')
-    axes[0].set_ylabel('SKU count')
-    axes[0].set_title('Histogram')
-    axes[0].legend(fontsize=9);  axes[0].grid(axis='y', alpha=0.3)
-
-    if eq_vals.max() > eq_vals.min():
-        kde = gaussian_kde(eq_vals, bw_method='silverman')
-        xs  = np.linspace(eq_vals.min(), eq_vals.max(), 500)
-        axes[1].fill_between(xs, kde(xs), alpha=0.4, color='#9966cc')
-        axes[1].plot(xs, kde(xs), color='#9966cc', lw=2, label='equilibrium_qty')
-        axes[1].axvline(eq_vals.mean(),     color='red',    lw=1.5, linestyle='--')
-        axes[1].axvline(np.median(eq_vals), color='orange', lw=1.5, linestyle=':')
-    axes[1].set_xlabel('Units')
-    axes[1].set_ylabel('Density')
-    axes[1].set_title('KDE')
-    axes[1].grid(alpha=0.3)
-    plt.tight_layout()
-    _save_close(fig, os.path.join(out_dir, 'equilibrium_qty.png'))
 
 
 def plot_volume_vs_weight(df: pd.DataFrame, out_dir: str, title_suffix: str = '') -> None:
@@ -1252,7 +1275,7 @@ def plot_fulfillment_distributions(ff_df: pd.DataFrame, plan_lookup: dict, out_d
     # ── overview: per-subtype counts + overlaid distributions of the key parameters ──
     overlay = [('length', 'length'), ('width', 'width'), ('height', 'height'),
                ('weight', 'weight'), ('relative_frequency', 'relative_frequency'),
-               ('demand_qty_rate', 'quantity rate'), ('equilibrium_qty', 'equilibrium_qty')]
+               ('demand_qty_rate', 'quantity rate'), ('lead_time_mean', 'lead time')]
     fig, axes = plt.subplots(2, 4, figsize=(18, 8))
     fig.suptitle(f'fulfillment sub-family overview{title_suffix}', fontsize=13, fontweight='bold')
 
@@ -1292,8 +1315,6 @@ def generate_run(
     out_dir                      : str                = _DEFAULT_OUT_DIR,
     dim_spec                     : dict | None        = None,
     weight_spec                  : dict | None        = None,
-    equilibrium_coverage_batches : float              = EQUILIBRIUM_COVERAGE_BATCHES,
-    reorder_safety_batches       : float              = REORDER_SAFETY_BATCHES,
     lead_time_mean_batches       : float              = LEAD_TIME_MEAN_BATCHES,
     lead_time_cv                 : float              = LEAD_TIME_CV,
     supply_cv_mean               : float              = SUPPLY_CV_MEAN,
@@ -1336,7 +1357,6 @@ def generate_run(
             'seed'                          : seed,
             'num_skus'                      : num_skus,
             'mode'                          : 'creation_plan',
-            'equilibrium_coverage_batches'  : equilibrium_coverage_batches,
             'lead_time'                     : lead_time,
             'lead_time_range'               : list(lead_time_range) if lead_time_range else None,
             'supply_cv_max'                 : supply_cv_max,
@@ -1356,7 +1376,6 @@ def generate_run(
             num_skus         = num_skus,
             plan             = creation_plan,
             seed             = seed,
-            coverage_batches = equilibrium_coverage_batches,
             lead_time        = lead_time,
             lead_time_range  = lead_time_range,
             supply_cv_max    = supply_cv_max,
@@ -1388,8 +1407,6 @@ def generate_run(
             'singleton_fraction' : singleton_fraction,
             'dim_spec'                     : dim_spec,
             'weight_spec'                  : weight_spec,
-            'equilibrium_coverage_batches' : equilibrium_coverage_batches,
-            'reorder_safety_batches'       : reorder_safety_batches,
             'lead_time_mean_batches'       : lead_time_mean_batches,
             'supply_cv_mean'               : supply_cv_mean,
             'carton_min_dim'               : 3,
@@ -1410,8 +1427,6 @@ def generate_run(
             dim_spec                     = dim_spec,
             weight_spec                  = weight_spec,
             seed                         = seed,
-            equilibrium_coverage_batches = equilibrium_coverage_batches,
-            reorder_safety_batches       = reorder_safety_batches,
             lead_time_mean_batches       = lead_time_mean_batches,
             lead_time_cv                 = lead_time_cv,
             supply_cv_mean               = supply_cv_mean,
@@ -1462,7 +1477,6 @@ def generate_run(
     plot_dimensions(store_df, plot_dir, sfx)
     plot_weight(store_df, plot_dir, sfx)
     plot_demand(store_df, plot_dir)
-    plot_equilibrium_qty(store_df, plot_dir)
     plot_volume_vs_weight(store_df, plot_dir, sfx)
     plot_singleton_split(store_df, plot_dir)
     plot_dim_kde_overlay(store_df, plot_dir, sfx)

@@ -41,10 +41,10 @@ def _order(sku: int, qty: int = 4) -> Order:
     c.lift_group = ('conveyable', 'food')
     c.length, c.width, c.height, c.weight = 8, 8, 6, 2
     c.demand = Demand.from_rates(0.8, 4.0)
-    c.equilibrium_qty = qty
-    c.reorder_point = 1
-    c.stock_plan = None
-    return c
+    # The level is the run's declaration, written only through `declare_stock` (ADR-0002).
+    # stock_plan=None keeps the default pallet/singleton packing, which is what decides how
+    # many units `viable_storage_units` yields — the queue length every budget below counts.
+    return c.declare_stock(qty, 1, stock_plan=None)
 
 
 def _mgr(seed: int = 0) -> Inventory_Manager:

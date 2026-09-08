@@ -14,20 +14,21 @@
 <h1><span class="kind kind-function">function</span> <code>load_run_inventory</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_sim_assets_py.html"><code>Optimization/simdriver/sim_assets.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def load_run_inventory(path: str, limit: int | None=None, *, era: bool)</code></pre>
-<section class="doc">`load_inventory_from_db`, then honour the era&#x27;s `pipeline_qty` stamp ONLY under the era.
+<pre class="sig"><code>def load_run_inventory(path: str, limit: int | None=None)</code></pre>
+<section class="doc">The ONE loader both the parent (`build_shared_assets`) and the workers
+(`strategy_runner`) use for a run&#x27;s inventory.
 
-The stamp is written by the coverage rescaling into the planned inventory
-(&quot;Build the line floor&quot;).  Flag-off, the manager&#x27;s `rp x lead / (lead + 1)` heuristic must
-stand byte for byte whatever file was handed in -- a frozen planned inventory stamped by
-an era run included -- so a flag-off load clears the stamp and `Order.pipeline_allowance`
-falls back.  `Warehouse/` may not import the era predicate, which is why the guard sits
-here, on the ONE loader both the parent (`build_shared_assets`) and the workers
-(`strategy_runner`) use.
-
-`era` is EXPLICIT because a spawned worker&#x27;s CONFIG is pristine: `era_on()` there is the
-settings default, not the run&#x27;s flag (memory `config-knob-has-five-seams`).  The parent
-passes `era_on()`; the worker passes the `drain_or_cap` its work-day payload carries.</section>
+It is a thin pass-through today, and the reason it survives as a named seam is the reason
+it stopped branching.  It used to CLEAR the `pipeline_qty` stamp on a flag-off load, so the
+manager&#x27;s `rp x lead / (lead + 1)` heuristic stood byte for byte whatever file was handed
+in.  That guard existed because the era was the only regime that declared its own levels;
+flag-off inherited the catalogue&#x27;s authored ones and had to stay byte-identical with the
+archive.  Since ADR-0002 there is ONE planner contract: every run declares its levels at
+setup, in days, and stamps the lead pipeline that goes with them (&quot;Field the floor&quot;,
+decision 6).  Honouring the stamp in one mode and discarding it in the other would field a
+level whose reorder point encodes a LINE while pricing its pipeline by a heuristic that
+assumes the reorder point encodes lead-time demand -- the exact defect the stamp was
+introduced to fix.  The era flag now decides only whether the clock cuts and caps.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_generation_generate_inventory_py__load_inventory_from_db.html"><code>load_inventory_from_db</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_sim_assets_py__load_run_inventory">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/sim_assets.py#:~:text=def%20load_run_inventory">Source ↗</a></p>
 </article>

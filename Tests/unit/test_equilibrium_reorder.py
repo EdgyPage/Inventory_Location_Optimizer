@@ -2,11 +2,21 @@
 
 The model, end to end
 ---------------------
-At profile-generation time each SKU gets three numbers derived from its demand:
+At profile-generation time each SKU gets its demand and its supply side, and NOTHING ELSE:
 
     expected_batch_demand = relative_frequency * quantity_rate
-    equilibrium_qty       = max(1, round(coverage_batches * expected_batch_demand))
-    reorder_point         = max(1, min(eq - 1, round(demand * (lead_time + safety_batches))))
+    lead_time_mean        = mean batches before a placed order arrives
+    supply_cv             = coefficient of variation of the received quantity
+
+A LEVEL IS NOT A SKU'S FACT (ADR-0002, `docs/adr/0002-the-catalogue-carries-no-stock-levels
+.md`).  The generator used to author `equilibrium_qty = coverage_batches x
+expected_batch_demand` and a matching `reorder_point`; it no longer authors either.  A run
+DECLARES them at setup — `Order.declare_stock` is the one mutation site for all four level
+slots (`equilibrium_qty`, `reorder_point`, `stock_plan`, `pipeline_qty`), and on a freshly
+generated or catalogue-loaded order those slots are UNSET, not defaulted.  Part A is the
+contract that says so; Part B is the two DB round trips (a catalogue declaring nothing, and
+a run's own declaration).  Everything from Part C down declares its levels by hand and then
+tests reorder BEHAVIOUR, which the ADR did not change.
 
 At run time `check_reorders` fires when inventory POSITION (on-hand + queued + deferred)
 falls to or below `reorder_point`, and orders back up to the target:
@@ -36,6 +46,7 @@ rather than the production path — see the Part G banner.  Do not re-introduce 
 """
 from __future__ import annotations
 
+import inspect
 import math
 import os
 import random
@@ -49,17 +60,30 @@ from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.catalog.Order import Order, StorageHandleConfig
 from Warehouse.catalog.Demand import Demand
+from Warehouse.generation import generate_inventory as _gen
 from Warehouse.generation.generate_inventory import (
     build_inventory_with_profile,
+    build_inventory_from_plan,
+    generate_run,
     save_inventory_to_db,
     load_inventory_from_db,
     DEFAULT_DIM_SPEC,
     DEFAULT_WEIGHT_SPEC,
 )
 from Warehouse.inventory.Inventory_Management import Inventory_Manager, _equilibrium_qty
+from Warehouse.inventory.inventory_common import UndeclaredStock
 from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 
 _TOL = 1e-9
+
+#: The four slots `Order.declare_stock` writes and nothing else may.  A generated or
+#: catalogue-loaded order carries NONE of them (ADR-0002).
+_LEVEL_SLOTS = ('equilibrium_qty', 'reorder_point', 'stock_plan', 'pipeline_qty')
+
+#: The generator knobs retired with the authored level.  Names, not values: the point is that
+#: no builder still accepts one under any spelling.
+_RETIRED_KNOBS = frozenset({'equilibrium_coverage_batches', 'reorder_safety_batches',
+                            'coverage_batches'})
 
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
@@ -86,7 +110,14 @@ def _small_warehouse(seed: int = 0) -> tuple[WarehouseConfig, Inventory_Manager]
 
 def _make_carton(sku: int, eq_qty: int = 20, rp: int = 10,
                  lt: float = 0.0, supply_cv: float = 0.0) -> Order:
-    """An Order with hand-set OUP parameters — no DB, no profile generation."""
+    """An Order with a hand-declared stock level — no DB, no profile generation.
+
+    The physical/demand fields are set directly (this stands in for a catalogue SKU); the
+    LEVEL goes through `declare_stock`, the one mutation site (ADR-0002).  Every number is
+    identical to what this helper used to assign by hand — `declare_stock`'s clamps
+    (Q >= 1; 1 <= rp <= Q-1) are no-ops on every (eq_qty, rp) pair used below — so the
+    behaviour tests that consume it are unchanged.
+    """
     c = object.__new__(Order)
     c._sku                  = sku
     c.storage_type          = ('conveyable', 'food')
@@ -97,15 +128,14 @@ def _make_carton(sku: int, eq_qty: int = 20, rp: int = 10,
     c.height = 6
     c.weight = 2
     c.demand = Demand.from_rates(0.8, 4.0)
-    c.equilibrium_qty       = eq_qty
-    c.reorder_point         = rp
     c.lead_time_mean        = lt
     c.supply_cv             = supply_cv
     c.expected_batch_demand = 0.8 * 4.0
-    return c
+    return c.declare_stock(eq_qty, rp)
 
 
 def _profile(num_skus, seed, **kw):
+    """A generated catalogue.  It declares NO stock level — see `_declare_run_levels`."""
     return build_inventory_with_profile(
         num_skus=num_skus, seed=seed,
         handling_splits=[0.5, 0.5],
@@ -114,6 +144,22 @@ def _profile(num_skus, seed, **kw):
         dim_spec=DEFAULT_DIM_SPEC,
         weight_spec=DEFAULT_WEIGHT_SPEC,
         **kw)
+
+
+def _declare_run_levels(orders, coverage: float = 10.0, safety: float = 2.0):
+    """Declare a run's levels over a generated catalogue — what a real run does at setup.
+
+    The catalogue carries none (ADR-0002), and `_equilibrium_qty` RAISES rather than
+    defaulting, so anything that stocks a warehouse has to declare first.  The sizing used
+    here is deliberately the formula the generator used to author, so the system-level
+    regression in Part F is numerically the same test it was before the split; what changed
+    is WHO says it.
+    """
+    for c in orders:
+        eq = max(1, round(coverage * c.expected_batch_demand))
+        rp = max(1, min(eq - 1, round(c.expected_batch_demand * (c.lead_time_mean + safety))))
+        c.declare_stock(eq, rp)
+    return orders
 
 
 def _clear_in_flight(mgr, sku):
@@ -130,93 +176,157 @@ def _clear_in_flight(mgr, sku):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Part A: what build_inventory_with_profile must produce
+# Part A: what build_inventory_with_profile must produce — and what it must NOT
 # ═════════════════════════════════════════════════════════════════════════════
+#
+# This part used to assert that every generated SKU carried `equilibrium_qty` /
+# `reorder_point` and that both matched the generator's coverage-in-batches formulas.  That
+# subject is GONE (ADR-0002): the generator authors no level.  The coverage moved rather
+# than vanished — the same three tests now pin the replacement contract, which nothing else
+# in the suite pins:  the demand/supply fields are still all there, the four level slots are
+# genuinely UNSET (not defaulted, not None), and the retired knobs are gone from every
+# builder signature so a caller who still passes one is told.
 
-def test_every_generated_sku_carries_the_three_oup_attributes():
+def test_every_generated_sku_carries_demand_and_supply_but_declares_no_stock():
     """All 100 SKUs, not a spot check.
 
-    `check_reorders` reads `equilibrium_qty`, `reorder_point` and `lead_time_mean` off the
-    order with no default worth having: a missing attribute means a SKU that is never
-    restocked.  `stock_qty` must be GONE — the loader is canonical-schema only, and a
-    lingering legacy attribute would let `_equilibrium_qty`'s fallback mask a real omission.
+    The catalogue's half of the contract: a SKU's own facts (geometry, demand, lead time,
+    supply reliability) are complete, and `stock_declared()` is False on every one of them.
+    A generator that started authoring a level again — or that quietly dropped `supply_cv` —
+    fails here rather than three layers down.
+
+    `stock_qty` must be GONE: it is `_equilibrium_qty`'s documented legacy fallback, so a
+    lingering copy would answer for an order nobody declared, which is precisely the silence
+    ADR-0002 removed.
 
     (The old harness `break`-ed after the first SKU because each check printed a line.
     Asserting is free, so all 100 are checked.)
     """
-    inv = _profile(100, seed=42, equilibrium_coverage_batches=10.0, reorder_safety_batches=2.0)
+    inv = _profile(100, seed=42, lead_time_mean_batches=2.0, supply_cv_mean=0.15)
     assert len(inv.orders) == 100, len(inv.orders)
 
     for c in inv.orders:
-        assert hasattr(c, 'equilibrium_qty'), f'sku={c.sku} has no equilibrium_qty'
-        assert hasattr(c, 'reorder_point'),   f'sku={c.sku} has no reorder_point'
-        assert hasattr(c, 'lead_time_mean'),  f'sku={c.sku} has no lead_time_mean'
+        assert c.expected_batch_demand > 0.0, (
+            f'sku={c.sku} expected_batch_demand={c.expected_batch_demand}')
+        assert 0.0 < c.demand.relative_frequency <= 1.0, (
+            f'sku={c.sku} relative_frequency={c.demand.relative_frequency} outside (0, 1]')
+        assert Order.MIN_QTY <= c.demand.quantity_rate <= Order.MAX_QTY, (
+            f'sku={c.sku} quantity_rate={c.demand.quantity_rate} outside the clamp')
+        assert c.lead_time_mean >= 0.0, f'sku={c.sku} lead_time_mean={c.lead_time_mean}'
+        assert c.supply_cv >= 0.0, (
+            f'sku={c.sku} supply_cv={c.supply_cv} — a negative standard deviation')
         assert not hasattr(c, 'stock_qty'), (
-            f'sku={c.sku} still carries the legacy stock_qty={c.stock_qty} — '
+            f'sku={c.sku} carries the legacy stock_qty={c.stock_qty} — '
             f'_equilibrium_qty would silently fall back to it')
-        assert c.equilibrium_qty >= 1, f'sku={c.sku} equilibrium_qty={c.equilibrium_qty}'
-        assert c.reorder_point <= c.equilibrium_qty, (
-            f'sku={c.sku} reorder_point={c.reorder_point} > equilibrium_qty='
-            f'{c.equilibrium_qty} — it would reorder on a full bin, every batch')
+        assert not c.stock_declared(), (
+            f'sku={c.sku} came out of the generator with a stock declaration '
+            f'(equilibrium_qty={c.equilibrium_qty}) — the catalogue carries no levels')
+
+    # ...and the supply side actually VARIES, or the loop above would pass on a generator
+    # that hard-coded every SKU's lead and cv to zero.
+    assert any(c.lead_time_mean > 0.0 for c in inv.orders), 'no SKU drew a positive lead time'
+    assert len({round(c.supply_cv, 6) for c in inv.orders}) > 1, 'supply_cv is not per-SKU'
+    assert len({round(c.expected_batch_demand, 6) for c in inv.orders}) > 1, (
+        'every SKU has the same expected_batch_demand — demand does not discriminate, so '
+        'every level a run derives from it would be identical too')
 
 
-def test_equilibrium_and_reorder_point_match_their_formulas_exactly():
-    """The two derived quantities are recomputed here from `expected_batch_demand`.
+def test_the_four_level_slots_are_unset_until_a_run_declares_them():
+    """The property the whole ADR rests on: UNSET, not defaulted.
 
-    Both are integers, so this is an exact comparison by construction — a rounding change in
-    the generator shows up as an off-by-one on hundreds of SKUs rather than as drift.
+    `Order` is a `__slots__` class, so an unwritten level slot RAISES AttributeError — that
+    is what makes `stock_declared()` a real answer and what makes `_equilibrium_qty` able to
+    refuse.  A well-meaning `= None` or `= 1` in any construction path would turn every one
+    of those refusals back into a silent default, and nothing else in the suite would notice:
+    a warehouse sized at one unit per SKU builds, runs and reports.
     """
-    inv = _profile(200, seed=7, equilibrium_coverage_batches=10.0, reorder_safety_batches=2.0)
+    inv = _profile(25, seed=42)
 
-    bad_eq, bad_rp = [], []
     for c in inv.orders:
-        want_eq = max(1, round(10.0 * c.expected_batch_demand))
-        # ROP = demand x (lead_time + safety), floored at 1 and capped at eq-1.
-        want_rp = max(1, min(c.equilibrium_qty - 1,
-                             round(c.expected_batch_demand * (c.lead_time_mean + 2.0))))
-        if c.equilibrium_qty != want_eq:
-            bad_eq.append((c.sku, c.equilibrium_qty, want_eq))
-        if c.reorder_point != want_rp:
-            bad_rp.append((c.sku, c.reorder_point, want_rp))
+        for slot in _LEVEL_SLOTS:
+            with pytest.raises(AttributeError):
+                getattr(c, slot)
+        assert not c.stock_declared(), f'sku={c.sku} stock_declared() with every slot unset'
 
-    assert not bad_eq, (
-        f'{len(bad_eq)}/{len(inv.orders)} SKUs where equilibrium_qty != '
-        f'round(10 x expected_batch_demand); (sku, got, want) = {bad_eq[:3]}')
-    assert not bad_rp, (
-        f'{len(bad_rp)}/{len(inv.orders)} SKUs where reorder_point != '
-        f'demand x (lead + safety) capped at eq-1; (sku, got, want) = {bad_rp[:3]}')
+    # `declare_stock` is the one thing that fills them, and it fills ALL four.
+    c = inv.orders[0]
+    assert c.declare_stock(20, 8) is c, 'declare_stock must return self (it is chained)'
+    assert c.stock_declared()
+    assert (c.equilibrium_qty, c.reorder_point) == (20, 8)
+    assert c.stock_plan is None and c.pipeline_qty is None
+    # ...carrying the clamps `Order.build` used to apply: Q >= 1, 1 <= rp <= Q-1.
+    assert (_make_carton(sku=901, eq_qty=0, rp=0).equilibrium_qty,
+            _make_carton(sku=902, eq_qty=0, rp=0).reorder_point) == (1, 1)
+    assert _make_carton(sku=903, eq_qty=10, rp=99).reorder_point == 9, (
+        'rp above the target would reorder on a full bin, every batch')
 
 
-def test_reorder_point_rises_with_demand():
-    """The formula is only useful if it discriminates.
+def test_the_retired_coverage_knobs_are_gone_from_every_builder():
+    """A retired knob must fail LOUDLY, and the module constants must be gone with it.
 
-    A generator bug that collapsed every `expected_batch_demand` to a constant would satisfy
-    the formula test above perfectly while making every SKU's policy identical.
+    `equilibrium_coverage_batches` / `reorder_safety_batches` / `coverage_batches` are the
+    coverage-in-batches conversion ADR-0002 deleted.  If a builder still accepted one — as a
+    `**kwargs` sink, or as an ignored parameter kept "for compatibility" — every caller in
+    the repo would keep passing 10.0 and 2.0 and get no level and no error.  `inspect
+    .signature` is the check, and the `TypeError` below is the behaviour it guarantees.
     """
-    by_demand = sorted(_profile(200, seed=7,
-                                equilibrium_coverage_batches=10.0,
-                                reorder_safety_batches=2.0).orders,
-                       key=lambda c: c.expected_batch_demand)
-    low, high = by_demand[0], by_demand[-1]
+    for const in ('EQUILIBRIUM_COVERAGE_BATCHES', 'REORDER_SAFETY_BATCHES'):
+        assert not hasattr(_gen, const), (
+            f'generate_inventory.{const} is back — the authored level went with it')
 
-    assert high.reorder_point > low.reorder_point, (
-        f'slowest mover (demand={low.expected_batch_demand:.3f}) has rp={low.reorder_point}; '
-        f'fastest (demand={high.expected_batch_demand:.3f}) has rp={high.reorder_point}')
+    for fn in (build_inventory_with_profile, build_inventory_from_plan, generate_run):
+        params = inspect.signature(fn).parameters
+        still_there = _RETIRED_KNOBS & set(params)
+        assert not still_there, f'{fn.__name__}{tuple(params)} still accepts {still_there}'
+        assert not any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()), (
+            f'{fn.__name__} grew a **kwargs sink — a retired knob would vanish into it '
+            f'instead of raising')
+
+    with pytest.raises(TypeError):
+        _profile(2, seed=0, equilibrium_coverage_batches=10.0)
+    with pytest.raises(TypeError):
+        _profile(2, seed=0, reorder_safety_batches=2.0)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Part B: DB round-trip
+# Part B: DB round-trip — the catalogue declares nothing, a run declares four values
 # ═════════════════════════════════════════════════════════════════════════════
 
-def test_oup_attributes_survive_a_db_round_trip():
-    """Worker processes RELOAD the inventory from a DB; anything not persisted is lost.
+def _cols(db_path: str, table: str) -> list[str]:
+    """The column names of *table*.
 
-    A dropped `reorder_point` column does not raise — the loaded order simply has none, and
-    every worker runs a warehouse that never restocks while the main process's own numbers
-    look fine.
+    PRAGMA table_info on a table that does not exist returns NO ROWS rather than raising, so
+    a mistyped name yields `[]` and every `x not in cols` assertion written against it passes
+    for the wrong reason — that is exactly how three assertions in this file went vacuous
+    once.  Every caller asserts non-emptiness first; the emptiness guard lives here so it
+    cannot be forgotten at a call site.
     """
-    inv = _profile(50, seed=1, equilibrium_coverage_batches=8.0,
-                   reorder_safety_batches=2.0, lead_time_mean_batches=2.0)
+    conn = sqlite3.connect(db_path)
+    try:
+        return [r[1] for r in conn.execute(f'PRAGMA table_info({table})').fetchall()]
+    finally:
+        conn.close()
+
+
+def _rowcount(db_path: str, table: str) -> int:
+    conn = sqlite3.connect(db_path)
+    try:
+        return int(conn.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0])
+    finally:
+        conn.close()
+
+
+def test_a_generated_catalogue_round_trips_with_an_empty_stock_levels_table():
+    """Worker processes RELOAD the inventory from a DB; anything not persisted is lost —
+    and, since ADR-0002, anything INVENTED on load is worse.
+
+    The catalogue's file must come back undeclared.  A loader that filled the level slots
+    with a NULL, a zero or a 1 would hand every worker a warehouse sized at nothing, and
+    `stock_declared()` would answer True for a declaration nobody made.  Emptiness is the
+    contract: no row in `stock_levels` means no declaration, as against a NULL column, which
+    would read as an authored level that happens to be missing.
+    """
+    inv = _profile(50, seed=1, lead_time_mean_batches=2.0, supply_cv_mean=0.15)
     with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
         db_path = f.name
 
@@ -231,30 +341,90 @@ def test_oup_attributes_survive_a_db_round_trip():
         mismatches = []
         for sku, c in orig.items():
             c2 = loaded[sku]
-            if c.equilibrium_qty != c2.equilibrium_qty:
-                mismatches.append(('equilibrium_qty', sku, c.equilibrium_qty, c2.equilibrium_qty))
-            if c.reorder_point != c2.reorder_point:
-                mismatches.append(('reorder_point', sku, c.reorder_point, c2.reorder_point))
             if abs(c.lead_time_mean - c2.lead_time_mean) > _TOL:
                 mismatches.append(('lead_time_mean', sku, c.lead_time_mean, c2.lead_time_mean))
+            if abs(c.supply_cv - c2.supply_cv) > _TOL:
+                mismatches.append(('supply_cv', sku, c.supply_cv, c2.supply_cv))
+            if abs(c.demand.relative_frequency - c2.demand.relative_frequency) > _TOL:
+                mismatches.append(('relative_frequency', sku,
+                                   c.demand.relative_frequency, c2.demand.relative_frequency))
         assert not mismatches, (
             f'{len(mismatches)} attribute(s) changed across save+load; '
             f'(field, sku, saved, loaded) = {mismatches[:3]}')
 
+        undeclared = [c.sku for c in inv2.orders if c.stock_declared()]
+        assert not undeclared, (
+            f'{len(undeclared)} loaded SKUs came back DECLARED from a catalogue that '
+            f'declares nothing; first few = {undeclared[:3]}')
+        for slot in _LEVEL_SLOTS:
+            with pytest.raises(AttributeError):
+                getattr(inv2.orders[0], slot)
+
+        assert _rowcount(db_path, 'stock_levels') == 0, (
+            'a generated catalogue wrote rows into stock_levels — a level is a run\'s '
+            'declaration, and this file makes none')
+
         # The table is `cartons`, NOT `orders` — the persisted name was deliberately kept
-        # stable across the Carton->Order rename (generate_inventory._SCHEMA).  This read
-        # used to name `orders`; PRAGMA table_info on a table that does not exist returns
-        # NO ROWS rather than raising, so `cols` was always [] and all three checks below
-        # were vacuous — the absent-check passed for the wrong reason and the two
-        # present-checks asserted nothing.  The emptiness guard goes first, so the same
-        # mistake fails loudly instead of silently.
-        conn = sqlite3.connect(db_path)
-        cols = [r[1] for r in conn.execute('PRAGMA table_info(cartons)').fetchall()]
-        conn.close()
+        # stable across the Carton->Order rename (generate_inventory._SCHEMA).
+        cols = _cols(db_path, 'cartons')
         assert cols, 'PRAGMA table_info(cartons) returned no columns — wrong table name?'
         assert 'stock_qty' not in cols, f'legacy stock_qty column present in a new DB: {cols}'
-        assert 'equilibrium_qty' in cols, f'equilibrium_qty column missing: {cols}'
         assert 'lead_time_mean' in cols, f'lead_time_mean column missing: {cols}'
+        # The three level columns LEFT `cartons` (they are a schema vintage now).
+        for gone in ('equilibrium_qty', 'reorder_point', 'stock_plan'):
+            assert gone not in cols, (
+                f'{gone} is back in `cartons`: the catalogue would author a level again '
+                f'({cols})')
+
+        levels = _cols(db_path, 'stock_levels')
+        assert levels, 'PRAGMA table_info(stock_levels) returned no columns — table missing?'
+        for want in ('sku', 'equilibrium_qty', 'reorder_point', 'stock_plan', 'pipeline_qty'):
+            assert want in levels, f'{want} missing from stock_levels: {levels}'
+    finally:
+        os.unlink(db_path)
+
+
+def test_a_declared_inventory_round_trips_all_four_level_values():
+    """The other file this shape serves: a run's own `planned_inventory.db`.
+
+    A dropped `reorder_point` column does not raise — the loaded order simply has none, and
+    every worker runs a warehouse that never restocks while the main process's own numbers
+    look fine.  All four values are checked per SKU, `stock_plan` included: it is a JSON
+    round trip (tuples land as lists) and the loader has to rebuild the tuples, or the
+    reorder repacks to a different tier mix than the run planned.
+    """
+    inv = _profile(30, seed=3, lead_time_mean_batches=2.0)
+    want = {}
+    for c in inv.orders:                      # what a run's setup would declare
+        eq   = 10 + c.sku % 40
+        rp   = 1 + c.sku % 5
+        plan = [(False, 3, 1 + c.sku % 3), (True, 1, 2)]
+        pipe = c.sku % 7
+        c.declare_stock(eq, rp, stock_plan=plan, pipeline_qty=pipe)
+        want[c.sku] = (eq, rp, plan, pipe)
+
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        db_path = f.name
+    try:
+        save_inventory_to_db(inv, db_path, {'test': True})
+        assert _rowcount(db_path, 'stock_levels') == len(inv.orders), (
+            'a declared inventory must write one stock_levels row per SKU')
+
+        loaded = {c.sku: c for c in load_inventory_from_db(db_path).orders}
+        assert len(loaded) == len(want), f'{len(loaded)} SKUs loaded, {len(want)} saved'
+
+        mismatches = []
+        for sku, (eq, rp, plan, pipe) in want.items():
+            c2 = loaded[sku]
+            if not c2.stock_declared():
+                mismatches.append(('stock_declared', sku, True, False))
+                continue
+            got = (c2.equilibrium_qty, c2.reorder_point, c2.stock_plan, c2.pipeline_qty)
+            if got != (eq, rp, plan, pipe):
+                mismatches.append(('level', sku, (eq, rp, plan, pipe), got))
+        assert not mismatches, (
+            f'{len(mismatches)} declaration(s) changed across save+load; '
+            f'(field, sku, saved, loaded) = {mismatches[:3]}')
     finally:
         os.unlink(db_path)
 
@@ -483,11 +653,17 @@ def test_a_stamped_pipeline_replaces_the_heuristic_and_an_unstamped_one_keeps_it
 # ═════════════════════════════════════════════════════════════════════════════
 
 def test_equilibrium_qty_accessor_covers_all_three_order_shapes():
-    """One helper reads the target off orders of three vintages.
+    """One helper reads the target off orders of three vintages — and REFUSES the third.
 
-    The legacy `stock_qty` fallback is why `test_every_generated_sku_carries_the_three_oup_
-    attributes` asserts the attribute is GONE from generated orders: with the fallback in
-    place, a generator that stopped setting `equilibrium_qty` would keep working silently.
+    The legacy `stock_qty` fallback is why `test_every_generated_sku_carries_demand_and_
+    supply_but_declares_no_stock` asserts the attribute is GONE from generated orders: with
+    the fallback in place, an undeclared SKU that happened to carry one would answer.
+
+    The undeclared case used to answer 1.  That default is the reason it now raises: the
+    catalogue carries no levels (ADR-0002), so every SKU of a freshly loaded catalogue would
+    have answered 1, `bucket_requirements` would size every bucket for one unit per SKU, and
+    the run would build a warehouse an order of magnitude too small — with no error, at the
+    one moment nothing downstream can detect it.
     """
     assert _equilibrium_qty(_make_carton(sku=40, eq_qty=25)) == 25
 
@@ -496,7 +672,14 @@ def test_equilibrium_qty_accessor_covers_all_three_order_shapes():
     assert _equilibrium_qty(legacy) == 50, 'legacy stock_qty fallback'
 
     bare = object.__new__(Order)
-    assert _equilibrium_qty(bare) == 1, 'an order with neither attribute defaults to 1'
+    with pytest.raises(UndeclaredStock):
+        _equilibrium_qty(bare)
+
+    # ...and a freshly generated SKU is exactly that shape, which is the whole point.
+    generated = _profile(1, seed=0).orders[0]
+    with pytest.raises(UndeclaredStock):
+        _equilibrium_qty(generated)
+    assert _equilibrium_qty(generated.declare_stock(17, 4)) == 17
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -509,8 +692,13 @@ def test_fill_does_not_drift_down_over_thirty_batches():
     Every unit test in this file pins one rule in isolation; this one asserts they compose.
     A slow leak — a reorder that fires but under-orders, a release that drops units — shows
     up here as fill drifting down while every isolated test stays green.
+
+    The levels are DECLARED here rather than read off the catalogue (ADR-0002), at the same
+    coverage the generator used to author, so the fill numbers this asserts are the ones it
+    always asserted.
     """
-    inv = _profile(100, seed=42, equilibrium_coverage_batches=10.0, reorder_safety_batches=2.0)
+    inv = _profile(100, seed=42)
+    _declare_run_levels(inv.orders, coverage=10.0, safety=2.0)
 
     Aisle.next_aisle_id = 1
     random.seed(42)

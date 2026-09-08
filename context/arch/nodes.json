@@ -2,7 +2,7 @@
   "nodes": {
     "Diagnostics/bucket_fill.py": {
       "decorators": [],
-      "doc": "bucket_fill.py \u2014 read-only diagnostic for the queue-blowup / sub-target-fill bug.\n\nLocalises the per-(handling, category, size, unit_type) bucket mismatch behind a deep\n`_stock_queue` coexisting with global fill below target.  Two views:\n\n  SIZING  \u2014 per bucket: built capacity (bins), the `stock_plan` SPREAD footprint that\n            initial stock places, and the DEFAULT-PACK footprint a dumb-JIT warehouse\n            would need (bucket_requirements with stock_plan stripped).  Plus default-pack\n            timing, since retiring stock_plan puts that cost back on the hot path.\n\n  RUNTIME \u2014 runs a short single-process FIFO sim (mirrors strategy_runner's loop) and\n            snapshots per-bucket {occupied, free, queued units} + the global fill / queue\n            trajectory, flagging buckets >95% full (overflow) and <40% full (waste).\n\nNothing here mutates production data; it only reads DBs and runs an in-memory sim.\n\nUsage\n-----\n    python Diagnostics/bucket_fill.py [profile_label_or_inv_db] [--max-skus N]\n        [--batches N] [--max-bins N] [--min-bins N]",
+      "doc": "bucket_fill.py \u2014 read-only diagnostic for the queue-blowup / sub-target-fill bug.\n\nLocalises the per-(handling, category, size, unit_type) bucket mismatch behind a deep\n`_stock_queue` coexisting with global fill below target.  Two views:\n\n  SIZING  \u2014 per bucket: built capacity (bins), the `stock_plan` SPREAD footprint that\n            initial stock places, and the DEFAULT-PACK footprint a dumb-JIT warehouse\n            would need (bucket_requirements with stock_plan stripped).  Plus default-pack\n            timing, since retiring stock_plan would put that packing back on the hot path.\n\n  RUNTIME \u2014 runs a short single-process FIFO sim (mirrors strategy_runner's loop) and\n            snapshots per-bucket {occupied, free, queued units} + the global fill / queue\n            trajectory, flagging buckets >95% full (overflow) and <40% full (waste).\n\nBOTH SIDES OF THE SIZING VIEW READ THE RUN'S PLANNED INVENTORY, never the catalogue.\nA stock level is a run's declaration and a generated catalogue carries none (ADR-0002):\n`load_inventory_from_db` on a profile DB returns orders whose level slots are UNSET, and\n`bucket_requirements` over those is a caller bug \u2014 `_equilibrium_qty` raises\n`UndeclaredStock` rather than answering the 1 it used to, which would have sized the\nDEFAULT column at one unit per SKU instead of at what default packing needs.  The\nwarehouse planner's `stock_plan` survives ADR-0002 untouched; only its provenance moved,\nfrom a column the generator authored to the packing the planner writes for the level a\nrun declared.\n\nNothing here mutates production data; it only reads DBs and runs an in-memory sim.\n\nUsage\n-----\n    python Diagnostics/bucket_fill.py [profile_label_or_inv_db] [--max-skus N]\n        [--batches N] [--max-bins N] [--min-bins N]",
       "kind": "module",
       "signature": null
     },
@@ -99,10 +99,10 @@
     },
     "Diagnostics/bucket_fill.py::sizing_view": {
       "decorators": [],
-      "doc": null,
+      "doc": "Per-bucket capacity vs the two footprints the SAME declared levels produce.\n\nThe A/B is the PACKING and nothing else: both sides are the run's planned inventory,\nso every SKU brings the equilibrium quantity this run declared (ADR-0002 \u2014 the\ncatalogue has no level to bring).  The spread side keeps the planner's `stock_plan`\nand the default side has it stripped, which is what makes the two columns comparable\nand the two timings a like-for-like measure of what packing costs.",
       "is_async": false,
       "kind": "function",
-      "signature": "(inv_db: str, allowlist: set, warehouse, planned_cartons: list, log) -> None"
+      "signature": "(planned_inv_db: str, warehouse, planned_cartons: list, log) -> None"
     },
     "Diagnostics/receiving_report.py": {
       "decorators": [],
@@ -409,6 +409,13 @@
       "kind": "function",
       "signature": "(aisle) -> str"
     },
+    "Diagnostics/trace_lifecycle.py::_declare_stock": {
+      "decorators": [],
+      "doc": "Declare Q = 2 x expected batch demand (capped at 3) with rp = 1 on every order.\n\nBoth numbers survive `declare_stock`'s clamps unchanged \u2014 `eq_qty` is already \u2265 1,\n`min(Q-1, 1)` is 1 for every Q \u2265 2, and the Q = 1 orders this cap does produce (a SKU\nwhose expected batch demand rounds below one unit) take rp = 1 from the Q = 1 branch \u2014\nso this is the same level the probe has always fielded; only the writer moved.\n\n`expected_batch_demand`, `lead_time_mean` and `supply_cv` stay direct assignments:\nthey are demand and supply facts of the SKU, not a level, and `Order.__init__` (the\nconstruction path `_build_inventory` uses) leaves all three unset.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, lead_time: float=2.0, supply_cv: float=0.1) -> None"
+    },
     "Diagnostics/trace_lifecycle.py::_fill_snapshot": {
       "decorators": [],
       "doc": "Occupied / capacity \u2192 fill_overall, fill_by_aisle, fill_by_bucket.",
@@ -457,13 +464,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(*a, **kw)"
-    },
-    "Diagnostics/trace_lifecycle.py::_set_equilibrium": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(orders, lead_time: float=2.0, supply_cv: float=0.1) -> None"
     },
     "Diagnostics/trace_lifecycle.py::_warehouse_layout": {
       "decorators": [],
@@ -1690,7 +1690,7 @@
     },
     "Optimization/Performance_Evaluations/catalog/fixed.py": {
       "decorators": [],
-      "doc": "catalog.fixed \u2014 what this sweep VARIED, and what it held still.\n\n\"Not tested\" is a finding, and it was the one part of the published methodology that had no\nartifact behind it.  A reader asking \"is this sensitive to safety stock?\" got silence, which\nreads as an oversight rather than as a scope boundary \u2014 and a reader asking \"what else did\nyou hold fixed?\" had to reconstruct the answer from four config files.\n\nThis derives both halves from the run itself.  A factor is VARIED when the run's own tree\ncarries more than one distinct value of it, and FIXED when it carries exactly one; the\nfixed list is therefore complete by construction rather than by an author remembering.  A\nfactor whose value never appears anywhere \u2014 safety stock on the plan builder, which has no\nsuch parameter \u2014 is reported as ABSENT, which is a third and different thing: not held at a\nvalue, but not a knob this model has.",
+      "doc": "catalog.fixed \u2014 what this sweep VARIED, and what it held still.\n\n\"Not tested\" is a finding, and it was the one part of the published methodology that had no\nartifact behind it.  A reader asking \"is this sensitive to safety stock?\" got silence, which\nreads as an oversight rather than as a scope boundary \u2014 and a reader asking \"what else did\nyou hold fixed?\" had to reconstruct the answer from four config files.\n\nThis derives both halves from the run itself.  A factor is VARIED when the run's own tree\ncarries more than one distinct value of it, and FIXED when it carries exactly one; the\nfixed list is therefore complete by construction rather than by an author remembering.  A\nfactor whose value never appears anywhere \u2014 inter-aisle travel, which no scheduler models \u2014\nis reported as ABSENT, which is a third and different thing: not held at a value, but not a\nknob this model has.\n\nThe three-way split is only worth having if the third bucket is policed, and it was not.\nSAFETY STOCK sat in `_ABSENT` claiming the plan builder \"takes no safety-stock parameter\",\nwhich was true of the generator's closed form and stopped being true when ADR-0002 retired\nit: a run now declares `safety_days` on `STAFFING_KEYS`, with a `--safety-days` flag, and\nderives its reorder point from it.  So it is a knob HELD FIXED, and the correction is\nstructural rather than a re-worded line \u2014 the two families of factor come from two different\nrecords.  `_CONFIG_FACTORS` are per-leaf and read out of each leaf's `config_json`;\n`_SPEC_FACTORS` are declared once for the whole run and read out of the run spec's staffing\nrecord.  A factor listed in the wrong family does not merely mis-report: it never appears in\na leaf, so it drops out of the register entirely, which is the shape of the original mistake.\n\nBoth records are named by their CONTRACT alias throughout \u2014 `config_json`, `run_spec` \u2014 and\nnever by filename: the path is `rt.path`'s business, and a literal spelled even in a comment\nis the hand-joined-path debt the run-tree ratchet exists to stop.",
       "kind": "module",
       "signature": null
     },
@@ -1699,7 +1699,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(('safety_stock', 'The plan builder this run used derives the reorder point from lead time alone; it takes no safety-stock parameter, so there is no value to hold fixed. Varying it means changing t..."
+      "value_preview": "(('breaks_and_shifts', 'Breaks, lunches and shift changes WITHIN a working day are not modeled: a crew works continuously from the moment its day opens until its whistle. The day itself is modeled ..."
     },
     "Optimization/Performance_Evaluations/catalog/fixed.py::_CONFIG_FACTORS": {
       "decorators": [],
@@ -1715,9 +1715,16 @@
       "signature": null,
       "value_preview": "('profiles_dir', 'base_dir', 'output_dir', 'inv_db', 'aff_db')"
     },
+    "Optimization/Performance_Evaluations/catalog/fixed.py::_SPEC_FACTORS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('coverage_days', 'stock coverage, in days of demand'), ('safety_days', 'safety stock, in days of demand'), ('floor_lines', \"the stock floor, in lines of the SKU's own mean line\"))"
+    },
     "Optimization/Performance_Evaluations/catalog/fixed.py::_levels": {
       "decorators": [],
-      "doc": "{factor: sorted distinct values} across the whole run, from the tree and the leaves.",
+      "doc": "{factor: sorted distinct values} across the whole run \u2014 the tree, the leaves, the spec.\n\nThree sources, one rule.  The tree supplies the sweep's own axes (cell, inventory, pick\nconfig, channel); each leaf's `config_json` supplies `_CONFIG_FACTORS`; the run spec's\nstaffing record supplies `_SPEC_FACTORS`, which no leaf carries.  Whatever the source, a\nfactor with one distinct value is FIXED and one with several is VARIED, so a run-level\ndeclaration is reported exactly as honestly as a per-leaf one.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx) -> dict"
@@ -1754,7 +1761,7 @@
     },
     "Optimization/Performance_Evaluations/catalog/inventory.py": {
       "decorators": [],
-      "doc": "catalog.inventory \u2014 the inventory model the run PRODUCED, not the one its formula states.\n\nWHY THIS EXISTS.  The published pages carried an equilibrium/reorder model in prose:\n`q_eq = round(coverage x dbar)` and `ROP = round(dbar x (lead + safety))`.  Checked against\nthe run's own frozen catalogue, the stated equilibrium is off by an order of magnitude\n(coverage 10 x mean demand ~= 39 against a realised mean of ~3.5) and neither ROP formula\nreproduces even 55 % of the stored values.  Nothing was wrong with the simulation; the\nprose described the planner's intent and the catalogue records what survived\n`sample_to_capacity`, which rescales both to fit the warehouse.  A page cannot state a\nformula for that \u2014 it has to publish the distribution.\n\nWHAT THIS EMITS.  Realised distributions for the four quantities the pages talk about, the\nper-SKU reproduction rate of each candidate formula (so \"neither one\" is a measurement\nrather than an assertion), and the implied rescale factor.  A page renders these instead of\nrestating a formula, and the next time the planner changes, the page changes with it.",
+      "doc": "catalog.inventory \u2014 the stock levels this run DECLARED, published as a distribution.\n\nWHY THIS EXISTS.  A page has to say how much stock the simulation held, and the honest answer\nhas never been a formula.  It used to fail to be a formula for a particular reason: the\nCATALOGUE authored each SKU's order-up-to quantity and reorder point, the published pages\nrestated the generator's closed form, and measured against the run's own file that form\nreproduced neither quantity \u2014 `sample_to_capacity` rescaled both to fit the warehouse after\nthe planner had spoken.  So this tool scored the candidate closed forms against the stored\nvalues and published the implied rescale beside them, on the principle that \"neither formula\nholds\" should be a measurement rather than an assertion.\n\nBoth of those measurements are now about a mechanism that no longer exists.  ADR-0002 retired\nthe authored level: a stock level is not a fact about a SKU, and a generated catalogue carries\nnone.  Every run DERIVES its levels at setup from a coverage in DAYS\n(`Optimization/simconfig/coverage.py`, driven to a pair-level fixed point by\n`Optimization/simdriver/era_coverage.py`) and records them in its own planned inventory.  No\nclosed form authors a level any more, so a reproduction rate would score the agreement of two\nthings the run never used, and the planner growth the rescale ratio measured has no generator\nfigure left to grow away from.  Both blocks are gone.  What remains is the reason the tool\nexisted in the first place: PUBLISH THE DISTRIBUTION the run actually stocked.\n\nWHAT THIS EMITS.  Per inventory pair: the realised distribution of the three declared levels\n(order-up-to quantity, reorder point, lead pipeline) and of the lead time the reorder point is\ndenominated in, how many SKUs the run declared on, how many carry a hand-written packing plan,\nand THE DECLARATION ITSELF \u2014 `coverage_days` / `safety_days` / `floor_lines`, read off the\nrun's own staffing record (`staffing.calibration[<pair>].coverage`), which is where a run\nstates what produced these numbers.  A page renders the distribution and names the\ndeclaration; change the declaration and both change with it.\n\nWHICH FILE, AND HOW IT IS READ.  The `planned_inventory` contract alias \u2014 a RUN'S OWN planned\ninventory, never a generated catalogue, because only a run declares.  Read through\n`Schema.dataset`'s named queries instead of hand-written SQL against `cartons`: the\n`stock_levels` query serves the declaration out of the table that holds it on a current file\nand, through its per-vintage override, out of `cartons` on every archived one.  So an old run\nstill reports the levels it fielded, under the same logical names, with no version branch\nhere.",
       "kind": "module",
       "signature": null
     },
@@ -1763,21 +1770,42 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'inventory_db': {'cartons.expected_batch_demand': 'read', 'cartons.equilibrium_qty': 'read', 'cartons.reorder_point': 'read', 'cartons.lead_time_mean': 'read'}}"
+      "value_preview": "{'inventory_db': {'stock_levels.equilibrium_qty': 'read', 'stock_levels.reorder_point': 'read', 'stock_levels.pipeline_qty': 'read', 'stock_levels.stock_plan': 'read', 'cartons.lead_time_mean': 're..."
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::_CARTON_FIELDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('lead_time_mean',)"
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::_CSV_FIELDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('pair', 'quantity', 'n', 'mean', 'median', 'p5', 'p25', 'p75', 'p95', 'min', 'max')"
     },
     "Optimization/Performance_Evaluations/catalog/inventory.py::_FIELDS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('equilibrium_qty', 'reorder_point', 'lead_time_mean', 'expected_batch_demand')"
+      "value_preview": "_LEVEL_FIELDS + _CARTON_FIELDS"
     },
-    "Optimization/Performance_Evaluations/catalog/inventory.py::_ROP_FORMULAS": {
+    "Optimization/Performance_Evaluations/catalog/inventory.py::_LEVEL_FIELDS": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(('ceil_lead_plus_1', 'ceil(dbar * (lead + 1)), clamped to [1, eq-1] \u2014 build_inventory_from_plan', lambda d, lead, eq: max(1, min(eq - 1, math.ceil(d * (lead + 1)))) if eq > 1 else 1), ('round_lead..."
+      "value_preview": "('equilibrium_qty', 'reorder_point', 'pipeline_qty')"
+    },
+    "Optimization/Performance_Evaluations/catalog/inventory.py::_declaration": {
+      "decorators": [],
+      "doc": "The coverage this run DECLARED for `pair` \u2014 the three knobs, off the staffing record.\n\nThe run states its own inputs; this never re-derives them.  Read defensively because an\nabsent declaration is DATA: a run whose assets were rebuilt from a frozen inventory, or\none that predates the coverage loop, records no `coverage` block, and the right report for\nit is \"the file's levels, declaration unrecorded\" rather than a raise or an invented\ndefault.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, pair: str) -> dict"
     },
     "Optimization/Performance_Evaluations/catalog/inventory.py::_dist": {
       "decorators": [],
@@ -1795,14 +1823,14 @@
     },
     "Optimization/Performance_Evaluations/catalog/inventory.py::pair_model": {
       "decorators": [],
-      "doc": "Realised distributions + formula reproduction rates for one frozen catalogue.",
+      "doc": "Realised distributions for one pair's planned inventory, read by LOGICAL name.\n\n`dataset.bind` resolves the file to its OWN vintage and refuses one the family does not\nvet \u2014 deliberately left to raise.  This path publishes: a level read out of a shape\nnobody has vetted is exactly the plausible-wrong-number the schema layer exists to stop,\nand a run's pairs are all written by one build, so catching per pair would rescue\nnothing anyway.\n\nA pair that declares NOTHING is not an error and does not raise: `stock_levels` comes\nback empty (a generated catalogue frozen without a derivation, or a rebuild from an\ninventory that carried none), the level distributions are `{}`, and `n_declared` says so.\n\nNo `requires=` is passed, deliberately.  A `Requires` names PHYSICAL tables and would\nrefuse every pre-split vintage \u2014 whose `stock_levels` table does not exist, because its\noverride reads the declaration out of `cartons` \u2014 which is exactly the file this tool\nmost needs to read.  The named-query registry is the guarantee here: `UnsupportedQuery`\nnames the (vintage, query) pair when no SQL can serve it, by name and before any row.",
       "is_async": false,
       "kind": "function",
       "signature": "(db_path: str) -> dict"
     },
     "Optimization/Performance_Evaluations/catalog/inventory.py::render": {
       "decorators": [
-        "evaluation(key='catalog.inventory', label='The inventory model this run actually produced', scope='run', needs=('catalogue',), out_subdir=('', 'tables'))"
+        "evaluation(key='catalog.inventory', label='The stock levels this run declared', scope='run', needs=('catalogue',), out_subdir=('', 'tables'))"
       ],
       "doc": null,
       "is_async": false,
@@ -9159,6 +9187,13 @@
       "kind": "function",
       "signature": "(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=None, only=())"
     },
+    "Optimization/run_analysis.py::_coverage_record": {
+      "decorators": [],
+      "doc": "The coverage block this run recorded for `pair`, or None when it recorded none.\n\nA rebuild re-declares the run's stock levels from it before planning: the catalogue\ncarries none (ADR-0002) and the warehouse is sized from levels, so without this a\nre-analysis would size from nothing.  None is the honest answer for a run written before\nthe record existed, and `build_shared_assets` refuses rather than fabricating.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pair: str) -> dict | None"
+    },
     "Optimization/run_analysis.py::_drain": {
       "decorators": [],
       "doc": "Run jobs on the flat pool (or inline if no pool); log per-job errors.  Returns the\nmerged access tally {'granted': {eval: n}, 'denied': {eval: n}} across all jobs.",
@@ -11140,7 +11175,7 @@
     },
     "Optimization/simconfig/coverage.py": {
       "decorators": [],
-      "doc": "coverage.py \u2014 stock coverage as a RUNTIME rescaling under declared days, never a\ngenerator knob.\n\nThe catalogue authors every SKU's order-up-to quantity in GENERATION batches\n(`generate_inventory`: `equilibrium_qty = round(coverage_batches x freq x qty)`), and a\ngeneration batch is not a unit of time -- it is \"each SKU appears with probability `freq`\",\nwhich is worth however many site days the run's pickers make it worth.  Under the calibrated\nera the demand a SKU sees per DAY is known at setup (.scratch/department-calibration, \"Derive\nthe expected-travel closed form\", decision 2; the derivation note's section 5):\n\n    d_s = n \u00b7 \u03c0_s \u00b7 E[q_s]                    units of SKU s per day\n\n`n` is the pair's fixed point (lines per day the declared crew fills its capacity at), `\u03c0_s`\nthe SKU's line share within its channel section (`freq / \u03a3 freq`) and `E[q_s]` the mean of\nthe SKU's STAMPED line law (`Demand.line.mean()`; today `max(1, Poisson(\u03bb_s))`, so\n`\u03bb_s + e^{-\u03bb_s}`) -- read off the SKU, never re-derived here (\"Stamp the line distribution\non the SKU\").  This module re-derives every\nSKU's stock levels by the GENERATOR'S OWN FORMULA with the day as the unit, floored at ONE\nLINE of the SKU's own demand (\"Choose the coverage floor\", decisions 1-2):\n\n    L_s             = ceil(floor_lines \u00b7 E[q_s])                  the LINE FLOOR, >= 1\n    equilibrium_qty = max(round(coverage_days \u00b7 d_s), L_s)\n    reorder_point   = min(Q - 1, max(round(d_s \u00b7 (lead_days + safety_days)), L_s))   (Q > 1)\n                    = 1                                                              (Q = 1)\n    pipeline_qty    = round(d_s \u00b7 lead_days)                      the lead PIPELINE, stamped\n\nThe floor is a physical number per SKU -- a pick's worth of itself, so no SKU stocks out on a\nsingle line -- and it is what replaced the generator's unit floor (`Q >= 1`), under which a\nslow mover held one unit against ten-unit lines and the store section of the reference pair\nwas 100% floored (\"Rescale stock coverage at setup\", the finding).  A SKU whose coverage is\nshorter than the interval between its lines lands on the floor with `rp = Q - 1`: every pick\nfires an order-up-to for exactly what it took -- the textbook BASE-STOCK (S-1, S) policy,\nwhich `inventory_reorder._fire_reorders` already implements on inventory position.  Coverage\nis nominal AND real only for SKUs above the floor; `rescale_section` returns the shares so the\nrecord can say how much of the section, and of its demand, sits on it.\n\nThe reorder point's lead-time content is stamped, not inferred: `pipeline_qty` is the\nin-transit allowance `_fire_reorders` adds to the order-up-to (decision 6).  The manager's\n`rp \u00d7 lead \u00f7 (lead + 1)` heuristic assumed `rp` encodes lead-time demand; under the line floor\n`rp` encodes a line, and a floored SKU with a two-day lead would have ordered up to ~1.7 lines.\nThe stamp rides the SKU (`Order.pipeline_qty`, a `cartons` column of the planned inventory) so\nthe spawned workers read it; a flag-off run never stamps it and the heuristic stands.\n\nTHIS MODULE IS PURE: orders, a line count and three declared scalars in; the orders'\n`equilibrium_qty`, `reorder_point`, `pipeline_qty` and `stock_plan` mutated and a stats dict\nout.  It imports no CONFIG and touches no file.  The harness seam that drives it -- the\npair-level fixed point Q(n) -> plan_warehouse -> geometry -> n -- is\n`Optimization/simdriver/era_coverage.py`.",
+      "doc": "coverage.py \u2014 stock coverage as a RUNTIME declaration in days, never a generator knob.\n\nThe catalogue carries NO stock level (ADR-0002, department-calibration \"Field the floor\",\ndecision 5): a level is a RUN's declaration, and this module is where every run makes it.  It\nused to be authored at generation in GENERATION batches (`equilibrium_qty = round(\ncoverage_batches x freq x qty)`), and a generation batch is not a unit of time -- it is \"each\nSKU appears with probability `freq`\", which is worth however many site days the run's pickers\nmake it worth (1,771 of them on the reference catalogue's store section).  The demand a SKU\nsees per DAY is known at setup (.scratch/department-calibration, \"Derive the expected-travel\nclosed form\", decision 2; the derivation note's section 5):\n\n    d_s = n \u00b7 \u03c0_s \u00b7 E[q_s]                    units of SKU s per day\n\n`n` is the pair's fixed point (lines per day the declared crew fills its capacity at), `\u03c0_s`\nthe SKU's line share within its channel section (`freq / \u03a3 freq`) and `E[q_s]` the mean of\nthe SKU's STAMPED line law (`Demand.line.mean()`; today `max(1, Poisson(\u03bb_s))`, so\n`\u03bb_s + e^{-\u03bb_s}`) -- read off the SKU, never re-derived here (\"Stamp the line distribution\non the SKU\").  This module re-derives every\nSKU's stock levels by the GENERATOR'S OWN FORMULA with the day as the unit, floored at ONE\nLINE of the SKU's own demand (\"Choose the coverage floor\", decisions 1-2):\n\n    L_s             = ceil(floor_lines \u00b7 E[q_s])                  the LINE FLOOR, >= 1\n    equilibrium_qty = max(round(coverage_days \u00b7 d_s), L_s)\n    reorder_point   = min(Q - 1, max(round(d_s \u00b7 (lead_days + safety_days)), L_s))   (Q > 1)\n                    = 1                                                              (Q = 1)\n    pipeline_qty    = round(d_s \u00b7 lead_days)                      the lead PIPELINE, stamped\n\nThe floor is a physical number per SKU -- a pick's worth of itself, so no SKU stocks out on a\nsingle line -- and it is what replaced the generator's unit floor (`Q >= 1`), under which a\nslow mover held one unit against ten-unit lines and the store section of the reference pair\nwas 100% floored (\"Rescale stock coverage at setup\", the finding).  A SKU whose coverage is\nshorter than the interval between its lines lands on the floor with `rp = Q - 1`: every pick\nfires an order-up-to for exactly what it took -- the textbook BASE-STOCK (S-1, S) policy,\nwhich `inventory_reorder._fire_reorders` already implements on inventory position.  Coverage\nis nominal AND real only for SKUs above the floor; `rescale_section` returns the shares so the\nrecord can say how much of the section, and of its demand, sits on it.\n\nThe reorder point's lead-time content is stamped, not inferred: `pipeline_qty` is the\nin-transit allowance `_fire_reorders` adds to the order-up-to (decision 6).  The manager's\n`rp \u00d7 lead \u00f7 (lead + 1)` heuristic assumed `rp` encodes lead-time demand; under the line floor\n`rp` encodes a line, and a floored SKU with a two-day lead would have ordered up to ~1.7 lines.\nThe stamp rides the SKU (`Order.pipeline_qty`, a `cartons` column of the planned inventory) so\nthe spawned workers read it; a flag-off run never stamps it and the heuristic stands.\n\nTHIS MODULE IS PURE: orders, a line count and three declared scalars in; the orders'\nstock DECLARATION written through `Order.declare_stock` (the one mutation site for the four\nlevel slots) and a stats dict out.  It imports no CONFIG and touches no file.  The harness seam\nthat drives it -- the pair-level fixed point Q(n) -> plan_warehouse -> geometry -> n -- is\n`Optimization/simdriver/era_coverage.py`, and it runs in EVERY mode: the calibrated era decides\nwhether the clock cuts and caps, never whether a run declares its stock (ADR-0002, decision 6).",
       "kind": "module",
       "signature": null
     },
@@ -11165,13 +11200,6 @@
       "kind": "function",
       "signature": "(orders, lines_per_day: float) -> dict"
     },
-    "Optimization/simconfig/coverage.py::implied_coverage": {
-      "decorators": [],
-      "doc": "What the section's CURRENT stock levels are worth in days at `lines_per_day` -- the\ncatalogue's implicit coverage, recorded before the first rescaling so the record can say\nwhat the generation-batch denomination amounted to on this pair.  Demand-weighted mean\nand the plain median of `Q_s / d_s`; `sum_q` for the size before/after.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(orders, lines_per_day: float) -> dict"
-    },
     "Optimization/simconfig/coverage.py::line_floor": {
       "decorators": [],
       "doc": "`L_s = ceil(floor_lines \u00d7 E[q_s])`, at least 1: the least stock a SKU ever holds, in\nunits, read off its stamped line law.  `floor_lines` is the declared number of lines\n(1.0 by default: one pick's worth); the mean is rounded UP so the shelf is never below\nthe expected line.  Refuses a non-positive `floor_lines` -- a zero would be the unit\nfloor by the back door.",
@@ -11188,7 +11216,7 @@
     },
     "Optimization/simconfig/coverage.py::rescale_section": {
       "decorators": [],
-      "doc": "Re-derive every order's stock levels for one section and return the floor shares.\n\nMUTATES the orders: `equilibrium_qty`, `reorder_point`, `pipeline_qty` (the stamped lead\npipeline) and `stock_plan` (reset to None, because a plan the warehouse planner wrote for\nthe OLD quantity would otherwise be honoured by `viable_storage_units` at the new one; the\nplanner re-packs the line-sized quantity).  Returns\n\n    {'n_skus', 'line_families', 'lines_per_day', 'coverage_days', 'safety_days',\n     'floor_lines', 'sum_q', 'units_per_day',\n     'floor_line_skus', 'floor_line_share', 'floor_line_demand_share',   # Q == L_s\n     'base_stock_skus', 'base_stock_share',                              # rp == Q - 1\n     'floor_rp_skus', 'floor_rp_share',           # above the floor, rp lifted to L_s\n     'above_floor_skus', 'realized_coverage_days'}   # \u03a3 Q / \u03a3 d over the SKUs above\n\n`floor_line_demand_share` is the share of the section's daily UNITS that lands on a SKU\nholding exactly its line floor -- the number that says whether the floor is a tail or the\nsection.  `realized_coverage_days` is the coverage the SKUs above the floor actually carry\n(their rounded Q against their demand), which the nominal number only approximates.  The\nexpected first-pass fill rate is NOT here: it depends on the levels the planner finally\nfields, so `fill_rate` prices it on the planned orders once (`era_coverage.fixed_point`).",
+      "doc": "Re-derive every order's stock levels for one section and return the floor shares.\n\nMUTATES the orders through `Order.declare_stock`: the order-up-to, the reorder point and\nthe stamped lead `pipeline_qty`, with `stock_plan` reset to None -- a plan the warehouse\nplanner wrote for the OLD quantity would otherwise be honoured by `viable_storage_units` at\nthe new one, and the planner re-packs the line-sized quantity.  Returns\n\n    {'n_skus', 'line_families', 'lines_per_day', 'coverage_days', 'safety_days',\n     'floor_lines', 'sum_q', 'units_per_day',\n     'floor_line_skus', 'floor_line_share', 'floor_line_demand_share',   # Q == L_s\n     'base_stock_skus', 'base_stock_share',                              # rp == Q - 1\n     'floor_rp_skus', 'floor_rp_share',           # above the floor, rp lifted to L_s\n     'above_floor_skus', 'realized_coverage_days'}   # \u03a3 Q / \u03a3 d over the SKUs above\n\n`floor_line_demand_share` is the share of the section's daily UNITS that lands on a SKU\nholding exactly its line floor -- the number that says whether the floor is a tail or the\nsection.  `realized_coverage_days` is the coverage the SKUs above the floor actually carry\n(their rounded Q against their demand), which the nominal number only approximates.  The\nexpected first-pass fill rate is NOT here: it depends on the levels the planner finally\nfields, so `fill_rate` prices it on the planned orders once (`era_coverage.fixed_point`).",
       "is_async": false,
       "kind": "function",
       "signature": "(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, floor_lines: float) -> dict"
@@ -11893,7 +11921,7 @@
     },
     "Optimization/simdriver/era_coverage.py": {
       "decorators": [],
-      "doc": "era_coverage.py \u2014 the calibrated era's stage-A expectation per channel, and the\npair-level FIXED POINT that sizes the warehouse from stock levels denominated in days.\n\nTwo things live here because they are one loop:\n\n  * `stage_a` -- for each channel, the class-uniform placement distribution over the\n    section's packs, the expected day at every line count and the fixed point `n` at which\n    that day fills the declared crew's capacity (`expected_travel.solve_n`), or the demand a\n    declared `--s-pick-*` override buys.  This is the first half of\n    `workunits._derive_staffing_for_pair` (\"Derive the expected-travel closed form\"), factored\n    out so the coverage loop and the derivation compute it with ONE function -- two copies\n    would be two answers.\n\n  * `fixed_point` -- \"Rescale stock coverage at setup\" (.scratch/department-calibration,\n    decision 2 of the closed form): coverage is a RUNTIME rescaling under declared days.\n    Every SKU's `equilibrium_qty` / `reorder_point` follow from its daily demand `d_s`, which\n    needs `n`; the warehouse is sized from those quantities (`plan_warehouse`); `n` depends on\n    the built geometry.  So\n\n        Q(n) -> plan_warehouse -> geometry -> expected_travel.solve_n -> n\n\n    is iterated at PAIR level until every channel's `n` moves by less than `tol`, or\n    `max_rounds` is spent and the residual is recorded.  Round 0 plans the catalogue's own\n    levels (what the generation-batch denomination amounted to on this pair is recorded as\n    `catalogue`); each later round rescales the WHOLE catalogue at the previous round's `n`\n    and re-plans.  The last plan stands: its sampled orders, its geometry and its stage-A\n    expectation are what the run fields, so the derivation reuses them rather than pricing\n    the section twice.\n\nThe loop is driven from `sim_assets.build_shared_assets` behind `era_on()`; flag-off it is\nnever entered and the planner is called exactly once, as before.  `plan_fn` is injected (a\nclosure over the planner's arguments) so the loop is testable with a fake planner and knows\nnothing about sizing.",
+      "doc": "era_coverage.py \u2014 the calibrated era's stage-A expectation per channel, and the\npair-level FIXED POINT that sizes the warehouse from stock levels denominated in days.\n\nTwo things live here because they are one loop:\n\n  * `stage_a` -- for each channel, the class-uniform placement distribution over the\n    section's packs, the expected day at every line count and the fixed point `n` at which\n    that day fills the declared crew's capacity (`expected_travel.solve_n`), or the demand a\n    declared `--s-pick-*` override buys.  This is the first half of\n    `workunits._derive_staffing_for_pair` (\"Derive the expected-travel closed form\"), factored\n    out so the coverage loop and the derivation compute it with ONE function -- two copies\n    would be two answers.\n\n  * `fixed_point` -- \"Rescale stock coverage at setup\" (.scratch/department-calibration,\n    decision 2 of the closed form): a stock level is a RUN's declaration in declared days.\n    Every SKU's `equilibrium_qty` / `reorder_point` follow from its daily demand `d_s`, which\n    needs `n`; the warehouse is sized from those quantities (`plan_warehouse`); `n` depends on\n    the built geometry.  So\n\n        Q(n) -> plan_warehouse -> geometry -> expected_travel.solve_n -> n\n\n    is iterated at PAIR level until every channel's `n` moves by less than `tol`, or\n    `max_rounds` is spent and the residual is recorded.  ROUND 0 IS A SEED, NOT A PLAN\n    (`seed_lines`): the catalogue carries no level to plan (ADR-0002), so the loop opens with\n    the line count the crew fills at the section's ANALYTIC seconds per unit -- catalogue\n    only, no geometry, no travel term.  Each later round rescales the WHOLE catalogue at the\n    previous round's `n` and re-plans.  The last plan stands: its sampled orders, its geometry\n    and its stage-A expectation are what the run fields, so the derivation reuses them rather\n    than pricing the section twice.\n\nThe loop is driven from `sim_assets.build_shared_assets` WHEREVER IT SAMPLES -- in every mode,\nnot only under the era, because a level is now a run's declaration in every mode (ADR-0002,\ndecision 6); the era flag decides only whether the clock cuts and caps, and flag-off the day\nthe loop declares against is the reporting frame.  `plan_fn` is injected (a closure over the\nplanner's arguments) so the loop is testable with a fake planner and knows nothing about sizing.",
       "kind": "module",
       "signature": null
     },
@@ -11904,6 +11932,12 @@
       "doc": "What stage A needs to know about one channel: its name, the regime its section is\nfiltered by (None on a store-only catalogue: the whole catalogue), the pick config it is\npriced with and the name of that config (the channel's FIRST config).",
       "kind": "class",
       "signature": ""
+    },
+    "Optimization/simdriver/era_coverage.py::MissingCoverageRecord": {
+      "decorators": [],
+      "doc": "A rebuild asked to re-declare a run's levels, and the run recorded no coverage.",
+      "kind": "class",
+      "signature": "(RuntimeError)"
     },
     "Optimization/simdriver/era_coverage.py::_lines": {
       "decorators": [],
@@ -11919,9 +11953,16 @@
       "kind": "function",
       "signature": "(inventory) -> tuple[bool, list[ChannelSpec]]"
     },
+    "Optimization/simdriver/era_coverage.py::declare_from_record": {
+      "decorators": [],
+      "doc": "Re-declare a catalogue's stock levels EXACTLY as one finished run declared them, from\nthat run's own `staffing.calibration[<pair>].coverage` record.  Returns the per-channel\nrescale stats.\n\nThis is the REBUILD path, and it exists because a rebuild has a different job from a run.\n`run_analysis` and `run_map_precompute` re-plan a finished run's warehouse from its\noriginal catalogue to recover the shape it ran on -- and since ADR-0002 that catalogue\ncarries no level, while the warehouse is sized from levels on every path (`sample=False`\nskips only the SKU sampling, never `bucket_requirements`).  So a rebuild must declare\nbefore it plans, and it must declare THE SAME THING, or it silently rebuilds a different\nwarehouse -- the exact failure `run_map_precompute._identity_matches` refuses on, and the\none `run_analysis` would swallow into \"Config stage: 0 job(s)\".\n\nRe-running the fixed point would be both expensive (~8 minutes a pair) and WRONG: it would\nre-derive levels from THIS checkout's geometry and closed form, not the ones the run\nfielded.  The record already holds the only thing that varies -- the fixed point's line\ncount per channel -- and the levels are a pure function of it and the three declared\nscalars, so ONE rescaling pass at the recorded `lines_per_day` reproduces the run's\ndeclaration exactly, in a second.\n\nRaises `MissingCoverageRecord` rather than guessing when the record is absent or does not\nname a channel the rebuild needs: a fabricated level here is a fabricated warehouse.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders_all: list, specs: list, record: dict | None, *, log: logging.Logger) -> dict"
+    },
     "Optimization/simdriver/era_coverage.py::fixed_point": {
       "decorators": [],
-      "doc": "Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns\n`(plan, warehouse_meta, stage_a_result, record)` for the LAST round.\n\n`plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and\nbuilds the warehouse: `(plan, warehouse_meta)`.  `orders_all` is the whole catalogue; the\nplan's `sampled` subset (or the whole list when the planner samples nothing) is what\nstage A prices.  The record is JSON-shaped and rides `staffing.calibration[<pair>]\n['coverage']`:\n\n    {'coverage_days', 'safety_days', 'floor_lines', 'tol', 'max_rounds', 'rounds': [...],\n     'catalogue': {channel: implied_coverage},      # the levels the catalogue authored\n     'final': {channel: rescale stats + 'fill'},    # the rescaled levels, pre-plan, and\n                                                    #   the fill rate at the PLANNED ones\n     'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},\n     'converged': bool}\n\n`final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields\n(the planner grows a level into leftover capacity, so the shelf that serves a line is the\nplanned one): the expected first-pass fill rate the audit reads `missed_share` against,\nand the base-stock share AFTER planning.",
+      "doc": "Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns\n`(plan, warehouse_meta, stage_a_result, record)` for the LAST round.\n\n`plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and\nbuilds the warehouse: `(plan, warehouse_meta)`.  `orders_all` is the whole catalogue; the\nplan's `sampled` subset (or the whole list when the planner samples nothing) is what\nstage A prices.  The record is JSON-shaped and rides `staffing.calibration[<pair>]\n['coverage']`:\n\n    {'coverage_days', 'safety_days', 'floor_lines', 'tol', 'max_rounds', 'rounds': [...],\n     'seed': {'method': 'analytic_pick', 'lines_per_day': {channel: n}},   # round 0\n     'final': {channel: rescale stats + 'fill'},    # the declared levels, pre-plan, and\n                                                    #   the fill rate at the PLANNED ones\n     'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},\n     'converged': bool}\n\n`final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields\n(the planner grows a level into leftover capacity, so the shelf that serves a line is the\nplanned one): the expected first-pass fill rate the audit reads `missed_share` against,\nand the base-stock share AFTER planning.",
       "is_async": false,
       "kind": "function",
       "signature": "(orders_all: list, plan_fn, specs: list, *, coverage_days: float, safety_days: float, floor_lines: float, inputs: dict, day_seconds: float, log: logging.Logger, tol: float=_cov.DEFAULT_TOL, max_rounds: int=_cov.DEFAULT_MAX_ROUNDS) -> tuple"
@@ -11932,6 +11973,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(points: list) -> float"
+    },
+    "Optimization/simdriver/era_coverage.py::seed_lines": {
+      "decorators": [],
+      "doc": "Round 0's `{channel: lines per day}`, from the CATALOGUE ALONE.\n\nThe loop needs a line count before it can declare a level, and it cannot get one the way\nevery later round does: `stage_a` prices a placement distribution over each SKU's storage\nunits at its order-up-to, and at round 0 no SKU has one (ADR-0002 -- the catalogue carries\nno level, so there is nothing to plan and no geometry to price against).\n\nSo the seed is the ANALYTIC prediction (`staffing.analytic_pick`): one intercept per line,\nthe per-item charge and the handling term per unit, at ground height with NO travel term.\nThat is a strict UNDER-estimate of seconds per unit, so `n` starts too HIGH and the first\nrescaling asks for too much stock -- which is the right direction for this loop, whose map\nis monotone decreasing with gain above one and whose `next_guess` needs the root BRACKETED\n(one point each side) before its secant engages.  A declared `--s-pick-*` override replaces\nthe analytic value, because a run that names its constant means it from the first round.\n\nZero for a channel whose section is empty or unpriceable; the loop then declares every SKU\nat its line floor, which is what an empty demand implies.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders_all: list, specs: list, *, inputs: dict, day_seconds: float, log: logging.Logger) -> dict"
     },
     "Optimization/simdriver/era_coverage.py::stage_a": {
       "decorators": [],
@@ -11982,10 +12030,10 @@
     },
     "Optimization/simdriver/sim_assets.py::build_shared_assets": {
       "decorators": [],
-      "doc": "Load inventory + affinity from DB and build warehouse A.\n\nWarehouse is sized so total bins \u2265 N_SKUS \u00d7 1.1 (minimum replicas of the\n60-type layout satisfying that constraint).\n\nfrozen_inventory_db (what-if harness): when set, load THIS already-planned inventory and\nDO NOT re-sample \u2014 every scenario/cell shares one frozen sampled inventory, so the batch\nfingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.\nThe warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the\nsampled inventory is held fixed.  None \u21d2 current behavior (byte-identical).",
+      "doc": "Load inventory + affinity from DB and build warehouse A.\n\nWarehouse is sized so total bins \u2265 N_SKUS \u00d7 1.1 (minimum replicas of the\n60-type layout satisfying that constraint).\n\nfrozen_inventory_db (what-if harness): when set, load THIS already-planned inventory and\nDO NOT re-sample \u2014 every scenario/cell shares one frozen sampled inventory, so the batch\nfingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.\nThe warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the\nsampled inventory is held fixed.  None \u21d2 current behavior (byte-identical).\n\ncoverage_record (the REBUILD path): one finished run's own\n`staffing.calibration[<pair>].coverage` block.  A rebuild loads that run's CATALOGUE, which\nsince ADR-0002 carries no stock level, and the warehouse is sized from levels on every path\n-- so a rebuild must re-declare before it plans, and must declare what the RUN declared.\nPassing the record re-declares from it exactly (`era_coverage.declare_from_record`); passing\nNone on a path that samples is normal (the run derives its own), and on a path that does not\nmeans \"the orders already carry a declaration\", which is true of a frozen inventory.",
       "is_async": false,
       "kind": "function",
-      "signature": "(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=CONFIG['global']['keyframe_interval'], warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None) -> dict"
+      "signature": "(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=CONFIG['global']['keyframe_interval'], warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None, coverage_record: dict | None=None) -> dict"
     },
     "Optimization/simdriver/sim_assets.py::build_shared_assets._agg_cap": {
       "decorators": [],
@@ -12010,10 +12058,10 @@
     },
     "Optimization/simdriver/sim_assets.py::load_run_inventory": {
       "decorators": [],
-      "doc": "`load_inventory_from_db`, then honour the era's `pipeline_qty` stamp ONLY under the era.\n\nThe stamp is written by the coverage rescaling into the planned inventory\n(\"Build the line floor\").  Flag-off, the manager's `rp x lead / (lead + 1)` heuristic must\nstand byte for byte whatever file was handed in -- a frozen planned inventory stamped by\nan era run included -- so a flag-off load clears the stamp and `Order.pipeline_allowance`\nfalls back.  `Warehouse/` may not import the era predicate, which is why the guard sits\nhere, on the ONE loader both the parent (`build_shared_assets`) and the workers\n(`strategy_runner`) use.\n\n`era` is EXPLICIT because a spawned worker's CONFIG is pristine: `era_on()` there is the\nsettings default, not the run's flag (memory `config-knob-has-five-seams`).  The parent\npasses `era_on()`; the worker passes the `drain_or_cap` its work-day payload carries.",
+      "doc": "The ONE loader both the parent (`build_shared_assets`) and the workers\n(`strategy_runner`) use for a run's inventory.\n\nIt is a thin pass-through today, and the reason it survives as a named seam is the reason\nit stopped branching.  It used to CLEAR the `pipeline_qty` stamp on a flag-off load, so the\nmanager's `rp x lead / (lead + 1)` heuristic stood byte for byte whatever file was handed\nin.  That guard existed because the era was the only regime that declared its own levels;\nflag-off inherited the catalogue's authored ones and had to stay byte-identical with the\narchive.  Since ADR-0002 there is ONE planner contract: every run declares its levels at\nsetup, in days, and stamps the lead pipeline that goes with them (\"Field the floor\",\ndecision 6).  Honouring the stamp in one mode and discarding it in the other would field a\nlevel whose reorder point encodes a LINE while pricing its pipeline by a heuristic that\nassumes the reorder point encodes lead-time demand -- the exact defect the stamp was\nintroduced to fix.  The era flag now decides only whether the clock cuts and caps.",
       "is_async": false,
       "kind": "function",
-      "signature": "(path: str, limit: int | None=None, *, era: bool)"
+      "signature": "(path: str, limit: int | None=None)"
     },
     "Optimization/simdriver/strategy_runner.py": {
       "decorators": [],
@@ -12297,6 +12345,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(orders_subset, x_speed, y_speed, wp_)"
+    },
+    "Optimization/simdriver/workunits.py::_record_coverage": {
+      "decorators": [],
+      "doc": "Record this pair's COVERAGE block in the run spec, in every mode.\n\nA run declares its own stock levels whether or not the era flag is on (ADR-0002), and the\nonly thing that varies between one run's declaration and another's is the fixed point's\nline count -- so this block is what lets anything reproduce the levels the run FIELDED.\n`run_analysis` and `run_map_precompute` re-plan a finished run's warehouse from its\noriginal catalogue, which holds no level, and re-declare from exactly this record\n(`era_coverage.declare_from_record`).\n\nUnder the era the record rides `_record_derived`'s calibration block and this is a no-op\non it; flag-off there is no derivation to record, and without this a flag-off run would\ndeclare levels nobody could ever reproduce -- its own analysis stage would then refuse to\nrebuild the warehouse and silently emit no graphs, which is how this was found.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, label: str, coverage: dict | None, log: logging.Logger) -> None"
     },
     "Optimization/simdriver/workunits.py::_record_derived": {
       "decorators": [],
@@ -15166,10 +15221,10 @@
       "decorators": [
         "classmethod"
       ],
-      "doc": "Construct a order from supplied physical + demand values (not random sampling),\napplying all physical guardrails.  The single construction path for generated and\nDB-loaded orders \u2014 accepts demand/quantity as params so the default random Demand()\nis never invoked.  `line` is the SKU's stamped line law (`Demand.line`); absent, it\nis reconstructed as Poisson(qty_rate) with provenance `assumed`.  The scalar is the\nlaw's rate parameter and every reader must see ONE value, so a Poisson law authored at\nthe unclamped rate follows the clamp (what every pre-stamp load sampled), and a law\nthat agrees with neither RAISES.  `pipeline_qty` is the era's stamped lead pipeline\n(None = not stamped; see `pipeline_allowance`).  Does NOT touch Order.next_sku (sku\nis explicit).",
+      "doc": "Construct a order from supplied physical + demand values (not random sampling),\napplying all physical guardrails.  The single construction path for generated and\nDB-loaded orders \u2014 accepts demand/quantity as params so the default random Demand()\nis never invoked.  `line` is the SKU's stamped line law (`Demand.line`); absent, it\nis reconstructed as Poisson(qty_rate) with provenance `assumed`.  The scalar is the\nlaw's rate parameter and every reader must see ONE value, so a Poisson law authored at\nthe unclamped rate follows the clamp (what every pre-stamp load sampled), and a law\nthat agrees with neither RAISES.\n\nTakes NO stock level: the catalogue carries demand and geometry only, and a level is\nthe run's declaration (`declare_stock`, ADR-0002).  Does NOT touch Order.next_sku\n(sku is explicit).",
       "is_async": false,
       "kind": "function",
-      "signature": "(cls, sku: int, handling: str, category: str, length: float, width: float, height: float, weight: float, relative_frequency: float, qty_rate: float, *, equilibrium_qty: int, reorder_point: int, lead_time_mean: float=0.0, supply_cv: float=0.0, stock_plan=None, line: LineDistribution | None=None, pipeline_qty: int | None=None) -> 'Order'"
+      "signature": "(cls, sku: int, handling: str, category: str, length: float, width: float, height: float, weight: float, relative_frequency: float, qty_rate: float, *, lead_time_mean: float=0.0, supply_cv: float=0.0, line: LineDistribution | None=None) -> 'Order'"
     },
     "Warehouse/catalog/Order.py::Order.compute_labor_cost": {
       "decorators": [],
@@ -15177,6 +15232,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, pick_intercept: float, pick_weight_coef: float, pick_volume_coef: float, pick_weight_fn: str='log', pick_volume_fn: str='log', *, pick_per_item: float) -> float"
+    },
+    "Warehouse/catalog/Order.py::Order.declare_stock": {
+      "decorators": [],
+      "doc": "Write the run's stock declaration onto this SKU -- THE one mutation site for the\nfour level slots (ADR-0002: a level is a run's fact, never the SKU's).\n\nThe order-up-to is at least one unit; the reorder point at least one and at most one\nbelow it, so the trigger always fires before the target (a `Q = 1` SKU takes\n`rp = 1`).  `stock_plan` is the packing the warehouse planner wrote for exactly this\nquantity (None = the default pallet/singleton rule); `pipeline_qty` the stamped lead\npipeline (None = not stamped, see `pipeline_allowance`).  Returns self.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, equilibrium_qty: int, reorder_point: int, *, stock_plan=None, pipeline_qty: int | None=None) -> 'Order'"
     },
     "Warehouse/catalog/Order.py::Order.expected_labor": {
       "decorators": [
@@ -15227,6 +15289,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
+    },
+    "Warehouse/catalog/Order.py::Order.stock_declared": {
+      "decorators": [],
+      "doc": "Whether a run has declared this SKU's stock level (`declare_stock` ran).  False on\nevery freshly generated or catalogue-loaded order: the catalogue carries none.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
     },
     "Warehouse/catalog/Order.py::Order.volume": {
       "decorators": [],
@@ -15588,6 +15657,13 @@
       "signature": null,
       "value_preview": "'4ff06991df47'"
     },
+    "Warehouse/generation/generate_inventory.py::PRE_STOCK_SPLIT_INVENTORY_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'025f4b1548a9'"
+    },
     "Warehouse/generation/generate_inventory.py::UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID": {
       "decorators": [],
       "doc": null,
@@ -15607,7 +15683,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('sku', 'handling', 'category', 'length', 'width', 'height', 'weight', 'relative_frequency', 'demand_qty_rate', 'equilibrium_qty', 'reorder_point', 'lead_time_mean', 'supply_cv', 'stock_plan', 'lin..."
+      "value_preview": "('sku', 'handling', 'category', 'length', 'width', 'height', 'weight', 'relative_frequency', 'demand_qty_rate', 'lead_time_mean', 'supply_cv', 'line_family', 'line_params')"
     },
     "Warehouse/generation/generate_inventory.py::_CARTON_MAX_DIM": {
       "decorators": [],
@@ -15679,6 +15755,13 @@
       "signature": null,
       "value_preview": "os.path.dirname(os.path.abspath(__file__))"
     },
+    "Warehouse/generation/generate_inventory.py::_LEVEL_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('sku', 'equilibrium_qty', 'reorder_point', 'stock_plan', 'pipeline_qty')"
+    },
     "Warehouse/generation/generate_inventory.py::_PLAN_PARAM_SPECS": {
       "decorators": [],
       "doc": null,
@@ -15735,6 +15818,13 @@
       "kind": "function",
       "signature": "(db_path: str) -> sqlite3.Connection"
     },
+    "Warehouse/generation/generate_inventory.py::_levels_from_cartons_sql": {
+      "decorators": [],
+      "doc": "The `stock_levels` query for a pre-split vintage, which holds the declaration in\n`cartons`.  `pipeline=False` is a vintage older than the stamp: the column is served NULL\nand `Order.pipeline_allowance` falls back to the manager's heuristic, as those runs fired.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, pipeline: bool) -> str"
+    },
     "Warehouse/generation/generate_inventory.py::_poisson_rng": {
       "decorators": [],
       "doc": "Knuth's algorithm with normal approximation for large \u03bb.",
@@ -15758,17 +15848,17 @@
     },
     "Warehouse/generation/generate_inventory.py::build_inventory_from_plan": {
       "decorators": [],
-      "doc": "Build one mixed inventory from a per-category creation plan.\n\nPer SKU: pick a family by share; handling by the family's propensity; sample each\ndimension independently + weight + demand; compute the JIT equilibrium/reorder model:\n    equilibrium_qty = max(1, round(coverage_batches * expected))\n    reorder_point   = max(1, min(eq-1, ceil(expected * (lead + 1))))   # day-before-runout + transit\n`lead` is the fixed `lead_time` unless `lead_time_range=(lo,hi)` is given, in which case each\nSKU draws lead ~ randint(lo, hi) from a SEPARATE rng \u2014 so two profiles built with the same seed\n(e.g. lead 0 vs random) have IDENTICAL physical inventory, differing only in lead/reorder_point.\nAll physical guardrails (integer, min 1, caps) are applied inside Order.build.\nInitial stock is NOT sampled here \u2014 the sim loads it from equilibrium_qty.",
+      "doc": "Build one mixed inventory from a per-category creation plan.\n\nPer SKU: pick a family by share; handling by the family's propensity; sample each\ndimension independently + weight + demand + the supply side (lead, supply_cv).\n`lead` is the fixed `lead_time` unless `lead_time_range=(lo,hi)` is given, in which case each\nSKU draws lead ~ randint(lo, hi) from a SEPARATE rng \u2014 so two profiles built with the same seed\n(e.g. lead 0 vs random) have IDENTICAL physical inventory, differing only in lead.\nAll physical guardrails (integer, min 1, caps) are applied inside Order.build.\nNO stock level is authored here: a run derives every SKU's order-up-to and reorder point\nat setup from its declared coverage in days (ADR-0002).",
       "is_async": false,
       "kind": "function",
-      "signature": "(num_skus: int, plan: list, seed: int, *, coverage_batches: float=EQUILIBRIUM_COVERAGE_BATCHES, lead_time: float=0.0, lead_time_range: tuple | None=None, supply_cv_max: float=0.15, demand_override: tuple | None=None) -> Inventory"
+      "signature": "(num_skus: int, plan: list, seed: int, *, lead_time: float=0.0, lead_time_range: tuple | None=None, supply_cv_max: float=0.15, demand_override: tuple | None=None) -> Inventory"
     },
     "Warehouse/generation/generate_inventory.py::build_inventory_with_profile": {
       "decorators": [],
-      "doc": "Build an Inventory using the equilibrium inventory model.\n\nBypasses Order.__init__ so any distribution can be used.\nOrder.next_sku is reset to 1 at the start of this function.\n\nPer-SKU attributes (all stored in DB):\n  expected_batch_demand = freq \u00d7 qty_rate\n  equilibrium_qty   = max(1, round(coverage_batches \u00d7 expected_batch_demand))\n                      Target steady-state inventory; warehouse sized for this.\n  reorder_point     = max(1, min(eq-1, round(expected \u00d7 (lead_time_mean + safety_batches))))\n                      Classic ROP = demand during lead time + safety stock.\n                      Scales with actual demand: popular items reorder sooner\n                      (higher absolute threshold), slow movers reorder later.\n  lead_time_mean    = mean batches before a placed order arrives.\n                      0 = immediate.  Sampled per-SKU from N(mean, mean*cv)\n                      when lead_time_mean_batches > 0, else fixed at 0.\n  supply_cv         = coefficient of variation for received quantity.\n                      0.0 = perfect; 0.1 \u2192 \"ordered 50, got 45\".\n                      Per-SKU value drawn from HalfNormal(supply_cv_mean).\n\nAt runtime: ideal = equilibrium_qty - current_qty; received = max(1, round(N(ideal, ideal*supply_cv))).",
+      "doc": "Build an Inventory from one dimension spec + one weight spec (the profile suite path).\n\nBypasses Order.__init__ so any distribution can be used.\nOrder.next_sku is reset to 1 at the start of this function.\n\nPer-SKU attributes (all stored in DB):\n  expected_batch_demand = freq \u00d7 qty_rate\n  lead_time_mean    = mean batches before a placed order arrives.\n                      0 = immediate.  Sampled per-SKU from N(mean, mean*cv)\n                      when lead_time_mean_batches > 0, else fixed at 0.\n  supply_cv         = coefficient of variation for received quantity.\n                      0.0 = perfect; 0.1 \u2192 \"ordered 50, got 45\".\n                      Per-SKU value drawn from HalfNormal(supply_cv_mean).\n\nNO stock level is authored (ADR-0002): the order-up-to and the reorder point are a run's\ndeclaration, derived at setup from its coverage in days; the reorder rule at runtime is\n`ideal = equilibrium_qty + pipeline - position; received = max(1, round(N(ideal, ideal*supply_cv)))`\nover the levels the run declared.",
       "is_async": false,
       "kind": "function",
-      "signature": "(num_skus: int, handling_splits: list[float], category_splits: list[float], singleton_fraction: float, dim_spec: dict, weight_spec: dict, seed: int, equilibrium_coverage_batches: float=EQUILIBRIUM_COVERAGE_BATCHES, reorder_safety_batches: float=REORDER_SAFETY_BATCHES, lead_time_mean_batches: float=LEAD_TIME_MEAN_BATCHES, lead_time_cv: float=LEAD_TIME_CV, supply_cv_mean: float=SUPPLY_CV_MEAN) -> Inventory"
+      "signature": "(num_skus: int, handling_splits: list[float], category_splits: list[float], singleton_fraction: float, dim_spec: dict, weight_spec: dict, seed: int, lead_time_mean_batches: float=LEAD_TIME_MEAN_BATCHES, lead_time_cv: float=LEAD_TIME_CV, supply_cv_mean: float=SUPPLY_CV_MEAN) -> Inventory"
     },
     "Warehouse/generation/generate_inventory.py::compute_stats": {
       "decorators": [],
@@ -15810,7 +15900,7 @@
       "doc": "Generate one inventory run and return the path to the created run_dir.\n\nParameters\n----------\nname               : folder name under out_dir\nnum_skus           : total SKU count\nhandling_splits    : [conv_weight, nconv_weight]  (normalised internally)\ncategory_splits    : 6 category weights (normalised internally)\nsingleton_fraction : fraction of SKUs capped at singleton dimensions (\u226416)\nseed               : reproducibility seed\nout_dir            : parent directory; run is created at out_dir/name/\ndim_spec           : dict describing the dimension distribution (see module docstring)\nweight_spec        : dict describing the weight distribution\nverbose            : print progress lines",
       "is_async": false,
       "kind": "function",
-      "signature": "(name: str, num_skus: int=76500, handling_splits: list[float] | None=None, category_splits: list[float] | None=None, singleton_fraction: float=0.5, seed: int=42, out_dir: str=_DEFAULT_OUT_DIR, dim_spec: dict | None=None, weight_spec: dict | None=None, equilibrium_coverage_batches: float=EQUILIBRIUM_COVERAGE_BATCHES, reorder_safety_batches: float=REORDER_SAFETY_BATCHES, lead_time_mean_batches: float=LEAD_TIME_MEAN_BATCHES, lead_time_cv: float=LEAD_TIME_CV, supply_cv_mean: float=SUPPLY_CV_MEAN, creation_plan: list | None=None, lead_time: float=0.0, lead_time_range: tuple | None=None, supply_cv_max: float=0.15, demand_override: tuple | None=None, verbose: bool=True) -> str"
+      "signature": "(name: str, num_skus: int=76500, handling_splits: list[float] | None=None, category_splits: list[float] | None=None, singleton_fraction: float=0.5, seed: int=42, out_dir: str=_DEFAULT_OUT_DIR, dim_spec: dict | None=None, weight_spec: dict | None=None, lead_time_mean_batches: float=LEAD_TIME_MEAN_BATCHES, lead_time_cv: float=LEAD_TIME_CV, supply_cv_mean: float=SUPPLY_CV_MEAN, creation_plan: list | None=None, lead_time: float=0.0, lead_time_range: tuple | None=None, supply_cv_max: float=0.15, demand_override: tuple | None=None, verbose: bool=True) -> str"
     },
     "Warehouse/generation/generate_inventory.py::generate_run._log": {
       "decorators": [],
@@ -15821,7 +15911,7 @@
     },
     "Warehouse/generation/generate_inventory.py::load_inventory_from_db": {
       "decorators": [],
-      "doc": "Reconstruct an Inventory from a DB written by save_inventory_to_db.\n\nBound to the file's OWN vintage (`Schema.dataset.bind`) and read by NAME (the `cartons`\nquery above): the current shape serves the stamped line law; the pre-stamp vintage's\noverride serves NULLs and the law is reconstructed as Poisson(demand_qty_rate) with\nprovenance `assumed` -- built by `Order.build` from the CLAMPED rate, which is exactly\nwhat every pre-stamp load sampled.  Every order is rebuilt through Order.build, so the\nsame physical guardrails (integer dims/weight, min-1, caps) are enforced on load as on\ngeneration.\n\nHARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:\nevery caller is a simulation about to consume ~500 GB of compute and WRITE the result.\n`bind` raises `UnsupportedSchema` naming the id and the whole structural diff before a\nsingle row is read, and `UnsupportedQuery` if a vetted vintage has no SQL to serve it --\nnever a bare `OperationalError: no such column` that says nothing about WHICH vintage.",
+      "doc": "Reconstruct an Inventory from a DB written by save_inventory_to_db.\n\nBound to the file's OWN vintage (`Schema.dataset.bind`) and read by NAME (the `cartons`\nquery above): the current shape serves the stamped line law; the pre-stamp vintage's\noverride serves NULLs and the law is reconstructed as Poisson(demand_qty_rate) with\nprovenance `assumed` -- built by `Order.build` from the CLAMPED rate, which is exactly\nwhat every pre-stamp load sampled.  Every order is rebuilt through Order.build, so the\nsame physical guardrails (integer dims/weight, min-1, caps) are enforced on load as on\ngeneration.\n\nThe STOCK DECLARATION rides a second named query (ADR-0002).  A file that declares one --\na run's own planned inventory, or any pre-split vintage, whose override reads the four\ncolumns out of `cartons` -- has `declare_stock` called for each SKU it names; a generated\ncatalogue declares nothing and its orders come back with the level slots UNSET, which\n`Order.stock_declared()` reports.  The two reads share `ORDER BY sku LIMIT :limit`, so a\nlimited load sees the same SKUs on both sides.\n\nHARD FAIL on an unvetted shape, and of the six wired checks this is the least negotiable:\nevery caller is a simulation about to consume ~500 GB of compute and WRITE the result.\n`bind` raises `UnsupportedSchema` naming the id and the whole structural diff before a\nsingle row is read, and `UnsupportedQuery` if a vetted vintage has no SQL to serve it --\nnever a bare `OperationalError: no such column` that says nothing about WHICH vintage.",
       "is_async": false,
       "kind": "function",
       "signature": "(db_path: str, limit: int | None=None) -> Inventory"
@@ -15860,13 +15950,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(df: pd.DataFrame, out_dir: str, title_suffix: str='') -> None"
-    },
-    "Warehouse/generation/generate_inventory.py::plot_equilibrium_qty": {
-      "decorators": [],
-      "doc": "Histogram + KDE of equilibrium_qty and reorder_point distributions.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(df: pd.DataFrame, out_dir: str) -> None"
     },
     "Warehouse/generation/generate_inventory.py::plot_fulfillment_distributions": {
       "decorators": [],
@@ -15933,14 +16016,14 @@
     },
     "Warehouse/generation/generate_inventory.py::save_inventory_to_db": {
       "decorators": [],
-      "doc": null,
+      "doc": "Write an inventory to `db_path`: the SKUs' own facts into `cartons`, and \u2014 only for the\norders a run has DECLARED a level on \u2014 the declaration into `stock_levels`.\n\nA generated catalogue declares nothing, so its `stock_levels` is empty; a run's\n`planned_inventory.db` carries one row per fielded SKU (ADR-0002).  Both are one shape.",
       "is_async": false,
       "kind": "function",
       "signature": "(inventory: Inventory, db_path: str, params: dict) -> None"
     },
     "Warehouse/generation/generate_mixed_profile.py": {
       "decorators": [],
-      "doc": "Generate ONE realistic mixed inventory (per-category SKU families with multimodal,\nper-dimension distributions) + its affinity matrix, written in the leaf layout that\nrun_simulation's discover_db_pairs consumes.\n\nFamilies = the 6 categories, each with its own multimodal length/width/height/weight\nspecs and a per-family conveyable/non-conveyable propensity (aggregate ~0.75/0.25).\nDimensions are sampled INDEPENDENTLY per axis; every stored number is a grounded\ninteger >= 1, capped (enforced in Order.build).  Initial stock is the equilibrium\npoint loaded by the sim; reorder is the JIT \"day-before-runout\" rule\n    reorder_point = ceil(expected * (lead_time + 1))\nwith lead_time a deterministic per-dataset knob (e.g. 0 vs 1 -> two datasets).\n\nOutput layout\n-------------\n<PROFILE_INPUT_DIR>/<run_name>/<profile_name>/\n    inventory/  inventory.db, params.json, stats.json, plots/\n    affinity/   affinity.db,  params.json, stats.json, plots/\n\nUsage\n-----\npython generate_mixed_profile.py --estimate\npython generate_mixed_profile.py --num-skus 3000 --lead-time 1 --name smoke\npython generate_mixed_profile.py --num-skus 76500 --lead-time 0   # JIT, immediate\npython generate_mixed_profile.py --num-skus 76500 --lead-time 1   # JIT, 1-batch transit",
+      "doc": "Generate ONE realistic mixed inventory (per-category SKU families with multimodal,\nper-dimension distributions) + its affinity matrix, written in the leaf layout that\nrun_simulation's discover_db_pairs consumes.\n\nFamilies = the 6 categories, each with its own multimodal length/width/height/weight\nspecs and a per-family conveyable/non-conveyable propensity (aggregate ~0.75/0.25).\nDimensions are sampled INDEPENDENTLY per axis; every stored number is a grounded\ninteger >= 1, capped (enforced in Order.build).\n\nWhat a leaf carries is the SKU's own facts: geometry, demand (relative frequency, the\nquantity rate, the stamped line law) and the supply side -- lead_time_mean and supply_cv.\nIt carries NO STOCK LEVEL (ADR-0002): an order-up-to quantity, a reorder point and a\npacking plan are a RUN's declaration, derived at setup from a declared coverage in DAYS\n(Optimization/simconfig/coverage.py, in every mode) and written to that run's own\nplanned_inventory.db.  The catalogue's `stock_levels` table is created empty and stays\nempty -- which is why this generator has no coverage knob to offer.\n\nlead_time is therefore the one supply-side dial a leaf varies: a deterministic per-dataset\nvalue (e.g. 0 vs 1 -> two sibling datasets) for how many batches pass before a placed order\narrives.  Same seed, same cartons; only the lead differs.\n\nOutput layout\n-------------\n<PROFILE_INPUT_DIR>/<run_name>/<profile_name>/\n    inventory/  inventory.db, params.json, stats.json, plots/\n    affinity/   affinity.db,  params.json, stats.json, plots/\n\nUsage\n-----\npython generate_mixed_profile.py --estimate\npython generate_mixed_profile.py --num-skus 3000 --lead-times 1 --name smoke\npython generate_mixed_profile.py --num-skus 76500 --lead-times 0   # immediate arrival\npython generate_mixed_profile.py --num-skus 76500 --lead-times 1   # 1-batch transit",
       "kind": "module",
       "signature": null
     },
@@ -16169,7 +16252,7 @@
     },
     "Warehouse/generation/inventory_semantics.py": {
       "decorators": [],
-      "doc": "inventory_semantics \u2014 the profiles-tree (inventory) family's column semantics.\n\nThe catalogue's per-SKU constants: physical dimensions in inches (the inch/second boundary\nis `cost_model.sec_per_inch`), demand rates per BATCH, the stamped line law (`line_family` +\n`line_params`, department-calibration \"Stamp the line distribution on the SKU\"), and the\nbatch-denominated lead the trailer feature replaces flag-on.  `stock_plan` earns the loudest note in the family: a\nplanned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery\ncan produce FEWER units \u2014 \"splitting is worse\" is not a safe assumption on most of a\ngenerated catalogue.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
+      "doc": "inventory_semantics \u2014 the profiles-tree (inventory) family's column semantics.\n\nTwo tables, two different kinds of statement.  `cartons` holds the SKU's own facts: physical\ndimensions in inches (the inch/second boundary is `cost_model.sec_per_inch`), demand rates\nper BATCH, the stamped line law (`line_family` + `line_params`, department-calibration \"Stamp\nthe line distribution on the SKU\"), and the batch-denominated lead the trailer feature\nreplaces flag-on.  It declares NO stock level at all (ADR-0002, department-calibration \"Field\nthe floor\", decision 5): an order-up-to quantity is a decision a run makes about a warehouse,\nnot a fact about a carton, and while it lived here it was authored as\n`coverage_batches x expected_batch_demand` \u2014 a generation batch is not a unit of time, so the\nauthored level was worth 1,771 store days on the reference catalogue.\n\n`stock_levels` is where that decision lands instead.  A run derives its levels at setup from\na declared coverage in DAYS (`Optimization/simconfig/coverage.py`) and records them in its\nown `planned_inventory.db`; a GENERATED catalogue leaves the table empty.  That emptiness is\nthe contract \u2014 the absence of a ROW, not a NULL column, is what \"no declaration\" means, so\n`Order.stock_declared()` can tell \"nobody has decided yet\" from \"decided, and the answer is\nmissing\".  `stock_plan` still earns the loudest note in the family, now from its new home: a\nplanned SKU bypasses the pallet/singleton packing rule, which is why splitting a delivery can\nproduce FEWER units \u2014 \"splitting is worse\" is not a safe assumption on any run that planned\nits packing.\n\nTags are metadata: importing this module changes no DDL, no shape id, no result.",
       "kind": "module",
       "signature": null
     },
@@ -16859,6 +16942,12 @@
       "signature": null,
       "value_preview": "Callable[[list[StorageUnit], Callable[[StorageUnit], list[Aisle.Bin]]], list[tuple[StorageUnit, 'Aisle.Bin | None']]]"
     },
+    "Warehouse/inventory/inventory_common.py::UndeclaredStock": {
+      "decorators": [],
+      "doc": "A SKU's Order-Up-To target was read before any run declared one.",
+      "kind": "class",
+      "signature": "(RuntimeError)"
+    },
     "Warehouse/inventory/inventory_common.py::WarehousePlan": {
       "decorators": [
         "dataclass"
@@ -16938,7 +17027,7 @@
     },
     "Warehouse/inventory/inventory_common.py::_equilibrium_qty": {
       "decorators": [],
-      "doc": "Return the Order-Up-To target for *order*.\n\nReads equilibrium_qty if present (new schema); falls back to the legacy\nstock_qty attribute so old in-memory inventories still work correctly.",
+      "doc": "Return the Order-Up-To target for *order*.\n\nReads `equilibrium_qty` if a run has DECLARED one (`Order.declare_stock`); falls back to\nthe legacy duck-typed `stock_qty` attribute so old in-memory inventories still work.\n\nRAISES on an undeclared order rather than defaulting.  It used to answer 1, and a default\nhere is the worst possible silence: the catalogue no longer authors a level (ADR-0002), so\nevery SKU of a freshly loaded catalogue would answer 1, `bucket_requirements` would size\nevery bucket for one unit per SKU, and the run would build a warehouse an order of\nmagnitude too small -- with no error, at the one moment nothing downstream can detect it.\nA level is a run's declaration; asking for one before it is made is a bug in the caller.",
       "is_async": false,
       "kind": "function",
       "signature": "(order: Order) -> int"
@@ -17347,7 +17436,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._notify_pick": {
       "decorators": [],
-      "doc": "Decrement the incremental quantity counter and flag the SKU if it\ncrosses its reorder_point.\n\nCalled by PickSimulation after each pick event \u2014 must be O(1).\nAdds the SKU to _depleted_skus so check_reorders only iterates SKUs\nthat actually need attention rather than all N_skus.\n\nThe depletion flag compares reorder_point against the SKU's INVENTORY\nPOSITION (on-hand in bins + on-order queued + on-order deferred), not\non-hand alone.  A SKU that has already been reordered but whose units are\nstill waiting for a bin is therefore not flagged again \u2014 preventing\nduplicate reorders every batch for unbinned items.",
+      "doc": "Decrement the incremental quantity counter and flag the SKU if it\ncrosses its reorder_point.\n\nCalled by PickSimulation after each pick event \u2014 must be O(1).\nAdds the SKU to _depleted_skus so check_reorders only iterates SKUs\nthat actually need attention rather than all N_skus.\n\nThe depletion flag compares reorder_point against the SKU's INVENTORY\nPOSITION (on-hand in bins + on-order queued + on-order deferred), not\non-hand alone.  A SKU that has already been reordered but whose units are\nstill waiting for a bin is therefore not flagged again \u2014 preventing\nduplicate reorders every batch for unbinned items.\n\nTWO ABSENCES, TWO ANSWERS, and they used to be one test.  A SKU with no TEMPLATE is\ntolerated; a template with no DECLARED level raises.  See the guards below \u2014 the\ndifference is the whole reason this method is not three lines.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, sku: int, qty: int) -> None"
@@ -17455,6 +17544,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(order, quantity: int, deliveries=None) -> list"
+    },
+    "Warehouse/inventory/inventory_reorder.py::_undeclared_stock": {
+      "decorators": [],
+      "doc": "Raise `UndeclaredStock` for an order no run has declared a stock level on.\n\nThe `inventory_common._equilibrium_qty` precedent, at the other end of the same\ndeclaration and for the same reason.  A RAISER rather than a `_reorder_point(order)`\naccessor on purpose: `_notify_pick` is the pick loop's O(1) hook -- once per pick\nmutation, hundreds of thousands of times a batch -- and both call sites already had the\n`is None` test they need.  Written this way the guard costs the fast path nothing at all,\nso no future profile can argue it back out of existence.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order) -> NoReturn"
     },
     "Warehouse/inventory/put_policy.py": {
       "decorators": [],
@@ -20695,7 +20791,7 @@
     },
     "docs/macros.py": {
       "decorators": [],
-      "doc": "mkdocs-macros helpers: inject run parameters and formulas into the docs.\n\nValues are pulled from JSON snapshots committed per experiment under\n``docs/experiments/<exp>/`` (raw run outputs live on an external drive, gitignored;\nCI only has the repo). Each ``config.json`` sits next to its run's images under\n``images/<run>/<inv>/<cfg>/``; inventory ``params.json`` under ``data/<inv>/``.\n\nTwo modes, decided per page by its experiment folder:\n  * **manifest mode** \u2014 the experiment has an ``experiment.yml`` (single source of\n    truth for its run id, inventory keys\u2192ids, configs, figures). Pages call macros with\n    a short inventory key, e.g. ``setup_table('lt0')``; run/config/figures resolve from\n    the manifest. This is how new experiments (2+) are authored. See the ingest script\n    ``docs/experiments/ingest.py`` and ``scripts/new_experiment.py``.\n  * **legacy mode** \u2014 no ``experiment.yml`` (Experiment 1). Pages pass explicit\n    ``(run, inv, cfg)`` and the module defaults (``_CONFIGS`` etc.) apply. Unchanged.\n\nFormula *shapes* are fixed here from the code that defines them\n(``Optimization/run_simulation.py``, ``Warehouse/generation/generate_inventory.py``);\nonly the *numbers* come from JSON, so pages never hard-code a value twice.\n\nThe one long-standing exception is closed. ``assignment_formulas`` used to transcribe the\ntop-3 assignment-function *equations* by hand, because no snapshot emitted them; this\ndocstring asked for \"a small registry\" so the macro could read them like the others, and\n``Optimization/config/objectives.py`` is it. Every run now emits its rule catalogue, and\n``rule_catalog()`` renders it \u2014 with a test tying each objective to the symbol its builder\nactually calls, which is the part hand-maintenance could never offer.\n\n``assignment_formulas`` survives FROZEN, for the pre-dossier experiments whose pages call\nit and whose runs have no catalogue staged. Nothing new may use it: a new experiment reads\nthe artifact.",
+      "doc": "mkdocs-macros helpers: inject run parameters and formulas into the docs.\n\nValues are pulled from JSON snapshots committed per experiment under\n``docs/experiments/<exp>/`` (raw run outputs live on an external drive, gitignored;\nCI only has the repo). Each ``config.json`` sits next to its run's images under\n``images/<run>/<inv>/<cfg>/``; inventory ``params.json`` under ``data/<inv>/``.\n\nTwo modes, decided per page by its experiment folder:\n  * **manifest mode** \u2014 the experiment has an ``experiment.yml`` (single source of\n    truth for its run id, inventory keys\u2192ids, configs, figures). Pages call macros with\n    a short inventory key, e.g. ``setup_table('lt0')``; run/config/figures resolve from\n    the manifest. This is how new experiments (2+) are authored. See the ingest script\n    ``docs/experiments/ingest.py`` and ``scripts/new_experiment.py``.\n  * **legacy mode** \u2014 no ``experiment.yml`` (Experiment 1). Pages pass explicit\n    ``(run, inv, cfg)`` and the module defaults (``_CONFIGS`` etc.) apply. Unchanged.\n\nFormula *shapes* are fixed here from the code that defines them \u2014 the pick-time calibrations\nfrom ``Optimization/run_simulation.py``, the stock levels from\n``Optimization/simconfig/coverage.py``, which is where a RUN declares them (the generator\nauthors none since ADR-0002). Only the *numbers* come from JSON, so pages never hard-code a\nvalue twice.\n\nThe one long-standing exception is closed. ``assignment_formulas`` used to transcribe the\ntop-3 assignment-function *equations* by hand, because no snapshot emitted them; this\ndocstring asked for \"a small registry\" so the macro could read them like the others, and\n``Optimization/config/objectives.py`` is it. Every run now emits its rule catalogue, and\n``rule_catalog()`` renders it \u2014 with a test tying each objective to the symbol its builder\nactually calls, which is the part hand-maintenance could never offer.\n\n``assignment_formulas`` survives FROZEN, for the pre-dossier experiments whose pages call\nit and whose runs have no catalogue staged. Nothing new may use it: a new experiment reads\nthe artifact.",
       "kind": "module",
       "signature": null
     },
@@ -20747,6 +20843,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(kind)"
+    },
+    "docs/macros.py::define_env._floor_lines": {
+      "decorators": [],
+      "doc": "`floor_lines` in words: \"1 line\", \"1.5 lines\".\n\nThe floor is declared in LINES of the SKU's own mean line, so the singular earns its\nkeep \u2014 the default declares exactly one pick's worth of the SKU, and \"1 line(s)\" on a\npublished page reads like a macro that could not be bothered.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(v)"
     },
     "docs/macros.py::define_env._fmt_brackets": {
       "decorators": [],
@@ -20874,6 +20977,27 @@
       "kind": "function",
       "signature": "(kind)"
     },
+    "docs/macros.py::define_env._stock_declaration": {
+      "decorators": [],
+      "doc": "This experiment's stock-level DECLARATION for one pair, or None on a pre-ADR-0002\nsnapshot.  ``{}`` means \"declared, but this snapshot does not record the inputs\".\n\nThe soft counterpart to `_run_doc`, and the exception is earned: here the absence is\nDATA, not a staging mistake.  Two absences, and they mean the same thing \u2014\n\n  * no inventory document staged at all (Experiments 1\u20137 predate the run-scope\n    documents entirely), and\n  * a document whose pairs still carry `rop_formulas`, the closed-form scores that\n    only ever existed while a CATALOGUE authored the levels (Experiment 8).\n\nBoth identify a run whose levels came with its inventory rather than from its own\ndeclaration, and its page must keep describing what it ran \u2014 the same rule\n`pick_time_formula` follows for a config that predates the per-item charge.  The\nvintage is read across the whole document, never per pair, so a pair this page cannot\nname never flips an archive into the current model by accident.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv)"
+    },
+    "docs/macros.py::define_env._stock_footnote": {
+      "decorators": [],
+      "doc": "The sentence under the distribution table \u2014 one per document vintage.\n\nA snapshot staged BEFORE ADR-0002 carries `rop_formulas`: the closed forms the\ncatalogue evaluation scored against the levels its CATALOGUE authored, published\nbecause \"neither form holds\" deserved to be a measurement rather than an\nassertion.  Those experiments keep the sentence they published, word for word \u2014\nit describes what they ran, exactly as `pick_time_formula` keeps rendering a\nconfig that predates the per-item charge without the term.\n\nA snapshot WITHOUT the block is post-ADR-0002, and there the score has no subject\nleft: no closed form authors a level, so reproducing one would measure the\nagreement of two things the run never used.  What this says instead is whose\nnumbers these are and which declaration produced them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(m)"
+    },
+    "docs/macros.py::define_env._unused_stock_declaration_tail": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv, pairs)"
+    },
     "docs/macros.py::define_env.assignment_formulas": {
       "decorators": [
         "env.macro"
@@ -20959,7 +21083,7 @@
       "decorators": [
         "env.macro"
       ],
-      "doc": "The realised inventory model \u2014 distributions, not a formula.\n\nThe pages used to state an equilibrium formula that, measured against the run's own\ncatalogue, is off by an order of magnitude: the planner's figures are rescaled to\nfit the warehouse after they are computed.  A distribution is the only honest thing\nto publish for a quantity nothing closed-form reproduces.",
+      "doc": "The realised inventory model \u2014 distributions, not a formula.\n\nPublishing a distribution is not a retreat from a formula that would not hold: a\nstock level is a RUN's declaration, never a SKU's fact (ADR-0002).  The catalogue\ncarries none, every run derives its own at setup from a coverage in DAYS, and\nwhat that produced across the SKUs it fielded IS the model \u2014 there is nothing\nclosed-form behind it to publish instead.\n\nThe table renders whichever quantities the staged document carries, so each\nvintage shows its own: a pre-ADR-0002 snapshot measured the per-wave demand its\nauthored level was coverage of, a current one measures the lead pipeline the run\nstamps.  `_stock_footnote` carries the sentence underneath.",
       "is_async": false,
       "kind": "function",
       "signature": "(inv_key=None)"
@@ -20986,7 +21110,7 @@
       "decorators": [
         "env.macro"
       ],
-      "doc": "This run's realised inventory averages \u2014 deliberately NOT a closed form.\n\nIt used to print one, and the formula it printed did not reproduce the catalogue:\nthe planner's equilibrium target is rescaled to fit the warehouse afterwards, so\nthe stated form was out by an order of magnitude, and neither candidate\nreorder-point expression matched more than about half the stored values. A macro\nthat prints an equation asserts the equation holds. This prints the averages the\nrun recorded; `inventory_model()` publishes the distribution behind them.",
+      "doc": "How this run's stock levels were SET, and the averages it fielded.\n\nTwo vintages, told apart by `_stock_declaration` off the staged inventory\ndocument, and the page describes ITS OWN run either way:\n\n  * a run that DECLARED its levels (ADR-0002 onward) gets the derivation it\n    actually used \u2014 a coverage in DAYS against each SKU's expected daily demand,\n    floored at a line of that SKU's own demand \u2014 with the declared inputs quoted\n    when the snapshot records them;\n  * an archived run gets the authored model it ran, NAMED as retired: its\n    catalogue carried the levels and the planner rescaled them to fit the\n    warehouse afterwards, which is why no closed form reproduced the stored\n    values.\n\nWhat this will not do is print an equation beside numbers it does not produce.\nThe archived branch says so outright; the declared branch's formulas ARE the ones\nthat produced its averages, which is the whole of the difference ADR-0002 made.\n`inventory_model()` publishes the distribution behind the averages in both.",
       "is_async": false,
       "kind": "function",
       "signature": "(*args)"

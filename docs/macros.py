@@ -14,9 +14,11 @@ Two modes, decided per page by its experiment folder:
   * **legacy mode** — no ``experiment.yml`` (Experiment 1). Pages pass explicit
     ``(run, inv, cfg)`` and the module defaults (``_CONFIGS`` etc.) apply. Unchanged.
 
-Formula *shapes* are fixed here from the code that defines them
-(``Optimization/run_simulation.py``, ``Warehouse/generation/generate_inventory.py``);
-only the *numbers* come from JSON, so pages never hard-code a value twice.
+Formula *shapes* are fixed here from the code that defines them — the pick-time calibrations
+from ``Optimization/run_simulation.py``, the stock levels from
+``Optimization/simconfig/coverage.py``, which is where a RUN declares them (the generator
+authors none since ADR-0002). Only the *numbers* come from JSON, so pages never hard-code a
+value twice.
 
 The one long-standing exception is closed. ``assignment_formulas`` used to transcribe the
 top-3 assignment-function *equations* by hand, because no snapshot emitted them; this
@@ -349,8 +351,14 @@ def define_env(env):
             ("Pickers", _num(c["num_pickers"])),
             ("Batches", _num(c["n_batches"])),
             ("Seeds (world / batches)", f"{_num(c['seed_world'])} / {_num(c['seed_batches'])}"),
-            ("Equilibrium qty (avg)", _num(c["avg_equilibrium_qty"])),
-            ("Reorder point (avg)", _num(c["avg_reorder_point"])),
+            # These two keys survived ADR-0002; their MEANING moved.  A catalogue authors no
+            # stock level any more, so the averages are over the levels THIS RUN fielded —
+            # declared at setup from a coverage in days — not a property the inventory came
+            # with.  The label says whose number it is, and it stays true of a pre-ADR archive
+            # too: that run fielded its levels as well, it just inherited rather than declared
+            # them.  `reorder_formula` renders which of the two a given snapshot describes.
+            ("Equilibrium qty (avg, this run's levels)", _num(c["avg_equilibrium_qty"])),
+            ("Reorder point (avg, this run's levels)", _num(c["avg_reorder_point"])),
             ("Lead time (avg batches)", _num(c["avg_lead_time_mean"])),
             ("Supply CV (avg)", _num(c["avg_supply_cv"])),
         ]
@@ -543,6 +551,47 @@ def define_env(env):
         """
         return _load_json(f"{_exp_dir()}/data/{_RUN_DOCS[kind]}")
 
+    def _stock_declaration(inv):
+        """This experiment's stock-level DECLARATION for one pair, or None on a pre-ADR-0002
+        snapshot.  ``{}`` means "declared, but this snapshot does not record the inputs".
+
+        The soft counterpart to `_run_doc`, and the exception is earned: here the absence is
+        DATA, not a staging mistake.  Two absences, and they mean the same thing —
+
+          * no inventory document staged at all (Experiments 1–7 predate the run-scope
+            documents entirely), and
+          * a document whose pairs still carry `rop_formulas`, the closed-form scores that
+            only ever existed while a CATALOGUE authored the levels (Experiment 8).
+
+        Both identify a run whose levels came with its inventory rather than from its own
+        declaration, and its page must keep describing what it ran — the same rule
+        `pick_time_formula` follows for a config that predates the per-item charge.  The
+        vintage is read across the whole document, never per pair, so a pair this page cannot
+        name never flips an archive into the current model by accident.
+        """
+        rel = f"{_exp_dir()}/data/{_RUN_DOCS['inventory']}"
+        if not os.path.isfile(os.path.join(docs_dir, *rel.split("/"))):
+            return None
+        pairs = _load_json(rel).get("pairs") or {}
+        if any("rop_formulas" in p for p in pairs.values()):
+            return None
+        name = next((k for k in sorted(pairs) if inv and inv in k), None)
+        return (pairs.get(name) or {}).get("declaration") or {}
+
+    def _floor_lines(v):
+        """`floor_lines` in words: "1 line", "1.5 lines".
+
+        The floor is declared in LINES of the SKU's own mean line, so the singular earns its
+        keep — the default declares exactly one pick's worth of the SKU, and "1 line(s)" on a
+        published page reads like a macro that could not be bothered."""
+        return f"{_num(v)} line" + ("" if abs(float(v) - 1.0) < 1e-9 else "s")
+
+    def _unused_stock_declaration_tail(inv, pairs):
+        if any("rop_formulas" in p for p in pairs.values()):
+            return None
+        name = next((k for k in sorted(pairs) if inv and inv in k), None)
+        return (pairs.get(name) or {}).get("declaration") or {}
+
     def _census_row(metric, grouping, group=None):
         doc = _run_doc("census")
         for b in doc.get("blocks", []):
@@ -648,14 +697,66 @@ def define_env(env):
             out += [f"<small>{'; '.join(bits)}.</small>", ""]
         return "\n".join(out)
 
+    def _stock_footnote(m):
+        """The sentence under the distribution table — one per document vintage.
+
+        A snapshot staged BEFORE ADR-0002 carries `rop_formulas`: the closed forms the
+        catalogue evaluation scored against the levels its CATALOGUE authored, published
+        because "neither form holds" deserved to be a measurement rather than an
+        assertion.  Those experiments keep the sentence they published, word for word —
+        it describes what they ran, exactly as `pick_time_formula` keeps rendering a
+        config that predates the per-item charge without the term.
+
+        A snapshot WITHOUT the block is post-ADR-0002, and there the score has no subject
+        left: no closed form authors a level, so reproducing one would measure the
+        agreement of two things the run never used.  What this says instead is whose
+        numbers these are and which declaration produced them.
+        """
+        forms = m.get("rop_formulas")
+        if forms:
+            best = max(forms, key=lambda f: f["match_pct"])
+            return (f"<small>Measured over the run's own {m['n_skus']:,} stocked SKUs. The "
+                    f"closest closed form for the reorder point reproduces only "
+                    f"**{best['match_pct']:.0f} %** of the stored values, because the "
+                    f"planner's figures are rescaled to fit the warehouse after they are "
+                    f"computed — the distribution above is what the simulation actually "
+                    f"stocked.</small>")
+        n_dec = m.get("n_declared")
+        scope = (f"Measured over the {n_dec:,} of {m['n_skus']:,} SKUs this run declared "
+                 f"a level for" if n_dec is not None
+                 else f"Measured over the run's own {m['n_skus']:,} stocked SKUs")
+        # The three knobs, or an explicit silence.  An empty declaration is a run whose
+        # assets were rebuilt from a frozen inventory: it fielded levels, it just did not
+        # record what set them — a different statement from "10 days", and it must read
+        # as one rather than fall back on this checkout's defaults.
+        d = m.get("declaration") or {}
+        decl = (f", at a declared **{_num(d['coverage_days'])} days** of coverage "
+                f"(+ {_num(d['safety_days'])} days of safety, floored at "
+                f"{_num(d['floor_lines'])} line(s) of the SKU's own demand)"
+                if len(d) == 3 else ", at a coverage this snapshot does not record")
+        plans = m.get("n_stock_plans") or 0
+        packed = (f" {plans:,} of them carry a hand-written packing plan, which overrides "
+                  f"the pallet/singleton rule." if plans else "")
+        return (f"<small>{scope}{decl}. The levels are the RUN's declaration, derived at "
+                f"setup from each SKU's expected demand per DAY — a catalogue authors "
+                f"none (ADR-0002), so there is no generator formula left for them to "
+                f"reproduce and none is scored here. The distribution above is what the "
+                f"simulation actually stocked.{packed}</small>")
+
     @env.macro
     def inventory_model(inv_key=None):
         """The realised inventory model — distributions, not a formula.
 
-        The pages used to state an equilibrium formula that, measured against the run's own
-        catalogue, is off by an order of magnitude: the planner's figures are rescaled to
-        fit the warehouse after they are computed.  A distribution is the only honest thing
-        to publish for a quantity nothing closed-form reproduces.
+        Publishing a distribution is not a retreat from a formula that would not hold: a
+        stock level is a RUN's declaration, never a SKU's fact (ADR-0002).  The catalogue
+        carries none, every run derives its own at setup from a coverage in DAYS, and
+        what that produced across the SKUs it fielded IS the model — there is nothing
+        closed-form behind it to publish instead.
+
+        The table renders whichever quantities the staged document carries, so each
+        vintage shows its own: a pre-ADR-0002 snapshot measured the per-wave demand its
+        authored level was coverage of, a current one measures the lead pipeline the run
+        stamps.  `_stock_footnote` carries the sentence underneath.
         """
         doc = _run_doc("inventory")
         pairs = doc["pairs"]
@@ -665,6 +766,7 @@ def define_env(env):
         d = m["distributions"]
         labels = [("equilibrium_qty", "equilibrium quantity (units held per SKU)"),
                   ("reorder_point", "reorder point (units)"),
+                  ("pipeline_qty", "lead pipeline (units allowed in transit)"),
                   ("lead_time_mean", "lead time (waves)"),
                   ("expected_batch_demand", "expected demand per wave (units)")]
         rows = ["| quantity | median | mean | p5 – p95 | min – max |",
@@ -676,14 +778,7 @@ def define_env(env):
             rows.append(f"| {label} | {v['median']:,.2f} | {v['mean']:,.2f} | "
                         f"{v['p5']:,.2f} – {v['p95']:,.2f} | "
                         f"{v['min']:,.2f} – {v['max']:,.2f} |")
-        best = max(m["rop_formulas"], key=lambda f: f["match_pct"])
-        rows += ["",
-                 f"<small>Measured over the run's own {m['n_skus']:,} stocked SKUs. The "
-                 f"closest closed form for the reorder point reproduces only "
-                 f"**{best['match_pct']:.0f} %** of the stored values, because the "
-                 f"planner's figures are rescaled to fit the warehouse after they are "
-                 f"computed — the distribution above is what the simulation actually "
-                 f"stocked.</small>"]
+        rows += ["", _stock_footnote(m)]
         return "\n".join(rows)
 
     @env.macro
@@ -734,28 +829,67 @@ def define_env(env):
 
     @env.macro
     def reorder_formula(*args):
-        """This run's realised inventory averages — deliberately NOT a closed form.
+        """How this run's stock levels were SET, and the averages it fielded.
 
-        It used to print one, and the formula it printed did not reproduce the catalogue:
-        the planner's equilibrium target is rescaled to fit the warehouse afterwards, so
-        the stated form was out by an order of magnitude, and neither candidate
-        reorder-point expression matched more than about half the stored values. A macro
-        that prints an equation asserts the equation holds. This prints the averages the
-        run recorded; `inventory_model()` publishes the distribution behind them.
+        Two vintages, told apart by `_stock_declaration` off the staged inventory
+        document, and the page describes ITS OWN run either way:
+
+          * a run that DECLARED its levels (ADR-0002 onward) gets the derivation it
+            actually used — a coverage in DAYS against each SKU's expected daily demand,
+            floored at a line of that SKU's own demand — with the declared inputs quoted
+            when the snapshot records them;
+          * an archived run gets the authored model it ran, NAMED as retired: its
+            catalogue carried the levels and the planner rescaled them to fit the
+            warehouse afterwards, which is why no closed form reproduced the stored
+            values.
+
+        What this will not do is print an equation beside numbers it does not produce.
+        The archived branch says so outright; the declared branch's formulas ARE the ones
+        that produced its averages, which is the whole of the difference ADR-0002 made.
+        `inventory_model()` publishes the distribution behind the averages in both.
         """
-        c = _load_cfg(*_ric(args))
+        run, inv, cfg = _ric(args)
+        c = _load_cfg(run, inv, cfg)
+        decl = _stock_declaration(inv)
         # Single paragraph with INLINE math ($…$) — this macro is rendered inside an
         # indented admonition, where a $$display$$ block (needing its own blank lines)
         # would break out of the call-out. Inline keeps it one logical line.
+        averages = (f"This run's averages: "
+                    f"equilibrium **{_num(c['avg_equilibrium_qty'])}**, "
+                    f"reorder point **{_num(c['avg_reorder_point'])}**, "
+                    f"lead time **{_num(c['avg_lead_time_mean'])}** batches, "
+                    f"supply CV **{_num(c['avg_supply_cv'])}**.")
+        if decl is None:
+            return (
+                r"Each SKU carried an **equilibrium quantity** (its steady-state stock) "
+                r"and a **reorder point** (the level that triggers replenishment), and "
+                r"this run took both from its catalogue: derived there from the SKU's "
+                r"expected per-batch demand $\bar d$ and its lead time, then rescaled so "
+                r"the whole catalogue fitted the warehouse — which is why no closed form "
+                r"reproduces the stored values. That model is **retired** (ADR-0002): a "
+                r"catalogue authors no stock level now, and every run declares its own "
+                r"from a coverage in days. " + averages
+            )
+        # `{}` = declared, inputs unrecorded.  Naming the record beats printing this
+        # checkout's defaults into a page about someone else's run.
+        inputs = (f"This run declared $C$ = **{_num(decl['coverage_days'])} days**, "
+                  f"$S$ = **{_num(decl['safety_days'])} days** and $F$ = "
+                  f"**{_num(decl['floor_lines'])} line(s)**. " if len(decl) == 3 else
+                  "The three inputs are recorded per pair in the run's own staffing "
+                  "record; this snapshot does not carry them. ")
         return (
-            r"Each SKU carries an **equilibrium quantity** (its steady-state stock) and a "
-            r"**reorder point** (the level that triggers replenishment), both derived from "
-            r"its expected per-batch demand $\bar d$ and its lead time, then rescaled so "
-            r"the whole catalogue fits the warehouse. This run's averages: "
-            f"equilibrium **{_num(c['avg_equilibrium_qty'])}**, "
-            f"reorder point **{_num(c['avg_reorder_point'])}**, "
-            f"lead time **{_num(c['avg_lead_time_mean'])}** batches, "
-            f"supply CV **{_num(c['avg_supply_cv'])}**."
+            r"A stock level is not a property of a SKU — the catalogue carries none "
+            r"(ADR-0002) — so this run **declared** both at setup from each SKU's "
+            r"expected demand per **day** $d_s$: its share of the lines the crew fills "
+            r"in a day, times its own mean line $\bar q_s$. Against a declared coverage "
+            r"$C$, safety $S$ and a floor of $F$ lines, the **equilibrium quantity** (its "
+            r"steady-state stock) and the **reorder point** (the level that triggers "
+            r"replenishment) are $L_s = \lceil F\,\bar q_s \rceil$, "
+            r"$Q_s = \max(\mathrm{round}(C\,d_s),\,L_s)$ and "
+            r"$r_s = \min(Q_s - 1,\ \max(\mathrm{round}(d_s\,(\ell_s + S)),\,L_s))$ "
+            r"for a lead time $\ell_s$ — so a SKU whose coverage is shorter than the gap "
+            r"between its own lines sits on the floor at $r_s = Q_s - 1$ and runs base "
+            r"stock. " + inputs + averages
         )
 
     @env.macro

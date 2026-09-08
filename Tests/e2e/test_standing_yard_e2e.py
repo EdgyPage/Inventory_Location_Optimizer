@@ -61,6 +61,23 @@ _LABOR_STAMPS = {'t_abs', 't_local', 'shift_index', 'actor_uid', 'actor_local'}
 _MEASUREMENT_ONLY = ('yard_trailers', 'yard_drains')
 
 
+def _record_the_declaration(base_dir, label, shared, log):
+    """Record the run's STOCK DECLARATION at the run root, as the real driver does.
+
+    A run declares its own stock levels at setup (ADR-0002) and records the fixed point it
+    declared at, so anything re-planning its warehouse later reproduces exactly those levels --
+    the catalogue holds none.  `run_analysis` re-declares from this block and refuses rather
+    than sizing a warehouse from nothing without it.  This harness assembles a run tree by hand
+    instead of going through `_build_work_units`, so it must write the record the same way;
+    calling the PRODUCTION function is the point, because a hand-rolled copy would drift.
+    """
+    import Optimization.simdriver.workunits as _wu
+    from Optimization.runschema.sim_manifest import _write_run_spec, _load_run_spec
+    if _load_run_spec(base_dir) is None:
+        _write_run_spec(base_dir, {'argv': ['e2e-harness']})
+    _wu._record_coverage(base_dir, label, shared.get('coverage'), log)
+
+
 def _yard_row_counts(db) -> dict:
     con = sqlite3.connect(db)
     try:
@@ -316,6 +333,7 @@ def test_the_yard_family_renders_from_a_standing_run(tmp_path, monkeypatch):
         sr._run_strategy_worker(a)
     for skel in skels:                        # one skeleton per channel run
         rs._finalize_config_run(skel)
+    _record_the_declaration(base_dir, 'store_pair', shared, log)
 
     pe_io._MAP_WARNINGS.clear()
     pe_requests.tally_snapshot(reset=True)

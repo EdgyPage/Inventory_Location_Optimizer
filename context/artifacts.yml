@@ -15,7 +15,10 @@ artifacts:
       - {function: build_shared_assets, file: Optimization/simdriver/sim_assets.py}
     match: "inventory.db"
     schema_file: Warehouse/generation/generate_inventory.py
-    tables: [cartons, run_metadata, creation_plan]
+    # `stock_levels` is DECLARED by the generator and left EMPTY by it: a level is a run's
+    # declaration, never a SKU's fact (ADR-0002).  The table is part of this shape because both
+    # files are one family; only the rows differ.
+    tables: [cartons, stock_levels, run_metadata, creation_plan]
 
   affinity_db:
     path_pattern: "<profiles>/<run>/<profile>/affinity/affinity.db"
@@ -115,7 +118,9 @@ artifacts:
       - {function: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py}
     match: "planned_inventory.db"
     schema_file: Warehouse/generation/generate_inventory.py
-    tables: [cartons]
+    # The RUN's own record: `cartons` for the SKUs it fielded and `stock_levels` for the stock
+    # it declared for each (ADR-0002).  Workers reload both.
+    tables: [cartons, stock_levels]
 
   config_json:
     path_pattern: "comparison_<ts>/<cell>/<pair>/<config>/config.json"

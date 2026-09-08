@@ -476,6 +476,11 @@
       "src": "Diagnostics/trace_lifecycle.py::trace_strategy"
     },
     {
+      "dst": "Diagnostics/trace_lifecycle.py::_declare_stock",
+      "kind": "calls",
+      "src": "Diagnostics/trace_lifecycle.py::trace_strategy"
+    },
+    {
       "dst": "Diagnostics/trace_lifecycle.py::_fill_snapshot",
       "kind": "calls",
       "src": "Diagnostics/trace_lifecycle.py::trace_strategy"
@@ -487,11 +492,6 @@
     },
     {
       "dst": "Diagnostics/trace_lifecycle.py::_install_hooks",
-      "kind": "calls",
-      "src": "Diagnostics/trace_lifecycle.py::trace_strategy"
-    },
-    {
-      "dst": "Diagnostics/trace_lifecycle.py::_set_equilibrium",
       "kind": "calls",
       "src": "Diagnostics/trace_lifecycle.py::trace_strategy"
     },
@@ -1386,9 +1386,29 @@
       "src": "Optimization/Performance_Evaluations/catalog/inventory.py"
     },
     {
+      "dst": "Schema/dataset.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/catalog/inventory.py"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/catalog/inventory.py"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/catalog/inventory.py::_dist",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/catalog/inventory.py::pair_model"
+    },
+    {
+      "dst": "Schema/dataset.py::bind",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/catalog/inventory.py::pair_model"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/catalog/inventory.py::_declaration",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/catalog/inventory.py::render"
     },
     {
       "dst": "Optimization/Performance_Evaluations/catalog/inventory.py::pair_model",
@@ -8061,6 +8081,11 @@
       "src": "Optimization/run_analysis.py::_config_jobs"
     },
     {
+      "dst": "Optimization/run_analysis.py::_coverage_record",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_config_jobs"
+    },
+    {
       "dst": "Optimization/run_analysis.py::_sim_result_from_meta",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_config_jobs"
@@ -8377,6 +8402,11 @@
     },
     {
       "dst": "Optimization/persistence/runtime_metrics.py::record_precompute",
+      "kind": "calls",
+      "src": "Optimization/run_map_precompute.py::measure_pair"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_coverage_record",
       "kind": "calls",
       "src": "Optimization/run_map_precompute.py::measure_pair"
     },
@@ -10513,11 +10543,6 @@
     {
       "dst": "Optimization/simconfig/coverage.py::daily_demand",
       "kind": "calls",
-      "src": "Optimization/simconfig/coverage.py::implied_coverage"
-    },
-    {
-      "dst": "Optimization/simconfig/coverage.py::daily_demand",
-      "kind": "calls",
       "src": "Optimization/simconfig/coverage.py::rescale_section"
     },
     {
@@ -11041,17 +11066,27 @@
       "src": "Optimization/simdriver/era_coverage.py::channel_specs"
     },
     {
+      "dst": "Optimization/simconfig/coverage.py::rescale_section",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::declare_from_record"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::regime_orders",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::declare_from_record"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::MissingCoverageRecord",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::declare_from_record"
+    },
+    {
       "dst": "Optimization/simconfig/coverage.py::converged",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
     },
     {
       "dst": "Optimization/simconfig/coverage.py::fill_rate",
-      "kind": "calls",
-      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
-    },
-    {
-      "dst": "Optimization/simconfig/coverage.py::implied_coverage",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
     },
@@ -11076,9 +11111,39 @@
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
     },
     {
+      "dst": "Optimization/simdriver/era_coverage.py::seed_lines",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
       "dst": "Optimization/simdriver/era_coverage.py::stage_a",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::channel_pickers",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::seed_lines"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::analytic_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::seed_lines"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::daily_demand",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::seed_lines"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::pick_capacity",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::seed_lines"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::regime_orders",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::seed_lines"
     },
     {
       "dst": "Optimization/config/sim_config.py::channel_pickers",
@@ -11171,6 +11236,11 @@
       "src": "Optimization/simdriver/scenario.py"
     },
     {
+      "dst": "Optimization/simdriver/workunits.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/scenario.py"
+    },
+    {
       "dst": "Optimization/runschema/sim_manifest.py::write_run_manifest",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_scenario"
@@ -11236,6 +11306,11 @@
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
     {
+      "dst": "Optimization/simdriver/workunits.py::_record_coverage",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
       "dst": "Optimization/runschema/runlayout.py::iter_sim_dbs",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_warn_blank_arms"
@@ -11296,11 +11371,6 @@
       "src": "Optimization/simdriver/sim_assets.py"
     },
     {
-      "dst": "Optimization/config/sim_config.py::era_on",
-      "kind": "calls",
-      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
-    },
-    {
       "dst": "Optimization/config/sim_config.py::staffing_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
@@ -11337,6 +11407,11 @@
     },
     {
       "dst": "Optimization/simdriver/era_coverage.py::channel_specs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::declare_from_record",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
@@ -12236,6 +12311,11 @@
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
     {
+      "dst": "Optimization/simdriver/workunits.py::_record_coverage",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_build_work_units"
+    },
+    {
       "dst": "Optimization/simdriver/workunits.py::_record_derived",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
@@ -12494,6 +12574,16 @@
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run._yardsticks"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_write_run_spec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_record_coverage"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_run_root_spec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_record_coverage"
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::_write_run_spec",
@@ -14841,6 +14931,11 @@
       "src": "Warehouse/catalog/Order.py::Order.reorder"
     },
     {
+      "dst": "Warehouse/catalog/Order.py::Order.stock_declared",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Order.py::Order.reorder"
+    },
+    {
       "dst": "Warehouse/catalog/Demand.py::poisson_sample",
       "kind": "calls",
       "src": "Warehouse/catalog/Order.py::_sample_weight"
@@ -15066,6 +15161,11 @@
       "src": "Warehouse/generation/generate_inventory.py"
     },
     {
+      "dst": "Warehouse/generation/generate_inventory.py::_levels_from_cartons_sql",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py"
+    },
+    {
       "dst": "Warehouse/generation/generate_inventory.py::main",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py"
@@ -15226,11 +15326,6 @@
       "src": "Warehouse/generation/generate_inventory.py::generate_run"
     },
     {
-      "dst": "Warehouse/generation/generate_inventory.py::plot_equilibrium_qty",
-      "kind": "calls",
-      "src": "Warehouse/generation/generate_inventory.py::generate_run"
-    },
-    {
       "dst": "Warehouse/generation/generate_inventory.py::plot_fulfillment_distributions",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py::generate_run"
@@ -15304,11 +15399,6 @@
       "dst": "Warehouse/generation/generate_inventory.py::_save_close",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py::plot_dimensions"
-    },
-    {
-      "dst": "Warehouse/generation/generate_inventory.py::_save_close",
-      "kind": "calls",
-      "src": "Warehouse/generation/generate_inventory.py::plot_equilibrium_qty"
     },
     {
       "dst": "Warehouse/generation/generate_inventory.py::_ff_subtypes",
@@ -16061,6 +16151,11 @@
       "src": "Warehouse/inventory/inventory_common.py::PutawayItem.respawn"
     },
     {
+      "dst": "Warehouse/inventory/inventory_common.py::UndeclaredStock",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_common.py::_equilibrium_qty"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_common.py::_wp_for"
@@ -16426,6 +16521,16 @@
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._fire_reorders"
     },
     {
+      "dst": "Warehouse/inventory/inventory_reorder.py::_undeclared_stock",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._fire_reorders"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_reorder.py::_undeclared_stock",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._notify_pick"
+    },
+    {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive_standing",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive"
@@ -16514,6 +16619,11 @@
       "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::_pack_plain"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::UndeclaredStock",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::_undeclared_stock"
     },
     {
       "dst": "Warehouse/inventory/put_policy.py::_fifo",
@@ -19036,6 +19146,14 @@
     },
     {
       "file": "Diagnostics/trace_lifecycle.py",
+      "id": "Diagnostics/trace_lifecycle.py::_declare_stock",
+      "kind": "function",
+      "module": "Diagnostics/trace_lifecycle.py",
+      "name": "_declare_stock",
+      "public": false
+    },
+    {
+      "file": "Diagnostics/trace_lifecycle.py",
       "id": "Diagnostics/trace_lifecycle.py::_fill_snapshot",
       "kind": "function",
       "module": "Diagnostics/trace_lifecycle.py",
@@ -19089,14 +19207,6 @@
       "module": "Diagnostics/trace_lifecycle.py",
       "name": "check_reorders",
       "public": true
-    },
-    {
-      "file": "Diagnostics/trace_lifecycle.py",
-      "id": "Diagnostics/trace_lifecycle.py::_set_equilibrium",
-      "kind": "function",
-      "module": "Diagnostics/trace_lifecycle.py",
-      "name": "_set_equilibrium",
-      "public": false
     },
     {
       "file": "Diagnostics/trace_lifecycle.py",
@@ -20508,6 +20618,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/catalog/fixed.py",
+      "id": "Optimization/Performance_Evaluations/catalog/fixed.py::_SPEC_FACTORS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/catalog/fixed.py",
+      "name": "_SPEC_FACTORS",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/catalog/fixed.py",
       "id": "Optimization/Performance_Evaluations/catalog/fixed.py::_levels",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/catalog/fixed.py",
@@ -20564,6 +20682,22 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/catalog/inventory.py",
+      "id": "Optimization/Performance_Evaluations/catalog/inventory.py::_CARTON_FIELDS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/catalog/inventory.py",
+      "name": "_CARTON_FIELDS",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/catalog/inventory.py",
+      "id": "Optimization/Performance_Evaluations/catalog/inventory.py::_CSV_FIELDS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/catalog/inventory.py",
+      "name": "_CSV_FIELDS",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/catalog/inventory.py",
       "id": "Optimization/Performance_Evaluations/catalog/inventory.py::_FIELDS",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/catalog/inventory.py",
@@ -20572,10 +20706,18 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/catalog/inventory.py",
-      "id": "Optimization/Performance_Evaluations/catalog/inventory.py::_ROP_FORMULAS",
+      "id": "Optimization/Performance_Evaluations/catalog/inventory.py::_LEVEL_FIELDS",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/catalog/inventory.py",
-      "name": "_ROP_FORMULAS",
+      "name": "_LEVEL_FIELDS",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/catalog/inventory.py",
+      "id": "Optimization/Performance_Evaluations/catalog/inventory.py::_declaration",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/catalog/inventory.py",
+      "name": "_declaration",
       "public": false
     },
     {
@@ -28964,6 +29106,14 @@
     },
     {
       "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_coverage_record",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_coverage_record",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
       "id": "Optimization/run_analysis.py::_drain",
       "kind": "function",
       "module": "Optimization/run_analysis.py",
@@ -31268,14 +31418,6 @@
     },
     {
       "file": "Optimization/simconfig/coverage.py",
-      "id": "Optimization/simconfig/coverage.py::implied_coverage",
-      "kind": "function",
-      "module": "Optimization/simconfig/coverage.py",
-      "name": "implied_coverage",
-      "public": true
-    },
-    {
-      "file": "Optimization/simconfig/coverage.py",
       "id": "Optimization/simconfig/coverage.py::line_floor",
       "kind": "function",
       "module": "Optimization/simconfig/coverage.py",
@@ -32100,6 +32242,14 @@
     },
     {
       "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::MissingCoverageRecord",
+      "kind": "class",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "MissingCoverageRecord",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
       "id": "Optimization/simdriver/era_coverage.py::_lines",
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
@@ -32116,6 +32266,14 @@
     },
     {
       "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::declare_from_record",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "declare_from_record",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
       "id": "Optimization/simdriver/era_coverage.py::fixed_point",
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
@@ -32128,6 +32286,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
       "name": "next_guess",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::seed_lines",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "seed_lines",
       "public": true
     },
     {
@@ -32560,6 +32726,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
       "name": "_yardsticks",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_record_coverage",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_record_coverage",
       "public": false
     },
     {
@@ -35836,6 +36010,14 @@
     },
     {
       "file": "Warehouse/catalog/Order.py",
+      "id": "Warehouse/catalog/Order.py::Order.declare_stock",
+      "kind": "function",
+      "module": "Warehouse/catalog/Order.py",
+      "name": "declare_stock",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Order.py",
       "id": "Warehouse/catalog/Order.py::Order.expected_labor",
       "kind": "function",
       "module": "Warehouse/catalog/Order.py",
@@ -35880,6 +36062,14 @@
       "kind": "function",
       "module": "Warehouse/catalog/Order.py",
       "name": "sku",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Order.py",
+      "id": "Warehouse/catalog/Order.py::Order.stock_declared",
+      "kind": "function",
+      "module": "Warehouse/catalog/Order.py",
+      "name": "stock_declared",
       "public": true
     },
     {
@@ -36300,6 +36490,14 @@
     },
     {
       "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::PRE_STOCK_SPLIT_INVENTORY_SCHEMA_ID",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "PRE_STOCK_SPLIT_INVENTORY_SCHEMA_ID",
+      "public": true
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
       "id": "Warehouse/generation/generate_inventory.py::UNVETTED_ARCHIVE_INVENTORY_SCHEMA_ID",
       "kind": "const",
       "module": "Warehouse/generation/generate_inventory.py",
@@ -36404,6 +36602,14 @@
     },
     {
       "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::_LEVEL_COLS",
+      "kind": "const",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "_LEVEL_COLS",
+      "public": false
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
       "id": "Warehouse/generation/generate_inventory.py::_PLAN_PARAM_SPECS",
       "kind": "const",
       "module": "Warehouse/generation/generate_inventory.py",
@@ -36464,6 +36670,14 @@
       "kind": "function",
       "module": "Warehouse/generation/generate_inventory.py",
       "name": "_init_db",
+      "public": false
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::_levels_from_cartons_sql",
+      "kind": "function",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "_levels_from_cartons_sql",
       "public": false
     },
     {
@@ -36608,14 +36822,6 @@
       "kind": "function",
       "module": "Warehouse/generation/generate_inventory.py",
       "name": "plot_dimensions",
-      "public": true
-    },
-    {
-      "file": "Warehouse/generation/generate_inventory.py",
-      "id": "Warehouse/generation/generate_inventory.py::plot_equilibrium_qty",
-      "kind": "function",
-      "module": "Warehouse/generation/generate_inventory.py",
-      "name": "plot_equilibrium_qty",
       "public": true
     },
     {
@@ -37748,6 +37954,14 @@
     },
     {
       "file": "Warehouse/inventory/inventory_common.py",
+      "id": "Warehouse/inventory/inventory_common.py::UndeclaredStock",
+      "kind": "class",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "name": "UndeclaredStock",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_common.py",
       "id": "Warehouse/inventory/inventory_common.py::WarehousePlan",
       "kind": "class",
       "module": "Warehouse/inventory/inventory_common.py",
@@ -38424,6 +38638,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
       "name": "_pack_plain",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::_undeclared_stock",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "_undeclared_stock",
       "public": false
     },
     {
@@ -42156,6 +42378,14 @@
     },
     {
       "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env._floor_lines",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "_floor_lines",
+      "public": false
+    },
+    {
+      "file": "docs/macros.py",
       "id": "docs/macros.py::define_env._fmt_brackets",
       "kind": "function",
       "module": "docs/macros.py",
@@ -42296,6 +42526,30 @@
       "kind": "function",
       "module": "docs/macros.py",
       "name": "_run_doc",
+      "public": false
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env._stock_declaration",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "_stock_declaration",
+      "public": false
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env._stock_footnote",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "_stock_footnote",
+      "public": false
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env._unused_stock_declaration_tail",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "_unused_stock_declaration_tail",
       "public": false
     },
     {

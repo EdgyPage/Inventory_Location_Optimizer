@@ -97,11 +97,13 @@ def _make_carton(sku: int, stock_qty: int = 35,
     c.height  = 6
     c.weight  = 5
     c.demand                = Demand.from_rates(0.9, 3.0)
-    c.equilibrium_qty       = stock_qty           # OUP target
-    c.reorder_point         = max(1, stock_qty // 2)
     c.lead_time_mean        = 0.0
     c.expected_batch_demand = 0.9 * 3.0
-    return c
+    # The level is the RUN's declaration and `declare_stock` is its one mutation site
+    # (ADR-0002).  OUP target = stock_qty, trigger at half of it — every stock_qty used here
+    # is >= 10, so declare_stock's `rp <= Q - 1` clamp never bites and the numbers are the
+    # ones the reorder stages below assert against.
+    return c.declare_stock(stock_qty, max(1, stock_qty // 2))
 
 
 def _bins_of(mgr, sku):

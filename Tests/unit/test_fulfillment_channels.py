@@ -8,13 +8,19 @@ Locks in the Store/Fulfillment mixed-warehouse core:
   * per-regime cost routing: b._D travel speed + Order.labor_cost + ff height M=1 (Part B)
   * the Channel / PickerProfile abstraction (Optimization/config/channels.py)
 
-Run:  python -m pytest Tests/test_fulfillment_channels.py -v
+The `_store_order` / `_ff_order` / `_mixed_inventory` / `_plan` helpers are SHARED: they are
+imported by name from `test_channel_strategy_subset.py` (same directory, see Tests/README.md).
+Keep their signatures stable.
+
+Run:  python -m pytest Tests/unit/test_fulfillment_channels.py -v
 """
 from __future__ import annotations
 
 import os
 import sys
 import random
+
+import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(_HERE))
@@ -33,12 +39,16 @@ _CATS = ['food', 'clothing', 'electronic']
 _HANDS = ['conveyable', 'non-conveyable']
 
 
+# The catalogue carries geometry and demand; a LEVEL is a run's declaration (ADR-0002), so
+# these fixtures build the SKU and then declare on it exactly as a run's setup would.  The
+# declaration is not decoration here: `plan_warehouse` sizes every bucket from
+# `_equilibrium_qty`, which RAISES `UndeclaredStock` on an order no run has declared.
 def _store_order(sku, rng):
     return Order.build(sku, _HANDS[sku % 2], _CATS[sku % 3],
                        length=rng.randint(20, 44), width=rng.randint(20, 44),
                        height=rng.randint(20, 44), weight=rng.randint(10, 80),
                        relative_frequency=rng.uniform(0.05, 0.5), qty_rate=rng.randint(1, 6),
-                       equilibrium_qty=rng.randint(3, 12), reorder_point=2)
+                       ).declare_stock(rng.randint(3, 12), 2)
 
 
 def _ff_order(sku, rng):
@@ -47,7 +57,7 @@ def _ff_order(sku, rng):
                        length=rng.randint(4, 14), width=rng.randint(4, 14),
                        height=rng.randint(4, 16), weight=rng.randint(1, 8),
                        relative_frequency=rng.uniform(0.1, 0.6), qty_rate=rng.randint(1, 4),
-                       equilibrium_qty=rng.randint(3, 10), reorder_point=2)
+                       ).declare_stock(rng.randint(3, 10), 2)
 
 
 def _mixed_inventory(n_store=60, n_ff=20, seed=0):
@@ -82,10 +92,28 @@ def test_fulfillment_bin_tiers_and_fit():
     b = FulfillmentBin(ff, 1)
     assert b.unit_category == FULFILLMENT
     assert b.storage_size in dict(FulfillmentBin.TIERS)
-    # a pallet-sized item cannot fit the small ff footprint
+    # a pallet-sized item cannot fit the small ff footprint (a fit is pure geometry, so this
+    # one needs no stock declaration)
     big = Order.build(2, FULFILLMENT, FULFILLMENT, 40, 40, 40, 50,
-                      relative_frequency=0.3, qty_rate=1, equilibrium_qty=2, reorder_point=1)
+                      relative_frequency=0.3, qty_rate=1)
     assert not _can_fit(big, FulfillmentBin, 1)
+
+
+def test_the_fixtures_declare_a_level_that_build_alone_does_not():
+    """Guards the fixture itself. `plan_warehouse` sizes every bucket from `_equilibrium_qty`,
+    so a helper that stopped declaring would size the mixed warehouse from nothing -- except
+    that `_equilibrium_qty` now RAISES instead of answering 1 (ADR-0002). Pin both halves:
+    `Order.build` declares nothing, and these fixtures do."""
+    rng = random.Random(21)
+    bare = Order.build(1, FULFILLMENT, FULFILLMENT, 10, 10, 10, 5,
+                       relative_frequency=0.3, qty_rate=1)
+    assert not bare.stock_declared()
+    with pytest.raises(AttributeError):
+        bare.equilibrium_qty
+    for o in (_store_order(2, rng), _ff_order(3, rng)):
+        assert o.stock_declared()
+        assert o.equilibrium_qty >= 1
+        assert 1 <= o.reorder_point <= max(1, o.equilibrium_qty - 1)
 
 
 def test_viable_storage_units_routing():

@@ -327,6 +327,16 @@ coverage is shorter than the interval between its lines sits on the line floor a
 base stock, and the record states how much of a section, and of its demand, does.
 _Avoid_: coverage batches, equilibrium coverage, authored levels, initial stock, unit floor
 
+**Stock declaration**:
+What a run decides to hold of a SKU, and the only place a stock level ever comes from: the
+order-up-to quantity, the reorder point, the packing the planner chose for that quantity, and
+the stamped lead pipeline — four values written together, at setup, by one method. A catalogue
+has none; a run's own planned inventory records one per SKU it fielded, and its workers reload
+it. Asking a SKU for a level nobody declared is an error, not a default: the warehouse's bin
+count is derived from the levels, so a fabricated one silently builds the wrong warehouse.
+A rebuild of a finished run re-declares from that run's record rather than deriving afresh.
+_Avoid_: authored level, catalogue stock, the SKU's quantity, default stock
+
 **Line distribution**:
 The law one line of a SKU's demand is drawn from — the quantity a single pick asks for. A
 first-class fact stamped on the SKU (its family and parameters), read by the sampler and by

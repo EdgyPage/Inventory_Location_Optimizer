@@ -23,11 +23,21 @@ Localises the per-(handling, category, size, unit_type) bucket mismatch behind a
   SIZING  — per bucket: built capacity (bins), the `stock_plan` SPREAD footprint that
             initial stock places, and the DEFAULT-PACK footprint a dumb-JIT warehouse
             would need (bucket_requirements with stock_plan stripped).  Plus default-pack
-            timing, since retiring stock_plan puts that cost back on the hot path.
+            timing, since retiring stock_plan would put that packing back on the hot path.
 
   RUNTIME — runs a short single-process FIFO sim (mirrors strategy_runner&#x27;s loop) and
             snapshots per-bucket {occupied, free, queued units} + the global fill / queue
             trajectory, flagging buckets &gt;95% full (overflow) and &lt;40% full (waste).
+
+BOTH SIDES OF THE SIZING VIEW READ THE RUN&#x27;S PLANNED INVENTORY, never the catalogue.
+A stock level is a run&#x27;s declaration and a generated catalogue carries none (ADR-0002):
+`load_inventory_from_db` on a profile DB returns orders whose level slots are UNSET, and
+`bucket_requirements` over those is a caller bug — `_equilibrium_qty` raises
+`UndeclaredStock` rather than answering the 1 it used to, which would have sized the
+DEFAULT column at one unit per SKU instead of at what default packing needs.  The
+warehouse planner&#x27;s `stock_plan` survives ADR-0002 untouched; only its provenance moved,
+from a column the generator authored to the packing the planner writes for the level a
+run declared.
 
 Nothing here mutates production data; it only reads DBs and runs an in-memory sim.
 

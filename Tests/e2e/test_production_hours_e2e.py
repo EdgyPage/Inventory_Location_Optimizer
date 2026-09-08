@@ -51,6 +51,23 @@ from Optimization.Performance_Evaluations.common.frames import _bdf, _tdf, _wdf
 from test_standing_yard_e2e import _run_one_arm, _store_dbs
 
 
+def _record_the_declaration(base_dir, label, shared, log):
+    """Record the run's STOCK DECLARATION at the run root, as the real driver does.
+
+    A run declares its own stock levels at setup (ADR-0002) and records the fixed point it
+    declared at, so anything re-planning its warehouse later reproduces exactly those levels --
+    the catalogue holds none.  `run_analysis` re-declares from this block and refuses rather
+    than sizing a warehouse from nothing without it.  This harness assembles a run tree by hand
+    instead of going through `_build_work_units`, so it must write the record the same way;
+    calling the PRODUCTION function is the point, because a hand-rolled copy would drift.
+    """
+    import Optimization.simdriver.workunits as _wu
+    from Optimization.runschema.sim_manifest import _write_run_spec, _load_run_spec
+    if _load_run_spec(base_dir) is None:
+        _write_run_spec(base_dir, {'argv': ['e2e-harness']})
+    _wu._record_coverage(base_dir, label, shared.get('coverage'), log)
+
+
 def _frames(db, run_id):
     """The three frames as the analysis context would build them, straight off the file."""
     from Optimization.persistence.Picking_Data import load_batch_stats, load_task_stats
@@ -248,6 +265,7 @@ def test_the_production_legs_figure_renders_from_a_real_run(tmp_path, monkeypatc
         sr._run_strategy_worker(a)
     for skel in skels:
         rs._finalize_config_run(skel)
+    _record_the_declaration(base_dir, 'store_pair', shared, log)
 
     pe_io._MAP_WARNINGS.clear()
     pe_requests.tally_snapshot(reset=True)
