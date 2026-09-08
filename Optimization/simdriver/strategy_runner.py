@@ -1396,6 +1396,13 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # no receiving crew, which keeps the row shape identical either way rather than
         # leaving a NULL every consumer has to special-case.
         _rcv = mgr.receiving_snapshot()
+        # ADR-0003's rework flows and the free-index level, taken HERE for exactly the
+        # reasons above: `snapshot_putaway_rework` RESETS all three, so one call per batch,
+        # above the skip guard so a skipped batch records its own top-ups (put-away runs in
+        # `check_reorders`, which a skipped batch still performs).  `free_bin_depth` is a
+        # level and resets nothing, but it is read here so it is read at the same instant.
+        _rwk = mgr.snapshot_putaway_rework()
+        _free = mgr.free_bin_depth()
         # The yard's two row sources, drained here for `queue_state_rows`' reason: both
         # RESET, so exactly one call per batch, above the skip guard so a skipped batch
         # records its drain too (a batch that picked nothing still received trailers).
@@ -1413,6 +1420,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # `bs.batch_start_time` is pinned equal to it, so one epoch serves both branches.
         if _recv_workers is not None:
             _recv_recs = mgr.drain_receiving_records()
+            # ADR-0003's rework.  Order against `drain_receiving_records` above does not
+            # matter -- `drain_repacks` deliberately does NOT reset the crew clocks, and both
+            # streams' `t0` were stamped when the work happened -- but both must be taken in
+            # the SAME batch, or the one left behind lands against the next batch's epoch.
+            _repack_recs = mgr.drain_repack_records()
             _recv_base = max(arm_clock, recv_clock)
             if _recv_recs:
                 we.extend(_work_events.recv_rows(
@@ -1422,6 +1434,24 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 # addition is not associative and the other association moved 28 rows by one
                 # ulp across two arms.
                 recv_clock = max((_recv_base + r[0]) + r[1] for r in _recv_recs)
+            if _repack_recs:
+                # Same crew, same base, same clock -- a repack is receiving work, so it
+                # carries the receiving crew forward exactly as an unload does.
+                #
+                # `first_seq` CONTINUES PAST THE UNLOAD ROWS, unlike every other stream here,
+                # which all start at 0.  They can: `work_events_merged` breaks a tie on
+                # (instant, batch, role, mode, actor) with `seq`, and no two of those streams
+                # share a role.  These two do -- a repack row is `role='receive'` by the same
+                # worker on the same clock -- so restarting at 0 would leave an unload and a
+                # repack at the same instant with the same key and no defined order between
+                # them.  Not a primary key (the table has none on `seq`); an ordering the
+                # merged view promises and could not otherwise keep.
+                we.extend(_work_events.repack_rows(
+                    _repack_recs, batch_id=i, batch_start=arm_clock, crew=_recv_workers,
+                    shift_seconds=_shift_seconds, crew_start=_recv_base,
+                    first_seq=len(_recv_recs)))
+                recv_clock = max(recv_clock,
+                                 max((_recv_base + r[0]) + r[1] for r in _repack_recs))
         _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
 
         # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of
@@ -1546,6 +1576,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             _bs.work_day      = _release.day_of(i)
             (_bs.recv_depth, _bs.recv_unloaded,
              _bs.recv_cut, _bs.recv_seconds) = _rcv
+            (_bs.put_topups, _bs.recv_repacks, _bs.recv_repacked_packs) = _rwk
+            _bs.free_bins = _free
             _bs.released_late = _late
             pb.append(_bs)
             we.extend(_we_skip)
@@ -1626,6 +1658,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         bs.items_demanded     = sum(_eff_batch.items.values())
         bs.work_day           = _release.day_of(i)
         (bs.recv_depth, bs.recv_unloaded, bs.recv_cut, bs.recv_seconds) = _rcv
+        (bs.put_topups, bs.recv_repacks, bs.recv_repacked_packs) = _rwk
+        bs.free_bins = _free
         bs.released_late      = _late
         # THE CARRY: everything this batch was asked for and did not pick, by CAUSE.  Each
         # number comes from the place that knows it -- none is re-derived as a residual,

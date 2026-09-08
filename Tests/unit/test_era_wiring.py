@@ -342,6 +342,14 @@ def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as
     con = sqlite3.connect(db)
     con.execute('ALTER TABLE shift_days DROP COLUMN standing_carry_labour')
     con.execute('ALTER TABLE shift_days DROP COLUMN standing_carry_supply')
+    # EVERY column added since that vintage has to come back off, not just the two this
+    # test is about: the fake is built from the CURRENT DDL, so the file's observed shape is
+    # `487a65bf83a9` only while nothing else has been added -- and `dataset.bind` verifies
+    # the stamp against the observed shape, so a missed drop fails here rather than in the
+    # code under test.  These five are ADR-0003's (2026-09-08).
+    con.execute('ALTER TABLE bin_placement DROP COLUMN bin_state')
+    for _c in ('put_topups', 'recv_repacks', 'recv_repacked_packs', 'free_bins'):
+        con.execute(f'ALTER TABLE batch_stats DROP COLUMN {_c}')
     con.execute('UPDATE simulation_runs SET sim_schema_id = ?',
                 (PRE_CARRY_SPLIT_SIM_SCHEMA_ID,))
     con.commit()

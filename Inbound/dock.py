@@ -101,7 +101,7 @@ class DockSpec:
 class Dock:
     """One spec, one crew clock, and the merchandise standing on the floor."""
 
-    __slots__ = ('spec', 'items', 'clocks', 'cost', 'records',
+    __slots__ = ('spec', 'items', 'clocks', 'cost', 'records', 'repacks',
                  'unloaded', 'cut', 'seconds', 'deliveries')
 
     def __init__(self, spec: DockSpec, cost=None):
@@ -120,6 +120,11 @@ class Dock:
         #: (t0, dur, sku, qty, worker) per unload, on the BATCH-LOCAL clock. Drained per
         #: batch; the runner adds the epoch.
         self.records: list = []
+        #: (t0, dur, sku, qty, worker) per REPACKED PACK -- put-away rework the receiving
+        #: crew absorbs (ADR-0003), same shape and same clock as `records`, kept apart
+        #: because they are a different `work_events.event_type` and the row writer takes
+        #: one event type per call.  `seconds` and the crew clock see both.
+        self.repacks: list = []
         # Per-batch FLOWS, reset by `snapshot()`. `depth` is a level and is not among them.
         self.unloaded = 0
         self.cut = 0
@@ -236,6 +241,18 @@ class Dock:
         """
         recs, self.records = self.records, []
         self.reset_clocks()
+        return recs
+
+    def drain_repacks(self) -> list:
+        """This batch's repack records (ADR-0003), and start the list over.
+
+        DOES NOT RESET THE CLOCKS, and that is the whole difference from `drain_records`.
+        Both streams are charged against the same crew on the same batch-local clock, so
+        exactly one of the two drains may restart it; a second reset would rebase the
+        surviving stream's `t0` against a clock that had already gone back to zero. The
+        reset stays with `drain_records`, which is the one every dockful run makes.
+        """
+        recs, self.repacks = self.repacks, []
         return recs
 
     def snapshot(self) -> tuple:

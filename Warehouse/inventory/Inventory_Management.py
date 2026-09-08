@@ -29,7 +29,7 @@ from Warehouse.inventory.inventory_common import (
     AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
     BinKey, binkey_of, is_forward_pick, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
     UNIT_CLASSES,
-    _equilibrium_qty, _max_qty_fitting_size,
+    _equilibrium_qty, _max_qty_fitting_size, own_bin_room,
     _uniform_assignment, _wp_for, _SortedBins,
 )
 from Warehouse.inventory.inventory_planning import PlanningMixin
@@ -283,7 +283,19 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self.space_timeline = None
         #: Receiving labour, in seconds. Deliberately NOT folded into `_put_seconds`: that
         #: figure has been published, and widening what it counts would move it silently.
+        #: Repack rework (ADR-0003) DOES land here -- it is receiving work, done by the
+        #: receiving crew, and hiding it in its own total is how it would stop being noticed.
         self._recv_seconds: float = 0.0
+        #: ADR-0003's three per-batch flows, drained by `snapshot_putaway_rework`.
+        #: `_put_topups` counts top-ups that landed in a bin ALREADY holding the SKU -- the
+        #: own-bin rung firing at all means the free index was dry for that unit.
+        #: `_recv_repacks` counts rescue ACTS, `_recv_repacked_packs` the packs they
+        #: produced; the two differ whenever one act splits a unit several ways, and the
+        #: ratio is the only thing that says how badly.  Counted even with no dock bound,
+        #: so a dockless run still reports its rework instead of silently having none.
+        self._put_topups: int = 0
+        self._recv_repacks: int = 0
+        self._recv_repacked_packs: int = 0
         #: One `(yard_start, free_doors_start, yard_end, staged_remainder_end)` per STANDING
         #: drain — the `yard_drains` row, appended by `_receive_standing` and drained per
         #: batch.  Empty on every run without the standing yard, which is what makes the
@@ -949,6 +961,138 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         if self._put_speed is not None:
             self._cost_putaway(unit, bin_, source)
 
+    # ── the own-bin rung (ADR-0003) ───────────────────────────────────────────────────
+    def _top_up_own_bins(self, unit: StorageUnit, source: str | None = None,
+                         queue=None) -> int:
+        """Add `unit`'s items to bins ALREADY HOLDING ITS SKU, fullest first.  Returns how
+        many items landed (0 when the SKU holds no bin with room).
+
+        THE SECOND RUNG of the put-away chain (ADR-0003): tried only after `place_one` has
+        failed to find an empty bin, and ahead of the repack/singleton rescues and
+        `pending`.  Empty-first is what keeps the new-bin decision — the moment an
+        assignment arm actually optimises anything — happening on every top-up it can; this
+        rung is what stops the run falling off a cliff when the free index is dry.
+
+        THE NO-OP CONDITION IS PER-BUCKET, NOT GLOBAL, and the ADR states it loosely.  This
+        rung fires exactly when `place_one` returns None, which is a free index empty FOR THE
+        UNIT'S OWN BinKey — a run with plenty of free bins elsewhere can still reach it.  So
+        "a no-op in any run whose free index never exhausts" is true only read per bucket;
+        the checkable claim is "a no-op in any run where every unit finds an empty bin".  The
+        same correction applies to the rescues, which this rung now pre-empts whenever the
+        SKU has room — that was a reachable path before, so an arm that fires a rescue is NOT
+        byte-identical to HEAD even with a deep index.
+
+        FULLEST FIRST, ties by `location`.  Remnants merge into the bin that is already
+        nearest full, which leaves the emptiest bin emptiest and lets `drain_sku`'s
+        smallest-first pick take it to zero and hand it back to the free index.  The two
+        rules are one mechanism and neither works alone.
+
+        IT CROSSES THE FORWARD-PICK SPLIT.  Both `_sku_singleton_bins` and `_sku_pallet_bins`
+        are drawn from, so a pallet unit's items can land in a forward-pick singleton bin and
+        the reverse.  That is deliberate and safe -- `own_bin_room` measures against the BIN's
+        own family, so nothing is asked to hold more than it can -- but it does mean the rung
+        consolidates across a split that `_candidates_raw` never crosses.
+
+        THE FIFTH BIN-MUTATION SITE.  Every other write to bin state replaces a whole
+        `storage`; this one adds to an existing unit's `quantity`, so it updates the same
+        manager dicts as `_execute_placement` MINUS everything that is about a bin becoming
+        occupied:
+
+          * `_bin_sku`, `_sku_*_bins`, `_unavailable`, `_index` — unchanged: the bin was
+            already occupied by this SKU and already out of the free index.
+          * `_aisle_sku_counts` — unchanged: the SKU gained no aisle it was not already in.
+          * `_sigma_fd` — unchanged: Σ f·D counts a SKU's bin OCCUPANCY, and no bin changed
+            hands.  Adding a delta here would charge the same bin twice.
+          * `space_timeline.fill` — NOT called: it means "a free bin became occupied", and
+            a bin that was already occupied is not news to the yard's space forecast.
+
+        What DOES move is the merchandise: on-hand up, on-order down, and a put charged per
+        BIN TOUCHED, because each is a separate trip for the putter.
+        """
+        order = unit.order
+        sku   = order.sku
+        remaining = unit.quantity
+        placed    = 0
+        # Fullest first; `location` breaks the tie so the choice is a pure function of
+        # warehouse state, the same determinism contract `drain_sku` keeps.
+        own = sorted(
+            (b for b in (*self._sku_singleton_bins.get(sku, ()),
+                         *self._sku_pallet_bins.get(sku, ()))
+             if b.storage is not None),
+            key=lambda b: (-b.storage.quantity, b.location))
+        for bin_ in own:
+            if remaining <= 0:
+                break
+            # Same invariant `_execute_placement` asserts, for the same reason: a SKU's own
+            # bins are drawn from its own BinKey, so a cross-regime one is a real bug rather
+            # than a case to handle.
+            if regime_of(bin_) != regime_of(unit):
+                raise AssertionError(
+                    f'cross-regime top-up: {regime_of(unit)} unit (sku={sku}) into '
+                    f'{regime_of(bin_)} bin {getattr(bin_, "location", None)}')
+            room = own_bin_room(order, bin_)
+            if room <= 0:
+                continue
+            n = min(remaining, room)
+            self._execute_topup(order, bin_, n, source=source, queue=queue)
+            remaining -= n
+            placed    += n
+        return placed
+
+    def _execute_topup(self, order: Order, bin_: Aisle.Bin, n: int,
+                       *, source: str | None = None, queue=None) -> None:
+        """Commit ONE top-up of `n` items into `bin_`, which already holds `order`'s SKU.
+
+        The own-bin twin of `_execute_placement`, and a separate method for the same reason
+        that one exists: it is the single commit point an observer can wrap.  `BinRecorder`
+        rebinds it to emit the `bin_placement` row carrying `bin_state='occupied'`, exactly
+        as it rebinds `_execute_placement` for the `'empty'` rows -- so the spatial log stays
+        complete without `_top_up_own_bins` knowing anything about recording.
+
+        Which bins and how much is `_top_up_own_bins`' decision; this method only commits.
+        """
+        sku = order.sku
+        # OWNERSHIP, asserted here rather than trusted.  `own_bin_room` measures room and
+        # explicitly does not check whose merchandise is in the bin, and three observers now
+        # rebind this method, so it is effectively a public seam: adding a SKU's items to
+        # another SKU's unit would corrupt both without any downstream reader noticing.
+        held = bin_.storage.order.sku
+        if held != sku:
+            raise AssertionError(
+                f'top-up of sku {sku} into a bin holding sku {held} '
+                f'{getattr(bin_, "location", None)}')
+        bin_.storage.quantity += n            # THE MUTATION — allowlisted by name
+        # RE-FIT, because this is the only mutation that raises a quantity.  A `StorageUnit`
+        # caches `_height`/`_width`/`_length`/`_stack_axis` and `Pallet.storage_size` at
+        # construction and nothing recomputes them; picks mutate quantity DOWNWARD, where a
+        # stale-large cache is merely conservative.  Upward it lies in the unsafe direction:
+        # a 42x12x46 order at qty 1 caches 'small', and at qty 4 is really 'extra_large'.
+        # `requeue_bin` re-admits the SAME object, and `_candidates_raw` reads
+        # `unit.storage_size` to pick the tier — so an evicted top-up would be offered small
+        # bins and `_execute_placement` would put it in one with no fit check, building a
+        # warehouse that cannot physically exist.  Cannot raise: `n <= own_bin_room`, which
+        # caps on the BIN's own tier, so the new total is constructible in it.
+        bin_.storage._fit(order)
+        self._current_quantities[sku] = self._current_quantities.get(sku, 0) + n
+        # On-order -> on-hand, mirroring `_execute_placement`'s max-0 guard so an
+        # intake top-up (never queued-counted) stays harmless.
+        if sku in self._queued_qty:
+            rem = self._queued_qty[sku] - n
+            if rem > 0:
+                self._queued_qty[sku] = rem
+            else:
+                self._queued_qty.pop(sku, None)
+        self._reorder_placements += 1
+        # Counted HERE, per bin touched, not once per call: one top-up is one unit landing in
+        # one occupied bin, which is exactly one `bin_placement` row and one trip.  Counting
+        # per call would make the flow disagree with the rows it has to be read against
+        # whenever a unit fills two own bins.
+        self._put_topups += 1
+        if self._put_speed is not None:
+            # The putter carried exactly `n` items to this bin; price that, not the whole
+            # unit it was cut from.
+            self._cost_putaway(type(bin_.storage)(order, n), bin_, source, queue=queue)
+
     def enable_putaway_timing(self, speed, cost=None, size: int = 1) -> None:
         """Bind a put crew's travel speed + cost model, so every placement costs seconds.
 
@@ -1029,6 +1173,61 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         """
         return self._dock.snapshot() if self._dock is not None else (0, 0, 0, 0.0)
 
+    # ── put-away rework (ADR-0003) ────────────────────────────────────────────────────
+    def _charge_repack(self, order: Order, new_units: list) -> None:
+        """Price one rescue as RECEIVING work: an unload-priced act per RESULTING pack.
+
+        A rescue breaks a unit no bin could hold into several that fit.  Somebody does that,
+        and it is dock work: the receiving crew already owns "take merchandise apart and
+        make it storable", it is priced per pack by `unload_cost`, and there is no travel
+        term because the merchandise does not go anywhere to be repacked.  So the rescue
+        costs the dock's own per-pack price and NO new coefficient enters the model.
+
+        Counted even when no dock is bound.  A dockless run can still repack, and the
+        staffing record expects ZERO of them (provenance `assumed`); a rescue nobody counted
+        is exactly the finding the equilibrium audit exists to make loud.
+        """
+        self._recv_repacks += 1
+        self._recv_repacked_packs += len(new_units)
+        dock = self._dock
+        if dock is None:
+            return
+        for u in new_units:
+            dur = dock.unload_seconds(order.weight, order.volume(), u.quantity)
+            t0, w = dock.charge(dur)
+            dock.repacks.append((t0, dur, order.sku, u.quantity, w))
+            self._recv_seconds += dur
+
+    def drain_repack_records(self) -> list:
+        """This batch's repack records, and start the list over. `[]` when no crew.
+
+        A SEPARATE STREAM from `drain_receiving_records`, not a widened one: `put_rows`
+        refuses to mix event types in one call (the `role`/`event_type` split it exists to
+        keep honest), so `repack` rows have to arrive as their own list or the writer would
+        have to re-derive the type per row from a discriminator nothing declares.
+        """
+        return self._dock.drain_repacks() if self._dock is not None else []
+
+    def snapshot_putaway_rework(self) -> tuple:
+        """`(put_topups, recv_repacks, recv_repacked_packs)`, resetting all three.
+
+        Per-batch FLOWS, so they reset -- the `cut`-is-a-level trap in reverse: these really
+        are flows and summing them over batches is the right thing to do, which is only true
+        because the drain happens exactly once per batch.
+        """
+        out = (self._put_topups, self._recv_repacks, self._recv_repacked_packs)
+        self._put_topups = self._recv_repacks = self._recv_repacked_packs = 0
+        return out
+
+    def free_bin_depth(self) -> int:
+        """How many bins are in the free index right now -- a LEVEL, read at batch end.
+
+        ADR-0003's other half of the record: the own-bin rung fires because this ran to
+        zero, so the share is only readable next to the depth that produced it.  Not reset,
+        because a level is not a flow.
+        """
+        return sum(len(v) for v in self._index.values())
+
     # ── the yard's raw material (RAW STAMPS ONLY — every span derives at analysis) ──
     # Three accessors, one per row source, and none of them computes a span, a detention
     # day or an overage.  That altitude is the yard-metrics decision itself: the fee
@@ -1100,8 +1299,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                       queue=None) -> None:
         """Charge one placement to ITS QUEUE's crew and record it.
 
-        Called from `_execute_placement` only, which the bin-mutation allowlist already
-        names as the single put-away commit point -- so this adds no new bin writer.
+        Called from `_execute_placement` and `_execute_topup` only -- the TWO put-away commit
+        points the bin-mutation allowlist names (ADR-0003 added the second) -- so this adds no
+        new bin writer. A top-up passes a unit built for the `n` items that actually moved,
+        not the whole unit they were cut from, so the price is of the trip that happened.
 
         `queue` is the stream the unit came off.  None means the caller does not know,
         which happens on a direct `_execute_placement` from a test or a diagnostic; the
@@ -1312,7 +1513,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 self._execute_placement(unit, bin_, source=item.source)
                 placed += 1
             else:
-                # No bin fits this unit.  Attempt rescues in priority order:
+                # No EMPTY bin fits this unit.  Attempt the fallback chain in order
+                # (ADR-0003 fixes the order; the first rung is the new one):
+                #   0. The SKU's OWN bins, fullest first, filled to capacity.
                 #   1. Repack into smaller pallet size tier (existing logic).
                 #   2. Fall back to singleton bins of the same order type.
                 #   3. If all else fails, the unit goes to a local `pending` deque
@@ -1321,8 +1524,41 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 #      and `mgr.queue_depth` is the only signal it is happening.  (An
                 #      earlier version of this comment described a `_MAX_DRAIN_RETRIES`
                 #      abandonment cap; no such constant has ever existed in the repo.)
+                #
+                # 0 AHEAD OF 1 AND 2 IS THE WHOLE POINT: the rescues exist for a pallet
+                # meeting a small-bin warehouse, and they must not fire for a carton whose
+                # own shelf has room.  A rescue is rework; a top-up is a put.
                 repacked = False
                 shc = order.storage_handle_config
+
+                # ── rung 0: the SKU's own bins (ADR-0003) ─────────────────────────
+                _topups_before = self._put_topups
+                took = self._top_up_own_bins(unit, source=item.source, queue=queue)
+                if took:
+                    # The budget counts PLACEMENTS, and a unit absorbed into three own bins
+                    # is three trips, three `bin_placement` rows and three `_reorder_placements`
+                    # -- so it must cost three here too, or a crew cap is silently generous
+                    # exactly when the warehouse is most fragmented.  Read off the flow rather
+                    # than returned, so `_top_up_own_bins` keeps its one-number interface.
+                    _bins_touched = self._put_topups - _topups_before
+                    if took == unit.quantity:
+                        # Fully absorbed: the unit is off the queue for good, so the
+                        # queued-unit count drops exactly as `_execute_placement` drops it.
+                        n_q = self._queued_sku_counts.get(sku, 0)
+                        if n_q <= 1:
+                            self._queued_sku_counts.pop(sku, None)
+                        else:
+                            self._queued_sku_counts[sku] = n_q - 1
+                        placed += _bins_touched
+                        continue
+                    # Partial: the remainder goes back on the queue as ONE unit and takes
+                    # the chain from the top -- a smaller unit may now find an empty bin,
+                    # which is still empty-first.  One unit in, one unit out, so
+                    # `_queued_sku_counts` needs no delta (unlike the rescues, which split).
+                    waiting.appendleft(
+                        item.respawn(type(unit)(order, unit.quantity - took)))
+                    placed += _bins_touched
+                    continue
 
                 # ── rescue 1: repack into a smaller size tier (pallet OR fulfillment) ──
                 # Both are size-tiered; tier_ranks_for() + the unit class select the family.
@@ -1351,6 +1587,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                             self._queued_sku_counts[sku] = (
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
+                        # The rework is RECEIVING work, priced per resulting pack.
+                        self._charge_repack(order, new_units)
                         for u in reversed(new_units):
                             waiting.appendleft(item.respawn(u))
                         repacked = True
@@ -1373,6 +1611,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                             self._queued_sku_counts[sku] = (
                                 self._queued_sku_counts.get(sku, 1) + delta
                             )
+                        # Same rework, same price -- a singleton rescue is a repack that
+                        # happens to land in the forward-pick family.
+                        self._charge_repack(order, new_units)
                         for u in reversed(new_units):
                             waiting.appendleft(item.respawn(u))
                         repacked = True

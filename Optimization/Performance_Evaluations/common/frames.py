@@ -22,6 +22,8 @@ SEMANTIC_USES = {'sim_db': {
     'batch_stats.reorder_placements': 'read', 'batch_stats.queue_depth': 'read',
     'batch_stats.recv_depth': 'read', 'batch_stats.recv_unloaded': 'read',
     'batch_stats.recv_cut': 'read', 'batch_stats.recv_seconds': 'read',
+    'batch_stats.put_topups': 'read', 'batch_stats.recv_repacks': 'read',
+    'batch_stats.recv_repacked_packs': 'read', 'batch_stats.free_bins': 'read',
     'batch_stats.lead_queue_depth': 'read', 'batch_stats.in_transit_qty': 'read',
     'batch_stats.is_outlier': 'read', 'batch_stats.batch_start_time': 'read',
     # Demand service.  `carryover.qty` is declared READ, not SUM, and that is the honest
@@ -104,6 +106,16 @@ def _bdf(stats):
         'recv_unloaded'         : getattr(s, 'recv_unloaded', 0),
         'recv_cut'              : getattr(s, 'recv_cut', 0),
         'recv_seconds'          : getattr(s, 'recv_seconds', 0.0),
+        # ADR-0003's rework flows and the free-index level.  THE AUDIT'S ONLY PATH TO THEM:
+        # `throughput/audit.py` builds `batch_rows` from this frame, so a column missing here
+        # makes `equilibrium._rework_clause` read its default for every row and report a clean
+        # bill on exactly the run it exists to flag.  `free_bins` is NOT zero-filled like the
+        # three flows: a pre-ADR run certainly had free bins, it just never recorded how many,
+        # and 0 there would read as an exhausted index.
+        'put_topups'            : getattr(s, 'put_topups', 0),
+        'recv_repacks'          : getattr(s, 'recv_repacks', 0),
+        'recv_repacked_packs'   : getattr(s, 'recv_repacked_packs', 0),
+        'free_bins'             : getattr(s, 'free_bins', None),
         # The working day a batch was RELEASED into (0 on every continuous-release run)
         # and the seconds it missed its slot by.  Carried so the day frame below can join
         # the ledger to the batches through `work_day`; `tables.tidy` lists `work_day` as

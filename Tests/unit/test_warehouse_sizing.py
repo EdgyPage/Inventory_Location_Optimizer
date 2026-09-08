@@ -82,7 +82,8 @@ from Warehouse.placement.Assignment_Functions import (
     build_uniform_aisle_trip_min_assignment_fn,
     build_cluster_maximizing_assignment_fn, build_cluster_minimizing_assignment_fn,
 )
-from Warehouse.layout.Storage_Primitive import viable_storage_units, Pallet
+from Warehouse.layout.Storage_Primitive import (
+    viable_storage_units, Pallet, Singleton, _max_qty_fits as _sq_max)
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder, WarehouseConfig, AisleConfig
 
 _CATEGORIES = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
@@ -661,12 +662,17 @@ def test_restocks_do_not_grow_the_queue():
     _assert_bounded(_drain_loop(mgr, plan), plan.total_bins)
 
 
-def test_a_partially_placeable_order_queues_the_remainder_and_drains_as_space_frees():
-    """6 singleton bins, 10 singleton units: placement must be PARTIAL, not all-or-nothing.
+def test_a_partially_placeable_order_tops_up_its_own_bins_rather_than_queueing():
+    """6 singleton bins, 10 singleton units: placement is PARTIAL, and the overflow lands.
 
     Two failure modes this rules out: refusing the whole order because it does not fit
-    (the warehouse stays empty), and losing the overflow (the queue is empty and 4 units
-    have vanished).  Then freeing exactly one bin must place exactly one more unit.
+    (the warehouse stays empty), and losing the overflow (4 units vanish).
+
+    ADR-0003 CHANGED WHERE THE OVERFLOW GOES.  Until then the 4 units no empty bin could
+    take sat in `pending` forever and this test asserted a queue depth of 4; now the
+    own-bin rung puts them into bins already holding the SKU, so the queue empties and the
+    stock is on a shelf.  What did NOT change is the thing the test is really for: ten
+    items were enqueued and ten items are somewhere countable.
     """
     Aisle.next_aisle_id = 1
     random.seed(0)
@@ -682,21 +688,60 @@ def test_a_partially_placeable_order_queues_the_remainder_and_drains_as_space_fr
     c = _make_carton(1, eq_qty=10, stock_plan=[(True, 1, 10)])
     mgr.enqueue(c, quantity=10)
 
-    placed = len(mgr.unavailable)
-    assert placed == n_bins, (
-        f'{placed} of 10 units placed into {n_bins} bins — placement should fill every bin')
-    assert mgr.queue_depth == 10 - placed, (
-        f'{mgr.queue_depth} queued, expected {10 - placed}: '
-        f'{10 - placed - mgr.queue_depth} unit(s) went missing')
+    bins_used = len(mgr.unavailable)
+    assert bins_used == n_bins, (
+        f'{bins_used} of {n_bins} bins filled — placement should fill every empty bin '
+        f'before topping any of them up')
+    on_hand = sum(b.storage.quantity for b in mgr.unavailable if b.storage is not None)
+    assert on_hand == 10, f'{on_hand} of 10 items on a shelf — the rest went missing'
+    assert mgr.queue_depth == 0, (
+        f'{mgr.queue_depth} still queued: every unit the empty bins could not take has a '
+        f'bin of its own SKU with room, so the own-bin rung should have placed all of them')
+    assert mgr._current_quantities[c.sku] == 10, (
+        f'on-hand bookkeeping says {mgr._current_quantities[c.sku]}, the bins say {on_hand}')
 
-    before = mgr.queue_depth
-    b = next(b for b in mgr.unavailable if b.storage is not None)
-    b.storage = None
-    mgr._notify_bin_emptied(b)
-    mgr.check_reorders()
-    assert mgr.queue_depth == before - 1, (
-        f'freed one bin, queue went {before} -> {mgr.queue_depth}; expected exactly one '
-        f'unit to drain')
+
+def test_the_queue_still_holds_a_unit_no_bin_and_no_own_bin_can_take():
+    """The `pending` dead end survives ADR-0003 for the case it was really for.
+
+    The own-bin rung placed the overflow in the test above because the SKU's singletons had
+    room.  When they do NOT — every own bin full to its tier — there is nowhere left, and
+    the unit must still wait in the queue rather than vanish.  Without this, the test above
+    could pass against a build that simply dropped whatever it could not place.
+    """
+    Aisle.next_aisle_id = 1
+    random.seed(0)
+    w   = aisle_width_for(2)
+    cfg = WarehouseConfig(total_aisles=1, aisle_splits=[1.0], aisle_configs=[
+        AisleConfig('conveyable', 'food', 'singleton', w, 48, ['singleton'], None)])
+    wh  = Warehouse_Builder().from_config(cfg).build()
+    mgr = Inventory_Manager(wh)
+    n_bins = len(wh.bins)
+
+    # Fill the warehouse to its literal ceiling: every bin holding a singleton's worth of
+    # this order.  Derived rather than hand-picked — a dimension that happens to cap a
+    # singleton at 1 also fails to fit the BIN, which is a different dead end.
+    probe = _make_carton(1, eq_qty=1)
+    cap   = _sq_max(probe, Singleton)
+    assert cap >= 1, 'fixture carton fits no singleton at all'
+    brim  = n_bins * cap
+
+    c = _make_carton(1, eq_qty=brim, stock_plan=[(True, cap, n_bins)])
+    mgr.enqueue(c, quantity=brim)
+    on_hand = sum(b.storage.quantity for b in mgr.unavailable if b.storage is not None)
+    assert len(mgr.unavailable) == n_bins and on_hand == brim, (
+        f'{len(mgr.unavailable)}/{n_bins} bins hold {on_hand}/{brim} items — the fixture '
+        f'must reach the warehouse ceiling before the dead end can be reached')
+
+    # One more item: no empty bin, and no own bin with room either.
+    mgr.enqueue(c, quantity=1)
+    assert mgr.queue_depth == 1, (
+        f'{mgr.queue_depth} queued, expected 1: with every own bin full to its tier there '
+        f'is no rung left, and the unit must wait rather than disappear')
+    still = sum(b.storage.quantity for b in mgr.unavailable if b.storage is not None)
+    assert still == brim, (
+        f'on-hand moved {brim} -> {still} while nothing could be placed; the queued unit '
+        f'must not have been counted onto a shelf')
 
 
 def test_an_oversized_tier_unit_splits_into_a_free_smaller_tier():

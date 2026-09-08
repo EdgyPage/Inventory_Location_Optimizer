@@ -2,7 +2,7 @@
 
 "Declare the equilibrium bands" (.scratch/department-calibration, decision 4) turned "the crews
 have something to do, within bounds" into one function of (db, day_lo, day_hi) returning a
-verdict with reasons: four clauses over a window of working days, all STRICT.
+verdict with reasons: five clauses over a window of working days, all STRICT.
 
     drained        every day in the window ended DRAINED (the persisted `shift_days` ledger) --
                    not "most": with 15% headroom one capped day in twenty means the derivation
@@ -41,6 +41,14 @@ verdict with reasons: four clauses over a window of working days, all STRICT.
                    half within ±0.02 absolute.  The LEVEL is recorded, never gated; no
                    regression slope (memories `knees-hide-from-r-squared`,
                    `per-batch-series-are-autocorrelated`).
+    rework         no pack was REPACKED (ADR-0003).  The staffing record stamps
+                   `f_repack = 0` (provenance `assumed`), so a measured repack contradicts
+                   the record and fails: rework only happens once the free index is dry,
+                   which is a finding about the warehouse's SIZING rather than a cost to
+                   absorb into a utilization band.  The own-bin share and the free-index
+                   depth ride the same reading but are REPORTED, NOT JUDGED -- they are new
+                   instruments with no observed steady state, and a threshold now would be
+                   invented rather than derived.
 
 ONE PURE FUNCTION, and the sim never judges itself (decision 6).  It was designed with two
 callers; the reference-run driver that used it as a PRECONDITION is retired ("Derive the
@@ -77,8 +85,9 @@ from dataclasses import dataclass, field
 #: The three departments the bands are drawn for, in the order the derivation records them.
 DEPARTMENTS: tuple[str, ...] = ('pick', 'put', 'recv')
 
-#: The four clauses, in the order they are judged.  `released_late` is the one that raises.
-CLAUSES: tuple[str, ...] = ('drained', 'released_late', 'utilization', 'missed_share')
+#: The five clauses, in the order they are judged.  `released_late` is the one that raises.
+CLAUSES: tuple[str, ...] = ('drained', 'released_late', 'utilization', 'missed_share',
+                            'rework')
 
 #: Missed share may drift this much (absolute) between the window's two halves.  Decision 4;
 #: an ASSUMED number, declared here rather than in settings because it is a property of the
@@ -178,6 +187,42 @@ def picker_key(channel: str | None) -> str:
     return 'ff_pickers' if channel == 'fulfillment' else 'store_pickers'
 
 
+def _expected_repacked_packs(derived: dict, inputs: dict) -> float | None:
+    """The `f_repack` the record stamped, or None if it carries none.
+
+    Prefers the DERIVED block's constant (where `derive` records it with its provenance)
+    and falls back to the raw input, so a record written before the constant was recorded
+    but after the input existed still answers.  Neither present means a pre-ADR-0003
+    record, and the clause must report rather than judge.
+    """
+    recv = (derived.get('receiving') or {})
+    c = recv.get('f_repack')
+    if isinstance(c, dict) and c.get('value') is not None:
+        return float(c['value'])
+    raw = inputs.get('f_repack')
+    if raw is None:
+        return None
+    return _packs_budget(float(raw))
+
+
+def _packs_budget(f_repack: float) -> float:
+    """`f_repack` (packs repacked PER PACK RECEIVED) as a pack COUNT for the window.
+
+    At 0.0 the rate and the count coincide, which is the only value that has ever shipped.
+    Any other value needs the window's received-pack count to convert, and nothing here has
+    it -- so this REFUSES rather than comparing a rate to a count and silently judging a run
+    against a number three orders of magnitude off.  Whoever gives `f_repack` a real value
+    writes the conversion here; that is the one line that has to learn it.
+    """
+    if f_repack != 0.0:
+        raise RecordError(
+            f'f_repack = {f_repack!r}: the rework clause counts PACKS and the record holds a '
+            f"per-pack RATE. The two coincide only at 0.0. Converting needs the window's "
+            f'received-pack count -- write it in `_packs_budget` before declaring a nonzero '
+            f'f_repack, rather than letting a rate be compared to a count.')
+    return 0.0
+
+
 def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
     """The expected utilization per department for ONE channel leaf, off the staffing record.
 
@@ -248,6 +293,13 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
         'departments': departments, 'absent': absent,
         'fill_rate': (float(fill_rate) if fill_rate is not None else None),
         'expected_missed_share': (1.0 - float(fill_rate) if fill_rate is not None else None),
+        # ADR-0003's rework budget, in PACKS, read off the receiving block's stamped
+        # `f_repack` (0.0, provenance `assumed`).  It is a per-pack RATE in the record and a
+        # count here because the clause counts packs; at 0 the two coincide, and when a real
+        # coefficient replaces the 0 this is the one line that has to learn the conversion.
+        # None on a record that predates the term, which the clause reports without judging
+        # -- a missing expectation is not a passing one.
+        'expected_repacked_packs': _expected_repacked_packs(derived, inputs),
         'flags': {
             # A declared `--s-pick-*` / `--s-put` replaced the expectation for this pair.
             'overridden': bool(cal.get('overrides')),
@@ -478,6 +530,75 @@ def _missed_share_clause(batch_rows, days: list[int], expected: float | None = N
     return Clause('missed_share', ok, reading, reason)
 
 
+def _rework_clause(batch_rows, days: list[int], expected_repack_packs: float | None) -> Clause:
+    """ADR-0003's rework, per day.  JUDGED on the repack, REPORTED on the rest.
+
+    THE ASYMMETRY IS THE DECISION.  A repack is rework the staffing record says should not
+    happen at all (`f_repack = 0`, provenance `assumed`), so measuring one contradicts the
+    record and the clause FAILS -- loudly, rather than being absorbed into a utilization
+    band where a warehouse one size too small looks like a busy day.  `expected` is that
+    stamped number; `None` means no record was carried and the clause reports without
+    judging, because a missing expectation is not a passing one.
+
+    The own-bin share and the free-index depth are the OPPOSITE case.  Both are new
+    instruments with no steady state observed yet -- nobody knows what share is normal
+    under base stock -- so a threshold now would be invented rather than derived.  They ride
+    the reading so a run can be read, and they move no verdict until a run under ADR-0003
+    shows what the steady state is.
+
+    `put_topups` and the two repack flows are 0 on every pre-ADR vintage BY CONSTRUCTION
+    (put-away could not add to an occupied bin), so this clause passes trivially on an old run
+    -- the reading's `n` says how many batches it saw.  `free_bins` is NOT in that group: such
+    a run had free bins and simply never recorded how many, so it reports None rather than a
+    floor of 0, which would read as an exhausted index.
+    """
+    in_window = set(days)
+    rows = [b for b in batch_rows if int(_get(b, 'work_day')) in in_window]
+    by_day: dict[int, dict] = {}
+    for b in rows:
+        d = by_day.setdefault(int(_get(b, 'work_day')), {
+            'topups': 0, 'places': 0, 'repacks': 0, 'packs': 0, 'free': []})
+        d['topups']  += int(_get(b, 'put_topups', 0) or 0)
+        d['places']  += int(_get(b, 'reorder_placements', 0) or 0)
+        d['repacks'] += int(_get(b, 'recv_repacks', 0) or 0)
+        d['packs']   += int(_get(b, 'recv_repacked_packs', 0) or 0)
+        # UNKNOWN, not zero, on a vintage that never recorded it -- a pre-ADR run certainly
+        # had free bins, and reporting a floor of 0 would read as an exhausted index, which
+        # is precisely the finding this clause exists to surface.
+        _free = _get(b, 'free_bins', None)
+        if _free is not None:
+            d['free'].append(int(_free))
+    per_day = {}
+    for d, v in sorted(by_day.items()):
+        free = v['free']
+        per_day[d] = {
+            # Share of the day's placements that went into a bin already holding the SKU.
+            # Against `reorder_placements` because that is what a top-up IS one of -- the
+            # put-away expectation stays one placement per top-up.
+            'own_bin_share': (v['topups'] / v['places']) if v['places'] else None,
+            'topups': v['topups'], 'placements': v['places'],
+            'repacks': v['repacks'], 'repacked_packs': v['packs'],
+            # A LEVEL sampled per batch: report the day's floor and mean, never a sum.
+            'free_bins_min': min(free) if free else None,
+            'free_bins_mean': (sum(free) / len(free)) if free else None,
+        }
+    packs = sum(v['packs'] for v in by_day.values())
+    acts  = sum(v['repacks'] for v in by_day.values())
+    reading = {'n': len(rows), 'days': per_day, 'repacked_packs': packs, 'repacks': acts,
+               'expected_repacked_packs': (float(expected_repack_packs)
+                                           if expected_repack_packs is not None else None)}
+    if expected_repack_packs is None:
+        return Clause('rework', True, reading,
+                      'no f_repack in the record; rework reported, not judged')
+    if packs > float(expected_repack_packs):
+        return Clause(
+            'rework', False, reading,
+            f'{packs} pack(s) repacked over {acts} rescue(s) against an expected '
+            f'{float(expected_repack_packs):g}; the free index ran dry, which is a finding '
+            f'about the warehouse sizing rather than a cost to absorb into a band')
+    return Clause('rework', True, reading, '')
+
+
 def check_rows(*, shift_rows, batch_rows, work_rows, day_lo: int, day_hi: int,
                expectations: dict) -> Verdict:
     """The four clauses over already-loaded rows.  See the module docstring for each.
@@ -495,6 +616,8 @@ def check_rows(*, shift_rows, batch_rows, work_rows, day_lo: int, day_hi: int,
         'utilization': _utilization_clause(batch_rows, work_rows, days, expectations),
         'missed_share': _missed_share_clause(
             batch_rows, days, (expectations or {}).get('expected_missed_share')),
+        'rework': _rework_clause(
+            batch_rows, days, (expectations or {}).get('expected_repacked_packs')),
     }
     return Verdict(all(c.passed for c in clauses.values()), int(day_lo), int(day_hi), clauses)
 
@@ -542,6 +665,17 @@ def summarize(verdict: Verdict) -> str:
                          f'{against})'
                          if isinstance(lvl, (int, float)) and not (isinstance(lvl, float) and math.isnan(lvl))
                          else f'{name}={tag} (n={r.get("n")})')
+        elif name == 'rework':
+            r = c.reading
+            _shares = [v['own_bin_share'] for v in r['days'].values()
+                       if v['own_bin_share'] is not None]
+            _floor = [v['free_bins_min'] for v in r['days'].values()
+                      if v['free_bins_min'] is not None]
+            parts.append(
+                f'{name}={tag} ({r["repacked_packs"]} pack(s) repacked over '
+                f'{r["repacks"]} rescue(s); own-bin share '
+                f'{(sum(_shares) / len(_shares)) if _shares else float("nan"):.3f}, '
+                f'free index floor {min(_floor) if _floor else "n/a"})')
         else:
             parts.append(f'{name}={tag} (max lag {c.reading["max_lag_s"]:,.1f} s)')
     return (f'window days {verdict.day_lo}-{verdict.day_hi}: '

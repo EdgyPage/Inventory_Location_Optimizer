@@ -146,7 +146,7 @@ def put_rows(records, batch_id, batch_start, crew, *,
 
 def recv_rows(records, batch_id, batch_start, crew, *,
               shift_seconds: float = DEFAULT_SHIFT_SECONDS, first_seq: int = 0,
-              crew_start=None):
+              crew_start=None, event_type: str = 'receive'):
     """Merged-stream rows for one batch's RECEIVING, through `put_rows`' body.
 
     `records` are `Inventory_Manager.drain_receiving_records()` tuples
@@ -180,7 +180,30 @@ def recv_rows(records, batch_id, batch_start, crew, *,
                 f'merchandise, and a zero would be stored where a state change stores NULL')
         wide.append((t_start, dur, sku, qty, None, 0.0, 0.0, 'dock', widx, 'dock'))
     return put_rows(wide, batch_id, batch_start, crew, shift_seconds=shift_seconds,
-                    first_seq=first_seq, crew_start=crew_start, event_type='receive')
+                    first_seq=first_seq, crew_start=crew_start, event_type=event_type)
+
+
+def repack_rows(records, batch_id, batch_start, crew, *,
+                shift_seconds: float = DEFAULT_SHIFT_SECONDS, first_seq: int = 0,
+                crew_start=None):
+    """`repack` rows for one batch's PUT-AWAY REWORK (ADR-0003), through `recv_rows`' body.
+
+    `records` are `Inventory_Manager.drain_repack_records()` tuples, identical in shape to
+    the unload ones and charged on the same crew clock -- a repack IS receiving work, done
+    by the receiving crew at the dock's own per-pack price.
+
+    `role` is therefore `'receive'` (it comes from the worker) and only `event_type` differs.
+    That split is the whole reason `put_rows` takes the type as a parameter: a reader asking
+    "what did receiving cost" sums `role='receive'` and gets unloads AND rework, while one
+    asking "how much rework was there" filters `event_type='repack'`. Folding repacks into
+    the `'receive'` event type would make the second question unanswerable; giving them
+    their own role would make the first one wrong.
+
+    A SEPARATE CALL from `recv_rows` rather than a widened one, because `put_rows` writes a
+    single event type per call by construction.
+    """
+    return recv_rows(records, batch_id, batch_start, crew, shift_seconds=shift_seconds,
+                     first_seq=first_seq, crew_start=crew_start, event_type='repack')
 
 
 def merged(rows):

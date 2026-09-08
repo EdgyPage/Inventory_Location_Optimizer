@@ -31,7 +31,8 @@ _MUTATION = re.compile(r'\.storage\s*=(?!=)|\.storage\.quantity\s*(?:[-+*/]?=)(?
 #: annotated declaration in `Bin.__init__`, not a mutation of an existing bin, and the regex
 #: correctly does not count it.  A real mutation appearing there would be flagged.
 ALLOWED = {
-    'Warehouse/inventory/Inventory_Management.py': '_execute_placement — PLACE, recorded',
+    'Warehouse/inventory/Inventory_Management.py':
+        '_execute_placement (storage = unit) and _execute_topup (storage.quantity += n, ADR-0003) — both PLACE, both recorded',
     'Warehouse/inventory/inventory_reorder.py': 'requeue_bin — EVICT, recorded',
     'Warehouse/picking/fast_pick.py': 'production pick depletion — PICK, in `picks`',
     'Warehouse/picking/Pick.py': 'legacy pick depletion — PICK, in `picks`',

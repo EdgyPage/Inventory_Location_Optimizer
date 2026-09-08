@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import operator
 import random
 from collections import defaultdict
 from dataclasses import dataclass
@@ -276,23 +275,24 @@ class Batch:
 
 
 # ── deterministic bin ordering ───────────────────────────────────────────────
-# Sort key for the `Task.from_batch` drain loops.  `Aisle.Bin.location` is the canonical
-# (aisle_id, bayX, bayY) spatial triple — the key the run tree, every DB and the viewer
-# already index bins by — so ordering on it needs no extra state and is stable under any
-# insertion order.  `attrgetter` keeps the hot loop at C speed; a Python lambda pays an
-# interpreter frame per bin, and this runs once per SKU per batch.
-_bin_location = operator.attrgetter('location')
+# The drain key lives with `drain_sku` below.  `_bin_location` (an `attrgetter('location')`)
+# and the `_SortedBins` import stood here while `location` alone decided the order and the
+# maintained container let the sort be skipped; ADR-0003 put on-hand ahead of location, and
+# on-hand cannot be maintained by a container, so both went with the rule that needed them.
 
-# The maintained-order container the manager indexes bins in; iteration is already
-# location order, so from_batch's per-SKU sort is skipped for it (leaf import — no cycle:
-# inventory_common depends only on warehouse primitives).
-from Warehouse.inventory.inventory_common import _SortedBins  # noqa: E402
+
+#: `(on-hand, location)` — THE drain key.  Quantity first so the emptiest bin clears and
+#: returns to the free index; `location` breaks the tie, so the order stays a pure function
+#: of warehouse state exactly as it was when location alone decided it.
+def _bin_qty_location(bin_):
+    st = bin_.storage
+    return ((st.quantity if st is not None else 0), bin_.location)
 
 
 def drain_sku(singleton_bins, pallet_bins, qty: int, out) -> int:
     """THE SIM'S OWN DRAIN RULE for one SKU, extracted so a forecast shares it by
-    construction: singleton bins before pallet bins, each tier in `location` order,
-    take = min(remaining, bin quantity).
+    construction: the SMALLEST-QUANTITY bin first, ties by `location`, across both tiers
+    as one ordering; take = min(remaining, bin quantity).
 
     Accumulates per-bin takes into `out` (a `defaultdict(int)` keyed by the bin object)
     and returns the demand no bin could satisfy.  Two callers, deliberately:
@@ -303,26 +303,42 @@ def drain_sku(singleton_bins, pallet_bins, qty: int, out) -> int:
     drift; `_rederive_plan` below is explicitly NOT this rule (its own docstring warns
     its distribution can differ).
 
-    Pure: reads bin state, writes only `out`, consumes no RNG.  A `_SortedBins`
-    container already iterates in `location` order so its sort is skipped; raw
-    sets/lists (test stand-ins, legacy callers) still get the explicit sort — the
-    determinism contract is the ORDER, not the container
+    SMALLEST-FIRST IS THE CONSOLIDATION ENGINE (ADR-0003, decision 7 of
+    `.scratch/department-calibration/issues/20-...`).  Under the empty-first top-up a SKU
+    acquires a second bin whenever the free index is dry; draining the emptiest bin first
+    clears remnants and hands bins back to the index, which is what makes the pair
+    converge instead of fragmenting further.
+
+    TWO CONSEQUENCES, both deliberate and neither reversible by a flag:
+
+    1. **The forward-pick preference is retired from the drain.**  Singletons were drained
+       before pallets "so that forward-pick locations are always preferred over reserve
+       locations"; one ordering across both tiers ends that.  The split still exists
+       everywhere else (`is_forward_pick`, the two indexes, `_candidates_raw`) — it no
+       longer decides pick order.
+    2. **This is NOT byte-identical to the location-order rule**, and not only when the
+       free index is dry: a SKU-tier holds 2+ bins straight out of initial stocking
+       (measured: 800–1145 of ~1200 SKU-tiers, 224–327 of them order-sensitive, across
+       coverage 1–10), so travel, tasks and depletion move on essentially every run.
+       Absolute pick/travel/throughput numbers published before this commit are not
+       comparable with ones after it.
+
+    Pure: reads bin state, writes only `out`, consumes no RNG.  The sort is unconditional
+    now — a `_SortedBins` container maintains `location` order, but on-hand changes with
+    every pick and cannot be maintained, so the container's skip no longer applies.  The
+    determinism contract is still the ORDER, not the container
     (see test_task_bin_selection_determinism).
+
+    WHAT THAT COSTS, measured rather than asserted: 4,000 SKUs holding 137,552 bins (34.4
+    per SKU), one drain each — 22.9 ms for the old location-order walk with the container
+    fast path, 42.8 ms here, so ~1.9x on the drain itself.  A batch touches ~15% of the
+    catalogue, so that is roughly +3 ms per batch at this size against a makespan in minutes.
+    It scales with per-SKU bin multiplicity, which the deep ladder already flags as growing
+    (`t_task`, k≈2.3), so re-measure before assuming it stays negligible on a much larger
+    catalogue.
     """
     remaining = qty
-    if not isinstance(singleton_bins, _SortedBins):
-        singleton_bins = sorted(singleton_bins, key=_bin_location)
-    for bin_ in singleton_bins:
-        if remaining <= 0:
-            break
-        available = bin_.storage.quantity if bin_.storage is not None else 0
-        take = min(remaining, available)
-        if take > 0:
-            out[bin_] += take
-            remaining -= take
-    if not isinstance(pallet_bins, _SortedBins):
-        pallet_bins = sorted(pallet_bins, key=_bin_location)
-    for bin_ in pallet_bins:
+    for bin_ in sorted((*singleton_bins, *pallet_bins), key=_bin_qty_location):
         if remaining <= 0:
             break
         available = bin_.storage.quantity if bin_.storage is not None else 0
@@ -458,8 +474,10 @@ class Task:
         satisfy.  Underscored because callers should reach for `from_batch_with_shortfall`
         rather than pass their own dict; it exists so one drain serves both entry points.
 
-        For each SKU in the batch, singleton bins are drained before pallet bins
-        so that forward-pick locations are always preferred over reserve locations.
+        For each SKU in the batch, bins are drained SMALLEST-ON-HAND FIRST, ties by
+        `location`, across both tiers as one ordering — see `drain_sku`, which both
+        branches below call.  Singletons were drained before pallets until ADR-0003; the
+        forward-pick preference no longer decides pick order.
 
         If manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins
         dicts are used directly, skipping the O(N_all_bins) warehouse scan that
@@ -476,7 +494,7 @@ class Task:
         pure function of warehouse state.  Cost is O(k log k) on k bins of ONE SKU; see
         `Tests/unit/test_task_bin_selection_determinism.py`.
         """
-        # Distribute each batch quantity: drain singleton bins before pallet bins
+        # Distribute each batch quantity: smallest-on-hand bin first, ties by location
         bin_pick: defaultdict[Aisle.Bin, int] = defaultdict(int)
 
         if manager is not None:
@@ -493,28 +511,18 @@ class Task:
                 if _shortfall is not None and remaining > 0:
                     _shortfall[sku] = _shortfall.get(sku, 0) + remaining
         else:
-            # Fallback: O(N_all_bins) scan — used when no manager is available.
-            # Already deterministic, and it now agrees with the branch above: `warehouse.bins`
-            # is emitted in `location` order, and the singleton-first sort below is STABLE,
-            # so this yields singletons in location order then pallets in location order —
-            # the same rule the sorted index drain applies.  (Before the sort was added the
-            # two branches disagreed, so a manager-less caller saw a different selection.)
+            # Fallback: O(N_all_bins) scan — used when no manager is available.  Only the
+            # INDEX differs from the branch above; the rule itself is `drain_sku` in both,
+            # called with every bin of the SKU as one group because the drain no longer
+            # separates the tiers.  It used to re-implement the walk inline and the two
+            # branches disagreed until a stable singleton-first sort was added to patch
+            # them back together; one body cannot drift that way again.
             sku_to_bins: dict[int, list[Aisle.Bin]] = defaultdict(list)
             for bin_ in warehouse.bins:
                 if bin_.storage is not None:
                     sku_to_bins[bin_.storage.order.sku].append(bin_)
-            for bins in sku_to_bins.values():
-                bins.sort(key=lambda b: 0 if b.unit_type == 'singleton' else 1)
             for sku, qty in batch.items.items():
-                remaining = qty
-                for bin_ in sku_to_bins.get(sku, []):
-                    if remaining <= 0:
-                        break
-                    available = bin_.storage.quantity if bin_.storage is not None else 0
-                    take = min(remaining, available)
-                    if take > 0:
-                        bin_pick[bin_] += take
-                        remaining -= take
+                remaining = drain_sku(sku_to_bins.get(sku, ()), (), qty, bin_pick)
                 # Same accounting as the indexed branch above -- the two selection paths
                 # already agree on WHICH bins are drained, so they must agree on what is
                 # left over too, or a manager-less caller reports a different shortfall.

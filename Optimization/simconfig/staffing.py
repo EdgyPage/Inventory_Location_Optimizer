@@ -482,6 +482,16 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
         's_recv': constant((recv_load_s / total_packs) if total_packs else 0.0, 'derived',
                            note='exact from the script: an unload has no travel term'),
         'f_recv': float(inputs['f_recv']),
+        # ADR-0003's rework term.  ASSUMED, and assumed to be ZERO: the own-bin rung and
+        # the rescues only fire once the free index is dry, which a warehouse sized to its
+        # declared levels never does.  It is in the record rather than left out precisely
+        # so a run that DOES repack contradicts something -- the equilibrium audit compares
+        # the measured `recv_repacked_packs` against this and reports the gap.  A future
+        # coefficient replaces the 0.0 and needs no schema move to do it.
+        'f_repack': constant(float(inputs.get('f_repack', 0.0)), 'assumed',
+                             note='packs repacked per pack received; a measured repack is '
+                                  'a finding about the warehouse sizing, not a cost to '
+                                  'absorb into a band'),
         'expected_utilization': {n: expected_utilization(per_channel_recv_s[n], recv_crew, S)
                                  for n in channels},
     }

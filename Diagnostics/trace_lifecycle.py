@@ -132,6 +132,17 @@ def _install_hooks(mgr: Inventory_Manager, tr: Tracer) -> None:
         return r
     mgr._execute_placement = _execute_placement
 
+    # ADR-0003's own-bin rung is the SECOND place a put lands, so `tr.placed` undercounts
+    # without it — and the undercount is invisible: the trace still balances against itself.
+    orig_topup = mgr._execute_topup
+    def _execute_topup(order, bin_, n, **kw):
+        t = time.perf_counter()
+        r = orig_topup(order, bin_, n, **kw)
+        f = tr.fn['_execute_topup']; f[0] += 1; f[1] += time.perf_counter() - t
+        tr.placed += 1
+        return r
+    mgr._execute_topup = _execute_topup
+
     orig_apply = mgr._apply_picks_batch
     def _apply_picks_batch(picks, empties):
         t = time.perf_counter()

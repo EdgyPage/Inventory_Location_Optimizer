@@ -278,8 +278,20 @@ def test_the_refill_loop_terminates_when_nothing_can_be_placed():
         mgr._admit(u, 'reorder')
     assert mgr.held_depth == 18, 'the staging limit did not bite'
 
+    placed_before = mgr._reorder_placements
     mgr._stock()                     # must RETURN, not spin
-    assert mgr.queue_depth >= 20, 'units were lost while the loop refused to place them'
+    # CONSERVATION, not a queue floor.  A stuck `place_one` no longer means "nothing can be
+    # placed": ADR-0003's own-bin rung takes a unit whose SKU already holds a bin with room,
+    # and this warehouse is stocked, so some of the 20 legitimately land.  What must still
+    # hold -- and what the test was always really for -- is that every unit is either on a
+    # shelf or in the queue, and that `_stock` RETURNED to let us ask.
+    landed = mgr._reorder_placements - placed_before
+    assert mgr.queue_depth + landed >= 20, (
+        f'{mgr.queue_depth} queued + {landed} placed < 20 admitted; units were lost while '
+        f'the loop refused to place them')
+    assert landed < 20, (
+        'every unit was placed, so `place_one` was not actually stuck and this test no '
+        'longer exercises the termination guarantee')
 
 
 def test_the_refill_cap_logs_rather_than_raising():

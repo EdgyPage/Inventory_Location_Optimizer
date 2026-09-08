@@ -97,7 +97,8 @@ def cache_state(run) -> str:
 def _bin_spans(events, picks, last_batch):
     """Fold ONE bin's PLACE/EVICT/PICK events into its exact occupancy spans.
 
-    `events` are `(batch, kind, seq, sku, qty)` sorted ascending, `kind` 0 = EVICT, 1 = PLACE —
+    `events` are `(batch, kind, seq, sku, qty, topup)` sorted ascending, `kind` 0 = EVICT,
+    1 = PLACE —
     so the sort itself imposes the runner's within-batch order, EVICT -> PLACE -> PICK: the
     reloader runs first, then `check_reorders()`, and only then the pick simulation.
     `picks` is `{batch: units}` for this bin, or None.
@@ -113,6 +114,15 @@ def _bin_spans(events, picks, last_batch):
     Returns `[(t_from, t_to, sku, qty_at_from, applied)]`, where `applied` is the
     `[(batch, units)]` actually consumed inside the span — the caller needs it to keep the
     per-aisle qty rollup exact without re-reading `picks`.
+
+    A TOP-UP (ADR-0003's own-bin rung, `bin_placement.bin_state = 'occupied'`) carries
+    `topup = 1` and shares `kind = 1` with a plain PLACE deliberately, so the two sort by
+    `seq` and keep the runner's true within-batch order.  It does not open an occupancy —
+    the bin was already occupied — so it CLOSES the running span at `ev_batch - 1` and
+    reopens one at `ev_batch` carrying `remaining + qty`.  A span holds a single `qty0` by
+    construction (quantity inside one only ever falls, via picks), so a rise has to be a new
+    span; closing and reopening keeps the model exact at the start-of-batch resolution every
+    frame is defined on.
     """
     out = []
     pick_batches = sorted(picks) if picks else []
@@ -121,7 +131,7 @@ def _bin_spans(events, picks, last_batch):
     open_from, open_sku, qty0, qty = -1, -1, 0, 0
     applied: list = []
 
-    for ev_batch, kind, _seq, ev_sku, ev_qty in events:
+    for ev_batch, kind, _seq, ev_sku, ev_qty, ev_topup in events:
         if ev_batch > last_batch:                 # sorted: nothing past the run's last batch counts
             break
         if open_from >= 0:
@@ -141,12 +151,16 @@ def _bin_spans(events, picks, last_batch):
                     break
         while pi < n_picks and pick_batches[pi] < ev_batch:
             pi += 1                               # keep the pointer monotone across a closed span
+        # A top-up carries the bin's REMAINING quantity into the span it opens; a plain
+        # PLACE starts from its own qty alone.  Read before the close below resets `qty`.
+        carried = qty if (ev_topup and open_from >= 0) else 0
         if open_from >= 0:
             if ev_batch - 1 >= open_from:
                 out.append((open_from, ev_batch - 1, open_sku, qty0, applied))
             open_from, applied = -1, []
-        if kind:                                  # PLACE opens a new span at this batch
-            open_from, open_sku, qty0, qty, applied = ev_batch, ev_sku, ev_qty, ev_qty, []
+        if kind:                                  # PLACE (or TOP-UP) opens a span at this batch
+            qty0 = carried + ev_qty
+            open_from, open_sku, qty, applied = ev_batch, ev_sku, qty0, []
 
     if open_from >= 0:                            # the tail: drain to the end of the run
         closed_at = last_batch
@@ -178,17 +192,23 @@ def _log_pass(sim_con, run_id, batches, bin_picks):
     last_batch = max(batches) if batches else 0
     events: dict[tuple, list] = {}
 
+    # `bin_state` only exists from ADR-0003 (sim_db 02a78953886c).  An archived file has no
+    # such column and no top-ups either -- put-away could not add to an occupied bin -- so a
+    # literal 0 is the TRUE value there, not a default papering over missing data.
+    _have = {c[1] for c in sim_con.execute('PRAGMA table_info(bin_placement)')}
+    _topup = ("CASE bin_state WHEN 'occupied' THEN 1 ELSE 0 END"
+              if 'bin_state' in _have else '0')
     for r in sim_con.execute(
-            'SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty FROM bin_placement '
-            'WHERE run_id=? ORDER BY batch_id, seq', (run_id,)):
+            'SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty, ' + _topup
+            + ' FROM bin_placement WHERE run_id=? ORDER BY batch_id, seq', (run_id,)):
         events.setdefault((int(r[2]), int(r[3]), int(r[4])), []).append(
-            (int(r[0]), 1, int(r[1]), int(r[5]), int(r[6])))
+            (int(r[0]), 1, int(r[1]), int(r[5]), int(r[6]), int(r[7])))
     try:
         for r in sim_con.execute(
                 'SELECT batch_id, seq, aisle_id, bayX, bayY FROM bin_eviction '
                 'WHERE run_id=? ORDER BY batch_id, seq', (run_id,)):
             events.setdefault((int(r[2]), int(r[3]), int(r[4])), []).append(
-                (int(r[0]), 0, int(r[1]), -1, 0))
+                (int(r[0]), 0, int(r[1]), -1, 0, 0))
     except sqlite3.OperationalError:              # placements without the eviction table
         pass
 

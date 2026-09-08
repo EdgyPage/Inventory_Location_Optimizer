@@ -86,6 +86,14 @@ class BatchStats:
     # shift a unit of WORK happened in is `work_events.shift_index`.
     work_day: int = 0
     released_late: float = 0.0
+    # ── put-away rework (ADR-0003) ──────────────────────────────────────────
+    # 0 on every pre-ADR vintage BY CONSTRUCTION, not by convention: put-away could not add
+    # to an occupied bin, so a top-up was unreachable and the rescues emitted nothing.
+    put_topups: int = 0            # FLOW: top-ups into a bin already holding the SKU
+    recv_repacks: int = 0          # FLOW: rescue acts (repack or singleton)
+    recv_repacked_packs: int = 0   # FLOW: packs those acts produced; the labour is per PACK
+    # NOT a flow -- a LEVEL read at batch end.  Never sum it; see `recv_cut`.
+    free_bins: int = 0             # bins in the free index when the batch closed
     is_outlier: bool = False
 
 
@@ -327,6 +335,32 @@ _CREATE_BATCH_STATS = """
         -- FLOW: seconds of receiving labour.  NOT included in any put-away total; folding
         -- them together would silently widen an already-published figure.
         recv_seconds           REAL    NOT NULL DEFAULT 0,
+        -- ── put-away rework (ADR-0003) ───────────────────────────────────────────
+        -- All four are 0 on every run before 2026-09-08 by construction: put-away could
+        -- not add to an occupied bin, so a top-up was impossible and the rescues were
+        -- silent.  A pre-ADR run's honest answer is zero, which is why the override that
+        -- serves older vintages reads them as 0 rather than NULL.
+        --
+        -- FLOW: top-ups that landed in a bin ALREADY holding the SKU.  Non-zero means the
+        -- free index was dry for that unit -- the own-bin rung cannot fire otherwise -- so
+        -- this is read against `free_bins`, never alone.
+        put_topups             INTEGER NOT NULL DEFAULT 0,
+        -- FLOW: repack/singleton rescue ACTS, and the packs they produced.  Two columns
+        -- because one act can split a unit many ways and the ratio is the only thing that
+        -- says how badly; the labour is priced per PACK and lands in `recv_seconds`.
+        -- The staffing record expects both to be ZERO (provenance `assumed`); the
+        -- equilibrium audit flags any run where they are not, because a rescue is a finding
+        -- about the warehouse's sizing rather than a cost to absorb into a band.
+        recv_repacks           INTEGER NOT NULL DEFAULT 0,
+        recv_repacked_packs    INTEGER NOT NULL DEFAULT 0,
+        -- LEVEL: bins in the free index at batch end.  DO NOT SUM ACROSS BATCHES -- same
+        -- warning as `recv_cut` and `put_queue_state.cut`, and for the same reason: a bin
+        -- that stays free is counted once per batch it stays free.
+        -- UNLIKE the three flows above, 0 is NOT the true pre-ADR value: such a run had free
+        -- bins and merely never recorded how many.  Readers surface it as UNKNOWN on an older
+        -- vintage (`_bdf` fills None, and the rework clause omits it) rather than as a floor
+        -- of zero, which would read as an exhausted index.
+        free_bins              INTEGER NOT NULL DEFAULT 0,
         is_outlier             INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -713,6 +747,14 @@ _CREATE_BIN_PLACEMENT = """
         sku      INTEGER NOT NULL,
         qty      INTEGER NOT NULL,   -- units placed into this bin
         cause    TEXT    NOT NULL,   -- 'initial'|'reorder'|'reslot'
+        -- The BIN'S STATE when this quantity landed: 'empty' (the placement occupied a free
+        -- bin) or 'occupied' (ADR-0003's own-bin rung topped up a bin already holding the
+        -- SKU).  A SEPARATE COLUMN and deliberately not an overload of `cause`, which
+        -- records where the merchandise came FROM; the two are independent, and a reorder
+        -- can land either way.  Every pre-ADR row is 'empty' by construction -- put-away
+        -- could not add to an occupied bin -- which is what the older-vintage override
+        -- returns rather than a NULL every consumer would have to special-case.
+        bin_state  TEXT  NOT NULL DEFAULT 'empty',
         -- The number the assignment policy MINIMISED (or maximised) to choose this bin,
         -- captured at the moment of choice.  Units differ by policy and are not comparable
         -- across arms: seconds of anchor gap for the map policies, seconds of marginal
@@ -1069,12 +1111,22 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 passes of "Take the reference run" and the coverage smoke runs; no
     #                 published run).  Served by a `shift_day_frame` override that reads the
     #                 two halves as NULL; its `drained` verdicts stand as written.
-    #   798778f4fae1  the carry split, 2026-09-06 .. : two verdict rules share this shape.
-    #                 Until 2026-09-07 an overtime day (last_finish > cap_end) was stamped
-    #                 DRAINED ("Overtime behind a drained day raises the instrument"); the
-    #                 amendment moved no column, so `shift_day_frame` folds the term in for
-    #                 every vintage (`_SHIFT_DAY_DRAINED_SQL`) rather than keying on an id.
-    known_ids=('487a65bf83a9',  # the ledger before the carry split, 2026-09-05 .. 2026-09-06
+    #   798778f4fae1  the carry split, BEFORE put-away rework: two verdict rules share this
+    #                 shape.  Until 2026-09-07 an overtime day (last_finish > cap_end) was
+    #                 stamped DRAINED ("Overtime behind a drained day raises the
+    #                 instrument"); the amendment moved no column, so `shift_day_frame`
+    #                 folds the term in for every vintage (`_SHIFT_DAY_DRAINED_SQL`) rather
+    #                 than keying on an id.  2026-09-06 .. 2026-09-08.
+    #   02a78953886c  put-away rework, ADR-0003, 2026-09-08 .. : `bin_placement.bin_state`
+    #                 plus `batch_stats.put_topups` / `recv_repacks` /
+    #                 `recv_repacked_packs` / `free_bins`.  Every EARLIER vintage reads
+    #                 those as 'empty' and 0 -- not a default standing in for missing data
+    #                 but the true value, because put-away could not add to an occupied bin
+    #                 before this shape and the rescues emitted nothing.  Served by the
+    #                 `batch_frame` optional-fill and `load_bin_placements`' column guard,
+    #                 which is why no consumer of either needs to know the id.
+    known_ids=('798778f4fae1',  # the carry split, before ADR-0003's rework columns
+              '487a65bf83a9',  # the ledger before the carry split, 2026-09-05 .. 2026-09-06
               'be2a593727be',
               'ce01ca0095b2',
               '31cb7d1b1199',
@@ -1368,7 +1420,15 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
                    # that recorded a real working day.
                    'work_day': 0, 'released_late': 0.0,
                    'recv_depth': 0, 'recv_unloaded': 0, 'recv_cut': 0,
-                   'recv_seconds': 0.0}
+                   'recv_seconds': 0.0,
+                   # ADR-0003's rework.  0 on every earlier vintage is the TRUE value, not a
+                   # stand-in: put-away could not add to an occupied bin before this shape,
+                   # so a top-up was unreachable and the rescues emitted nothing.  A pure
+                   # column ADDITION needs no `override` -- `optional` is the override for
+                   # this case, and registering one would only restate the canonical SQL.
+                   'put_topups': 0, 'recv_repacks': 0, 'recv_repacked_packs': 0,
+                   # None, not 0: an older run HAD free bins and never recorded the count.
+                   'free_bins': None}
 _BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                *_BATCH_OPTIONAL)
@@ -1854,8 +1914,9 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
         'sigma_fd,reload_moves,reorder_placements,skus_reordered,units_ordered,'
         'queue_depth,lead_queue_depth,in_transit_qty,items_demanded,'
         'work_day,released_late,'
-        'recv_depth,recv_unloaded,recv_cut,recv_seconds,is_outlier) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'recv_depth,recv_unloaded,recv_cut,recv_seconds,'
+        'put_topups,recv_repacks,recv_repacked_packs,free_bins,is_outlier) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
             (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
              r.task_makespan, r.thr_task, r.thr_batch,
@@ -1866,6 +1927,8 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
              getattr(r, 'work_day', 0), getattr(r, 'released_late', 0.0),
              getattr(r, 'recv_depth', 0), getattr(r, 'recv_unloaded', 0),
              getattr(r, 'recv_cut', 0), getattr(r, 'recv_seconds', 0.0),
+             getattr(r, 'put_topups', 0), getattr(r, 'recv_repacks', 0),
+             getattr(r, 'recv_repacked_packs', 0), getattr(r, 'free_bins', 0),
              int(r.is_outlier))
             for r in records
         ],
@@ -2491,6 +2554,10 @@ class BinPlacementRecord:
     sku:      int
     qty:      int
     cause:    str    # 'initial' | 'reorder' | 'reslot'
+    # The bin's state when the quantity landed: 'empty' | 'occupied' (ADR-0003).  Defaulted
+    # to 'empty' because that is what every construction site outside the own-bin rung
+    # means -- a placement into a free bin -- and what every pre-ADR row is.
+    bin_state: str = 'empty'
     # Defaulted, so every existing construction site keeps working and an unscored path
     # says so by omission rather than by inventing a number.  See the DDL comment.
     score:      float | None = None
@@ -2525,11 +2592,11 @@ def save_bin_placements(path: str, run_id: int, records: list) -> None:
 def _insert_bin_placements(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
         'INSERT OR REPLACE INTO bin_placement '
-        '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause, '
+        '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause, bin_state, '
         ' score, score_rank, policy) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause,
-          r.score, r.score_rank, r.policy)
+          getattr(r, 'bin_state', 'empty'), r.score, r.score_rank, r.policy)
          for r in records])
 
 
@@ -2703,11 +2770,19 @@ def save_checkpoint_bundle(
 
 
 def load_bin_placements(path: str, run_id: int, batch_id: int | None = None) -> list:
-    """PLACE events, ordered as applied."""
+    """PLACE events, ordered as applied.
+
+    `bin_state` ('empty' | 'occupied', ADR-0003) is selected only when the file HAS it and
+    filled with 'empty' otherwise -- the `row.keys()` guard this file's raw loaders have
+    always used, and the honest value for a pre-ADR run, where put-away could not add to an
+    occupied bin.  Selecting it unconditionally would make every archived file raise.
+    """
     con = _ro_conn(path)
     try:
-        sql = ('SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause FROM bin_placement '
-               'WHERE run_id=?')
+        _have = {r[1] for r in con.execute('PRAGMA table_info(bin_placement)')}
+        _state = 'bin_state' if 'bin_state' in _have else "'empty' AS bin_state"
+        sql = ('SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause, ' + _state
+               + ' FROM bin_placement WHERE run_id=?')
         args = [run_id]
         if batch_id is not None:
             sql += ' AND batch_id=?'

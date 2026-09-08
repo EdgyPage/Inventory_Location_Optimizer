@@ -85,7 +85,7 @@ SEMANTIC_USES = {'sim_db': {
     'bin_placement.batch_id': 'read', 'bin_placement.seq': 'read',
     'bin_placement.aisle_id': 'read', 'bin_placement.bayX': 'read',
     'bin_placement.bayY': 'read', 'bin_placement.sku': 'read',
-    'bin_placement.qty': 'read',
+    'bin_placement.qty': 'read', 'bin_placement.bin_state': 'read',
     'bin_eviction.batch_id': 'read', 'bin_eviction.seq': 'read',
     'bin_eviction.aisle_id': 'read', 'bin_eviction.bayX': 'read',
     'bin_eviction.bayY': 'read',
@@ -258,6 +258,12 @@ class SqliteSimReader:
 
     def _has(self, family: str, table: str) -> bool:
         return table in _family_surface(family, self._sid(family))
+
+    def _has_col(self, family: str, table: str, column: str) -> bool:
+        """Does this vintage's `table` carry `column`?  The column-level twin of `_has`, and
+        the same no-PRAGMA answer off the committed shape.  Needed once `bin_placement`
+        gained `bin_state` (ADR-0003): the table is old, the column is not."""
+        return column in (_family_surface(family, self._sid(family)).get(table) or ())
 
     # ── identity ─────────────────────────────────────────────────────────────────
 
@@ -627,7 +633,7 @@ class SqliteSimReader:
         scope = f' AND aisle_id IN ({_int_list(aisles)})' if aisles else ''
 
         bins = self._keyframe_state(kf, aisles) if kf is not None else {}
-        events: dict[int, list] = {}                  # batch -> [(kind, seq, key, sku, qty)]
+        events: dict[int, list] = {}          # batch -> [(kind, seq, key, sku, qty, topup)]
         con = _ro(self.sim_db)
         try:
             # kind 0 = EVICT, 1 = PLACE, so sorting a batch's events replays the runner's order:
@@ -641,14 +647,21 @@ class SqliteSimReader:
                         f'WHERE run_id=? AND batch_id>? AND batch_id<=?{scope}',
                         (self.run_id, base, batch)):
                     events.setdefault(int(r['batch_id']), []).append(
-                        (0, int(r['seq']), f"{r['aisle_id']},{r['bayX']},{r['bayY']}", None, 0))
+                        (0, int(r['seq']), f"{r['aisle_id']},{r['bayX']},{r['bayY']}",
+                         None, 0, 0))
+            # ADR-0003's own-bin rung ADDS to a bin rather than filling an empty one, and the
+            # fold below has to know which.  A vintage without the column had no such rung, so
+            # a literal 0 there is the TRUE answer, not a default hiding missing data.
+            _topup = ("CASE bin_state WHEN 'occupied' THEN 1 ELSE 0 END"
+                      if self._has_col('sim_db', 'bin_placement', 'bin_state') else '0')
             for r in con.execute(
-                    f'SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty FROM bin_placement '
+                    f'SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty, {_topup} AS topup '
+                    f'FROM bin_placement '
                     f'WHERE run_id=? AND batch_id>? AND batch_id<=?{scope}',
                     (self.run_id, base, batch)):
                 events.setdefault(int(r['batch_id']), []).append(
                     (1, int(r['seq']), f"{r['aisle_id']},{r['bayX']},{r['bayY']}",
-                     int(r['sku']), int(r['qty'])))
+                     int(r['sku']), int(r['qty']), int(r['topup'])))
             picks: dict[int, list] = {}
             if batch > base:
                 for r in con.execute(
@@ -659,9 +672,15 @@ class SqliteSimReader:
                         (r['aisle_id'], r['bayX'], r['bayY'], r['n']))
 
             for b in range(base, batch + 1):
-                for kind, _seq, key, sku, qty in sorted(events.get(b, ())):
+                for kind, _seq, key, sku, qty, topup in sorted(events.get(b, ())):
                     if kind:
-                        bins[key] = {'sku': sku, 'qty': qty}
+                        if topup:
+                            # A TOP-UP ADDS: `qty` is the increment, not the bin's contents.
+                            cur = bins.get(key)
+                            bins[key] = {'sku': sku,
+                                         'qty': (cur['qty'] if cur else 0) + qty}
+                        else:
+                            bins[key] = {'sku': sku, 'qty': qty}
                     else:
                         bins.pop(key, None)
                 for aisle, bx, by, n in picks.get(b, ()):

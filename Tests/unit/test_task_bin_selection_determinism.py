@@ -9,18 +9,26 @@ addresses differ per process.  Two identical-seed runs of the same arm therefore
 drain different bins → different aisles → different tasks → different travel and makespan
 → different depletion → a different reorder cascade, i.e. different `batch_stats`.
 
-The fix is that `Task.from_batch` imposes its OWN order (`sorted(..., key=b.location)`)
+The fix is that `Task.from_batch` imposes its OWN order (`sorted(..., key=_bin_qty_location)`)
 instead of inheriting the index's.  These tests pin that:
 
   A  the decomposition is invariant to the order the index hands bins over — checked
      against seeded permutations INCLUDING the exact reverse of the canonical order;
-  B  the bins drained are the lowest-`location` ones, including the partial final take;
-  C  singleton bins still drain before pallet bins whatever order the index yields;
+  B  the bins drained are the canonical ones, including the partial final take;
+  C  the SMALLEST-on-hand bin drains first whatever tier it sits in;
   D  the real `Inventory_Manager` (real identity-hashed `set`s) agrees with an
      independently computed canonical expectation.
 
+THE RULE MOVED ON 2026-09-08 (ADR-0003).  The drain key was `location`, with singleton bins
+taken as a group before pallet bins so that forward-pick locations were always preferred;
+it is now `(on-hand, location)` as ONE ordering across both tiers, because the empty-first
+top-up gives a SKU a second bin whenever the free index is dry and only draining the
+emptiest bin first returns that bin to the index.  C used to assert the retired
+singleton-first contract and passed on a fixture whose bins all held the same amount — it
+now builds a disagreement on purpose.
+
 D is what makes the suite non-vacuous: the expectation is derived here from
-`sorted(bins, key=lambda b: b.location)`, never from the production helper, so a
+`sorted(bins, key=lambda b: (on_hand, b.location))`, never from the production helper, so a
 regression in `Workload_Builder` cannot move the goalposts with it.
 
 Usage
@@ -145,12 +153,45 @@ def _travel(tasks: list[Task]) -> tuple[float, float]:
     return (sum(t.x_traversed for t in tasks), sum(t.y_traversed for t in tasks))
 
 
+def _on_hand(bin_: Aisle.Bin) -> int:
+    return bin_.storage.quantity if bin_.storage is not None else 0
+
+
+def _set_on_hand(bin_: Aisle.Bin, qty: int) -> None:
+    """Force one bin's on-hand, standing in for the picks that would have drawn it down.
+
+    `Task.from_batch` reads bin state and nothing else, so a written quantity is
+    indistinguishable to it from a picked one — and a fixture built by picking would have to
+    run the sim to get a bin to an interesting level.  Only the drain rule is under test
+    here, so the manager's incremental counters are deliberately left alone."""
+    bin_.storage.quantity = qty
+
+
+def _make_remnants(mgr, skus, qty: int = 1) -> dict[int, Aisle.Bin]:
+    """Draw each SKU's HIGHEST-`location` pallet bin down to `qty`, and return them.
+
+    `_stocked` leaves every bin of a tier holding the same amount, so quantity and location
+    order coincide and the drain key's first component is never exercised — which is exactly
+    how this file's C came to assert a retired contract and still pass.  A remnant at the
+    high end of `location` is the cheapest arrangement that makes the two disagree.
+    """
+    out: dict[int, Aisle.Bin] = {}
+    for sku in skus:
+        bin_ = max(mgr._sku_pallet_bins.get(sku, set()), key=lambda b: b.location)
+        _set_on_hand(bin_, qty)
+        out[sku] = bin_
+    return out
+
+
 def _canonical_takes(bins: list[Aisle.Bin], qty: int) -> dict[tuple[int, int, int], int]:
-    """The expected {location: units taken}, derived HERE from `location` order — never
-    from `Workload_Builder`'s own helper, so this cannot drift along with a regression."""
+    """The expected {location: units taken}, derived HERE from `(on-hand, location)` order —
+    never from `Workload_Builder`'s own helper, so this cannot drift along with a regression.
+
+    ONE ordering across both tiers: since ADR-0003 the drain no longer takes singletons as a
+    group ahead of pallets, so callers pass every bin of the SKU in a single list."""
     takes: dict[tuple[int, int, int], int] = {}
     remaining = qty
-    for b in sorted(bins, key=lambda x: x.location):
+    for b in sorted(bins, key=lambda x: (_on_hand(x), x.location)):
         if remaining <= 0:
             break
         available = b.storage.quantity if b.storage is not None else 0
@@ -165,7 +206,7 @@ def _permutations(bins: list[Aisle.Bin], n: int, seed: int) -> list[list[Aisle.B
     """`n` seeded shuffles, plus the two orders most likely to expose an unsorted drain:
     the canonical one and its exact reverse."""
     rng = random.Random(seed)
-    canonical = sorted(bins, key=lambda b: b.location)
+    canonical = sorted(bins, key=lambda b: (_on_hand(b), b.location))
     orders = [canonical, list(reversed(canonical))]
     for _ in range(n):
         shuffled = list(bins)
@@ -211,10 +252,10 @@ def test_decomposition_is_invariant_to_index_order() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# B — the bins drained are the lowest-location ones
+# B — the bins drained are the canonical ones
 # ══════════════════════════════════════════════════════════════════════════════
 
-def test_drains_the_lowest_location_bins_including_the_partial_take() -> None:
+def test_drains_the_canonical_bins_including_the_partial_take() -> None:
     """Invariance alone would be satisfied by any fixed rule; pin the actual one.
 
     The quantity is chosen to land MID-BIN so the last bin is only partly drained —
@@ -228,16 +269,14 @@ def test_drains_the_lowest_location_bins_including_the_partial_take() -> None:
     # Drain every singleton, then 1.5 pallet bins' worth.
     qty = single_stock + pallets[0].storage.quantity + max(1, pallets[1].storage.quantity // 2)
 
-    expected = dict(_canonical_takes(singles, qty))
-    remaining = qty - sum(expected.values())
-    expected.update(_canonical_takes(pallets, remaining))
+    expected = _canonical_takes([*singles, *pallets], qty)
     assert len(expected) < len(singles) + len(pallets), (
         'quantity drains every bin — the test would not distinguish any ordering')
 
     tasks = Task.from_batch(_batch({1: qty}), wh, manager=mgr)
     selected = {b.location for t in tasks for b in t.path}
     assert selected == set(expected), (
-        f'drained {sorted(selected)}, expected the lowest-location set {sorted(expected)}')
+        f'drained {sorted(selected)}, expected the canonical set {sorted(expected)}')
 
     # Per-aisle totals must match the per-bin takes summed by aisle.
     by_aisle: dict[int, int] = {}
@@ -249,33 +288,55 @@ def test_drains_the_lowest_location_bins_including_the_partial_take() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# C — singleton-before-pallet survives the sort
+# C — the smallest bin drains first, whichever tier it is in (ADR-0003)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def test_singletons_still_drain_before_pallets() -> None:
-    """Forward-pick before reserve is the documented contract of `Task.from_batch`;
-    ordering within each index must not leak across them.  The stub hands the pallet
-    bins over first and in reverse-location order — the most hostile arrangement.
+def test_the_smallest_bin_drains_first_whatever_tier_it_is_in() -> None:
+    """One ordering across both tiers, smallest on-hand first.
+
+    Until ADR-0003 this test asserted the opposite contract — singletons as a group before
+    pallets — and passed only because `_stocked` leaves every bin of a tier holding the same
+    amount, so quantity never had a chance to disagree with the tier split.  The fixture now
+    puts the SMALLEST bin in the pallet tier AND at the highest location, so the retired
+    rule, plain location order and the live rule each select a different bin.
+
+    Smallest-first is the consolidation half of ADR-0003: the empty-first top-up gives a SKU
+    a second bin whenever the free index is dry, and only draining the emptiest bin first
+    takes it to zero and hands it back to the index.
+
+    The stub hands the pallet bins over first and in reverse-location order — the most
+    hostile arrangement — because the rule must not inherit the index's order either.
     """
     wh, mgr = _stocked({1: 60})
-    singles = list(mgr._sku_singleton_bins.get(1, set()))
-    pallets = sorted(mgr._sku_pallet_bins.get(1, set()), key=lambda b: b.location, reverse=True)
-    single_stock = sum(b.storage.quantity for b in singles)
-    assert single_stock > 0
+    singles = sorted(mgr._sku_singleton_bins.get(1, set()), key=lambda b: b.location)
+    pallets = sorted(mgr._sku_pallet_bins.get(1, set()), key=lambda b: b.location)
+    assert len(singles) == 1 and len(pallets) >= 2, (
+        f'fixture shape changed: {len(singles)} singleton, {len(pallets)} pallet bins')
 
-    # Ask for slightly more than the singletons hold: every singleton must be drained,
-    # and exactly one pallet bin (the lowest-location one) tops the batch up.
-    qty = single_stock + 1
+    # The remnant: the LAST pallet bin, drawn down below the singleton's on-hand.
+    remnant = pallets[-1]
+    _set_on_hand(remnant, 1)
+    single_stock = _on_hand(singles[0])
+    assert 1 < single_stock < _on_hand(pallets[0]), (
+        'the fixture no longer separates the three candidate rules')
+
+    # Exactly the remnant plus the singleton: the live rule drains both and stops.
+    qty = 1 + single_stock
     tasks = Task.from_batch(_batch({1: qty}), wh, manager=_StubIndexManager(
-        {1: singles}, {1: pallets}))
+        {1: list(singles)}, {1: list(reversed(pallets))}))
     selected = {b.location for t in tasks for b in t.path}
 
-    for b in singles:
-        assert b.location in selected, f'singleton {b.location} not drained before pallets'
-    lowest_pallet = min(pallets, key=lambda b: b.location)
-    assert lowest_pallet.location in selected, (
-        f'top-up came from {sorted(selected - {b.location for b in singles})}, '
-        f'not the lowest-location pallet bin {lowest_pallet.location}')
+    assert selected == {remnant.location, singles[0].location}, (
+        f'drained {sorted(selected)}; smallest-first takes the 1-item pallet bin '
+        f'{remnant.location} and then the singleton {singles[0].location}')
+    assert pallets[0].location not in selected, (
+        f'the lowest-location pallet bin {pallets[0].location} was drained — that is the '
+        f'retired singleton-first-then-location rule, which would take the singleton and '
+        f'then this bin')
+    # And the takes themselves, so a right set with a wrong split still fails.
+    takes = {b.location: q for t in tasks for b, q in zip(t.path, t.planned)}
+    assert takes == {remnant.location: 1, singles[0].location: single_stock}, (
+        f'per-bin takes were {takes}')
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -295,15 +356,22 @@ def test_real_manager_matches_the_canonical_expectation() -> None:
 
     wh_a, mgr_a = _stocked(skus)
     wh_b, mgr_b = _stocked(skus)   # both alive at once — distinct Bin objects
+    # A remnant per SKU, in both warehouses, so `(on-hand, location)` and plain `location`
+    # genuinely disagree here; without it the expectation below is the same under either
+    # rule and the whole comparison is satisfied by the wrong one.
+    remnants = _make_remnants(mgr_a, skus)
+    _make_remnants(mgr_b, skus)
 
     expected: dict[tuple[int, int, int], int] = {}
     for sku, qty in demand.items():
-        singles = list(mgr_a._sku_singleton_bins.get(sku, set()))
-        pallets = list(mgr_a._sku_pallet_bins.get(sku, set()))
-        takes = _canonical_takes(singles, qty)
-        takes.update(_canonical_takes(pallets, qty - sum(takes.values())))
-        for loc, take in takes.items():
+        bins = [*mgr_a._sku_singleton_bins.get(sku, set()),
+                *mgr_a._sku_pallet_bins.get(sku, set())]
+        for loc, take in _canonical_takes(bins, qty).items():
             expected[loc] = expected.get(loc, 0) + take
+    for sku, bin_ in remnants.items():
+        assert bin_.location in expected, (
+            f"SKU {sku}'s remnant {bin_.location} is not in the canonical selection, so the "
+            f'fixture does not exercise the quantity half of the drain key')
 
     batch = _batch(demand)
     tasks_a = Task.from_batch(batch, wh_a, manager=mgr_a)
@@ -332,14 +400,20 @@ def test_real_manager_matches_the_canonical_expectation() -> None:
 def test_manager_and_fallback_branches_agree() -> None:
     """`Task.from_batch` has two drain paths, and they must not disagree.
 
-    The fallback scans `warehouse.bins` (emitted in `location` order) and stably sorts
-    singleton-before-pallet, so it yields singletons then pallets, each in location order
-    — exactly what the indexed path now does.  It did NOT agree before the index drain was
-    sorted, which meant a manager-less caller silently exercised a different rule.
+    Both call `drain_sku` now — the fallback with every bin of the SKU as one group, since
+    ADR-0003's rule no longer separates the tiers.  Before that it re-implemented the walk
+    inline, and the two branches disagreed until a stable singleton-first sort was added to
+    patch them back together; one body cannot drift that way again, and this is the test
+    that would notice if a second one reappeared.
+
+    The fixture carries a REMNANT per SKU, at the high end of `location`.  Without it every
+    bin holds the same amount, `(on-hand, location)` and plain `location` pick the same bins,
+    and a fallback that had quietly kept the old rule would still agree here.
     """
     skus = {1: 60, 2: 44, 3: 52}
     demand = {1: 20, 2: 15, 3: 30}
     wh, mgr = _stocked(skus)
+    remnants = _make_remnants(mgr, skus)
 
     # The fallback rebuilds its own index from warehouse.bins; sanity-check the premise
     # that that emission order is the canonical one, or the branches agree only by luck.
@@ -351,3 +425,11 @@ def test_manager_and_fallback_branches_agree() -> None:
     fallback = Task.from_batch(batch, wh, manager=None)
     assert _fingerprint(indexed) == _fingerprint(fallback), (
         'the indexed drain and the manager-less fallback selected different bins')
+
+    # Agreement alone would be satisfied by both branches sharing the WRONG rule; pin that
+    # the shared rule is smallest-first by requiring every remnant to have been drained.
+    drained = {b.location for t in fallback for b in t.path}
+    for sku, bin_ in remnants.items():
+        assert bin_.location in drained, (
+            f"the manager-less fallback skipped SKU {sku}'s 1-item remnant {bin_.location}; "
+            f'smallest-first takes it before any full bin')

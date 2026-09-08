@@ -109,8 +109,12 @@ def _write_run(root, log, frames, warehouse):
                    sku=k.sku, quantity=k.qty)
         for k in log.picks])
     save_bin_placements(sim_db, run_id, [
+        # `bin_state` rides through: a top-up (ADR-0003) ADDS to a bin rather than filling an
+        # empty one, and the span fold cannot tell the two apart without it — dropping the
+        # field here made the rollup under-count by exactly the topped-up units.
         BinPlacementRecord(run_id=run_id, batch_id=p.batch, seq=seq, aisle_id=p.loc[0],
-                           bayX=p.loc[1], bayY=p.loc[2], sku=p.sku, qty=p.qty, cause=p.cause)
+                           bayX=p.loc[1], bayY=p.loc[2], sku=p.sku, qty=p.qty, cause=p.cause,
+                           bin_state=p.bin_state)
         for seq, p in _seq_numbered(log.places)])
     save_bin_evictions(sim_db, run_id, [
         BinEvictionRecord(run_id=run_id, batch_id=e.batch, seq=seq, aisle_id=e.loc[0],

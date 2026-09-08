@@ -359,18 +359,41 @@ regime someone chose rather than one the defaults inherited.
   the lever, and the preflight canary moved onto it), and the aisle split now trades aisles for
   travel rather than capacity for travel, so archived `ks` sweeps are not comparable.
 
+- [Build the empty-first top-up](issues/24-build-the-empty-first-top-up.md): LANDED. Put-away
+  fills an empty bin first and consolidates into the SKU's own bin only when no empty bin fits
+  (ADR-0003); the repack/singleton rescues became RECEIVING work, priced per resulting pack at
+  the dock's unload price. One `sim_db` vintage (`798778f4fae1` -> `02a78953886c`):
+  `bin_placement.bin_state`, and `batch_stats` gains `put_topups` / `recv_repacks` /
+  `recv_repacked_packs` / `free_bins`. A fifth equilibrium clause, `rework`, JUDGES the repack
+  against the record's `f_repack = 0` (provenance `assumed`) and REPORTS own-bin share and
+  free-index depth without judging them. THE ONE THING THAT DID NOT COMPOSE: decision 7's
+  smallest-first drain and the ticket's byte-identity gate are incompatible -- measured, 800-1,145
+  of ~1,200 SKU-tiers hold 2+ bins straight out of initial stocking and 224-327 are
+  drain-order-sensitive, so the drain change moves travel on essentially every run and is gated on
+  nothing. The user chose to land both and accept the break, which also retires the forward-pick
+  preference from the drain. **Absolute pick/travel/throughput numbers do not cross this commit**
+  (memory `drain-order-is-smallest-first`); it is the third such break in a fortnight, after the
+  per-item charge and 23's aisle-split inflation. 1,823 unit / 394 integration / 31 e2e green, 27
+  of 27 mutations caught, both preflight canaries end to end.
+
 ## Not yet specified
 
-- **Re-reading the check.** Once
-  [Build the empty-first top-up](issues/24-build-the-empty-first-top-up.md) resolves (23
-  landed 2026-09-07 and is now the only fielding the check can read), ONE 40-day run on the
-  reference pair re-reads 17's check (21 resolved 2026-09-07: the store leaf's audit renders
-  again, so that run's store audit will be read, not raised). The fulfillment warehouse HAS
-  grown -- 977 -> 1,232 aisles, exact fielding, 0 SKUs below floor on both sections (23) --
-  so the treadmill that drove 17's fulfillment leaf is gone by construction and the check is
-  reading a different regime; which arms it runs is still dim. Until then the era's numbers on
-  both sections are provisional and the inbound funnel's lift
+- **Re-reading the check.** Nothing blocks it now: 22, 23 and 24 have all landed, so ONE
+  40-day run on the reference pair re-reads 17's check (21 resolved 2026-09-07: the store
+  leaf's audit renders again, so that run's store audit will be read, not raised). Three
+  things have changed under it since 17 and the run has to be read knowing all three: the
+  fulfillment warehouse GREW (977 -> 1,232 aisles, exact fielding, 0 SKUs below floor on both
+  sections, 23), so the treadmill that drove 17's fulfillment leaf is gone by construction;
+  the drain order moved (24), so no absolute number from before it is comparable; and the
+  audit now has a fifth clause whose `rework` reading has never been seen on a real run --
+  the expectation is zero repacks, and whether a 40-day run at the declared levels actually
+  holds that is the first thing to look at. Which arms it runs is still dim. Until then the
+  era's numbers on both sections are provisional and the inbound funnel's lift
   ([Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md)) has not happened.
+- **What the own-bin share and free-index depth should be BANDED at.** 24 shipped both as
+  reported-not-judged because no run under ADR-0003 has shown a steady state, and a threshold
+  invented now would be a number nobody derived. The 40-day re-read above is what produces the
+  observation; whether either becomes a judged clause, and against what, is a decision after it.
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
   inflation changed what a split arm trades: aisles for travel, not capacity for travel (it
   used to raise fill by shrinking the shelf under a fixed stock, and `cells._tightest_split`'s

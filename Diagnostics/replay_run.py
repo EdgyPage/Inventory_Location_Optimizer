@@ -133,7 +133,7 @@ SEMANTIC_USES = {'sim_db': {
     'bin_eviction.bayX': 'read', 'bin_eviction.bayY': 'read',
     'bin_placement.batch_id': 'read', 'bin_placement.aisle_id': 'read',
     'bin_placement.bayX': 'read', 'bin_placement.bayY': 'read',
-    'bin_placement.qty': 'read',
+    'bin_placement.qty': 'read', 'bin_placement.bin_state': 'read',
     'picks.batch_id': 'read', 'picks.aisle_id': 'read', 'picks.bayX': 'read',
     'picks.bayY': 'read', 'picks.quantity': 'read',
     'aisle_metrics.batch_id': 'read', 'aisle_metrics.aisle_id': 'read',
@@ -243,8 +243,16 @@ def occupied_from_bin_log(conn, run_id, max_batches: int = 0) -> dict[int, dict[
     """
     evicts = _BatchStream(conn, 'SELECT batch_id, aisle_id, bayX, bayY FROM bin_eviction '
                                 'WHERE run_id=? ORDER BY batch_id, seq', (run_id,))
-    places = _BatchStream(conn, 'SELECT batch_id, aisle_id, bayX, bayY, qty FROM bin_placement '
-                                'WHERE run_id=? ORDER BY batch_id, seq', (run_id,))
+    # `bin_state` ('empty' | 'occupied', ADR-0003) decides whether a fill REPLACES the bin's
+    # contents or ADDS to them.  Guarded on the column's presence for the same reason
+    # `Visualization/precompute._log_pass` guards it: an archived file predates the column and
+    # had no own-bin rung, so a literal 0 is the TRUE answer there.
+    _have_state = {c[1] for c in conn.execute('PRAGMA table_info(bin_placement)')}
+    _state_sel = ("CASE bin_state WHEN 'occupied' THEN 1 ELSE 0 END"
+                  if 'bin_state' in _have_state else '0')
+    places = _BatchStream(conn, 'SELECT batch_id, aisle_id, bayX, bayY, qty, ' + _state_sel
+                                + ' AS topup FROM bin_placement '
+                                  'WHERE run_id=? ORDER BY batch_id, seq', (run_id,))
     # Picks are ordered by batch only — deliberately.  Within a batch the applied order cannot
     # change the end-of-batch state (subtractions commute, and a bin driven to <= 0 is dropped
     # either way), while adding `sim_time` to the ORDER BY would force SQLite to sort millions of
@@ -269,7 +277,10 @@ def occupied_from_bin_log(conn, run_id, max_batches: int = 0) -> dict[int, dict[
             loc = (r['aisle_id'], r['bayX'], r['bayY'])
             if loc not in qty:
                 occ[r['aisle_id']] += 1
-            qty[loc] = r['qty']                      # a fill REPLACES the bin's contents
+            if r['topup']:                           # ADR-0003's own-bin rung ADDS
+                qty[loc] = qty.get(loc, 0) + r['qty']
+            else:
+                qty[loc] = r['qty']                  # a fill REPLACES the bin's contents
         for r in picks.take(batch):                  # 3. pickers drew it back down
             loc = (r['aisle_id'], r['bayX'], r['bayY'])
             cur = qty.get(loc)

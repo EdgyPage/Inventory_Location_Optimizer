@@ -84,6 +84,23 @@ SIM_DB_SEMANTICS: dict = {
         'recv_seconds':       Col(FLOW, 's', 'batch', clock=SIM,
                                   note='receiving labour; deliberately in NO put-away '
                                        'total — that figure has been published'),
+        # ── put-away rework (ADR-0003) ──────────────────────────────────────────────
+        'put_topups':         Col(FLOW, 'units', 'batch', account=PACKS,
+                                  note='top-ups into a bin already holding the SKU; '
+                                       'non-zero only when the free index was dry, so it '
+                                       'is read against free_bins and never alone'),
+        'recv_repacks':       Col(FLOW, 'units', 'batch', account=PACKS,
+                                  note='rescue ACTS (repack or singleton); the staffing '
+                                       'record expects zero and the equilibrium audit '
+                                       'flags any run where it is not'),
+        'recv_repacked_packs': Col(FLOW, 'units', 'batch', account=PACKS,
+                                   note='packs those acts produced -- the labour is priced '
+                                        'per PACK and lands in recv_seconds; the ratio to '
+                                        'recv_repacks says how far a unit was split'),
+        'free_bins':          Col(LEVEL, 'bins', 'batch',
+                                  note='free index at batch end; re-counts every still-free '
+                                       'bin every batch, so SUM is meaningless -- same trap '
+                                       'as recv_cut'),
         'is_outlier':         Col(LABEL, 'flag', 'batch'),
     },
     'carryover': {
@@ -200,6 +217,8 @@ SIM_DB_SEMANTICS: dict = {
         'qty':        Col(FLOW, 'items', 'row', account=PIECES,
                           note='units placed into this bin'),
         'cause':      _ENUM,
+        'bin_state':  _ENUM,   # 'empty' | 'occupied' (ADR-0003): the bin's state at landing,
+                               # independent of `cause`, which is where the unit came FROM
         'score':      Col(SCORE, 'policy-relative', 'row',
                           null_means='no score was recorded — a zero would claim a '
                                      'perfect placement',

@@ -246,6 +246,7 @@ CONFIG = {
         'rho_recv'            : _s.RHO_RECV,
         'f_put'               : _s.F_PUT,
         'f_recv'              : _s.F_RECV,
+        'f_repack'            : _s.F_REPACK,
         'band_tol'            : _s.BAND_TOL,
         'put_crew_mode'       : _s.PUT_CREW_MODE,
         # Stock coverage in days (settings, "stock coverage"): staffing INPUTS the era's
@@ -361,7 +362,7 @@ def n_batches() -> int:
 #: derivation's outputs live in the run spec's `staffing.derived` block and cannot be set
 #: from the command line.
 STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
-                                  'rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv',
+                                  'rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv', 'f_repack',
                                   'band_tol', 'put_crew_mode',
                                   'coverage_days', 'safety_days', 'floor_lines',
                                   's_pick_store', 's_pick_ff', 's_put')
@@ -377,7 +378,8 @@ CALIBRATION_KEYS: tuple[str, ...] = ('s_pick_store', 's_pick_ff', 's_put')
 #: the defaults of its day, which is what these still are.
 _SCALAR_DEFAULTS: dict = {
     'rho_pick': _s.RHO_PICK, 'rho_put': _s.RHO_PUT, 'rho_recv': _s.RHO_RECV,
-    'f_put': _s.F_PUT, 'f_recv': _s.F_RECV, 'band_tol': _s.BAND_TOL,
+    'f_put': _s.F_PUT, 'f_recv': _s.F_RECV, 'f_repack': _s.F_REPACK,
+    'band_tol': _s.BAND_TOL,
     'put_crew_mode': _s.PUT_CREW_MODE,
     'coverage_days': _s.COVERAGE_DAYS, 'safety_days': _s.SAFETY_DAYS,
     'floor_lines': _s.FLOOR_LINES,

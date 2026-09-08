@@ -55,6 +55,10 @@ class Place:
     sku: int
     qty: int
     cause: str            # 'initial' | 'reorder' | 'reslot'
+    # ADR-0003: 'empty' = the fill OCCUPIED a free bin and `qty` is the bin's whole
+    # contents; 'occupied' = the own-bin rung ADDED `qty` to what was already there.  The
+    # fold has to know which, or a top-up would overwrite the bin with just the top-up.
+    bin_state: str = 'empty'
 
 
 @dataclass(frozen=True)
@@ -113,7 +117,15 @@ def fold(log: BinLog, batch: int, t: float | None = None) -> dict:
         if isinstance(ev, Evict):
             state.pop(ev.loc, None)
         elif isinstance(ev, Place):
-            state[ev.loc] = (ev.sku, ev.qty)
+            if ev.bin_state == 'occupied':
+                # A TOP-UP ADDS.  The bin already held this SKU; `qty` is the increment,
+                # not the new contents.  Replacing here silently discarded whatever the bin
+                # already held, which is exactly the kind of loss this replay exists to rule
+                # out -- and it would have shown up as the fold under-counting.
+                cur = state.get(ev.loc)
+                state[ev.loc] = (ev.sku, (cur[1] if cur else 0) + ev.qty)
+            else:
+                state[ev.loc] = (ev.sku, ev.qty)
         else:                                             # Pick
             cur = state.get(ev.loc)
             if cur is None:
@@ -129,7 +141,7 @@ def fold(log: BinLog, batch: int, t: float | None = None) -> dict:
 # ── the recorder: instance wrappers, no domain edits ─────────────────────────────
 
 def attach_recorder(mgr) -> BinLog:
-    """Rebind `_execute_placement` and `requeue_bin` on this manager to also record.
+    """Rebind the two PLACE commit points and `requeue_bin` on this manager to also record.
 
     `_execute_placement` is the single chokepoint for every fill — `_stock_per_unit`,
     `_stock_ranked` and `inventory_optimal._optimal_assign` all reach `bin_.storage = unit`
@@ -142,6 +154,7 @@ def attach_recorder(mgr) -> BinLog:
     state = {'batch': 0, 'place_seq': 0, 'evict_seq': 0, 'evicted_units': set()}
 
     orig_place = mgr._execute_placement
+    orig_topup = mgr._execute_topup
     orig_evict = mgr.requeue_bin
 
     def _execute_placement(unit, bin_, *, source=None):
@@ -171,7 +184,19 @@ def attach_recorder(mgr) -> BinLog:
             state['evicted_units'].add(rec.unit_tag)
         return out
 
+    def _execute_topup(order, bin_, n, *, source=None, queue=None):
+        # ADR-0003's own-bin rung.  Same independent-witness discipline as the placement
+        # wrapper: the cause is derived here rather than read off the manager, so the
+        # comparison with `BinRecorder` stays non-circular.
+        cause = 'initial' if state['batch'] == 0 and not log.picks else 'reorder'
+        loc = bin_.location
+        orig_topup(order, bin_, n, source=source, queue=queue)
+        log.places.append(Place(state['batch'], state['place_seq'], loc, order.sku, n,
+                                cause, 'occupied'))
+        state['place_seq'] += 1
+
     mgr._execute_placement = _execute_placement
+    mgr._execute_topup = _execute_topup
     mgr.requeue_bin = requeue_bin
     log._state = state                                    # the driver advances `batch`
     return log

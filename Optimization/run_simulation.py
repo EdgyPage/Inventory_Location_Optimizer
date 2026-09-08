@@ -589,6 +589,9 @@ def main():
              'units put away per unit picked; 1.0 = steady state'),
             ('--f-recv', 'f_recv', _nonneg_float,
              'packs received per pack the script implies; 1.0 = steady state'),
+            ('--f-repack', 'f_repack', _nonneg_float,
+             'packs repacked per pack received (ADR-0003 rework); 0.0 = none expected, '
+             'and the equilibrium audit flags any run that measures some'),
             ('--band-tol', 'band_tol', _nonneg_float,
              'equilibrium band: |realized - expected| utilization tolerance, absolute'),
             # Stock coverage in DAYS of each SKU's own demand: under the era setup

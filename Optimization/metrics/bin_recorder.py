@@ -10,12 +10,16 @@ batches of a keyframe.
 What makes this complete
 ------------------------
 Bin state is `Aisle.Bin.storage` / `.storage.quantity`, and a repo-wide search for writes to
-either finds six lines across five sites, one of them dead code:
+either finds seven lines across five sites, one of them dead code:
 
     Inventory_Management._execute_placement   `bin_.storage = unit`    -> PLACE  (recorded here)
+    Inventory_Management._execute_topup       `storage.quantity += n`  -> PLACE  (recorded here)
     inventory_reorder.requeue_bin             `bin_.storage = None`    -> EVICT  (recorded here)
     fast_pick.py / Pick.py                    qty -= / storage = None  -> PICK   (already `picks`)
     Storage_Primitive.StorageCart             zero callers repo-wide   -> n/a
+
+`_execute_topup` is ADR-0003's own-bin rung and the only site that ADDS to an occupied bin;
+its rows carry `bin_state='occupied'`, every other PLACE row `'empty'`.
 
 So PLACE + EVICT + PICK is complete **by construction**, and picks are already fully recorded —
 `SUM(pre_qty - post_qty)` equals `SUM(picks.quantity)` exactly on every arm tested.
@@ -26,7 +30,7 @@ sixth mutation site ever appears.
 
 How it attaches
 ---------------
-By rebinding two bound methods on the manager **instance** — no edits to `Warehouse/`, and a
+By rebinding three bound methods on the manager **instance** — no edits to `Warehouse/`, and a
 strategy swapping `mgr.placement` cannot detach it, because `_execute_placement` is the chokepoint
 all three placement call sites reach through `self.`. Same technique as
 `Diagnostics/trace_lifecycle.py`.
@@ -104,8 +108,9 @@ class BinRecorder:
 
     # ── attachment ──
     def attach(self, mgr) -> None:
-        """Wrap `_execute_placement` and `requeue_bin` on this manager instance."""
+        """Wrap the two PLACE commit points and `requeue_bin` on this manager instance."""
         orig_place = mgr._execute_placement
+        orig_topup = mgr._execute_topup
         orig_evict = mgr.requeue_bin
 
         def _execute_placement(unit, bin_, *, source=None,
@@ -131,9 +136,31 @@ class BinRecorder:
             self.placements.append(BinPlacementRecord(
                 run_id=self.run_id, batch_id=self._batch, seq=self._place_seq,
                 aisle_id=aisle_id, bayX=bay_x, bayY=bay_y, sku=sku, qty=qty, cause=cause,
-                score=score, score_rank=score_rank, policy=policy))
+                bin_state='empty', score=score, score_rank=score_rank, policy=policy))
             self._place_seq += 1
             self.units_placed += qty
+
+        def _execute_topup(order, bin_, n, *, source=None, queue=None):
+            """ADR-0003's own-bin rung: a PLACE into a bin that was already occupied.
+
+            Shares `_place_seq` with `_execute_placement` deliberately -- both are places,
+            the sequence is what orders them within a batch, and two counters would make
+            `(run_id, batch_id, seq)` collide on the primary key.  `score` stays NULL: no
+            policy chose this bin, the SKU's own on-hand did, and a zero would claim a
+            placement was scored perfectly when it was not scored at all.
+            """
+            if source == 'reslot':
+                cause = 'reslot'
+            else:
+                cause = 'reorder' if self._in_batch_loop else 'initial'
+            aisle_id, bay_x, bay_y = bin_.location
+            orig_topup(order, bin_, n, source=source, queue=queue)
+            self.placements.append(BinPlacementRecord(
+                run_id=self.run_id, batch_id=self._batch, seq=self._place_seq,
+                aisle_id=aisle_id, bayX=bay_x, bayY=bay_y, sku=order.sku, qty=n,
+                cause=cause, bin_state='occupied'))
+            self._place_seq += 1
+            self.units_placed += n
 
         def requeue_bin(bin_, *args, **kwargs):
             unit = bin_.storage
@@ -154,4 +181,5 @@ class BinRecorder:
             return out
 
         mgr._execute_placement = _execute_placement
+        mgr._execute_topup = _execute_topup
         mgr.requeue_bin = requeue_bin

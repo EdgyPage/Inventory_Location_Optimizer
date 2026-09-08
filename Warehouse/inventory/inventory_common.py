@@ -17,7 +17,8 @@ from typing import Any, Callable
 
 from Warehouse.catalog.Order import Order
 from Warehouse.layout.Aisle_Storage import Aisle
-from Warehouse.layout.Storage_Primitive import StorageUnit, Pallet, Storage_Size, FulfillmentBin
+from Warehouse.layout.Storage_Primitive import (
+    StorageUnit, Pallet, Singleton, Storage_Size, FulfillmentBin, _max_qty_fits)
 from Warehouse.kernel.regime import STORE, FULFILLMENT, regime_of  # noqa: F401  (re-exported for callers)
 
 AssignmentFn = Callable[[StorageUnit, list[Aisle.Bin]], Aisle.Bin | None]
@@ -430,6 +431,33 @@ def _max_qty_fitting_size(order: Order, target_size: str,
         except ValueError:
             break
     return result
+
+
+def own_bin_room(order: Order, bin_: Aisle.Bin) -> int:
+    """How many MORE of *order*'s items the unit already standing in *bin_* can take.
+
+    The own-bin rung of the put-away chain (ADR-0003) needs one number: a bin holding this
+    SKU has room for `capacity(bin's own tier) - on_hand` more, and zero is the answer for
+    an empty bin, a full one, or a bin holding something else.  Callers must already know
+    the bin holds *order* — this measures room, it does not check ownership.
+
+    THE BIN'S OWN TIER IS THE CEILING, not the family's largest.  A 'small' pallet bin
+    holds what a small pallet holds, whatever a large one could, because the bin was built
+    to a size and the unit standing in it has to keep fitting.
+
+    Singleton bins are measured against `Singleton` directly rather than through
+    `_max_qty_fitting_size`: they carry no tier (`storage_size is None`) and that helper
+    falls back to the PALLET tables for an unknown category, which would overstate a
+    singleton's room by the whole difference between the two families.
+    """
+    st = bin_.storage
+    if st is None:
+        return 0
+    if is_forward_pick(bin_):
+        cap = _max_qty_fits(order, Singleton)
+    else:
+        cap = _max_qty_fitting_size(order, bin_.storage_size, bin_.unit_type)
+    return max(0, cap - st.quantity)
 
 
 def _uniform_assignment(unit: StorageUnit, candidates: list[Aisle.Bin]) -> Aisle.Bin | None:

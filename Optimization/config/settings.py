@@ -261,6 +261,11 @@ F_PUT = 1.0                            # units put per unit picked; 1.0 = steady
                                        # (what is picked is replenished).  --f-put
 F_RECV = 1.0                           # packs received per pack the script implies; 1.0 =
                                        # steady state.  --f-recv
+F_REPACK = 0.0                         # packs REPACKED per pack received (ADR-0003 rework).
+                                       # 0.0 is a claim, not a placeholder: a warehouse
+                                       # whose free index never runs dry does no rework, and
+                                       # the equilibrium audit flags any run that measures
+                                       # some against this.  --f-repack
 BAND_TOL = 0.10                        # |realized - expected| utilization tolerance, one
                                        # absolute number for all three departments.
                                        # --band-tol
