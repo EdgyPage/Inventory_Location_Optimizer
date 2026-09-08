@@ -1316,7 +1316,8 @@ files:
   "Optimization/simdriver/workunits.py":
     purpose: "Plan the per-strategy flat-pool work units \u2014 shared assets + batches + resume-aware start planning + the picklable strategy_args shipped to each worker (parent-process only)."
     layer: "opt_simdriver"
-    key_symbols: []
+    key_symbols:
+      - {name: "put_constant", file: "Optimization/simdriver/workunits.py", kind: "function"}
     notes: ""
   "Schema/capability.py":
     purpose: "negotiating for data that only SOME vetted schemas carry."
@@ -4467,9 +4468,14 @@ files:
       - {name: "test_expected_utilization_is_after_the_ceiling_and_the_leafs_share", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_derive_sizes_the_two_site_crews_over_both_channels_by_hand", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_an_absent_channel_contributes_nothing_and_is_recorded_as_absent", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_a_declared_put_price_reaches_the_load_and_an_undeclared_one_takes_the_scripts_seconds", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_the_site_total_is_what_a_single_average_price_used_to_get_right", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_derive_refuses_channels_that_ran_different_batch_counts", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_constant_refuses_a_provenance_outside_the_five", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_derived_differs_compares_floats_with_a_tolerance_and_names_the_path", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
       - {name: "test_regime_orders_filters_by_regime_and_none_is_the_whole_catalogue", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_a_binkey_names_its_own_regime_so_the_two_sections_can_never_share_a_class", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
+      - {name: "test_put_constant_prices_a_channel_at_its_own_ratio_and_carries_a_declaration_across", file: "Tests/unit/test_staffing_derivation.py", kind: "function"}
     notes: ""
   "Tests/unit/test_staffing_params.py":
     purpose: "the declared picker counts reach a real run, through all six seams."

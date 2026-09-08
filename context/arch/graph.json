@@ -12466,11 +12466,6 @@
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
-      "dst": "Optimization/simconfig/staffing.py::constant",
-      "kind": "calls",
-      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
-    },
-    {
       "dst": "Optimization/simconfig/staffing.py::derive",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
@@ -12512,6 +12507,11 @@
     },
     {
       "dst": "Optimization/simdriver/workunits.py::_worker_inventory_args",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::put_constant",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
@@ -12689,6 +12689,11 @@
       "dst": "Optimization/runschema/sim_manifest.py::_load_run_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_run_root_spec"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::constant",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::put_constant"
     },
     {
       "dst": "Schema/capability.py::has_rows",
@@ -32959,6 +32964,14 @@
       "module": "Optimization/simdriver/workunits.py",
       "name": "_worker_inventory_args",
       "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::put_constant",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "put_constant",
+      "public": true
     },
     {
       "file": "Schema/__init__.py",

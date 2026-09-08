@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>put_constant · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py__put_constant" data-id="Optimization/simdriver/workunits.py::put_constant">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>put_constant</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>put_constant</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def put_constant(totals, override) -&gt; dict</code></pre>
+<section class="doc">ONE channel&#x27;s put-away price, as the recorded constant (&quot;Give put-away a per-channel
+expected travel&quot;, 2026-09-08).
+
+This was a SITE ratio, `sum(put_s) / sum(put_units)` over both channels, and it averaged a
+real 3.4x spread away: the era re-read measured 98.5 s/unit put away on the store against
+29.2 on fulfillment.  The site TOTAL was right either way -- the ratio&#x27;s denominator makes
+`units x price` sum back to `sum(put_s)` -- so the crew was correctly SIZED while both
+leaves&#x27; expected utilization sat about 0.21 outside the band, in OPPOSITE directions.
+`ScriptTotals.put_s` was already this channel&#x27;s own expectation (priced by
+`expected_travel.put_site_pricer` over its own section&#x27;s class-uniform destination); only
+this constant threw the per-channel structure away.
+
+`override` is `--s-put`, which stays ONE key: an operator declaring a price is asserting a
+single site-wide number, which is an honest declaration rather than the derived average
+that was the defect.  It is stamped onto EVERY channel, and each channel&#x27;s own expectation
+rides along as `expected`, so the record still shows what the declaration displaced -- and
+the two channels therefore carry different `expected` values under one flag.
+
+A section the script implies no put-away for prices at 0.0 rather than dividing by zero;
+the caller warns, because a silent 0 under a note claiming an expected travel is a lie.
+
+Module-level and pure so it is testable without a run, and spawn-safe by construction
+(the repo&#x27;s `ProcessPoolExecutor` rule).</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__constant.html"><code>constant</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py__put_constant">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20put_constant">Source ↗</a></p>
+</article>
+</main>
+</body></html>

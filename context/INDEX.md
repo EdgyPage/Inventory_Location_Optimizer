@@ -1,7 +1,7 @@
 # context/ — machine-parsable flow + artifact specs
 
 last-synced-commit: 72bbffbee4598a515e5e18ff5e03d5d1a71e9c52  <!-- updated by the context-maintainer agent after each sync -->
-arch-synced-commit: 1bef426f7267bed67f310aedcd6a5b8d0510337b  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/); working tree also includes the uncommitted department-calibration ticket 24 "build the empty-first top-up" change (ADR-0003: Inventory_Manager._top_up_own_bins/_execute_topup/_charge_repack, Dock.repacks/drain_repacks, work_events.repack_rows, equilibrium._rework_clause) plus a follow-on code-review pass: equilibrium._packs_budget, Inventory_Management._execute_topup bin-ownership assert + storage._fit re-fit, _stock_per_unit per-bin repack charge, frames.py _bdf/SEMANTIC_USES columns, replay_run.py bin_state PRAGMA guard -->
+arch-synced-commit: e1163d2478f5c66247c7e9821c1848ca7898b8bf  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/); synced through department-calibration ticket 26 "give put-away a per-channel expected travel" (simconfig/staffing.py per-channel s_put + batch-count guard, simdriver/workunits.py put_constant) -->
 
 Verifiable documentation of the pipeline's code flow, designed for BOTH humans and
 downstream design programs (the MkDocs results site, Claude Design). Every

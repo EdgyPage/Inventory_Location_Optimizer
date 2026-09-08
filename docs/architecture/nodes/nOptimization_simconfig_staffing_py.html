@@ -25,18 +25,27 @@ fields is DERIVED from them, live at setup, with a declared scalar at every step
     daily demand       capacity ÷ s_pick                     (units per day, per channel)
     batch content      one batch = one day&#x27;s demand          (a BatchConfig mean fraction)
     put load           units × f_put                         (units put per unit picked)
-    put crew           ceil(put load × s_put ÷ (S × ρ_put))  (ONE site crew, both channels)
+    put crew           ceil(Σ_ch put load_ch × s_put_ch ÷ (S × ρ_put))   (ONE site crew)
     receive load       packs the script implies × f_recv
     receiving crew     ceil(receive seconds ÷ (S × ρ_recv))  (ONE site crew)
 
-`s_pick` (per channel) and `s_put` (one site value) are seconds per unit and are CLOSED-FORM
+`s_pick` and `s_put` are BOTH per channel, and both are seconds per unit: CLOSED-FORM
 EXPECTATIONS over the catalogue&#x27;s demand distribution and the warehouse geometry the run
-built (`Optimization/simconfig/expected_travel.py`, &quot;Derive the expected-travel closed form&quot;):
-there are no calibration simulations and no calibration record.  The harness computes them
-at setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put` override
-replaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the script: an
-unload has no travel term, so every pack&#x27;s seconds are computable from the catalogue and
-the cost model alone.
+built (`Optimization/simconfig/expected_travel.py`, &quot;Derive the expected-travel closed form&quot;).
+There are no calibration simulations and no calibration record.  The harness computes them
+at setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put`
+override replaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the
+script: an unload has no travel term, so every pack&#x27;s seconds are computable from the
+catalogue and the cost model alone.
+
+**s_put IS PER CHANNEL** (&quot;Give put-away a per-channel expected travel&quot;, 2026-09-08).  It was
+one site value until then, and the two sections do not share a geometry: the era re-read
+measured 98.5 s/unit put away on the store against 29.2 on fulfillment, a 3.4× spread that a
+single site price averaged away.  The site TOTAL stayed right -- so the crew was correctly
+SIZED -- while both leaves&#x27; expected utilization sat ~0.21 outside the band, in opposite
+directions.  Picking never had this defect (its constant was always per channel) and neither
+did receiving (its per-channel seconds come straight from the script).  There is now no
+site-wide put price anywhere in the derived record: `put.s_put` is a map keyed by channel.
 
 THIS MODULE IS PURE.  Inputs, the resolved constants and the catalogue / script totals go
 in; the derived dict comes out.  It imports no CONFIG, reads no settings and
