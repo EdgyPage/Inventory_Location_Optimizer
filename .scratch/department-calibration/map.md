@@ -376,24 +376,40 @@ regime someone chose rather than one the defaults inherited.
   per-item charge and 23's aisle-split inflation. 1,823 unit / 394 integration / 31 e2e green, 27
   of 27 mutations caught, both preflight canaries end to end.
 
+- [Re-read the check under the fielded floor](issues/25-re-read-the-check.md): TAKEN 2026-09-08
+  (`comparison_20260908_075736`, fifo, 40 era days, the reference pair, 16 min). 17's two
+  structural defects are GONE and the numbers still do not read in band -- but the failures are now
+  two sharp questions instead of two broken mechanisms. FIXED and confirmed live: both sections
+  field EXACTLY (0 SKUs below floor, 0 above declaration, sum Q equal to the declaration) in a
+  2,341-aisle warehouse, the +255 aisles 23 predicted; the fulfillment treadmill is gone (missed
+  share 0.663 RISING -> 0.118 with trend -0.010, the clause PASSING; drained 1/40 -> 18/40; supply
+  carry 88,857 -> max 5,412); both fill rates are now 0.922 because both sections sit on the floor
+  at their declaration; the store audit RENDERS (21) with `overtime_only_days` 0; `released_late`
+  is ok on both, all lag behind CAPPED days; receiving is in band on both. **`rework` reads clean
+  on its first real run**: 0 packs repacked over 0 rescues, own-bin share exactly 0.000 every day,
+  free index never below 1,197,833 of 2,096,050 bins -- ADR-0003's `f_repack = 0` confirmed, and
+  17's store cause (215k SKUs on 2+ bins) never engaged. STILL FAILING, two things: (1) put
+  utilization is out of band on BOTH leaves in OPPOSITE directions (ff 0.477/0.691, store
+  0.362/0.155) because realized put-away costs **98.50 s/unit on the store against 29.15 on
+  fulfillment** while the record prices both at ONE site-wide `s_put = 41.24` -- units are right
+  within 2% and the SITE total within 0.9%, so the crew of 59 is correctly SIZED and wrongly
+  APPORTIONED, and put is the only department of the three that multiplies per-channel units by a
+  site constant (`s_pick` is per channel, receiving takes per-channel seconds from the script);
+  (2) the store never reaches a steady state -- 0/20 days drained in the window, picking 0.963
+  against 0.850, missed share rising for ~30 days then falling, all at a FLAT 100.4 -> 99.2 s/unit,
+  so it is neither fragmentation nor travel drift. **The era's numbers on both sections stay
+  PROVISIONAL** and 05's hold on the inbound funnel stands. Graduated 26 and 27.
+
 ## Not yet specified
 
-- **Re-reading the check.** Nothing blocks it now: 22, 23 and 24 have all landed, so ONE
-  40-day run on the reference pair re-reads 17's check (21 resolved 2026-09-07: the store
-  leaf's audit renders again, so that run's store audit will be read, not raised). Three
-  things have changed under it since 17 and the run has to be read knowing all three: the
-  fulfillment warehouse GREW (977 -> 1,232 aisles, exact fielding, 0 SKUs below floor on both
-  sections, 23), so the treadmill that drove 17's fulfillment leaf is gone by construction;
-  the drain order moved (24), so no absolute number from before it is comparable; and the
-  audit now has a fifth clause whose `rework` reading has never been seen on a real run --
-  the expectation is zero repacks, and whether a 40-day run at the declared levels actually
-  holds that is the first thing to look at. Which arms it runs is still dim. Until then the
-  era's numbers on both sections are provisional and the inbound funnel's lift
-  ([Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md)) has not happened.
 - **What the own-bin share and free-index depth should be BANDED at.** 24 shipped both as
-  reported-not-judged because no run under ADR-0003 has shown a steady state, and a threshold
-  invented now would be a number nobody derived. The 40-day re-read above is what produces the
-  observation; whether either becomes a judged clause, and against what, is a decision after it.
+  reported-not-judged because no run under ADR-0003 had shown a steady state. 25 produced the
+  FIRST observation -- own-bin share exactly **0.000** on every day of both leaves, free index never
+  below **1,197,833 of 2,096,050 bins** (~57% free, drifting 1.6% over 40 days) -- so the readings
+  now exist. It stays fog rather than a ticket because a threshold still cannot be phrased sharply:
+  the store leaf those numbers came from is not in a steady state
+  ([Fit the store's window to its own steady state](issues/27-fit-the-store-window-to-its-steady-state.md)),
+  and one fifo arm at one shape is not a distribution to band against. Sharpens when 27 lands.
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
   inflation changed what a split arm trades: aisles for travel, not capacity for travel (it
   used to raise fill by shrinking the shelf under a fixed stock, and `cells._tightest_split`'s
