@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_packs_budget · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py___packs_budget" data-id="Optimization/simconfig/equilibrium.py::_packs_budget">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a> <span class="sep">›</span> <span class="here"><code>_packs_budget</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_packs_budget</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+
+<pre class="sig"><code>def _packs_budget(f_repack: float) -&gt; float</code></pre>
+<section class="doc">`f_repack` (packs repacked PER PACK RECEIVED) as a pack COUNT for the window.
+
+At 0.0 the rate and the count coincide, which is the only value that has ever shipped.
+Any other value needs the window&#x27;s received-pack count to convert, and nothing here has
+it -- so this REFUSES rather than comparing a rate to a count and silently judging a run
+against a number three orders of magnitude off.  Whoever gives `f_repack` a real value
+writes the conversion here; that is the one line that has to learn it.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__RecordError.html"><code>RecordError</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py___expected_repacked_packs.html"><code>_expected_repacked_packs</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___packs_budget">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_packs_budget">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -6171,6 +6171,11 @@
       "src": "Optimization/config/sim_config.py"
     },
     {
+      "dst": "Optimization/config/settings.py::F_REPACK",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
       "dst": "Optimization/config/settings.py::PUT_CREW_MODE",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py"
@@ -6307,6 +6312,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::F_RECV",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::F_REPACK",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -7196,6 +7206,11 @@
       "src": "Optimization/metrics/bin_recorder.py::BinRecorder.attach._execute_placement"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::BinPlacementRecord",
+      "kind": "calls",
+      "src": "Optimization/metrics/bin_recorder.py::BinRecorder.attach._execute_topup"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::BinEvictionRecord",
       "kind": "calls",
       "src": "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin"
@@ -7219,6 +7234,11 @@
       "dst": "Optimization/metrics/work_events.py::put_rows",
       "kind": "calls",
       "src": "Optimization/metrics/work_events.py::recv_rows"
+    },
+    {
+      "dst": "Optimization/metrics/work_events.py::recv_rows",
+      "kind": "calls",
+      "src": "Optimization/metrics/work_events.py::repack_rows"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_shift_day_select",
@@ -10591,6 +10611,11 @@
       "src": "Optimization/simconfig/equilibrium.py::_drained_clause._nothing_standing"
     },
     {
+      "dst": "Optimization/simconfig/equilibrium.py::_packs_budget",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_expected_repacked_packs"
+    },
+    {
       "dst": "Optimization/simconfig/equilibrium.py::Clause",
       "kind": "calls",
       "src": "Optimization/simconfig/equilibrium.py::_missed_share_clause"
@@ -10599,6 +10624,11 @@
       "dst": "Optimization/simconfig/equilibrium.py::_get",
       "kind": "calls",
       "src": "Optimization/simconfig/equilibrium.py::_missed_share_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::RecordError",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_packs_budget"
     },
     {
       "dst": "Optimization/simconfig/equilibrium.py::Clause",
@@ -10614,6 +10644,16 @@
       "dst": "Optimization/simconfig/equilibrium.py::_get",
       "kind": "calls",
       "src": "Optimization/simconfig/equilibrium.py::_released_late_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::Clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_rework_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_get",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_rework_clause"
     },
     {
       "dst": "Optimization/simconfig/equilibrium.py::Clause",
@@ -10666,12 +10706,22 @@
       "src": "Optimization/simconfig/equilibrium.py::check_rows"
     },
     {
+      "dst": "Optimization/simconfig/equilibrium.py::_rework_clause",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::check_rows"
+    },
+    {
       "dst": "Optimization/simconfig/equilibrium.py::_utilization_clause",
       "kind": "calls",
       "src": "Optimization/simconfig/equilibrium.py::check_rows"
     },
     {
       "dst": "Optimization/simconfig/equilibrium.py::RecordError",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::expectations_for"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_expected_repacked_packs",
       "kind": "calls",
       "src": "Optimization/simconfig/equilibrium.py::expectations_for"
     },
@@ -11806,6 +11856,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Optimization/metrics/work_events.py::repack_rows",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::init_keyframe_db",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -11946,6 +12001,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_repack_records",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_drains",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -11971,6 +12031,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.free_bin_depth",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -11992,6 +12057,11 @@
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.receiving_snapshot",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.snapshot_putaway_rework",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -14046,6 +14116,16 @@
       "src": "Visualization/readers/base.py::SqliteSimReader._has"
     },
     {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._sid",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._has_col"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_family_surface",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._has_col"
+    },
+    {
       "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before"
@@ -14147,6 +14227,11 @@
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._has",
+      "kind": "calls",
+      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
+    },
+    {
+      "dst": "Visualization/readers/base.py::SqliteSimReader._has_col",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
     },
@@ -15896,6 +15981,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._cost_putaway",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_topup"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._group_key"
@@ -15966,7 +16056,17 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._charge_repack",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
     },
@@ -16044,6 +16144,21 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn.place_wave",
       "kind": "dispatch",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_topup",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::own_bin_room",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins"
+    },
+    {
+      "dst": "Warehouse/kernel/regime.py::regime_of",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit",
@@ -16179,6 +16294,21 @@
       "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_common.py::is_forward_pick"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::_max_qty_fitting_size",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_common.py::own_bin_room"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_common.py::own_bin_room"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::_max_qty_fits",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_common.py::own_bin_room"
     },
     {
       "dst": "Warehouse/catalog/Order.py",
@@ -17111,11 +17241,6 @@
       "src": "Warehouse/picking/Workload_Builder.py"
     },
     {
-      "dst": "Warehouse/inventory/inventory_common.py",
-      "kind": "imports",
-      "src": "Warehouse/picking/Workload_Builder.py"
-    },
-    {
       "dst": "Warehouse/layout/Aisle_Storage.py",
       "kind": "imports",
       "src": "Warehouse/picking/Workload_Builder.py"
@@ -17184,6 +17309,11 @@
       "dst": "Warehouse/picking/Workload_Builder.py::_get_partner_map",
       "kind": "calls",
       "src": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v2"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::_bin_qty_location",
+      "kind": "ref",
+      "src": "Warehouse/picking/Workload_Builder.py::drain_sku"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py",
@@ -19184,6 +19314,14 @@
     },
     {
       "file": "Diagnostics/trace_lifecycle.py",
+      "id": "Diagnostics/trace_lifecycle.py::_install_hooks._execute_topup",
+      "kind": "function",
+      "module": "Diagnostics/trace_lifecycle.py",
+      "name": "_execute_topup",
+      "public": false
+    },
+    {
+      "file": "Diagnostics/trace_lifecycle.py",
       "id": "Diagnostics/trace_lifecycle.py::_install_hooks._reclaim_empty_bins",
       "kind": "function",
       "module": "Diagnostics/trace_lifecycle.py",
@@ -19340,6 +19478,14 @@
       "kind": "function",
       "module": "Inbound/dock.py",
       "name": "drain_records",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.drain_repacks",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "drain_repacks",
       "public": true
     },
     {
@@ -25648,6 +25794,14 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::F_REPACK",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "F_REPACK",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::INBOUND_CREW_ALLOCATION",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -27448,6 +27602,14 @@
     },
     {
       "file": "Optimization/metrics/bin_recorder.py",
+      "id": "Optimization/metrics/bin_recorder.py::BinRecorder.attach._execute_topup",
+      "kind": "function",
+      "module": "Optimization/metrics/bin_recorder.py",
+      "name": "_execute_topup",
+      "public": false
+    },
+    {
+      "file": "Optimization/metrics/bin_recorder.py",
       "id": "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin",
       "kind": "function",
       "module": "Optimization/metrics/bin_recorder.py",
@@ -27516,6 +27678,14 @@
       "kind": "function",
       "module": "Optimization/metrics/work_events.py",
       "name": "recv_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/metrics/work_events.py",
+      "id": "Optimization/metrics/work_events.py::repack_rows",
+      "kind": "function",
+      "module": "Optimization/metrics/work_events.py",
+      "name": "repack_rows",
       "public": true
     },
     {
@@ -31528,6 +31698,14 @@
     },
     {
       "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_expected_repacked_packs",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_expected_repacked_packs",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
       "id": "Optimization/simconfig/equilibrium.py::_get",
       "kind": "function",
       "module": "Optimization/simconfig/equilibrium.py",
@@ -31552,10 +31730,26 @@
     },
     {
       "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_packs_budget",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_packs_budget",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
       "id": "Optimization/simconfig/equilibrium.py::_released_late_clause",
       "kind": "function",
       "module": "Optimization/simconfig/equilibrium.py",
       "name": "_released_late_clause",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::_rework_clause",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "_rework_clause",
       "public": false
     },
     {
@@ -34736,6 +34930,14 @@
     },
     {
       "file": "Visualization/readers/base.py",
+      "id": "Visualization/readers/base.py::SqliteSimReader._has_col",
+      "kind": "function",
+      "module": "Visualization/readers/base.py",
+      "name": "_has_col",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
       "kind": "function",
       "module": "Visualization/readers/base.py",
@@ -37304,6 +37506,14 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._charge_repack",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_charge_repack",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._cost_putaway",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -37316,6 +37526,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "_execute_placement",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_topup",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_execute_topup",
       "public": false
     },
     {
@@ -37448,6 +37666,14 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_top_up_own_bins",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._window_for",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -37520,6 +37746,14 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_repack_records",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "drain_repack_records",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_drains",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -37572,6 +37806,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "enqueue_all",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.free_bin_depth",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "free_bin_depth",
       "public": true
     },
     {
@@ -37684,6 +37926,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "receiving_snapshot",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.snapshot_putaway_rework",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "snapshot_putaway_rework",
       "public": true
     },
     {
@@ -38116,6 +38366,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/inventory_common.py",
       "name": "is_forward_pick",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_common.py",
+      "id": "Warehouse/inventory/inventory_common.py::own_bin_room",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "name": "own_bin_room",
       "public": true
     },
     {
@@ -40608,10 +40866,10 @@
     },
     {
       "file": "Warehouse/picking/Workload_Builder.py",
-      "id": "Warehouse/picking/Workload_Builder.py::_bin_location",
-      "kind": "const",
+      "id": "Warehouse/picking/Workload_Builder.py::_bin_qty_location",
+      "kind": "function",
       "module": "Warehouse/picking/Workload_Builder.py",
-      "name": "_bin_location",
+      "name": "_bin_qty_location",
       "public": false
     },
     {

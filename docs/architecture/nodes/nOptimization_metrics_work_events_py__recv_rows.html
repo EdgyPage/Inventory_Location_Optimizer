@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>recv_rows</code></h1>
 <p class="meta">layer <span class="chip">opt_metrics</span> · file <a href="../files/nOptimization_metrics_work_events_py.html"><code>Optimization/metrics/work_events.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def recv_rows(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None)</code></pre>
+<pre class="sig"><code>def recv_rows(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None, event_type: str=&#x27;receive&#x27;)</code></pre>
 <section class="doc">Merged-stream rows for one batch&#x27;s RECEIVING, through `put_rows`&#x27; body.
 
 `records` are `Inventory_Manager.drain_receiving_records()` tuples
@@ -34,7 +34,7 @@ zero and collide with the pick crew -- and nothing downstream could tell: a coll
 passes the bounds check, the DDL has no uniqueness constraint, and the merged view still
 sorts. Any per-actor rollup would then merge two people, and the failure is quietest
 exactly when the receiving crew is small, which is the likely configuration.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_metrics_work_events_py__put_rows.html"><code>put_rows</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_metrics_work_events_py__put_rows.html"><code>put_rows</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_metrics_work_events_py__repack_rows.html"><code>repack_rows</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_work_events_py__recv_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/work_events.py#:~:text=def%20recv_rows">Source ↗</a></p>
 </article>
 </main>

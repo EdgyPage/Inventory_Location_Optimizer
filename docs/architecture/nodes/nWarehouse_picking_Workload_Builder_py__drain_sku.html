@@ -16,8 +16,8 @@
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def drain_sku(singleton_bins, pallet_bins, qty: int, out) -&gt; int</code></pre>
 <section class="doc">THE SIM&#x27;S OWN DRAIN RULE for one SKU, extracted so a forecast shares it by
-construction: singleton bins before pallet bins, each tier in `location` order,
-take = min(remaining, bin quantity).
+construction: the SMALLEST-QUANTITY bin first, ties by `location`, across both tiers
+as one ordering; take = min(remaining, bin quantity).
 
 Accumulates per-bin takes into `out` (a `defaultdict(int)` keyed by the bin object)
 and returns the demand no bin could satisfy.  Two callers, deliberately:
@@ -28,12 +28,40 @@ One body means the projection is exact rather than a re-implementation that can
 drift; `_rederive_plan` below is explicitly NOT this rule (its own docstring warns
 its distribution can differ).
 
-Pure: reads bin state, writes only `out`, consumes no RNG.  A `_SortedBins`
-container already iterates in `location` order so its sort is skipped; raw
-sets/lists (test stand-ins, legacy callers) still get the explicit sort — the
-determinism contract is the ORDER, not the container
-(see test_task_bin_selection_determinism).</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nWarehouse_picking_Workload_Builder_py__Task_from_batch.html"><code>from_batch</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section>
+SMALLEST-FIRST IS THE CONSOLIDATION ENGINE (ADR-0003, decision 7 of
+`.scratch/department-calibration/issues/20-...`).  Under the empty-first top-up a SKU
+acquires a second bin whenever the free index is dry; draining the emptiest bin first
+clears remnants and hands bins back to the index, which is what makes the pair
+converge instead of fragmenting further.
+
+TWO CONSEQUENCES, both deliberate and neither reversible by a flag:
+
+1. **The forward-pick preference is retired from the drain.**  Singletons were drained
+   before pallets &quot;so that forward-pick locations are always preferred over reserve
+   locations&quot;; one ordering across both tiers ends that.  The split still exists
+   everywhere else (`is_forward_pick`, the two indexes, `_candidates_raw`) — it no
+   longer decides pick order.
+2. **This is NOT byte-identical to the location-order rule**, and not only when the
+   free index is dry: a SKU-tier holds 2+ bins straight out of initial stocking
+   (measured: 800–1145 of ~1200 SKU-tiers, 224–327 of them order-sensitive, across
+   coverage 1–10), so travel, tasks and depletion move on essentially every run.
+   Absolute pick/travel/throughput numbers published before this commit are not
+   comparable with ones after it.
+
+Pure: reads bin state, writes only `out`, consumes no RNG.  The sort is unconditional
+now — a `_SortedBins` container maintains `location` order, but on-hand changes with
+every pick and cannot be maintained, so the container&#x27;s skip no longer applies.  The
+determinism contract is still the ORDER, not the container
+(see test_task_bin_selection_determinism).
+
+WHAT THAT COSTS, measured rather than asserted: 4,000 SKUs holding 137,552 bins (34.4
+per SKU), one drain each — 22.9 ms for the old location-order walk with the container
+fast path, 42.8 ms here, so ~1.9x on the drain itself.  A batch touches ~15% of the
+catalogue, so that is roughly +3 ms per batch at this size against a makespan in minutes.
+It scales with per-SKU bin multiplicity, which the deep ladder already flags as growing
+(`t_task`, k≈2.3), so re-measure before assuming it stays negligible on a much larger
+catalogue.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_picking_Workload_Builder_py___bin_qty_location.html"><code>_bin_qty_location</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nWarehouse_picking_Workload_Builder_py__Task_from_batch.html"><code>from_batch</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_picking_Workload_Builder_py__drain_sku">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/picking/Workload_Builder.py#:~:text=def%20drain_sku">Source ↗</a></p>
 </article>
 </main>

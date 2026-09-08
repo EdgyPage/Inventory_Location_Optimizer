@@ -17,7 +17,8 @@
 <pre class="sig"><code>def _bin_spans(events, picks, last_batch)</code></pre>
 <section class="doc">Fold ONE bin&#x27;s PLACE/EVICT/PICK events into its exact occupancy spans.
 
-`events` are `(batch, kind, seq, sku, qty)` sorted ascending, `kind` 0 = EVICT, 1 = PLACE —
+`events` are `(batch, kind, seq, sku, qty, topup)` sorted ascending, `kind` 0 = EVICT,
+1 = PLACE —
 so the sort itself imposes the runner&#x27;s within-batch order, EVICT -&gt; PLACE -&gt; PICK: the
 reloader runs first, then `check_reorders()`, and only then the pick simulation.
 `picks` is `{batch: units}` for this bin, or None.
@@ -32,7 +33,16 @@ CLOSES at whichever comes first:
 
 Returns `[(t_from, t_to, sku, qty_at_from, applied)]`, where `applied` is the
 `[(batch, units)]` actually consumed inside the span — the caller needs it to keep the
-per-aisle qty rollup exact without re-reading `picks`.</section>
+per-aisle qty rollup exact without re-reading `picks`.
+
+A TOP-UP (ADR-0003&#x27;s own-bin rung, `bin_placement.bin_state = &#x27;occupied&#x27;`) carries
+`topup = 1` and shares `kind = 1` with a plain PLACE deliberately, so the two sort by
+`seq` and keep the runner&#x27;s true within-batch order.  It does not open an occupancy —
+the bin was already occupied — so it CLOSES the running span at `ev_batch - 1` and
+reopens one at `ev_batch` carrying `remaining + qty`.  A span holds a single `qty0` by
+construction (quantity inside one only ever falls, via picks), so a rise has to be a new
+span; closing and reopening keeps the model exact at the start-of-batch resolution every
+frame is defined on.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nVisualization_precompute_py___log_pass.html"><code>_log_pass</code></a> <span class="dim">Visualization/precompute.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_precompute_py___bin_spans">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/precompute.py#:~:text=def%20_bin_spans">Source ↗</a></p>
 </article>

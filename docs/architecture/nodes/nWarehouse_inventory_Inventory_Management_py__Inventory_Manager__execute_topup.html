@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_execute_topup · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__execute_topup" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_topup">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>_execute_topup</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_execute_topup</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+
+<pre class="sig"><code>def _execute_topup(self, order: Order, bin_: Aisle.Bin, n: int, *, source: str | None=None, queue=None) -&gt; None</code></pre>
+<section class="doc">Commit ONE top-up of `n` items into `bin_`, which already holds `order`&#x27;s SKU.
+
+The own-bin twin of `_execute_placement`, and a separate method for the same reason
+that one exists: it is the single commit point an observer can wrap.  `BinRecorder`
+rebinds it to emit the `bin_placement` row carrying `bin_state=&#x27;occupied&#x27;`, exactly
+as it rebinds `_execute_placement` for the `&#x27;empty&#x27;` rows -- so the spatial log stays
+complete without `_top_up_own_bins` knowing anything about recording.
+
+Which bins and how much is `_top_up_own_bins`&#x27; decision; this method only commits.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__cost_putaway.html"><code>_cost_putaway</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__top_up_own_bins.html"><code>_top_up_own_bins</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__execute_topup">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20_execute_topup">Source ↗</a></p>
+</article>
+</main>
+</body></html>

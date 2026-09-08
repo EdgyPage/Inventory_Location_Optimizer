@@ -22,8 +22,10 @@ def from_batch(batch: Batch, warehouse: Warehouse, manager=None, cart: type[Stor
 satisfy.  Underscored because callers should reach for `from_batch_with_shortfall`
 rather than pass their own dict; it exists so one drain serves both entry points.
 
-For each SKU in the batch, singleton bins are drained before pallet bins
-so that forward-pick locations are always preferred over reserve locations.
+For each SKU in the batch, bins are drained SMALLEST-ON-HAND FIRST, ties by
+`location`, across both tiers as one ordering — see `drain_sku`, which both
+branches below call.  Singletons were drained before pallets until ADR-0003; the
+forward-pick preference no longer decides pick order.
 
 If manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins
 dicts are used directly, skipping the O(N_all_bins) warehouse scan that

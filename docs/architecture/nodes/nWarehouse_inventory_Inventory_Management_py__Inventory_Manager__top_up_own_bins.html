@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_top_up_own_bins · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__top_up_own_bins" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>_top_up_own_bins</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_top_up_own_bins</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _top_up_own_bins(self, unit: StorageUnit, source: str | None=None, queue=None) -&gt; int</code></pre>
+<section class="doc">Add `unit`&#x27;s items to bins ALREADY HOLDING ITS SKU, fullest first.  Returns how
+many items landed (0 when the SKU holds no bin with room).
+
+THE SECOND RUNG of the put-away chain (ADR-0003): tried only after `place_one` has
+failed to find an empty bin, and ahead of the repack/singleton rescues and
+`pending`.  Empty-first is what keeps the new-bin decision — the moment an
+assignment arm actually optimises anything — happening on every top-up it can; this
+rung is what stops the run falling off a cliff when the free index is dry.
+
+THE NO-OP CONDITION IS PER-BUCKET, NOT GLOBAL, and the ADR states it loosely.  This
+rung fires exactly when `place_one` returns None, which is a free index empty FOR THE
+UNIT&#x27;S OWN BinKey — a run with plenty of free bins elsewhere can still reach it.  So
+&quot;a no-op in any run whose free index never exhausts&quot; is true only read per bucket;
+the checkable claim is &quot;a no-op in any run where every unit finds an empty bin&quot;.  The
+same correction applies to the rescues, which this rung now pre-empts whenever the
+SKU has room — that was a reachable path before, so an arm that fires a rescue is NOT
+byte-identical to HEAD even with a deep index.
+
+FULLEST FIRST, ties by `location`.  Remnants merge into the bin that is already
+nearest full, which leaves the emptiest bin emptiest and lets `drain_sku`&#x27;s
+smallest-first pick take it to zero and hand it back to the free index.  The two
+rules are one mechanism and neither works alone.
+
+IT CROSSES THE FORWARD-PICK SPLIT.  Both `_sku_singleton_bins` and `_sku_pallet_bins`
+are drawn from, so a pallet unit&#x27;s items can land in a forward-pick singleton bin and
+the reverse.  That is deliberate and safe -- `own_bin_room` measures against the BIN&#x27;s
+own family, so nothing is asked to hold more than it can -- but it does mean the rung
+consolidates across a split that `_candidates_raw` never crosses.
+
+THE FIFTH BIN-MUTATION SITE.  Every other write to bin state replaces a whole
+`storage`; this one adds to an existing unit&#x27;s `quantity`, so it updates the same
+manager dicts as `_execute_placement` MINUS everything that is about a bin becoming
+occupied:
+
+  * `_bin_sku`, `_sku_*_bins`, `_unavailable`, `_index` — unchanged: the bin was
+    already occupied by this SKU and already out of the free index.
+  * `_aisle_sku_counts` — unchanged: the SKU gained no aisle it was not already in.
+  * `_sigma_fd` — unchanged: Σ f·D counts a SKU&#x27;s bin OCCUPANCY, and no bin changed
+    hands.  Adding a delta here would charge the same bin twice.
+  * `space_timeline.fill` — NOT called: it means &quot;a free bin became occupied&quot;, and
+    a bin that was already occupied is not news to the yard&#x27;s space forecast.
+
+What DOES move is the merchandise: on-hand up, on-order down, and a put charged per
+BIN TOUCHED, because each is a separate trip for the putter.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__execute_topup.html"><code>_execute_topup</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py__own_bin_room.html"><code>own_bin_room</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_kernel_regime_py__regime_of.html"><code>regime_of</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_per_unit.html"><code>_stock_per_unit</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__top_up_own_bins">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20_top_up_own_bins">Source ↗</a></p>
+</article>
+</main>
+</body></html>

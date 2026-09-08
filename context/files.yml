@@ -705,6 +705,7 @@ files:
       - {name: "RHO_RECV", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "F_PUT", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "F_RECV", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "F_REPACK", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "BAND_TOL", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "COVERAGE_DAYS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "SAFETY_DAYS", file: "Optimization/config/settings.py", kind: "const"}
@@ -871,6 +872,7 @@ files:
       - {name: "pick_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
       - {name: "put_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
       - {name: "recv_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
+      - {name: "repack_rows", file: "Optimization/metrics/work_events.py", kind: "function"}
       - {name: "merged", file: "Optimization/metrics/work_events.py", kind: "function"}
     notes: ""
   "Optimization/persistence/Picking_Data.py":
@@ -3318,6 +3320,36 @@ files:
       - {name: "test_carry_residue_accumulates_into_a_shared_dict", file: "Tests/unit/test_day_cut.py", kind: "function"}
       - {name: "test_a_task_the_picker_never_started_carries_whole", file: "Tests/unit/test_day_cut.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_empty_first_topup.py":
+    purpose: "ADR-0003's put-away chain: the own-bin rung fires only after an empty bin fails and before the rescues, fullest-first with ties by location, and the rework it avoids is priced to the receiving crew."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_fixture_item_has_a_real_tier_ladder", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_own_bin_room_measures_against_the_bins_own_tier", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_own_bin_room_measures_a_singleton_against_the_singleton_family", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_own_bin_room_is_zero_for_an_empty_bin_and_for_a_full_one", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_a_unit_that_fits_no_empty_bin_lands_in_its_own_bin_before_any_rescue", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_the_top_up_fills_the_fullest_own_bin_first_breaking_ties_by_location", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_a_unit_that_does_not_fit_whole_fills_own_bins_to_capacity_and_sends_the_rest_on", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_the_remainder_re_enters_the_chain_and_still_prefers_an_empty_bin", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_a_top_up_changes_none_of_the_bookkeeping_that_is_about_a_bin_being_TAKEN", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_a_top_up_is_charged_as_one_put_PER_BIN_TOUCHED", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_the_rung_skips_a_bin_that_is_already_full", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_the_own_bin_rung_never_fires_while_an_empty_bin_still_fits", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_the_equivalence_fixture_can_actually_detect_the_rung", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_a_forced_rescue_is_charged_to_the_receiving_crew_per_resulting_pack", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_the_rework_is_counted_even_with_no_dock_bound", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_snapshot_putaway_rework_resets_the_flows_and_free_bin_depth_does_not", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_repack_rows_write_the_repack_event_type_under_the_receive_role", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_the_recorder_stamps_a_top_up_as_landing_in_an_occupied_bin", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_an_ordinary_placement_is_still_stamped_empty", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_drain_sku_takes_the_smallest_bin_first_across_both_tiers", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_drain_sku_breaks_a_quantity_tie_by_location", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_drain_sku_is_invariant_to_the_order_the_index_yields", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_drain_sku_reports_the_demand_no_bin_could_satisfy", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_a_top_up_conserves_every_item", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+      - {name: "test_a_rescue_conserves_every_item", file: "Tests/unit/test_empty_first_topup.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_equilibrium_check.py":
     purpose: "the calibrated era's equilibrium check CAN FAIL, clause by clause, and reads its expectations off the staffing record."
     layer: "tests"
@@ -4517,8 +4549,8 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_decomposition_is_invariant_to_index_order", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
-      - {name: "test_drains_the_lowest_location_bins_including_the_partial_take", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
-      - {name: "test_singletons_still_drain_before_pallets", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
+      - {name: "test_drains_the_canonical_bins_including_the_partial_take", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
+      - {name: "test_the_smallest_bin_drains_first_whatever_tier_it_is_in", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
       - {name: "test_real_manager_matches_the_canonical_expectation", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
       - {name: "test_manager_and_fallback_branches_agree", file: "Tests/unit/test_task_bin_selection_determinism.py", kind: "function"}
     notes: ""
@@ -4692,7 +4724,8 @@ files:
       - {name: "test_the_fielded_packing_is_the_one_the_warehouse_was_sized_from", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_a_sku_is_fielded_whole_at_the_packing_its_level_implies", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_restocks_do_not_grow_the_queue", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_a_partially_placeable_order_queues_the_remainder_and_drains_as_space_frees", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_a_partially_placeable_order_tops_up_its_own_bins_rather_than_queueing", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_the_queue_still_holds_a_unit_no_bin_and_no_own_bin_can_take", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_an_oversized_tier_unit_splits_into_a_free_smaller_tier", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_ranked_minimizing_drain_stays_bounded_and_in_group", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_ranked_maximizing_drain_stays_bounded_and_in_group", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
@@ -5013,6 +5046,7 @@ files:
       - {name: "is_forward_pick", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
       - {name: "UndeclaredStock", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "UnfieldableRequirement", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
+      - {name: "own_bin_room", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
     notes: ""
   "Warehouse/inventory/inventory_optimal.py":
     purpose: "optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map."

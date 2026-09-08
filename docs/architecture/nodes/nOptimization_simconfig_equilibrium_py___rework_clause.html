@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_rework_clause · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py___rework_clause" data-id="Optimization/simconfig/equilibrium.py::_rework_clause">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a> <span class="sep">›</span> <span class="here"><code>_rework_clause</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_rework_clause</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+
+<pre class="sig"><code>def _rework_clause(batch_rows, days: list[int], expected_repack_packs: float | None) -&gt; Clause</code></pre>
+<section class="doc">ADR-0003&#x27;s rework, per day.  JUDGED on the repack, REPORTED on the rest.
+
+THE ASYMMETRY IS THE DECISION.  A repack is rework the staffing record says should not
+happen at all (`f_repack = 0`, provenance `assumed`), so measuring one contradicts the
+record and the clause FAILS -- loudly, rather than being absorbed into a utilization
+band where a warehouse one size too small looks like a busy day.  `expected` is that
+stamped number; `None` means no record was carried and the clause reports without
+judging, because a missing expectation is not a passing one.
+
+The own-bin share and the free-index depth are the OPPOSITE case.  Both are new
+instruments with no steady state observed yet -- nobody knows what share is normal
+under base stock -- so a threshold now would be invented rather than derived.  They ride
+the reading so a run can be read, and they move no verdict until a run under ADR-0003
+shows what the steady state is.
+
+`put_topups` and the two repack flows are 0 on every pre-ADR vintage BY CONSTRUCTION
+(put-away could not add to an occupied bin), so this clause passes trivially on an old run
+-- the reading&#x27;s `n` says how many batches it saw.  `free_bins` is NOT in that group: such
+a run had free bins and simply never recorded how many, so it reports None rather than a
+floor of 0, which would read as an exhausted index.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Clause.html"><code>Clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___get.html"><code>_get</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___rework_clause">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_rework_clause">Source ↗</a></p>
+</article>
+</main>
+</body></html>

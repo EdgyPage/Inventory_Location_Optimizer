@@ -15,7 +15,12 @@
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def load_bin_placements(path: str, run_id: int, batch_id: int | None=None) -&gt; list</code></pre>
-<section class="doc">PLACE events, ordered as applied.</section>
+<section class="doc">PLACE events, ordered as applied.
+
+`bin_state` (&#x27;empty&#x27; | &#x27;occupied&#x27;, ADR-0003) is selected only when the file HAS it and
+filled with &#x27;empty&#x27; otherwise -- the `row.keys()` guard this file&#x27;s raw loaders have
+always used, and the honest value for a pre-ADR run, where put-away could not add to an
+occupied bin.  Selecting it unconditionally would make every archived file raise.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__load_bin_placements">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20load_bin_placements">Source ↗</a></p>
 </article>

@@ -451,6 +451,13 @@
       "kind": "function",
       "signature": "(unit, bin_, **kw)"
     },
+    "Diagnostics/trace_lifecycle.py::_install_hooks._execute_topup": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, bin_, n, **kw)"
+    },
     "Diagnostics/trace_lifecycle.py::_install_hooks._reclaim_empty_bins": {
       "decorators": [],
       "doc": null,
@@ -588,6 +595,13 @@
     "Inbound/dock.py::Dock.drain_records": {
       "decorators": [],
       "doc": "This batch's unload records, and start the crew's clock over.\n\nA DRAIN IS A BATCH BOUNDARY, for the same reason `drain_putaway_records` is: the\nrecords carry `t0` on the crew's own clock measured from the start of the batch,\nbecause the batch epoch is not known here -- receiving runs at the TOP of the batch,\nbefore the pickers have been simulated. The runner adds the epoch when it writes the\nrows. Resetting is load-bearing, not tidiness: without it the clock accumulates across\nthe whole arm while the runner still adds the epoch, and every row after batch 0 is\nstamped too late by the total receiving seconds of every preceding batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/dock.py::Dock.drain_repacks": {
+      "decorators": [],
+      "doc": "This batch's repack records (ADR-0003), and start the list over.\n\nDOES NOT RESET THE CLOCKS, and that is the whole difference from `drain_records`.\nBoth streams are charged against the same crew on the same batch-local clock, so\nexactly one of the two drains may restart it; a second reset would rebase the\nsurviving stream's `t0` against a clock that had already gone back to zero. The\nreset stays with `drain_records`, which is the one every dockful run makes.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -6177,6 +6191,13 @@
       "signature": null,
       "value_preview": "1.0"
     },
+    "Optimization/config/settings.py::F_REPACK": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.0"
+    },
     "Optimization/config/settings.py::INBOUND_CREW_ALLOCATION": {
       "decorators": [],
       "doc": null,
@@ -7715,7 +7736,7 @@
     },
     "Optimization/metrics/bin_recorder.py": {
       "decorators": [],
-      "doc": "bin_recorder.py \u2014 capture every bin mutation the simulation makes.\n\nCloses the gap that made spatial reconstruction lossy. `bin_inventory` records picks and NEVER\nrestocks \u2014 `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is already in\nit at its post-restock quantity and the `post_qty == pre_qty` skip drops it. Measured on a\nproduction arm: **0 rows** with `post_qty > pre_qty` against 20k-42k `reorder_placements` per\nbatch, so replaying the delta stream only ever decays \u2014 losing 59% of the warehouse within five\nbatches of a keyframe.\n\nWhat makes this complete\n------------------------\nBin state is `Aisle.Bin.storage` / `.storage.quantity`, and a repo-wide search for writes to\neither finds six lines across five sites, one of them dead code:\n\n    Inventory_Management._execute_placement   `bin_.storage = unit`    -> PLACE  (recorded here)\n    inventory_reorder.requeue_bin             `bin_.storage = None`    -> EVICT  (recorded here)\n    fast_pick.py / Pick.py                    qty -= / storage = None  -> PICK   (already `picks`)\n    Storage_Primitive.StorageCart             zero callers repo-wide   -> n/a\n\nSo PLACE + EVICT + PICK is complete **by construction**, and picks are already fully recorded \u2014\n`SUM(pre_qty - post_qty)` equals `SUM(picks.quantity)` exactly on every arm tested.\n`Tests/integration/test_bin_log_replay.py` checks that construction argument against a live\nsimulation: folding the log reproduces the warehouse's own bins at every batch and at every\nsim-time within a batch. `Tests/architecture/test_bin_mutation_sites.py` fails the build if a\nsixth mutation site ever appears.\n\nHow it attaches\n---------------\nBy rebinding two bound methods on the manager **instance** \u2014 no edits to `Warehouse/`, and a\nstrategy swapping `mgr.placement` cannot detach it, because `_execute_placement` is the chokepoint\nall three placement call sites reach through `self.`. Same technique as\n`Diagnostics/trace_lifecycle.py`.\n\nTime resolution\n---------------\n`(batch_id, seq)`, and that is the TRUE resolution rather than a compromise: `check_reorders()`\nruns entirely between one batch's picks and the next batch's simulation, so no finer ordering\nexists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.\n\nChecked at runtime, not only in tests\n-------------------------------------\n`units_placed` / `units_evicted` feed the per-batch conservation ledger in\n`Optimization/simdriver/strategy_runner.py`:\n\n    units_placed - units_evicted - units_picked  ==  units currently sitting in bins\n\non every batch of every real run. The completeness argument above is structural; that ledger is\nwhat turns it into something a production sweep re-proves for itself.",
+      "doc": "bin_recorder.py \u2014 capture every bin mutation the simulation makes.\n\nCloses the gap that made spatial reconstruction lossy. `bin_inventory` records picks and NEVER\nrestocks \u2014 `check_reorders()` runs before the pre-batch snapshot, so a restocked bin is already in\nit at its post-restock quantity and the `post_qty == pre_qty` skip drops it. Measured on a\nproduction arm: **0 rows** with `post_qty > pre_qty` against 20k-42k `reorder_placements` per\nbatch, so replaying the delta stream only ever decays \u2014 losing 59% of the warehouse within five\nbatches of a keyframe.\n\nWhat makes this complete\n------------------------\nBin state is `Aisle.Bin.storage` / `.storage.quantity`, and a repo-wide search for writes to\neither finds seven lines across five sites, one of them dead code:\n\n    Inventory_Management._execute_placement   `bin_.storage = unit`    -> PLACE  (recorded here)\n    Inventory_Management._execute_topup       `storage.quantity += n`  -> PLACE  (recorded here)\n    inventory_reorder.requeue_bin             `bin_.storage = None`    -> EVICT  (recorded here)\n    fast_pick.py / Pick.py                    qty -= / storage = None  -> PICK   (already `picks`)\n    Storage_Primitive.StorageCart             zero callers repo-wide   -> n/a\n\n`_execute_topup` is ADR-0003's own-bin rung and the only site that ADDS to an occupied bin;\nits rows carry `bin_state='occupied'`, every other PLACE row `'empty'`.\n\nSo PLACE + EVICT + PICK is complete **by construction**, and picks are already fully recorded \u2014\n`SUM(pre_qty - post_qty)` equals `SUM(picks.quantity)` exactly on every arm tested.\n`Tests/integration/test_bin_log_replay.py` checks that construction argument against a live\nsimulation: folding the log reproduces the warehouse's own bins at every batch and at every\nsim-time within a batch. `Tests/architecture/test_bin_mutation_sites.py` fails the build if a\nsixth mutation site ever appears.\n\nHow it attaches\n---------------\nBy rebinding three bound methods on the manager **instance** \u2014 no edits to `Warehouse/`, and a\nstrategy swapping `mgr.placement` cannot detach it, because `_execute_placement` is the chokepoint\nall three placement call sites reach through `self.`. Same technique as\n`Diagnostics/trace_lifecycle.py`.\n\nTime resolution\n---------------\n`(batch_id, seq)`, and that is the TRUE resolution rather than a compromise: `check_reorders()`\nruns entirely between one batch's picks and the next batch's simulation, so no finer ordering\nexists to lose. Picks keep their `sim_time`, so intra-batch animation stays exact.\n\nChecked at runtime, not only in tests\n-------------------------------------\n`units_placed` / `units_evicted` feed the per-batch conservation ledger in\n`Optimization/simdriver/strategy_runner.py`:\n\n    units_placed - units_evicted - units_picked  ==  units currently sitting in bins\n\non every batch of every real run. The completeness argument above is structural; that ledger is\nwhat turns it into something a production sweep re-proves for itself.",
       "kind": "module",
       "signature": null
     },
@@ -7734,7 +7755,7 @@
     },
     "Optimization/metrics/bin_recorder.py::BinRecorder.attach": {
       "decorators": [],
-      "doc": "Wrap `_execute_placement` and `requeue_bin` on this manager instance.",
+      "doc": "Wrap the two PLACE commit points and `requeue_bin` on this manager instance.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, mgr) -> None"
@@ -7745,6 +7766,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(unit, bin_, *, source=None, score=None, score_rank=None, policy=None)"
+    },
+    "Optimization/metrics/bin_recorder.py::BinRecorder.attach._execute_topup": {
+      "decorators": [],
+      "doc": "ADR-0003's own-bin rung: a PLACE into a bin that was already occupied.\n\nShares `_place_seq` with `_execute_placement` deliberately -- both are places,\nthe sequence is what orders them within a batch, and two counters would make\n`(run_id, batch_id, seq)` collide on the primary key.  `score` stays NULL: no\npolicy chose this bin, the SKU's own on-hand did, and a zero would claim a\nplacement was scored perfectly when it was not scored at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, bin_, n, *, source=None, queue=None)"
     },
     "Optimization/metrics/bin_recorder.py::BinRecorder.attach.requeue_bin": {
       "decorators": [],
@@ -7804,6 +7832,13 @@
     "Optimization/metrics/work_events.py::recv_rows": {
       "decorators": [],
       "doc": "Merged-stream rows for one batch's RECEIVING, through `put_rows`' body.\n\n`records` are `Inventory_Manager.drain_receiving_records()` tuples\n`(t_start, dur, sku, qty, worker)`, widened here to the 10-slot put shape with `None`\nfor the aisle and 0.0 for the coordinates -- a dock has no aisle and no position. The\n`source` slot carries `'dock'`, which is where the work happened; the merchandise's own\norigin is already on the put row that follows it.\n\nA THIN WRAPPER ON PURPOSE. Everything that is easy to get subtly wrong lives in\n`put_rows`: `crew_start` for `t_abs` against `batch_start` for `t_local`, the worker\nbounds check, and the refusal to mix streams in one call. A second implementation would\nhave its own copy of each, and the copies would drift somewhere nobody looks.\n\nRefuses a `Crew` OBJECT rather than its pre-offset worker tuple. `Crew.workers()`\ndefaults `first_uid=0`, so passing the crew here would silently re-allocate uids from\nzero and collide with the pick crew -- and nothing downstream could tell: a collision\npasses the bounds check, the DDL has no uniqueness constraint, and the merged view still\nsorts. Any per-actor rollup would then merge two people, and the failure is quietest\nexactly when the receiving crew is small, which is the likely configuration.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None, event_type: str='receive')"
+    },
+    "Optimization/metrics/work_events.py::repack_rows": {
+      "decorators": [],
+      "doc": "`repack` rows for one batch's PUT-AWAY REWORK (ADR-0003), through `recv_rows`' body.\n\n`records` are `Inventory_Manager.drain_repack_records()` tuples, identical in shape to\nthe unload ones and charged on the same crew clock -- a repack IS receiving work, done\nby the receiving crew at the dock's own per-pack price.\n\n`role` is therefore `'receive'` (it comes from the worker) and only `event_type` differs.\nThat split is the whole reason `put_rows` takes the type as a parameter: a reader asking\n\"what did receiving cost\" sums `role='receive'` and gets unloads AND rework, while one\nasking \"how much rework was there\" filters `event_type='repack'`. Folding repacks into\nthe `'receive'` event type would make the second question unanswerable; giving them\ntheir own role would make the first one wrong.\n\nA SEPARATE CALL from `recv_rows` rather than a widened one, because `put_rows` writes a\nsingle event type per call by construction.",
       "is_async": false,
       "kind": "function",
       "signature": "(records, batch_id, batch_start, crew, *, shift_seconds: float=DEFAULT_SHIFT_SECONDS, first_seq: int=0, crew_start=None)"
@@ -8008,7 +8043,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('487a65bf83a9', 'be2a593727be', 'ce01ca0095b2'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('798778f4fae1', '487a65bf83a9', 'be2a593727be'..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -8622,7 +8657,7 @@
     },
     "Optimization/persistence/Picking_Data.py::load_bin_placements": {
       "decorators": [],
-      "doc": "PLACE events, ordered as applied.",
+      "doc": "PLACE events, ordered as applied.\n\n`bin_state` ('empty' | 'occupied', ADR-0003) is selected only when the file HAS it and\nfilled with 'empty' otherwise -- the `row.keys()` guard this file's raw loaders have\nalways used, and the honest value for a pre-ADR run, where put-away could not add to an\noccupied bin.  Selecting it unconditionally would make every archived file raise.",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, run_id: int, batch_id: int | None=None) -> list"
@@ -11230,7 +11265,7 @@
     },
     "Optimization/simconfig/equilibrium.py": {
       "decorators": [],
-      "doc": "equilibrium.py \u2014 the calibrated era's pre-registered EQUILIBRIUM CHECK, as a pure module.\n\n\"Declare the equilibrium bands\" (.scratch/department-calibration, decision 4) turned \"the crews\nhave something to do, within bounds\" into one function of (db, day_lo, day_hi) returning a\nverdict with reasons: four clauses over a window of working days, all STRICT.\n\n    drained        every day in the window ended DRAINED (the persisted `shift_days` ledger) --\n                   not \"most\": with 15% headroom one capped day in twenty means the derivation\n                   is wrong, not unlucky.  A day the ledger never closed fails the same way.\n                   DRAINED IS A LABOUR JUDGMENT (`is_drained`, below -- the ONE definition;\n                   the runner's close-out calls it): nothing cut, no put or dock work\n                   standing, no `unpicked_daycut` carry.  The two SUPPLY reasons the cut\n                   rolls forward (`unpicked_unavailable`: the bin held less;\n                   `unpicked_unstocked`: no bin held the SKU) are stock not delivered, which\n                   `missed_share` already owns; counted as standing work they meant no\n                   finite stock level could ever drain a day under lumpy lines (\"Choose the\n                   coverage floor\", decision 7, amending decision 4: 0/20 days drained with\n                   pickers in band and every task realized).  The supply carry stays in the\n                   ledger (`standing_carry_supply`) and this clause REPORTS it per day.\n                   OVERTIME CAPS A DAY (\"Overtime behind a drained day raises the\n                   instrument\", 2026-09-07, amending 18): a day whose last task finished\n                   after its cap (`last_finish > cap_end`, START-gate overtime) is labour\n                   that did not fit the day, so `is_drained` takes it as its fifth term.\n                   Before the amendment such a day was stamped DRAINED with its lag on\n                   the next release, and the second clause raised on a healthy run (the\n                   store leaf of the line-floor check, day 3: 138 s).  The amendment\n                   moved no column, so no vintage records it: `load_shift_days` serves\n                   the amended verdict off the row's own two stamps for every ledger, a\n                   no-op on one the amended runner wrote.\n    released_late  = 0 behind every drained day.  A self-consistency assertion, not a clause\n                   that can fail: release waits on the picker clock and the cut is a\n                   between-bins START gate, so a day that drained leaves exactly 0 lag on\n                   the NEXT release, and lag there -- or on the first day of the run -- is\n                   an INSTRUMENT BUG.  It RAISES `InstrumentError` rather than failing.\n                   Lag behind a CAPPED day is that day's overrun and is recorded.\n    utilization    realized utilization (worked \u00f7 granted, a RATIO OF SUMS over the window,\n                   never a mean of per-day ratios) inside `band_tol` of the EXPECTED value the\n                   derivation recorded per department per leaf -- never of \u03c1, which integer\n                   site crews and single-channel leaves undercut by construction.\n    missed_share   stable: the mean of the window's second half minus the mean of its first\n                   half within \u00b10.02 absolute.  The LEVEL is recorded, never gated; no\n                   regression slope (memories `knees-hide-from-r-squared`,\n                   `per-batch-series-are-autocorrelated`).\n\nONE PURE FUNCTION, and the sim never judges itself (decision 6).  It was designed with two\ncallers; the reference-run driver that used it as a PRECONDITION is retired (\"Derive the\nexpected-travel closed form\": there are no calibration simulations), so the one caller left\nis the throughput audit (`Performance_Evaluations/throughput/audit.py`), which calls it on\nevery run and REPORTS: on a campaign arm a picking utilization below the band is the arm's travel saving --\nthe effect being measured -- and a capped day is \"declared throughput not delivered\"; neither\nfails the run (decision 7).\n\nThe arithmetic lives in `check_rows` over already-loaded rows so a test can prove every\nclause CAN fail without a database; `check` is the thin loader in front of it.  What the\ncheck reads, and where each number comes from:\n\n    the ledger      `load_shift_days`   day, drained, cap_end, end_s, last_finish\n    picking         `load_batch_stats`  task_makespan (\u03a3 task time = the crew's worked\n                                        seconds), work_day, released_late, items_demanded,\n                                        total_items\n    put / receiving `load_work_hours`   seconds per (batch, role), joined to the day\n                                        through `batch_stats.work_day`\n\nThe GRANT is the whole declared day for every crew (crew \u00d7 S per day): a day that drained\nearly still granted S, and utilization is against the grant, not the shift end.\n\nNo CONFIG, no settings, no run tree -- the same discipline `staffing.py` keeps.  The expected\nvalues arrive in an `expectations` dict built by `expectations_for` from the staffing record\n(the run spec's, or the copy stamped onto `sim_result` -- 03's sixth seam), so both callers\nread the same numbers through the same function.",
+      "doc": "equilibrium.py \u2014 the calibrated era's pre-registered EQUILIBRIUM CHECK, as a pure module.\n\n\"Declare the equilibrium bands\" (.scratch/department-calibration, decision 4) turned \"the crews\nhave something to do, within bounds\" into one function of (db, day_lo, day_hi) returning a\nverdict with reasons: five clauses over a window of working days, all STRICT.\n\n    drained        every day in the window ended DRAINED (the persisted `shift_days` ledger) --\n                   not \"most\": with 15% headroom one capped day in twenty means the derivation\n                   is wrong, not unlucky.  A day the ledger never closed fails the same way.\n                   DRAINED IS A LABOUR JUDGMENT (`is_drained`, below -- the ONE definition;\n                   the runner's close-out calls it): nothing cut, no put or dock work\n                   standing, no `unpicked_daycut` carry.  The two SUPPLY reasons the cut\n                   rolls forward (`unpicked_unavailable`: the bin held less;\n                   `unpicked_unstocked`: no bin held the SKU) are stock not delivered, which\n                   `missed_share` already owns; counted as standing work they meant no\n                   finite stock level could ever drain a day under lumpy lines (\"Choose the\n                   coverage floor\", decision 7, amending decision 4: 0/20 days drained with\n                   pickers in band and every task realized).  The supply carry stays in the\n                   ledger (`standing_carry_supply`) and this clause REPORTS it per day.\n                   OVERTIME CAPS A DAY (\"Overtime behind a drained day raises the\n                   instrument\", 2026-09-07, amending 18): a day whose last task finished\n                   after its cap (`last_finish > cap_end`, START-gate overtime) is labour\n                   that did not fit the day, so `is_drained` takes it as its fifth term.\n                   Before the amendment such a day was stamped DRAINED with its lag on\n                   the next release, and the second clause raised on a healthy run (the\n                   store leaf of the line-floor check, day 3: 138 s).  The amendment\n                   moved no column, so no vintage records it: `load_shift_days` serves\n                   the amended verdict off the row's own two stamps for every ledger, a\n                   no-op on one the amended runner wrote.\n    released_late  = 0 behind every drained day.  A self-consistency assertion, not a clause\n                   that can fail: release waits on the picker clock and the cut is a\n                   between-bins START gate, so a day that drained leaves exactly 0 lag on\n                   the NEXT release, and lag there -- or on the first day of the run -- is\n                   an INSTRUMENT BUG.  It RAISES `InstrumentError` rather than failing.\n                   Lag behind a CAPPED day is that day's overrun and is recorded.\n    utilization    realized utilization (worked \u00f7 granted, a RATIO OF SUMS over the window,\n                   never a mean of per-day ratios) inside `band_tol` of the EXPECTED value the\n                   derivation recorded per department per leaf -- never of \u03c1, which integer\n                   site crews and single-channel leaves undercut by construction.\n    missed_share   stable: the mean of the window's second half minus the mean of its first\n                   half within \u00b10.02 absolute.  The LEVEL is recorded, never gated; no\n                   regression slope (memories `knees-hide-from-r-squared`,\n                   `per-batch-series-are-autocorrelated`).\n    rework         no pack was REPACKED (ADR-0003).  The staffing record stamps\n                   `f_repack = 0` (provenance `assumed`), so a measured repack contradicts\n                   the record and fails: rework only happens once the free index is dry,\n                   which is a finding about the warehouse's SIZING rather than a cost to\n                   absorb into a utilization band.  The own-bin share and the free-index\n                   depth ride the same reading but are REPORTED, NOT JUDGED -- they are new\n                   instruments with no observed steady state, and a threshold now would be\n                   invented rather than derived.\n\nONE PURE FUNCTION, and the sim never judges itself (decision 6).  It was designed with two\ncallers; the reference-run driver that used it as a PRECONDITION is retired (\"Derive the\nexpected-travel closed form\": there are no calibration simulations), so the one caller left\nis the throughput audit (`Performance_Evaluations/throughput/audit.py`), which calls it on\nevery run and REPORTS: on a campaign arm a picking utilization below the band is the arm's travel saving --\nthe effect being measured -- and a capped day is \"declared throughput not delivered\"; neither\nfails the run (decision 7).\n\nThe arithmetic lives in `check_rows` over already-loaded rows so a test can prove every\nclause CAN fail without a database; `check` is the thin loader in front of it.  What the\ncheck reads, and where each number comes from:\n\n    the ledger      `load_shift_days`   day, drained, cap_end, end_s, last_finish\n    picking         `load_batch_stats`  task_makespan (\u03a3 task time = the crew's worked\n                                        seconds), work_day, released_late, items_demanded,\n                                        total_items\n    put / receiving `load_work_hours`   seconds per (batch, role), joined to the day\n                                        through `batch_stats.work_day`\n\nThe GRANT is the whole declared day for every crew (crew \u00d7 S per day): a day that drained\nearly still granted S, and utilization is against the grant, not the shift end.\n\nNo CONFIG, no settings, no run tree -- the same discipline `staffing.py` keeps.  The expected\nvalues arrive in an `expectations` dict built by `expectations_for` from the staffing record\n(the run spec's, or the copy stamped onto `sim_result` -- 03's sixth seam), so both callers\nread the same numbers through the same function.",
       "kind": "module",
       "signature": null
     },
@@ -11306,6 +11341,13 @@
       "kind": "function",
       "signature": "(r) -> bool"
     },
+    "Optimization/simconfig/equilibrium.py::_expected_repacked_packs": {
+      "decorators": [],
+      "doc": "The `f_repack` the record stamped, or None if it carries none.\n\nPrefers the DERIVED block's constant (where `derive` records it with its provenance)\nand falls back to the raw input, so a record written before the constant was recorded\nbut after the input existed still answers.  Neither present means a pre-ADR-0003\nrecord, and the clause must report rather than judge.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(derived: dict, inputs: dict) -> float | None"
+    },
     "Optimization/simconfig/equilibrium.py::_get": {
       "decorators": [],
       "doc": "A field off a dataclass row or a dict row -- the loaders return both shapes.",
@@ -11327,12 +11369,26 @@
       "kind": "function",
       "signature": "(batch_rows, days: list[int], expected: float | None=None) -> Clause"
     },
+    "Optimization/simconfig/equilibrium.py::_packs_budget": {
+      "decorators": [],
+      "doc": "`f_repack` (packs repacked PER PACK RECEIVED) as a pack COUNT for the window.\n\nAt 0.0 the rate and the count coincide, which is the only value that has ever shipped.\nAny other value needs the window's received-pack count to convert, and nothing here has\nit -- so this REFUSES rather than comparing a rate to a count and silently judging a run\nagainst a number three orders of magnitude off.  Whoever gives `f_repack` a real value\nwrites the conversion here; that is the one line that has to learn it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(f_repack: float) -> float"
+    },
     "Optimization/simconfig/equilibrium.py::_released_late_clause": {
       "decorators": [],
       "doc": "`released_late` = 0 on every drained day -- attributed to the day that CAUSED it.\n\nA batch is released late when the crew is still working the previous one, and the\nclamp erases everything but this column.  So the lag lands on the batch released INTO\nday d, but the day that overran is d - 1: a capped day 1 leaves its tail on day 2's\nrelease even when day 2 then drains (measured on the first era smoke run: 69.9 s on a\ndrained day 2 behind a capped day 1).  The self-consistency assertion is therefore that\nlag in day d exists only behind a CAPPED day d - 1; lag behind a drained day, or on the\nfirst day of the run (nothing to overrun), is the instrument contradicting itself.  A\nday d - 1 the ledger never closed cannot be judged here; the drained clause reports it.",
       "is_async": false,
       "kind": "function",
       "signature": "(shift_rows, batch_rows, days: list[int]) -> Clause"
+    },
+    "Optimization/simconfig/equilibrium.py::_rework_clause": {
+      "decorators": [],
+      "doc": "ADR-0003's rework, per day.  JUDGED on the repack, REPORTED on the rest.\n\nTHE ASYMMETRY IS THE DECISION.  A repack is rework the staffing record says should not\nhappen at all (`f_repack = 0`, provenance `assumed`), so measuring one contradicts the\nrecord and the clause FAILS -- loudly, rather than being absorbed into a utilization\nband where a warehouse one size too small looks like a busy day.  `expected` is that\nstamped number; `None` means no record was carried and the clause reports without\njudging, because a missing expectation is not a passing one.\n\nThe own-bin share and the free-index depth are the OPPOSITE case.  Both are new\ninstruments with no steady state observed yet -- nobody knows what share is normal\nunder base stock -- so a threshold now would be invented rather than derived.  They ride\nthe reading so a run can be read, and they move no verdict until a run under ADR-0003\nshows what the steady state is.\n\n`put_topups` and the two repack flows are 0 on every pre-ADR vintage BY CONSTRUCTION\n(put-away could not add to an occupied bin), so this clause passes trivially on an old run\n-- the reading's `n` says how many batches it saw.  `free_bins` is NOT in that group: such\na run had free bins and simply never recorded how many, so it reports None rather than a\nfloor of 0, which would read as an exhausted index.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batch_rows, days: list[int], expected_repack_packs: float | None) -> Clause"
     },
     "Optimization/simconfig/equilibrium.py::_utilization_clause": {
       "decorators": [],
@@ -13861,7 +13917,7 @@
     },
     "Visualization/precompute.py::_bin_spans": {
       "decorators": [],
-      "doc": "Fold ONE bin's PLACE/EVICT/PICK events into its exact occupancy spans.\n\n`events` are `(batch, kind, seq, sku, qty)` sorted ascending, `kind` 0 = EVICT, 1 = PLACE \u2014\nso the sort itself imposes the runner's within-batch order, EVICT -> PLACE -> PICK: the\nreloader runs first, then `check_reorders()`, and only then the pick simulation.\n`picks` is `{batch: units}` for this bin, or None.\n\nA span therefore OPENS at the batch of its PLACE (the bin already holds the unit at that\nbatch's START, which is the frame every keyframe and every `state_at` is defined on) and\nCLOSES at whichever comes first:\n\n  * the batch before the next PLACE/EVICT \u2014 a span that opens and closes inside one batch is\n    never visible at start-of-batch resolution and is dropped (`t_to < t_from`);\n  * the batch whose picks drain it to zero.\n\nReturns `[(t_from, t_to, sku, qty_at_from, applied)]`, where `applied` is the\n`[(batch, units)]` actually consumed inside the span \u2014 the caller needs it to keep the\nper-aisle qty rollup exact without re-reading `picks`.",
+      "doc": "Fold ONE bin's PLACE/EVICT/PICK events into its exact occupancy spans.\n\n`events` are `(batch, kind, seq, sku, qty, topup)` sorted ascending, `kind` 0 = EVICT,\n1 = PLACE \u2014\nso the sort itself imposes the runner's within-batch order, EVICT -> PLACE -> PICK: the\nreloader runs first, then `check_reorders()`, and only then the pick simulation.\n`picks` is `{batch: units}` for this bin, or None.\n\nA span therefore OPENS at the batch of its PLACE (the bin already holds the unit at that\nbatch's START, which is the frame every keyframe and every `state_at` is defined on) and\nCLOSES at whichever comes first:\n\n  * the batch before the next PLACE/EVICT \u2014 a span that opens and closes inside one batch is\n    never visible at start-of-batch resolution and is dropped (`t_to < t_from`);\n  * the batch whose picks drain it to zero.\n\nReturns `[(t_from, t_to, sku, qty_at_from, applied)]`, where `applied` is the\n`[(batch, units)]` actually consumed inside the span \u2014 the caller needs it to keep the\nper-aisle qty rollup exact without re-reading `picks`.\n\nA TOP-UP (ADR-0003's own-bin rung, `bin_placement.bin_state = 'occupied'`) carries\n`topup = 1` and shares `kind = 1` with a plain PLACE deliberately, so the two sort by\n`seq` and keep the runner's true within-batch order.  It does not open an occupancy \u2014\nthe bin was already occupied \u2014 so it CLOSES the running span at `ev_batch - 1` and\nreopens one at `ev_batch` carrying `remaining + qty`.  A span holds a single `qty0` by\nconstruction (quantity inside one only ever falls, via picks), so a rise has to be a new\nspan; closing and reopening keeps the model exact at the start-of-batch resolution every\nframe is defined on.",
       "is_async": false,
       "kind": "function",
       "signature": "(events, picks, last_batch)"
@@ -14086,6 +14142,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, family: str, table: str) -> bool"
+    },
+    "Visualization/readers/base.py::SqliteSimReader._has_col": {
+      "decorators": [],
+      "doc": "Does this vintage's `table` carry `column`?  The column-level twin of `_has`, and\nthe same no-PRAGMA answer off the committed shape.  Needed once `bin_placement`\ngained `bin_state` (ADR-0003): the table is old, the column is not.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, family: str, table: str, column: str) -> bool"
     },
     "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before": {
       "decorators": [],
@@ -16373,9 +16436,16 @@
       "kind": "function",
       "signature": "(self, unit: StorageUnit) -> tuple"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._charge_repack": {
+      "decorators": [],
+      "doc": "Price one rescue as RECEIVING work: an unload-priced act per RESULTING pack.\n\nA rescue breaks a unit no bin could hold into several that fit.  Somebody does that,\nand it is dock work: the receiving crew already owns \"take merchandise apart and\nmake it storable\", it is priced per pack by `unload_cost`, and there is no travel\nterm because the merchandise does not go anywhere to be repacked.  So the rescue\ncosts the dock's own per-pack price and NO new coefficient enters the model.\n\nCounted even when no dock is bound.  A dockless run can still repack, and the\nstaffing record expects ZERO of them (provenance `assumed`); a rescue nobody counted\nis exactly the finding the equilibrium audit exists to make loud.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, order: Order, new_units: list) -> None"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._cost_putaway": {
       "decorators": [],
-      "doc": "Charge one placement to ITS QUEUE's crew and record it.\n\nCalled from `_execute_placement` only, which the bin-mutation allowlist already\nnames as the single put-away commit point -- so this adds no new bin writer.\n\n`queue` is the stream the unit came off.  None means the caller does not know,\nwhich happens on a direct `_execute_placement` from a test or a diagnostic; the\nunit is then routed the same way admission routed it, so the charge still lands on\nthe crew that would really have done the work.",
+      "doc": "Charge one placement to ITS QUEUE's crew and record it.\n\nCalled from `_execute_placement` and `_execute_topup` only -- the TWO put-away commit\npoints the bin-mutation allowlist names (ADR-0003 added the second) -- so this adds no\nnew bin writer. A top-up passes a unit built for the `n` items that actually moved,\nnot the whole unit they were cut from, so the price is of the trip that happened.\n\n`queue` is the stream the unit came off.  None means the caller does not know,\nwhich happens on a direct `_execute_placement` from a test or a diagnostic; the\nunit is then routed the same way admission routed it, so the charge still lands on\nthe crew that would really have done the work.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, unit: StorageUnit, bin_: Aisle.Bin, source, queue=None) -> None"
@@ -16386,6 +16456,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, unit: StorageUnit, bin_: Aisle.Bin, *, source: str | None=None, score: float | None=None, score_rank: int | None=None, policy: str | None=None) -> None"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_topup": {
+      "decorators": [],
+      "doc": "Commit ONE top-up of `n` items into `bin_`, which already holds `order`'s SKU.\n\nThe own-bin twin of `_execute_placement`, and a separate method for the same reason\nthat one exists: it is the single commit point an observer can wrap.  `BinRecorder`\nrebinds it to emit the `bin_placement` row carrying `bin_state='occupied'`, exactly\nas it rebinds `_execute_placement` for the `'empty'` rows -- so the spatial log stays\ncomplete without `_top_up_own_bins` knowing anything about recording.\n\nWhich bins and how much is `_top_up_own_bins`' decision; this method only commits.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, order: Order, bin_: Aisle.Bin, n: int, *, source: str | None=None, queue=None) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._group_key": {
       "decorators": [],
@@ -16489,6 +16566,13 @@
       "kind": "function",
       "signature": "(self, budget: int | None=None, queue=None, deadline: float | None=None) -> None"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins": {
+      "decorators": [],
+      "doc": "Add `unit`'s items to bins ALREADY HOLDING ITS SKU, fullest first.  Returns how\nmany items landed (0 when the SKU holds no bin with room).\n\nTHE SECOND RUNG of the put-away chain (ADR-0003): tried only after `place_one` has\nfailed to find an empty bin, and ahead of the repack/singleton rescues and\n`pending`.  Empty-first is what keeps the new-bin decision \u2014 the moment an\nassignment arm actually optimises anything \u2014 happening on every top-up it can; this\nrung is what stops the run falling off a cliff when the free index is dry.\n\nTHE NO-OP CONDITION IS PER-BUCKET, NOT GLOBAL, and the ADR states it loosely.  This\nrung fires exactly when `place_one` returns None, which is a free index empty FOR THE\nUNIT'S OWN BinKey \u2014 a run with plenty of free bins elsewhere can still reach it.  So\n\"a no-op in any run whose free index never exhausts\" is true only read per bucket;\nthe checkable claim is \"a no-op in any run where every unit finds an empty bin\".  The\nsame correction applies to the rescues, which this rung now pre-empts whenever the\nSKU has room \u2014 that was a reachable path before, so an arm that fires a rescue is NOT\nbyte-identical to HEAD even with a deep index.\n\nFULLEST FIRST, ties by `location`.  Remnants merge into the bin that is already\nnearest full, which leaves the emptiest bin emptiest and lets `drain_sku`'s\nsmallest-first pick take it to zero and hand it back to the free index.  The two\nrules are one mechanism and neither works alone.\n\nIT CROSSES THE FORWARD-PICK SPLIT.  Both `_sku_singleton_bins` and `_sku_pallet_bins`\nare drawn from, so a pallet unit's items can land in a forward-pick singleton bin and\nthe reverse.  That is deliberate and safe -- `own_bin_room` measures against the BIN's\nown family, so nothing is asked to hold more than it can -- but it does mean the rung\nconsolidates across a split that `_candidates_raw` never crosses.\n\nTHE FIFTH BIN-MUTATION SITE.  Every other write to bin state replaces a whole\n`storage`; this one adds to an existing unit's `quantity`, so it updates the same\nmanager dicts as `_execute_placement` MINUS everything that is about a bin becoming\noccupied:\n\n  * `_bin_sku`, `_sku_*_bins`, `_unavailable`, `_index` \u2014 unchanged: the bin was\n    already occupied by this SKU and already out of the free index.\n  * `_aisle_sku_counts` \u2014 unchanged: the SKU gained no aisle it was not already in.\n  * `_sigma_fd` \u2014 unchanged: \u03a3 f\u00b7D counts a SKU's bin OCCUPANCY, and no bin changed\n    hands.  Adding a delta here would charge the same bin twice.\n  * `space_timeline.fill` \u2014 NOT called: it means \"a free bin became occupied\", and\n    a bin that was already occupied is not news to the yard's space forecast.\n\nWhat DOES move is the merchandise: on-hand up, on-order down, and a put charged per\nBIN TOUCHED, because each is a separate trip for the putter.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, source: str | None=None, queue=None) -> int"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._window_for": {
       "decorators": [],
       "doc": "The ordering tolerance for one queue: its own `k_cap`, or the manager's default.\n\nA spec's None means INHERIT rather than \"unbounded\", so the manager-wide\n`putaway_window` still governs every queue that has no reason to differ, and the\ndefault single queue behaves exactly as it did before queues existed.",
@@ -16558,6 +16642,13 @@
       "kind": "function",
       "signature": "(self) -> list"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_repack_records": {
+      "decorators": [],
+      "doc": "This batch's repack records, and start the list over. `[]` when no crew.\n\nA SEPARATE STREAM from `drain_receiving_records`, not a widened one: `put_rows`\nrefuses to mix event types in one call (the `role`/`event_type` split it exists to\nkeep honest), so `repack` rows have to arrive as their own list or the writer would\nhave to re-derive the type per row from a discriminator nothing declares.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_drains": {
       "decorators": [],
       "doc": "This batch's per-drain yard levels, and start the list over.\n\n`[]` when the standing yard is not bound, which is not the same as a row of zeros \u2014\nsee the field's own note.  Drained per batch for `drain_putaway_records`' reason.",
@@ -16608,6 +16699,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, orders: list[Order], quantity: int | None=None) -> 'Inventory_Manager'"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.free_bin_depth": {
+      "decorators": [],
+      "doc": "How many bins are in the free index right now -- a LEVEL, read at batch end.\n\nADR-0003's other half of the record: the own-bin rung fires because this ran to\nzero, so the share is only readable next to the depth that produced it.  Not reset,\nbecause a level is not a flow.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.held_depth": {
       "decorators": [
@@ -16710,6 +16808,13 @@
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.receiving_snapshot": {
       "decorators": [],
       "doc": "`(depth, unloaded, cut, seconds)` for this batch, resetting the three flows.\n\n`(0, 0, 0, 0.0)` when there is no receiving crew, so the caller writes the same row\nshape either way and a no-dock run records four honest zeros rather than a NULL that\nevery consumer then has to special-case.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.snapshot_putaway_rework": {
+      "decorators": [],
+      "doc": "`(put_topups, recv_repacks, recv_repacked_packs)`, resetting all three.\n\nPer-batch FLOWS, so they reset -- the `cut`-is-a-level trap in reverse: these really\nare flows and summing them over batches is the right thing to do, which is only true\nbecause the drain happens exactly once per batch.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> tuple"
@@ -17093,6 +17198,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(obj) -> bool"
+    },
+    "Warehouse/inventory/inventory_common.py::own_bin_room": {
+      "decorators": [],
+      "doc": "How many MORE of *order*'s items the unit already standing in *bin_* can take.\n\nThe own-bin rung of the put-away chain (ADR-0003) needs one number: a bin holding this\nSKU has room for `capacity(bin's own tier) - on_hand` more, and zero is the answer for\nan empty bin, a full one, or a bin holding something else.  Callers must already know\nthe bin holds *order* \u2014 this measures room, it does not check ownership.\n\nTHE BIN'S OWN TIER IS THE CEILING, not the family's largest.  A 'small' pallet bin\nholds what a small pallet holds, whatever a large one could, because the bin was built\nto a size and the unit standing in it has to keep fitting.\n\nSingleton bins are measured against `Singleton` directly rather than through\n`_max_qty_fitting_size`: they carry no tier (`storage_size is None`) and that helper\nfalls back to the PALLET tables for an unknown category, which would overstate a\nsingleton's room by the whole difference between the two families.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order: Order, bin_: Aisle.Bin) -> int"
     },
     "Warehouse/inventory/inventory_common.py::tier_ranks_for": {
       "decorators": [],
@@ -19261,7 +19373,7 @@
       "decorators": [
         "staticmethod"
       ],
-      "doc": "Decompose a Batch into one Task per aisle.\n\n`_shortfall`, when given, accumulates `{sku: units_short}` for demand no bin could\nsatisfy.  Underscored because callers should reach for `from_batch_with_shortfall`\nrather than pass their own dict; it exists so one drain serves both entry points.\n\nFor each SKU in the batch, singleton bins are drained before pallet bins\nso that forward-pick locations are always preferred over reserve locations.\n\nIf manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins\ndicts are used directly, skipping the O(N_all_bins) warehouse scan that\nwould otherwise rebuild the index on every batch.\n\nDETERMINISM \u2014 the manager index is `dict[int, set[Aisle.Bin]]`, and `Aisle.Bin`\ndefines no `__hash__`/`__eq__`, so it hashes by identity and a set iterates in\nMEMORY-ADDRESS order.  Whenever a SKU has more on-hand bins than the batch\nquantity drains \u2014 the normal case \u2014 that order decides WHICH bins are taken,\nhence which aisles, tasks, travel and depletion follow.  Under spawn + ASLR the\naddresses differ per process, so two identical-seed runs of the same arm used to\nproduce different `batch_stats`.  Iterating in `location` order \u2014 the canonical\n(aisle_id, bayX, bayY) spatial key persisted everywhere \u2014 makes the selection a\npure function of warehouse state.  Cost is O(k log k) on k bins of ONE SKU; see\n`Tests/unit/test_task_bin_selection_determinism.py`.",
+      "doc": "Decompose a Batch into one Task per aisle.\n\n`_shortfall`, when given, accumulates `{sku: units_short}` for demand no bin could\nsatisfy.  Underscored because callers should reach for `from_batch_with_shortfall`\nrather than pass their own dict; it exists so one drain serves both entry points.\n\nFor each SKU in the batch, bins are drained SMALLEST-ON-HAND FIRST, ties by\n`location`, across both tiers as one ordering \u2014 see `drain_sku`, which both\nbranches below call.  Singletons were drained before pallets until ADR-0003; the\nforward-pick preference no longer decides pick order.\n\nIf manager is provided its pre-built _sku_singleton_bins/_sku_pallet_bins\ndicts are used directly, skipping the O(N_all_bins) warehouse scan that\nwould otherwise rebuild the index on every batch.\n\nDETERMINISM \u2014 the manager index is `dict[int, set[Aisle.Bin]]`, and `Aisle.Bin`\ndefines no `__hash__`/`__eq__`, so it hashes by identity and a set iterates in\nMEMORY-ADDRESS order.  Whenever a SKU has more on-hand bins than the batch\nquantity drains \u2014 the normal case \u2014 that order decides WHICH bins are taken,\nhence which aisles, tasks, travel and depletion follow.  Under spawn + ASLR the\naddresses differ per process, so two identical-seed runs of the same arm used to\nproduce different `batch_stats`.  Iterating in `location` order \u2014 the canonical\n(aisle_id, bayX, bayY) spatial key persisted everywhere \u2014 makes the selection a\npure function of warehouse state.  Cost is O(k log k) on k bins of ONE SKU; see\n`Tests/unit/test_task_bin_selection_determinism.py`.",
       "is_async": false,
       "kind": "function",
       "signature": "(batch: Batch, warehouse: Warehouse, manager=None, cart: type[StorageCart]=StoreCart, _shortfall: dict[int, int] | None=None) -> list[Task]"
@@ -19316,12 +19428,12 @@
       "signature": null,
       "value_preview": "{'v1': _lift_weighted_sample, 'v2': _lift_weighted_sample_v2}"
     },
-    "Warehouse/picking/Workload_Builder.py::_bin_location": {
+    "Warehouse/picking/Workload_Builder.py::_bin_qty_location": {
       "decorators": [],
       "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "operator.attrgetter('location')"
+      "is_async": false,
+      "kind": "function",
+      "signature": "(bin_)"
     },
     "Warehouse/picking/Workload_Builder.py::_get_partner_map": {
       "decorators": [],
@@ -19360,7 +19472,7 @@
     },
     "Warehouse/picking/Workload_Builder.py::drain_sku": {
       "decorators": [],
-      "doc": "THE SIM'S OWN DRAIN RULE for one SKU, extracted so a forecast shares it by\nconstruction: singleton bins before pallet bins, each tier in `location` order,\ntake = min(remaining, bin quantity).\n\nAccumulates per-bin takes into `out` (a `defaultdict(int)` keyed by the bin object)\nand returns the demand no bin could satisfy.  Two callers, deliberately:\n`Task.from_batch` builds the pick tasks from it, and the standing yard's space\ntimeline (`Inbound/space.py`) projects predicted-clear bins with it \u2014 handed this\nfunction by the driver, because the import edge `Inbound -> wh_picking` is forbidden.\nOne body means the projection is exact rather than a re-implementation that can\ndrift; `_rederive_plan` below is explicitly NOT this rule (its own docstring warns\nits distribution can differ).\n\nPure: reads bin state, writes only `out`, consumes no RNG.  A `_SortedBins`\ncontainer already iterates in `location` order so its sort is skipped; raw\nsets/lists (test stand-ins, legacy callers) still get the explicit sort \u2014 the\ndeterminism contract is the ORDER, not the container\n(see test_task_bin_selection_determinism).",
+      "doc": "THE SIM'S OWN DRAIN RULE for one SKU, extracted so a forecast shares it by\nconstruction: the SMALLEST-QUANTITY bin first, ties by `location`, across both tiers\nas one ordering; take = min(remaining, bin quantity).\n\nAccumulates per-bin takes into `out` (a `defaultdict(int)` keyed by the bin object)\nand returns the demand no bin could satisfy.  Two callers, deliberately:\n`Task.from_batch` builds the pick tasks from it, and the standing yard's space\ntimeline (`Inbound/space.py`) projects predicted-clear bins with it \u2014 handed this\nfunction by the driver, because the import edge `Inbound -> wh_picking` is forbidden.\nOne body means the projection is exact rather than a re-implementation that can\ndrift; `_rederive_plan` below is explicitly NOT this rule (its own docstring warns\nits distribution can differ).\n\nSMALLEST-FIRST IS THE CONSOLIDATION ENGINE (ADR-0003, decision 7 of\n`.scratch/department-calibration/issues/20-...`).  Under the empty-first top-up a SKU\nacquires a second bin whenever the free index is dry; draining the emptiest bin first\nclears remnants and hands bins back to the index, which is what makes the pair\nconverge instead of fragmenting further.\n\nTWO CONSEQUENCES, both deliberate and neither reversible by a flag:\n\n1. **The forward-pick preference is retired from the drain.**  Singletons were drained\n   before pallets \"so that forward-pick locations are always preferred over reserve\n   locations\"; one ordering across both tiers ends that.  The split still exists\n   everywhere else (`is_forward_pick`, the two indexes, `_candidates_raw`) \u2014 it no\n   longer decides pick order.\n2. **This is NOT byte-identical to the location-order rule**, and not only when the\n   free index is dry: a SKU-tier holds 2+ bins straight out of initial stocking\n   (measured: 800\u20131145 of ~1200 SKU-tiers, 224\u2013327 of them order-sensitive, across\n   coverage 1\u201310), so travel, tasks and depletion move on essentially every run.\n   Absolute pick/travel/throughput numbers published before this commit are not\n   comparable with ones after it.\n\nPure: reads bin state, writes only `out`, consumes no RNG.  The sort is unconditional\nnow \u2014 a `_SortedBins` container maintains `location` order, but on-hand changes with\nevery pick and cannot be maintained, so the container's skip no longer applies.  The\ndeterminism contract is still the ORDER, not the container\n(see test_task_bin_selection_determinism).\n\nWHAT THAT COSTS, measured rather than asserted: 4,000 SKUs holding 137,552 bins (34.4\nper SKU), one drain each \u2014 22.9 ms for the old location-order walk with the container\nfast path, 42.8 ms here, so ~1.9x on the drain itself.  A batch touches ~15% of the\ncatalogue, so that is roughly +3 ms per batch at this size against a makespan in minutes.\nIt scales with per-SKU bin multiplicity, which the deep ladder already flags as growing\n(`t_task`, k\u22482.3), so re-measure before assuming it stays negligible on a much larger\ncatalogue.",
       "is_async": false,
       "kind": "function",
       "signature": "(singleton_bins, pallet_bins, qty: int, out) -> int"

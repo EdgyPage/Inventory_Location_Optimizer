@@ -27,12 +27,16 @@ batches of a keyframe.
 What makes this complete
 ------------------------
 Bin state is `Aisle.Bin.storage` / `.storage.quantity`, and a repo-wide search for writes to
-either finds six lines across five sites, one of them dead code:
+either finds seven lines across five sites, one of them dead code:
 
     Inventory_Management._execute_placement   `bin_.storage = unit`    -&gt; PLACE  (recorded here)
+    Inventory_Management._execute_topup       `storage.quantity += n`  -&gt; PLACE  (recorded here)
     inventory_reorder.requeue_bin             `bin_.storage = None`    -&gt; EVICT  (recorded here)
     fast_pick.py / Pick.py                    qty -= / storage = None  -&gt; PICK   (already `picks`)
     Storage_Primitive.StorageCart             zero callers repo-wide   -&gt; n/a
+
+`_execute_topup` is ADR-0003&#x27;s own-bin rung and the only site that ADDS to an occupied bin;
+its rows carry `bin_state=&#x27;occupied&#x27;`, every other PLACE row `&#x27;empty&#x27;`.
 
 So PLACE + EVICT + PICK is complete **by construction**, and picks are already fully recorded —
 `SUM(pre_qty - post_qty)` equals `SUM(picks.quantity)` exactly on every arm tested.
@@ -43,7 +47,7 @@ sixth mutation site ever appears.
 
 How it attaches
 ---------------
-By rebinding two bound methods on the manager **instance** — no edits to `Warehouse/`, and a
+By rebinding three bound methods on the manager **instance** — no edits to `Warehouse/`, and a
 strategy swapping `mgr.placement` cannot detach it, because `_execute_placement` is the chokepoint
 all three placement call sites reach through `self.`. Same technique as
 `Diagnostics/trace_lifecycle.py`.
@@ -63,7 +67,7 @@ Checked at runtime, not only in tests
 
 on every batch of every real run. The completeness argument above is structural; that ledger is
 what turns it into something a production sweep re-proves for itself.</section>
-<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder.html"><code>BinRecorder</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder___init__.html"><code>__init__</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach__execute_placement.html"><code>_execute_placement</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach.html"><code>attach</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_begin_batch.html"><code>begin_batch</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_drain.html"><code>drain</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach_requeue_bin.html"><code>requeue_bin</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li></ul></section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder.html"><code>BinRecorder</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder___init__.html"><code>__init__</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach__execute_placement.html"><code>_execute_placement</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach__execute_topup.html"><code>_execute_topup</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach.html"><code>attach</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_begin_batch.html"><code>begin_batch</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_drain.html"><code>drain</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li><li><a href="nOptimization_metrics_bin_recorder_py__BinRecorder_attach_requeue_bin.html"><code>requeue_bin</code></a> <span class="dim">Optimization/metrics/bin_recorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_metrics_bin_recorder_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/metrics/bin_recorder.py">Source ↗</a></p>
 </article>
 </main>
