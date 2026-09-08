@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>field_requirement · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_planning_py__PlanningMixin_field_requirement" data-id="Warehouse/inventory/inventory_planning.py::PlanningMixin.field_requirement">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin.html"><code>PlanningMixin</code></a> <span class="sep">›</span> <span class="here"><code>field_requirement</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>field_requirement</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>@classmethod
+def field_requirement(cls, orders: list[Order], slots: dict | None=None) -&gt; tuple[list[Order], set]</code></pre>
+<section class="doc">Field every order at exactly its declared level, packed exactly as
+`bucket_requirements` counted it.  Returns (fielded_orders, their sku ids).
+
+`slots` is the packing half of `_packing`, keyed by `id(order)`.  `plan_warehouse`
+passes the one it already computed to size the buckets, which is what makes the two
+halves the same statement rather than two passes that agree by luck; omit it and this
+computes its own.
+
+THE PACKING IS THE REQUIREMENT.  `bucket_requirements` states what the declared
+levels need by running each order through `viable_storage_units` at its
+order-up-to; this runs the same call and RECORDS the answer as the order&#x27;s
+`stock_plan`, so the bins the warehouse was sized for are the bins the run fields,
+and every later reorder rebuilds the same tier mix.  The two agree by construction
+rather than by margin.
+
+WHAT THIS REPLACED, and why (department-calibration, &quot;Field the floor&quot;, decision 2).
+This used to be `sample_to_capacity`: it sized bin capacity independently, then held
+a contest for it — phase 1 round-robined every SKU into its EMPTIEST reachable
+bucket until it reached its order-up-to, phase 2 shared out whatever was left, and
+the order was re-declared at whatever it won.  Both halves broke the floor.  The
+emptiest-bucket rule charged multi-tier SKUs at low density to buckets budgeted for
+others, so single-tier SKUs stopped two to six units short of their own line floor —
+25,241 of them (15.8%) on the reference pair even with every tier&#x27;s budget above its
+requirement.  Phase 2 then grew 64,989 other SKUs above their declaration, so a
+level the run recorded as declared was not the level it fielded.  A shelf below the
+line is a treadmill under base stock, and a level grown past the declaration is a
+coverage nobody chose.
+
+So there is no contest left to hold: no re-choice of tier, no growth into leftover
+capacity, no shrink to fit.  Every SKU fits because `plan_warehouse` sized its
+buckets from this same statement and REFUSED the run if it could not.  Nothing here
+is random — the old `rng` seeded the contest, and the contest is gone.
+
+`Order.declare_stock` is the one mutation site for the four level slots (ADR-0002);
+the order-up-to, the reorder point and the pipeline stamp pass through unchanged,
+because the planner no longer has an opinion about them.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py__UnfieldableRequirement.html"><code>UnfieldableRequirement</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py___equilibrium_qty.html"><code>_equilibrium_qty</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_planning_py__PlanningMixin_field_requirement">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_planning.py#:~:text=def%20field_requirement">Source ↗</a></p>
+</article>
+</main>
+</body></html>

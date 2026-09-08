@@ -78,7 +78,11 @@ def _run_one_arm(tmp_path, monkeypatch, *, crew_size, day_seconds=None, n_batche
     inv_db, aff_db = _store_dbs(tmp_path)
     build_pair = str(tmp_path / 'build'); os.makedirs(build_pair, exist_ok=True)
     shared = rs.build_shared_assets(
-        inv_db, aff_db, log, max_skus=250, max_bins=40000, min_bins=3000,
+        # No `max_bins`: a bin cap that binds below what the run's DECLARED levels need
+        # now refuses the plan rather than fielding less (department-calibration, "Field
+        # the floor", decision 3), and this fixture's cap sat below the 60-bucket
+        # structural floor anyway -- it was already being warned past, not honoured.
+        inv_db, aff_db, log, max_skus=250, min_bins=3000,
         keyframe_interval=0, warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
 
     pair_dir = str(tmp_path / 'run'); os.makedirs(pair_dir, exist_ok=True)

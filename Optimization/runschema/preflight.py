@@ -59,10 +59,16 @@ SKIP_ENV = 'ILO_SKIP_PREFLIGHT'
 # Canary sizing: the smallest run that still produces every artifact class.  Analysis stays ON —
 # series.json / _aggregate / channel_rollup / _runtime are the half that keeps breaking, so they
 # must be in the fingerprint.
+#
+# The size levers are the SKU count and the coverage, never a bin/aisle CAP.  A cap that binds
+# below what the run's declared levels need refuses the plan outright (department-calibration,
+# "Field the floor", decision 3), and it is self-defeating besides: the coverage fixed point
+# sizes the warehouse from the levels and reads the levels back off the geometry, so a smaller
+# warehouse is a shorter trip, a higher derived lines/day, and BIGGER levels than the cap was
+# trying to contain.  `--coverage-days` shrinks the declaration itself, which is the honest
+# lever and the one that actually makes a canary small.
 CANARY_ARGS = [
-    '--n-batches', '2', '--max-skus', '200',
-    '--s-max-aisles', '4', '--s-min-bins', '400', '--s-max-bins', '900',
-    '--ff-max-aisles', '3', '--ff-min-bins', '300', '--ff-max-bins', '700',
+    '--n-batches', '2', '--max-skus', '200', '--coverage-days', '1',
     '--keyframe-interval', '1', '--workers', '1',
 ]
 

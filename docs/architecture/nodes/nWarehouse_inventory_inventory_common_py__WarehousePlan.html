@@ -16,8 +16,13 @@
 
 <pre class="sig"><code>@dataclass
 class WarehousePlan</code></pre>
-<section class="doc">Result of Inventory_Manager.plan_warehouse: a sized warehouse + the
-SKU sample chosen to fill it to target utilization.</section>
+<section class="doc">Result of Inventory_Manager.plan_warehouse: a warehouse sized to hold the run&#x27;s
+declared levels, plus the orders it FIELDS at exactly those levels.
+
+`sampled` is a historical name for &quot;the orders this plan fields&quot;.  It was a genuine
+subset while the planner sampled SKUs to fill a capacity it had sized independently; it
+is now the whole list, because every bucket is sized from `requirement` and every SKU is
+fielded at its declaration (department-calibration, &quot;Field the requirement&quot;).</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_plan_warehouse.html"><code>plan_warehouse</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_common_py__WarehousePlan">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_common.py#:~:text=class%20WarehousePlan">Source ↗</a></p>
 </article>

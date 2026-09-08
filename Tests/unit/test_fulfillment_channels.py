@@ -71,7 +71,7 @@ def _plan(orders, seed=1):
     return Inventory_Manager.plan_warehouse(
         orders, categories=_CATS, handlings=_HANDS,
         aisle_width=aisle_width_for(50), aisle_height=aisle_height_for(10),
-        target_fill=0.85, rng=random.Random(seed))
+        target_fill=0.85)
 
 
 # ── Part A: bin model ────────────────────────────────────────────────────────

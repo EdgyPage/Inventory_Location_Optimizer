@@ -14,7 +14,7 @@ the scenario builders the real tests import.
 | `bench_sections.py` | Amdahl baseline — where wall-time actually goes per batch |
 | `run_digest.py` | content digests over a run's domain tables — the byte-identical gate for results-preserving refactors (`--self-test` first; two run roots to compare) |
 | `bench_ranked_assign.py` | `_ranked_assign_impl` (lift waves) |
-| `bench_sample_to_capacity.py` | warehouse planning / capacity sampling |
+| `bench_plan_warehouse.py` | warehouse planning: sizing + fielding |
 
 ```bash
 python Tests/bench/perf_simulation.py

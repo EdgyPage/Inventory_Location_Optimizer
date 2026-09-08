@@ -95,10 +95,12 @@ def build_shared_assets(
     log.info(f'  {n_skus:,} orders  ({time.perf_counter()-t0:.2f}s)')
 
     # ── Warehouse sizing — delegated to Inventory_Manager.plan_warehouse ──────
-    # Sizes per-(handling, category, size_tier, unit_type) uniform aisles from
-    # the actual inventory (every bucket gets ≥1 aisle so every SKU is placeable),
-    # then samples SKUs to fill to store_fill().  All sizing/sampling lives in
-    # the Warehouse layer — run_simulation just supplies the shape + constraints.
+    # Sizes per-(handling, category, size_tier, unit_type) uniform aisles from the DECLARED
+    # levels of the actual inventory (every bucket gets ≥1 aisle so every SKU is placeable,
+    # and enough of them that store_fill() of each holds what the levels need), then fields
+    # every SKU at exactly its declaration.  All sizing/fielding lives in the Warehouse layer
+    # — run_simulation just supplies the shape + constraints.  A cap that binds below a
+    # bucket's requirement raises `UnfieldableRequirement` here rather than fielding less.
     t_size = time.perf_counter()
     # The SUPPLY side only: a loaded catalogue carries no stock level to average (ADR-0002).
     # The levels this run DECLARES are logged by the coverage loop below and averaged onto
@@ -123,10 +125,9 @@ def build_shared_assets(
             composition  = composition,
             regime_sizing= regime_sizing,
             # Analysis (no warehouse_db_path) only needs the warehouse shape + aisle
-            # maps, so skip the expensive inventory re-stock in that path.  A frozen inventory is
-            # already sampled, so we only need the SHAPE (sample=False) and keep the frozen orders.
+            # maps, so skip the expensive inventory re-pack in that path.  A frozen inventory is
+            # already fielded, so we only need the SHAPE (sample=False) and keep the frozen orders.
             sample       = _sample,
-            rng          = random.Random(seed_world() + 1),
             log          = log,
         )
 
@@ -209,7 +210,7 @@ def build_shared_assets(
         for c in (plan.sampled or inventory.orders) if c.stock_declared())
 
     log.info(f'  Warehouse : {total_aisles} aisles / {total_bins:,} bins'
-             + (f'  {n_skus:,} SKUs sampled  expected_fill={expected_fill:.1%}'
+             + (f'  {n_skus:,} SKUs fielded  expected_fill={expected_fill:.1%}'
                 if plan.sampled else '  (shape only — analysis, no re-stock)')
              + f'  ({time.perf_counter()-t_size:.1f}s)')
 

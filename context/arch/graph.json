@@ -11051,6 +11051,11 @@
       "src": "Optimization/simdriver/era_coverage.py"
     },
     {
+      "dst": "Warehouse/kernel/regime.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/era_coverage.py"
+    },
+    {
       "dst": "Warehouse/layout/Storage_Primitive.py",
       "kind": "imports",
       "src": "Optimization/simdriver/era_coverage.py"
@@ -11086,6 +11091,11 @@
       "src": "Optimization/simdriver/era_coverage.py::declare_from_record"
     },
     {
+      "dst": "Optimization/simconfig/coverage.py::line_floor",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fielded_block"
+    },
+    {
       "dst": "Optimization/simconfig/coverage.py::converged",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
@@ -11107,6 +11117,11 @@
     },
     {
       "dst": "Optimization/simdriver/era_coverage.py::_lines",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::fielded_block",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
     },
@@ -11469,11 +11484,6 @@
       "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._build"
-    },
-    {
-      "dst": "Optimization/config/sim_config.py::seed_world",
-      "kind": "calls",
-      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._plan"
     },
     {
       "dst": "Optimization/config/sim_config.py::store_fill",
@@ -16338,25 +16348,35 @@
     {
       "dst": "Warehouse/inventory/inventory_common.py::_equilibrium_qty",
       "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.bucket_requirements"
+      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin._packing"
     },
     {
       "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
       "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.bucket_requirements"
+      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin._packing"
     },
     {
       "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
       "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.bucket_requirements"
+      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin._packing"
     },
     {
-      "dst": "Warehouse/inventory/inventory_common.py::WarehousePlan",
+      "dst": "Warehouse/inventory/inventory_common.py::UnfieldableRequirement",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.field_requirement"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::_equilibrium_qty",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.field_requirement"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::UnfieldableRequirement",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse"
     },
     {
-      "dst": "Warehouse/inventory/inventory_common.py::_equilibrium_qty",
+      "dst": "Warehouse/inventory/inventory_common.py::WarehousePlan",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse"
     },
@@ -16411,11 +16431,6 @@
       "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse"
     },
     {
-      "dst": "Warehouse/layout/Storage_Primitive.py::viable_storage_units",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse"
-    },
-    {
       "dst": "Warehouse/layout/Warehouse_Builder.py::WarehouseConfig",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse"
@@ -16441,49 +16456,19 @@
       "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._emit"
     },
     {
-      "dst": "Warehouse/inventory/inventory_common.py::_equilibrium_qty",
+      "dst": "Warehouse/inventory/inventory_planning.py::_split_inflation",
       "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity"
+      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._fill_eff"
     },
     {
-      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
+      "dst": "Warehouse/layout/Aisle_Dimensions.py::unit_bin_width",
       "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._add_one"
+      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._split_for"
     },
     {
-      "dst": "Warehouse/layout/Storage_Primitive.py::FulfillmentBin",
+      "dst": "Warehouse/inventory/inventory_planning.py::_demand_replicas",
       "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._add_one"
-    },
-    {
-      "dst": "Warehouse/layout/Storage_Primitive.py::Pallet",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._add_one"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_common.py::_max_qty_fitting_size",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._reachable"
-    },
-    {
-      "dst": "Warehouse/kernel/regime.py::regime_of",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._reachable"
-    },
-    {
-      "dst": "Warehouse/layout/Storage_Primitive.py::FulfillmentBin",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._reachable"
-    },
-    {
-      "dst": "Warehouse/layout/Storage_Primitive.py::Pallet",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._reachable"
-    },
-    {
-      "dst": "Warehouse/layout/Storage_Primitive.py::_max_qty_fits",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._reachable"
+      "src": "Warehouse/inventory/inventory_planning.py::_demand_total"
     },
     {
       "dst": "Warehouse/layout/Aisle_Dimensions.py::catalog_aisle_bins",
@@ -32287,6 +32272,14 @@
     },
     {
       "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::fielded_block",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "fielded_block",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
       "id": "Optimization/simdriver/era_coverage.py::fixed_point",
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
@@ -37975,6 +37968,22 @@
     },
     {
       "file": "Warehouse/inventory/inventory_common.py",
+      "id": "Warehouse/inventory/inventory_common.py::UnfieldableRequirement",
+      "kind": "class",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "name": "UnfieldableRequirement",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_common.py",
+      "id": "Warehouse/inventory/inventory_common.py::UnfieldableRequirement.__init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_common.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_common.py",
       "id": "Warehouse/inventory/inventory_common.py::WarehousePlan",
       "kind": "class",
       "module": "Warehouse/inventory/inventory_common.py",
@@ -38271,10 +38280,26 @@
     },
     {
       "file": "Warehouse/inventory/inventory_planning.py",
+      "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin._packing",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_planning.py",
+      "name": "_packing",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_planning.py",
       "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin.bucket_requirements",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_planning.py",
       "name": "bucket_requirements",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_planning.py",
+      "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin.field_requirement",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_planning.py",
+      "name": "field_requirement",
       "public": true
     },
     {
@@ -38303,34 +38328,18 @@
     },
     {
       "file": "Warehouse/inventory/inventory_planning.py",
-      "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity",
+      "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._fill_eff",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_planning.py",
-      "name": "sample_to_capacity",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/inventory_planning.py",
-      "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._add_one",
-      "kind": "function",
-      "module": "Warehouse/inventory/inventory_planning.py",
-      "name": "_add_one",
+      "name": "_fill_eff",
       "public": false
     },
     {
       "file": "Warehouse/inventory/inventory_planning.py",
-      "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._add_run",
+      "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._split_for",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_planning.py",
-      "name": "_add_run",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/inventory_planning.py",
-      "id": "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._reachable",
-      "kind": "function",
-      "module": "Warehouse/inventory/inventory_planning.py",
-      "name": "_reachable",
+      "name": "_split_for",
       "public": false
     },
     {
@@ -38387,6 +38396,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/inventory_planning.py",
       "name": "_ratio_replicas",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_planning.py",
+      "id": "Warehouse/inventory/inventory_planning.py::_split_inflation",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_planning.py",
+      "name": "_split_inflation",
       "public": false
     },
     {

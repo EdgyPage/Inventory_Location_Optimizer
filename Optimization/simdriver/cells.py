@@ -217,9 +217,15 @@ def _apply_cell(aisle_split, zoning, scheduler='round_robin', inbound=None) -> N
 
 
 def _tightest_split(cells):
-    """The split with the largest capacity_loss (fewest bins).  Freezing the sampled
-    inventory to it guarantees every roomier cell can hold it (the frozen inventory
-    always fits)."""
+    """The split with the largest capacity_loss.  Freezing the sampled inventory to it is
+    how a multi-cell sweep guarantees every cell can hold the same inventory.
+
+    "Largest loss" no longer means "fewest bins", and has not since "Field the requirement":
+    `_split_inflation` adds compensatory aisles at sizing time, so a lossier split can emit
+    MORE bins than no split at all.  The freeze is still correct, and now for a stronger
+    reason -- every cell is sized from the same declaration and REFUSES if it cannot hold it,
+    so which split we freeze against no longer decides whether the inventory fits.  Kept as
+    the freeze point because the choice must be deterministic and cell-order-independent."""
     splits = [c.split for c in cells
               if c.split and c.split.get('capacity_loss', 0.0) > 0
               and int(c.split.get('k', 1)) > 1]

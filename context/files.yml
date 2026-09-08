@@ -1281,6 +1281,7 @@ files:
       - {name: "MissingCoverageRecord", file: "Optimization/simdriver/era_coverage.py", kind: "class"}
       - {name: "declare_from_record", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "next_guess", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "fielded_block", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "fixed_point", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/scenario.py":
@@ -1907,13 +1908,13 @@ files:
       - {name: "test_the_ratchet_can_actually_fail", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
       - {name: "test_the_optional_defaults_match_the_column_types", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
     notes: ""
-  "Tests/bench/bench_ranked_assign.py":
-    purpose: "perf benchmark for _ranked_assign_impl (lift waves)."
+  "Tests/bench/bench_plan_warehouse.py":
+    purpose: "perf benchmark for warehouse planning."
     layer: "tests"
     key_symbols: []
     notes: ""
-  "Tests/bench/bench_sample_to_capacity.py":
-    purpose: "perf benchmark for warehouse planning."
+  "Tests/bench/bench_ranked_assign.py":
+    purpose: "perf benchmark for _ranked_assign_impl (lift waves)."
     layer: "tests"
     key_symbols: []
     notes: ""
@@ -2102,7 +2103,7 @@ files:
       - {name: "test_section_attribution_covers_the_tree", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_a_staged_config_actually_exercises_the_held_path", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_it_is_the_FLOOR_that_creates_a_held_backlog", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
-      - {name: "test_the_default_config_does_not_reach_the_put_away_path", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_default_config_does_not_reach_the_held_path", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_knee_detector_catches_what_the_r2_gate_drops", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_knee_detector_does_not_fire_on_a_clean_curve", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
@@ -3254,6 +3255,11 @@ files:
       - {name: "test_next_guess_iterates_plainly_until_bracketed_then_takes_the_log_secant", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_fixed_point_converges_on_a_decreasing_map_with_gain_above_one", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_fixed_point_rescales_each_channel_section_by_its_own_regime", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_record_stamps_that_the_floors_promise_was_kept", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_fielded_block_counts_a_shelf_below_its_floor_and_a_level_grown_past_it", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_a_shelf_below_its_floor_raises_even_when_the_section_total_agrees", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_the_bucket_table_carries_only_the_channels_own_buckets", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_a_plan_that_fields_less_than_it_declared_raises", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_three_knobs_are_declared_assumptions_with_their_flags_named", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_three_knobs_ride_staffing_keys_and_resolve_a_none_to_their_default", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_each_knob_has_a_flag", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
@@ -4088,12 +4094,15 @@ files:
     purpose: "the PER-REGIME warehouse sizing path (plan_warehouse regime_sizing)."
     layer: "tests"
     key_symbols:
-      - {name: "test_store_cap_leaves_fulfillment_untouched", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
-      - {name: "test_fulfillment_cap_leaves_store_untouched", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
-      - {name: "test_ff_fixed_distribution_honors_ratio_and_scale", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_a_store_cap_refuses_over_store_buckets_only", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_a_fulfillment_cap_refuses_over_fulfillment_buckets_only", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_a_min_bins_on_one_regime_leaves_the_other_untouched", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_ff_tiers_are_sized_from_the_requirement_not_a_fixed_distribution", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
       - {name: "test_regime_sizing_none_matches_no_regressions", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_an_aisle_splits_capacity_loss_is_paid_for_in_replicas", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
       - {name: "test_depth_classes_none_is_byte_identical", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
       - {name: "test_depth_classes_emit_multiple_widths_and_leave_store_untouched", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
+      - {name: "test_depth_classes_never_round_a_bucket_below_its_requirement", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
       - {name: "test_aisle_split_k1_is_byte_identical", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
       - {name: "test_aisle_split_ff_shortens_and_grows_bins_preserved", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
       - {name: "test_aisle_split_capacity_loss_drops_bins", file: "Tests/unit/test_regime_sizing.py", kind: "function"}
@@ -4669,14 +4678,19 @@ files:
       - {name: "test_every_one_of_the_sixty_buckets_gets_at_least_one_aisle", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_every_sampled_sku_places_and_the_queue_empties", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_uncapped_capacity_covers_the_sampled_demand_in_every_bucket", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_bin_and_aisle_caps_are_respected_without_breaking_the_floor", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_a_cap_below_the_sixty_aisle_floor_clamps_to_the_floor", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_a_bin_cap_that_binds_below_the_requirement_refuses_and_names_the_bucket", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_an_aisle_cap_below_the_sixty_bucket_floor_refuses", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_an_uncapped_plan_covers_every_bucket_requirement_at_the_declared_fill", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_planning_the_same_catalogue_twice_gives_the_same_plan", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_min_bins_scales_the_warehouse_up_past_its_natural_size", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_min_bins_wins_when_it_contradicts_max_bins", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_a_composition_vector_sets_the_bin_tier_ratios", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_the_sampler_and_the_fixed_distribution_are_gone_and_stay_gone", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_a_composition_vector_that_starves_a_bucket_refuses", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_sampling_never_exceeds_per_bucket_capacity", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_cross_tier_fill_uses_every_pallet_tier_not_just_the_natural_one", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_resampling_grows_equilibrium_and_keeps_the_reorder_point_ratio", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_fielding_is_the_declaration_exactly_neither_grown_nor_shrunk", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_the_fielded_packing_is_the_one_the_warehouse_was_sized_from", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_a_sku_is_fielded_whole_at_the_packing_its_level_implies", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_restocks_do_not_grow_the_queue", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_a_partially_placeable_order_queues_the_remainder_and_drains_as_space_frees", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_an_oversized_tier_unit_splits_into_a_free_smaller_tier", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
@@ -4998,6 +5012,7 @@ files:
       - {name: "FORWARD_PICK_FAMILY", file: "Warehouse/inventory/inventory_common.py", kind: "const"}
       - {name: "is_forward_pick", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
       - {name: "UndeclaredStock", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
+      - {name: "UnfieldableRequirement", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/inventory_optimal.py":
     purpose: "optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map."

@@ -22,8 +22,17 @@ bins.  Under one-way lanes, shorter aisles ⇒ less x-traversal.
 Returns (seg_w, n_segments, seg_eff, cap_total) or None (no split ⇒ byte-identical caller path).
 `eff_fn(width) -&gt; bins-per-segment` (uniform_aisle_bins or catalog_aisle_bins bound to the
 tier).  k is bounded to ≤ a_w // bin_width (≥1 column/segment) and ≤ MAX_AISLE_SPLIT_K so the
-emitted aisle count cannot blow up.  Total usable bins ≈ target_bins·(1-capacity_loss) — bins are
-genuinely SACRIFICED (no compensatory aisles added), so aggressive loss raises fill by design.</section>
+emitted aisle count cannot blow up.  Total usable bins ≈ target_bins·(1-capacity_loss): the
+bins in the throughways are genuinely sacrificed HERE.
+
+WHAT THE SPLIT NOW MEANS, which is not what it used to.  The loss no longer reaches the
+inventory: `_split_inflation` adds the compensatory aisles at SIZING time, so a split
+bucket is asked for `1/(1-loss)` times the replicas and the run still holds its declared
+levels (&quot;Field the floor&quot;, decision 9 — the line floor is a promise, and a throughway is
+not a reason to break it).  A split arm therefore trades AISLES for travel, not capacity
+for travel; it used to raise fill by shrinking the shelf under a fixed stock, and an
+archived `ks` sweep measured that older trade, so its results are not comparable to a
+new one.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_plan_warehouse__emit.html"><code>_emit</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_planning_py___aisle_split">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_planning.py#:~:text=def%20_aisle_split">Source ↗</a></p>
 </article>

@@ -21,10 +21,11 @@ WHY THIS EXISTS.  A page has to say how much stock the simulation held, and the 
 has never been a formula.  It used to fail to be a formula for a particular reason: the
 CATALOGUE authored each SKU&#x27;s order-up-to quantity and reorder point, the published pages
 restated the generator&#x27;s closed form, and measured against the run&#x27;s own file that form
-reproduced neither quantity — `sample_to_capacity` rescaled both to fit the warehouse after
-the planner had spoken.  So this tool scored the candidate closed forms against the stored
-values and published the implied rescale beside them, on the principle that &quot;neither formula
-holds&quot; should be a measurement rather than an assertion.
+reproduced neither quantity — the planner then rescaled both to fit the warehouse it had
+already built (`sample_to_capacity`, since retired).  So this tool scored the candidate
+closed forms against the stored values and published the implied rescale beside them, on
+the principle that &quot;neither formula holds&quot; should be a measurement rather than an
+assertion.
 
 Both of those measurements are now about a mechanism that no longer exists.  ADR-0002 retired
 the authored level: a stock level is not a fact about a SKU, and a generated catalogue carries

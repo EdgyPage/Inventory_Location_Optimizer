@@ -28,8 +28,10 @@ arrives -- the previous line&#x27;s order landed -- so this IS the expectation `
 level is read against: `1 - fill_rate` is the expected missed share.  With a lead the
 shelf a line meets is `Q_s` minus what is still in transit, so the number is an UPPER bound
 on the fill rate there (the record carries the stamped pipeline beside it).  Call it on the
-PLANNED orders -- the planner may grow a level into leftover capacity, and the shelf that
-serves the line is the one the run fields.  Returns `{&#x27;fill_rate&#x27;, &#x27;expected_missed_share&#x27;,
+PLANNED orders: the shelf that serves the line is the one the run fields, which since
+&quot;Field the requirement&quot; is the declared one exactly (the planner no longer grows a level
+into leftover capacity), so pre-plan and post-plan now price the same number.  Returns
+`{&#x27;fill_rate&#x27;, &#x27;expected_missed_share&#x27;,
 &#x27;units_per_day&#x27;, &#x27;served_per_day&#x27;, &#x27;base_stock_skus&#x27;, &#x27;base_stock_share&#x27;, &#x27;n_skus&#x27;,
 &#x27;pipeline_units&#x27;}` -- the last is Σ `pipeline_qty` over the section, 0 when the premise
 holds exactly.</section>

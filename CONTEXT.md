@@ -329,8 +329,10 @@ _Avoid_: coverage batches, equilibrium coverage, authored levels, initial stock,
 
 **Stock declaration**:
 What a run decides to hold of a SKU, and the only place a stock level ever comes from: the
-order-up-to quantity, the reorder point, the packing the planner chose for that quantity, and
-the stamped lead pipeline — four values written together, at setup, by one method. A catalogue
+order-up-to quantity, the reorder point, the packing that quantity implies, and
+the stamped lead pipeline — four values written together, at setup, by one method. The packing
+is not a choice the planner makes: it is the one the warehouse was sized from, recorded so every
+reorder rebuilds the same tier mix, and a run whose warehouse cannot hold it refuses. A catalogue
 has none; a run's own planned inventory records one per SKU it fielded, and its workers reload
 it. Asking a SKU for a level nobody declared is an error, not a default: the warehouse's bin
 count is derived from the levels, so a fabricated one silently builds the wrong warehouse.

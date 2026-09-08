@@ -190,7 +190,6 @@ def _build_assets(
         aisle_width  = aisle_w,
         aisle_height = aisle_h,
         target_fill  = fill,
-        rng          = random.Random(seed + 1),
     )
     print(f' {time.perf_counter() - t0:.2f}s')
     print(f'  Plan: {plan.total_bins:,} bins  '

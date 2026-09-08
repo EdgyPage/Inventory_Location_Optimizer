@@ -187,18 +187,24 @@ def test_it_is_the_FLOOR_that_creates_a_held_backlog():
     assert staged['held_appends'] > 0, f'the floor held nothing: {staged}'
 
 
-def test_the_default_config_does_not_reach_the_put_away_path():
+def test_the_default_config_does_not_reach_the_held_path():
     """`--config none` genuinely does not exercise it, and the tool must SAY so rather than
     print an empty report — a reader cannot otherwise tell "not measured" from "measured and
     clean", which is the state this package was in.
 
-    Note the default's production coverage (10.0/2.0) leaves so much slack that reorders
-    barely fire at test scale; that is itself why the path stayed dark for so long.
+    RE-BASELINED after "Field the requirement": `refill_passes` is no longer 0.  The planner
+    used to grow every level into leftover capacity, so a default-coverage run at test scale
+    barely reordered at all; it now fields exactly the declaration, the shelves are smaller,
+    and one `_admit_held` refill pass fires.  That is a correct behavioural consequence, not
+    a regression — but the HELD path proper (`HeldItems.append`, the retry touches) is still
+    dark under `--config none`, which is the claim this test exists to keep honest, and the
+    claim the staged-config test above is the other half of.
     """
     flows = _flows_for('none')
-    assert flows['held_appends'] == 0 and flows['refill_passes'] == 0, (
+    assert flows['held_appends'] == 0 and flows['held_retry_touches'] == 0, (
         f'the default configuration reached the held path after all: {flows}. If that is '
-        f'deliberate, the "cfg=none does not exercise it" message is now a lie.')
+        f'deliberate, the staged-config test is no longer measuring anything the default '
+        f'does not already cover.')
 
 
 # ── a knee is the shape a single fit hides ────────────────────────────────────────

@@ -42,7 +42,7 @@ class Order:
     # generated order carries NO level (the slots are UNSET, `stock_declared()` is False), and
     # exactly one method, `declare_stock`, writes all four -- called by the coverage
     # derivation at setup (`simconfig/coverage.rescale_section`), by the warehouse planner
-    # when it packs the level (`inventory_planning.sample_to_capacity`) and by the loader for
+    # when it records the packing (`inventory_planning.field_requirement`) and by the loader for
     # a run's own planned inventory, whose `stock_levels` table carries the declaration.
     # 'pipeline_qty' is the stamped lead pipeline (department-calibration, "Build the line
     # floor"): None = not stamped, and `pipeline_allowance()` falls back to the manager's

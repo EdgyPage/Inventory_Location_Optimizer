@@ -126,7 +126,7 @@ def _build_mixed_warehouse(seed=2, num_skus=240):
     plan = Inventory_Manager.plan_warehouse(
         orders, categories=['food', 'clothing'], handlings=['conveyable', 'non-conveyable'],
         aisle_width=aisle_width_for(50), aisle_height=aisle_height_for(10),
-        target_fill=0.85, rng=random.Random(seed + 1))
+        target_fill=0.85)
     wh = Warehouse_Builder().from_config(plan.warehouse_cfg).build()
     mgr = Inventory_Manager(wh, affinity=None)
     mgr.enqueue_all(plan.sampled)

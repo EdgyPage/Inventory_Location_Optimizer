@@ -593,15 +593,19 @@ def main():
              'equilibrium band: |realized - expected| utilization tolerance, absolute'),
             # Stock coverage in DAYS of each SKU's own demand: under the era setup
             # re-derives every SKU's order-up-to and reorder point from these and sizes the
-            # warehouse through a pair-level fixed point (simdriver/era_coverage.py); the
-            # catalogue's generation-batch coverage is the flag-off shape only.
+            # warehouse through a pair-level fixed point (simdriver/era_coverage.py).  These
+            # three are NOT era-only: ADR-0002 left the catalogue with no level to fall back
+            # on, so the fixed point runs in every mode and the era flag decides only whether
+            # the clock cuts and caps.  `--coverage-days` is therefore the lever that makes a
+            # run small -- a bin CAP cannot, because a smaller warehouse is a shorter trip and
+            # the derived lines/day (and so the levels) rise to meet it.
             ('--coverage-days', 'coverage_days', _positive_float,
-             "stock coverage: order-up-to = days x the SKU's daily demand (era only)"),
+             "stock coverage: order-up-to = days x the SKU's daily demand"),
             ('--safety-days', 'safety_days', _nonneg_float,
-             'safety stock: reorder point = demand over (lead + safety) days (era only)'),
+             'safety stock: reorder point = demand over (lead + safety) days'),
             ('--floor-lines', 'floor_lines', _positive_float,
              "the line floor: Q and the reorder point never below this many of the SKU's "
-             'own mean line, rounded up; a floored SKU runs base stock (era only)')):
+             'own mean line, rounded up; a floored SKU runs base stock')):
         parser.add_argument(_flag, type=_type, default=CONFIG['global'][_key], metavar='X',
                             help=f'{_what[0].upper()}{_what[1:]} (default '
                                  f'{CONFIG["global"][_key]}).')
@@ -903,7 +907,10 @@ def main():
                 f'{_floor_bins:,} bins ({_floor_aisles} aisles: one per '
                 f'{len(_HANDLINGS)}x{len(_CATEGORIES)}x5 bucket so every SKU is placeable). '
                 f'The cap will NOT be honored and the store will size to the floor. This is '
-                f'a property of the handling/category configuration, not of --max-skus.')
+                f'a property of the handling/category configuration, not of --max-skus. '
+                f'And the floor is one aisle a bucket, which almost certainly cannot hold the '
+                f'levels this run declares -- expect the plan to REFUSE. To make a run small, '
+                f'shrink the declaration (--coverage-days) or the catalogue (--max-skus).')
     if args.resume and spec:
         log.info('  Resuming from run_spec.json — run-shaping params reconstructed; no retyped flags needed')
     log.info(f'Output directory : {base_dir}')

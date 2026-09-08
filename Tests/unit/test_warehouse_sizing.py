@@ -46,6 +46,7 @@ assertions could not fail the suite.  Do not re-introduce it.
 """
 from __future__ import annotations
 
+import inspect
 import math
 import os
 import random
@@ -59,6 +60,7 @@ import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 
+from Optimization.config.sim_config import CONFIG
 from Warehouse.layout.Aisle_Dimensions import aisle_width_for, aisle_height_for
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.catalog.Affinity_Store import AffinityStore
@@ -72,7 +74,9 @@ from Warehouse.generation.generate_inventory import (
 from Warehouse.inventory.Inventory_Management import (
     Inventory_Manager, Placement, _SIZE_RANKS,
 )
-from Warehouse.inventory.inventory_common import UndeclaredStock
+from Warehouse.inventory.inventory_common import (
+    UndeclaredStock, UnfieldableRequirement,
+)
 from Warehouse.placement.Assignment_Functions import (
     build_ranked_minimizing_assignment_fn, build_ranked_maximizing_assignment_fn,
     build_uniform_aisle_trip_min_assignment_fn,
@@ -176,21 +180,17 @@ def _make_carton(sku: int, eq_qty: int, length=8, width=8, height=6,
 
 
 def _plan(inv, **kw):
+    """The one planning call this file makes.  There was a second (`_plan_kw`) that differed
+    only in its sampling seed, so the min_bins / composition tests could not be perturbed by a
+    change to the main plan's; planning is DETERMINISTIC since "Field the requirement" (every
+    SKU is fielded at exactly its declaration, so there is no contest for capacity to seed)
+    and the two collapsed into this one."""
     return Inventory_Manager.plan_warehouse(
         inv.orders,
         categories=_CATEGORIES, handlings=_HANDLINGS,
         aisle_width=_AISLE_W, aisle_height=_AISLE_H,
-        target_fill=_TARGET, rng=random.Random(42), **kw,
+        target_fill=_TARGET, **kw,
     )
-
-
-def _plan_kw(inv, **kw):
-    """Same as _plan with a different sampling RNG — kept separate so the min_bins /
-    composition tests cannot be perturbed by a change to the main plan's seed."""
-    return Inventory_Manager.plan_warehouse(
-        inv.orders, categories=_CATEGORIES, handlings=_HANDLINGS,
-        aisle_width=_AISLE_W, aisle_height=_AISLE_H, target_fill=_TARGET,
-        rng=random.Random(1), **kw)
 
 
 def _build_wh(plan, seed):
@@ -324,48 +324,112 @@ def test_uncapped_capacity_covers_the_sampled_demand_in_every_bucket():
         f'{len(over)} bucket(s) demand more than capacity; (bucket, need, have) = {over[:3]}')
 
 
-def test_bin_and_aisle_caps_are_respected_without_breaking_the_floor():
-    """Caps are a hard ceiling, and the 60-aisle floor is a hard base. Both at once.
+def test_a_bin_cap_that_binds_below_the_requirement_refuses_and_names_the_bucket():
+    """A cap and a stock declaration are two statements by the same person that contradict.
 
-    Honouring one at the expense of the other is the easy bug: shrink to fit `max_bins` by
-    dropping whole buckets, and the plan is under the cap and structurally broken.
+    The planner used to honour the cap and let the levels come out short, which is how a
+    third of a section came to be fielded below its own line floor — a treadmill under base
+    stock, and invisible: every per-bucket capacity assertion in this file stayed green
+    through it.  So the run REFUSES ("Field the floor", decision 3), and the message has to
+    name the bucket and the shortfall or the operator cannot act on it.
     """
     inv  = _inventory(120, seed=9)
     base = _plan(inv)                              # uncapped, to pick a cap below it
-    cap_bins   = int(base.total_bins * 0.6)
-    cap_aisles = int(base.total_aisles * 0.7)
-    plan = _plan(inv, max_bins=cap_bins, max_aisles=cap_aisles)
+    cap_bins = int(base.total_bins * 0.6)
 
-    assert plan.total_bins <= cap_bins, f'{plan.total_bins} bins > max_bins {cap_bins}'
-    assert plan.total_aisles <= cap_aisles, (
-        f'{plan.total_aisles} aisles > max_aisles {cap_aisles}')
+    with pytest.raises(UnfieldableRequirement) as exc:
+        _plan(inv, max_bins=cap_bins)
 
-    starved = [(h, cat, s) for h in _HANDLINGS for cat in _CATEGORIES for s in _TIERS
-               if plan.capacity.get((h, cat, s, 'pallet'), 0) <= 0]
-    assert not starved, (
-        f'{len(starved)} pallet bucket(s) lost all capacity under the caps, e.g. {starved[:3]}')
+    # Read the STRUCTURED shortfall, never the prose.  The message names all three possible
+    # causes in one sentence and truncates the bucket list at twelve (this cap starves 37),
+    # so a substring search over it can neither identify the bucket nor the cause — and it
+    # stays green with every per-bucket line deleted.
+    short = exc.value.short
+    assert short, 'the refusal carries no structured shortfall'
+    for bucket, need, cap, budget in short:
+        assert len(bucket) == 4, f'not a BinKey: {bucket!r}'
+        assert need > budget, (
+            f'{bucket} is listed short but needs {need} of {budget} available')
+        assert 0 <= budget <= cap, f'{bucket}: budget {budget} outside 0..{cap}'
+    starved = {b for b, *_ in short}
+    assert starved <= set(base.requirement), (
+        f'the refusal names buckets that carry no requirement: {starved - set(base.requirement)}')
+    assert all(base.fielding[b]['requirement'] == need for b, need, _c, _bud in short), (
+        'the refusal quotes a requirement the uncapped plan disagrees with')
 
 
-def test_a_cap_below_the_sixty_aisle_floor_clamps_to_the_floor():
-    """`max_aisles=10` is impossible — 60 buckets need 60 aisles.
+def test_an_aisle_cap_below_the_sixty_bucket_floor_refuses():
+    """`max_aisles=10` is impossible — 60 buckets need 60 aisles, one each.
 
-    The floor must win, because the alternative is a plan that satisfies the cap and cannot
-    hold the inventory.  A silently-honoured impossible cap is worse than a rejected one.
+    `_apply_caps` still clamps to that structural floor and warns, because a plan that
+    satisfies the cap and cannot hold the inventory is worse than a rejected one.  What has
+    changed is that clamping to the floor is no longer the END of the story: 60 aisles hold
+    one aisle's worth of every bucket, the declared levels need more than that, and the
+    promise check is what turns the warning into a refusal.
     """
-    plan = _plan(_inventory(40, seed=11), max_aisles=10)
+    with pytest.raises(UnfieldableRequirement, match=r'cannot hold the stock levels') as exc:
+        _plan(_inventory(40, seed=11), max_aisles=10)
+    assert all(cap > 0 for _b, _n, cap, _bud in exc.value.short), (
+        'a bucket was trimmed to zero capacity — `_apply_caps` stopped honouring the '
+        f'one-aisle-per-bucket floor: {exc.value.short[:3]}')
 
-    assert plan.total_aisles >= 60, (
-        f'{plan.total_aisles} aisles — max_aisles=10 was honoured over the 60-bucket floor')
-    empty = [k for k, v in plan.capacity.items() if v <= 0]
-    assert not empty, f'{len(empty)} bucket(s) with no capacity, e.g. {empty[:3]}'
+
+def test_an_uncapped_plan_covers_every_bucket_requirement_at_the_declared_fill():
+    """The promise itself, stated the way the planner checks it: emitted x fill >= need.
+
+    THESE ARE RESTATEMENTS, deliberately.  Each one is implied by `plan_warehouse` having
+    returned at all — `requirement > budget` IS the refusal condition — so none is an
+    independent oracle, and a reader should not mistake them for one.  They earn their place
+    against the combined failure the refusal cannot catch on its own: sizing that under-sizes
+    AND a promise check that has been removed or defanged.  `expected_fill` is here for a
+    different reason: it is the only bound left on that field since the cross-tier fill test
+    it used to live in was retired, and it is persisted into a schema-governed column.
+    """
+    plan = _plan(_inventory(120, seed=9))
+    short = [(b, t) for b, t in plan.fielding.items() if t['requirement'] > t['budget']]
+    assert not short, f'{len(short)} bucket(s) short of their requirement, e.g. {short[:3]}'
+    assert sum(t['requirement'] for t in plan.fielding.values()) == sum(
+        plan.requirement.values()), 'the fielding table and the requirement disagree'
+    assert all(t['free'] >= 0 for t in plan.fielding.values()), (
+        'a bucket reports negative free bins')
+
+    # expected_fill is now "the share of emitted bins the declared levels occupy" — the bins
+    # the requirement asks for over the bins built.  It can never exceed the fill the sizing
+    # targeted, because every bucket was sized at `ceil(need / (eff x fill))`.
+    assert 0.0 < plan.expected_fill <= _TARGET + 1e-9, (
+        f'expected_fill {plan.expected_fill:.4f} outside (0, {_TARGET}]')
+    assert abs(plan.expected_fill
+               - sum(plan.requirement.values()) / plan.total_bins) < 1e-9, (
+        'expected_fill is not the requirement over the emitted bins')
+    assert _plan(_inventory(120, seed=9), sample=False).expected_fill == 0.0, (
+        'a shape-only plan fields nothing, so it has no fill to report')
+
+
+def test_planning_the_same_catalogue_twice_gives_the_same_plan():
+    """Determinism, as a test rather than a docstring claim.
+
+    The planner used to shuffle the orders and hold a seeded contest for bin capacity, so two
+    plans of one catalogue differed unless the caller passed the same `rng`.  Fielding the
+    declaration removed the contest, and `plan_warehouse` no longer takes a seed at all — so
+    the packing, the capacity and the requirement must agree exactly, every time.
+    """
+    a = _plan(_inventory(80, seed=5))
+    b = _plan(_inventory(80, seed=5))
+    assert a.capacity == b.capacity and a.requirement == b.requirement
+    assert ([c.stock_plan for c in a.sampled] == [c.stock_plan for c in b.sampled]), (
+        'two plans of one catalogue packed its SKUs differently')
+    assert 'rng' not in inspect.signature(
+        Inventory_Manager.plan_warehouse.__func__).parameters, (
+        'plan_warehouse took a seed again — planning is deterministic, and a seed that '
+        'changes nothing is a knob with no consumer')
 
 
 def test_min_bins_scales_the_warehouse_up_past_its_natural_size():
     """The lever that makes a warehouse deliberately roomy (a low-contention arm)."""
     inv    = _inventory(60, seed=5)
-    base   = _plan_kw(inv)
+    base   = _plan(inv)
     target = base.total_bins * 3 + 20000           # well above the natural size
-    plan   = _plan_kw(inv, min_bins=target)
+    plan   = _plan(inv, min_bins=target)
 
     assert plan.total_bins >= target, f'{plan.total_bins} bins < min_bins {target}'
     empty = [k for k, v in plan.capacity.items() if v <= 0]
@@ -374,7 +438,7 @@ def test_min_bins_scales_the_warehouse_up_past_its_natural_size():
 
 def test_min_bins_wins_when_it_contradicts_max_bins():
     """A config can set both; the floor is the one that keeps the plan feasible."""
-    plan = _plan_kw(_inventory(60, seed=5), min_bins=30000, max_bins=5000)
+    plan = _plan(_inventory(60, seed=5), min_bins=30000, max_bins=5000)
     assert plan.total_bins >= 30000, (
         f'{plan.total_bins} bins — max_bins=5000 was applied over min_bins=30000')
 
@@ -389,14 +453,14 @@ def test_a_composition_vector_sets_the_bin_tier_ratios():
     """
     comp = {'unit': {'pallet': 0.7, 'singleton': 0.3},
             'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}
-    plan = _plan_kw(_inventory(60, seed=5), min_bins=20000, composition=comp)
+    plan = _plan(_inventory(60, seed=5), min_bins=60000, composition=comp)
 
     bins: dict = defaultdict(int)
     for (_h, _c, s, u), n in plan.capacity.items():
         bins['singleton' if u == 'singleton' else s] += n
     tot = sum(bins.values())
 
-    assert tot >= 20000, f'{tot} bins < min_bins 20000 with a composition vector'
+    assert tot >= 60000, f'{tot} bins < min_bins 60000 with a composition vector'
     singleton_frac = bins['singleton'] / tot
     assert abs(singleton_frac - 0.30) < 0.05, (
         f'singleton share {singleton_frac:.1%}, asked for 30% (+/-5pp)')
@@ -408,8 +472,55 @@ def test_a_composition_vector_sets_the_bin_tier_ratios():
             f'{size} tier is {frac:.1%} of pallet bins, asked for {want:.0%} (+/-5pp)')
 
 
+def test_the_sampler_and_the_fixed_distribution_are_gone_and_stay_gone():
+    """Two retirements, guarded so they cannot drift back in unnoticed.
+
+    `sample_to_capacity` held a contest for bin capacity and re-declared each order at what
+    it won; `mode` / `distribution` / `target_bins` spread fulfillment's bins by a fixed
+    ratio that ignored the demand mix.  A retired KNOB is the more dangerous of the two: a
+    sizing dict is assembled from CONFIG and restored from a run spec, and a key nobody reads
+    is how a caller comes to believe it asked for something it did not get.  So the planner
+    refuses one rather than ignoring it, and CONFIG must not carry one to refuse.
+    """
+    assert not hasattr(Inventory_Manager, 'sample_to_capacity'), (
+        'sample_to_capacity is back — the planner fields the requirement, it does not sample')
+    retired = {'mode', 'distribution', 'target_bins'}
+    for ch in ('store', 'fulfillment'):
+        present = retired & set(CONFIG['channels'][ch]['sizing'])
+        assert not present, f"CONFIG['channels'][{ch!r}]['sizing'] carries {sorted(present)}"
+
+    inv = _inventory(40, seed=11)
+    sizing = {'store': {'fill': _TARGET}, 'fulfillment': {'fill': _TARGET}}
+    ok = _plan(inv, regime_sizing=sizing)
+    with pytest.raises(ValueError, match=r'no longer reads'):
+        _plan(inv, regime_sizing={'store': {'fill': _TARGET},
+                                  'fulfillment': {'fill': _TARGET, 'mode': 'fixed',
+                                                  'distribution': {'ff_small': 1.0}}})
+    assert ok.capacity, 'the control plan built nothing, so the refusal above proves little'
+
+
+def test_a_composition_vector_that_starves_a_bucket_refuses():
+    """The basis vector is checked against the promise exactly as a cap is.
+
+    It allocates bins by RATIO, so a warehouse can be the right size overall and still leave
+    a bucket short — the same shape of failure as the retired fulfillment tier distribution,
+    which spread bins 0.5/0.3/0.2 while the levels needed 11/63/26.  The scale here is well
+    inside the boundary (five buckets short, the worst by 200 bins of 319, against a boundary
+    that sits between 20,000 and 25,000) so the test measures the rule, not the edge.
+    """
+    comp = {'unit': {'pallet': 0.7, 'singleton': 0.3},
+            'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}
+    with pytest.raises(UnfieldableRequirement) as exc:
+        _plan(_inventory(60, seed=5), min_bins=8000, composition=comp)
+    assert len(exc.value.short) >= 2, (
+        f'only {len(exc.value.short)} bucket(s) short — this scale is meant to be well '
+        f'inside the refusal boundary, not on it: {exc.value.short}')
+    worst = max(need - bud for _b, need, _c, bud in exc.value.short)
+    assert worst >= 50, f'the worst shortfall is only {worst} bins; the fixture has drifted'
+
+
 # ═════════════════════════════════════════════════════════════════════════════
-# Sampling: capacity respected, all tiers used, resampling arithmetic
+# Fielding: the declaration is what the warehouse holds
 # ═════════════════════════════════════════════════════════════════════════════
 
 def test_sampling_never_exceeds_per_bucket_capacity():
@@ -427,76 +538,75 @@ def test_sampling_never_exceeds_per_bucket_capacity():
         f'(bucket, sampled, capacity) = {over[:3]}')
 
 
-def test_cross_tier_fill_uses_every_pallet_tier_not_just_the_natural_one():
-    """A flexible SKU can be packed into several tiers; the sampler must spread it.
+def test_fielding_is_the_declaration_exactly_neither_grown_nor_shrunk():
+    """The one planner contract, on a whole catalogue: what was declared is what is fielded.
 
-    With natural-only palletization each SKU lands in exactly one tier, the tiers it does
-    not reach sit near-empty, and expected fill stalls far below target — while every
-    per-bucket assertion above stays perfectly green.
+    Both directions were live defects, and both were silent.  Phase 2 GREW 64,989 SKUs into
+    leftover capacity, so a level the record called declared was not the level the run held
+    and the fill rate priced pre-plan disagreed with the one priced post-plan.  Phase 1's
+    emptiest-bucket rule left others SHORT of their own line floor, which under base stock is
+    a treadmill — the SKU is picked for exactly its shelf every day and its remainder grows
+    without bound.  Neither shows up in a capacity assertion; both show up here.
     """
     inv       = _inventory(80, seed=5)
-    eq_before = {c.sku: c.equilibrium_qty for c in inv.orders}
+    declared  = {c.sku: c.equilibrium_qty for c in inv.orders}
+    rp_before = {c.sku: c.reorder_point for c in inv.orders}
     plan      = _plan(inv)
 
-    assert plan.expected_fill <= _TARGET + 0.02, (
-        f'expected_fill {plan.expected_fill:.2%} overshoots the {_TARGET:.0%} target')
-    assert plan.expected_fill >= 0.70, (
-        f'expected_fill only {plan.expected_fill:.2%}; cross-tier fill is not engaging')
-
-    dem  = Inventory_Manager.bucket_requirements(plan.sampled)
-    used: dict = defaultdict(int)
-    cap:  dict = defaultdict(int)
-    for (_h, _c, s, _u), n in dem.items():
-        used[s] += n
-    for (_h, _c, s, _u), n in plan.capacity.items():
-        cap[s] += n
-
-    for tier in _TIERS:
-        assert cap[tier], f'{tier} tier has no capacity at all'
-        frac = used[tier] / cap[tier]
-        assert frac >= 0.50, (
-            f'{tier} tier only {used[tier]}/{cap[tier]} = {frac:.0%} used — flexible units '
-            f'are not spreading into it')
-
-    resampled = sum(1 for c in plan.sampled
-                    if c.equilibrium_qty > eq_before.get(c.sku, c.equilibrium_qty))
-    assert resampled >= 1, (
-        'no SKU had its equilibrium_qty grown to fill spare space — resampling is inert')
+    assert len(plan.sampled) == len(inv.orders), (
+        f'{len(plan.sampled)} of {len(inv.orders)} orders fielded — the planner drops none')
+    for c in plan.sampled:
+        slots = c.stock_plan
+        assert slots, f'SKU {c.sku} was fielded with no packing plan'
+        total = sum(per * count for _flag, per, count in slots)
+        assert total == declared[c.sku] == c.equilibrium_qty, (
+            f'SKU {c.sku}: declared {declared[c.sku]}, fielded {total}, order-up-to now '
+            f'{c.equilibrium_qty} — the planner grew or shrank a level it was handed')
+        assert c.reorder_point == rp_before[c.sku], (
+            f'SKU {c.sku}: reorder point moved {rp_before[c.sku]} -> {c.reorder_point}; the '
+            f'planner has no opinion about the policy it was handed')
 
 
-def test_resampling_grows_equilibrium_and_keeps_the_reorder_point_ratio():
-    """Growing `equilibrium_qty` without growing `reorder_point` changes the POLICY.
+def test_the_fielded_packing_is_the_one_the_warehouse_was_sized_from():
+    """Sizing and fielding must read the SAME statement, or the promise is a coincidence.
 
-    A SKU resampled from eq=4 to eq=40 with reorder_point left at 2 now restocks at 5% of
-    its target instead of 50% — it runs empty between restocks for the whole run, and the
-    only visible effect is a service level nobody measured.  The ratio is what must survive.
+    `bucket_requirements` counts the bins the declared levels need by packing each SKU;
+    `field_requirement` records that packing as the SKU's `stock_plan`, so every later reorder
+    rebuilds the same tier mix.  Re-counting the fielded orders therefore has to reproduce
+    `plan.requirement` bucket for bucket — the old sampler's re-choice of tier is exactly what
+    made this false, and it charged buckets budgeted for other SKUs.
     """
-    c = _make_carton(1, eq_qty=4)                  # small footprint -> reaches many tiers
-    eq0, rp0 = c.equilibrium_qty, c.reorder_point
-    ratio = rp0 / eq0
+    plan = _plan(_inventory(150, seed=13))
+    assert Inventory_Manager.bucket_requirements(plan.sampled) == plan.requirement, (
+        'the packing the planner FIELDED disagrees with the one it SIZED from')
+    for b, n in plan.requirement.items():
+        assert n <= plan.capacity.get(b, 0), (
+            f'bucket {b} needs {n} bins and {plan.capacity.get(b, 0)} were emitted')
 
-    shc = c.storage_handle_config
-    capacity = {(shc.handling, shc.category, size, 'pallet'): 100 for size in _TIERS}
-    capacity[(shc.handling, shc.category, 'singleton', 'singleton')] = 100
 
-    sampled, _allow = Inventory_Manager.sample_to_capacity(
-        [c], capacity, target_fill=1.0, rng=random.Random(1))
-    assert sampled, 'the only order was not selected despite 500 free bins'
-    sc = sampled[0]
+def test_a_sku_is_fielded_whole_at_the_packing_its_level_implies():
+    """The ticket's worked example, in the small, against a HAND-COMPUTED oracle.
 
-    assert sc.equilibrium_qty > eq0, (
-        f'equilibrium_qty stayed at {sc.equilibrium_qty} with 500 bins of free space')
-    want_rp = max(1, min(sc.equilibrium_qty - 1, round(ratio * sc.equilibrium_qty)))
-    assert sc.reorder_point == want_rp, (
-        f'eq {eq0}->{sc.equilibrium_qty} but rp {rp0}->{sc.reorder_point}, expected '
-        f'{want_rp} to preserve the {ratio:.2f} ratio')
+    A 16x16x20 SKU declared at 13 units packs as four medium pallets of three plus a
+    one-item singleton remainder — five bins across two buckets.  Both halves matter: the
+    four identical pallets exercise the run-length MERGE, and the singleton remainder is the
+    slot the `not isinstance(u, Pallet)` trap silently turned into a partial pallet, charging
+    a bucket the warehouse was not sized for.  The emptiest-bucket rule this replaced left
+    25,241 single-tier SKUs (15.8% of the reference section) two to six units short of their
+    own line floor.
+    """
+    c = _make_carton(1, eq_qty=13, length=16, width=16, height=20)
+    fielded, allow = Inventory_Manager.field_requirement([c])
 
-    plan = getattr(sc, 'stock_plan', None)
-    assert plan, f'no stock_plan assigned after resampling: {plan!r}'
-    total = sum(per * count for _tier, per, count in plan)
-    assert total == sc.equilibrium_qty, (
-        f'stock_plan RLE slots sum to {total}, not equilibrium_qty {sc.equilibrium_qty} — '
-        f'the plan and the target disagree and the worker will queue the difference')
+    assert allow == {c.sku} and len(fielded) == 1, f'{len(fielded)} order(s) fielded'
+    assert c.stock_plan == [(False, 3, 4), (True, 1, 1)], (
+        f'expected four merged pallets of 3 plus a singleton of 1, got {c.stock_plan}')
+    total = sum(per * count for _flag, per, count in c.stock_plan)
+    assert total == 13, f'declared 13 units, fielded {total}'
+    assert Inventory_Manager.bucket_requirements([c]) == {
+        ('conveyable', 'food', 'medium', 'pallet'): 4,
+        ('conveyable', 'food', 'singleton', 'singleton'): 1,
+    }, f'the fielded packing charges {Inventory_Manager.bucket_requirements([c])}'
 
 
 # ═════════════════════════════════════════════════════════════════════════════

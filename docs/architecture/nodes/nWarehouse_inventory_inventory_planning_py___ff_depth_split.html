@@ -20,9 +20,15 @@ that share the same BinKey), so a placement wave can route hot SKUs to shallow a
 
 Each class is {&#x27;columns&#x27;: n, &#x27;share&#x27;: w}; its aisle_width = n·FULFILLMENT_BIN_WIDTH and it
 holds ~ (share) of `target_bins` worth of bins.  Returns (classes, total_bins) where
-classes = [(aisle_width, n_aisles, eff_per_aisle), …].  Preserves total bins (± rounding)
+classes = [(aisle_width, n_aisles, eff_per_aisle), …].  Preserves total bins (rounding UP)
 while growing the aisle count; guarantees ≥1 aisle per positive-share class so no tier is
-dropped.  Classes with columns &lt; 1 bin width or non-positive share are skipped.</section>
+dropped.  Classes with columns &lt; 1 bin width or non-positive share are skipped.
+
+The aisle count rounds UP for the same reason `_aisle_split`&#x27;s does: the bins a bucket was
+sized for are the bins its declared levels need, and `_demand_replicas` leaves only the
+~3% slack of one `ceil`.  Rounding each class down spends that slack on nothing — measured
+at 85 to 295 bins short on a single depth class over a 4,000-SKU catalogue, which is a
+REFUSED run.  Over-emitting is free bins; under-emitting is a run that will not start.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_layout_Aisle_Dimensions_py__catalog_aisle_bins.html"><code>catalog_aisle_bins</code></a> <span class="dim">Warehouse/layout/Aisle_Dimensions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_plan_warehouse.html"><code>plan_warehouse</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_planning_py___ff_depth_split">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_planning.py#:~:text=def%20_ff_depth_split">Source ↗</a></p>
 </article>

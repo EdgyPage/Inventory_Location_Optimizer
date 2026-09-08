@@ -3,10 +3,19 @@
 Localises the per-(handling, category, size, unit_type) bucket mismatch behind a deep
 `_stock_queue` coexisting with global fill below target.  Two views:
 
-  SIZING  — per bucket: built capacity (bins), the `stock_plan` SPREAD footprint that
-            initial stock places, and the DEFAULT-PACK footprint a dumb-JIT warehouse
-            would need (bucket_requirements with stock_plan stripped).  Plus default-pack
-            timing, since retiring stock_plan would put that packing back on the hot path.
+  SIZING  — per bucket: built capacity (bins), the `stock_plan` footprint the run's initial
+            stock places, and the DEFAULT-PACK footprint the same levels need with the plan
+            stripped.  Plus default-pack timing, since retiring stock_plan would put that
+            packing back on the hot path.
+
+            THOSE TWO COLUMNS ARE NOW THE SAME STATEMENT, and reading them is how you check
+            it.  The planner used to SPREAD a SKU's units across whichever tiers had the
+            most free bins, so the plan and the default packing genuinely differed and this
+            view measured the gap.  Since "Field the requirement" the plan IS the default
+            packing at the declared level — `field_requirement` records exactly what
+            `bucket_requirements` counted — so a bucket where the columns disagree is a
+            planner that fielded something other than what it sized from, which is the one
+            failure the whole contract exists to prevent.
 
   RUNTIME — runs a short single-process FIFO sim (mirrors strategy_runner's loop) and
             snapshots per-bucket {occupied, free, queued units} + the global fill / queue
@@ -148,8 +157,9 @@ def sizing_view(planned_inv_db: str, warehouse, planned_cartons: list, log) -> N
 
     total_bins = sum(cap.values())
     print('\n' + '=' * 96)
-    print('SIZING VIEW  — capacity vs stock_plan SPREAD vs default-pack (dumb-JIT) demand')
-    print('               both footprints at the levels THIS RUN declared (planned inventory)')
+    print('SIZING VIEW  — capacity vs stock_plan footprint vs default-pack footprint')
+    print('               both at the levels THIS RUN declared (planned inventory); since')
+    print('               "Field the requirement" they must AGREE bucket for bucket')
     print('=' * 96)
     print(f'{"bucket":<32}{"capacity":>9}{"spread":>9}{"sprd%":>7}'
           f'{"default":>9}{"dflt%":>7}')

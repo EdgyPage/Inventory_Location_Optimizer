@@ -71,3 +71,5 @@
 - [Windows console is cp1252](windows-console-is-cp1252.md) — a patch script that prints λ/·/— dies mid-run under cp1252 and half-applies; export PYTHONIOENCODING=utf-8 and make replacements idempotent
 - [Immutable readers see only the checkpointed file](immutable-readers-see-only-the-checkpointed-file.md) — a test that fakes a vintage in place must checkpoint + close + assert the bound id first, or the loader silently reads the old page image
 - [Warehouse size comes from the levels](warehouse-size-comes-from-the-levels.md) — bin count is demand-derived from the stock levels on every planning path (sample=False included), so an undeclared catalogue silently builds a warehouse an order of magnitude too small
+- [One planner contract](field-the-requirement-one-planner-contract.md) — the planner fields the declaration exactly; Singleton/FulfillmentBin SUBCLASS Pallet, and both aisle splits must round UP or they refuse the run
+- [A bin cap is self-defeating](a-bin-cap-is-self-defeating.md) — a max-bins cap now refuses when it binds, and cannot shrink a run anyway (a smaller warehouse raises lines/day, which grows the levels); use --coverage-days

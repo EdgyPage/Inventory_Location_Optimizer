@@ -211,8 +211,10 @@ def fill_rate(orders, lines_per_day: float) -> dict:
     level is read against: `1 - fill_rate` is the expected missed share.  With a lead the
     shelf a line meets is `Q_s` minus what is still in transit, so the number is an UPPER bound
     on the fill rate there (the record carries the stamped pipeline beside it).  Call it on the
-    PLANNED orders -- the planner may grow a level into leftover capacity, and the shelf that
-    serves the line is the one the run fields.  Returns `{'fill_rate', 'expected_missed_share',
+    PLANNED orders: the shelf that serves the line is the one the run fields, which since
+    "Field the requirement" is the declared one exactly (the planner no longer grows a level
+    into leftover capacity), so pre-plan and post-plan now price the same number.  Returns
+    `{'fill_rate', 'expected_missed_share',
     'units_per_day', 'served_per_day', 'base_stock_skus', 'base_stock_share', 'n_skus',
     'pipeline_units'}` -- the last is Σ `pipeline_qty` over the section, 0 when the premise
     holds exactly.

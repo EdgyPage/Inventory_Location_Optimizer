@@ -143,6 +143,37 @@ class ScenarioAssets:
     sizes     : dict = field(default_factory=dict)
 
 
+def _warm_the_fit_caches(orders) -> None:
+    """Fill `Storage_Primitive`'s geometry `lru_cache`s for every SKU x every tier, before
+    any tracer starts.
+
+    THE FRAMEWORK'S DETERMINISM GATE DEPENDS ON THIS, and used to get it by accident.  The
+    tracer counts real calls, and `_tiered_fit_dims` / `_singleton_fit_dims` are cached — so
+    a call counted in one capture is a cache hit (uncounted) in the next, and two same-seed
+    captures disagree.  The retired `sample_to_capacity._reachable` enumerated every SKU
+    against every tier while planning, which warmed the caches broadly before the first
+    capture; `field_requirement` touches only the tiers each SKU actually lands in, so the
+    warming has to be asked for.  Doing it here keeps the counts REAL (the alternative,
+    excluding the cached leaves from `counts_fingerprint`, hides work the tracer exists to
+    measure).
+    """
+    from Warehouse.layout.Storage_Primitive import (      # noqa: E402
+        Pallet, Singleton, FulfillmentBin, _max_qty_fits)
+    from Warehouse.inventory.inventory_common import (    # noqa: E402
+        _max_qty_fitting_size, _SIZES_DESCENDING, _FF_SIZES_DESCENDING)
+    from Warehouse.kernel.regime import FULFILLMENT, regime_of   # noqa: E402
+    for c in orders:
+        if regime_of(c) == FULFILLMENT:
+            for size in _FF_SIZES_DESCENDING:
+                _max_qty_fitting_size(c, size, FULFILLMENT)
+            _max_qty_fits(c, FulfillmentBin)
+            continue
+        for size in _SIZES_DESCENDING:
+            _max_qty_fitting_size(c, size, 'pallet')
+        _max_qty_fits(c, Pallet)
+        _max_qty_fits(c, Singleton)
+
+
 def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
                  n_pickers: int = 10, seed: int = 42, target_fill: float = 0.85,
                  strategy: str = DEFAULT_STRATEGY,
@@ -163,8 +194,9 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
     `inventory_common._equilibrium_qty` to size each bin bucket — and that raises
     `UndeclaredStock` on an order no run has declared a level for (ADR-0002). Declaring
     after the plan would therefore not merely mis-size the warehouse, it would not build one
-    at all. `sample_to_capacity` then RE-declares each sampled order at the quantity it
-    actually packed, keeping the rp/eq ratio fielded here.
+    at all. `field_requirement` then records the packing on each order, at the quantity it
+    was declared for -- it neither grows nor shrinks the level, so the rp/eq ratio set here
+    is the one the run fields.
     """
     strat = STRATEGY_BY_KEY[strategy]
 
@@ -177,7 +209,8 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
     plan = Inventory_Manager.plan_warehouse(
         pool.orders, categories=_CATEGORIES, handlings=_HANDLINGS,
         aisle_width=n_cols * 48, aisle_height=20 * 48,
-        target_fill=target_fill, rng=random.Random(seed + 1))
+        target_fill=target_fill)
+    _warm_the_fit_caches(plan.sampled)
     inventory = Inventory(plan.sampled)
     affinity  = _build_affinity_store(inventory, top_k=20, seed=seed)
 

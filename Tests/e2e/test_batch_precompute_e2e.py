@@ -127,7 +127,11 @@ def test_e2e_worker_consumes_identical_batches(tmp_path):
     build_pair = str(tmp_path / 'build' / label)
     os.makedirs(build_pair, exist_ok=True)
     shared = rs.build_shared_assets(
-        inv_db, aff_db, log, max_skus=250, max_bins=20000, min_bins=5000,
+        # No `max_bins`: see the note in Tests/e2e/test_receiving_e2e.py -- a bin cap that
+        # binds below the run's DECLARED levels now refuses, and under the coverage fixed
+        # point a cap is self-defeating besides (a smaller warehouse is a shorter trip, so
+        # the derived lines/day RISES and the levels grow with it).
+        inv_db, aff_db, log, max_skus=250, min_bins=5000,
         keyframe_interval=2, warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
     cfg = rs.REGRESSION_CONFIGS[0]
 

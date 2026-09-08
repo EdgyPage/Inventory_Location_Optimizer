@@ -1,4 +1,4 @@
-"""bench_sample_to_capacity.py — perf benchmark for warehouse planning.
+"""bench_plan_warehouse.py — perf benchmark for warehouse planning.
 
 Times Inventory_Manager.plan_warehouse on increasingly large synthetic
 inventories and counts geometry _can_fit calls (the dominant cost in
@@ -8,12 +8,11 @@ per-bin fill loop, while expected_fill stays unchanged.
 
 Not part of the pass/fail suite.  Run directly:
     cd Tests/bench
-    python bench_sample_to_capacity.py
+    python bench_plan_warehouse.py
 """
 from __future__ import annotations
 
 import os
-import random
 import sys
 import time
 
@@ -63,7 +62,6 @@ def _bench(n_skus: int) -> None:
     plan = Inventory_Manager.plan_warehouse(
         inv.orders, categories=_CATEGORIES, handlings=_HANDLINGS,
         aisle_width=_AW, aisle_height=_AH, target_fill=0.85,
-        rng=random.Random(1),
     )
     dt = time.perf_counter() - t0
     fits_per_bin = _fit_calls / plan.total_bins if plan.total_bins else 0.0

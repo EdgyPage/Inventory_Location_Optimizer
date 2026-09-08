@@ -277,8 +277,8 @@ CONFIG = {
             # aisle_split (optional): cut each aisle into k shorter segments (~depth/k) with a
             # capacity_loss modeling throughway construction.  None/{'k':1} = no split
             # (byte-identical).  e.g. {'k': 2, 'capacity_loss': 0.15}.
-            'sizing'     : {'mode': 'demand', 'min_bins': None, 'max_bins': None,
-                            'max_aisles': None, 'composition': None, 'aisle_split': None},
+            'sizing'     : {'min_bins': None, 'max_bins': None, 'max_aisles': None,
+                            'composition': None, 'aisle_split': None},
             # Velocity zoning: restrict each unit's viable aisles to its velocity band
             # ("like-with-like"), composing with every arm.  enabled=False = byte-identical.
             # mode 'equal' (default, equal-count bands) | 'abc' (manual A/B/C by demand-mass
@@ -294,8 +294,12 @@ CONFIG = {
             'seed_offset': FF_BATCH_SEED_OFFSET,
             'batch'      : {'mean': _s.FF_BATCH_MEAN, 'std': _s.FF_BATCH_STD},
             'fill'       : _s.FF_FILL,
-            # Fixed tier distribution (ignores ff demand mix) scaled to a bin target:
-            # target_bins (or --ff-min-bins) sets the scale, else the demand-derived total.
+            # Sized from the requirement, exactly as the store is.  There was a fixed tier
+            # distribution here (0.5/0.3/0.2 across ff_small/ff_medium/ff_large, scaled to a
+            # target_bins); it is retired because it ignored the ff demand mix, and the
+            # declared levels need 11/63/26 -- so ff_medium ran 293k bins short on a section
+            # that was, in total, the right size, and 30% of its SKUs were fielded below
+            # their line floor (.scratch/department-calibration, "Field the floor" 8).
             # depth_classes (optional): split each ff size tier's aisles into shallow/deep
             # SHAPES sharing one BinKey, so velocity zoning / trip-min can route hot SKUs to
             # shallow (low-travel) aisles.  Each = {'columns': n, 'share': w}; None = one width
@@ -303,11 +307,8 @@ CONFIG = {
             #                          {'columns':100,'share':0.3}]
             # aisle_split (optional): cut each aisle into k shorter segments with a capacity_loss
             # (throughway construction).  None/{'k':1} = byte-identical.  e.g. {'k':2,'capacity_loss':0.15}.
-            'sizing'     : {'mode': 'fixed',
-                            'distribution': {'ff_small': 0.5, 'ff_medium': 0.3, 'ff_large': 0.2},
-                            'depth_classes': None, 'aisle_split': None,
-                            'target_bins': None, 'min_bins': None, 'max_bins': None,
-                            'max_aisles': None},
+            'sizing'     : {'depth_classes': None, 'aisle_split': None,
+                            'min_bins': None, 'max_bins': None, 'max_aisles': None},
             # Velocity zoning is the fulfillment experiment axis (default off = byte-identical);
             # pairs with depth_classes/aisle_split so hot SKUs cluster into shallow aisles.
             'velocity_zoning': _deepcopy(_s.ZONING_OFF),
@@ -822,8 +823,9 @@ def _checkpoint_every(n_batches: int) -> int:
 
 
 def regime_sizing_from_config() -> dict:
-    """Assemble the per-regime warehouse-sizing dict from CONFIG (store demand/composition +
-    caps; fulfillment fixed tier distribution + caps), each with its own fill headroom.  Used
+    """Assemble the per-regime warehouse-sizing dict from CONFIG (both regimes sized from the
+    declared levels; store composition + caps; ff aisle shape), each with its own fill
+    headroom -- the share of each bucket those levels occupy at setup.  Used
     by both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE — ff
     aisle layout + total_bins — matches; sizing the two paths differently would misgroup ff
     aisle stats and skew churn %."""

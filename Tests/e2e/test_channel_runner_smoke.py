@@ -93,7 +93,11 @@ def test_mixed_fanout_writes_per_channel_dbs(tmp_path, monkeypatch):
     inv_db, aff_db = _mixed_dbs(tmp_path)
     build_pair = str(tmp_path / 'build' / 'mixed'); os.makedirs(build_pair, exist_ok=True)
     shared = rs.build_shared_assets(
-        inv_db, aff_db, log, max_skus=300, max_bins=40000, min_bins=3000,
+        # No `max_bins`: see the note in Tests/e2e/test_receiving_e2e.py -- a bin cap that
+        # binds below the run's DECLARED levels now refuses, and under the coverage fixed
+        # point a cap is self-defeating besides (a smaller warehouse is a shorter trip, so
+        # the derived lines/day RISES and the levels grow with it).
+        inv_db, aff_db, log, max_skus=300, min_bins=3000,
         keyframe_interval=1, warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
 
     pair_dir = str(tmp_path / 'run' / 'mixed'); os.makedirs(pair_dir, exist_ok=True)
@@ -158,7 +162,11 @@ def test_mixed_analysis_replicates_per_channel(tmp_path, monkeypatch):
     inv_db, aff_db = _mixed_dbs(tmp_path)
     build_pair = str(tmp_path / 'build' / 'mixed'); os.makedirs(build_pair, exist_ok=True)
     shared = rs.build_shared_assets(
-        inv_db, aff_db, log, max_skus=200, max_bins=40000, min_bins=2000,
+        # No `max_bins`: see the note in Tests/e2e/test_receiving_e2e.py -- a bin cap that
+        # binds below the run's DECLARED levels now refuses, and under the coverage fixed
+        # point a cap is self-defeating besides (a smaller warehouse is a shorter trip, so
+        # the derived lines/day RISES and the levels grow with it).
+        inv_db, aff_db, log, max_skus=200, min_bins=2000,
         keyframe_interval=1, warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
 
     base_dir = str(tmp_path / 'run')

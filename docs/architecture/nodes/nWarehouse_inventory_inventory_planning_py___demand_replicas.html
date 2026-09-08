@@ -14,9 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>_demand_replicas</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a></p>
 
-<pre class="sig"><code>def _demand_replicas(buckets, req, eff_fn, target_fill) -&gt; dict</code></pre>
-<section class="doc">Demand-driven replicas: max(1, ceil(bucket_demand / (bins_per_aisle · fill))).</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_plan_warehouse.html"><code>plan_warehouse</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section>
+<pre class="sig"><code>def _demand_replicas(buckets, req, eff_fn, fill_fn) -&gt; dict</code></pre>
+<section class="doc">Demand-driven replicas: max(1, ceil(bucket_requirement / (bins_per_aisle · fill))).
+
+`fill_fn(bucket)` is the EFFECTIVE fill — the declared `store_fill`/`ff_fill` already
+divided down by an aisle split&#x27;s capacity loss (`_split_inflation`), so a split&#x27;s
+sacrificed bins are paid for in replicas here rather than discovered as a shortfall at
+the promise check.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_plan_warehouse.html"><code>plan_warehouse</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li><li><a href="nWarehouse_inventory_inventory_planning_py___demand_total.html"><code>_demand_total</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_planning_py___demand_replicas">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_planning.py#:~:text=def%20_demand_replicas">Source ↗</a></p>
 </article>
 </main>

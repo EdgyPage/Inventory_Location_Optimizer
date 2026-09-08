@@ -238,7 +238,7 @@ def trace_strategy(strategy_key: str, *, n_skus: int, bins_per_aisle: int,
     plan = Inventory_Manager.plan_warehouse(
         pool.orders, categories=_CATEGORIES, handlings=_HANDLINGS,
         aisle_width=n_cols * 48, aisle_height=20 * 48,
-        target_fill=fill, rng=random.Random(seed + 1))
+        target_fill=fill)
     inventory = Inventory(plan.sampled)
     affinity  = _build_affinity_store(inventory, top_k=20, seed=seed)
     pick_cfg  = PickConfig(num_pickers=n_pickers, x_speed=1.0, y_speed=0.5,

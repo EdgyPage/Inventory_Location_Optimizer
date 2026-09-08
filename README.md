@@ -271,8 +271,8 @@ python -m Optimization.run_simulation --resume <run_dir>                 # zero 
 | `--workers` | 1 | process-pool size (flat; every unit shares one pool) |
 | `--analysis-workers` | = `--workers` | pool size for the post-run analysis |
 | `--n-batches` | (CONFIG: 100) | batches per run |
-| `--max-skus` | — | cap the catalogue for a smaller/faster warehouse |
-| `--s-max-bins` / `--ff-max-bins` | — | cap store / fulfillment bin counts (also `--s-min-bins`, `--ff-min-bins`, `--s-max-aisles`, `--ff-max-aisles`) |
+| `--max-skus` | — | cap the catalogue for a smaller/faster warehouse — with `--coverage-days`, the way to make a run small |
+| `--s-max-bins` / `--ff-max-bins` | — | cap store / fulfillment bin counts (also `--s-min-bins`, `--ff-min-bins`, `--s-max-aisles`, `--ff-max-aisles`). **A cap that binds below what the run's declared levels need REFUSES the run** and names the bucket: the warehouse is sized to hold the line floor, and fielding less than it is a treadmill under base stock. A cap is also self-defeating under the coverage fixed point — a smaller warehouse is a shorter trip, so the derived lines/day rises and the levels grow with it. Shrink the declaration (`--coverage-days`) or the catalogue (`--max-skus`) instead |
 | `--keyframe-interval` | (CONFIG: 25) | full bin snapshot every K batches (0 disables). Not the reconstruction mechanism — the bin-mutation log is; a keyframe is its independent audit and a qty anchor |
 | `--max-tasks-per-child` | 1 | recycle a pool worker after N jobs |
 | `--resume` | — | resume from a run directory; flags are read back from `run_spec.json` |

@@ -144,7 +144,11 @@ def _run_one_arm(tmp_path, monkeypatch, *, standing, allocation='split', n_batch
     inv_db, aff_db = _store_dbs(tmp_path)
     build_pair = str(tmp_path / 'build'); os.makedirs(build_pair, exist_ok=True)
     shared = rs.build_shared_assets(
-        inv_db, aff_db, log, max_skus=250, max_bins=40000, min_bins=3000,
+        # No `max_bins`: a bin cap that binds below what the run's DECLARED levels need
+        # now refuses the plan rather than fielding less (department-calibration, "Field
+        # the floor", decision 3), and this fixture's cap sat below the 60-bucket
+        # structural floor anyway -- it was already being warned past, not honoured.
+        inv_db, aff_db, log, max_skus=250, min_bins=3000,
         keyframe_interval=0, warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
 
     pair_dir = str(tmp_path / 'run'); os.makedirs(pair_dir, exist_ok=True)
@@ -215,9 +219,14 @@ def test_the_degenerate_merged_run_writes_a_byte_identical_db(tmp_path, monkeypa
 # ── layer 3: containment — split moves labor stamps only ─────────────────────────
 
 def test_the_split_run_differs_only_in_receive_labor_stamps(tmp_path, monkeypatch):
-    db_v1, _ = _run_one_arm(tmp_path / 'v1', monkeypatch, standing=False)
+    # TEN batches, not the six the other lockstep test runs: the containment this asserts is
+    # only observable while two trailers are staged against the crew at once, and six batches
+    # of this catalogue fire barely a handful of reorders (7 receive rows against 89 at ten).
+    # The run has to reach a replenishment rhythm before "split" and "whole" can differ, and
+    # the non-vacuity assertion below is what keeps that honest.
+    db_v1, _ = _run_one_arm(tmp_path / 'v1', monkeypatch, standing=False, n_batches=10)
     db_sp, _ = _run_one_arm(tmp_path / 'sp', monkeypatch, standing=True,
-                            allocation='split')
+                            allocation='split', n_batches=10)
     d1, d2 = _dump(db_v1), _dump(db_sp)
     assert set(d1) == set(d2)
     _assert_yard_is_observed_only_when_there_is_a_yard(db_v1, db_sp)
@@ -320,7 +329,11 @@ def test_the_yard_family_renders_from_a_standing_run(tmp_path, monkeypatch):
     inv_db, aff_db = _store_dbs(tmp_path)
     build_pair = str(tmp_path / 'build'); os.makedirs(build_pair, exist_ok=True)
     shared = rs.build_shared_assets(
-        inv_db, aff_db, log, max_skus=250, max_bins=40000, min_bins=3000,
+        # No `max_bins`: a bin cap that binds below what the run's DECLARED levels need
+        # now refuses the plan rather than fielding less (department-calibration, "Field
+        # the floor", decision 3), and this fixture's cap sat below the 60-bucket
+        # structural floor anyway -- it was already being warned past, not honoured.
+        inv_db, aff_db, log, max_skus=250, min_bins=3000,
         keyframe_interval=0, warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
 
     base_dir = str(tmp_path / 'run')

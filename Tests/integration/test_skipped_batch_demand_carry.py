@@ -83,7 +83,11 @@ def _run(tmp_path, monkeypatch, *, roll_over, skip_at=_SKIP_AT, n_skus=150):
 
     build = str(tmp_path / 'build'); os.makedirs(build, exist_ok=True)
     shared = rs.build_shared_assets(
-        inv_db, aff_db, log, max_skus=n_skus, max_bins=40000, min_bins=3000,
+        # No `max_bins`: a bin cap that binds below what the run's DECLARED levels need
+        # now refuses the plan rather than fielding less (department-calibration, "Field
+        # the floor", decision 3), and this fixture's cap sat below the 60-bucket
+        # structural floor anyway -- it was already being warned past, not honoured.
+        inv_db, aff_db, log, max_skus=n_skus, min_bins=3000,
         keyframe_interval=0, warehouse_db_path=os.path.join(build, 'warehouse.db'))
     pair = str(tmp_path / 'run'); os.makedirs(pair, exist_ok=True)
     mixed, runs = rs._channel_runs_for(shared['inventory'])

@@ -45,6 +45,7 @@ from Optimization.config.sim_config import (CONFIG, CALIBRATION_KEYS, channel_pi
 from Optimization.simconfig import coverage as _cov
 from Optimization.simconfig import expected_travel as _et
 from Optimization.simconfig import staffing as _staffing
+from Warehouse.kernel.regime import FULFILLMENT as _FULFILLMENT
 from Warehouse.layout.Storage_Primitive import viable_storage_units
 
 #: Which staffing input overrides each channel's expected s_pick.
@@ -305,6 +306,50 @@ def next_guess(points: list) -> float:
     return float(math.exp(x))
 
 
+def fielded_block(section: list, plan, regime: str | None, floor_lines: float) -> dict:
+    """What the plan actually FIELDED for one channel section, as the record's proof that the
+    line floor's promise was kept ("Field the floor", decision 11).
+
+        {'n_skus', 'fielded_sum_q', 'declared_sum_q',
+         'below_floor_skus',        # fielded below the SKU's own line floor: the promise BROKEN
+         'above_declaration_skus',  # fielded above its declaration: the retired phase-2 growth
+         'buckets': [{handling, category, size, unit, requirement, capacity, free}, ...]}
+
+    The growth counter is `above_DECLARATION_skus`, not "above floor" as decision 11 sketched
+    it.  On the pair that produced this map the two coincided -- 100% of both sections sat ON
+    the floor, so a level above the floor WAS a grown one -- but on any catalogue where
+    coverage exceeds the floor, "SKUs above their floor" is nearly all of them and reads as an
+    alarm.  What is worth zero is the count of levels the planner moved.
+
+    Both counts are read off each order's recorded `stock_plan` -- the packing the warehouse
+    holds -- not off the level it was asked for, so they can disagree with the declaration and
+    say so.  Under the one planner contract they are zero by construction; the point of
+    stamping them is that a reader can see the promise was TESTED rather than asserted, and
+    the pair that produced this map (30.3% of the fulfillment section below floor, 64,989 SKUs
+    grown above it) is exactly what a nonzero reading would look like.
+    """
+    below = above = 0
+    fielded_q = declared_q = 0
+    for c in section:
+        plan_slots = getattr(c, 'stock_plan', None) or []
+        q_fielded  = sum(int(per) * int(count) for _flag, per, count in plan_slots)
+        q_declared = int(c.equilibrium_qty)
+        fielded_q  += q_fielded
+        declared_q += q_declared
+        if q_fielded < _cov.line_floor(c.demand.line, floor_lines):
+            below += 1
+        if q_fielded > q_declared:
+            above += 1
+    is_ff = (regime == _FULFILLMENT)
+    rows = [{'handling': b[0], 'category': b[1], 'size': b[2], 'unit': b[3],
+             'requirement': t['requirement'], 'capacity': t['capacity'], 'free': t['free']}
+            for b, t in sorted((plan.fielding or {}).items(), key=lambda kv: repr(kv[0]))
+            if regime is None or (b[3] == _FULFILLMENT) == is_ff]
+    return {'n_skus': len(section), 'fielded_sum_q': int(fielded_q),
+            'declared_sum_q': int(declared_q), 'below_floor_skus': int(below),
+            'above_declaration_skus': int(above), 'buckets': rows}
+
+
 def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
                 safety_days: float, floor_lines: float, inputs: dict, day_seconds: float,
                 log: logging.Logger, tol: float = _cov.DEFAULT_TOL,
@@ -320,15 +365,18 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
 
         {'coverage_days', 'safety_days', 'floor_lines', 'tol', 'max_rounds', 'rounds': [...],
          'seed': {'method': 'analytic_pick', 'lines_per_day': {channel: n}},   # round 0
-         'final': {channel: rescale stats + 'fill'},    # the declared levels, pre-plan, and
-                                                        #   the fill rate at the PLANNED ones
+         'final': {channel: rescale stats + 'fill' + 'fielded'},   # the declared levels, the
+                                                        #   fill rate at them, and the proof
+                                                        #   the plan fielded exactly them
          'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},
          'converged': bool}
 
-    `final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields
-    (the planner grows a level into leftover capacity, so the shelf that serves a line is the
-    planned one): the expected first-pass fill rate the audit reads `missed_share` against,
-    and the base-stock share AFTER planning.
+    `final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields:
+    the expected first-pass fill rate the audit reads `missed_share` against, and the
+    base-stock share after planning.  Priced post-plan for a reason that no longer bites --
+    the planner used to grow a level into leftover capacity, so the shelf that served a line
+    was not the one declared -- and it now equals the pre-plan price by construction, which
+    is what `final[<channel>]['fielded']` (`fielded_block`) states and this loop RAISES on.
     """
     if int(max_rounds) < 1:
         raise ValueError(f'the coverage loop needs at least one rescaling round; got '
@@ -391,12 +439,34 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     # the fixed point's line count -- `missed_share`'s expectation, and the base-stock share
     # after planning.
     for s in specs:
-        fill = _cov.fill_rate(_staffing.regime_orders(sampled, s.regime), n[s.name])
+        section = _staffing.regime_orders(sampled, s.regime)
+        fill = _cov.fill_rate(section, n[s.name])
         stats[s.name]['fill'] = fill
+        fielded = fielded_block(section, plan, s.regime, floor_lines)
+        stats[s.name]['fielded'] = fielded
         log.info(f"  [coverage] {s.name}: expected first-pass fill rate {fill['fill_rate']:.3f} "
                  f"(expected missed share {fill['expected_missed_share']:.3f}) over the planned "
                  f"levels; {fill['base_stock_share']:.1%} of {fill['n_skus']:,} planned SKUs run "
                  f"base stock")
+        log.info(f"  [coverage] {s.name}: fielded {fielded['fielded_sum_q']:,} units against a "
+                 f"declared {fielded['declared_sum_q']:,} -- {fielded['below_floor_skus']:,} SKUs "
+                 f"below their line floor, {fielded['above_declaration_skus']:,} above their "
+                 f"declaration, {sum(r['free'] for r in fielded['buckets']):,} free bins over "
+                 f"{len(fielded['buckets'])} bucket(s)")
+        # The promise, stated as an equality rather than a hope.  `plan_warehouse` refuses a
+        # warehouse that cannot hold the declaration, and `field_requirement` fields exactly
+        # it -- so a section that fields anything else means the two halves of the planner's
+        # one contract have drifted apart, and every number derived from this record (the
+        # fill rate, the audit's expected missed share, the derivation's put-away load) is
+        # priced on levels the run does not hold.
+        if fielded['fielded_sum_q'] != fielded['declared_sum_q'] or fielded['below_floor_skus']:
+            raise ValueError(
+                f'{s.name}: the plan fielded {fielded["fielded_sum_q"]:,} units against a '
+                f'declared {fielded["declared_sum_q"]:,}, with '
+                f'{fielded["below_floor_skus"]:,} SKU(s) below their line floor and '
+                f'{fielded["above_declaration_skus"]:,} above their declaration. The planner fields '
+                f'the requirement exactly (ADR-0002, "Field the requirement"); a difference '
+                f'here is a packing that disagrees with the one the warehouse was sized from.')
     record['final'] = stats
     record['lines_per_day'] = n
     record['residual'] = {k: (n[k] / prev[k] - 1.0) if prev.get(k) else 0.0 for k in n}

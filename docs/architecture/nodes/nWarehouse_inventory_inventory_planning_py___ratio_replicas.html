@@ -16,7 +16,8 @@
 
 <pre class="sig"><code>def _ratio_replicas(buckets, weight_fn, eff_fn, target_total: float) -&gt; dict</code></pre>
 <section class="doc">Replicas allocated proportionally to weight_fn(bucket), scaled to ~target_total bins.
-Used by the composition basis vector (store) and the fixed fulfillment tier distribution.</section>
+Used by the store&#x27;s composition basis vector -- the only caller left since fulfillment&#x27;s
+fixed tier distribution was retired.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_plan_warehouse.html"><code>plan_warehouse</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_planning_py___ratio_replicas">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_planning.py#:~:text=def%20_ratio_replicas">Source ↗</a></p>
 </article>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fielded_block · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_era_coverage_py__fielded_block" data-id="Optimization/simdriver/era_coverage.py::fielded_block">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>fielded_block</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>fielded_block</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def fielded_block(section: list, plan, regime: str | None, floor_lines: float) -&gt; dict</code></pre>
+<section class="doc">What the plan actually FIELDED for one channel section, as the record&#x27;s proof that the
+line floor&#x27;s promise was kept (&quot;Field the floor&quot;, decision 11).
+
+    {&#x27;n_skus&#x27;, &#x27;fielded_sum_q&#x27;, &#x27;declared_sum_q&#x27;,
+     &#x27;below_floor_skus&#x27;,        # fielded below the SKU&#x27;s own line floor: the promise BROKEN
+     &#x27;above_declaration_skus&#x27;,  # fielded above its declaration: the retired phase-2 growth
+     &#x27;buckets&#x27;: [{handling, category, size, unit, requirement, capacity, free}, ...]}
+
+The growth counter is `above_DECLARATION_skus`, not &quot;above floor&quot; as decision 11 sketched
+it.  On the pair that produced this map the two coincided -- 100% of both sections sat ON
+the floor, so a level above the floor WAS a grown one -- but on any catalogue where
+coverage exceeds the floor, &quot;SKUs above their floor&quot; is nearly all of them and reads as an
+alarm.  What is worth zero is the count of levels the planner moved.
+
+Both counts are read off each order&#x27;s recorded `stock_plan` -- the packing the warehouse
+holds -- not off the level it was asked for, so they can disagree with the declaration and
+say so.  Under the one planner contract they are zero by construction; the point of
+stamping them is that a reader can see the promise was TESTED rather than asserted, and
+the pair that produced this map (30.3% of the fulfillment section below floor, 64,989 SKUs
+grown above it) is exactly what a nonzero reading would look like.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__line_floor.html"><code>line_floor</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__fixed_point.html"><code>fixed_point</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_era_coverage_py__fielded_block">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/era_coverage.py#:~:text=def%20fielded_block">Source ↗</a></p>
+</article>
+</main>
+</body></html>

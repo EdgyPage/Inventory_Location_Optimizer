@@ -15,9 +15,15 @@
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_cells_py.html"><code>Optimization/simdriver/cells.py</code></a></p>
 
 <pre class="sig"><code>def _tightest_split(cells)</code></pre>
-<section class="doc">The split with the largest capacity_loss (fewest bins).  Freezing the sampled
-inventory to it guarantees every roomier cell can hold it (the frozen inventory
-always fits).</section>
+<section class="doc">The split with the largest capacity_loss.  Freezing the sampled inventory to it is
+how a multi-cell sweep guarantees every cell can hold the same inventory.
+
+&quot;Largest loss&quot; no longer means &quot;fewest bins&quot;, and has not since &quot;Field the requirement&quot;:
+`_split_inflation` adds compensatory aisles at sizing time, so a lossier split can emit
+MORE bins than no split at all.  The freeze is still correct, and now for a stronger
+reason -- every cell is sized from the same declaration and REFUSES if it cannot hold it,
+so which split we freeze against no longer decides whether the inventory fits.  Kept as
+the freeze point because the choice must be deterministic and cell-order-independent.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_scenario_py___run_whatif_matrix.html"><code>_run_whatif_matrix</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_cells_py___tightest_split">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/cells.py#:~:text=def%20_tightest_split">Source ↗</a></p>
 </article>

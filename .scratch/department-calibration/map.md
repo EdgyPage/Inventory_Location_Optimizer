@@ -88,6 +88,13 @@ regime someone chose rather than one the defaults inherited.
 - Root `CONTEXT.md` already carries the settled terms (*Working day* amended, *Duty
   cycle* added, 2026-09-01).
 - Tracker conventions: `docs/agents/issue-tracker.md` (Wayfinding operations).
+- **A run is made small by its DECLARATION, never by a bin cap** (found while building
+  [Field the requirement](issues/23-field-the-requirement.md), 2026-09-07). A `max_bins` /
+  `max_aisles` cap that binds below what the levels need now refuses -- and it is self-defeating
+  anyway: the coverage fixed point sizes the warehouse from the levels and reads the levels back
+  off the geometry, so a smaller warehouse is a shorter trip, a higher derived lines/day, and
+  BIGGER levels than the cap was containing. `--coverage-days` (with `--max-skus`) is the lever;
+  the preflight canary and eight test fixtures were moved onto it.
 - **Put-away fills an empty bin first** (decided 2026-09-07,
   [Let a base-stock top-up reach the shelf](issues/20-let-a-base-stock-top-up-reach-the-shelf.md),
   ADR-0003): a top-up consolidates into the SKU's own bin only when no empty bin fits, ahead of
@@ -332,18 +339,45 @@ regime someone chose rather than one the defaults inherited.
   `implied_coverage`. Flag-off and era-on derive IDENTICAL levels and the identical warehouse
   (measured). All nine gates green.
 
+- [Field the requirement](issues/23-field-the-requirement.md): LANDED. The planner has ONE
+  contract -- `_packing` answers sizing and fielding in a single pass, so every bucket is sized
+  from what the declared levels need and every SKU is fielded at exactly its declaration,
+  packed the way that statement counted it. `sample_to_capacity` is gone (no re-choice, no
+  growth, no shrink, no `rng` in planning); fulfillment's fixed tier distribution is retired
+  and RAISES rather than being ignored; the promise is checked on EMITTED capacity per bucket
+  and refuses with `UnfieldableRequirement`, which carries the shortfall structurally.
+  `coverage.final[<ch>].fielded` stamps the proof and `fixed_point` raises on it (the key is
+  `above_declaration_skus`, not the ticket's "above floor" -- the two coincided only because
+  that pair sat 100% ON the floor). THE CHECK: re-planning the check run's pair at its own
+  recorded line count gives **0 SKUs below floor and 0 grown on BOTH sections** (was 30.3% and
+  64,989), sum Q equal to the declaration, and fulfillment at **1,232 aisles against the run's
+  977** -- 19's predicted number. Three defects found: `Singleton`/`FulfillmentBin` SUBCLASS
+  `Pallet` (so the packing flag must be tested positively), and BOTH aisle splits rounded to
+  nearest and sacrificed more than the declared loss (`_ff_depth_split` refused 30 of ~90
+  depth-class configs). Two consequences: a bin cap is now SELF-DEFEATING under the fixed point
+  (a smaller warehouse raises the derived lines/day and so the levels -- `--coverage-days` is
+  the lever, and the preflight canary moved onto it), and the aisle split now trades aisles for
+  travel rather than capacity for travel, so archived `ks` sweeps are not comparable.
+
 ## Not yet specified
 
 - **Re-reading the check.** Once
-  [Build the empty-first top-up](issues/24-build-the-empty-first-top-up.md) and
-  [Field the requirement](issues/23-field-the-requirement.md) resolve (22 landed 2026-09-07,
-  unblocking 23), ONE 40-day run on the
+  [Build the empty-first top-up](issues/24-build-the-empty-first-top-up.md) resolves (23
+  landed 2026-09-07 and is now the only fielding the check can read), ONE 40-day run on the
   reference pair re-reads 17's check (21 resolved 2026-09-07: the store leaf's audit renders
-  again, so that run's store audit will be read, not raised). 19 settled that the floor is a promise, so the
-  fulfillment warehouse WILL grow (demand sizing alone took it 977 -> 1,232 aisles; exact
-  fielding is 23's number to report); which arms is still dim. Until then the era's numbers on both sections are provisional and the inbound
-  funnel's lift ([Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md)) has
-  not happened.
+  again, so that run's store audit will be read, not raised). The fulfillment warehouse HAS
+  grown -- 977 -> 1,232 aisles, exact fielding, 0 SKUs below floor on both sections (23) --
+  so the treadmill that drove 17's fulfillment leaf is gone by construction and the check is
+  reading a different regime; which arms it runs is still dim. Until then the era's numbers on
+  both sections are provisional and the inbound funnel's lift
+  ([Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md)) has not happened.
+- **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
+  inflation changed what a split arm trades: aisles for travel, not capacity for travel (it
+  used to raise fill by shrinking the shelf under a fixed stock, and `cells._tightest_split`'s
+  rationale assumed that). A `ks` sweep is therefore not comparable to an archived one, and
+  whether the axis should keep the inflation, opt out of it per arm, or be re-framed as an
+  aisle-count cost is a decision nobody has made -- dim until an inbound or layout effort
+  wants to run one.
 - **Ranked arms' steady-state placement.** 13 found FIFO drifts to the class-uniform smear; a
   ranked restock keeps its placement concentrated, so its initial-placement expectation is a
   proxy, not a steady state. Whether the audit's per-arm band should follow the placement as it

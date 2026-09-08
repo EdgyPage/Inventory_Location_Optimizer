@@ -1,7 +1,7 @@
 # context/ — machine-parsable flow + artifact specs
 
 last-synced-commit: 72bbffbee4598a515e5e18ff5e03d5d1a71e9c52  <!-- updated by the context-maintainer agent after each sync -->
-arch-synced-commit: 5c4a8e208b54576ec657c4833e082bef5473f8b2  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/); working tree also includes the uncommitted ADR-0002 stock-declaration change -->
+arch-synced-commit: 697f312832cb73041086bdf8dd4ff7095785991a  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/); working tree also includes the uncommitted department-calibration ticket 23 "field the requirement" change (inventory_planning.py rewrite + era_coverage.fielded_block) -->
 
 Verifiable documentation of the pipeline's code flow, designed for BOTH humans and
 downstream design programs (the MkDocs results site, Claude Design). Every

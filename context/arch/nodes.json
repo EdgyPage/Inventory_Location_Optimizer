@@ -2,7 +2,7 @@
   "nodes": {
     "Diagnostics/bucket_fill.py": {
       "decorators": [],
-      "doc": "bucket_fill.py \u2014 read-only diagnostic for the queue-blowup / sub-target-fill bug.\n\nLocalises the per-(handling, category, size, unit_type) bucket mismatch behind a deep\n`_stock_queue` coexisting with global fill below target.  Two views:\n\n  SIZING  \u2014 per bucket: built capacity (bins), the `stock_plan` SPREAD footprint that\n            initial stock places, and the DEFAULT-PACK footprint a dumb-JIT warehouse\n            would need (bucket_requirements with stock_plan stripped).  Plus default-pack\n            timing, since retiring stock_plan would put that packing back on the hot path.\n\n  RUNTIME \u2014 runs a short single-process FIFO sim (mirrors strategy_runner's loop) and\n            snapshots per-bucket {occupied, free, queued units} + the global fill / queue\n            trajectory, flagging buckets >95% full (overflow) and <40% full (waste).\n\nBOTH SIDES OF THE SIZING VIEW READ THE RUN'S PLANNED INVENTORY, never the catalogue.\nA stock level is a run's declaration and a generated catalogue carries none (ADR-0002):\n`load_inventory_from_db` on a profile DB returns orders whose level slots are UNSET, and\n`bucket_requirements` over those is a caller bug \u2014 `_equilibrium_qty` raises\n`UndeclaredStock` rather than answering the 1 it used to, which would have sized the\nDEFAULT column at one unit per SKU instead of at what default packing needs.  The\nwarehouse planner's `stock_plan` survives ADR-0002 untouched; only its provenance moved,\nfrom a column the generator authored to the packing the planner writes for the level a\nrun declared.\n\nNothing here mutates production data; it only reads DBs and runs an in-memory sim.\n\nUsage\n-----\n    python Diagnostics/bucket_fill.py [profile_label_or_inv_db] [--max-skus N]\n        [--batches N] [--max-bins N] [--min-bins N]",
+      "doc": "bucket_fill.py \u2014 read-only diagnostic for the queue-blowup / sub-target-fill bug.\n\nLocalises the per-(handling, category, size, unit_type) bucket mismatch behind a deep\n`_stock_queue` coexisting with global fill below target.  Two views:\n\n  SIZING  \u2014 per bucket: built capacity (bins), the `stock_plan` footprint the run's initial\n            stock places, and the DEFAULT-PACK footprint the same levels need with the plan\n            stripped.  Plus default-pack timing, since retiring stock_plan would put that\n            packing back on the hot path.\n\n            THOSE TWO COLUMNS ARE NOW THE SAME STATEMENT, and reading them is how you check\n            it.  The planner used to SPREAD a SKU's units across whichever tiers had the\n            most free bins, so the plan and the default packing genuinely differed and this\n            view measured the gap.  Since \"Field the requirement\" the plan IS the default\n            packing at the declared level \u2014 `field_requirement` records exactly what\n            `bucket_requirements` counted \u2014 so a bucket where the columns disagree is a\n            planner that fielded something other than what it sized from, which is the one\n            failure the whole contract exists to prevent.\n\n  RUNTIME \u2014 runs a short single-process FIFO sim (mirrors strategy_runner's loop) and\n            snapshots per-bucket {occupied, free, queued units} + the global fill / queue\n            trajectory, flagging buckets >95% full (overflow) and <40% full (waste).\n\nBOTH SIDES OF THE SIZING VIEW READ THE RUN'S PLANNED INVENTORY, never the catalogue.\nA stock level is a run's declaration and a generated catalogue carries none (ADR-0002):\n`load_inventory_from_db` on a profile DB returns orders whose level slots are UNSET, and\n`bucket_requirements` over those is a caller bug \u2014 `_equilibrium_qty` raises\n`UndeclaredStock` rather than answering the 1 it used to, which would have sized the\nDEFAULT column at one unit per SKU instead of at what default packing needs.  The\nwarehouse planner's `stock_plan` survives ADR-0002 untouched; only its provenance moved,\nfrom a column the generator authored to the packing the planner writes for the level a\nrun declared.\n\nNothing here mutates production data; it only reads DBs and runs an in-memory sim.\n\nUsage\n-----\n    python Diagnostics/bucket_fill.py [profile_label_or_inv_db] [--max-skus N]\n        [--batches N] [--max-bins N] [--min-bins N]",
       "kind": "module",
       "signature": null
     },
@@ -1761,7 +1761,7 @@
     },
     "Optimization/Performance_Evaluations/catalog/inventory.py": {
       "decorators": [],
-      "doc": "catalog.inventory \u2014 the stock levels this run DECLARED, published as a distribution.\n\nWHY THIS EXISTS.  A page has to say how much stock the simulation held, and the honest answer\nhas never been a formula.  It used to fail to be a formula for a particular reason: the\nCATALOGUE authored each SKU's order-up-to quantity and reorder point, the published pages\nrestated the generator's closed form, and measured against the run's own file that form\nreproduced neither quantity \u2014 `sample_to_capacity` rescaled both to fit the warehouse after\nthe planner had spoken.  So this tool scored the candidate closed forms against the stored\nvalues and published the implied rescale beside them, on the principle that \"neither formula\nholds\" should be a measurement rather than an assertion.\n\nBoth of those measurements are now about a mechanism that no longer exists.  ADR-0002 retired\nthe authored level: a stock level is not a fact about a SKU, and a generated catalogue carries\nnone.  Every run DERIVES its levels at setup from a coverage in DAYS\n(`Optimization/simconfig/coverage.py`, driven to a pair-level fixed point by\n`Optimization/simdriver/era_coverage.py`) and records them in its own planned inventory.  No\nclosed form authors a level any more, so a reproduction rate would score the agreement of two\nthings the run never used, and the planner growth the rescale ratio measured has no generator\nfigure left to grow away from.  Both blocks are gone.  What remains is the reason the tool\nexisted in the first place: PUBLISH THE DISTRIBUTION the run actually stocked.\n\nWHAT THIS EMITS.  Per inventory pair: the realised distribution of the three declared levels\n(order-up-to quantity, reorder point, lead pipeline) and of the lead time the reorder point is\ndenominated in, how many SKUs the run declared on, how many carry a hand-written packing plan,\nand THE DECLARATION ITSELF \u2014 `coverage_days` / `safety_days` / `floor_lines`, read off the\nrun's own staffing record (`staffing.calibration[<pair>].coverage`), which is where a run\nstates what produced these numbers.  A page renders the distribution and names the\ndeclaration; change the declaration and both change with it.\n\nWHICH FILE, AND HOW IT IS READ.  The `planned_inventory` contract alias \u2014 a RUN'S OWN planned\ninventory, never a generated catalogue, because only a run declares.  Read through\n`Schema.dataset`'s named queries instead of hand-written SQL against `cartons`: the\n`stock_levels` query serves the declaration out of the table that holds it on a current file\nand, through its per-vintage override, out of `cartons` on every archived one.  So an old run\nstill reports the levels it fielded, under the same logical names, with no version branch\nhere.",
+      "doc": "catalog.inventory \u2014 the stock levels this run DECLARED, published as a distribution.\n\nWHY THIS EXISTS.  A page has to say how much stock the simulation held, and the honest answer\nhas never been a formula.  It used to fail to be a formula for a particular reason: the\nCATALOGUE authored each SKU's order-up-to quantity and reorder point, the published pages\nrestated the generator's closed form, and measured against the run's own file that form\nreproduced neither quantity \u2014 the planner then rescaled both to fit the warehouse it had\nalready built (`sample_to_capacity`, since retired).  So this tool scored the candidate\nclosed forms against the stored values and published the implied rescale beside them, on\nthe principle that \"neither formula holds\" should be a measurement rather than an\nassertion.\n\nBoth of those measurements are now about a mechanism that no longer exists.  ADR-0002 retired\nthe authored level: a stock level is not a fact about a SKU, and a generated catalogue carries\nnone.  Every run DERIVES its levels at setup from a coverage in DAYS\n(`Optimization/simconfig/coverage.py`, driven to a pair-level fixed point by\n`Optimization/simdriver/era_coverage.py`) and records them in its own planned inventory.  No\nclosed form authors a level any more, so a reproduction rate would score the agreement of two\nthings the run never used, and the planner growth the rescale ratio measured has no generator\nfigure left to grow away from.  Both blocks are gone.  What remains is the reason the tool\nexisted in the first place: PUBLISH THE DISTRIBUTION the run actually stocked.\n\nWHAT THIS EMITS.  Per inventory pair: the realised distribution of the three declared levels\n(order-up-to quantity, reorder point, lead pipeline) and of the lead time the reorder point is\ndenominated in, how many SKUs the run declared on, how many carry a hand-written packing plan,\nand THE DECLARATION ITSELF \u2014 `coverage_days` / `safety_days` / `floor_lines`, read off the\nrun's own staffing record (`staffing.calibration[<pair>].coverage`), which is where a run\nstates what produced these numbers.  A page renders the distribution and names the\ndeclaration; change the declaration and both change with it.\n\nWHICH FILE, AND HOW IT IS READ.  The `planned_inventory` contract alias \u2014 a RUN'S OWN planned\ninventory, never a generated catalogue, because only a run declares.  Read through\n`Schema.dataset`'s named queries instead of hand-written SQL against `cartons`: the\n`stock_levels` query serves the declaration out of the table that holds it on a current file\nand, through its per-vintage override, out of `cartons` on every archived one.  So an old run\nstill reports the levels it fielded, under the same logical names, with no version branch\nhere.",
       "kind": "module",
       "signature": null
     },
@@ -6857,7 +6857,7 @@
     },
     "Optimization/config/sim_config.py::regime_sizing_from_config": {
       "decorators": [],
-      "doc": "Assemble the per-regime warehouse-sizing dict from CONFIG (store demand/composition +\ncaps; fulfillment fixed tier distribution + caps), each with its own fill headroom.  Used\nby both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE \u2014 ff\naisle layout + total_bins \u2014 matches; sizing the two paths differently would misgroup ff\naisle stats and skew churn %.",
+      "doc": "Assemble the per-regime warehouse-sizing dict from CONFIG (both regimes sized from the\ndeclared levels; store composition + caps; ff aisle shape), each with its own fill\nheadroom -- the share of each bucket those levels occupy at setup.  Used\nby both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE \u2014 ff\naisle layout + total_bins \u2014 matches; sizing the two paths differently would misgroup ff\naisle stats and skew churn %.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
@@ -10279,7 +10279,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['--n-batches', '2', '--max-skus', '200', '--s-max-aisles', '4', '--s-min-bins', '400', '--s-max-bins', '900', '--ff-max-aisles', '3', '--ff-min-bins', '300', '--ff-max-bins', '700', '--keyframe-in..."
+      "value_preview": "['--n-batches', '2', '--max-skus', '200', '--coverage-days', '1', '--keyframe-interval', '1', '--workers', '1']"
     },
     "Optimization/runschema/preflight.py::SKIP_ENV": {
       "decorators": [],
@@ -11195,7 +11195,7 @@
     },
     "Optimization/simconfig/coverage.py::fill_rate": {
       "decorators": [],
-      "doc": "The expected FIRST-PASS fill rate of one section at the levels the orders carry now:\nthe units a shelf at `Q_s` serves off a line, over the units the line asks for, weighted\nby each SKU's lines per day (\"Choose the coverage floor\", decision 5):\n\n    \u03a3_s  lines_s \u00b7 E[min(q_s, Q_s)]  \u00f7  \u03a3_s  lines_s \u00b7 E[q_s]        lines_s = n \u00b7 \u03c0_s\n\nThe denominator is the section's daily units; the numerator the units served before a\nrestock.  Under base stock with NO pipeline (`pipeline_qty = 0`: a lead of zero, which is\nevery catalogue the generator authors today) the shelf sits at `Q_s` when every line\narrives -- the previous line's order landed -- so this IS the expectation `missed_share`'s\nlevel is read against: `1 - fill_rate` is the expected missed share.  With a lead the\nshelf a line meets is `Q_s` minus what is still in transit, so the number is an UPPER bound\non the fill rate there (the record carries the stamped pipeline beside it).  Call it on the\nPLANNED orders -- the planner may grow a level into leftover capacity, and the shelf that\nserves the line is the one the run fields.  Returns `{'fill_rate', 'expected_missed_share',\n'units_per_day', 'served_per_day', 'base_stock_skus', 'base_stock_share', 'n_skus',\n'pipeline_units'}` -- the last is \u03a3 `pipeline_qty` over the section, 0 when the premise\nholds exactly.",
+      "doc": "The expected FIRST-PASS fill rate of one section at the levels the orders carry now:\nthe units a shelf at `Q_s` serves off a line, over the units the line asks for, weighted\nby each SKU's lines per day (\"Choose the coverage floor\", decision 5):\n\n    \u03a3_s  lines_s \u00b7 E[min(q_s, Q_s)]  \u00f7  \u03a3_s  lines_s \u00b7 E[q_s]        lines_s = n \u00b7 \u03c0_s\n\nThe denominator is the section's daily units; the numerator the units served before a\nrestock.  Under base stock with NO pipeline (`pipeline_qty = 0`: a lead of zero, which is\nevery catalogue the generator authors today) the shelf sits at `Q_s` when every line\narrives -- the previous line's order landed -- so this IS the expectation `missed_share`'s\nlevel is read against: `1 - fill_rate` is the expected missed share.  With a lead the\nshelf a line meets is `Q_s` minus what is still in transit, so the number is an UPPER bound\non the fill rate there (the record carries the stamped pipeline beside it).  Call it on the\nPLANNED orders: the shelf that serves the line is the one the run fields, which since\n\"Field the requirement\" is the declared one exactly (the planner no longer grows a level\ninto leftover capacity), so pre-plan and post-plan now price the same number.  Returns\n`{'fill_rate', 'expected_missed_share',\n'units_per_day', 'served_per_day', 'base_stock_skus', 'base_stock_share', 'n_skus',\n'pipeline_units'}` -- the last is \u03a3 `pipeline_qty` over the section, 0 when the premise\nholds exactly.",
       "is_async": false,
       "kind": "function",
       "signature": "(orders, lines_per_day: float) -> dict"
@@ -11907,7 +11907,7 @@
     },
     "Optimization/simdriver/cells.py::_tightest_split": {
       "decorators": [],
-      "doc": "The split with the largest capacity_loss (fewest bins).  Freezing the sampled\ninventory to it guarantees every roomier cell can hold it (the frozen inventory\nalways fits).",
+      "doc": "The split with the largest capacity_loss.  Freezing the sampled inventory to it is\nhow a multi-cell sweep guarantees every cell can hold the same inventory.\n\n\"Largest loss\" no longer means \"fewest bins\", and has not since \"Field the requirement\":\n`_split_inflation` adds compensatory aisles at sizing time, so a lossier split can emit\nMORE bins than no split at all.  The freeze is still correct, and now for a stronger\nreason -- every cell is sized from the same declaration and REFUSES if it cannot hold it,\nso which split we freeze against no longer decides whether the inventory fits.  Kept as\nthe freeze point because the choice must be deterministic and cell-order-independent.",
       "is_async": false,
       "kind": "function",
       "signature": "(cells)"
@@ -11967,9 +11967,16 @@
       "kind": "function",
       "signature": "(record: dict) -> dict"
     },
+    "Optimization/simdriver/era_coverage.py::fielded_block": {
+      "decorators": [],
+      "doc": "What the plan actually FIELDED for one channel section, as the record's proof that the\nline floor's promise was kept (\"Field the floor\", decision 11).\n\n    {'n_skus', 'fielded_sum_q', 'declared_sum_q',\n     'below_floor_skus',        # fielded below the SKU's own line floor: the promise BROKEN\n     'above_declaration_skus',  # fielded above its declaration: the retired phase-2 growth\n     'buckets': [{handling, category, size, unit, requirement, capacity, free}, ...]}\n\nThe growth counter is `above_DECLARATION_skus`, not \"above floor\" as decision 11 sketched\nit.  On the pair that produced this map the two coincided -- 100% of both sections sat ON\nthe floor, so a level above the floor WAS a grown one -- but on any catalogue where\ncoverage exceeds the floor, \"SKUs above their floor\" is nearly all of them and reads as an\nalarm.  What is worth zero is the count of levels the planner moved.\n\nBoth counts are read off each order's recorded `stock_plan` -- the packing the warehouse\nholds -- not off the level it was asked for, so they can disagree with the declaration and\nsay so.  Under the one planner contract they are zero by construction; the point of\nstamping them is that a reader can see the promise was TESTED rather than asserted, and\nthe pair that produced this map (30.3% of the fulfillment section below floor, 64,989 SKUs\ngrown above it) is exactly what a nonzero reading would look like.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(section: list, plan, regime: str | None, floor_lines: float) -> dict"
+    },
     "Optimization/simdriver/era_coverage.py::fixed_point": {
       "decorators": [],
-      "doc": "Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns\n`(plan, warehouse_meta, stage_a_result, record)` for the LAST round.\n\n`plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and\nbuilds the warehouse: `(plan, warehouse_meta)`.  `orders_all` is the whole catalogue; the\nplan's `sampled` subset (or the whole list when the planner samples nothing) is what\nstage A prices.  The record is JSON-shaped and rides `staffing.calibration[<pair>]\n['coverage']`:\n\n    {'coverage_days', 'safety_days', 'floor_lines', 'tol', 'max_rounds', 'rounds': [...],\n     'seed': {'method': 'analytic_pick', 'lines_per_day': {channel: n}},   # round 0\n     'final': {channel: rescale stats + 'fill'},    # the declared levels, pre-plan, and\n                                                    #   the fill rate at the PLANNED ones\n     'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},\n     'converged': bool}\n\n`final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields\n(the planner grows a level into leftover capacity, so the shelf that serves a line is the\nplanned one): the expected first-pass fill rate the audit reads `missed_share` against,\nand the base-stock share AFTER planning.",
+      "doc": "Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns\n`(plan, warehouse_meta, stage_a_result, record)` for the LAST round.\n\n`plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and\nbuilds the warehouse: `(plan, warehouse_meta)`.  `orders_all` is the whole catalogue; the\nplan's `sampled` subset (or the whole list when the planner samples nothing) is what\nstage A prices.  The record is JSON-shaped and rides `staffing.calibration[<pair>]\n['coverage']`:\n\n    {'coverage_days', 'safety_days', 'floor_lines', 'tol', 'max_rounds', 'rounds': [...],\n     'seed': {'method': 'analytic_pick', 'lines_per_day': {channel: n}},   # round 0\n     'final': {channel: rescale stats + 'fill' + 'fielded'},   # the declared levels, the\n                                                    #   fill rate at them, and the proof\n                                                    #   the plan fielded exactly them\n     'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},\n     'converged': bool}\n\n`final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields:\nthe expected first-pass fill rate the audit reads `missed_share` against, and the\nbase-stock share after planning.  Priced post-plan for a reason that no longer bites --\nthe planner used to grow a level into leftover capacity, so the shelf that served a line\nwas not the one declared -- and it now equals the pre-plan price by construction, which\nis what `final[<channel>]['fielded']` (`fielded_block`) states and this loop RAISES on.",
       "is_async": false,
       "kind": "function",
       "signature": "(orders_all: list, plan_fn, specs: list, *, coverage_days: float, safety_days: float, floor_lines: float, inputs: dict, day_seconds: float, log: logging.Logger, tol: float=_cov.DEFAULT_TOL, max_rounds: int=_cov.DEFAULT_MAX_ROUNDS) -> tuple"
@@ -16955,11 +16962,24 @@
       "kind": "class",
       "signature": "(RuntimeError)"
     },
+    "Warehouse/inventory/inventory_common.py::UnfieldableRequirement": {
+      "decorators": [],
+      "doc": "A bucket's emitted capacity cannot hold the bins the declared levels need.\n\nThe line floor is a PROMISE (department-calibration, \"Field the floor\", decision 3): the\nwarehouse is sized to hold the run's declaration, so the only way here is a declaration\nthe sizing was not allowed to follow -- a `max_bins` / `max_aisles` cap, a composition\nbasis vector, or one of the two aisle-shape splits (`aisle_split`, `depth_classes`) losing\nmore bins to rounding than the sizing left slack for.  A cap and a floor are two\ndeclarations by the same person that contradict; the run says which bucket and how many\nbins short rather than silently fielding less.\n\n`short` carries the shortfall STRUCTURALLY -- `[(BinKey, requirement, capacity, budget),\n...]`, every short bucket, never the message's truncated dozen.  The prose is for the\noperator; a caller (a test, a driver deciding what to retry with) reads this instead of\nparsing it.  The message's own tail names all three possible causes, so a substring\nsearch over it can neither identify the bucket nor the cause.",
+      "kind": "class",
+      "signature": "(RuntimeError)"
+    },
+    "Warehouse/inventory/inventory_common.py::UnfieldableRequirement.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, message: str, short: list | None=None) -> None"
+    },
     "Warehouse/inventory/inventory_common.py::WarehousePlan": {
       "decorators": [
         "dataclass"
       ],
-      "doc": "Result of Inventory_Manager.plan_warehouse: a sized warehouse + the\nSKU sample chosen to fill it to target utilization.",
+      "doc": "Result of Inventory_Manager.plan_warehouse: a warehouse sized to hold the run's\ndeclared levels, plus the orders it FIELDS at exactly those levels.\n\n`sampled` is a historical name for \"the orders this plan fields\".  It was a genuine\nsubset while the planner sampled SKUs to fill a capacity it had sized independently; it\nis now the whole list, because every bucket is sized from `requirement` and every SKU is\nfielded at its declaration (department-calibration, \"Field the requirement\").",
       "kind": "class",
       "signature": ""
     },
@@ -17202,7 +17222,7 @@
     },
     "Warehouse/inventory/inventory_planning.py": {
       "decorators": [],
-      "doc": "inventory_planning.py \u2014 warehouse sizing/sampling (pre-instantiation).\n\n`PlanningMixin` holds the static/class methods that size a warehouse FROM an inventory\nbefore any manager instance or warehouse exists.  Mixed into Inventory_Manager so the\npublic API (`Inventory_Manager.plan_warehouse(...)`, `.bucket_requirements(...)`,\n`.sample_to_capacity(...)`) is unchanged.",
+      "doc": "inventory_planning.py \u2014 warehouse sizing/fielding (pre-instantiation).\n\n`PlanningMixin` holds the static/class methods that size a warehouse FROM an inventory\nbefore any manager instance or warehouse exists.  Mixed into Inventory_Manager so the\npublic API is `Inventory_Manager.plan_warehouse(...)`, `.bucket_requirements(...)`,\n`.field_requirement(...)`.\n\nTHE PLANNER HAS ONE CONTRACT (department-calibration, \"Field the floor\" decisions 1-4 and\n8-11, built by \"Field the requirement\").  `bucket_requirements` states, per bin bucket,\nexactly what the run's declared stock levels need; every bucket is sized from that statement;\nand every SKU is then FIELDED at exactly its declaration, packed the way that statement\ncounted it.  There is no re-choice, no growth into leftover capacity, and no shrink to fit \u2014\nso `planned_sum_q == sum_q`, and a fill rate priced before the plan equals one priced after.\n\nThat makes the line floor a PROMISE rather than a request.  The planner used to size a\nwarehouse and then sample SKUs into whatever it had built, which is how a third of the\nreference pair's fulfillment section came to be fielded below its own line floor: a shelf\nbelow the line is a treadmill under base stock, and the equilibrium check's clauses cannot\npass under one.  Where the promise cannot be kept \u2014 a cap, a composition vector or an aisle\nsplit that leaves a bucket short \u2014 the run REFUSES (`UnfieldableRequirement`) and names the\nbucket and the bins short, rather than fielding less in silence.\n\n`store_fill` / `ff_fill` therefore mean \"the share of each bucket the declared levels occupy\nat setup\"; the rest is free bins, which is the headroom a base-stock top-up lands in.",
       "kind": "module",
       "signature": null
     },
@@ -17212,23 +17232,41 @@
       "kind": "class",
       "signature": ""
     },
-    "Warehouse/inventory/inventory_planning.py::PlanningMixin.bucket_requirements": {
+    "Warehouse/inventory/inventory_planning.py::PlanningMixin._packing": {
       "decorators": [
         "staticmethod"
       ],
-      "doc": "Exact bin count per (handling, category, storage_size, unit_type)\nbucket, computed by running each order through viable_storage_units at\nits equilibrium_qty.  This is the authoritative per-tier demand.",
+      "doc": "One pass over the catalogue answering BOTH halves of the planner's contract:\n`({bucket: bins needed}, {id(order): [(is_singleton, qty_per_unit, count), ...]})`.\n\nSizing and fielding are the same statement \u2014 what the declared levels need, and how\nthey are packed to need it \u2014 so they are computed together rather than by two passes\nthat could drift apart.  (They also each cost about a second per 20k SKUs, and the\ncoverage fixed point re-plans a 400k-SKU catalogue every round.)\n\nThe run-length flag is tested POSITIVELY (`isinstance(u, (Singleton, FulfillmentBin))`)\nand never as `not isinstance(u, Pallet)`: both of those classes SUBCLASS Pallet, so the\nnegative test calls every singleton a pallet \u2014 which repacks a remainder as a partial\npallet and charges a bucket the warehouse was not sized for.",
       "is_async": false,
       "kind": "function",
-      "signature": "(orders: list[Order]) -> dict[BinKey, int]"
+      "signature": "(orders: list[Order]) -> tuple[dict, dict]"
+    },
+    "Warehouse/inventory/inventory_planning.py::PlanningMixin.bucket_requirements": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "Exact bin count per (handling, category, storage_size, unit_type)\nbucket, computed by running each order through viable_storage_units at\nits equilibrium_qty.  This is the authoritative per-tier demand \u2014 and,\nsince \"Field the requirement\", also the packing the run fields.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, orders: list[Order]) -> dict[BinKey, int]"
+    },
+    "Warehouse/inventory/inventory_planning.py::PlanningMixin.field_requirement": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "Field every order at exactly its declared level, packed exactly as\n`bucket_requirements` counted it.  Returns (fielded_orders, their sku ids).\n\n`slots` is the packing half of `_packing`, keyed by `id(order)`.  `plan_warehouse`\npasses the one it already computed to size the buckets, which is what makes the two\nhalves the same statement rather than two passes that agree by luck; omit it and this\ncomputes its own.\n\nTHE PACKING IS THE REQUIREMENT.  `bucket_requirements` states what the declared\nlevels need by running each order through `viable_storage_units` at its\norder-up-to; this runs the same call and RECORDS the answer as the order's\n`stock_plan`, so the bins the warehouse was sized for are the bins the run fields,\nand every later reorder rebuilds the same tier mix.  The two agree by construction\nrather than by margin.\n\nWHAT THIS REPLACED, and why (department-calibration, \"Field the floor\", decision 2).\nThis used to be `sample_to_capacity`: it sized bin capacity independently, then held\na contest for it \u2014 phase 1 round-robined every SKU into its EMPTIEST reachable\nbucket until it reached its order-up-to, phase 2 shared out whatever was left, and\nthe order was re-declared at whatever it won.  Both halves broke the floor.  The\nemptiest-bucket rule charged multi-tier SKUs at low density to buckets budgeted for\nothers, so single-tier SKUs stopped two to six units short of their own line floor \u2014\n25,241 of them (15.8%) on the reference pair even with every tier's budget above its\nrequirement.  Phase 2 then grew 64,989 other SKUs above their declaration, so a\nlevel the run recorded as declared was not the level it fielded.  A shelf below the\nline is a treadmill under base stock, and a level grown past the declaration is a\ncoverage nobody chose.\n\nSo there is no contest left to hold: no re-choice of tier, no growth into leftover\ncapacity, no shrink to fit.  Every SKU fits because `plan_warehouse` sized its\nbuckets from this same statement and REFUSED the run if it could not.  Nothing here\nis random \u2014 the old `rng` seeded the contest, and the contest is gone.\n\n`Order.declare_stock` is the one mutation site for the four level slots (ADR-0002);\nthe order-up-to, the reorder point and the pipeline stamp pass through unchanged,\nbecause the planner no longer has an opinion about them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, orders: list[Order], slots: dict | None=None) -> tuple[list[Order], set]"
     },
     "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse": {
       "decorators": [
         "classmethod"
       ],
-      "doc": "Size a warehouse to fit *orders* under the given constraints.\n\n1. Enumerate the full bucket set (every handling\u00d7category gets 4 pallet\n   size tiers + 1 singleton) \u2014 the structural floor that guarantees\n   every SKU has a place.\n2. Replica per bucket either from demand (default,\n   max(1, ceil(demand/(eff\u00b7target_fill)))) or from an explicit\n   *composition* basis vector (bins \u221d weight).\n3. Scale up to >= min_bins, then down to <= max_bins/max_aisles (never\n   below 1 replica/bucket; min_bins wins if it conflicts with max).\n4. Sample SKUs to fill the resulting capacity to target_fill.\n\ncomposition: optional factored basis vector of *bin* ratios \u2014 a dict with\nany of the keys 'handling', 'category', 'size', 'unit', each mapping a\nvalue to a relative weight (missing values default to 1.0).  The per-bucket\nweight is the product of the matching dimension weights; bins are allocated\nproportionally.  Total scale comes from min_bins (or demand if min_bins is\nunset).  Example:\n    {'unit': {'pallet': 0.7, 'singleton': 0.3},\n     'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}\n\nregime_sizing: optional PER-REGIME sizing that overrides the single\nmin_bins/max_bins/max_aisles/target_fill/composition scalars \u2014 a dict\n{'store': {...}, 'fulfillment': {...}} where each sub-dict may carry\n'mode' ('demand' | 'fixed'), 'min_bins', 'max_bins', 'max_aisles', 'fill',\n'composition', and (fulfillment 'fixed' mode) a tier 'distribution'\n{ff_small/ff_medium/ff_large: weight} + 'target_bins'.  When None (the\ndefault), the warehouse is sized globally exactly as before \u2014 every direct\ncaller / test is unaffected.  When given, store and fulfillment are sized\nand capped INDEPENDENTLY (store demand-driven by default; fulfillment a\nfixed tier distribution scaled to target_bins/min/max), each with its own\nfill headroom.",
+      "doc": "Size a warehouse to hold *orders* at their DECLARED levels, and field them there.\n\n1. Enumerate the full bucket set (every handling\u00d7category gets 4 pallet\n   size tiers + 1 singleton) \u2014 the structural floor that guarantees\n   every SKU has a place.\n2. Replica per bucket either from the requirement (default,\n   max(1, ceil(requirement/(eff\u00b7fill)))) or from an explicit\n   *composition* basis vector (bins \u221d weight).\n3. Scale up to >= min_bins, then down to <= max_bins/max_aisles (never\n   below 1 replica/bucket; min_bins wins if it conflicts with max).\n4. Check the promise on the EMITTED capacity \u2014 `capacity \u00b7 fill >= requirement`\n   per bucket \u2014 and REFUSE (`UnfieldableRequirement`) when a bucket is short.\n5. Field every SKU at exactly its declaration, packed as `bucket_requirements`\n   counted it (`field_requirement`).  Skipped when sample=False, which wants only\n   the warehouse SHAPE; the sizing and the promise check still run, because both\n   read the declaration rather than the fielding.\n\nPlanning is DETERMINISTIC: there is no sampling left to seed.  A caller that used to\npass `rng` was seeding a SKU contest for capacity that no longer happens.\n\ncomposition: optional factored basis vector of *bin* ratios \u2014 a dict with\nany of the keys 'handling', 'category', 'size', 'unit', each mapping a\nvalue to a relative weight (missing values default to 1.0).  The per-bucket\nweight is the product of the matching dimension weights; bins are allocated\nproportionally.  Total scale comes from min_bins (or demand if min_bins is\nunset).  Example:\n    {'unit': {'pallet': 0.7, 'singleton': 0.3},\n     'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}\n\nregime_sizing: optional PER-REGIME sizing that overrides the single\nmin_bins/max_bins/max_aisles/target_fill/composition scalars \u2014 a dict\n{'store': {...}, 'fulfillment': {...}} where each sub-dict may carry\n'min_bins', 'max_bins', 'max_aisles', 'fill', 'composition', and the two\naisle-shape knobs ('depth_classes', 'aisle_split').  When None (the\ndefault), the warehouse is sized globally.  When given, store and fulfillment are\nsized and capped INDEPENDENTLY, each with its own fill headroom.\n\nBoth regimes are sized from the requirement.  Fulfillment's fixed tier distribution\n('mode', 'distribution', 'target_bins') is RETIRED: it spread a demand-derived bin\ntotal 0.5/0.3/0.2 across the three tiers while the declared levels needed 11/63/26,\nwhich is how ff_medium came to be short by 293k bins on a section that was, in total,\nthe right size (\"Field the floor\", decision 8).  Depth classes and the aisle split\nsurvive \u2014 they reshape aisles, not the bin count.",
       "is_async": false,
       "kind": "function",
-      "signature": "(cls, orders: list[Order], *, categories: list[str], handlings: list[str], aisle_width: int, aisle_height: int, ff_aisle_width: int | None=None, ff_aisle_height: int | None=None, target_fill: float=0.85, min_bins: int | None=None, max_bins: int | None=None, max_aisles: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, sample: bool=True, rng: random.Random | None=None, log: Any=None) -> 'WarehousePlan'"
+      "signature": "(cls, orders: list[Order], *, categories: list[str], handlings: list[str], aisle_width: int, aisle_height: int, ff_aisle_width: int | None=None, ff_aisle_height: int | None=None, target_fill: float=0.85, min_bins: int | None=None, max_bins: int | None=None, max_aisles: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, sample: bool=True, log: Any=None) -> 'WarehousePlan'"
     },
     "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._eff": {
       "decorators": [],
@@ -17244,39 +17282,23 @@
       "kind": "function",
       "signature": "(h, cat, unit_type, a_w, a_h, sizes_arg, bin_w, bin_hs, n_aisles, eff_at_aw, eff_fn, bin_width, split) -> int"
     },
-    "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity": {
-      "decorators": [
-        "staticmethod"
-      ],
-      "doc": "Assign each order a multi-tier stock_plan that fills bin capacity.\n\nA order's units are spread across the EMPTIEST bin tiers it can reach:\nflexible (small-footprint) items can be palletized into any tier their\ngeometry permits; rigid (large) items only reach the large tiers they\ngenuinely require.  Each plan slot is a (is_singleton, qty_per_unit)\npair; the slots sum to the order's (possibly grown) equilibrium_qty.\n\nAllocation: phase 1 is round-robin so every SKU gets at least one unit\nfirst (placeability) and reaches its base equilibrium; phase 2 fills the\nleftover capacity per (handling, category) group in BULK \u2014 distributing\neach bin tier's free space across the orders that can reach it in one\nstep rather than one bin at a time.  The plan is stored on the order as\nrun-length slots (is_singleton, qty_per_unit, count) so\nviable_storage_units \u2014 and therefore every reorder \u2014 reproduces the exact\ntier mix.\n\nPerformance: each order's reachable tiers (and the qty that lands a full\npallet in each) are computed once via Pallet._fit (O(N) fits).  Full\npallets reuse that cached tier, so no _fit runs in the fill loops; only a\ncapped final slot (phase 1, \u22641 per order) needs a fit.\n\nReturns (sampled_cartons, sampled_sku_ids).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(orders: list[Order], capacity: dict[BinKey, int], *, target_fill: float=0.85, fill_for: Any=None, rng: random.Random | None=None) -> tuple[list[Order], set]"
-    },
-    "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._add_one": {
+    "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._fill_eff": {
       "decorators": [],
-      "doc": "Add ONE pallet/singleton in c's emptiest reachable bucket with\nbudget.  cap_qty caps the slot quantity to land the final slot exactly\non equilibrium.  Returns False when no reachable bucket has space.",
+      "doc": "The bucket's declared fill, divided down by the bins its aisle split sacrifices\n\u2014 so sizing asks for the replicas that leave the requirement covered AFTER the cut.",
       "is_async": false,
       "kind": "function",
-      "signature": "(c: Order, cap_qty: int | None) -> bool"
+      "signature": "(bucket: tuple) -> float"
     },
-    "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._add_run": {
+    "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._split_for": {
       "decorators": [],
-      "doc": "Append `count` units of `per` items to c's plan, charging `bucket`.\nMerges with the previous run if it is the same (is_single, per).",
+      "doc": "(aisle_split cfg, aisle width, bin width) for a bucket \u2014 what `_split_inflation`\nneeds to know whether this bucket's aisles get cut, and by how much.",
       "is_async": false,
       "kind": "function",
-      "signature": "(c: Order, is_single: bool, per: int, count: int, bucket: BinKey) -> None"
-    },
-    "Warehouse/inventory/inventory_planning.py::PlanningMixin.sample_to_capacity._reachable": {
-      "decorators": [],
-      "doc": "(bucket, qty_per_unit, is_singleton) options this order can fill.\nqty_per_unit is the quantity whose pallet lands exactly in that tier,\nso a full pallet of it never needs a _fit recheck at fill time.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(c: Order) -> list[tuple[BinKey, int, bool]]"
+      "signature": "(bucket: tuple)"
     },
     "Warehouse/inventory/inventory_planning.py::_aisle_split": {
       "decorators": [],
-      "doc": "Cut an aisle of width `a_w` (holding `target_bins` bins for its bucket) into `k` shorter\nsegments of width ~a_w/k, modeling cross-aisle throughways that consume `capacity_loss` of the\nbins.  Under one-way lanes, shorter aisles \u21d2 less x-traversal.\n\nReturns (seg_w, n_segments, seg_eff, cap_total) or None (no split \u21d2 byte-identical caller path).\n`eff_fn(width) -> bins-per-segment` (uniform_aisle_bins or catalog_aisle_bins bound to the\ntier).  k is bounded to \u2264 a_w // bin_width (\u22651 column/segment) and \u2264 MAX_AISLE_SPLIT_K so the\nemitted aisle count cannot blow up.  Total usable bins \u2248 target_bins\u00b7(1-capacity_loss) \u2014 bins are\ngenuinely SACRIFICED (no compensatory aisles added), so aggressive loss raises fill by design.",
+      "doc": "Cut an aisle of width `a_w` (holding `target_bins` bins for its bucket) into `k` shorter\nsegments of width ~a_w/k, modeling cross-aisle throughways that consume `capacity_loss` of the\nbins.  Under one-way lanes, shorter aisles \u21d2 less x-traversal.\n\nReturns (seg_w, n_segments, seg_eff, cap_total) or None (no split \u21d2 byte-identical caller path).\n`eff_fn(width) -> bins-per-segment` (uniform_aisle_bins or catalog_aisle_bins bound to the\ntier).  k is bounded to \u2264 a_w // bin_width (\u22651 column/segment) and \u2264 MAX_AISLE_SPLIT_K so the\nemitted aisle count cannot blow up.  Total usable bins \u2248 target_bins\u00b7(1-capacity_loss): the\nbins in the throughways are genuinely sacrificed HERE.\n\nWHAT THE SPLIT NOW MEANS, which is not what it used to.  The loss no longer reaches the\ninventory: `_split_inflation` adds the compensatory aisles at SIZING time, so a split\nbucket is asked for `1/(1-loss)` times the replicas and the run still holds its declared\nlevels (\"Field the floor\", decision 9 \u2014 the line floor is a promise, and a throughway is\nnot a reason to break it).  A split arm therefore trades AISLES for travel, not capacity\nfor travel; it used to raise fill by shrinking the shelf under a fixed stock, and an\narchived `ks` sweep measured that older trade, so its results are not comparable to a\nnew one.",
       "is_async": false,
       "kind": "function",
       "signature": "(a_w: int, target_bins: int, eff_fn, bin_width: int, k, capacity_loss)"
@@ -17297,31 +17319,38 @@
     },
     "Warehouse/inventory/inventory_planning.py::_demand_replicas": {
       "decorators": [],
-      "doc": "Demand-driven replicas: max(1, ceil(bucket_demand / (bins_per_aisle \u00b7 fill))).",
+      "doc": "Demand-driven replicas: max(1, ceil(bucket_requirement / (bins_per_aisle \u00b7 fill))).\n\n`fill_fn(bucket)` is the EFFECTIVE fill \u2014 the declared `store_fill`/`ff_fill` already\ndivided down by an aisle split's capacity loss (`_split_inflation`), so a split's\nsacrificed bins are paid for in replicas here rather than discovered as a shortfall at\nthe promise check.",
       "is_async": false,
       "kind": "function",
-      "signature": "(buckets, req, eff_fn, target_fill) -> dict"
+      "signature": "(buckets, req, eff_fn, fill_fn) -> dict"
     },
     "Warehouse/inventory/inventory_planning.py::_demand_total": {
       "decorators": [],
       "doc": "Total bins the demand-driven replicas would occupy (the default scale for ratio modes).",
       "is_async": false,
       "kind": "function",
-      "signature": "(buckets, req, eff_fn, target_fill) -> int"
+      "signature": "(buckets, req, eff_fn, fill_fn) -> int"
     },
     "Warehouse/inventory/inventory_planning.py::_ff_depth_split": {
       "decorators": [],
-      "doc": "Split one fulfillment size tier's target bins across DEPTH classes (shallow\u2026deep aisles\nthat share the same BinKey), so a placement wave can route hot SKUs to shallow aisles.\n\nEach class is {'columns': n, 'share': w}; its aisle_width = n\u00b7FULFILLMENT_BIN_WIDTH and it\nholds ~ (share) of `target_bins` worth of bins.  Returns (classes, total_bins) where\nclasses = [(aisle_width, n_aisles, eff_per_aisle), \u2026].  Preserves total bins (\u00b1 rounding)\nwhile growing the aisle count; guarantees \u22651 aisle per positive-share class so no tier is\ndropped.  Classes with columns < 1 bin width or non-positive share are skipped.",
+      "doc": "Split one fulfillment size tier's target bins across DEPTH classes (shallow\u2026deep aisles\nthat share the same BinKey), so a placement wave can route hot SKUs to shallow aisles.\n\nEach class is {'columns': n, 'share': w}; its aisle_width = n\u00b7FULFILLMENT_BIN_WIDTH and it\nholds ~ (share) of `target_bins` worth of bins.  Returns (classes, total_bins) where\nclasses = [(aisle_width, n_aisles, eff_per_aisle), \u2026].  Preserves total bins (rounding UP)\nwhile growing the aisle count; guarantees \u22651 aisle per positive-share class so no tier is\ndropped.  Classes with columns < 1 bin width or non-positive share are skipped.\n\nThe aisle count rounds UP for the same reason `_aisle_split`'s does: the bins a bucket was\nsized for are the bins its declared levels need, and `_demand_replicas` leaves only the\n~3% slack of one `ceil`.  Rounding each class down spends that slack on nothing \u2014 measured\nat 85 to 295 bins short on a single depth class over a 4,000-SKU catalogue, which is a\nREFUSED run.  Over-emitting is free bins; under-emitting is a run that will not start.",
       "is_async": false,
       "kind": "function",
       "signature": "(size: str, target_bins: int, depth_classes: list, ff_h: int)"
     },
     "Warehouse/inventory/inventory_planning.py::_ratio_replicas": {
       "decorators": [],
-      "doc": "Replicas allocated proportionally to weight_fn(bucket), scaled to ~target_total bins.\nUsed by the composition basis vector (store) and the fixed fulfillment tier distribution.",
+      "doc": "Replicas allocated proportionally to weight_fn(bucket), scaled to ~target_total bins.\nUsed by the store's composition basis vector -- the only caller left since fulfillment's\nfixed tier distribution was retired.",
       "is_async": false,
       "kind": "function",
       "signature": "(buckets, weight_fn, eff_fn, target_total: float) -> dict"
+    },
+    "Warehouse/inventory/inventory_planning.py::_split_inflation": {
+      "decorators": [],
+      "doc": "`1 / (1 - capacity_loss)` when an aisle split would actually cut this bucket's aisles,\nelse 1.0 \u2014 the factor its demand replicas inflate by so the bins the split SACRIFICES do\nnot come out of the declared levels (\"Field the floor\", decision 9).\n\nMirrors `_aisle_split`'s own admission test (k > 1 after bounding by columns-per-segment\nand MAX_AISLE_SPLIT_K, loss < 1); a split that would not apply inflates nothing, so a\nconfiguration the emitter ignores never over-sizes the warehouse either.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(split, a_w: int, bin_width: int) -> float"
     },
     "Warehouse/inventory/inventory_planning.py::structural_bin_floor": {
       "decorators": [],

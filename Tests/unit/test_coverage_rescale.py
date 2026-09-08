@@ -41,7 +41,8 @@ from Optimization.config.sim_config import (CONFIG, STAFFING_KEYS, _SCALAR_DEFAU
 from Optimization.simconfig import coverage as cov
 from Optimization.simdriver import era_coverage as ec
 from Warehouse.catalog.Order import Order
-from Warehouse.kernel.regime import STORE
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.kernel.regime import FULFILLMENT, STORE
 
 _LOG = logging.getLogger('test_coverage_rescale')
 
@@ -273,10 +274,23 @@ def test_converged_needs_every_channel_inside_the_tolerance():
 # ═════════════════════════════════════════════════════════════════════════════════════════
 
 class _Plan:
+    """A stand-in for `plan_warehouse` with the geometry taken out but the FIELDING left in.
+
+    The loop asserts that what a round declared is what the plan fielded, and stamps the
+    proof onto `final[<channel>]['fielded']` — so a plan stub that fields nothing would make
+    that assertion a test of the stub.  `field_requirement` is pure (orders in, their packing
+    recorded), so the real one runs here and only the sizing is faked; `fielding` is the
+    per-bucket table the record's `buckets` rows are read from, built from the same
+    requirement the real planner would have sized against.
+    """
     def __init__(self, orders):
         self.sampled = list(orders)
         self.total_aisles = 3
         self.total_bins = 30
+        Inventory_Manager.field_requirement(self.sampled)
+        self.requirement = Inventory_Manager.bucket_requirements(self.sampled)
+        self.fielding = {b: {'requirement': n, 'capacity': n * 2, 'budget': n, 'free': n}
+                         for b, n in self.requirement.items()}
 
 
 class _Meta:
@@ -440,6 +454,154 @@ def test_fixed_point_rescales_each_channel_section_by_its_own_regime(monkeypatch
                    safety_days=2.0, floor_lines=1.0, inputs={}, day_seconds=28800.0, log=_LOG,
                    max_rounds=1)
     assert seen == {3: 10.0}, 'the store regime filter keeps all three store SKUs'
+
+
+def test_the_record_stamps_that_the_floors_promise_was_kept(monkeypatch, section):
+    """`final[<channel>]['fielded']`: the proof, not the assertion ("Field the floor", 11).
+
+    A reader of a finished run has to be able to see that the levels the record calls
+    declared are the levels the warehouse holds — the pair this map was built on had 30.3%
+    of its fulfillment section fielded below its own line floor and 64,989 SKUs grown above
+    their declaration, and NOTHING in the record said so.
+    """
+    monkeypatch.setattr(ec, 'seed_lines', _fake_seed(60.0))
+    monkeypatch.setattr(ec, 'stage_a', _fake_stage_a(lambda sq: 60.0 + 0.001 * sq))
+    specs = [ec.ChannelSpec('store', None, None, 'store')]
+    _p, _m, _sa, rec = ec.fixed_point(section, lambda: (_Plan(section), _Meta()), specs,
+                                      coverage_days=10.0, safety_days=2.0, floor_lines=1.0,
+                                      inputs={}, day_seconds=28800.0, log=_LOG, max_rounds=2)
+    fielded = rec['final']['store']['fielded']
+    assert fielded['below_floor_skus'] == 0 and fielded['above_declaration_skus'] == 0, fielded
+    assert fielded['n_skus'] == 3, fielded
+    assert fielded['fielded_sum_q'] == fielded['declared_sum_q'] == rec['final']['store']['sum_q'], (
+        f"fielded {fielded['fielded_sum_q']}, declared {fielded['declared_sum_q']}, "
+        f"rescaled {rec['final']['store']['sum_q']}")
+    assert rec['planned_sum_q'] == fielded['declared_sum_q'], (
+        f"planned_sum_q {rec['planned_sum_q']} against a declaration of "
+        f"{fielded['declared_sum_q']}")
+    assert fielded['buckets'], 'the per-bucket requirement/capacity/free table is empty'
+    for row in fielded['buckets']:
+        assert set(row) == {'handling', 'category', 'size', 'unit',
+                            'requirement', 'capacity', 'free'}, row
+        assert row['capacity'] - row['requirement'] == row['free'], row
+
+
+def _break_the_floor(section) -> int:
+    """Strip one SKU to a single unit and hand what it lost to another, in place.
+
+    The section's TOTAL is untouched, so the sum check cannot notice — only the floor and
+    growth counters can.  Returns the units moved."""
+    victim, taker = section[0], section[1]
+    moved = sum(per * n for _f, per, n in victim.stock_plan) - 1
+    assert moved > 0, 'the victim already holds one unit; the fixture proves nothing'
+    victim.stock_plan = [(True, 1, 1)]
+    taker.stock_plan = list(taker.stock_plan) + [(True, moved, 1)]
+    return moved
+
+
+def test_the_fielded_block_counts_a_shelf_below_its_floor_and_a_level_grown_past_it():
+    """The counters, read against a plan that is WRONG in exactly the two recorded ways.
+
+    Asserting `== 0` on a correct plan cannot tell the counter from a constant: replacing
+    the floor comparison with `if False` leaves such a test green.  So this hands
+    `fielded_block` a section where one SKU sits at one unit against a floor of five and
+    another carries what it lost — the section's total unchanged, which is precisely the
+    case `planned_sum_q` was blind to when a third of a real section ran below its floor.
+    """
+    Order.next_sku = 1
+    section = [_order(1, freq=0.5, qty=4.0), _order(2, freq=0.25, qty=2.0),
+               _order(3, freq=0.25, qty=8.0, lead=3.0)]
+    cov.rescale_section(section, 60.0, coverage_days=10.0, safety_days=2.0, floor_lines=1.0)
+    plan = _Plan(section)
+    before = ec.fielded_block(section, plan, None, 1.0)
+    assert before['below_floor_skus'] == 0 and before['above_declaration_skus'] == 0, before
+
+    moved = _break_the_floor(section)
+    after = ec.fielded_block(section, plan, None, 1.0)
+    assert after['below_floor_skus'] == 1, (
+        f'a SKU holding 1 unit against a floor of {cov.line_floor(section[0].demand.line, 1.0)} '
+        f'was not counted: {after}')
+    assert after['above_declaration_skus'] == 1, (
+        f'the SKU handed {moved:,} extra units was not counted as grown: {after}')
+    assert after['fielded_sum_q'] == before['fielded_sum_q'] == after['declared_sum_q'], (
+        'the fixture moved the section total, so these counters are not what caught it')
+
+
+def test_a_shelf_below_its_floor_raises_even_when_the_section_total_agrees(monkeypatch):
+    """The floor clause of the loop's check, on its own.
+
+    `fixed_point` raises on `fielded_sum_q != declared_sum_q` OR on any SKU below its floor.
+    The sum clause is the easy one to trip and would mask the other; this trips only the
+    floor, which is the clause that matters — a treadmill does not move a section's total.
+    """
+    class _FloorBreakingPlan(_Plan):
+        def __init__(self, orders):
+            super().__init__(orders)
+            _break_the_floor(self.sampled)
+
+    Order.next_sku = 1
+    section = [_order(1, freq=0.5, qty=4.0), _order(2, freq=0.25, qty=2.0),
+               _order(3, freq=0.25, qty=8.0, lead=3.0)]
+    monkeypatch.setattr(ec, 'seed_lines', _fake_seed(60.0))
+    monkeypatch.setattr(ec, 'stage_a', _fake_stage_a(lambda sq: 60.0 + 0.001 * sq))
+    specs = [ec.ChannelSpec('store', None, None, 'store')]
+    with pytest.raises(ValueError, match=r'below their line floor'):
+        ec.fixed_point(section, lambda: (_FloorBreakingPlan(section), _Meta()), specs,
+                       coverage_days=10.0, safety_days=2.0, floor_lines=1.0, inputs={},
+                       day_seconds=28800.0, log=_LOG, max_rounds=1)
+
+
+def test_the_bucket_table_carries_only_the_channels_own_buckets():
+    """`fielded_block` splits the per-bucket table by regime, and on a mixed catalogue the
+    two channels must not read each other's rows.
+
+    Inverting that comparison stamps fulfillment's buckets into the store's record and
+    nothing else in this file notices: every other test here is store-only, where `regime`
+    is None and the filter short-circuits.
+    """
+    Order.next_sku = 1
+    store = _order(1, freq=0.5, qty=4.0)
+    ff = Order.build(2, FULFILLMENT, FULFILLMENT, length=8, width=8, height=8, weight=2,
+                     relative_frequency=0.5, qty_rate=2.0,
+                     lead_time_mean=0.0, supply_cv=0.0).declare_stock(20, 10)
+    plan = _Plan([store, ff])
+
+    ff_rows = ec.fielded_block([ff], plan, FULFILLMENT, 1.0)['buckets']
+    st_rows = ec.fielded_block([store], plan, STORE, 1.0)['buckets']
+    assert ff_rows and st_rows, (ff_rows, st_rows)
+    assert {r['unit'] for r in ff_rows} == {FULFILLMENT}, ff_rows
+    assert FULFILLMENT not in {r['unit'] for r in st_rows}, st_rows
+    # ...and between them they account for every bucket the plan sized.
+    assert len(ff_rows) + len(st_rows) == len(plan.fielding), (
+        f'{len(ff_rows)} + {len(st_rows)} rows against {len(plan.fielding)} buckets')
+
+
+def test_a_plan_that_fields_less_than_it_declared_raises(monkeypatch, section):
+    """The other half: the stamp is a CHECK, so a planner that under-fields stops the run.
+
+    Without this the record would carry a `fielded` block nobody ever saw fail, which is the
+    same silence the shortfall hid in the first time -- `planned_sum_q` sat below `sum_q` in
+    the check run's own record and the run went on regardless.
+    """
+    class _ShortPlan(_Plan):
+        def __init__(self, orders):
+            super().__init__(orders)
+            c = self.sampled[0]
+            before = sum(per * n for _f, per, n in c.stock_plan)
+            flag, per, _count = c.stock_plan[0]
+            c.stock_plan = [(flag, max(1, per // 2), 1)]
+            after = sum(per * n for _f, per, n in c.stock_plan)
+            # The fixture has to actually under-field, or a `DID NOT RAISE` below reads as a
+            # production regression when it is really a fixture that changed nothing.
+            assert after < before, f'the plan still fields {after} of {before} units'
+
+    monkeypatch.setattr(ec, 'seed_lines', _fake_seed(60.0))
+    monkeypatch.setattr(ec, 'stage_a', _fake_stage_a(lambda sq: 60.0 + 0.001 * sq))
+    specs = [ec.ChannelSpec('store', None, None, 'store')]
+    with pytest.raises(ValueError, match=r'store: the plan fielded'):
+        ec.fixed_point(section, lambda: (_ShortPlan(section), _Meta()), specs,
+                       coverage_days=10.0, safety_days=2.0, floor_lines=1.0, inputs={},
+                       day_seconds=28800.0, log=_LOG, max_rounds=1)
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════

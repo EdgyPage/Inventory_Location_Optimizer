@@ -174,16 +174,24 @@ class LoadParams:
 
 @dataclass
 class WarehousePlan:
-    """Result of Inventory_Manager.plan_warehouse: a sized warehouse + the
-    SKU sample chosen to fill it to target utilization."""
+    """Result of Inventory_Manager.plan_warehouse: a warehouse sized to hold the run's
+    declared levels, plus the orders it FIELDS at exactly those levels.
+
+    `sampled` is a historical name for "the orders this plan fields".  It was a genuine
+    subset while the planner sampled SKUs to fill a capacity it had sized independently; it
+    is now the whole list, because every bucket is sized from `requirement` and every SKU is
+    fielded at its declaration (department-calibration, "Field the requirement").
+    """
     warehouse_cfg : Any                   # WarehouseConfig
-    sampled       : list                  # orders to actually stock
+    sampled       : list                  # orders this plan fields (every order it was given)
     sku_allowlist : set                   # sku ids in `sampled`
-    capacity      : dict                  # BinKey -> bins available in warehouse
+    capacity      : dict                  # BinKey -> bins emitted in the warehouse
     aisle_configs : list                  # the per-replica AisleConfig list
     total_aisles  : int
     total_bins    : int
     expected_fill : float
+    requirement   : dict                  # BinKey -> bins the declared levels need
+    fielding      : dict                  # BinKey -> {requirement, capacity, budget, free}
 
 
 _SIZE_RANKS: dict[str, int] = {
@@ -346,6 +354,29 @@ def is_forward_pick(obj) -> bool:
 
 class UndeclaredStock(RuntimeError):
     """A SKU's Order-Up-To target was read before any run declared one."""
+
+
+class UnfieldableRequirement(RuntimeError):
+    """A bucket's emitted capacity cannot hold the bins the declared levels need.
+
+    The line floor is a PROMISE (department-calibration, "Field the floor", decision 3): the
+    warehouse is sized to hold the run's declaration, so the only way here is a declaration
+    the sizing was not allowed to follow -- a `max_bins` / `max_aisles` cap, a composition
+    basis vector, or one of the two aisle-shape splits (`aisle_split`, `depth_classes`) losing
+    more bins to rounding than the sizing left slack for.  A cap and a floor are two
+    declarations by the same person that contradict; the run says which bucket and how many
+    bins short rather than silently fielding less.
+
+    `short` carries the shortfall STRUCTURALLY -- `[(BinKey, requirement, capacity, budget),
+    ...]`, every short bucket, never the message's truncated dozen.  The prose is for the
+    operator; a caller (a test, a driver deciding what to retry with) reads this instead of
+    parsing it.  The message's own tail names all three possible causes, so a substring
+    search over it can neither identify the bucket nor the cause.
+    """
+
+    def __init__(self, message: str, short: list | None = None) -> None:
+        super().__init__(message)
+        self.short: list = list(short or ())
 
 
 def _equilibrium_qty(order: Order) -> int:

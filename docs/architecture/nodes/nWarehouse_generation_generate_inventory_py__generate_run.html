@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">generation</a> <span class="sep">›</span> <a href="../files/nWarehouse_generation_generate_inventory_py.html"><code>Warehouse/generation/generate_inventory.py</code></a> <span class="sep">›</span> <span class="here"><code>generate_run</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>generate_run</code></h1>
 <p class="meta">layer <span class="chip">generation</span> · file <a href="../files/nWarehouse_generation_generate_inventory_py.html"><code>Warehouse/generation/generate_inventory.py</code></a></p>
-
+<div class="badges"><span class="badge fanout">high fan-out</span></div>
 <pre class="sig"><code>def generate_run(name: str, num_skus: int=76500, handling_splits: list[float] | None=None, category_splits: list[float] | None=None, singleton_fraction: float=0.5, seed: int=42, out_dir: str=_DEFAULT_OUT_DIR, dim_spec: dict | None=None, weight_spec: dict | None=None, lead_time_mean_batches: float=LEAD_TIME_MEAN_BATCHES, lead_time_cv: float=LEAD_TIME_CV, supply_cv_mean: float=SUPPLY_CV_MEAN, creation_plan: list | None=None, lead_time: float=0.0, lead_time_range: tuple | None=None, supply_cv_max: float=0.15, demand_override: tuple | None=None, verbose: bool=True) -&gt; str</code></pre>
 <section class="doc">Generate one inventory run and return the path to the created run_dir.
 

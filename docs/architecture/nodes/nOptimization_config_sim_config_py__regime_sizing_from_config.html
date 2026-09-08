@@ -15,8 +15,9 @@
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
 <pre class="sig"><code>def regime_sizing_from_config() -&gt; dict</code></pre>
-<section class="doc">Assemble the per-regime warehouse-sizing dict from CONFIG (store demand/composition +
-caps; fulfillment fixed tier distribution + caps), each with its own fill headroom.  Used
+<section class="doc">Assemble the per-regime warehouse-sizing dict from CONFIG (both regimes sized from the
+declared levels; store composition + caps; ff aisle shape), each with its own fill
+headroom -- the share of each bucket those levels occupy at setup.  Used
 by both the run (main) and the analysis rebuild (run_analysis) so the warehouse SHAPE — ff
 aisle layout + total_bins — matches; sizing the two paths differently would misgroup ff
 aisle stats and skew churn %.</section>

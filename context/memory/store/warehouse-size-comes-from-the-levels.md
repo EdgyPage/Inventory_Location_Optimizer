@@ -8,12 +8,12 @@ metadata:
 ---
 
 `Inventory_Manager.plan_warehouse(..., sample=False)` reads as "shape only, no re-stock", and the
-log line says so. It is misleading in the one way that matters: `sample` gates ONLY the SKU
-sampling (`sample_to_capacity`). The bin count is computed before that gate and is
+log line says so. It is misleading in the one way that matters: `sample` gates ONLY the
+per-SKU packing (`field_requirement`). The bin count is computed before that gate and is
 **demand-derived from each order's order-up-to** — `bucket_requirements` runs every order through
 `viable_storage_units(c, _equilibrium_qty(c))`, and the per-bucket replica count is
 `ceil(required / (bins_per_aisle x target_fill))`. Both regimes take that path under the committed
-sizing (`composition`, `min_bins`, `target_bins` are all None by default).
+sizing (`composition` and `min_bins` are None by default).
 
 **Why this cost time.** When the catalogue stopped carrying stock levels (ADR-0002), the obvious
 reading was "the shape-only rebuild doesn't need levels, it only wants the geometry". It does need
@@ -31,8 +31,11 @@ checkout's geometry instead of the one the run fielded. A rebuild with neither a
 record refuses.
 
 **And for the batch cache.** The batch fingerprint hashes no level, but it is taken over the
-SAMPLED inventory, and which SKUs get sampled follows the levels. So changing how levels are
-derived moves the fingerprint without any hashed input changing.
+inventory the plan FIELDS. That used to follow the levels — the planner sampled SKUs into the
+capacity it had built and could drop one — so changing how levels were derived moved the
+fingerprint with no hashed input changing. Since "Field the requirement" every SKU is fielded
+(`plan.sampled` is the whole loaded list, `--max-skus` aside), so that particular coupling is
+gone; the fingerprint still moves if the loaded SET changes.
 
 See [[stock-plan-overrides-packing]], [[build-inventory-tests-no-reorders]],
 [[verify-tree-uses-the-runs-own-contract]].
