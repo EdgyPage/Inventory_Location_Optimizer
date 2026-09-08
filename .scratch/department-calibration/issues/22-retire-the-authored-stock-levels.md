@@ -112,3 +112,23 @@ which fails only because a stale git worktree under `.claude/worktrees/` is scan
 
 **Retired**: the memory `stock-plan-overrides-packing` (its generation-time half was the mechanism
 this ticket removed; the packing and split-penalty halves survive, re-aimed).
+
+**Post-review correction (same day).** A `code-reviewer` pass over the whole diff found one
+CRITICAL defect I had introduced and measured it: `declare_from_record` re-declared at
+`record['lines_per_day']`, which is the fixed point's OUTPUT -- the `n` stage A answers with
+AFTER the last declaration was made -- not the line count the run declared AT. The two differ
+by up to the tolerance on a converged run and by the residual on one that spent `max_rounds`;
+on a 1,500-SKU pair that was 353.4 vs 354.7 lines/day, 129 units of sum Q and 42 buckets of
+`bucket_requirements`, which is enough to flip a `_demand_replicas` ceil and hand every
+evaluation a `total_bins` the run never built. `declared_at` now reads
+`final[<channel>]['lines_per_day']` -- the value `rescale_section` itself stamped -- falling
+back to `rounds[-1]['rescaled_at']`. The existing rebuild test could not catch it (a small
+pair converges to a zero residual, where the two keys agree), so the pin is a synthetic record
+whose two keys DISAGREE; it fails on the old code and passes on the new.
+
+Four surviving silent defaults of the same family went with it: `coverage.fill_rate`'s
+`equilibrium_qty -> 1` / `reorder_point -> 0` (which `throughput.audit` reads `missed_share`
+against), `Order.pipeline_allowance`'s `reorder_point -> 0`, `staffing.reorder_lot`'s pair, and
+`build_shared_assets` silently ignoring a `coverage_record` handed to a sampling build. Two
+comments that had come to assert the opposite of their code were corrected, including the
+reorder guard's, which `Order.reorder()` had falsified an hour after it was written.

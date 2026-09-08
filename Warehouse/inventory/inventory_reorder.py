@@ -584,14 +584,17 @@ class ReorderMixin:
             # SKU carries it, else the heuristic this loop always used: reorder_point encodes
             # ~(lead+1) batches of demand, so the pipeline is rp·lead/(lead+1).  lead==0 ⇒
             # pipeline 0 ⇒ no-op either way.
-            # BOTH READS BELOW ARE ON THE COPY, AND THE COPY CANNOT RAISE.  `Order.reorder()`
-            # fills every level slot from a `getattr` DEFAULT (equilibrium_qty 1,
-            # reorder_point 1, pipeline_qty None), so `rc` always answers — an undeclared SKU
-            # would take a target of 1, order one unit a batch forever, and look like a
-            # working restock in every table.  The `rp is None` test on `orig` above, before
-            # `.reorder()` is called, is the ONLY thing standing between that and this
-            # arithmetic: do not hoist these reads above it, and do not delete it on the
-            # grounds that `_equilibrium_qty` raises — here it cannot.
+            # BOTH READS BELOW ARE ON THE COPY, and the guard that protects them is on the
+            # TEMPLATE.  `Order.reorder()` copies the declaration only when the template has
+            # one, so an undeclared SKU's copy is undeclared too and these reads WOULD raise --
+            # but they would raise here, deep in the restock arithmetic, rather than at the
+            # `rp is None` test on `orig` above, which is where the message can still name the
+            # SKU and say where a level comes from.  (Before ADR-0002 the copy could not raise
+            # at all: every slot came from a `getattr` default, so an undeclared SKU took a
+            # target of 1, ordered one unit a batch forever, and looked like a working restock
+            # in every table.)  So: do not hoist these reads above that test, and do not delete
+            # it on the grounds that `_equilibrium_qty` raises -- raising LATE is the failure
+            # this comment exists to prevent, not raising at all.
             pipeline = rc.pipeline_allowance()
             ideal    = _equilibrium_qty(rc) + pipeline - position   # OUP fill-back vs position
             if ideal <= 0:

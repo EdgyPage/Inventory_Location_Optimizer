@@ -155,6 +155,11 @@ def build_shared_assets(
     era_stage_a: dict | None = None
     coverage: dict | None = None
     if _sample:
+        if coverage_record is not None:
+            raise ValueError(
+                'a coverage_record was handed to a build that SAMPLES, which derives its own '
+                'declaration and would silently ignore the record. A rebuild passes the record '
+                'and no warehouse_db_path; a run passes a warehouse_db_path and no record.')
         from Optimization.simdriver import era_coverage as _era_cov          # noqa: E402
         _inputs = staffing_spec()
         _mixed, _specs = _era_cov.channel_specs(inventory)

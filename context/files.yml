@@ -1277,6 +1277,7 @@ files:
       - {name: "channel_specs", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "stage_a", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "seed_lines", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "declared_at", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "MissingCoverageRecord", file: "Optimization/simdriver/era_coverage.py", kind: "class"}
       - {name: "declare_from_record", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "next_guess", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
@@ -3260,6 +3261,7 @@ files:
       - {name: "test_the_pipeline_stamp_is_honoured_in_every_mode", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_asset_builder_enters_the_loop_wherever_it_samples_in_every_mode", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_flag_off_the_run_declares_its_own_levels_and_fields_them", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
+      - {name: "test_a_rebuild_declares_at_the_runs_input_line_count_not_the_fixed_points_answer", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_a_rebuild_re_declares_from_the_record_and_refuses_without_one", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_declared_levels_are_the_ones_the_run_fields_with_the_stamp", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}
       - {name: "test_the_derivation_reuses_the_loops_stage_a_and_records_the_coverage", file: "Tests/unit/test_coverage_rescale.py", kind: "function"}

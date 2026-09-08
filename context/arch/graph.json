@@ -11081,6 +11081,11 @@
       "src": "Optimization/simdriver/era_coverage.py::declare_from_record"
     },
     {
+      "dst": "Optimization/simdriver/era_coverage.py::declared_at",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::declare_from_record"
+    },
+    {
       "dst": "Optimization/simconfig/coverage.py::converged",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
@@ -32270,6 +32275,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
       "name": "declare_from_record",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::declared_at",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "declared_at",
       "public": true
     },
     {

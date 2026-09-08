@@ -267,8 +267,15 @@ def reorder_lot(order) -> float:
 
     A duck-typed order without a line law (a test double) takes the second rule.
     """
-    eq = int(getattr(order, 'equilibrium_qty', getattr(order, 'stock_qty', 1)))
-    rp = int(getattr(order, 'reorder_point', 0))
+    # The DECLARATION, not a default.  `equilibrium_qty -> 1` / `reorder_point -> 0` sent an
+    # undeclared order down the base-stock branch and returned a one-line lot, so the era's
+    # put-away and receiving crews would have been sized off a lot no SKU was ever declared to
+    # order.  The one caller (`implied_reorders`) runs after the fixed point has declared, so an
+    # undeclared order here is a bug in the caller.  `stock_qty` stays: it is the documented
+    # duck-typed legacy contract.
+    eq = int(order.equilibrium_qty if hasattr(order, 'equilibrium_qty')
+             else getattr(order, 'stock_qty'))
+    rp = int(order.reorder_point)
     allowance = getattr(order, 'pipeline_allowance', None)
     if allowance is not None:
         pipeline = int(allowance())

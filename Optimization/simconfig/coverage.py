@@ -223,8 +223,13 @@ def fill_rate(orders, lines_per_day: float) -> dict:
     base_stock = 0
     pipeline_units = 0
     for c in orders:
-        q = int(getattr(c, 'equilibrium_qty', 1))
-        if int(getattr(c, 'reorder_point', 0)) >= q - 1:
+        # Read the DECLARATION directly.  These used to be `getattr(..., 1)` / `getattr(..., 0)`,
+        # which on an undeclared order priced the fill rate against a one-unit shelf and called
+        # every SKU base stock -- and `throughput.audit` reads `missed_share` against exactly
+        # this number.  Every caller prices orders the fixed point has already declared, so an
+        # undeclared one here is a bug in the caller, and it says so instead of answering.
+        q = int(c.equilibrium_qty)
+        if int(c.reorder_point) >= q - 1:
             base_stock += 1
         pipeline_units += int(getattr(c, 'pipeline_qty', None) or 0)
         ds = d[c.sku]

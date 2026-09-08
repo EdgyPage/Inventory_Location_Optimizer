@@ -155,10 +155,12 @@ def seed_lines(orders_all: list, specs: list, *, inputs: dict, day_seconds: floa
     So the seed is the ANALYTIC prediction (`staffing.analytic_pick`): one intercept per line,
     the per-item charge and the handling term per unit, at ground height with NO travel term.
     That is a strict UNDER-estimate of seconds per unit, so `n` starts too HIGH and the first
-    rescaling asks for too much stock -- which is the right direction for this loop, whose map
-    is monotone decreasing with gain above one and whose `next_guess` needs the root BRACKETED
-    (one point each side) before its secant engages.  A declared `--s-pick-*` override replaces
-    the analytic value, because a run that names its constant means it from the first round.
+    rescaling asks for too much stock.  The DIRECTION is not load-bearing -- `next_guess` needs
+    the root bracketed, one point each side, and the plain iterate delivers that after one round
+    from either side -- but a seed of the right MAGNITUDE is what the loop is owed, and pricing
+    the real catalogue is the only honest way to get one without geometry.  A declared
+    `--s-pick-*` override replaces the analytic value, because a run that names its constant
+    means it from the first round.
 
     Zero for a channel whose section is empty or unpriceable; the loop then declares every SKU
     at its line floor, which is what an empty demand implies.
@@ -186,6 +188,27 @@ def seed_lines(orders_all: list, specs: list, *, inputs: dict, day_seconds: floa
     return out
 
 
+def declared_at(record: dict) -> dict:
+    """`{channel: the line count this run DECLARED its levels at}` from a coverage record.
+
+    NOT `record['lines_per_day']`, which is the fixed point's OUTPUT: the `n` stage A answered
+    with AFTER the last declaration was made and the warehouse sized from it.  Declaring at the
+    output re-derives levels the run never fielded -- see `declare_from_record`.
+
+    `final[<channel>]` IS the stats dict `coverage.rescale_section` returned, so its
+    `lines_per_day` is by construction the value the declaration was made at.
+    `rounds[-1]['rescaled_at']` is the same number recorded from the loop's side, and serves as
+    the fallback so a record written by either shape reads correctly.
+    """
+    out = {ch: st['lines_per_day']
+           for ch, st in (record.get('final') or {}).items()
+           if isinstance(st, dict) and st.get('lines_per_day') is not None}
+    if out:
+        return out
+    rounds = record.get('rounds') or []
+    return dict((rounds[-1].get('rescaled_at') or {}) if rounds else {})
+
+
 class MissingCoverageRecord(RuntimeError):
     """A rebuild asked to re-declare a run's levels, and the run recorded no coverage."""
 
@@ -207,27 +230,35 @@ def declare_from_record(orders_all: list, specs: list, record: dict | None, *,
 
     Re-running the fixed point would be both expensive (~8 minutes a pair) and WRONG: it would
     re-derive levels from THIS checkout's geometry and closed form, not the ones the run
-    fielded.  The record already holds the only thing that varies -- the fixed point's line
-    count per channel -- and the levels are a pure function of it and the three declared
-    scalars, so ONE rescaling pass at the recorded `lines_per_day` reproduces the run's
-    declaration exactly, in a second.
+    fielded.  The record already holds the only thing that varies -- the line count the run
+    DECLARED at -- and the levels are a pure function of it and the three declared scalars, so
+    ONE rescaling pass reproduces the run's declaration exactly, in a second.
+
+    WHICH line count, and it is not the obvious one.  A round declares at `prev` and sizes the
+    warehouse from that declaration; the stage A that follows ANSWERS with a different `n`, and
+    that answer is what `record['lines_per_day']` holds.  On a converged run the two differ by
+    up to `tol` (1%) and on one that spent `max_rounds` by whatever the residual says -- enough
+    to move `bucket_requirements` by tens of buckets and flip a `_demand_replicas` ceil, which
+    is a rebuilt warehouse the run never built.  `run_map_precompute` would refuse every row;
+    `run_analysis` has no such gate and would ship the wrong `total_bins` into every evaluation
+    in silence.  So the INPUT is the one we want -- `declared_at`.
 
     Raises `MissingCoverageRecord` rather than guessing when the record is absent or does not
     name a channel the rebuild needs: a fabricated level here is a fabricated warehouse.
     """
-    if not record or not record.get('lines_per_day'):
+    if not record or not (record.get('final') or record.get('rounds')):
         raise MissingCoverageRecord(
             'this run recorded no coverage block, so its stock declaration cannot be '
             'reproduced. Runs written before ADR-0002 carried their levels on the catalogue; '
             'that catalogue can still be read, but a rebuild of one must load the run\'s own '
             'planned inventory instead of re-declaring.')
-    n = record['lines_per_day']
-    missing = [s.name for s in specs if s.name not in n]
+    n = declared_at(record)
+    missing = [s.name for s in specs if n.get(s.name) is None]
     if missing:
         raise MissingCoverageRecord(
-            f'the recorded coverage names lines/day for {sorted(n)} but this rebuild needs '
-            f'{missing} -- the run and the rebuild disagree about which channels the catalogue '
-            f'has, so re-declaring would field a section the run never did.')
+            f'the recorded coverage names a declared line count for {sorted(n)} but this '
+            f'rebuild needs {missing} -- the run and the rebuild disagree about which channels '
+            f'the catalogue has, so re-declaring would field a section the run never did.')
     stats = {s.name: _cov.rescale_section(
         _staffing.regime_orders(orders_all, s.regime), float(n[s.name]),
         coverage_days=float(record['coverage_days']),

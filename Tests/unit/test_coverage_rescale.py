@@ -592,6 +592,53 @@ def test_flag_off_the_run_declares_its_own_levels_and_fields_them(tmp_path, monk
     assert rec['planned_sum_q'] == sum(c.equilibrium_qty for c in planned.orders)
 
 
+def test_a_rebuild_declares_at_the_runs_input_line_count_not_the_fixed_points_answer(section):
+    """THE key choice in `declare_from_record`, pinned where it can actually fail.
+
+    A round DECLARES at `prev` and then sizes the warehouse from that declaration; the stage A
+    that follows ANSWERS with a different `n`, and that answer is `record['lines_per_day']`.
+    Declaring a rebuild at the answer re-derives levels the run never fielded -- by up to `tol`
+    on a converged run and by the residual on one that spent `max_rounds`, which at production
+    scale moves `bucket_requirements` by tens of buckets and flips a `_demand_replicas` ceil.
+    `run_map_precompute` would then refuse every row and `run_analysis`, which has no such
+    gate, would ship the wrong `total_bins` into every evaluation in silence.
+
+    A real pair converges to a zero residual, where the two keys agree and nothing can
+    discriminate -- so the record here is synthetic and the two DISAGREE, which is the only
+    shape that makes this test able to fail.
+    """
+    declared, answered = 40.0, 55.0                     # the input and the fixed point's answer
+    rec = {'coverage_days': 10.0, 'safety_days': 2.0, 'floor_lines': 1.0,
+           'final': {'store': {'lines_per_day': declared}},
+           'rounds': [{'round': 0, 'seed': 'analytic_pick', 'lines_per_day': {'store': 900.0}},
+                      {'round': 1, 'rescaled_at': {'store': declared},
+                       'stats': {'store': {'lines_per_day': declared}}}],
+           'lines_per_day': {'store': answered}}
+    assert ec.declared_at(rec) == {'store': declared}
+    # the fallback reads the same number from the loop's side of the record
+    assert ec.declared_at({'rounds': rec['rounds']}) == {'store': declared}
+
+    def _levels_at(n):
+        Order.next_sku = 1
+        orders = [_order(1, freq=0.5, qty=4.0, declare=False),
+                  _order(2, freq=0.25, qty=2.0, declare=False),
+                  _order(3, freq=0.25, qty=8.0, lead=3.0, declare=False)]
+        cov.rescale_section(orders, n, coverage_days=10.0, safety_days=2.0, floor_lines=1.0)
+        return {c.sku: (c.equilibrium_qty, c.reorder_point) for c in orders}
+
+    at_declared, at_answered = _levels_at(declared), _levels_at(answered)
+    assert at_declared != at_answered, 'the fixture no longer discriminates the two keys'
+
+    Order.next_sku = 1
+    fresh = [_order(1, freq=0.5, qty=4.0, declare=False),
+             _order(2, freq=0.25, qty=2.0, declare=False),
+             _order(3, freq=0.25, qty=8.0, lead=3.0, declare=False)]
+    ec.declare_from_record(fresh, [ec.ChannelSpec('store', None, None, 'store')], rec, log=_LOG)
+    got = {c.sku: (c.equilibrium_qty, c.reorder_point) for c in fresh}
+    assert got == at_declared, "the rebuild declared at the fixed point's answer"
+    assert got != at_answered
+
+
 def test_a_rebuild_re_declares_from_the_record_and_refuses_without_one(tmp_path, restore):
     """The REBUILD path (`run_analysis`, `run_map_precompute`): a finished run's catalogue
     carries no level, and the warehouse bin count is demand-derived from levels on EVERY path,
@@ -599,6 +646,7 @@ def test_a_rebuild_re_declares_from_the_record_and_refuses_without_one(tmp_path,
     checkout would derive. One rescaling at the recorded lines/day reproduces it exactly.
     """
     from Optimization.simdriver import sim_assets, era_coverage as _ec
+    from Warehouse.generation.generate_inventory import load_inventory_from_db
     restore['shift_drain_or_cap'] = False
     inv_db, aff_db = _tiny_pair(tmp_path)
     run = sim_assets.build_shared_assets(
@@ -606,6 +654,34 @@ def test_a_rebuild_re_declares_from_the_record_and_refuses_without_one(tmp_path,
     rebuilt = sim_assets.build_shared_assets(inv_db, aff_db, _LOG,
                                              coverage_record=run['coverage'])
     assert (rebuilt['total_aisles'], rebuilt['total_bins'])         == (run['total_aisles'], run['total_bins']),         "a rebuild from the record must reproduce the run's warehouse exactly"
+    # THE DECLARATION ITSELF, not just the totals.  A rebuild that declared at the fixed
+    # point's OUTPUT instead of at the line count the run declared AT reproduced the same
+    # aisle and bin counts here -- the >=1-replica-per-bucket floor absorbs a 1% difference on
+    # a small pair -- while the per-SKU levels were wrong, and at production scale that moves
+    # `bucket_requirements` by tens of buckets and flips a `_demand_replicas` ceil.
+    rec = run['coverage']
+    n_declared = rec['rounds'][-1]['rescaled_at']['store']
+    assert ec.declared_at(rec) == {'store': n_declared}, (
+        'declared_at must return the INPUT to the last rescaling, not the n stage A answered '
+        'with afterwards')
+
+    def _levels_at(n):
+        Order.next_sku = 1
+        orders = load_inventory_from_db(inv_db).orders
+        cov.rescale_section(orders, n, coverage_days=rec['coverage_days'],
+                            safety_days=rec['safety_days'], floor_lines=rec['floor_lines'])
+        return {c.sku: (c.equilibrium_qty, c.reorder_point) for c in orders}
+
+    got = {c.sku: (c.equilibrium_qty, c.reorder_point) for c in rebuilt['inventory'].orders}
+    assert got == _levels_at(n_declared), (
+        'the rebuild declared different levels than the run did -- it is re-declaring at the '
+        "fixed point's output rather than at the line count the run declared at")
+    # ...and the test can FAIL: declaring at the output is a DIFFERENT declaration whenever the
+    # fixed point left any residual at all, which is what makes the key choice load-bearing.
+    n_out = rec['lines_per_day']['store']
+    if abs(n_out - n_declared) > 1e-9:
+        assert got != _levels_at(n_out)
+
     # Without a record it REFUSES rather than sizing from nothing.
     with pytest.raises(RuntimeError, match='no stock declaration'):
         sim_assets.build_shared_assets(inv_db, aff_db, _LOG)

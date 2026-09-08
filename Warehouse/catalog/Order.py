@@ -186,8 +186,11 @@ class Order:
         lead = max(0.0, float(getattr(self, 'lead_time_mean', 0.0)))
         if lead <= 0.0:
             return 0
-        rp = getattr(self, 'reorder_point', 0)
-        return round(rp * lead / (lead + 1.0))
+        # The heuristic needs the reorder point, so it needs a DECLARATION.  This used to read
+        # `getattr(self, 'reorder_point', 0)`, which answered "nothing in transit" for a SKU
+        # nobody had declared -- a fabricated allowance, and the same shape as the defaults
+        # ADR-0002 removed elsewhere.  An undeclared order with a lead has no answer to give.
+        return round(self.reorder_point * lead / (lead + 1.0))
 
     def reorder(self) -> 'Order':
         """Return a new shipment of this order: same SKU, dimensions, weight, type, and demand rates."""

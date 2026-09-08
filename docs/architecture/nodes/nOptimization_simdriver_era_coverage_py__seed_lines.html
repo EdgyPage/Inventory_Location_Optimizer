@@ -25,10 +25,12 @@ no level, so there is nothing to plan and no geometry to price against).
 So the seed is the ANALYTIC prediction (`staffing.analytic_pick`): one intercept per line,
 the per-item charge and the handling term per unit, at ground height with NO travel term.
 That is a strict UNDER-estimate of seconds per unit, so `n` starts too HIGH and the first
-rescaling asks for too much stock -- which is the right direction for this loop, whose map
-is monotone decreasing with gain above one and whose `next_guess` needs the root BRACKETED
-(one point each side) before its secant engages.  A declared `--s-pick-*` override replaces
-the analytic value, because a run that names its constant means it from the first round.
+rescaling asks for too much stock.  The DIRECTION is not load-bearing -- `next_guess` needs
+the root bracketed, one point each side, and the plain iterate delivers that after one round
+from either side -- but a seed of the right MAGNITUDE is what the loop is owed, and pricing
+the real catalogue is the only honest way to get one without geometry.  A declared
+`--s-pick-*` override replaces the analytic value, because a run that names its constant
+means it from the first round.
 
 Zero for a channel whose section is empty or unpriceable; the loop then declares every SKU
 at its line floor, which is what an empty demand implies.</section>
