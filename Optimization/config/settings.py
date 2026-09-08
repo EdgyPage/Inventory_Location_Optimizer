@@ -299,7 +299,19 @@ FLOOR_LINES = 1.0                      # the line floor, in lines of the SKU's o
 # unit, recorded `declared`, and the expectation is still recorded beside it.
 S_PICK_STORE = None                    # seconds per unit picked, store.  --s-pick-store
 S_PICK_FF = None                       # seconds per unit picked, fulfillment.  --s-pick-ff
-S_PUT = None                           # seconds per unit put away, one site value.  --s-put
+S_PUT = None                           # seconds per unit put away, DECLARED for every
+                                       # channel alike.  --s-put
+                                       # The DERIVED price is per channel (the two sections
+                                       # differ ~3.4x); this key is the operator asserting
+                                       # one number for both, which is a declaration rather
+                                       # than the average that used to be derived.
+                                       # DELIBERATELY the one override that is not per
+                                       # channel: nothing in the repo calls it, and the key
+                                       # is published into the factor register, so splitting
+                                       # it into --s-put-store/--s-put-ff would rename a
+                                       # published key across the experiment boundary for no
+                                       # numerical gain.  Split it when something needs to
+                                       # declare one section's put price alone.
 
 # ── the other crews' PRICE, as scalars of the pickers' ──────────────────────────
 # Put-away and receiving keep picking's cost shape and picking's coefficients BY REFERENCE

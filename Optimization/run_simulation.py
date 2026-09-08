@@ -623,7 +623,8 @@ def main():
     for _flag, _key, _what in (
             ('--s-pick-store', 's_pick_store', 'seconds per unit picked, store channel'),
             ('--s-pick-ff', 's_pick_ff', 'seconds per unit picked, fulfillment channel'),
-            ('--s-put', 's_put', 'seconds per unit put away, one site value')):
+            ('--s-put', 's_put', 'seconds per unit put away, declared for every channel '
+                                 'alike (the derived price is per channel)')):
         parser.add_argument(_flag, type=_positive_float, default=CONFIG['global'][_key],
                             metavar='SEC',
                             help=f'Override the expected value: {_what}. Omit to take the '

@@ -461,6 +461,40 @@ def _prepare_channel_run(
     return strategy_args, [sim_skeleton]
 
 
+def put_constant(totals, override) -> dict:
+    """ONE channel's put-away price, as the recorded constant ("Give put-away a per-channel
+    expected travel", 2026-09-08).
+
+    This was a SITE ratio, `sum(put_s) / sum(put_units)` over both channels, and it averaged a
+    real 3.4x spread away: the era re-read measured 98.5 s/unit put away on the store against
+    29.2 on fulfillment.  The site TOTAL was right either way -- the ratio's denominator makes
+    `units x price` sum back to `sum(put_s)` -- so the crew was correctly SIZED while both
+    leaves' expected utilization sat about 0.21 outside the band, in OPPOSITE directions.
+    `ScriptTotals.put_s` was already this channel's own expectation (priced by
+    `expected_travel.put_site_pricer` over its own section's class-uniform destination); only
+    this constant threw the per-channel structure away.
+
+    `override` is `--s-put`, which stays ONE key: an operator declaring a price is asserting a
+    single site-wide number, which is an honest declaration rather than the derived average
+    that was the defect.  It is stamped onto EVERY channel, and each channel's own expectation
+    rides along as `expected`, so the record still shows what the declaration displaced -- and
+    the two channels therefore carry different `expected` values under one flag.
+
+    A section the script implies no put-away for prices at 0.0 rather than dividing by zero;
+    the caller warns, because a silent 0 under a note claiming an expected travel is a lie.
+
+    Module-level and pure so it is testable without a run, and spawn-safe by construction
+    (the repo's `ProcessPoolExecutor` rule).
+    """
+    own = (totals.put_s / totals.put_units) if totals.put_units else 0.0
+    if override is not None:
+        return _staffing.constant(float(override), 'declared', source='override', expected=own)
+    return _staffing.constant(
+        own, 'derived', source='expected_travel', placement='uniform',
+        note='expected put travel from the aisle mouth over THIS CHANNEL\'s class-uniform '
+             'destination, plus the packs\' handling at the class-mean height')
+
+
 def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pair_dir: str,
                               log: logging.Logger, workers: int = 1) -> tuple:
     """Run the calibrated era's staffing derivation for ONE inventory pair.
@@ -528,7 +562,9 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
     else:
         stage_a = _era_cov.stage_a(inventory.orders, geometry, specs, inputs=inputs,
                                    day_seconds=S, log=log)
-    constants: dict = {'s_pick': {}}
+    # Both seconds-per-unit constants are keyed by CHANNEL: stage A fills `s_pick`, stage B
+    # fills `s_put` (per channel since "Give put-away a per-channel expected travel").
+    constants: dict = {'s_pick': {}, 's_put': {}}
     new_runs: list = []
     for name, grp in groups.items():
         ch = grp['ch']
@@ -572,18 +608,12 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
             log.warning(f'  [staffing] {name}: {totals.unknown_skus} script line(s) named a SKU '
                         f'outside the channel section -- skipped in the totals')
         scripts[name] = totals
-    site_put_units = sum(t.put_units for t in scripts.values())
-    site_put_s = sum(t.put_s for t in scripts.values())
-    if overrides.get('s_put') is not None:
-        constants['s_put'] = _staffing.constant(
-            float(overrides['s_put']), 'declared', source='override',
-            expected=(site_put_s / site_put_units) if site_put_units else 0.0)
-    else:
-        constants['s_put'] = _staffing.constant(
-            (site_put_s / site_put_units) if site_put_units else 0.0, 'derived',
-            source='expected_travel', placement='uniform',
-            note='expected put travel from the aisle mouth over the class-uniform destination, '
-                 'plus the packs\' handling at the class-mean height')
+        constants['s_put'][name] = put_constant(totals, overrides.get('s_put'))
+        if not totals.put_units:
+            # The pick side warns on an unpriceable section (`era_coverage.stage_a`); say the
+            # same here rather than recording a 0.0 whose note claims an expected travel.
+            log.warning(f'  [staffing] {name}: put-away could not be priced (the script implies '
+                        f'no units put away) -- recording s_put = 0 for this channel')
     derived = _staffing.derive(
         inputs=inputs, constants=constants, day_seconds=S,
         channels={n: {'pickers': a['pickers'], 'daily_demand_units': a['daily_demand_units'],
@@ -607,9 +637,11 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
         # (`assumed`: a pre-stamp file, Poisson(demand_qty_rate) rebuilt at load).
         'line_law': line_law_census(inventory.orders),
     }
+    _put_prices = ', '.join(f"{n}={c['value']:.3f} ({c['provenance']})"
+                            for n, c in sorted(constants['s_put'].items()))
     log.info(f"  [staffing] put crew={derived['put']['crew']} "
-             f"(s_put={constants['s_put']['value']:.3f} s/unit, "
-             f"{constants['s_put']['provenance']}; load={derived['put']['load_seconds_per_day']:,.0f} s/day)"
+             f"(s_put/unit {_put_prices}"
+             f"; load={derived['put']['load_seconds_per_day']:,.0f} s/day)"
              f"  receiving crew={derived['receiving']['crew']} "
              f"(exact {derived['receiving']['load_seconds_per_day']:,.0f} s/day over "
              f"{derived['receiving']['load_packs_per_day']:,.1f} packs/day)")
@@ -650,9 +682,21 @@ def _record_derived(base_dir: str, label: str, derived: dict, calibration: dict,
     if prev is not None:
         diffs = _staffing.derived_differs(prev, derived)
         if diffs:
+            # A run recorded before 2026-09-08 carries `put.s_put` as ONE site constant;
+            # it is a channel map now ("Give put-away a per-channel expected travel"), so
+            # every such run is refused here.  Say so, because on a STORE-ONLY pair the
+            # numbers are all identical -- same price, same crew, same expected utilization
+            # -- and only the record's SHAPE moved, which makes the generic "under different
+            # crews" wording a false diagnosis.  On a mixed pair the crews really did
+            # re-band and the generic wording is the true one.
+            shape_move = any(d.startswith('/put/s_put') for d in diffs)
+            why = ('; `put.s_put` became a per-channel map on 2026-09-08, so a run recorded '
+                   'before that is refused here on SHAPE -- on a store-only pair every '
+                   'derived number is unchanged and only the record moved'
+                   if shape_move else '')
             raise RuntimeError(
                 f'[staffing] the derivation for pair {label!r} disagrees with the one this run '
-                f'recorded at {", ".join(diffs[:8])}{" ..." if len(diffs) > 8 else ""}; the '
+                f'recorded at {", ".join(diffs[:8])}{" ..." if len(diffs) > 8 else ""}{why}; the '
                 f'recorded derived block is authoritative on resume, so this run cannot '
                 f'continue under different crews. Start a new run instead.')
         return

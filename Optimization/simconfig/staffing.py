@@ -8,18 +8,27 @@ fields is DERIVED from them, live at setup, with a declared scalar at every step
     daily demand       capacity ÷ s_pick                     (units per day, per channel)
     batch content      one batch = one day's demand          (a BatchConfig mean fraction)
     put load           units × f_put                         (units put per unit picked)
-    put crew           ceil(put load × s_put ÷ (S × ρ_put))  (ONE site crew, both channels)
+    put crew           ceil(Σ_ch put load_ch × s_put_ch ÷ (S × ρ_put))   (ONE site crew)
     receive load       packs the script implies × f_recv
     receiving crew     ceil(receive seconds ÷ (S × ρ_recv))  (ONE site crew)
 
-`s_pick` (per channel) and `s_put` (one site value) are seconds per unit and are CLOSED-FORM
+`s_pick` and `s_put` are BOTH per channel, and both are seconds per unit: CLOSED-FORM
 EXPECTATIONS over the catalogue's demand distribution and the warehouse geometry the run
-built (`Optimization/simconfig/expected_travel.py`, "Derive the expected-travel closed form"):
-there are no calibration simulations and no calibration record.  The harness computes them
-at setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put` override
-replaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the script: an
-unload has no travel term, so every pack's seconds are computable from the catalogue and
-the cost model alone.
+built (`Optimization/simconfig/expected_travel.py`, "Derive the expected-travel closed form").
+There are no calibration simulations and no calibration record.  The harness computes them
+at setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put`
+override replaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the
+script: an unload has no travel term, so every pack's seconds are computable from the
+catalogue and the cost model alone.
+
+**s_put IS PER CHANNEL** ("Give put-away a per-channel expected travel", 2026-09-08).  It was
+one site value until then, and the two sections do not share a geometry: the era re-read
+measured 98.5 s/unit put away on the store against 29.2 on fulfillment, a 3.4× spread that a
+single site price averaged away.  The site TOTAL stayed right -- so the crew was correctly
+SIZED -- while both leaves' expected utilization sat ~0.21 outside the band, in opposite
+directions.  Picking never had this defect (its constant was always per channel) and neither
+did receiving (its per-channel seconds come straight from the script).  There is now no
+site-wide put price anywhere in the derived record: `put.s_put` is a map keyed by channel.
 
 THIS MODULE IS PURE.  Inputs, the resolved constants and the catalogue / script totals go
 in; the derived dict comes out.  It imports no CONFIG, reads no settings and
@@ -380,10 +389,12 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
     `inputs` is the staffing record's INPUTS (`sim_config.staffing_spec()` shape: the two
     picker counts, `rho_pick/rho_put/rho_recv`, `f_put/f_recv`, `band_tol`,
     `put_crew_mode`, plus the three crew-cost scales the harness copies in).
-    `constants` is `{'s_pick': {channel: constant}, 's_put': constant}` as the harness
-    resolves them (the expectation, or a declared override).  `channels` maps a channel
-    name to its stage-A dict (`analytic`, `batch`, `pickers`, `n_skus`, and `expected` --
-    the expected day the constant was read off, recorded beside it);
+    `constants` is `{'s_pick': {channel: constant}, 's_put': {channel: constant}}` as the
+    harness resolves them (the expectation, or a declared override).  BOTH are keyed by
+    channel: a site-wide put price is what this derivation used to get wrong, and there is
+    no longer anywhere to put one.  `channels` maps a channel name to its stage-A dict
+    (`analytic`, `batch`, `pickers`, `n_skus`, and `expected` -- the expected day the
+    constant was read off, recorded beside it);
     `scripts` maps it to its `ScriptTotals`.  Channels absent from `channels` (a
     store-only catalogue) are recorded as absent and contribute nothing.
 
@@ -392,7 +403,27 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
     its own load against the WHOLE site crew, which is why it sits well below ρ.
     """
     S = float(day_seconds)
-    s_put = float(constants['s_put']['value'])
+    # THE ERA IS ONE SITE DAY.  `per_day` divides each channel's totals by that channel's
+    # own batch count, and the two site crews are sized from the SUM of those per-day loads
+    # -- so two channels running different batch counts would be two different days added
+    # together, and every departmental band drawn from the result would be denominated in
+    # nothing ("Define the calibrated era": one boundary for the whole site).  The single
+    # production caller reads ONE `n_batches` and hands it to both channels, so this holds
+    # by construction today; it was unasserted until the per-channel put price made the
+    # sum's meaning load-bearing.
+    _counts = {n: scripts[n].batches for n in CHANNELS if channels.get(n) is not None}
+    if len(set(_counts.values())) > 1:
+        raise ValueError(
+            f'the channels ran different batch counts ({_counts}); under the era one batch '
+            f'is one site day, so their per-day loads cannot be summed into a site crew')
+    # Both constant maps are keyed by channel, so a caller that priced one channel and not
+    # the other would fail on a bare `KeyError` deep in the loop below.  Say which map and
+    # which channel instead -- this is a pure module and its contract is its docstring.
+    _missing = [f'{k}[{n}]' for k in ('s_pick', 's_put') for n in channels
+                if n not in (constants.get(k) or {})]
+    if _missing:
+        raise ValueError(f'no constant for {", ".join(sorted(_missing))}; both `s_pick` and '
+                         f'`s_put` are keyed by channel and must cover every channel derived')
     out: dict = {
         'provenance': 'derived',
         'day_seconds': S,
@@ -448,10 +479,15 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
                 'pick': expected_utilization(served_day * s_pick, K, S),
             },
         }
-        # Site loads, per day.  Put-away is priced at s_put (one site value, the expected
-        # travel + handling per unit); receiving is EXACT -- the script's unload seconds
-        # need no constant.
-        ch_put_s = t.per_day(t.put_units) * s_put
+        # Site loads, per day.  Put-away is priced at THIS CHANNEL's own seconds per unit
+        # -- the expected travel over its own section's class-uniform destination plus the
+        # packs' handling -- so the two crews' loads are summed from prices that were never
+        # averaged across two geometries.  Note there is no `declared` / `derived` branch
+        # here, and deliberately so: the constant is per channel either way, and when it is
+        # the expectation its value IS `put_s / put_units`, so `units × price` reproduces
+        # the script's own seconds.  One code path means a declared price cannot silently
+        # stop reaching the load.  Receiving is EXACT and needs no constant at all.
+        ch_put_s = t.per_day(t.put_units) * float(constants['s_put'][name]['value'])
         ch_recv_s = t.per_day(t.recv_s)
         per_channel_put_s[name] = ch_put_s
         per_channel_recv_s[name] = ch_recv_s
@@ -464,7 +500,12 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
     out['put'] = {
         'crew': put_crew,
         'mode': inputs.get('put_crew_mode'),
-        's_put': constants['s_put'],
+        # PER CHANNEL, and there is no site scalar beside it on purpose: a site-wide
+        # `s_put` in the record is a number a future consumer could price something from,
+        # and averaging a 3.4× spread is the defect this key was split to end.  A reader
+        # who wants the site average divides `load_seconds_per_day` by
+        # `load_units_per_day`, both of which are read.
+        's_put': {n: constants['s_put'][n] for n in channels},
         'load_seconds_per_day': put_load_s,
         'load_units_per_day': sum(scripts[n].per_day(scripts[n].put_units)
                                   for n in channels),
@@ -477,8 +518,13 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
         'crew': recv_crew,
         'load_seconds_per_day': recv_load_s,
         'load_packs_per_day': total_packs,
-        # Exact seconds per pack, derived from the script: the value the throughput
-        # audit's receiving self-check compares the realized receiving labour against.
+        # Exact seconds per pack, derived from the script.  REPORTED ONLY -- nothing reads
+        # it (checked 2026-09-08).  This comment used to claim the throughput audit's
+        # receiving self-check compares realized labour against it; that check re-prices
+        # every row instead, precisely because an average was 7× off on a real run (memory
+        # `equilibrium-check-two-traps`).  Left in place as a site read-out; do NOT make it
+        # the precedent for a new price, which is why `s_put` above is a per-channel map
+        # and has no site twin.
         's_recv': constant((recv_load_s / total_packs) if total_packs else 0.0, 'derived',
                            note='exact from the script: an unload has no travel term'),
         'f_recv': float(inputs['f_recv']),

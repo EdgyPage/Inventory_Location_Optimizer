@@ -400,6 +400,31 @@ regime someone chose rather than one the defaults inherited.
   so it is neither fragmentation nor travel drift. **The era's numbers on both sections stay
   PROVISIONAL** and 05's hold on the inbound funnel stands. Graduated 26 and 27.
 
+- [Give put-away a per-channel expected travel](issues/26-give-put-away-a-per-channel-price.md):
+  LANDED 2026-09-08. The defect was ONE line: `ScriptTotals.put_s` was already the channel's own
+  expectation and the record already stamped it, but `workunits` collapsed both channels into one
+  ratio and `derive` re-expanded it as `units x that`. `constants['s_put']` is now a
+  `{channel: constant}` map like `s_pick`'s, and `put.s_put` in the record is a channel map with
+  NO site scalar beside it -- there is nowhere left to price a put from a site-wide number.
+  THE CHECK (`comparison_20260908_094846`, same spec): **`utilization` reads OK on BOTH leaves for
+  the first time** -- fulfillment 0.477 realized against 0.475 expected (was 0.691), store 0.362
+  against 0.371 (was 0.155) -- with put crew 59 and site load 1,437,958 s/day IDENTICAL to the
+  pre-change run and every other clause reading byte-identical, so the simulation did not move,
+  only the expectation. Both leaves still fail on `drained` and `missed_share`, which are 27's
+  question; the department bands are no longer among the reasons. The ticket's proposed key split
+  (`--s-put-store` / `--s-put-ff`) was REJECTED: the flag has no caller anywhere and the key is
+  published into `held_fixed.json`, so the rename crosses the experiment boundary for zero
+  numerical gain -- it stays one key that stamps a declaration onto every channel, and the
+  symmetry rename is available later with no numerical content. Three corrections to the ticket's
+  own premises, all from adversarial verification: the crew invariance is NOT an identity of
+  `derive` (it needs equal batch counts, now RAISED on, and it is 1 ulp inexact, so the test pins
+  the two LOADS agreeing rather than `crew == 59`); the closed form is NOT already correct (-2.8%
+  on fulfillment, and the store's +0.4% is travel -6.3% cancelling handling +1.8%) -> graduated 28;
+  and the per-channel price is per-channel only BY SIDE EFFECT of the two sections' BinKeys being
+  disjoint, now pinned as a provable invariant. Also found: the put band has no per-arm
+  re-centring (-> the ranked-arms fog patch), and `s_recv` is a dead field whose comment claimed a
+  reader it never had.
+
 ## Not yet specified
 
 - **What the own-bin share and free-index depth should be BANDED at.** 24 shipped both as
@@ -421,7 +446,17 @@ regime someone chose rather than one the defaults inherited.
   ranked restock keeps its placement concentrated, so its initial-placement expectation is a
   proxy, not a steady state. Whether the audit's per-arm band should follow the placement as it
   evolves (re-stamped per reorder cycle) or stay at the initial map is dim until a ranked arm
-  runs a full replenishment cycle under the era.
+  runs a full replenishment cycle under the era. **26 (2026-09-08) added the PUT side to this
+  patch and made it the sharper half**: the pick band is already re-centred per arm
+  (`equilibrium.arm_expectations` over a stamped `expected_pick`), but the put band has **no
+  per-arm re-centring at all** -- it is class-uniform for every arm. That was invisible while
+  every era run was `fifo`, whose restock picks a uniformly random free bin and so IS the
+  class-uniform assumption (which is why 26's per-channel price agreed with the run to 0.4% /
+  2.8%); a ranked arm's put destinations are not class-uniform, and ADR-0003's empty-bin-first
+  rule concentrates them further. The question is whether put needs a twin of
+  `arm_expectations` -- and, unlike picking's, the put pricer's `initial` branch cannot serve
+  that role as written. Still dim for the same reason: no ranked arm has run a full
+  replenishment cycle under the era.
 - **Interaction-effects reporting beyond the bands** — the user's framing names
   "interaction effects between departments"; the bands capture equilibrium, but how the
   coupling itself is surfaced (receiving throttles put-away throttles availability

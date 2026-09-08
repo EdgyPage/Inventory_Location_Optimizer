@@ -74,3 +74,4 @@
 - [One planner contract](field-the-requirement-one-planner-contract.md) — the planner fields the declaration exactly; Singleton/FulfillmentBin SUBCLASS Pallet, and both aisle splits must round UP or they refuse the run
 - [A bin cap is self-defeating](a-bin-cap-is-self-defeating.md) — a max-bins cap now refuses when it binds, and cannot shrink a run anyway (a smaller warehouse raises lines/day, which grows the levels); use --coverage-days
 - [Drain order is smallest-first](drain-order-is-smallest-first.md) — ADR-0003 retired the forward-pick drain preference and is NOT gated on a dry free index, so absolute pick/travel numbers break comparability at 2026-09-08
+- [A right site total hides two wrong shares](a-right-site-total-hides-two-wrong-shares.md) — put-away's site load was 0.9% exact while both per-channel bands failed in opposite directions; check the split separately before re-sizing a crew
