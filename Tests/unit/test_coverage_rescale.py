@@ -612,21 +612,27 @@ _KNOBS = ('coverage_days', 'safety_days', 'floor_lines')
 
 
 def test_the_three_knobs_are_declared_assumptions_with_their_flags_named():
-    assert (_s.COVERAGE_DAYS, _s.SAFETY_DAYS, _s.FLOOR_LINES) == (10.0, 2.0, 1.0)
+    # The floor's default is None since ADR-0004: SOLVED under the era, one line flag-off
+    # (`coverage.DEFAULT_FLOOR_LINES`), so the settings module no longer names a number.
+    assert (_s.COVERAGE_DAYS, _s.SAFETY_DAYS, _s.FLOOR_LINES) == (10.0, 2.0, None)
+    assert cov.DEFAULT_FLOOR_LINES == 1.0
     src = inspect.getsource(_s)
     for flag in ('--coverage-days', '--safety-days', '--floor-lines'):
         assert flag in src, f'{flag} is not named beside its setting'
 
 
 def test_the_three_knobs_ride_staffing_keys_and_resolve_a_none_to_their_default(restore):
-    defaults = (_s.COVERAGE_DAYS, _s.SAFETY_DAYS, _s.FLOOR_LINES)
-    for k, dflt in zip(_KNOBS, defaults):
+    for k in _KNOBS:
         assert k in STAFFING_KEYS, k
-        assert _SCALAR_DEFAULTS[k] == dflt, k
         assert k in CONFIG['global'], k
+    for k, dflt in zip(_KNOBS[:2], (_s.COVERAGE_DAYS, _s.SAFETY_DAYS)):
+        assert _SCALAR_DEFAULTS[k] == dflt, k
+    # `floor_lines` keeps its None (a value the coverage loop reads: "solve it" under the
+    # era, one line flag-off), exactly as the CALIBRATION_KEYS keep theirs.
+    assert 'floor_lines' not in _SCALAR_DEFAULTS
     restore.update(coverage_days=None, safety_days=None, floor_lines=None)
     spec = staffing_spec()
-    assert tuple(spec[k] for k in _KNOBS) == defaults
+    assert tuple(spec[k] for k in _KNOBS) == (_s.COVERAGE_DAYS, _s.SAFETY_DAYS, None)
     restore.update(coverage_days=30.0, safety_days=0.5, floor_lines=1.5)
     spec = staffing_spec()
     assert tuple(spec[k] for k in _KNOBS) == (30.0, 0.5, 1.5)
@@ -642,7 +648,10 @@ def test_each_knob_has_a_flag(flag):
 def test_the_asset_builder_hands_the_floor_to_the_loop():
     from Optimization.simdriver import sim_assets
     src = inspect.getsource(sim_assets.build_shared_assets)
-    assert "floor_lines=float(_inputs['floor_lines'])" in src
+    # Handed through as declared -- None included, which the loop resolves (solved under the
+    # era, one line flag-off); a `float()` here would turn "solve it" into a crash.
+    assert "floor_lines=_inputs['floor_lines']" in src
+    assert "float(_inputs['floor_lines'])" not in src
 
 
 def test_the_pipeline_stamp_is_honoured_in_every_mode(tmp_path, restore):
@@ -827,11 +836,17 @@ def test_a_rebuild_re_declares_from_the_record_and_refuses_without_one(tmp_path,
         'declared_at must return the INPUT to the last rescaling, not the n stage A answered '
         'with afterwards')
 
+    # The floor the run declared AT is per channel (`floors_at`, ADR-0004: each section's
+    # floor is its own); flag-off it is the one-line default and the record's input is None.
+    assert rec['floor_lines'] is None and ec.floors_at(rec)['store'] == cov.DEFAULT_FLOOR_LINES
+    assert rec['floor']['store'] == {'floor_lines': 1.0, 'provenance': 'assumed', 'solved': None}
+
     def _levels_at(n):
         Order.next_sku = 1
         orders = load_inventory_from_db(inv_db).orders
         cov.rescale_section(orders, n, coverage_days=rec['coverage_days'],
-                            safety_days=rec['safety_days'], floor_lines=rec['floor_lines'])
+                            safety_days=rec['safety_days'],
+                            floor_lines=ec.floors_at(rec)['store'])
         return {c.sku: (c.equilibrium_qty, c.reorder_point) for c in orders}
 
     got = {c.sku: (c.equilibrium_qty, c.reorder_point) for c in rebuilt['inventory'].orders}
@@ -862,7 +877,7 @@ def test_a_rebuild_re_declares_from_the_record_and_refuses_without_one(tmp_path,
 def test_the_declared_levels_are_the_ones_the_run_fields_with_the_stamp(tmp_path, restore):
     from Optimization.simdriver import sim_assets
     from Warehouse.generation.generate_inventory import load_inventory_from_db
-    restore.update(shift_drain_or_cap=True, coverage_days=10.0, safety_days=2.0, floor_lines=1.0)
+    restore.update(shift_drain_or_cap=True, coverage_days=10.0, safety_days=2.0, floor_lines=None)
     inv_db, aff_db = _tiny_pair(tmp_path)
     shared = sim_assets.build_shared_assets(
         inv_db, aff_db, _LOG, warehouse_db_path=str(tmp_path / 'wh' / 'warehouse.db'))
@@ -870,7 +885,21 @@ def test_the_declared_levels_are_the_ones_the_run_fields_with_the_stamp(tmp_path
     assert rec is not None and len(rec['rounds']) >= 2
     assert set(rec['final']) == {'store'}
     assert 'catalogue' not in rec, "the catalogue's implied coverage died with its levels"
-    assert rec['floor_lines'] == 1.0
+    # UNDER THE ERA the floor is SOLVED (ADR-0004): the input stays None in the record, the
+    # per-channel block carries the solved value with its stamp, and the line count is the
+    # DECLARATION (the seed is the fixed point, so the loop is one round).
+    assert rec['floor_lines'] is None
+    floor = rec['floor']['store']
+    assert floor['provenance'] == 'derived' and floor['solved'] is not None
+    assert floor['floor_lines'] == floor['solved']['floor_lines'] >= cov.DEFAULT_FLOOR_LINES
+    assert floor['solved']['fill_rate'] >= floor['solved']['fill_min'] == math.sqrt(0.95)
+    assert rec['final']['store']['floor_lines'] == floor['floor_lines']
+    assert rec['final']['store']['fill']['fill_rate'] >= math.sqrt(0.95)
+    assert rec['seed']['method'] == 'declared' and len(rec['rounds']) == 2
+    Order.next_sku = 1
+    cat0 = load_inventory_from_db(inv_db)
+    assert math.isclose(rec['seed']['lines_per_day']['store'],
+                        _s.STORE_DEMAND * len(cat0.orders))
     # The levels the run FIELDS: each sampled SKU's Q is at least the declared one (the planner
     # grows a level into leftover capacity, never shrinks it) and never below its line floor;
     # and they are what the planned DB holds, with the stamped pipeline beside them (zero here:
@@ -880,13 +909,14 @@ def test_the_declared_levels_are_the_ones_the_run_fields_with_the_stamp(tmp_path
     Order.next_sku = 1
     cat = load_inventory_from_db(inv_db)
     d = cov.daily_demand(cat.orders, n_prev)
+    L = floor['floor_lines']
     want = {c.sku: cov.stock_levels(d[c.sku], c.lead_time_mean, 10.0, 2.0,
-                                    cov.line_floor(c.demand.line, 1.0)) for c in cat.orders}
+                                    cov.line_floor(c.demand.line, L)) for c in cat.orders}
     planned = load_inventory_from_db(shared['planned_inv_db'])
     assert len(planned.orders) > 0
     for c in planned.orders:
         assert c.equilibrium_qty >= want[c.sku][0], c.sku
-        assert c.equilibrium_qty >= cov.line_floor(c.demand.line, 1.0), 'below the line floor'
+        assert c.equilibrium_qty >= cov.line_floor(c.demand.line, L), 'below the line floor'
         assert 1 <= c.reorder_point <= max(1, c.equilibrium_qty - 1)
         assert c.pipeline_qty == cov.pipeline_qty(d[c.sku], c.lead_time_mean) == 0
         assert c.pipeline_allowance() == 0

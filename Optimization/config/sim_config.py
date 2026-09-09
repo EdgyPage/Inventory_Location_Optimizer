@@ -231,16 +231,25 @@ CONFIG = {
         'put_intercept_scale' : _s.PUT_INTERCEPT_SCALE,
         'put_item_ratio'      : _s.PUT_ITEM_RATIO,
         'recv_intercept_scale': _s.RECV_INTERCEPT_SCALE,
-        # STAFFING: pickers per channel, the one declared headcount of the calibrated era.
-        # Two flat GLOBAL keys (not a per-channel entry) so they ride the same flag /
-        # run-spec / restore / payload machinery as every other run-shaping knob; the
+        # STAFFING: pickers per channel -- FLAG-OFF the declared headcount, under the era
+        # a placeholder the derivation replaces (ADR-0004: demand is declared, the crew
+        # derived).  Two flat GLOBAL keys (not a per-channel entry) so they ride the same
+        # flag / run-spec / restore / payload machinery as every other run-shaping knob; the
         # channel dicts below deliberately carry no 'num_pickers' -- `channel_pickers(name)`
         # reads these at call time, and `staffing_spec()` records them.  STAFFING_KEYS is the
         # spliced list every seam iterates.
         'store_pickers'       : _s.STORE_PICKERS,
         'ff_pickers'          : _s.FF_PICKERS,
+        # The era's DECLARED DEMAND per channel (the sampler's unit) and the joint
+        # first-time confidence the floor and the picking crew are solved from (settings,
+        # "the calibrated era's DECLARED DEMAND").  Era-only: `staffing_spec()` records
+        # them as None flag-off, and the era records the picker keys as None instead.
+        'store_demand'        : _s.STORE_DEMAND,
+        'ff_demand'           : _s.FF_DEMAND,
+        'first_time_confidence': _s.FIRST_TIME_CONFIDENCE,
         # The era's declared scalars (settings, "the calibrated era's declared scalars")
         # and the put crew's MODE -- staffing INPUTS, on STAFFING_KEYS with the pickers.
+        # `rho_pick` is flag-off only since ADR-0004 (the confidence replaces it).
         'rho_pick'            : _s.RHO_PICK,
         'rho_put'             : _s.RHO_PUT,
         'rho_recv'            : _s.RHO_RECV,
@@ -356,12 +365,14 @@ def n_batches() -> int:
 #: SHAPE in one place, on the `INBOUND_KEYS` precedent: the CLI flags, the run-spec record and
 #: BOTH restore sites iterate this list rather than retyping the keys, so a new staffing input
 #: cannot be recorded and then not restored.  Order is the order the flags are emitted in.
-#: The two picker counts, the utilization / replenishment scalars, the band tolerance, the
-#: put crew's mode, and the three calibration overrides (.scratch/department-calibration,
-#: "Design the staffing record", decision 2).  Derived values are NEVER on this list: the
+#: The two picker counts, the two demand declarations and the first-time confidence, the
+#: utilization / replenishment scalars, the band tolerance, the put crew's mode, the stock
+#: coverage, and the three calibration overrides (.scratch/department-calibration, "Design
+#: the staffing record", decision 2; ADR-0004).  Derived values are NEVER on this list: the
 #: derivation's outputs live in the run spec's `staffing.derived` block and cannot be set
 #: from the command line.
 STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
+                                  'store_demand', 'ff_demand', 'first_time_confidence',
                                   'rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv', 'f_repack',
                                   'band_tol', 'put_crew_mode',
                                   'coverage_days', 'safety_days', 'floor_lines',
@@ -373,26 +384,45 @@ STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
 #: derivation (`workunits._derive_staffing_for_pair`) reads it as such.
 CALIBRATION_KEYS: tuple[str, ...] = ('s_pick_store', 's_pick_ff', 's_put')
 
+#: The keys that mean something ONLY under the calibrated era (ADR-0004: demand is the
+#: declared input and the picking crew is solved from the confidence) and the keys that
+#: mean something ONLY flag-off (the declared pickers and their utilization target).  Each
+#: regime records the other's keys as None -- `staffing_spec()` below -- so a record never
+#: shows a crew of 25 beside a derived one of 32, or a utilization target nothing read.
+#: `run_simulation._check_era_flags` refuses the wrong regime's flags when typed.
+ERA_ONLY_KEYS: tuple[str, ...] = ('store_demand', 'ff_demand', 'first_time_confidence')
+FLAG_OFF_ONLY_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers', 'rho_pick')
+
 #: The scalar inputs' settings defaults, for a None restored from a pre-record run spec
 #: (`run_analysis._apply_run_shape` writes None for every absent key): that run ran under
-#: the defaults of its day, which is what these still are.
+#: the defaults of its day, which is what these still are.  `floor_lines` is NOT here: its
+#: None is a value ("solve it", `coverage.DEFAULT_FLOOR_LINES` flag-off) that the coverage
+#: loop reads, exactly as the CALIBRATION_KEYS' None is.
 _SCALAR_DEFAULTS: dict = {
     'rho_pick': _s.RHO_PICK, 'rho_put': _s.RHO_PUT, 'rho_recv': _s.RHO_RECV,
     'f_put': _s.F_PUT, 'f_recv': _s.F_RECV, 'f_repack': _s.F_REPACK,
     'band_tol': _s.BAND_TOL,
     'put_crew_mode': _s.PUT_CREW_MODE,
     'coverage_days': _s.COVERAGE_DAYS, 'safety_days': _s.SAFETY_DAYS,
-    'floor_lines': _s.FLOOR_LINES,
 }
 
-#: Which global key each channel's pick crew is sized from.  A module-level table rather than
-#: a key in the channel dict, so the channel dicts stay "settings references + structure" and
-#: the count has exactly one live home.
+#: The era-only scalars' settings defaults (a None under the era is the default, exactly as
+#: `_SCALAR_DEFAULTS` resolves the shared ones).
+_ERA_DEFAULTS: dict = {
+    'store_demand': _s.STORE_DEMAND, 'ff_demand': _s.FF_DEMAND,
+    'first_time_confidence': _s.FIRST_TIME_CONFIDENCE,
+}
+
+#: Which global key each channel's pick crew is sized from (flag-off), and which its demand
+#: is declared under (the era).  Module-level tables rather than keys in the channel dict,
+#: so the channel dicts stay "settings references + structure" and each value has exactly
+#: one live home.
 _PICKERS_KEY: dict[str, str] = {'store': 'store_pickers', 'fulfillment': 'ff_pickers'}
+_DEMAND_KEY: dict[str, str] = {'store': 'store_demand', 'fulfillment': 'ff_demand'}
 
 
 def channel_pickers(name: str) -> int:
-    """The declared picker count of channel `name`, read from CONFIG at CALL time.
+    """The DECLARED picker count of channel `name`, read from CONFIG at CALL time.
 
     The `recv_crew_spec` pattern: a flag writes CONFIG, a resume and a re-analysis restore
     into CONFIG, so CONFIG is the only place this may be read from.
@@ -400,6 +430,12 @@ def channel_pickers(name: str) -> int:
     leaf default -- that run fielded the compile-time constant of its day, which is what the
     constant still is.  An unknown channel is a KeyError, deliberately: a third channel needs
     its own declared knob, not a silent share of someone else's.
+
+    UNDER THE ERA THIS IS A PLACEHOLDER (ADR-0004): the channel is built from it and then
+    the derivation replaces the crew with the solved one (`workunits._derive_staffing_for_pair`),
+    the record carries the picker keys as None, and every reader that needs a crew reads it
+    through `staffing.channel_crew`, which prefers the derived block.  Nothing sizes from
+    this value under the era.
     """
     key = _PICKERS_KEY[name]
     v = CONFIG['global'].get(key)
@@ -411,28 +447,89 @@ def channel_pickers(name: str) -> int:
     return n
 
 
+def channel_demand(name: str) -> float | None:
+    """The DECLARED demand of channel `name` under the era, in the sampler's unit (the
+    fraction of the section's SKUs drawn per day), read from CONFIG at call time; None
+    flag-off, where the script's content is the channel's `batch.mean` and nothing reads
+    this.  A None IN the key under the era (a spec restored by `_apply_run_shape` from a
+    run that predates the declaration) resolves to the settings default."""
+    if not era_on():
+        return None
+    key = _DEMAND_KEY[name]
+    v = CONFIG['global'].get(key)
+    v = _ERA_DEFAULTS[key] if v is None else float(v)
+    if not (0.0 < v <= 1.0):
+        raise ValueError(f'{key} must be a fraction of the section drawn per day in (0, 1]; '
+                         f'got {v!r}')
+    return v
+
+
 def staffing_spec() -> dict:
     """The staffing record's INPUTS as a picklable dict, one entry per STAFFING_KEYS key.
 
-    Inputs ONLY -- the derived block (batch content, put crew, receiving crew, expected
-    utilization) is the pure module `Optimization/simconfig/staffing.py`, run by
-    `workunits._derive_staffing_for_pair` after batch precompute, and is never a CONFIG key.
-    Read from CONFIG at call time for the reason every accessor in this file is, and carried
-    in `workunits._shared` so a spawned worker can check that the crews it was handed are
-    the crews the record declares.
+    Inputs ONLY -- the derived block (batch content, the picking crew, put crew, receiving
+    crew, expected utilization) is the pure module `Optimization/simconfig/staffing.py`, run
+    by `workunits._derive_staffing_for_pair` after batch precompute, and is never a CONFIG
+    key.  Read from CONFIG at call time for the reason every accessor in this file is, and
+    carried in `workunits._shared` so a spawned worker can check that the crews it was
+    handed are the crews the record declares.
 
-    The pickers resolve through `channel_pickers` (a None is the leaf default); the scalars
-    resolve a None to their settings default (`_SCALAR_DEFAULTS`); the CALIBRATION_KEYS keep
-    None, because "no override" is a value the calibration loader reads.
+    THE REGIME DECIDES WHICH KEYS ARE INPUTS (ADR-0004).  Flag-off the pickers resolve
+    through `channel_pickers` (a None is the leaf default) and the ERA_ONLY_KEYS are None;
+    under the era the demand and the confidence resolve to their defaults and the
+    FLAG_OFF_ONLY_KEYS are None -- the crew is derived, `rho_pick` is not read.  The shared
+    scalars resolve a None to their settings default (`_SCALAR_DEFAULTS`); `floor_lines`
+    and the CALIBRATION_KEYS keep None, because "solve it" / "no override" is a value the
+    coverage loop and the derivation read.
     """
     g = CONFIG['global']
-    out = {k: channel_pickers(ch) for ch, k in _PICKERS_KEY.items()}
+    era = era_on()
+    out: dict = {}
+    for ch, k in _PICKERS_KEY.items():
+        out[k] = None if era else channel_pickers(ch)
+    for ch, k in _DEMAND_KEY.items():
+        out[k] = channel_demand(ch) if era else None
+    if era:
+        v = g.get('first_time_confidence')
+        out['first_time_confidence'] = (_ERA_DEFAULTS['first_time_confidence'] if v is None
+                                        else float(v))
+    else:
+        out['first_time_confidence'] = None
     for k, default in _SCALAR_DEFAULTS.items():
         v = g.get(k)
         out[k] = default if v is None else v
+    if era:
+        out['rho_pick'] = None
+    v = g.get('floor_lines')
+    out['floor_lines'] = None if v is None else float(v)
     for k in CALIBRATION_KEYS:
         v = g.get(k)
         out[k] = None if v is None else float(v)
+    return out
+
+
+def staffing_provenance(explicit) -> dict:
+    """The staffing record's PROVENANCE block, one entry per input the regime reads.
+
+    `declared` when a flag chose the value (`explicit` is the set of flag names typed on
+    the command line), `assumed` when a settings default stood; the picker keys are
+    `derived` under the era (ADR-0004), and a key the regime does not read -- None in
+    `staffing_spec()` -- carries no provenance at all, because "assumed" would claim a
+    settings default was in force when nothing read one.  `floor_lines` under the era is
+    `derived` unless typed (the coverage loop solves it).
+    """
+    inputs = staffing_spec()
+    era = era_on()
+    out: dict = {}
+    for k in STAFFING_KEYS:
+        if era and k in _PICKERS_KEY.values():
+            out[k] = 'derived'
+        elif inputs[k] is None and k in (*ERA_ONLY_KEYS, *FLAG_OFF_ONLY_KEYS):
+            continue
+        elif k == 'floor_lines' and era and inputs[k] is None:
+            out[k] = 'derived'
+        else:
+            out[k] = 'declared' if k in explicit else 'assumed'
     return out
 
 
@@ -448,7 +545,10 @@ def era_on() -> bool:
 
 
 def k_pickers() -> int:
-    """The store channel's picker count, read at call time (the diagnostics' entry point)."""
+    """The store channel's DECLARED picker count, read at call time (the diagnostics' entry
+    point).  Flag-off only in meaning: under the era this is the placeholder, not the solved
+    crew -- a probe that models an era run's crew reads `staffing.channel_crew` off that
+    run's staffing record instead."""
     return channel_pickers('store')
 
 

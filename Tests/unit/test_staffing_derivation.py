@@ -19,6 +19,7 @@ Run:  python -m pytest Tests/unit/test_staffing_derivation.py -q
 """
 from __future__ import annotations
 
+import inspect
 import math
 import types
 
@@ -324,19 +325,26 @@ def test_derive_sizes_the_two_site_crews_over_both_channels_by_hand():
     assert math.isclose(d['receiving']['s_recv']['value'], 36_000 / 3_500)
     assert d['receiving']['s_recv']['provenance'] == 'derived'
     assert math.isclose(d['receiving']['expected_utilization']['store'], 30_000 / (2 * S))
-    # picking: the SERVED units per day (`daily_demand_units` = capacity / s_pick, the fixed
-    # point) at s_pick against K x S -- which is ρ by construction, the declared headroom.
-    # The script's DEMANDED units (20,000 / 8,000 a day here) are recorded beside it and do
-    # not move the band ("Build the line floor": under the floor they exceed the served ones
-    # by the first-pass shortfall, and pricing them read the crews at 0.98 with no headroom).
+    # picking: the SCRIPT's DEMANDED units per day (20,000 / 8,000 here) at s_pick against
+    # the granted day K x S (ADR-0004; "Fit the store's window to its own steady state",
+    # decisions 4-5: nothing is lost under the era, so the load is never reduced by a fill
+    # rate, and the derivation prices the actual sampled script).  `daily_demand_units` --
+    # the DECLARED day's units, 20,400 / 16,320 -- is recorded beside it and does not move
+    # the band; the utilization is a DERIVED number, not ρ.  This used to price the served
+    # units (`daily_demand_units` x s_pick) and read 0.85 by construction, which is the
+    # under-staffing the 40-day check measured at 0.92.
     assert math.isclose(d['channels']['store']['expected_utilization']['pick'],
-                        20_400 * 12.0 / (10 * S))
-    assert math.isclose(d['channels']['store']['expected_utilization']['pick'], 0.85)
+                        20_000 * 12.0 / (10 * S))
+    assert not math.isclose(d['channels']['store']['expected_utilization']['pick'], 0.85)
+    assert math.isclose(d['channels']['store']['pick_load_s'], 20_000 * 12.0)
     assert math.isclose(d['channels']['fulfillment']['expected_utilization']['pick'],
-                        16_320 * 6.0 / (4 * S))
-    assert math.isclose(d['channels']['fulfillment']['expected_utilization']['pick'], 0.85)
+                        8_000 * 6.0 / (4 * S))
+    assert d['channels']['store']['daily_demand_units'] == 20_400.0
     assert d['channels']['store']['script']['units_per_day'] == 20_000
-    assert d['channels']['store']['pick_capacity_s'] == 10 * S * 0.85
+    assert d['channels']['store']['pick_capacity_s'] == 10 * S
+    assert d['channels']['store']['pickers_provenance'] == 'derived'
+    assert "inputs['rho_pick']" not in inspect.getsource(st.derive), \
+        'the derivation must not read a picking utilization target (ADR-0004)'
     assert d['channels']['store']['script']['analytic_s_pick'] == 5.0
     assert 'k_max_exceeded' not in d, 'k_max retired with the calibration record'
 

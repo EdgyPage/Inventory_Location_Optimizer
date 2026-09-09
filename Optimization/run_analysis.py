@@ -42,7 +42,7 @@ if _REPO_ROOT not in sys.path:
 
 from Optimization.simdriver.sim_assets import build_shared_assets
 from Optimization.config.sim_config import (CONFIG, INBOUND_KEYS, STAFFING_KEYS, staffing_spec,
-                                            regime_sizing_from_config,
+                                            staffing_provenance, regime_sizing_from_config,
                                             _setup_logging, _OUTPUT_DIR)
 from Optimization.runschema.runlayout import iter_channel_runs
 
@@ -84,8 +84,9 @@ def _staffing_record() -> dict:
     which is what a pre-record run's crew was, a compile-time constant nobody chose."""
     if _RUN_STAFFING and _RUN_STAFFING.get('inputs'):
         return _RUN_STAFFING
-    return {'inputs': staffing_spec(),
-            'provenance': {k: 'assumed' for k in STAFFING_KEYS}}
+    # Nothing typed, so every input the regime reads is `assumed` -- through the accessor,
+    # which also leaves the keys the regime does NOT read without a provenance (ADR-0004).
+    return {'inputs': staffing_spec(), 'provenance': staffing_provenance(set())}
 
 # Per-process context caches (graph granularity: co-scheduled graphs of one config/group
 # that land on the same worker reuse a single loaded context).

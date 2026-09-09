@@ -41,7 +41,7 @@ if _REPO_ROOT not in sys.path:
 from Optimization.config.sim_config import (            # noqa: F401
     CONFIG, INBOUND_KEYS, STAFFING_KEYS, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
     seed_world, seed_batches, n_batches, k_pickers, channel_pickers, staffing_spec,
-    CALIBRATION_KEYS, era_on,
+    staffing_provenance, CALIBRATION_KEYS, ERA_ONLY_KEYS, FLAG_OFF_ONLY_KEYS, era_on,
     store_restocks, store_fill,
     _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
     _STORE_PICKERS, _FF_PICKERS, _CART_TYPES,
@@ -328,14 +328,36 @@ def _check_era_flags(args, explicit: set) -> list[str]:
     Module-level so a test can hand it a Namespace.
     """
     if not getattr(args, 'shift_drain_or_cap', False):
+        # The era-only inputs (ADR-0004) typed WITHOUT the era: nothing reads them
+        # flag-off -- the script's content is the channel's batch mean and the crew is
+        # declared -- so accepting one would record a declaration the run ignores.
+        bad = [f for f in ERA_ONLY_KEYS if f in explicit]
+        if bad:
+            raise SystemExit(
+                f'{", ".join("--" + f.replace("_", "-") for f in bad)} declare the calibrated '
+                f"era's demand and first-time confidence and are read only under "
+                f'--shift-drain-or-cap; flag-off the crew is declared (--store-pickers / '
+                f'--ff-pickers) and the batch content is the channel default. Add '
+                f'--shift-drain-or-cap, or drop them.')
         return []
     bad = [f for f in _ERA_DERIVED_FLAGS if f in explicit]
     if bad:
         raise SystemExit(
             f'under --shift-drain-or-cap the put and receiving crews are DERIVED from the '
-            f'pickers (Optimization/simconfig/staffing.py), so these flags are an error: '
+            f'script (Optimization/simconfig/staffing.py), so these flags are an error: '
             f'{", ".join("--" + f.replace("_", "-") for f in bad)}. Drop them, or drop '
             f'--shift-drain-or-cap to run the flag-off regime with declared crews.')
+    # ADR-0004: demand is the declared input and the picking crew is SOLVED from the
+    # first-time confidence, so a typed crew or a typed picking utilization target under
+    # the era is a regime nobody derived -- refused exactly as the legacy crew flags are.
+    bad = [f for f in FLAG_OFF_ONLY_KEYS if f in explicit]
+    if bad:
+        raise SystemExit(
+            f'under --shift-drain-or-cap the picking crew is DERIVED from --store-demand / '
+            f'--ff-demand and --first-time-confidence (ADR-0004), so these flags are an '
+            f'error: {", ".join("--" + f.replace("_", "-") for f in bad)}. Declare the '
+            f'demand instead, or drop --shift-drain-or-cap to run the flag-off regime with '
+            f'a declared crew.')
     if getattr(args, 'put_queue_split', False):
         raise SystemExit(
             'under --shift-drain-or-cap the put crew is one derived site crew on a single '
@@ -489,10 +511,12 @@ def main():
         default=CONFIG['global']['shift_drain_or_cap'],
         help='THE CALIBRATED ERA. One site-wide working stretch per day that ends when no '
              'work stands or at the cap (the day length), every crew on the same boundary; '
-             'implies --releases-per-day 1, --cut-at-day-end and --roll-over-unpicked. The '
-             'put and receiving crews are then DERIVED from --store-pickers / --ff-pickers '
-             'and the expected-travel closed form, so the legacy crew flags are an error. A '
-             'RESULTS ERA: nothing is comparable across it.')
+             'implies --releases-per-day 1, --cut-at-day-end and --roll-over-unpicked. '
+             'Demand is then DECLARED (--store-demand / --ff-demand) and every crew is '
+             'DERIVED: the picking crew and the line floor from --first-time-confidence, '
+             'the put and receiving crews from the script and the expected-travel closed '
+             'form -- so --store-pickers / --ff-pickers / --rho-pick and the legacy crew '
+             'flags are an error. A RESULTS ERA: nothing is comparable across it.')
     # ── the receiving crew ──────────────────────────────────────────────────────
     # Its day is deliberately NOT gated on --cut-at-day-end.  That flag changes which units
     # are PICKED in which batch; coupling would make receiving rollover observable only in a
@@ -572,28 +596,58 @@ def main():
              "put-away's, charged once per pack)")):
         parser.add_argument(_flag, type=_nonneg_float, default=CONFIG['global'][_key],
                             metavar='X', help=f'{_what[0].upper()}{_what[1:]}.')
-    # ── staffing: pickers per channel ───────────────────────────────────────────
-    # THE ONE DECLARED HEADCOUNT.  Every other crew is derived from these under the
-    # calibrated era, so these are the only two crew-size flags that are not an error
-    # there.  Each defaults FROM CONFIG (the --keyframe-interval precedent) so the
-    # unconditional write-back below cannot drift a flag-less run; a pick-config module
-    # that names its own `num_pickers` must agree with the channel's value or setup raises.
-    # One flag per STAFFING_KEYS entry, in its order -- a key with no flag here is a knob
-    # reachable only by editing settings.py, which is exactly the seam this closes.
+    # ── staffing: pickers per channel (flag-off) ────────────────────────────────
+    # THE DECLARED HEADCOUNT FLAG-OFF.  Under the calibrated era the picking crew is
+    # SOLVED from the declared demand and the first-time confidence (ADR-0004), and typing
+    # either of these is an error there, exactly like the legacy crew flags.  Each defaults
+    # FROM CONFIG (the --keyframe-interval precedent) so the unconditional write-back below
+    # cannot drift a flag-less run; a pick-config module that names its own `num_pickers`
+    # must agree with the channel's value or setup raises.  One flag per STAFFING_KEYS
+    # entry, in its order -- a key with no flag here is a knob reachable only by editing
+    # settings.py, which is exactly the seam this closes.
     for _flag, _key, _what in (
             ('--store-pickers', 'store_pickers',
-             'machine order-pickers on the store channel'),
+             'machine order-pickers on the store channel (flag-off only: under '
+             '--shift-drain-or-cap the crew is derived and this is an error)'),
             ('--ff-pickers', 'ff_pickers',
-             'walkers on the fulfillment channel (a store-only catalogue ignores it)')):
+             'walkers on the fulfillment channel (flag-off only, as above; a store-only '
+             'catalogue ignores it)')):
         parser.add_argument(_flag, type=_positive_int, default=CONFIG['global'][_key],
                             metavar='N', help=f'{_what[0].upper()}{_what[1:]}.')
+    # ── the era's DECLARED DEMAND and the first-time confidence (ADR-0004) ──────────
+    # THE DECLARED INPUT under --shift-drain-or-cap: demand per channel in the batch
+    # sampler's own unit (the fraction of the section's SKUs drawn as lines on a mean
+    # day), and the one scalar the line floor and the picking crew are solved from.
+    # Era-only: typed without the era they are an error (`_check_era_flags`).  Each
+    # defaults FROM CONFIG like every staffing key.
+    for _flag, _key, _what in (
+            ('--store-demand', 'store_demand',
+             "the store channel's demand: the fraction of its SKUs drawn as lines on a "
+             'mean day (lines/day = fraction x SKUs); the spread keeps the declared batch cv'),
+            ('--ff-demand', 'ff_demand',
+             "the fulfillment channel's demand, in the same unit")):
+        parser.add_argument(_flag, type=_unit_fraction, default=CONFIG['global'][_key],
+                            metavar='FRACTION',
+                            help=f'{_what[0].upper()}{_what[1:]} (default '
+                                 f'{CONFIG["global"][_key]:g}). Era-only.')
+    parser.add_argument(
+        '--first-time-confidence', type=_unit_fraction,
+        default=CONFIG['global']['first_time_confidence'], metavar='C',
+        help='The joint FIRST-TIME confidence: the expected share of picks completed the '
+             'first time, reached on their day AND filled from the shelf. Split equally: '
+             'the line floor is solved so the first-pass fill clears sqrt(C), the picking '
+             'crew is the smallest integer whose expected cut share of units is under '
+             '1 - sqrt(C). Replaces --rho-pick under the era (put-away and receiving keep '
+             f'theirs). Default {CONFIG["global"]["first_time_confidence"]:g}. Era-only.')
     # ── the era's declared scalars: every step of the derivation is a knob ─────────
     # Each is a staffing INPUT (STAFFING_KEYS), recorded `declared` when typed and
     # `assumed` when the settings default stood.  ρ is a utilization target in (0, 1];
     # f is a replenishment ratio (1.0 = steady state); band_tol an absolute tolerance.
     for _flag, _key, _type, _what in (
             ('--rho-pick', 'rho_pick', _unit_fraction,
-             'picking utilization target (worked / granted); capacity = K x day x rho'),
+             'picking utilization target (worked / granted); capacity = K x day x rho. '
+             'Flag-off only: under --shift-drain-or-cap --first-time-confidence replaces '
+             'it and this is an error'),
             ('--rho-put', 'rho_put', _unit_fraction, 'put-away utilization target'),
             ('--rho-recv', 'rho_recv', _unit_fraction, 'receiving utilization target'),
             ('--f-put', 'f_put', _nonneg_float,
@@ -616,13 +670,21 @@ def main():
             ('--coverage-days', 'coverage_days', _positive_float,
              "stock coverage: order-up-to = days x the SKU's daily demand"),
             ('--safety-days', 'safety_days', _nonneg_float,
-             'safety stock: reorder point = demand over (lead + safety) days'),
-            ('--floor-lines', 'floor_lines', _positive_float,
-             "the line floor: Q and the reorder point never below this many of the SKU's "
-             'own mean line, rounded up; a floored SKU runs base stock')):
+             'safety stock: reorder point = demand over (lead + safety) days')):
         parser.add_argument(_flag, type=_type, default=CONFIG['global'][_key], metavar='X',
                             help=f'{_what[0].upper()}{_what[1:]} (default '
                                  f'{CONFIG["global"][_key]}).')
+    # The line floor's default is None: SOLVED under the era (the shelf side of the
+    # first-time confidence, per section), one line flag-off.  A typed value under the
+    # era is accepted only at or above the solved floor and refused below it.
+    parser.add_argument(
+        '--floor-lines', type=_positive_float, default=CONFIG['global']['floor_lines'],
+        metavar='X',
+        help="The line floor: Q and the reorder point never below this many of the SKU's "
+             'own mean line, rounded up; a floored SKU runs base stock. Omit to take one '
+             'line flag-off, or under --shift-drain-or-cap the floor SOLVED per section so '
+             'the first-pass fill clears sqrt(first-time confidence); a typed value is '
+             'refused under the era when it is below the solved one.')
     parser.add_argument(
         '--put-crew-mode', choices=('foot', 'machine'),
         default=CONFIG['global']['put_crew_mode'],
@@ -1028,11 +1090,13 @@ def main():
             # the evaluations (run_analysis, the sixth seam).  The three CALIBRATION_KEYS
             # are `declared` only when typed; untyped they are `assumed` HERE (no override
             # was chosen) and the resolved constant under `calibration` is the closed-form
-            # expectation, provenance `derived`.
+            # expectation, provenance `derived`.  The REGIME decides which keys are inputs
+            # (ADR-0004, `staffing_provenance`): under the era the picker keys are None in
+            # `inputs` and `derived` in `provenance`, the demand and confidence declared or
+            # assumed; flag-off the era-only keys are None and carry no provenance.
             'staffing': {
                 'inputs'    : staffing_spec(),
-                'provenance': {k: ('declared' if k in explicit else 'assumed')
-                               for k in STAFFING_KEYS},
+                'provenance': staffing_provenance(explicit),
                 'era'       : bool(g['shift_drain_or_cap']),
             },
             # The inbound family. Read from `g` (post-overlay) like the two families above,

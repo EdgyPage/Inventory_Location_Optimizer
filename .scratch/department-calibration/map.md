@@ -66,8 +66,9 @@ regime someone chose rather than one the defaults inherited.
     expected cut share of units is under 1 - sqrt(c), both closed forms over the chosen inventory
     and the DECLARED day law (a Gaussian line count with a declared cv -- `settings.py`
     `*_BATCH_MEAN/STD`). Put-away and receiving keep rho; their backlog is reported. "Every day
-    drained" is a reading, not a verdict. BUILD PENDING (29, 30, 31); until 31 reads clean the
-    era's numbers stay provisional.
+    drained" is a reading, not a verdict. BUILT 2026-09-08 (29: demand declared, floor and crew
+    solved, the regime decides which keys are inputs); the instrument split (30) and the re-check
+    (31) are pending, and until 31 reads clean the era's numbers stay provisional.
   - **No bespoke conversions implicit in the inventory.** A standing preference from the
     same decision: nothing authored on the catalogue may carry an implicit batch or day (the
     coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
@@ -471,6 +472,28 @@ regime someone chose rather than one the defaults inherited.
   `band_tol`. A nonzero `--put-swap-coef` and a split queue are REFUSED under the era at the
   parser and at the seam (the single queue never read the coefficient anyway); an unbuilt
   BinKey raises `UnbuiltClass` on every reader instead of pricing at zero.
+
+- [Declare the demand and derive the crew from the joint first-time confidence](issues/29-declare-demand-derive-crew.md):
+  LANDED 2026-09-08 (ADR-0004 built and amended). Three new staffing keys on all five seams --
+  `store_demand` / `ff_demand` (the sampler's unit; defaults the previous fixed point, so the
+  reference warehouse does not move) and `first_time_confidence` (0.95) -- and THE REGIME
+  DECIDES WHICH KEYS ARE INPUTS: the era records the picker keys and `rho_pick` as None /
+  `derived`, flag-off records the demand and confidence as None, and `_check_era_flags` refuses
+  the other regime's flags both ways. The crew side is a Normal partial expectation on the
+  day's UNITS (`staffing.solve_pickers`, unit cv from decision 8's two-term variance, MC-checked
+  to 5%): on the reference store's own numbers **K = 32 at 0.720, cut share 0.0203**, where the
+  served-unit derivation fields 29 at a real 0.042 (the sabotage test). The shelf side
+  (`coverage.solve_floor_lines`) bisects the fill's step function PER SECTION at the declared
+  line count, before any level is declared; the fixed point collapses to ONE round under the
+  era. Two decisions: a typed `--floor-lines` is accepted at or above the solved value and
+  REFUSED below it; the guarantee prices `expected_pick`'s seconds per unit at the declared day
+  rather than the Gauss-Hermite sum. `derive` prices the sampled script's DEMANDED units, its
+  utilization is derived, `rho_pick` is unread; `staffing.channel_crew` is the ONE crew reader
+  (worker check, expectations, EvalContext). Verified: 1,832 + 32 unit, 394 integration (one
+  PRE-EXISTING failure, the `throughput.audit` figure attribution), 4 e2e, both preflight
+  canaries, and an era canary through the pool: floors solved 1.2728 / 1.2858 at fill 0.975,
+  the DERIVED crew in every arm's run params. The reference pair's own floor and crew come with
+  31's run; the era's numbers stay PROVISIONAL until it reads clean.
 
 ## Not yet specified
 

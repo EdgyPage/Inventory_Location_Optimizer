@@ -218,18 +218,41 @@ ROLL_OVER_UNPICKED = False # demand a batch did not pick joins the NEXT batch's 
                            # though it is the modelling we want.  --roll-over-unpicked
 
 # ── crews ────────────────────────────────────────────────────────────────────────
-# THE ONE DECLARED STAFFING INPUT of the calibrated era (.scratch/department-calibration,
-# "Define the calibrated era"): pickers per channel.  Every other crew -- the put crew, the
-# receiving crew -- is a site total DERIVED from these, so these two are the only headcounts
-# a run may declare.  Imported from simconfig.constants rather than restated (that leaf is
-# importable from below sim_config, which is where the staffing records live); the values
-# there are these knobs' DEFAULTS and nothing else, and are read at CALL time through
-# `CONFIG['global']['store_pickers']` / `['ff_pickers']` and `sim_config.channel_pickers`.
+# Pickers per channel: FLAG-OFF ONLY.  Under the calibrated era the picking crew is DERIVED
+# from the declared demand and the first-time confidence below (ADR-0004,
+# .scratch/department-calibration, "Fit the store's window to its own steady state"), the
+# put and receiving crews are site totals derived from the script, and typing either of
+# these flags is an error -- a typed crew is a regime nobody derived.  Imported from
+# simconfig.constants rather than restated (that leaf is importable from below sim_config,
+# which is where the staffing records live); the values there are these knobs' DEFAULTS
+# and nothing else, and are read at CALL time through `CONFIG['global']['store_pickers']`
+# / `['ff_pickers']` and `sim_config.channel_pickers`.
 
 from Optimization.simconfig.constants import _FF_PICKERS, _STORE_PICKERS  # noqa: E402
 
 STORE_PICKERS = _STORE_PICKERS         # machine order-picker pool.  --store-pickers
 FF_PICKERS = _FF_PICKERS               # human-walker pool.          --ff-pickers
+
+# ── the calibrated era's DECLARED DEMAND, and the guarantee the crew is solved for ──
+# THE DECLARED INPUT of the era is demand per channel, in the batch sampler's own unit: the
+# fraction of the section's SKUs drawn as lines on a mean day (`lines per day / SKUs`), so
+# one number scales to any catalogue.  The defaults are the reference pair's fixed point
+# under the previous regime (588.65 store / 2,903.2 fulfillment lines a day over 239,938 /
+# 160,062 SKUs), chosen so the warehouse, the levels and the script family did not move
+# when the declared input flipped -- only the crew did.  The spread keeps the batch cv
+# below (`*_BATCH_STD / *_BATCH_MEAN`), which is the declared day law.
+# ERA-ONLY: flag-off the script's content is `*_BATCH_MEAN` and the crew is declared, so
+# typing these flags without --shift-drain-or-cap is an error (nothing would read them).
+STORE_DEMAND = 0.00245335              # fraction of store SKUs drawn per day.  --store-demand
+FF_DEMAND = 0.0181380                  # fraction of fulfillment SKUs per day.  --ff-demand
+# The joint FIRST-TIME confidence: the probability a pick is completed the first time --
+# reached on its day AND filled from its shelf -- per pick, as an expected share of units,
+# never per day (the 95th-percentile day fitting the shift is staffing to the peak).  The
+# two sides multiply and split EQUALLY: the line floor is solved so the stamped first-pass
+# fill clears sqrt(c), the picking crew is the smallest integer whose expected cut share
+# of units is under 1 - sqrt(c).  Replaces `RHO_PICK` under the era (picking only; the
+# put and receiving crews keep theirs).  --first-time-confidence
+FIRST_TIME_CONFIDENCE = 0.95
 
 # The MODE each pick pool works in.  These were implicit in the pool names
 # ('store_machine', 'fulfillment_walker') and in constants.py's comments for years
@@ -254,7 +277,10 @@ PUT_CREW_MODE = 'foot'                 # 'foot' | 'machine' -- picks the speed b
 # restored on resume and re-analysis, carried in the worker payload, and stamped onto
 # sim_result -- by construction, because they ride `sim_config.STAFFING_KEYS`.
 RHO_PICK = 0.85                        # picking utilization target: worked / granted.
-                                       # Capacity = K x S x rho.  --rho-pick
+                                       # Capacity = K x S x rho.  FLAG-OFF ONLY since
+                                       # ADR-0004: under the era picking's headroom is a
+                                       # consequence of FIRST_TIME_CONFIDENCE and typing
+                                       # this is an error.  --rho-pick
 RHO_PUT = 0.85                         # put-away utilization target.  --rho-put
 RHO_RECV = 0.85                        # receiving utilization target.  --rho-recv
 F_PUT = 1.0                            # units put per unit picked; 1.0 = steady state
@@ -289,9 +315,16 @@ COVERAGE_DAYS = 10.0                   # order-up-to = coverage_days x daily dem
                                        # --coverage-days
 SAFETY_DAYS = 2.0                      # reorder point = demand over (lead + safety) days.
                                        # --safety-days
-FLOOR_LINES = 1.0                      # the line floor, in lines of the SKU's own mean line:
+FLOOR_LINES = None                     # the line floor, in lines of the SKU's own mean line:
                                        # Q and rp never below ceil(floor_lines x E[line]).
-                                       # --floor-lines
+                                       # None = SOLVED under the era so each section's
+                                       # first-pass fill clears sqrt(FIRST_TIME_CONFIDENCE)
+                                       # (~1.27 lines on the reference catalogue); flag-off
+                                       # one line (coverage.DEFAULT_FLOOR_LINES).  A typed
+                                       # number is accepted under the era only AT OR ABOVE
+                                       # the solved value and stamped `declared`; below it
+                                       # the run refuses (a smaller floor is a smaller
+                                       # promise than the confidence makes).  --floor-lines
 
 # ── the expected constants' OVERRIDES ───────────────────────────────────────────
 # None = take the closed-form expectation over the catalogue and the built geometry

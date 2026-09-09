@@ -178,8 +178,23 @@ def _levels(ctx) -> dict:
     # from a leaf's `config_json` (where they do not appear) would drop them entirely.  A run
     # that recorded no staffing block contributes nothing here, the same absence-is-data
     # handling the leaf loop above gives a missing config.
-    inputs = (ctx.run_spec().get('staffing') or {}).get('inputs') or {}
+    staffing = ctx.run_spec().get('staffing') or {}
+    inputs = staffing.get('inputs') or {}
     for key, _label in _SPEC_FACTORS:
+        if key == 'floor_lines' and inputs.get(key) is None:
+            # The floor is SOLVED per section under the era (ADR-0004), so the input is
+            # None and the value the run declared at lives in each pair's coverage block;
+            # flag-off it is the one-line default.  Either way it is a FIXED factor, not
+            # an absence: one number when every section agrees, else the per-channel map.
+            for cal in (staffing.get('calibration') or {}).values():
+                final = ((cal or {}).get('coverage') or {}).get('final') or {}
+                floors = {ch: st['floor_lines'] for ch, st in final.items()
+                          if isinstance(st, dict) and st.get('floor_lines') is not None}
+                if not floors:
+                    continue
+                vals = set(round(float(v), 6) for v in floors.values())
+                add(key, vals.pop() if len(vals) == 1 else floors)
+            continue
         add(key, inputs.get(key))
     return {k: sorted(v, key=str) for k, v in out.items()}
 

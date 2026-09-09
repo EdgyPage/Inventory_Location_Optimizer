@@ -597,7 +597,15 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
         a = stage_a[name]
         constants['s_pick'][name] = a['s_pick']
         batch = a['batch']
-        new_ch = _dc_replace(ch, batch_mean_fraction=batch['mean_fraction'],
+        # THE DERIVED CREW (ADR-0004).  The channel was built at the placeholder count
+        # (`channel_pickers`); stage A solved the crew from the first-time confidence, and
+        # the picker profile AND its pick config carry it from here -- `k_pickers` in the
+        # payload, the run params and the worker's crew all read `ch.picker`.
+        K = int(a['pickers'])
+        picker = _dc_replace(ch.picker, num_pickers=K,
+                             cost=_dc_replace(ch.picker.cost, num_pickers=K))
+        new_ch = _dc_replace(ch, picker=picker,
+                             batch_mean_fraction=batch['mean_fraction'],
                              batch_std_fraction=batch['std_fraction'])
         groups[name]['new_ch'] = new_ch
     for ch, cfg in channel_runs:
@@ -642,7 +650,10 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
                         f'no units put away) -- recording s_put = 0 for this channel')
     derived = _staffing.derive(
         inputs=inputs, constants=constants, day_seconds=S,
-        channels={n: {'pickers': a['pickers'], 'daily_demand_units': a['daily_demand_units'],
+        channels={n: {'pickers': a['pickers'],
+                      'pickers_provenance': a.get('pickers_provenance', 'derived'),
+                      'daily_demand_units': a['daily_demand_units'],
+                      'demand': a.get('demand'), 'guarantee': a.get('guarantee'),
                       'analytic': a['analytic'], 'batch': a['batch'], 'n_skus': len(a['orders']),
                       'expected': a['expected']}
                   for n, a in stage_a.items()},
@@ -796,6 +807,15 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
         n = channel_pickers(name)
         for cfg in chan['configs']:
             _own = cfg.get('num_pickers')
+            if _own is not None and era_on():
+                # Under the era the crew is SOLVED from the first-time confidence
+                # (ADR-0004); a per-arm count is a typed crew, which is a regime nobody
+                # derived, whether or not it happens to equal the placeholder.
+                raise ValueError(
+                    f"pick config {cfg.get('name')!r} declares num_pickers={_own}, but under "
+                    f"--shift-drain-or-cap the {name} channel's crew is DERIVED from the "
+                    f"declared demand and first_time_confidence; drop the key from the "
+                    f"config module.")
             if _own is not None and int(_own) != n:
                 raise ValueError(
                     f"pick config {cfg.get('name')!r} declares num_pickers={_own}, but the "

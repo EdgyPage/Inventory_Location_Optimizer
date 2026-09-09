@@ -82,6 +82,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from Optimization.simconfig.staffing import channel_crew, picker_key   # noqa: F401
+
 #: The three departments the bands are drawn for, in the order the derivation records them.
 DEPARTMENTS: tuple[str, ...] = ('pick', 'put', 'recv')
 
@@ -182,9 +184,8 @@ class Verdict:
 
 # ── the expectations: what the staffing record says this leaf should show ───────────────
 
-def picker_key(channel: str | None) -> str:
-    """The staffing-inputs key holding this channel's declared picker count."""
-    return 'ff_pickers' if channel == 'fulfillment' else 'store_pickers'
+# `picker_key` lives with the ONE crew reader (`staffing.channel_crew`, ADR-0004; imported
+# at the top) and stays importable from here for the readers that took it from this module.
 
 
 def _expected_repacked_packs(derived: dict, inputs: dict) -> float | None:
@@ -263,7 +264,11 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
         raise RecordError('the staffing inputs carry no `band_tol`')
     departments: dict = {}
     absent: dict = {}
-    pickers = int(inputs.get(picker_key(ch)) or section.get('pickers') or 0)
+    # The DERIVED crew first (solved under the era, ADR-0004), the declared key after.
+    try:
+        pickers = channel_crew(staffing, channel=ch, pair=pair)
+    except KeyError:
+        pickers = 0
     exp_pick = (section.get('expected_utilization') or {}).get('pick')
     s_pick = ((section.get('s_pick') or {}).get('value')) if isinstance(section.get('s_pick'), dict) else None
     if pickers > 0 and exp_pick is not None:

@@ -269,6 +269,24 @@ def define_env(env):
             return str(int(x))
         return f"{x:g}" if isinstance(x, (int, float)) else str(x)
 
+    def _floor_words(d):
+        """The declared line floor as words, or None when the snapshot does not carry it.
+
+        `floor_text` is rendered by the inventory document itself (ADR-0004: the floor is
+        SOLVED per section under the era, so `floor_lines` is the INPUT and None when
+        solved); an older snapshot carries only the scalar, which is rendered here."""
+        text = d.get("floor_text")
+        if text:
+            return text
+        if d.get("floor_lines") is not None:
+            return f"{_num(d['floor_lines'])} line(s)"
+        return None
+
+    def _declared_three(d):
+        """Whether a declaration carries all three inputs a page can name."""
+        return (d.get("coverage_days") is not None and d.get("safety_days") is not None
+                and _floor_words(d) is not None)
+
     def _fmt_fn(coef, fn, var):
         """Render a pick-time term like 0.58·w^1.5 or 0.7·log2(v)."""
         kind, _, arg = str(fn).partition(":")
@@ -732,8 +750,8 @@ def define_env(env):
         d = m.get("declaration") or {}
         decl = (f", at a declared **{_num(d['coverage_days'])} days** of coverage "
                 f"(+ {_num(d['safety_days'])} days of safety, floored at "
-                f"{_num(d['floor_lines'])} line(s) of the SKU's own demand)"
-                if len(d) == 3 else ", at a coverage this snapshot does not record")
+                f"{_floor_words(d)} of the SKU's own demand)"
+                if _declared_three(d) else ", at a coverage this snapshot does not record")
         plans = m.get("n_stock_plans") or 0
         packed = (f" {plans:,} of them carry a hand-written packing plan, which overrides "
                   f"the pallet/singleton rule." if plans else "")
@@ -874,7 +892,7 @@ def define_env(env):
         # checkout's defaults into a page about someone else's run.
         inputs = (f"This run declared $C$ = **{_num(decl['coverage_days'])} days**, "
                   f"$S$ = **{_num(decl['safety_days'])} days** and $F$ = "
-                  f"**{_num(decl['floor_lines'])} line(s)**. " if len(decl) == 3 else
+                  f"**{_floor_words(decl)}**. " if _declared_three(decl) else
                   "The three inputs are recorded per pair in the run's own staffing "
                   "record; this snapshot does not carry them. ")
         return (

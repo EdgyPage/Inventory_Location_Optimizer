@@ -54,3 +54,11 @@ demanded units, never on served.
   comparable with results after it (a new era).
 - The floor rises to about 1.27 lines on the reference catalogue, roughly 19% more stock and a
   proportionally larger warehouse.
+- Two decisions made while building (2026-09-08). The floor is solved per section, since each
+  section's fill is its own, so a run records one floor per channel and a rebuild re-declares
+  each at its own; and a typed floor under the era is accepted only at or above the solved
+  value and refused below it, because a smaller floor is a smaller promise than the confidence
+  makes and raising it silently would be a second authored knob that moves the crew. Which keys
+  are inputs follows the regime: the era records the picker keys and the picking utilization
+  target as absent and derived, the flag-off regime records the demand and the confidence as
+  absent, and each refuses the other's flags when typed.

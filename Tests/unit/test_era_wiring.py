@@ -228,7 +228,14 @@ def test_a_standalone_reanalysis_restores_the_era_and_the_scalars(tmp_path, rest
     assert era_on() is True
     assert put_crew_spec()['size'] == 2 and put_crew_spec()['mode'] == 'machine'
     spec = staffing_spec()
-    assert (spec['rho_pick'], spec['s_put'], spec['rho_put']) == (0.7, 3.0, _s.RHO_PUT)
+    # The restored value reaches CONFIG; under the era the accessor records `rho_pick` as
+    # None (ADR-0004: the first-time confidence replaced it and nothing reads it), while
+    # the shared scalars and the override resolve as before.
+    assert CONFIG['global']['rho_pick'] == 0.7
+    assert spec['rho_pick'] is None
+    assert (spec['s_put'], spec['rho_put']) == (3.0, _s.RHO_PUT)
+    assert (spec['store_pickers'], spec['ff_pickers']) == (None, None)
+    assert spec['first_time_confidence'] == _s.FIRST_TIME_CONFIDENCE
     assert run_analysis._RUN_STAFFING['derived'] == {'pair': {'put': {'crew': 4}}}
 
 

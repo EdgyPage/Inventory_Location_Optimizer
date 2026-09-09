@@ -11,7 +11,7 @@ self-registering pick-config registry.
 | `channels.py` | the Channel abstraction — one operation over a shared warehouse |
 | `strategies.py` | `STRATEGIES` — initial × restock × reslot, the arms a run compares |
 | `whatif_config.py` | `SPECS` — the cell matrices a run can be launched as, and `ERA_RUN_DEFAULTS`, the calibrated era the campaign specs default to |
-| `../simconfig/staffing.py` | the calibrated era's staffing DERIVATION — a pure module: pickers + the expected constants + the script in, batch content and the two site crews out |
+| `../simconfig/staffing.py` | the calibrated era's staffing DERIVATION — a pure module: the declared demand, the first-time confidence, the expected constants and the script in; the picking crew (solved for the cut-share bound), batch content and the two site crews out — and `channel_crew`, the ONE reader of a channel's crew off any staffing record (ADR-0004) |
 | `../simconfig/expected_travel.py` | the EXPECTED-TRAVEL CLOSED FORM — a pure module: the catalogue, the built geometry and a placement distribution in; the expected day (tasks, travel, swaps, handling) and `s_pick` / `s_put` out, plus the fixed point that sets the daily demand. There is no calibration record and no reference run |
 | `../simconfig/equilibrium.py` | the pre-registered EQUILIBRIUM CHECK — one pure function of (db, day_lo, day_hi) with four strict clauses; the throughput audit's REPORT on every era run (where a formula error shows) |
 

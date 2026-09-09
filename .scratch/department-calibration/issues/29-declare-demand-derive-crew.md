@@ -1,7 +1,7 @@
 # Declare the demand and derive the crew from the joint first-time confidence
 
 Type: task
-Status: open
+Status: resolved
 
 Graduated 2026-09-08 from
 [Fit the store's window to its own steady state](27-fit-the-store-window-to-its-steady-state.md),
@@ -67,3 +67,124 @@ quantile and partial expectation are exact enough to promise on.
   lines with the stamped fill >= 0.9747.
 - ADR-0004 matches what was built (amend it if the build found a reason to deviate, and say so on
   the map).
+
+## Answer
+
+LANDED 2026-09-08 (AFK build). The era launches from a demand declaration and one joint
+confidence, solves the line floor and the picking crew from it, derives the two site crews from
+the script, and stamps every one with provenance; the picker flags and `--rho-pick` refuse under
+the era, the demand flags refuse without it. ADR-0004 amended with the two build decisions
+below.
+
+### What was built
+
+1. **The declaration** (all five seams). `store_demand` / `ff_demand` (the sampler's unit: the
+   fraction of the section's SKUs drawn per day) and `first_time_confidence` (0.95) are three
+   new `STAFFING_KEYS`, flags `--store-demand` / `--ff-demand` / `--first-time-confidence`,
+   restored at both sites, carried in the payload. Defaults on the reference pair are the
+   previous fixed point -- 0.00245335 x 239,938 = 588.65 store and 0.0181380 x 160,062 = 2,903.2
+   fulfillment lines a day -- so the warehouse, the levels and the script family stay put.
+   **The regime decides which keys are inputs** (`sim_config.ERA_ONLY_KEYS` /
+   `FLAG_OFF_ONLY_KEYS`): `staffing_spec()` records the picker keys and `rho_pick` as None under
+   the era and the demand / confidence as None flag-off; `staffing_provenance()` (a new accessor,
+   replacing the inline comprehension in `run_simulation`) writes `derived` for the pickers under
+   the era and no provenance for a key the regime does not read. `_check_era_flags` refuses the
+   other regime's flags in BOTH directions; `_channel_runs_for` refuses a per-arm `num_pickers`
+   under the era even when it restates the placeholder.
+2. **The crew side** (`staffing.py`, pure): `first_time_split` (`sqrt(c)`), `line_moments`
+   (`E[q]`, `E[q²]` off the stamped law), `units_cv` (decision 8's `Var[U] = n·Var[q] +
+   (cv·n)²·E[q]²`), `partial_expectation` (`sd·[φ(z) - z(1 - Φ(z))]`), `cut_share`,
+   `solve_pickers` (walks up from the crew that fits the mean day to the first K inside the
+   bound). The load is `E[W] = n·E[q] × s_pick` -- DEMANDED units at the expected seconds per
+   served unit read at the declared day -- under a Normal with the day's unit cv. Validated
+   against a seeded Monte-Carlo of the declared law (Gaussian lines, per-line Poisson draws) to
+   5% relative on the cut share. On the reference store's own numbers: **K = 32, utilization
+   0.720, expected cut share 0.0203 <= 0.0253**; the served-unit derivation would have fielded
+   29 with a real cut share of 0.042 -- the sabotage test pins it.
+3. **The shelf side** (`coverage.solve_floor_lines`): the fill is a non-decreasing STEP function
+   of the floor, so it is bracketed by doubling from one line and bisected to 1e-4 lines, the
+   answer rounded UP -- always at or above the true threshold. Per SECTION, at the declared line
+   count, before any level is declared (`era_coverage.resolve_floors`); a section not fully
+   floored solves the same root through `coverage_days`. Solved 1.2728 (store) / 1.2858
+   (fulfillment) lines on the era canary and 1.2779 on the 90-SKU test pair, fill 0.975.
+4. **The fixed point collapses** under the era: `seed_lines` returns the declaration, `stage_a`
+   prices `expected_pick` AT it and solves the crew, `n_out == n_in` and the loop converges in
+   ONE round (a `--max-skus` sample that shrinks a section costs one more). Flag-off the loop
+   iterates exactly as before. `floor_lines` defaults to None (`settings.FLOOR_LINES`), out of
+   `_SCALAR_DEFAULTS`, "solve it" under the era and one line flag-off
+   (`coverage.DEFAULT_FLOOR_LINES`).
+5. **`derive`**: the picking load is the SAMPLED SCRIPT's demanded units x `s_pick` (27 decision
+   5), `pick_capacity_s` is the granted day `K·S`, `expected_utilization.pick` is DERIVED, `rho_pick`
+   is never read; the channel record gains `pickers_provenance`, `pick_load_s`, `demand` (the
+   declaration, `lines_per_day`, `units_per_day`, served units, the day law's two cvs) and
+   `guarantee` (`first_time_confidence`, `side`, `crew`: `pickers`, `cut_share`,
+   `cut_share_max`, `load_s`, `sd_s`, `cv`, `expected_utilization`). The coverage record carries
+   `floor_lines` (the INPUT, None when solved), a `floor` block per channel (`floor_lines`,
+   `provenance`, the solve's stamp) and `final[<ch>]['floor_lines']`; `era_coverage.floors_at`
+   reads it per channel with the scalar fallback for every older record, and
+   `declare_from_record` re-declares each section at its own floor.
+6. **The ONE crew reader**: `staffing.channel_crew(record, channel=, pair=)` prefers
+   `derived.channels[<ch>].pickers` over `inputs.<ch>_pickers`, over both record shapes; the
+   worker's `_check_declared_crew`, `equilibrium.expectations_for` and `EvalContext.k_pickers`
+   go through it (`picker_key` moved beside it). `_derive_staffing_for_pair` replaces the
+   channel's `PickerProfile` and its `PickConfig` with the solved K, so `k_pickers`, the run
+   params and the worker's crew all read it; the placeholder `channel_pickers` builds the
+   channel and sizes nothing.
+
+### Two decisions the ticket left open
+
+- **A typed `--floor-lines` under the era is accepted at or above every channel's solved value
+  (stamped `declared`, the solved one recorded beside it) and REFUSED below it.** A smaller
+  floor is a smaller promise than the confidence makes; raising it silently would be the second
+  authored knob that moves the crew, the pattern that hid the fill-rate defect.
+- **The guarantee's day law is the Normal on the day's UNITS, not the 7-node Gauss-Hermite sum
+  over the routing chain.** `expected_pick` already averages the day over the line law, so its
+  seconds per unit is the right price; the overflow is then a one-line partial expectation,
+  exact for the model up to the compound sum's normality (5% on the toy MC, ~0.001 of cv on the
+  reference pair per decision 8).
+
+### Verified
+
+- `Tests/unit`: 1,832 green before the new file; `Tests/unit/test_first_time_guarantee.py`
+  adds 32 (closed forms by hand, the sabotage, the Monte-Carlo, the floor solve, both regimes'
+  inputs and provenance, the record round-trip through BOTH restore sites, the refusals both
+  ways, the crew reader over every shape, the era on a real tiny pair in one round, flag-off
+  byte-identical on the same pair). Nine existing tests updated to the new contract.
+- `Tests/integration`: 394 green; ONE PRE-EXISTING failure (the run-tree schema's
+  `figures_throughput_pngs` attribution omits `throughput.audit`; untouched by this build --
+  chip spawned). `Tests/e2e/test_channel_runner_smoke.py`: 4 green.
+- Preflight: both canaries (flag-off by design) end to end, tree shape unchanged, fingerprint
+  refreshed (`Optimization/schemas/run_tree/INDEX.json`). All seven non-architecture gates green.
+- **An era canary** (the preflight's mixed catalogue, `_canary_single`, 200 SKUs, 2 days, demand
+  0.05 both channels): floors solved 1.2728 / 1.2858 at fill 0.9748 / 0.9750, crews solved 1 / 1
+  (cut share 0.0068 / 0.0000, the day is tiny), put crew 1, receiving 1; every arm's
+  `simulation_runs` row carries `num_pickers = k_pickers = 1` -- the DERIVED crew, where the
+  placeholder was 25 / 20 -- and every arm completed both batches with no Traceback.
+
+### From the review (code-reviewer, fixed before the commit)
+
+- `solve_pickers` walked up from the crew that fits the MEAN day and so was not the smallest
+  feasible crew whenever the spread is small (10.1 days of load at cv 0.02 solved to 11, not
+  10; it never bound at the declared cvs). The share is never below the plain excess, so the
+  search now starts at `ceil((1 - bound)·E[W] / S)` and the first hit is the minimum; pinned.
+- Three readers of the coverage record tripped on the floor's None: the inventory catalog's
+  `len(d) == 3` gate (it would have logged "declaration unrecorded" for every run and the two
+  site macros would have fallen to "this snapshot does not record"), and `held_fixed.json`,
+  where `floor_lines` vanished as a factor. The inventory document now renders a `floor_text`
+  (`1 line(s)` / `1.273 (store) / 1.286 (fulfillment) line(s), solved`) that the log line and
+  both macros read, and the fixed register reads the per-channel floor from the coverage block.
+- The pre-record analysis fallback now takes its provenance from `staffing_provenance(set())`
+  rather than a literal; `k_pickers()` says it is the placeholder under the era.
+- The architecture layer is stale (three new `staffing` imports, `picker_key` moved, one new
+  test file) -- the `architecture-maintainer`'s re-sync, as after every build on this map.
+
+### For 30 and 31
+
+- The stamped expected cut share 30 judges against is
+  `staffing.derived[<pair>].channels[<ch>].guarantee.crew.cut_share`; the expected fill is
+  `calibration[<pair>].coverage.final[<ch>].fill.fill_rate` (now the solved floor's).
+- The reference pair has NOT been re-planned here (the loop costs ~8 minutes a pair and 31 takes
+  the 40-day run anyway): its solved floor and crew come with 31's run. Expect ~1.27 lines and
+  K = 32 on the store from the closed form above.
+- Memory `nothing-is-lost-under-the-era` still says "build pending"; the memory-maintainer should
+  amend it to LANDED (29) with 30/31 outstanding.

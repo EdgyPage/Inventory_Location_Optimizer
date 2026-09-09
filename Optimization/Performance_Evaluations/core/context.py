@@ -160,20 +160,23 @@ class EvalContext:
         self.optimal_work = float(sim_result.get('optimal_work') or 0.0)
         self.aisle_unittype_map = slim['aisle_unittype_map']
         self.aisle_handling_map = slim['aisle_handling_map']
-        # THIS channel's declared crew, off the staffing record stamped onto sim_result by
-        # `run_analysis._sim_result_from_meta` (the sixth seam).  No fallback: this context
-        # runs in a SPAWNED worker, so CONFIG is not a channel to it, and the literal 25 that
-        # stood here was the store's crew on every fulfillment leaf (no evaluation read it
-        # yet, so it was never an output defect -- the throughput audit will be the first
-        # reader).  A record without the key is a stamping bug upstream and raises as one.
+        # THIS channel's crew, off the staffing record stamped onto sim_result by
+        # `run_analysis._sim_result_from_meta` (the sixth seam), through the ONE crew reader
+        # (`staffing.channel_crew`, ADR-0004: the derived block's solved crew under the era,
+        # the declared key flag-off; keyed by pair).  No fallback: this context runs in a
+        # SPAWNED worker, so CONFIG is not a channel to it, and the literal 25 that stood
+        # here was the store's crew on every fulfillment leaf.  A record without a crew is a
+        # stamping bug upstream and raises as one.
+        from Optimization.simconfig.staffing import channel_crew as _channel_crew
         _staffing = sim_result.get('staffing') or {}
-        _key = 'ff_pickers' if sim_result.get('channel') == 'fulfillment' else 'store_pickers'
         try:
-            self.k_pickers = int(_staffing['inputs'][_key])
-        except (KeyError, TypeError):
+            self.k_pickers = _channel_crew(_staffing, channel=sim_result.get('channel'),
+                                           pair=self.inv)
+        except (KeyError, TypeError, ValueError) as exc:
             raise KeyError(
-                f'sim_result for {self.name!r} carries no staffing record with {_key!r}; '
-                f'run_analysis._sim_result_from_meta stamps it (the sixth seam)') from None
+                f'sim_result for {self.name!r} carries no staffing record with a picking '
+                f'crew for its channel ({exc}); run_analysis._sim_result_from_meta stamps '
+                f'it (the sixth seam)') from None
         self.total_bins = float(slim.get('total_bins') or 0)
         self.log        = log
 

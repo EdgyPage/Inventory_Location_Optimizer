@@ -53,6 +53,15 @@ from __future__ import annotations
 
 import math
 
+#: The line floor a FLAG-OFF run declares at: one pick's worth of the SKU ("Choose the
+#: coverage floor", decision 1).  Under the era the floor is SOLVED from the first-time
+#: confidence (`solve_floor_lines`), searching upward from this same value -- a SKU never
+#: holds less than one line of itself in either regime.
+DEFAULT_FLOOR_LINES: float = 1.0
+#: The solve's resolution in lines, and the doubling ceiling past which a catalogue is
+#: declared unable to reach the fill asked of it (128 lines of stock per SKU).
+FLOOR_SOLVE_TOL: float = 1e-4
+FLOOR_SOLVE_MAX: float = 128.0
 #: Relative change of a channel's fixed-point `n` below which the coverage loop has converged.
 DEFAULT_TOL: float = 0.01
 #: Rounds the loop may take before it stops and records the residual it stopped at.  The
@@ -251,6 +260,73 @@ def fill_rate(orders, lines_per_day: float) -> dict:
             'base_stock_skus': int(base_stock), 'base_stock_share': (base_stock / n) if n else 0.0,
             'n_skus': n, 'pipeline_units': int(pipeline_units)}
 
+
+
+def solve_floor_lines(orders, lines_per_day: float, *, coverage_days: float,
+                      safety_days: float, fill_min: float,
+                      lo: float = DEFAULT_FLOOR_LINES, tol: float = FLOOR_SOLVE_TOL,
+                      hi_max: float = FLOOR_SOLVE_MAX) -> dict:
+    """The shelf side of the first-time guarantee (ADR-0004): the smallest `floor_lines`
+    at which the section's expected first-pass fill clears `fill_min` (`sqrt(c)`), with
+    the line count DECLARED.
+
+    `fill(f)` is `fill_rate` over the levels `rescale_section(f)` declares -- a pure
+    catalogue closed form while every SKU sits on the floor, and the same root when a
+    section is not fully floored (a SKU above its floor takes `coverage_days × d_s`, which
+    the formula already reads, so `coverage_days` enters the fill through the levels and
+    nothing here changes).  It is a non-decreasing STEP function of `f` (`L_s = ceil(f ×
+    E[q_s])` moves one SKU at a time), so the root is bracketed by doubling from `lo` and
+    bisected to `tol` lines, and the answer is the bracket's UPPER end rounded up to the
+    tolerance -- always at or above the true threshold, never below it.  `lo` is the
+    one-line floor: a SKU never holds less than a pick's worth of itself, so a confidence
+    one line already clears solves to exactly `lo` and says so (`at_lower_bound`).
+
+    MUTATES the orders (every evaluation re-declares through `rescale_section`) and leaves
+    them declared at the SOLVED floor.  Refuses a `fill_min` outside [0, 1) and a section
+    that cannot reach it by `hi_max` lines.  Returns
+
+        {'floor_lines', 'fill_rate', 'fill_min', 'evaluations', 'at_lower_bound',
+         'bracket': (lo, hi)}
+    """
+    target = float(fill_min)
+    if not (0.0 <= target < 1.0):
+        raise ValueError(f'fill_min must lie in [0, 1); got {fill_min!r}')
+    n = float(lines_per_day)
+    evals = 0
+
+    def fill(f: float) -> float:
+        nonlocal evals
+        evals += 1
+        rescale_section(orders, n, coverage_days=coverage_days, safety_days=safety_days,
+                        floor_lines=f)
+        return float(fill_rate(orders, n)['fill_rate'])
+
+    lo = float(lo)
+    f_lo = fill(lo)
+    if f_lo >= target or n <= 0.0:
+        return {'floor_lines': lo, 'fill_rate': f_lo, 'fill_min': target,
+                'evaluations': evals, 'at_lower_bound': True, 'bracket': (lo, lo)}
+    hi = lo
+    f_hi = f_lo
+    while f_hi < target:
+        hi *= 2.0
+        if hi > float(hi_max):
+            raise ValueError(
+                f'the section cannot reach a first-pass fill of {target:.4f} by '
+                f'{hi_max:g} lines of stock per SKU (fill {f_hi:.4f} at {hi / 2.0:g} '
+                f'lines); the first-time confidence asks more of this catalogue than a '
+                f'line floor can promise')
+        f_hi = fill(hi)
+    while hi - lo > float(tol):
+        mid = 0.5 * (lo + hi)
+        if fill(mid) >= target:
+            hi = mid
+        else:
+            lo = mid
+    solved = math.ceil(hi / float(tol) - 1e-9) * float(tol)
+    f_solved = fill(solved)                      # the orders are left declared HERE
+    return {'floor_lines': float(solved), 'fill_rate': f_solved, 'fill_min': target,
+            'evaluations': evals, 'at_lower_bound': False, 'bracket': (lo, hi)}
 
 
 def converged(prev: dict, cur: dict, tol: float = DEFAULT_TOL) -> bool:

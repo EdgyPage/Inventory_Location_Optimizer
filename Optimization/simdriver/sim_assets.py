@@ -168,7 +168,8 @@ def build_shared_assets(
             inventory.orders, lambda: (lambda p: (p, _build(p.warehouse_cfg)))(_plan()),
             _specs, coverage_days=float(_inputs['coverage_days']),
             safety_days=float(_inputs['safety_days']),
-            floor_lines=float(_inputs['floor_lines']), inputs=_inputs,
+            # None = solve it under the era, one line flag-off (`era_coverage.resolve_floors`).
+            floor_lines=_inputs['floor_lines'], inputs=_inputs,
             day_seconds=float(work_day_spec()['seconds']), log=log)
         era_stage_a = {'channels': _sa, 'n_orders': len(plan.sampled or inventory.orders),
                        'aisles': len(warehouse_meta.aisles)}

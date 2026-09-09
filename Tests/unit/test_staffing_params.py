@@ -206,7 +206,10 @@ def test_recorded_as_one_nested_staffing_key():
     src = inspect.getsource(run_simulation.main)
     assert "'staffing': {" in src
     assert "'inputs'    : staffing_spec()," in src
-    assert "'provenance': {k: ('declared' if k in explicit else 'assumed')" in src
+    # The provenance is the accessor's (ADR-0004): the REGIME decides which keys are inputs,
+    # so the inline `declared if typed else assumed` comprehension is gone from main.
+    assert "'provenance': staffing_provenance(explicit)," in src
+    assert "('declared' if k in explicit else 'assumed')" not in src
 
 
 def test_a_resume_restores_the_inputs_from_the_nested_record():
@@ -334,7 +337,11 @@ def test_a_pre_record_stamp_is_a_reconstruction_marked_assumed(restore, monkeypa
     restore.update(store_pickers=None, ff_pickers=None)
     sr = run_analysis._sim_result_from_meta({'name': 'n', 'run_dir': 'x', 'strategies': []})
     assert {k: sr['staffing']['inputs'][k] for k in _DEFAULTS} == _DEFAULTS
-    assert sr['staffing']['provenance'] == {k: 'assumed' for k in STAFFING_KEYS}
+    # Every input the regime READS is `assumed`; the era-only keys (ADR-0004) are None on a
+    # flag-off reconstruction and carry no provenance -- the accessor's rule, not a literal.
+    from Optimization.config.sim_config import ERA_ONLY_KEYS
+    assert sr['staffing']['provenance'] == {k: 'assumed' for k in STAFFING_KEYS
+                                            if k not in ERA_ONLY_KEYS}
     assert sr['channel'] == 'store', 'a pre-channel meta is a store-only run'
 
 
@@ -344,7 +351,10 @@ def test_the_evaluation_context_reads_its_own_channels_count():
     from Optimization.Performance_Evaluations.core.context import EvalContext
     src = inspect.getsource(EvalContext.__init__)
     assert "slim.get('k_pickers'" not in src, 'the literal fallback is back'
-    assert "_key = 'ff_pickers' if sim_result.get('channel') == 'fulfillment' else 'store_pickers'" in src
-    assert "self.k_pickers = int(_staffing['inputs'][_key])" in src
+    # THE ONE CREW READER (ADR-0004): the derived block's solved crew under the era, the
+    # declared key flag-off -- keyed by this leaf's channel AND its pair.
+    assert "self.k_pickers = _channel_crew(_staffing, channel=sim_result.get('channel')," in src
+    assert 'pair=self.inv)' in src
+    assert "_staffing['inputs'][_key]" not in src, 'the inputs-only read is back'
     from Optimization.run_analysis import _SLIM_KEYS
     assert 'k_pickers' not in _SLIM_KEYS, 'the store-only slice is still shipped to the worker'

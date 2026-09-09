@@ -554,14 +554,17 @@ def _check_declared_crew(args: dict, k_pickers: int) -> None:
     st = args.get('staffing')
     if not st:
         return
-    inputs = st.get('inputs', st)         # the pre-derivation payload WAS the inputs dict
-    key = 'ff_pickers' if args.get('channel_name') == 'fulfillment' else 'store_pickers'
-    declared = int(inputs[key])
+    from Optimization.simconfig.staffing import channel_crew, picker_key   # noqa: E402
+    # The ONE crew reader (ADR-0004): the derived block's solved crew under the era, the
+    # declared key flag-off -- the payload shape, so no pair key.
+    ch = args.get('channel_name')
+    declared = channel_crew(st, channel=ch)
     if declared != int(k_pickers):
         raise ValueError(
-            f'worker was handed k_pickers={k_pickers} but its staffing record declares '
-            f'{key}={declared}; the two are read from the same key at setup, so a '
-            f'disagreement means the payload was assembled by hand')
+            f'worker was handed k_pickers={k_pickers} but its staffing record '
+            f'{"derives" if st.get("derived") else "declares"} '
+            f'{picker_key(ch)}={declared}; the two are read from the same record at setup, '
+            f'so a disagreement means the payload was assembled by hand')
     derived = st.get('derived')
     if not derived:
         return

@@ -157,7 +157,34 @@ def _declaration(ctx, pair: str) -> dict:
     staffing = ctx.run_spec().get('staffing') or {}
     cal = (staffing.get('calibration') or {}).get(pair) or {}
     cov = cal.get('coverage') or {}
-    return {k: cov[k] for k in ('coverage_days', 'safety_days', 'floor_lines') if k in cov}
+    out = {k: cov[k] for k in ('coverage_days', 'safety_days', 'floor_lines') if k in cov}
+    # The floor each section DECLARED AT, per channel (ADR-0004: solved from the first-time
+    # confidence, so `floor_lines` above is the INPUT -- None when solved -- and this is the
+    # value).  Read off the rescale stats, the same place a rebuild reads it from; and
+    # rendered once, here, so every reader (the log line, the two site macros) prints the
+    # same words for a solved floor, a typed one and a pre-flip scalar.
+    floors = {ch: st['floor_lines'] for ch, st in (cov.get('final') or {}).items()
+              if isinstance(st, dict) and st.get('floor_lines') is not None}
+    if floors:
+        out['floor_lines_by_channel'] = floors
+    if 'floor_lines' in out:
+        out['floor_text'] = floor_text(out)
+    return out
+
+
+def floor_text(d: dict) -> str:
+    """The declared floor as words: `1 line(s)` for one number, `1.27 (store) / 1.29
+    (fulfillment) line(s), solved` when each section solved its own (ADR-0004)."""
+    scalar = d.get('floor_lines')
+    if scalar is not None:
+        return f'{float(scalar):g} line(s)'
+    floors = d.get('floor_lines_by_channel') or {}
+    if not floors:
+        return 'a solved floor (per section, unrecorded)'
+    vals = sorted(set(round(float(v), 4) for v in floors.values()))
+    if len(vals) == 1:
+        return f'{vals[0]:g} line(s), solved'
+    return ' / '.join(f'{float(v):.4g} ({ch})' for ch, v in floors.items()) + ' line(s), solved'
 
 
 # Two homes, declared rather than improvised: the JSON is a dossier document a macro
@@ -207,8 +234,9 @@ def render(ctx, params):
     for pair, m in doc['pairs'].items():
         d = m['declaration']
         decl = (f"{d['coverage_days']:g} d coverage + {d['safety_days']:g} d safety, "
-                f"floor {d['floor_lines']:g} line(s)"
-                if len(d) == 3 else 'declaration unrecorded')
+                f"floor {d['floor_text']}"
+                if {'coverage_days', 'safety_days', 'floor_text'} <= set(d)
+                else 'declaration unrecorded')
         eq = m['distributions'].get('equilibrium_qty') or {}
         ctx.log.info(f"  inventory model {pair}: {m['n_declared']:,} of {m['n_skus']:,} SKUs "
                      f"declared ({decl}); median order-up-to "

@@ -1,16 +1,33 @@
 """staffing.py — the calibrated era's staffing DERIVATION, as a pure module.
 
-Pickers per channel are the ONE declared staffing input of the calibrated era
-(.scratch/department-calibration, "Define the calibrated era"); everything else a run
-fields is DERIVED from them, live at setup, with a declared scalar at every step:
+DEMAND per channel is the declared staffing input of the calibrated era (ADR-0004,
+.scratch/department-calibration, "Fit the store's window to its own steady state" --
+reversing "Define the calibrated era", which declared the pickers): a mean day is a
+declared fraction of the section's SKUs drawn as lines, and everything a run fields is
+DERIVED from that and ONE more declared scalar, the joint FIRST-TIME CONFIDENCE `c` -- the
+probability a pick is completed the first time, reached on its day AND filled from its
+shelf -- live at setup:
 
-    pick capacity      K × S × ρ_pick                        (seconds of picking per day)
-    daily demand       capacity ÷ s_pick                     (units per day, per channel)
+    lines per day      n = demand × N_skus                     (the declared day, mean)
+    day law            N ~ Normal(n, cv·n), cv the declared batch spread   (declared)
+    line floor         the smallest floor_lines whose first-pass fill >= sqrt(c)
+                                                              (`coverage.solve_floor_lines`)
+    pick load          E[W] = demanded units/day × s_pick      (DEMANDED, never served)
+    picking crew       the smallest integer K with E[(W - K·S)^+] / E[W] <= 1 - sqrt(c)
+                                                              (`solve_pickers`, per channel)
     batch content      one batch = one day's demand          (a BatchConfig mean fraction)
     put load           units × f_put                         (units put per unit picked)
     put crew           ceil(Σ_ch put load_ch × s_put_ch ÷ (S × ρ_put))   (ONE site crew)
     receive load       packs the script's LOTS pack into × f_recv
     receiving crew     ceil(receive seconds ÷ (S × ρ_recv))  (ONE site crew)
+
+NOTHING IS LOST under the era (memory `nothing-is-lost-under-the-era`): a pick the day cut
+or the shelf could not fill is re-offered next day and a lead-0 top-up lands before the
+re-attempt, so the crew picks ALL of demand and is sized on DEMANDED units.  The previous
+derivation priced pickers on SERVED units (demand × fill rate) and under-staffed both
+channels by exactly that factor; `test_first_time_guarantee` pins the sabotage.  Put-away
+and receiving keep their declared utilization targets: a receiving backlog on a heavy
+trailer is a legitimate scenario the inbound campaign exists to study.
 
 `s_pick` and `s_put` are BOTH per channel, and both are seconds per unit: CLOSED-FORM
 EXPECTATIONS over the catalogue's demand distribution and the warehouse geometry the run
@@ -38,7 +55,8 @@ touches no file, so the arithmetic is testable against a hand computation withou
 precompute because the receiving crew needs the packs the script implies -- and the script
 is itself derived from the pickers, which is why the derivation has two stages:
 
-    stage A  (catalogue only)  s_pick, daily demand, batch content -- BEFORE precompute
+    stage A  (the catalogue and the geometry)  s_pick at the declared day, the picking crew
+                               (solved), batch content -- BEFORE precompute
     stage B  (the script)      put load, packs, the two site crews -- AFTER precompute
 
 Every scalar default below is a declared ASSUMPTION of the era, never a measurement, and the
@@ -49,6 +67,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+
+import numpy as np
 
 from Inbound.pack import receive as _receive
 from Inbound.unload import UnloadCost, unload_cost
@@ -158,8 +178,185 @@ def analytic_pick(orders, pricing: PricingConfig) -> dict:
 
 
 def pick_capacity(pickers: int, day_seconds: float, rho_pick: float) -> float:
-    """Seconds of picking one channel's crew is expected to deliver per day: K × S × ρ."""
+    """Seconds of picking one channel's crew is expected to deliver per day: K × S × ρ.
+
+    FLAG-OFF ONLY since ADR-0004: the era declares demand and solves the crew from the
+    first-time confidence (`solve_pickers`), and its capacity is the granted day `K × S`
+    with the headroom a consequence rather than a target."""
     return float(pickers) * float(day_seconds) * float(rho_pick)
+
+
+# ── the first-time guarantee: the crew side ────────────────────────────────────────────
+
+def first_time_split(confidence: float) -> float:
+    """Each side's share of the joint first-time confidence: `sqrt(c)`, split EQUALLY
+    between the shelf (first-pass fill >= sqrt(c)) and the crew (expected cut share of
+    units <= 1 - sqrt(c)) -- ADR-0004, the one declared scalar and nothing else authored.
+    Refuses a confidence outside (0, 1): 0 promises nothing and 1 is staffing to the
+    peak by another name."""
+    c = float(confidence)
+    if not (0.0 < c < 1.0):
+        raise ValueError(f'first_time_confidence must lie in (0, 1); got {confidence!r}')
+    return math.sqrt(c)
+
+
+def line_moments(orders) -> dict:
+    """The first two moments of ONE line's units over a section, weighted the way the
+    sampler weights (a SKU's line share `π_s = freq / Σ freq`), off each SKU's STAMPED
+    line law: `{'m1': E[q], 'm2': E[q²], 'var': Var[q], 'n_skus'}`.
+
+    `E[q²] = Σ_j (2j + 1) P(q > j)` from `line.survival`, summed to the law's 1 - 1e-12
+    quantile (the tail past it is below float noise on a Poisson).  Zeros on an empty
+    section or a zero weight sum.
+    """
+    w_sum = 0.0
+    m1 = 0.0
+    m2 = 0.0
+    n = 0
+    for c in orders:
+        w = float(c.demand.relative_frequency)
+        if w <= 0.0:
+            n += 1
+            continue
+        line = c.demand.line
+        upto = int(line.quantile(1.0 - 1e-12)) + 1
+        tail = line.survival(upto)
+        e1 = float(tail.sum())
+        e2 = float(((2.0 * np.arange(upto) + 1.0) * tail).sum())
+        w_sum += w
+        m1 += w * e1
+        m2 += w * e2
+        n += 1
+    if w_sum <= 0.0:
+        return {'m1': 0.0, 'm2': 0.0, 'var': 0.0, 'n_skus': n}
+    m1 /= w_sum
+    m2 /= w_sum
+    return {'m1': m1, 'm2': m2, 'var': max(0.0, m2 - m1 * m1), 'n_skus': n}
+
+
+def units_cv(lines_per_day: float, cv_lines: float, moments: dict) -> float:
+    """The coefficient of variation of a DAY's units under the declared law: `N ~ Normal(n,
+    cv·n)` lines, each demanding iid units with the section's moments, so
+
+        E[U] = n·m1        Var[U] = n·Var[q] + (cv·n)²·m1²
+
+    ("Fit the store's window to its own steady state", decision 8: the Gaussian line count
+    carries all but ~0.001 of the unit cv on the reference pair, so the day's work is one
+    Gaussian draw to promise on).  Zero when the day has no units."""
+    n = float(lines_per_day)
+    m1 = float(moments['m1'])
+    if n <= 0.0 or m1 <= 0.0:
+        return 0.0
+    var = n * float(moments['var']) + (float(cv_lines) * n) ** 2 * m1 * m1
+    return math.sqrt(var) / (n * m1)
+
+
+def _phi(z: float) -> float:
+    return math.exp(-0.5 * z * z) / math.sqrt(2.0 * math.pi)
+
+
+def _Phi(z: float) -> float:
+    return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
+
+
+def partial_expectation(mean: float, sd: float, cap: float) -> float:
+    """`E[(W - cap)^+]` for `W ~ Normal(mean, sd)`: `sd·[φ(z) - z·(1 - Φ(z))]` at
+    `z = (cap - mean) / sd` -- the expected overflow of a day's work past the crew's cap.
+    Degenerates to `max(0, mean - cap)` at `sd = 0`."""
+    mean = float(mean); sd = float(sd); cap = float(cap)
+    if sd <= 0.0:
+        return max(0.0, mean - cap)
+    z = (cap - mean) / sd
+    return sd * (_phi(z) - z * (1.0 - _Phi(z)))
+
+
+def cut_share(load_s: float, sd_s: float, pickers: int, day_seconds: float) -> float:
+    """The expected share of a day's work the cut leaves standing under a crew of `pickers`:
+    `E[(W - K·S)^+] / E[W]`, `W ~ Normal(load_s, sd_s)`.  The per-PICK guarantee: units
+    cut over units demanded, in expectation over the declared day law.  Zero when there
+    is no load."""
+    if load_s <= 0.0:
+        return 0.0
+    return partial_expectation(load_s, sd_s, float(pickers) * float(day_seconds)) / float(load_s)
+
+
+def solve_pickers(load_s: float, cv: float, day_seconds: float, cut_share_max: float,
+                  *, k_max: int = 100_000) -> dict:
+    """The smallest integer crew whose expected cut share is at or under `cut_share_max`.
+
+    `load_s` is E[W], the day's expected picking seconds at the DECLARED demand priced at
+    the channel's expected seconds per unit; `cv` the day's unit cv (`units_cv`); the day
+    law is `W ~ Normal(load_s, cv·load_s)`.  `cut_share(K)` is decreasing in K, and it is
+    never below the plain excess `(E[W] - K·S) / E[W]` (the overflow of a spread-less day),
+    so no crew under `(1 - bound)·E[W] / S` can meet the bound: the search walks up from
+    that crew and stops at the first K inside it, which monotonicity makes the SMALLEST.
+    (Walking up from the crew that fits the MEAN day would skip feasible crews below it
+    whenever the spread is small -- under ~0.06 at the 0.95 confidence.)  Returns
+
+        {'pickers', 'cut_share', 'cut_share_max', 'load_s', 'sd_s', 'cv',
+         'expected_utilization'}                              (utilization = E[W] / (K·S))
+
+    A section with no load fields nobody (`pickers = 0`); `k_max` guards a runaway (a
+    bound of 0 with a positive sd is unreachable and says so).
+    """
+    S = float(day_seconds)
+    load = float(load_s)
+    bound = float(cut_share_max)
+    if not (0.0 <= bound < 1.0):
+        raise ValueError(f'cut_share_max must lie in [0, 1); got {cut_share_max!r}')
+    if load <= 0.0:
+        return {'pickers': 0, 'cut_share': 0.0, 'cut_share_max': bound, 'load_s': 0.0,
+                'sd_s': 0.0, 'cv': float(cv), 'expected_utilization': 0.0}
+    sd = float(cv) * load
+    K = max(1, math.ceil((1.0 - bound) * load / S - 1e-12))
+    while True:
+        share = cut_share(load, sd, K, S)
+        if share <= bound:
+            break
+        K += 1
+        if K > k_max:
+            raise ValueError(
+                f'no crew up to {k_max} pickers brings the expected cut share under '
+                f'{bound!r} (load {load:,.0f} s/day, sd {sd:,.0f} s): the bound is not '
+                f'reachable under this day law')
+    return {'pickers': int(K), 'cut_share': float(share), 'cut_share_max': bound,
+            'load_s': load, 'sd_s': sd, 'cv': float(cv),
+            'expected_utilization': load / (K * S)}
+
+
+# ── the one crew reader ──────────────────────────────────────────────────────────────
+
+def picker_key(channel: str | None) -> str:
+    """The staffing-inputs key holding this channel's DECLARED picker count (flag-off)."""
+    return 'ff_pickers' if channel == 'fulfillment' else 'store_pickers'
+
+
+def channel_crew(record: dict, *, channel: str | None, pair: str | None = None) -> int:
+    """This channel's picking crew off a staffing record -- THE ONE READER (ADR-0004).
+
+    Prefers the DERIVED block (`derived.channels[<channel>].pickers`: the solved crew under
+    the era, the declared one restated on an older era record), and falls back to the
+    declared input (`inputs.<store|ff>_pickers`, flag-off).  Two record shapes are read:
+    the run spec / `sim_result` shape, where `derived` is keyed by PAIR (pass `pair`), and
+    the worker payload, where it is the pair's block itself; a pre-derivation payload is the
+    inputs dict alone.  Raises `KeyError` naming the channel when neither holds a crew,
+    because a reader that fell through to a literal here is the store-crew-on-every-
+    fulfillment-leaf trap ("Build the picker staffing seam").
+    """
+    ch = channel or 'store'
+    derived = (record or {}).get('derived') or {}
+    if pair is not None and pair in derived:
+        derived = derived[pair]
+    section = (derived.get('channels') or {}).get(ch) if isinstance(derived, dict) else None
+    if isinstance(section, dict) and section.get('pickers') is not None:
+        return int(section['pickers'])
+    inputs = (record or {}).get('inputs', record) or {}
+    v = inputs.get(picker_key(ch))
+    if v is None:
+        raise KeyError(
+            f'the staffing record carries no picking crew for channel {ch!r}: neither a '
+            f'derived block (under the era) nor the declared {picker_key(ch)!r} (flag-off)')
+    return int(v)
 
 
 def daily_demand(capacity_s: float, s_pick: float) -> float:
@@ -464,17 +661,26 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
            scripts: dict, pricing_names: dict) -> dict:
     """The derived block, from declared inputs + resolved constants + the script.
 
-    `inputs` is the staffing record's INPUTS (`sim_config.staffing_spec()` shape: the two
-    picker counts, `rho_pick/rho_put/rho_recv`, `f_put/f_recv`, `band_tol`,
-    `put_crew_mode`, plus the three crew-cost scales the harness copies in).
+    `inputs` is the staffing record's INPUTS (`sim_config.staffing_spec()` shape:
+    `rho_put/rho_recv`, `f_put/f_recv`, `band_tol`, `put_crew_mode`, plus the three
+    crew-cost scales the harness copies in; `rho_pick` is NOT read here since ADR-0004).
     `constants` is `{'s_pick': {channel: constant}, 's_put': {channel: constant}}` as the
     harness resolves them (the expectation, or a declared override).  BOTH are keyed by
     channel: a site-wide put price is what this derivation used to get wrong, and there is
-    no longer anywhere to put one.  `channels` maps a channel name to its stage-A dict
-    (`analytic`, `batch`, `pickers`, `n_skus`, and `expected` -- the expected day the
-    constant was read off, recorded beside it);
-    `scripts` maps it to its `ScriptTotals`.  Channels absent from `channels` (a
-    store-only catalogue) are recorded as absent and contribute nothing.
+    no longer anywhere to put one.  `channels` maps a channel name to its stage-A dict:
+    `pickers` (the crew stage A SOLVED from the first-time confidence -- `solve_pickers`),
+    `daily_demand_units` (the declared day's DEMANDED units), `analytic`, `batch`,
+    `n_skus`, `expected` (the expected day at the declared line count, recorded beside the
+    constant), and optionally `demand` and `guarantee` (the declaration and the solve's
+    stamp, carried through verbatim); `scripts` maps it to its `ScriptTotals`.  Channels
+    absent from `channels` (a store-only catalogue) are recorded as absent and contribute
+    nothing.
+
+    THE PICKING LOAD IS THE SAMPLED SCRIPT'S DEMANDED UNITS at `s_pick` ("Fit the store's
+    window to its own steady state", decision 5: the derivation prices the actual script,
+    the declared law is what the guarantee was made against, both are stamped and named
+    apart).  Its expected utilization is that load against the granted day `K × S` -- a
+    DERIVED number near 0.72 on the reference store, never a target.
 
     The put and receiving crews are SITE totals: one crew each, summing both channels'
     per-day loads.  Each channel leaf's expected utilization for those two departments is
@@ -520,24 +726,27 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
         t: ScriptTotals = scripts[name]
         s_pick = float(constants['s_pick'][name]['value'])
         K = int(ch['pickers'])
-        cap = pick_capacity(K, S, float(inputs['rho_pick']))
         units_day = t.per_day(t.units)
-        # The picking LOAD is the units the shelf is expected to SERVE per day
-        # (`daily_demand_units`: the closed form's fixed point, `expected_travel.solve_n`)
-        # at `s_pick`, which that same expectation priced per SERVED unit -- so at the fixed
-        # point the load IS the capacity and the expected utilization IS ρ, the declared
-        # headroom.  The script's DEMANDED units (`units_day`, recorded beside it) exceed the
-        # served ones by the first-pass shortfall under the line floor ("Build the line
-        # floor": 10% store / 22% fulfillment on the reference pair); pricing them at a
-        # per-served-unit constant read the crews at 0.98 with no headroom left.  A declared
-        # `--s-pick-*` override keeps the same identity (its demand is `capacity ÷ s_pick`).
-        served_day = float(ch.get('daily_demand_units') or 0.0)
+        # The picking LOAD is the script's DEMANDED units per day at `s_pick`.  Nothing is
+        # lost under the era -- a cut or unfilled pick is re-offered next day -- so the crew
+        # picks all of demand, and the load is never reduced by a fill rate (the previous
+        # derivation priced SERVED units, demand × 0.922, and read 0.85 where the crew
+        # actually carried 0.92; memory `nothing-is-lost-under-the-era`).  The capacity is
+        # the granted day `K × S`; the utilization it implies is a consequence of the
+        # first-time confidence the crew was solved for, stamped, and the band is drawn
+        # around THIS number.  The declared day's own load (E[W], the guarantee's) sits in
+        # `guarantee`, named apart.
+        pick_load_s = units_day * s_pick
         rec = {
             'pickers': K,
+            'pickers_provenance': str(ch.get('pickers_provenance') or 'derived'),
             'pricing_config': pricing_names[name],
             's_pick': constants['s_pick'][name],
-            'pick_capacity_s': cap,
+            'pick_capacity_s': float(K) * S,
+            'pick_load_s': pick_load_s,
             'daily_demand_units': ch['daily_demand_units'],
+            'demand': ch.get('demand'),
+            'guarantee': ch.get('guarantee'),
             'analytic': ch['analytic'],
             'expected': ch.get('expected'),
             'batch': ch['batch'],
@@ -554,7 +763,7 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
                 'unknown_skus': t.unknown_skus,
             },
             'expected_utilization': {
-                'pick': expected_utilization(served_day * s_pick, K, S),
+                'pick': expected_utilization(pick_load_s, K, S),
             },
         }
         # Site loads, per day.  Put-away is priced at THIS CHANNEL's own seconds per unit
