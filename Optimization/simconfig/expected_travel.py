@@ -109,6 +109,20 @@ def _steps_for(unit_type: str, storage_size: str) -> tuple[int, int]:
     return unit_bin_width(unit_type), SIZE_HEIGHTS[storage_size]
 
 
+class UnbuiltClass(ValueError):
+    """A BinKey the built warehouse has NO aisle for was asked for a class mean.
+
+    `class_mean_travel` used to answer 0.0 and `class_mean_height_mult` 1.0 here, so a
+    reorder pack whose class the planner never built was priced as a FREE put and a pick
+    from it as a travel-less visit, with no warning ("Close the put closed form's three
+    known gaps", gap 3).  The planner sizes every bucket from the same packer this module
+    reads (`viable_storage_units`), so on a healthy run the class always exists; when it
+    does not, the run itself would have to rescue that pack, and a silent zero here hid
+    exactly that.  Raised rather than warned: a price of zero is a number the crews get
+    sized on.
+    """
+
+
 class Geometry:
     """The built warehouse as the expectation reads it: aisles grouped by BinKey.
 
@@ -151,23 +165,34 @@ class Geometry:
     def class_bins(self, key: tuple) -> int:
         return sum(a.C * a.R for a in self.by_class.get(key, ()))
 
+    def class_aisles(self, key: tuple) -> list:
+        """The aisles of BinKey `key`, of which there must be at least one with a bin:
+        an unbuilt class raises `UnbuiltClass`, never prices as empty space."""
+        aisles = self.by_class.get(key)
+        if not aisles or not any(a.C * a.R for a in aisles):
+            raise UnbuiltClass(
+                f'no aisle of class {key!r} was built (the geometry holds '
+                f'{len(self.by_class)} classes), so nothing of that class can be priced -- a '
+                f'pack the planner has no bin for is a rescue in the run, not a free put')
+        return aisles
+
     def class_mean_height_mult(self, key: tuple, brackets) -> float:
         """The height multiplier averaged over every bin of the class (uniform placement)."""
         tot = 0.0; n = 0
-        for a in self.by_class.get(key, ()):
+        for a in self.class_aisles(key):
             tot += a.C * sum(height_multiplier(brackets, a.y_of(r)) for r in range(1, a.R + 1))
             n += a.C * a.R
-        return tot / n if n else 1.0
+        return tot / n
 
     def class_mean_travel(self, key: tuple, x_pace: float, y_pace: float) -> float:
         """Mouth-to-bin seconds averaged over every bin of the class (a put's travel)."""
         tot = 0.0; n = 0
-        for a in self.by_class.get(key, ()):
+        for a in self.class_aisles(key):
             sx = sum(a.x_of(c) for c in range(1, a.C + 1)) * a.R
             sy = sum(a.y_of(r) for r in range(1, a.R + 1)) * a.C
             tot += sx * x_pace + sy * y_pace
             n += a.C * a.R
-        return tot / n if n else 0.0
+        return tot / n
 
 
 # ── the placement distribution (the seam) ───────────────────────────────────────────────
@@ -248,7 +273,8 @@ def accumulate(orders, pick_cfg, dist: PlacementDist, geometry: Geometry) -> Sec
     `orders` is the channel section (`staffing.regime_orders`); `pick_cfg` is the channel's
     `PickConfig` (duck-typed: `pick_intercept`, `pick_per_item`, the four handling
     coefficients, `height_brackets`).  A SKU with no sites (nothing placed) contributes its
-    line share to nothing and is counted in `unplaced_skus`.
+    line share to nothing and is counted in `unplaced_skus`; a `uniform` site whose class
+    the geometry never built raises `UnbuiltClass` (it used to carry handling and no travel).
     """
     brackets = tuple(getattr(pick_cfg, 'height_brackets', DEFAULT_HEIGHT_BRACKETS))
     intercept = float(pick_cfg.pick_intercept)
@@ -290,11 +316,10 @@ def accumulate(orders, pick_cfg, dist: PlacementDist, geometry: Geometry) -> Sec
                 m[s.col - 1, s.row - 1] += pi * reach
             else:
                 M = class_M.get(s.key)
-                if M is None:
+                if M is None:                    # raises UnbuiltClass on a class never built
                     M = class_M[s.key] = geometry.class_mean_height_mult(s.key, brackets)
                 nb = geometry.class_bins(s.key)
-                if nb:
-                    out.class_rates[s.key] = out.class_rates.get(s.key, 0.0) + pi * reach / nb
+                out.class_rates[s.key] = out.class_rates.get(s.key, 0.0) + pi * reach / nb
             out.handling_s_per_line += pi * reach * M * (intercept + eu * (per_item + var))
             out.units_per_line += pi * eu
             out.visits_per_line += pi * reach
@@ -447,7 +472,8 @@ def put_site_pricer(geometry: Geometry, dist: PlacementDist, put_cost, put_speed
     """A `(unit) -> (travel_s, height_mult)` for `staffing.implied_reorders`: the put's
     travel from the mouth and its height multiplier under the placement distribution --
     the class-uniform mean for `uniform`; for `initial`, the mean over the SKU's own bins
-    (a reorder refills the SKU's locations)."""
+    (a reorder refills the SKU's locations).  A unit whose class the geometry never built
+    raises `UnbuiltClass` on either branch rather than pricing the put at zero travel."""
     brackets = tuple(brackets or getattr(put_cost, 'height_brackets', DEFAULT_HEIGHT_BRACKETS))
     x_pace, y_pace = put_speed.x_pace, put_speed.y_pace
     cache: dict = {}

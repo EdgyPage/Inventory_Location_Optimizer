@@ -40,8 +40,8 @@ def _order(sku, *, freq, qty, eq=60, rp=20, lead=0.0, weight=10, dims=(10, 10, 1
 
     `Order.build` takes no level since ADR-0002 -- the catalogue carries demand and geometry,
     a level is a run's declaration -- so `declare_stock` is the second half of the fixture.
-    It is load-bearing here: `reorder_lot` reads `equilibrium_qty` / `reorder_point`, and the
-    whole supply side of the derivation (`implied_reorders`) is priced off the lot."""
+    It is load-bearing here: `fired_lots` reads `equilibrium_qty` / `reorder_point`, and the
+    whole supply side of the derivation (`implied_reorders`) is priced off the lots."""
     return Order.build(sku, handling, category, *dims, weight, freq, qty,
                        lead_time_mean=lead, supply_cv=0.0).declare_stock(eq, rp)
 
@@ -121,45 +121,72 @@ def test_script_totals_count_units_lines_and_unknown_skus(catalogue, pricing):
     by_sku = {c.sku: c for c in catalogue}
     t = st.script_totals([_Batch({1: 4, 2: 2}), _Batch({1: 3, 99: 5})], by_sku, pricing)
     assert t.batches == 2 and t.units == 9 and t.lines == 3 and t.unknown_skus == 1
-    assert t.per_sku_units == {1: 7.0, 2: 2.0}
+    assert t.per_sku_lines == {1: [4, 3], 2: [2]}          # in script order: the lots need it
     # each line: 1 + 0.5·q (handling zero) -> (1+2) + (1+1) + (1+1.5)
     assert math.isclose(t.analytic_pick_s, 3 + 2 + 2.5)
     assert t.per_day(t.units) == 4.5
 
 
-def test_reorder_lot_is_the_order_up_to_rule_at_the_reorder_point_above_the_floor():
+def test_fired_lots_above_the_floor_is_the_position_at_the_reorder_point_kept_fractional():
+    """Above the floor the lot is `Q + P - rp` and the reorders are `Σq ÷ lot`, a steady-state
+    expectation: a 40-day script whose demand never crosses `Q - rp` still prices its share of
+    a reorder rather than none ("Close the put closed form's three known gaps", gap 1)."""
     c = _order(7, freq=0.1, qty=1.0, eq=60, rp=20, lead=0.0)
-    assert st.reorder_lot(c) == 40
+    assert st.fired_lots(c, [8, 8]) == {40.0: 16 / 40}
     c2 = _order(8, freq=0.1, qty=1.0, eq=60, rp=20, lead=1.0)   # pipeline = round(20·1/2) = 10
-    assert st.reorder_lot(c2) == 50
+    assert st.fired_lots(c2, [5]) == {50.0: 5 / 50}
     # The era's STAMPED pipeline replaces the heuristic (`Order.pipeline_allowance`).
     c2.pipeline_qty = 4
-    assert st.reorder_lot(c2) == 44
-
-
-def test_reorder_lot_under_base_stock_is_the_mean_line():
-    """`rp = Q - 1` ("Choose the coverage floor", decision 1): the sampler draws distinct
-    SKUs per batch, so every line fires an order for exactly what it took -- the expected lot
-    is E[line] = λ + e^-λ, NOT the old `max(1, Q + pipeline - rp)` = 1, which priced one PACK
-    per unit and over-counted a ten-unit line's receiving load tenfold."""
-    c3 = _order(9, freq=0.1, qty=1.0, eq=5, rp=4)
-    assert math.isclose(st.reorder_lot(c3), 1.0 + math.exp(-1.0))
-    c4 = _order(10, freq=0.1, qty=10.0, eq=11, rp=10, lead=2.0)
-    assert math.isclose(st.reorder_lot(c4), 10.0 + math.exp(-10.0))
-    c4.pipeline_qty = 7                                  # a line clears P + 1 = 8: every line fires
-    assert math.isclose(st.reorder_lot(c4), 10.0 + math.exp(-10.0))
-    c4.pipeline_qty = 12                                 # a line does not: the lot is at least P + 1
-    assert st.reorder_lot(c4) == 13.0
-    # A duck-typed order with no line law takes the position-at-rp rule.
+    assert st.fired_lots(c2, [5]) == {44.0: 5 / 44}
+    assert st.fired_lots(c2, []) == {}
+    # A duck-typed order with no pipeline_allowance takes the heuristic.
     class _Duck:
-        equilibrium_qty, reorder_point, lead_time_mean = 5, 4, 0.0
-    assert st.reorder_lot(_Duck()) == 1
+        equilibrium_qty, reorder_point, lead_time_mean = 60, 20, 0.0
+    assert st.fired_lots(_Duck(), [10]) == {40.0: 0.25}
+
+
+def test_fired_lots_under_base_stock_decompose_each_line_by_the_level():
+    """`rp = Q - 1` ("Choose the coverage floor", decision 1): the shelf holds Q at the start
+    of every day, a line serves min(q, Q), fires exactly what it took and re-offers the rest
+    against a full shelf -- so a line is `q // Q` lots of Q and one of `q % Q`.  NOT one mean
+    lot: the old rule packed ONE rounded lot of `λ + e^-λ` and scaled it, under-counting
+    packs by 7% on the store (the whole travel term is per pack)."""
+    c = _order(9, freq=0.1, qty=4.0, eq=5, rp=4)
+    assert st.fired_lots(c, [3, 5, 7, 12, 1]) == {3: 1.0, 5: 4.0, 2: 2.0, 1: 1.0}
+    assert sum(m * n for m, n in st.fired_lots(c, [3, 5, 7, 12, 1]).items()) == 28   # units conserved
+    # With a pipeline a lot below P + 1 does not fire alone: priced as P + 1 at a count that
+    # conserves units -- a floor on the pack count, exact at P = 0.
+    c.pipeline_qty = 2
+    lots = st.fired_lots(c, [1, 6])
+    assert math.isclose(lots[3], 2 / 3) and lots[5] == 1.0 and set(lots) == {3, 5}
+    assert math.isclose(sum(m * n for m, n in lots.items()), 7.0)
+
+
+def test_received_law_is_the_ledgers_jitter_discretised_and_sums_to_one():
+    """`_fire_reorders` receives `max(1, round(N(lot, lot·cv)))`; the law is that Gaussian on
+    unit cells, the mass below 1½ arriving as one.  No jitter: a whole lot arrives whole and a
+    FRACTIONAL lot is the mixture of its two integer neighbours -- so the packer is asked two
+    whole questions instead of one rounded one."""
+    assert st.received_law(7, 0.0) == {7: 1.0}
+    law = st.received_law(40.3, 0.0)
+    assert set(law) == {40, 41} and math.isclose(law[41], 0.3) and math.isclose(law[40], 0.7)
+    assert st.received_law(0.5, 0.2) == {1: 1.0} and st.received_law(1, 0.15) == {1: 1.0}
+    law = st.received_law(4, 0.15)
+    assert math.isclose(sum(law.values()), 1.0) and min(law) >= 1
+    assert math.isclose(sum(r * p for r, p in law.items()), 4.0, abs_tol=1e-6)
+    # the central cell is Φ(0.5/σ) - Φ(-0.5/σ) with σ = 0.6
+    z = 0.5 / 0.6
+    assert math.isclose(law[4], math.erf(z / math.sqrt(2.0)), rel_tol=1e-9)
+    assert all(p > 0.0 for p in law.values())
+    # a lot of two with jitter: 1 absorbs everything below 1½, nothing arrives as zero
+    law2 = st.received_law(2, 0.15)
+    assert min(law2) == 1 and math.isclose(sum(law2.values()), 1.0)
 
 
 def test_implied_reorders_pack_each_lot_and_price_receiving_exactly(catalogue, pricing):
-    """SKU 1: 8 units demanded over a 40-unit lot = 0.2 reorders; the packer decides the
-    packs; receiving is priced per PACK (intercept + per-item once, handling per unit) with
-    the put-away scale chain 0.5 / 0.2 / 1.0."""
+    """SKU 1 (above the floor, eq 60 / rp 20): 8 units demanded over a 40-unit lot = 0.2
+    reorders; the packer decides the packs; receiving is priced per PACK (intercept +
+    per-item once, handling per unit) with the put-away scale chain 0.5 / 0.2 / 1.0."""
     from Inbound.pack import receive
     from Inbound.unload import unload_cost
     by_sku = {c.sku: c for c in catalogue}
@@ -174,6 +201,7 @@ def test_implied_reorders_pack_each_lot_and_price_receiving_exactly(catalogue, p
     recv_cost = pricing.recv(put_intercept_scale=0.5, put_item_ratio=0.2,
                              recv_intercept_scale=1.0)
     exp_recv = sum(unload_cost(c.weight, c.volume(), u.quantity, recv_cost) for u in plan.units)
+    assert math.isclose(t.lots, 0.2)
     assert math.isclose(t.packs, 0.2 * plan.unit_count)
     assert math.isclose(t.put_units, 0.2 * 40)
     assert math.isclose(t.recv_s, 0.2 * exp_recv)
@@ -569,3 +597,45 @@ def test_put_constant_prices_a_channel_at_its_own_ratio_and_carries_a_declaratio
     assert put_constant(empty, None)['value'] == 0.0
     assert math.isclose(put_constant(empty, 2.0)['value'], 2.0)
     assert put_constant(empty, 2.0)['expected'] == 0.0
+
+
+def test_a_floored_sku_is_priced_lot_by_lot_not_at_one_rounded_mean_lot(pricing):
+    """THE GAP: a base-stock SKU whose level packs into one unit but whose partial lots pack
+    into singletons.  Lines of 7 and 1 against Q = 5 fire lots 5, 2 and 1 -- three packs at
+    least -- where the old rule packed ONE rounded lot of E[line] and scaled it.  The pack
+    count, the put seconds and the receiving seconds must all be the lot-by-lot sums, and
+    the supply jitter must reach the packer as a distribution, not a rounded centre."""
+    from Inbound.pack import receive
+    from Inbound.unload import unload_cost
+    c = _order(1, freq=0.5, qty=4.0, eq=5, rp=4, weight=10, dims=(10, 10, 10))
+    by_sku = {1: c}
+    t = st.script_totals([_Batch({1: 7}), _Batch({1: 1})], by_sku, pricing)
+    st.implied_reorders(t, by_sku, pricing, f_put=1.0, f_recv=1.0,
+                        put_intercept_scale=0.5, put_item_ratio=0.2, recv_intercept_scale=1.0)
+    recv_cost = pricing.recv(put_intercept_scale=0.5, put_item_ratio=0.2,
+                             recv_intercept_scale=1.0)
+    exp_packs = exp_units = exp_put = exp_recv = 0.0
+    for lot, n in ((5, 1), (2, 1), (1, 1)):
+        plan = receive(c, lot)
+        exp_packs += n * plan.unit_count
+        exp_units += n * plan.packed_qty
+        exp_put += n * sum(0.5 + u.quantity * 0.1 for u in plan.units)
+        exp_recv += n * sum(unload_cost(c.weight, c.volume(), u.quantity, recv_cost)
+                            for u in plan.units)
+    assert math.isclose(t.lots, 3.0)
+    assert math.isclose(t.packs, exp_packs) and math.isclose(t.put_units, exp_units)
+    assert math.isclose(t.put_s, exp_put) and math.isclose(t.recv_s, exp_recv)
+    assert math.isclose(t.put_units, 8.0), 'every unit picked is put away'
+    # SABOTAGE: the retired rule -- one plan at round(E[line]) scaled by units / E[line] --
+    # does not reproduce the lot-by-lot count on this script.
+    mean_lot = c.demand.line.mean()
+    old_packs = (8.0 / mean_lot) * receive(c, max(1, int(round(mean_lot)))).unit_count
+    assert not math.isclose(old_packs, t.packs, rel_tol=1e-3)
+    # The jitter reaches the packer: with supply_cv the lots arrive as a spread and the
+    # expected pack count moves off the deterministic one.
+    c.supply_cv = 0.3
+    t2 = st.script_totals([_Batch({1: 7}), _Batch({1: 1})], by_sku, pricing)
+    st.implied_reorders(t2, by_sku, pricing, f_put=1.0, f_recv=1.0,
+                        put_intercept_scale=0.5, put_item_ratio=0.2, recv_intercept_scale=1.0)
+    assert math.isclose(t2.lots, 3.0) and not math.isclose(t2.packs, t.packs, rel_tol=1e-6)
+    assert math.isclose(t2.put_units, 8.0, rel_tol=0.05), 'the jitter is zero-mean'

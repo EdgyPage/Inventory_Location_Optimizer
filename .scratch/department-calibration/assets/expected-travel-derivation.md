@@ -291,3 +291,38 @@ first pick, every day.
 - **Not yet built:** the coverage rescaling of §5 (decision 2). It is the next commit on this
   ticket: declared `coverage_days` / `safety_days` on `STAFFING_KEYS`, the pair-level fixed
   point through `plan_warehouse`, flag-off byte-identical.
+
+## 8. Amended (2026-09-08, "Close the put closed form's three known gaps")
+
+The put-away formula of §2 is unchanged; what it was priced OVER was not the sim's lot
+distribution. `implied_reorders` packed ONE lot rounded to `round(E[line])` and scaled it by
+a fractional reorder count, so every per-pack term (the whole travel term, both intercepts)
+was under-counted: units per pack read +6.99 % (store) / +3.05 % (fulfillment) against the
+run's `work_events`, and the store's apparent +0.4 % agreement was travel −6.3 % cancelling
+handling +1.8 %.
+
+- **The lots are the script's, line by line** (`staffing.fired_lots`): under base stock the
+  shelf holds `Q` at every day's start, a line of `q` serves `min(q, Q)`, fires exactly what
+  it took, and re-offers the rest — so a line is `q // Q` lots of `Q` plus one of `q % Q`.
+  The reference pair fires 1.3 lots per line. Above the floor the lot is `Q + P − rp` and
+  the reorders `Σq ÷ lot`, fractional (a steady-state expectation, not the window's
+  transient). What arrives is `received_law`: the ledger's `max(1, round(N(lot, lot·cv)))`
+  discretised on unit cells; a fractional lot with no jitter is the mixture of its two
+  integer neighbours. Each arrived quantity is packed by the sim's own packer and priced;
+  the answer is cached per (SKU, quantity).
+- **Measured on `comparison_20260908_094846` (fifo, 40 days), the same script re-priced
+  offline**: units per pack now −0.38 % (store) / +0.12 % (fulfillment); put seconds per
+  unit +1.81 % / −0.14 %; receiving seconds per pack +1.50 % / +0.05 %. The store's +1.8 %
+  is uniform across every per-unit term including receiving (exact per pack), which makes
+  it a SKU-mix effect, not a model error: the 9,763 script units still standing at the end
+  of day 40 (day-40 lots and pending re-offers) carry a mean handling term of 91.0 against
+  the script's 63.6. Weighting each SKU's closed-form price by the units the run actually
+  put away: put +0.21 % / −0.16 %, receiving +0.01 % / −0.09 %, packs per unit
+  +0.16 % / −0.15 %.
+- **The other two gaps**: an unbuilt BinKey now raises `expected_travel.UnbuiltClass` on
+  both put branches and on the pick side's uniform accumulate (it priced at zero travel,
+  height multiplier one); a nonzero `--put-swap-coef` or a split put queue is refused under
+  the era at the parser (`_check_era_flags`) and at the seam
+  (`workunits.refuse_unpriceable_put`) — the closed form has no swap term and the single
+  queue the era runs never reads the coefficient, so the knob would have been recorded and
+  ignored.

@@ -495,6 +495,31 @@ def put_constant(totals, override) -> dict:
              'destination, plus the packs\' handling at the class-mean height')
 
 
+def refuse_unpriceable_put(global_cfg: dict) -> None:
+    """REFUSE a put-away configuration the era's closed form cannot price.
+
+    `staffing.implied_reorders` prices a put as travel from the mouth plus handling at the
+    destination -- no cart-swap term, one site speed -- because that is the whole cost of a
+    put on the ONE uncarted queue the era runs (`put_queue.single_queue`, `swap_coef = 0`).
+    A split queue set carries per-queue crews with their own speeds and a `swap_coef` the
+    runner does bind (`strategy_runner`: `store_and_fulfillment(... swap_coef=...)`), and
+    the derivation would silently under-price both.  `run_simulation._check_era_flags`
+    refuses the two flags at the parser; this is the same refusal at the SEAM, for a
+    caller that reached the derivation without the CLI (a test harness, a programmatic
+    launch, a spec that wrote CONFIG directly).  Pure and module-level: tested with a dict.
+    """
+    if global_cfg.get('put_queue_split'):
+        raise ValueError(
+            'the era derivation prices ONE uncarted put queue at one site speed; '
+            'put_queue_split is on, so its per-queue crews and swaps would be under-priced '
+            'in silence -- refused (run_simulation._check_era_flags says the same at the CLI)')
+    coef = float(global_cfg.get('put_swap_coef') or 0.0)
+    if coef > 0.0:
+        raise ValueError(
+            f'the era derivation has no cart-swap term and the single put queue never reads '
+            f'one; put_swap_coef={coef} would be recorded and ignored -- refused')
+
+
 def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pair_dir: str,
                               log: logging.Logger, workers: int = 1) -> tuple:
     """Run the calibrated era's staffing derivation for ONE inventory pair.
@@ -536,6 +561,7 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
     n_batches = int(CONFIG['global']['n_batches'])
     geometry = _et.Geometry.from_warehouse(shared['warehouse_meta'])
     geometry_fp = shared.get('warehouse_fingerprint')
+    refuse_unpriceable_put(CONFIG['global'])
     _put = put_crew_spec()
     put_speed = SpeedProfile(_put['x_speed'], _put['y_speed'])
     overrides = {k: inputs.get(k) for k in CALIBRATION_KEYS}

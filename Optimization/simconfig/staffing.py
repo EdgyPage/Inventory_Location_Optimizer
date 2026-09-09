@@ -9,7 +9,7 @@ fields is DERIVED from them, live at setup, with a declared scalar at every step
     batch content      one batch = one day's demand          (a BatchConfig mean fraction)
     put load           units × f_put                         (units put per unit picked)
     put crew           ceil(Σ_ch put load_ch × s_put_ch ÷ (S × ρ_put))   (ONE site crew)
-    receive load       packs the script implies × f_recv
+    receive load       packs the script's LOTS pack into × f_recv
     receiving crew     ceil(receive seconds ÷ (S × ρ_recv))  (ONE site crew)
 
 `s_pick` and `s_put` are BOTH per channel, and both are seconds per unit: CLOSED-FORM
@@ -206,22 +206,25 @@ class ScriptTotals:
     `units` / `lines` are the demand itself; `analytic_pick_s` is the same script priced
     with `analytic_pick`'s formula line by line (so the record can hold the script-only
     prediction NEXT to the measured value, and their ratio is the travel share).  The
-    put and receiving totals come from `implied_reorders`: `put_units` are merchandise
-    units put away (= units received), `put_s` their analytic put-away seconds at ground,
-    `packs` the storage units the reorders pack into, `recv_s` their EXACT unload seconds.
-    `unknown_skus` counts script lines whose SKU the catalogue map did not hold -- zero on
-    a healthy run, and reported rather than silently skipped.
+    put and receiving totals come from `implied_reorders`: `lots` the reorders the
+    script's lines fire, `put_units` the merchandise units put away (= units received),
+    `put_s` their put-away seconds, `packs` the storage units the lots pack into, `recv_s`
+    their EXACT unload seconds.  `unknown_skus` counts script lines whose SKU the catalogue
+    map did not hold -- zero on a healthy run, and reported rather than silently skipped.
+    `per_sku_lines` keeps every line's quantity per SKU IN SCRIPT ORDER, because the
+    order-up-to rule's lots depend on the sequence (`fired_lots`).
     """
     batches: int = 0
     units: float = 0.0
     lines: float = 0.0
     analytic_pick_s: float = 0.0
+    lots: float = 0.0
     put_units: float = 0.0
     put_s: float = 0.0
     packs: float = 0.0
     recv_s: float = 0.0
     unknown_skus: int = 0
-    per_sku_units: dict = field(default_factory=dict)
+    per_sku_lines: dict = field(default_factory=dict)
 
     def per_day(self, value: float) -> float:
         """A total as a per-DAY quantity under the era's one batch per day."""
@@ -232,8 +235,8 @@ def script_totals(batches, orders_by_sku: dict, pricing: PricingConfig) -> Scrip
     """Stage B's demand side: units, lines and the analytic pick seconds of a batch list.
 
     `batches` are `Workload_Builder.Batch` objects (or anything with `.items: {sku: qty}`);
-    `orders_by_sku` maps a SKU to its `Order` for the handling term.  Per-SKU unit totals
-    are kept for `implied_reorders`.
+    `orders_by_sku` maps a SKU to its `Order` for the handling term.  Each SKU's line
+    quantities are kept, in script order, for `implied_reorders`.
     """
     t = ScriptTotals(batches=len(batches))
     for b in batches:
@@ -247,41 +250,23 @@ def script_totals(batches, orders_by_sku: dict, pricing: PricingConfig) -> Scrip
             t.lines += 1.0
             t.analytic_pick_s += per_pick(1.0, pricing.intercept, pricing.var(c), q,
                                           pricing.per_item)
-            t.per_sku_units[sku] = t.per_sku_units.get(sku, 0.0) + q
+            t.per_sku_lines.setdefault(sku, []).append(int(qty))
     return t
 
 
-def reorder_lot(order) -> float:
-    """The quantity one reorder of `order` brings in, in expectation.
+def _levels(order) -> tuple[int, int, int]:
+    """`(Q, rp, P)` -- the order-up-to target, the reorder point and the pipeline allowance
+    -- as `inventory_reorder._fire_reorders` reads them off the SKU's DECLARATION.
 
-    The manager's order-up-to rule (`inventory_reorder._fire_reorders`): when the inventory
-    position falls to the reorder point it orders `equilibrium + pipeline - position`, the
-    pipeline allowance being `Order.pipeline_allowance()` (the era's stamp, else the
-    `round(rp × lead ÷ (lead + 1))` heuristic).  Two regimes:
-
-      * BASE STOCK (`rp >= Q - 1`, every SKU on the line floor -- "Choose the coverage
-        floor", decision 1): the sampler draws distinct SKUs per batch, so a floored SKU is
-        picked at most one LINE per batch.  The target is the position `Q + P` (`P` the
-        pipeline allowance) and a fire needs the position at or below `Q - 1`, i.e. at
-        least `P + 1` units taken since the last fire.  At `P = 0` -- every catalogue the
-        generator authors today (`LEAD_TIME_MEAN_BATCHES = 0.0`) -- EVERY line fires for
-        exactly what it took and the expected lot is the SKU's mean line,
-        `Demand.line.mean()`.  With a pipeline, a line smaller than `P + 1` does not fire
-        alone, so the lot is at least `P + 1`: `max(E[line], P + 1)`, exact at `P = 0` and
-        a floor on the truth otherwise.  The old rule's answer here was
-        `max(1, Q + pipeline - rp)` = 1 at lead 0: one PACK per unit, a tenfold over-count
-        of the receiving load on a ten-unit line.
-      * above the floor: the position AT the reorder point gives the expected lot,
-        `Q + pipeline - rp`; the supply-cv jitter is zero-mean and drops out.  Floors at 1.
-
-    A duck-typed order without a line law (a test double) takes the second rule.
+    The declaration, not a default: `equilibrium_qty -> 1` / `reorder_point -> 0` sent an
+    undeclared order down the base-stock branch and returned a one-line lot, so the era's
+    put-away and receiving crews would have been sized off a lot no SKU was ever declared to
+    order.  The one caller (`implied_reorders`) runs after the fixed point has declared, so an
+    undeclared order here is a bug in the caller.  `stock_qty` stays: it is the documented
+    duck-typed legacy contract.  The pipeline is `Order.pipeline_allowance()` (the era's
+    stamp, else the `round(rp × lead ÷ (lead + 1))` heuristic) -- a duck-typed order without
+    one takes the heuristic.
     """
-    # The DECLARATION, not a default.  `equilibrium_qty -> 1` / `reorder_point -> 0` sent an
-    # undeclared order down the base-stock branch and returned a one-line lot, so the era's
-    # put-away and receiving crews would have been sized off a lot no SKU was ever declared to
-    # order.  The one caller (`implied_reorders`) runs after the fixed point has declared, so an
-    # undeclared order here is a bug in the caller.  `stock_qty` stays: it is the documented
-    # duck-typed legacy contract.
     eq = int(order.equilibrium_qty if hasattr(order, 'equilibrium_qty')
              else getattr(order, 'stock_qty'))
     rp = int(order.reorder_point)
@@ -291,10 +276,90 @@ def reorder_lot(order) -> float:
     else:
         lead = max(0.0, float(getattr(order, 'lead_time_mean', 0.0)))
         pipeline = round(rp * lead / (lead + 1.0)) if lead > 0.0 else 0
-    line = getattr(getattr(order, 'demand', None), 'line', None)
-    if rp >= eq - 1 and line is not None:
-        return max(float(line.mean()), float(pipeline + 1))
-    return float(max(1, eq + pipeline - rp))
+    return eq, rp, pipeline
+
+
+def fired_lots(order, quantities) -> dict:
+    """The lots the order-up-to rule fires while `quantities` -- one script's lines for this
+    SKU, in script order -- are picked against its declared levels: `{lot: expected count}`.
+
+    Replaces the one ROUNDED lot this derivation used to pack ("Close the put closed form's
+    three known gaps"): every pack-proportional term -- the whole put travel term, the put
+    intercept, the receiving intercept -- is per PACK, and the packer packs whole units, so
+    pricing one rounded lot and scaling it by a fractional reorder count under-counted packs
+    by 7% on the store and 3% on fulfillment.  Two regimes, exactly as
+    `inventory_reorder._fire_reorders` fires them:
+
+      * BASE STOCK (`rp >= Q - 1`; every SKU on the line floor, "Choose the coverage
+        floor"): the shelf holds `Q` at the start of every day (a lead-0 top-up lands before
+        the next batch), so a line of `q` units SERVES `min(q, Q)`, fires a lot of exactly
+        what it took, and re-offers the remainder next day against a full shelf again
+        (`unpicked_unstocked`, "Fit the store's window to its own steady state": nothing is
+        lost).  A line is therefore `q // Q` lots of `Q` and one of `q % Q` -- the reference
+        pair fires 1.3 lots per line.  With a pipeline `P > 0` a lot below `P + 1` does not
+        fire alone (the position only drops to the trigger once `P + 1` units are gone), so
+        such a lot is priced as `P + 1` at a count that conserves units -- a FLOOR on the
+        pack count, exact at `P = 0`, which is every catalogue the generator authors today.
+      * ABOVE THE FLOOR: the expected lot is the position at the reorder point,
+        `Q + P - rp`, and the reorders are `Σq ÷ lot`, kept FRACTIONAL (a steady-state
+        expectation, not this window's transient -- a 40-day script would fire nothing for
+        a SKU whose demand never crosses `Q - rp`).  The lot is handed on as a fraction and
+        `received_law` prices it between its two integer neighbours, so the rounding bias
+        is gone here too.  The crossing line's overshoot (about half a mean line) is not
+        modelled; no fielded catalogue has an above-floor SKU to measure it on.
+
+    The lot is what the ledger ORDERS; what arrives is `received_law`'s business.
+    """
+    Q, rp, P = _levels(order)
+    lots: dict = {}
+    if rp >= Q - 1:
+        floor = P + 1
+        for q in quantities:
+            q = int(q)
+            for m, n in ((Q, q // Q), (q % Q, 1)):
+                if n and m:
+                    if m < floor:                    # does not fire alone: priced at P + 1
+                        lots[floor] = lots.get(floor, 0.0) + n * m / floor
+                    else:
+                        lots[m] = lots.get(m, 0.0) + n
+        return lots
+    total = sum(int(q) for q in quantities)
+    lot = float(max(1, Q + P - rp))
+    return {lot: total / lot} if total else {}
+
+
+def received_law(lot: float, supply_cv: float) -> dict:
+    """What arrives for a lot the ledger ordered: `{quantity: probability}`.
+
+    `_fire_reorders` receives `max(1, round(N(lot, lot × cv)))` when the SKU carries a
+    `supply_cv`, the lot itself otherwise.  The Gaussian is discretised on the unit cells
+    (`r - ½, r + ½`], everything below 1½ arriving as one; ±5σ covers the tail to 1e-6.
+    A FRACTIONAL lot with no jitter (the above-floor expectation) is the mixture of its two
+    integer neighbours weighted by its fractional part, so the packer -- which packs whole
+    units -- is asked two whole questions instead of one rounded one.  Always sums to one;
+    a lot at or below one arrives as one unit.
+    """
+    m = float(lot)
+    if m <= 1.0:
+        return {1: 1.0}
+    sd = m * float(supply_cv or 0.0)
+    if sd <= 1e-9:
+        lo = int(math.floor(m))
+        frac = m - lo
+        if frac < 1e-9:
+            return {lo: 1.0}
+        return {lo: 1.0 - frac, lo + 1: frac}
+    lo = max(1, int(math.floor(m - 5.0 * sd)))
+    hi = max(lo, int(math.ceil(m + 5.0 * sd)))
+    root2 = sd * math.sqrt(2.0)
+    out: dict = {}
+    cum = 0.0 if lo == 1 else 0.5 * (1.0 + math.erf((lo - 0.5 - m) / root2))
+    out[lo] = cum                                  # the mass below lo's cell folds onto lo
+    for r in range(lo, hi + 1):
+        upper = 1.0 if r == hi else 0.5 * (1.0 + math.erf((r + 0.5 - m) / root2))
+        out[r] = out.get(r, 0.0) + (upper - cum)   # r == hi takes the tail above too
+        cum = upper
+    return {r: p for r, p in out.items() if p > 0.0}
 
 
 def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *,
@@ -303,10 +368,11 @@ def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: Pricing
                      put_site=None) -> ScriptTotals:
     """Stage B's supply side: the put-away and receiving work the script implies.
 
-    Steady state (f = 1.0) replenishes every unit picked, so each SKU's expected reorders
-    are `units demanded ÷ lot`, each lot packs into the storage units the sim's own packer
-    would produce (`Inbound.pack.receive` -> `viable_storage_units`, honouring a
-    `stock_plan`), and each pack costs
+    Steady state (f = 1.0) replenishes every unit picked.  Each SKU's script lines fire the
+    lots `fired_lots` says they do, each lot arrives as `received_law` says it does, and
+    each arrived quantity packs into the storage units the sim's own packer would produce
+    (`Inbound.pack.receive` -> `viable_storage_units`, honouring a `stock_plan`).  Each
+    pack costs
 
         put-away   travel + M(y) · (put_intercept + qty · put_per_item + qty · var)
         receiving  recv_intercept + recv_per_item + qty · var                (EXACT)
@@ -316,32 +382,44 @@ def implied_reorders(totals: ScriptTotals, orders_by_sku: dict, pricing: Pricing
     placement distribution (`expected_travel.put_site_pricer`).  None prices every put at
     the ground with no travel (the script-only prediction).
 
-    Fractional reorders are expectations and are kept fractional.  `f_put` scales the put
-    load and `f_recv` the receiving load ("units put per unit picked" / packs received per
-    pack demanded); at 1.0 both are the steady state, any other value models a growing or
-    shrinking warehouse, which is exactly why they are knobs.  Mutates and returns `totals`.
+    The packer is asked once per (SKU, arrived quantity) and the answer cached: a floored
+    SKU's lots never exceed its level plus the jitter, so the distinct questions per SKU are
+    few.  There is NO cart-swap term: the era runs one uncarted put queue at
+    `swap_coef = 0` and the harness REFUSES anything else (`run_simulation._check_era_flags`,
+    `workunits.refuse_unpriceable_put`) rather than under-price it here.  `f_put` scales the
+    put load and `f_recv` the receiving load ("units put per unit picked" / packs received
+    per pack demanded); at 1.0 both are the steady state, any other value models a growing
+    or shrinking warehouse, which is exactly why they are knobs.  Mutates and returns
+    `totals`.
     """
     put_cost = pricing.put(intercept_scale=put_intercept_scale, item_ratio=put_item_ratio)
     recv_cost = pricing.recv(put_intercept_scale=put_intercept_scale,
                              put_item_ratio=put_item_ratio,
                              recv_intercept_scale=recv_intercept_scale)
-    for sku, units in totals.per_sku_units.items():
+    for sku, qs in totals.per_sku_lines.items():
         c = orders_by_sku[sku]
-        lot = reorder_lot(c)
-        reorders = units / lot                       # an expectation: kept fractional
-        plan = _receive(c, max(1, int(round(lot))))  # the packer packs whole units
         var = pricing.var(c)
-        put_s = 0.0
-        for u in plan.units:
-            travel, mult = put_site(u) if put_site is not None else (0.0, 1.0)
-            put_s += travel + per_pick(mult, put_cost.intercept, var, u.quantity,
-                                       put_cost.per_item)
-        recv_s = sum(unload_cost(c.weight, c.volume(), u.quantity, recv_cost)
-                     for u in plan.units)
-        totals.put_units += reorders * plan.packed_qty * f_put
-        totals.put_s += reorders * put_s * f_put
-        totals.packs += reorders * plan.unit_count * f_recv
-        totals.recv_s += reorders * recv_s * f_recv
+        cv = float(getattr(c, 'supply_cv', 0.0) or 0.0)
+        priced: dict = {}                            # arrived qty -> (packs, qty, put_s, recv_s)
+        for lot, n in fired_lots(c, qs).items():
+            for r, p in received_law(lot, cv).items():
+                hit = priced.get(r)
+                if hit is None:
+                    plan = _receive(c, r)            # the packer packs whole units
+                    put_s = 0.0
+                    for u in plan.units:
+                        travel, mult = put_site(u) if put_site is not None else (0.0, 1.0)
+                        put_s += travel + per_pick(mult, put_cost.intercept, var, u.quantity,
+                                                   put_cost.per_item)
+                    recv_s = sum(unload_cost(c.weight, c.volume(), u.quantity, recv_cost)
+                                 for u in plan.units)
+                    hit = priced[r] = (plan.unit_count, plan.packed_qty, put_s, recv_s)
+                w = n * p
+                totals.lots += w
+                totals.put_units += w * hit[1] * f_put
+                totals.put_s += w * hit[2] * f_put
+                totals.packs += w * hit[0] * f_recv
+                totals.recv_s += w * hit[3] * f_recv
     return totals
 
 
@@ -471,7 +549,7 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
                 # The script's own seconds per unit at ground with no travel -- the
                 # handling floor the expectation's travel and swaps sit on top of.
                 'analytic_s_pick': (t.analytic_pick_s / t.units) if t.units else 0.0,
-                'put_units': t.put_units, 'put_s': t.put_s,
+                'lots': t.lots, 'put_units': t.put_units, 'put_s': t.put_s,
                 'packs': t.packs, 'recv_s': t.recv_s,
                 'unknown_skus': t.unknown_skus,
             },

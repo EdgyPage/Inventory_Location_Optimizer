@@ -436,3 +436,25 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     # the final-day flush is a sibling of `if pb:`, not nested inside it
     line = tail[:final].rsplit('\n', 1)[-1]
     assert line == '    ', 'the final-day flush must sit at the `if pb:` indentation, outside it'
+
+
+def test_a_nonzero_put_swap_coef_is_an_error_under_the_era_at_the_cli_and_at_the_seam():
+    """Gap 2 of "Close the put closed form's three known gaps": the derivation has no
+    cart-swap term and the single queue the era runs never reads one, so a nonzero
+    coefficient would be recorded and ignored.  Refused at the parser AND at the derivation
+    seam (a programmatic launch skips the parser); a split queue set is refused at the seam
+    too, where it used to be parser-only."""
+    from Optimization.run_simulation import _check_era_flags
+    from Optimization.simdriver.workunits import refuse_unpriceable_put
+    with pytest.raises(SystemExit, match='put-swap-coef'):
+        _check_era_flags(_ns(shift_drain_or_cap=True, put_swap_coef=30.0), explicit=set())
+    assert _check_era_flags(_ns(shift_drain_or_cap=True, put_swap_coef=0.0),
+                            explicit={'shift_drain_or_cap'})
+    assert _check_era_flags(_ns(put_swap_coef=30.0), explicit={'put_swap_coef'}) == [], \
+        'flag-off keeps the coefficient'
+    with pytest.raises(ValueError, match='put_swap_coef'):
+        refuse_unpriceable_put({'put_queue_split': False, 'put_swap_coef': 30.0})
+    with pytest.raises(ValueError, match='put_queue_split'):
+        refuse_unpriceable_put({'put_queue_split': True, 'put_swap_coef': 0.0})
+    assert refuse_unpriceable_put({'put_queue_split': False, 'put_swap_coef': 0.0}) is None
+    assert refuse_unpriceable_put({}) is None

@@ -457,6 +457,21 @@ regime someone chose rather than one the defaults inherited.
   rho; `missed_share` splits into `supply` and `labour` clauses and strict `drained` becomes a
   reading; both leaves re-checked before the hold lifts. Graduated 29, 30, 31.
 
+- [Close the put closed form's three known gaps](issues/28-close-the-put-closed-forms-gaps.md):
+  LANDED 2026-09-08. The put formula was right; it was priced over ONE rounded lot. `fired_lots`
+  now walks each SKU's script lines against its declared level (base stock: `q // Q` lots of Q and
+  one of `q % Q` -- 1.3 lots per line on the reference pair; above the floor the position rule,
+  fractional) and `received_law` hands the packer the ledger's jitter as a distribution, each
+  (SKU, arrived quantity) packed once by the sim's own packer. Re-priced offline against the check
+  run's `work_events`: units per pack +6.99% / +3.05% -> -0.38% / +0.12%; on the realized unit
+  mix put reads +0.21% / -0.16% and receiving +0.01% / -0.09% (the store's script-mix +1.8% is
+  the 9,763 heavier units still standing at day 40, uniform across every term including
+  receiving). Put crew 59 -> 61, receiving 22 unchanged; against crew 59 the fulfillment band
+  re-centres at the predicted 0.489 (realized 0.477) -- a fidelity fix, every band inside
+  `band_tol`. A nonzero `--put-swap-coef` and a split queue are REFUSED under the era at the
+  parser and at the seam (the single queue never read the coefficient anyway); an unbuilt
+  BinKey raises `UnbuiltClass` on every reader instead of pricing at zero.
+
 ## Not yet specified
 
 - **What the own-bin share and free-index depth should be BANDED at.** 24 shipped both as

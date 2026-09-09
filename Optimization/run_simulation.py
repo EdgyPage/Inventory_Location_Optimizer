@@ -314,6 +314,10 @@ def _check_era_flags(args, explicit: set) -> list[str]:
         put and receiving crews are derived from the pickers, never declared;
       * `--put-queue-split` is an error -- single queue only for this map; per-stream sizing
         is the out-of-scope swept-axis effort;
+      * a nonzero `--put-swap-coef` is an error -- the put crew is sized by a closed form
+        with no cart-swap term (`staffing.implied_reorders`), and the single queue the era
+        runs never reads the coefficient anyway, so accepting it would record a knob the
+        run ignores and the derivation cannot price;
       * the cadence is pinned at ONE release per day: an unset `--releases-per-day` is
         completed to 1 (with a note), an explicit other value is an error, because the
         derivation makes one batch one day's demand;
@@ -337,6 +341,13 @@ def _check_era_flags(args, explicit: set) -> list[str]:
             'under --shift-drain-or-cap the put crew is one derived site crew on a single '
             'queue; --put-queue-split is an error here (per-stream sizing is the '
             'staffing-as-a-swept-axis effort, out of this map\'s scope).')
+    if float(getattr(args, 'put_swap_coef', 0.0) or 0.0) > 0.0:
+        raise SystemExit(
+            f'under --shift-drain-or-cap the put crew is sized by a closed form with no '
+            f'cart-swap term (Optimization/simconfig/staffing.py implied_reorders), and the '
+            f'single put queue the era runs never reads the coefficient; --put-swap-coef '
+            f'{args.put_swap_coef} would be recorded and ignored. Drop it, or drop '
+            f'--shift-drain-or-cap.')
     notes = []
     rpd = getattr(args, 'releases_per_day', None)
     if rpd is None:

@@ -237,3 +237,33 @@ def test_a_put_priced_at_one_known_bin_is_put_cost_exactly(cfg):
     var = handle_var(30, c.volume(), pc.weight_coef, pc.volume_coef, pc.weight_fn, pc.volume_fn)
     priced = travel + per_pick(M, pc.intercept, var, 8, pc.per_item)
     assert math.isclose(priced, put_cost(a.x_of(3), a.y_of(2), 30, c.volume(), 8, speed, pc), rel_tol=1e-12)
+
+
+def test_an_unbuilt_class_raises_instead_of_pricing_at_zero(cfg):
+    """Gap 3 of "Close the put closed form's three known gaps": `class_mean_travel` answered
+    0.0 and `class_mean_height_mult` 1.0 for a BinKey with no aisle, so a pack the planner
+    never built a bin for was a FREE put, silently.  Every reader now raises `UnbuiltClass`
+    -- the put pricer on both branches and the pick-side accumulate on a uniform site."""
+    g = _geometry(C=2, R=2)
+    other = ('conveyable', 'food', 'large', 'pallet')
+    with pytest.raises(et.UnbuiltClass, match='no aisle of class'):
+        g.class_mean_travel(other, 1.0, 1.0)
+    with pytest.raises(et.UnbuiltClass):
+        g.class_mean_height_mult(other, cfg.height_brackets)
+    assert g.class_bins(other) == 0                       # a count may still be zero
+    c = _order_manual(1, 1.0, 3.0, 10, (10, 10, 10))
+    unit = type('U', (), {'quantity': 4, 'storage_size': 'large', 'unit_category': 'pallet',
+                          'order': c})()
+    pc = PutawayCost.from_pick(cfg)
+    speed = SpeedProfile(2.0, 4.0)
+    with pytest.raises(et.UnbuiltClass):
+        et.put_site_pricer(g, et.PlacementDist.uniform({1: [unit]}), pc, speed)(unit)
+    with pytest.raises(et.UnbuiltClass):                  # initial with no site falls to the class
+        et.put_site_pricer(g, et.PlacementDist.initial({}, g), pc, speed)(unit)
+    with pytest.raises(et.UnbuiltClass):
+        et.accumulate([c], cfg, et.PlacementDist.uniform({1: [unit]}), g)
+    # a built class still prices: the same unit at the geometry's own key
+    ok = type('U', (), {'quantity': 4, 'storage_size': KEY[2], 'unit_category': 'pallet',
+                        'order': c})()
+    travel, M = et.put_site_pricer(g, et.PlacementDist.uniform({1: [ok]}), pc, speed)(ok)
+    assert travel > 0.0 and M >= 1.0
