@@ -1,7 +1,7 @@
 # context/ — machine-parsable flow + artifact specs
 
 last-synced-commit: 72bbffbee4598a515e5e18ff5e03d5d1a71e9c52  <!-- updated by the context-maintainer agent after each sync -->
-arch-synced-commit: e1163d2478f5c66247c7e9821c1848ca7898b8bf  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/); synced through department-calibration ticket 26 "give put-away a per-channel expected travel" (simconfig/staffing.py per-channel s_put + batch-count guard, simdriver/workunits.py put_constant) -->
+arch-synced-commit: d437b649af0737b0f744ad7fa31ca2beca30beda  <!-- updated by the architecture-maintainer agent after each sync (context/arch/ + architecture.yml + files.yml + docs/architecture/); synced through department-calibration ticket 28 "price put-away over the script's lots, not one rounded mean lot" (simconfig/staffing.py fired_lots/received_law/_levels replacing reorder_lot, simconfig/expected_travel.py UnbuiltClass/Geometry.class_aisles, simdriver/workunits.py refuse_unpriceable_put, run_simulation._check_era_flags put-swap-coef refusal) -->
 
 Verifiable documentation of the pipeline's code flow, designed for BOTH humans and
 downstream design programs (the MkDocs results site, Claude Design). Every

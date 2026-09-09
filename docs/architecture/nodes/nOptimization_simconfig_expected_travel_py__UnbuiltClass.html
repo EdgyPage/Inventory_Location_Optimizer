@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UnbuiltClass · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_expected_travel_py__UnbuiltClass" data-id="Optimization/simconfig/expected_travel.py::UnbuiltClass">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a> <span class="sep">›</span> <span class="here"><code>UnbuiltClass</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>UnbuiltClass</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_expected_travel_py.html"><code>Optimization/simconfig/expected_travel.py</code></a></p>
+
+<pre class="sig"><code>class UnbuiltClass(ValueError)</code></pre>
+<section class="doc">A BinKey the built warehouse has NO aisle for was asked for a class mean.
+
+`class_mean_travel` used to answer 0.0 and `class_mean_height_mult` 1.0 here, so a
+reorder pack whose class the planner never built was priced as a FREE put and a pick
+from it as a travel-less visit, with no warning (&quot;Close the put closed form&#x27;s three
+known gaps&quot;, gap 3).  The planner sizes every bucket from the same packer this module
+reads (`viable_storage_units`), so on a healthy run the class always exists; when it
+does not, the run itself would have to rescue that pack, and a silent zero here hid
+exactly that.  Raised rather than warned: a price of zero is a number the crews get
+sized on.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_expected_travel_py__Geometry_class_aisles.html"><code>class_aisles</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_expected_travel_py__UnbuiltClass">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/expected_travel.py#:~:text=class%20UnbuiltClass">Source ↗</a></p>
+</article>
+</main>
+</body></html>

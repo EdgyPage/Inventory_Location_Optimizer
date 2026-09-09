@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>received_law · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_staffing_py__received_law" data-id="Optimization/simconfig/staffing.py::received_law">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a> <span class="sep">›</span> <span class="here"><code>received_law</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>received_law</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
+
+<pre class="sig"><code>def received_law(lot: float, supply_cv: float) -&gt; dict</code></pre>
+<section class="doc">What arrives for a lot the ledger ordered: `{quantity: probability}`.
+
+`_fire_reorders` receives `max(1, round(N(lot, lot × cv)))` when the SKU carries a
+`supply_cv`, the lot itself otherwise.  The Gaussian is discretised on the unit cells
+(`r - ½, r + ½`], everything below 1½ arriving as one; ±5σ covers the tail to 1e-6.
+A FRACTIONAL lot with no jitter (the above-floor expectation) is the mixture of its two
+integer neighbours weighted by its fractional part, so the packer -- which packs whole
+units -- is asked two whole questions instead of one rounded one.  Always sums to one;
+a lot at or below one arrives as one unit.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__implied_reorders.html"><code>implied_reorders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__received_law">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20received_law">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -10751,9 +10751,24 @@
       "src": "Optimization/simconfig/expected_travel.py"
     },
     {
+      "dst": "Optimization/simconfig/expected_travel.py::UnbuiltClass",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.class_aisles"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::Geometry.class_aisles",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.class_mean_height_mult"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
       "kind": "calls",
       "src": "Optimization/simconfig/expected_travel.py::Geometry.class_mean_height_mult"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::Geometry.class_aisles",
+      "kind": "calls",
+      "src": "Optimization/simconfig/expected_travel.py::Geometry.class_mean_travel"
     },
     {
       "dst": "Optimization/simconfig/expected_travel.py::AisleGeom",
@@ -10941,6 +10956,11 @@
       "src": "Optimization/simconfig/staffing.py::derive"
     },
     {
+      "dst": "Optimization/simconfig/staffing.py::_levels",
+      "kind": "calls",
+      "src": "Optimization/simconfig/staffing.py::fired_lots"
+    },
+    {
       "dst": "Inbound/pack.py::receive",
       "kind": "calls",
       "src": "Optimization/simconfig/staffing.py::implied_reorders"
@@ -10951,7 +10971,12 @@
       "src": "Optimization/simconfig/staffing.py::implied_reorders"
     },
     {
-      "dst": "Optimization/simconfig/staffing.py::reorder_lot",
+      "dst": "Optimization/simconfig/staffing.py::fired_lots",
+      "kind": "calls",
+      "src": "Optimization/simconfig/staffing.py::implied_reorders"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::received_law",
       "kind": "calls",
       "src": "Optimization/simconfig/staffing.py::implied_reorders"
     },
@@ -12512,6 +12537,11 @@
     },
     {
       "dst": "Optimization/simdriver/workunits.py::put_constant",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::refuse_unpriceable_put",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
@@ -31887,6 +31917,14 @@
     },
     {
       "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::Geometry.class_aisles",
+      "kind": "function",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "class_aisles",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
       "id": "Optimization/simconfig/expected_travel.py::Geometry.class_bins",
       "kind": "function",
       "module": "Optimization/simconfig/expected_travel.py",
@@ -31971,6 +32009,14 @@
       "kind": "class",
       "module": "Optimization/simconfig/expected_travel.py",
       "name": "Site",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/expected_travel.py",
+      "id": "Optimization/simconfig/expected_travel.py::UnbuiltClass",
+      "kind": "class",
+      "module": "Optimization/simconfig/expected_travel.py",
+      "name": "UnbuiltClass",
       "public": true
     },
     {
@@ -32127,6 +32173,14 @@
     },
     {
       "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::_levels",
+      "kind": "function",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "_levels",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
       "id": "Optimization/simconfig/staffing.py::analytic_pick",
       "kind": "function",
       "module": "Optimization/simconfig/staffing.py",
@@ -32199,6 +32253,14 @@
     },
     {
       "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::fired_lots",
+      "kind": "function",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "fired_lots",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
       "id": "Optimization/simconfig/staffing.py::implied_reorders",
       "kind": "function",
       "module": "Optimization/simconfig/staffing.py",
@@ -32215,18 +32277,18 @@
     },
     {
       "file": "Optimization/simconfig/staffing.py",
-      "id": "Optimization/simconfig/staffing.py::regime_orders",
+      "id": "Optimization/simconfig/staffing.py::received_law",
       "kind": "function",
       "module": "Optimization/simconfig/staffing.py",
-      "name": "regime_orders",
+      "name": "received_law",
       "public": true
     },
     {
       "file": "Optimization/simconfig/staffing.py",
-      "id": "Optimization/simconfig/staffing.py::reorder_lot",
+      "id": "Optimization/simconfig/staffing.py::regime_orders",
       "kind": "function",
       "module": "Optimization/simconfig/staffing.py",
-      "name": "reorder_lot",
+      "name": "regime_orders",
       "public": true
     },
     {
@@ -32971,6 +33033,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
       "name": "put_constant",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::refuse_unpriceable_put",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "refuse_unpriceable_put",
       "public": true
     },
     {

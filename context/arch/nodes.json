@@ -9570,7 +9570,7 @@
     },
     "Optimization/run_simulation.py::_check_era_flags": {
       "decorators": [],
-      "doc": "Enforce and complete the calibrated era's regime on the parsed args.\n\nUnder `--shift-drain-or-cap` (\".scratch/department-calibration\", \"Define the calibrated\nera\"):\n  * the legacy crew flags (`_ERA_DERIVED_FLAGS`) typed explicitly are an ERROR -- the\n    put and receiving crews are derived from the pickers, never declared;\n  * `--put-queue-split` is an error -- single queue only for this map; per-stream sizing\n    is the out-of-scope swept-axis effort;\n  * the cadence is pinned at ONE release per day: an unset `--releases-per-day` is\n    completed to 1 (with a note), an explicit other value is an error, because the\n    derivation makes one batch one day's demand;\n  * the roll-over and the cut are completed to on (with a note): a day that reads\n    \"drained\" because cut demand was dropped is not equilibrium, and the worker forces\n    the cut anyway -- the record should say what ran.\nRaises `SystemExit` with the reason; returns the completion notes otherwise.\nModule-level so a test can hand it a Namespace.",
+      "doc": "Enforce and complete the calibrated era's regime on the parsed args.\n\nUnder `--shift-drain-or-cap` (\".scratch/department-calibration\", \"Define the calibrated\nera\"):\n  * the legacy crew flags (`_ERA_DERIVED_FLAGS`) typed explicitly are an ERROR -- the\n    put and receiving crews are derived from the pickers, never declared;\n  * `--put-queue-split` is an error -- single queue only for this map; per-stream sizing\n    is the out-of-scope swept-axis effort;\n  * a nonzero `--put-swap-coef` is an error -- the put crew is sized by a closed form\n    with no cart-swap term (`staffing.implied_reorders`), and the single queue the era\n    runs never reads the coefficient anyway, so accepting it would record a knob the\n    run ignores and the derivation cannot price;\n  * the cadence is pinned at ONE release per day: an unset `--releases-per-day` is\n    completed to 1 (with a note), an explicit other value is an error, because the\n    derivation makes one batch one day's demand;\n  * the roll-over and the cut are completed to on (with a note): a day that reads\n    \"drained\" because cut demand was dropped is not equilibrium, and the worker forces\n    the cut anyway -- the record should say what ran.\nRaises `SystemExit` with the reason; returns the completion notes otherwise.\nModule-level so a test can hand it a Namespace.",
       "is_async": false,
       "kind": "function",
       "signature": "(args, explicit: set) -> list[str]"
@@ -11503,6 +11503,13 @@
       "kind": "function",
       "signature": "(self, aisles: list[AisleGeom]) -> None"
     },
+    "Optimization/simconfig/expected_travel.py::Geometry.class_aisles": {
+      "decorators": [],
+      "doc": "The aisles of BinKey `key`, of which there must be at least one with a bin:\nan unbuilt class raises `UnbuiltClass`, never prices as empty space.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key: tuple) -> list"
+    },
     "Optimization/simconfig/expected_travel.py::Geometry.class_bins": {
       "decorators": [],
       "doc": null,
@@ -11589,6 +11596,12 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/simconfig/expected_travel.py::UnbuiltClass": {
+      "decorators": [],
+      "doc": "A BinKey the built warehouse has NO aisle for was asked for a class mean.\n\n`class_mean_travel` used to answer 0.0 and `class_mean_height_mult` 1.0 here, so a\nreorder pack whose class the planner never built was priced as a FREE put and a pick\nfrom it as a travel-less visit, with no warning (\"Close the put closed form's three\nknown gaps\", gap 3).  The planner sizes every bucket from the same packer this module\nreads (`viable_storage_units`), so on a healthy run the class always exists; when it\ndoes not, the run itself would have to rescue that pack, and a silent zero here hid\nexactly that.  Raised rather than warned: a price of zero is a number the crews get\nsized on.",
+      "kind": "class",
+      "signature": "(ValueError)"
+    },
     "Optimization/simconfig/expected_travel.py::_aisle_routing": {
       "decorators": [],
       "doc": "(P(aisle visited), E[x travel], E[y travel]) in INCHES for visit-rate matrix `m`.",
@@ -11612,7 +11625,7 @@
     },
     "Optimization/simconfig/expected_travel.py::accumulate": {
       "decorators": [],
-      "doc": "Stage 1: walk the section once and accumulate the per-line quantities.\n\n`orders` is the channel section (`staffing.regime_orders`); `pick_cfg` is the channel's\n`PickConfig` (duck-typed: `pick_intercept`, `pick_per_item`, the four handling\ncoefficients, `height_brackets`).  A SKU with no sites (nothing placed) contributes its\nline share to nothing and is counted in `unplaced_skus`.",
+      "doc": "Stage 1: walk the section once and accumulate the per-line quantities.\n\n`orders` is the channel section (`staffing.regime_orders`); `pick_cfg` is the channel's\n`PickConfig` (duck-typed: `pick_intercept`, `pick_per_item`, the four handling\ncoefficients, `height_brackets`).  A SKU with no sites (nothing placed) contributes its\nline share to nothing and is counted in `unplaced_skus`; a `uniform` site whose class\nthe geometry never built raises `UnbuiltClass` (it used to carry handling and no travel).",
       "is_async": false,
       "kind": "function",
       "signature": "(orders, pick_cfg, dist: PlacementDist, geometry: Geometry) -> SectionRates"
@@ -11633,7 +11646,7 @@
     },
     "Optimization/simconfig/expected_travel.py::put_site_pricer": {
       "decorators": [],
-      "doc": "A `(unit) -> (travel_s, height_mult)` for `staffing.implied_reorders`: the put's\ntravel from the mouth and its height multiplier under the placement distribution --\nthe class-uniform mean for `uniform`; for `initial`, the mean over the SKU's own bins\n(a reorder refills the SKU's locations).",
+      "doc": "A `(unit) -> (travel_s, height_mult)` for `staffing.implied_reorders`: the put's\ntravel from the mouth and its height multiplier under the placement distribution --\nthe class-uniform mean for `uniform`; for `initial`, the mean over the SKU's own bins\n(a reorder refills the SKU's locations).  A unit whose class the geometry never built\nraises `UnbuiltClass` on either branch rather than pricing the put at zero travel.",
       "is_async": false,
       "kind": "function",
       "signature": "(geometry: Geometry, dist: PlacementDist, put_cost, put_speed, brackets=None)"
@@ -11668,7 +11681,7 @@
     },
     "Optimization/simconfig/staffing.py": {
       "decorators": [],
-      "doc": "staffing.py \u2014 the calibrated era's staffing DERIVATION, as a pure module.\n\nPickers per channel are the ONE declared staffing input of the calibrated era\n(.scratch/department-calibration, \"Define the calibrated era\"); everything else a run\nfields is DERIVED from them, live at setup, with a declared scalar at every step:\n\n    pick capacity      K \u00d7 S \u00d7 \u03c1_pick                        (seconds of picking per day)\n    daily demand       capacity \u00f7 s_pick                     (units per day, per channel)\n    batch content      one batch = one day's demand          (a BatchConfig mean fraction)\n    put load           units \u00d7 f_put                         (units put per unit picked)\n    put crew           ceil(\u03a3_ch put load_ch \u00d7 s_put_ch \u00f7 (S \u00d7 \u03c1_put))   (ONE site crew)\n    receive load       packs the script implies \u00d7 f_recv\n    receiving crew     ceil(receive seconds \u00f7 (S \u00d7 \u03c1_recv))  (ONE site crew)\n\n`s_pick` and `s_put` are BOTH per channel, and both are seconds per unit: CLOSED-FORM\nEXPECTATIONS over the catalogue's demand distribution and the warehouse geometry the run\nbuilt (`Optimization/simconfig/expected_travel.py`, \"Derive the expected-travel closed form\").\nThere are no calibration simulations and no calibration record.  The harness computes them\nat setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put`\noverride replaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the\nscript: an unload has no travel term, so every pack's seconds are computable from the\ncatalogue and the cost model alone.\n\n**s_put IS PER CHANNEL** (\"Give put-away a per-channel expected travel\", 2026-09-08).  It was\none site value until then, and the two sections do not share a geometry: the era re-read\nmeasured 98.5 s/unit put away on the store against 29.2 on fulfillment, a 3.4\u00d7 spread that a\nsingle site price averaged away.  The site TOTAL stayed right -- so the crew was correctly\nSIZED -- while both leaves' expected utilization sat ~0.21 outside the band, in opposite\ndirections.  Picking never had this defect (its constant was always per channel) and neither\ndid receiving (its per-channel seconds come straight from the script).  There is now no\nsite-wide put price anywhere in the derived record: `put.s_put` is a map keyed by channel.\n\nTHIS MODULE IS PURE.  Inputs, the resolved constants and the catalogue / script totals go\nin; the derived dict comes out.  It imports no CONFIG, reads no settings and\ntouches no file, so the arithmetic is testable against a hand computation without a run\n(`Tests/unit/test_staffing_derivation.py`).  The harness seam that feeds it is\n`Optimization/simdriver/workunits._derive_staffing_for_pair`, which runs AFTER batch\nprecompute because the receiving crew needs the packs the script implies -- and the script\nis itself derived from the pickers, which is why the derivation has two stages:\n\n    stage A  (catalogue only)  s_pick, daily demand, batch content -- BEFORE precompute\n    stage B  (the script)      put load, packs, the two site crews -- AFTER precompute\n\nEvery scalar default below is a declared ASSUMPTION of the era, never a measurement, and the\nrecord says so (`PROVENANCE`, \"Design the staffing record\", decision 5).  The derived block\ncarries `derived`; a copied constant keeps the provenance it arrived with.",
+      "doc": "staffing.py \u2014 the calibrated era's staffing DERIVATION, as a pure module.\n\nPickers per channel are the ONE declared staffing input of the calibrated era\n(.scratch/department-calibration, \"Define the calibrated era\"); everything else a run\nfields is DERIVED from them, live at setup, with a declared scalar at every step:\n\n    pick capacity      K \u00d7 S \u00d7 \u03c1_pick                        (seconds of picking per day)\n    daily demand       capacity \u00f7 s_pick                     (units per day, per channel)\n    batch content      one batch = one day's demand          (a BatchConfig mean fraction)\n    put load           units \u00d7 f_put                         (units put per unit picked)\n    put crew           ceil(\u03a3_ch put load_ch \u00d7 s_put_ch \u00f7 (S \u00d7 \u03c1_put))   (ONE site crew)\n    receive load       packs the script's LOTS pack into \u00d7 f_recv\n    receiving crew     ceil(receive seconds \u00f7 (S \u00d7 \u03c1_recv))  (ONE site crew)\n\n`s_pick` and `s_put` are BOTH per channel, and both are seconds per unit: CLOSED-FORM\nEXPECTATIONS over the catalogue's demand distribution and the warehouse geometry the run\nbuilt (`Optimization/simconfig/expected_travel.py`, \"Derive the expected-travel closed form\").\nThere are no calibration simulations and no calibration record.  The harness computes them\nat setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put`\noverride replaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the\nscript: an unload has no travel term, so every pack's seconds are computable from the\ncatalogue and the cost model alone.\n\n**s_put IS PER CHANNEL** (\"Give put-away a per-channel expected travel\", 2026-09-08).  It was\none site value until then, and the two sections do not share a geometry: the era re-read\nmeasured 98.5 s/unit put away on the store against 29.2 on fulfillment, a 3.4\u00d7 spread that a\nsingle site price averaged away.  The site TOTAL stayed right -- so the crew was correctly\nSIZED -- while both leaves' expected utilization sat ~0.21 outside the band, in opposite\ndirections.  Picking never had this defect (its constant was always per channel) and neither\ndid receiving (its per-channel seconds come straight from the script).  There is now no\nsite-wide put price anywhere in the derived record: `put.s_put` is a map keyed by channel.\n\nTHIS MODULE IS PURE.  Inputs, the resolved constants and the catalogue / script totals go\nin; the derived dict comes out.  It imports no CONFIG, reads no settings and\ntouches no file, so the arithmetic is testable against a hand computation without a run\n(`Tests/unit/test_staffing_derivation.py`).  The harness seam that feeds it is\n`Optimization/simdriver/workunits._derive_staffing_for_pair`, which runs AFTER batch\nprecompute because the receiving crew needs the packs the script implies -- and the script\nis itself derived from the pickers, which is why the derivation has two stages:\n\n    stage A  (catalogue only)  s_pick, daily demand, batch content -- BEFORE precompute\n    stage B  (the script)      put load, packs, the two site crews -- AFTER precompute\n\nEvery scalar default below is a declared ASSUMPTION of the era, never a measurement, and the\nrecord says so (`PROVENANCE`, \"Design the staffing record\", decision 5).  The derived block\ncarries `derived`; a copied constant keeps the provenance it arrived with.",
       "kind": "module",
       "signature": null
     },
@@ -11714,7 +11727,7 @@
       "decorators": [
         "dataclass"
       ],
-      "doc": "What one channel's precomputed batch script demands, summed over its batches.\n\n`units` / `lines` are the demand itself; `analytic_pick_s` is the same script priced\nwith `analytic_pick`'s formula line by line (so the record can hold the script-only\nprediction NEXT to the measured value, and their ratio is the travel share).  The\nput and receiving totals come from `implied_reorders`: `put_units` are merchandise\nunits put away (= units received), `put_s` their analytic put-away seconds at ground,\n`packs` the storage units the reorders pack into, `recv_s` their EXACT unload seconds.\n`unknown_skus` counts script lines whose SKU the catalogue map did not hold -- zero on\na healthy run, and reported rather than silently skipped.",
+      "doc": "What one channel's precomputed batch script demands, summed over its batches.\n\n`units` / `lines` are the demand itself; `analytic_pick_s` is the same script priced\nwith `analytic_pick`'s formula line by line (so the record can hold the script-only\nprediction NEXT to the measured value, and their ratio is the travel share).  The\nput and receiving totals come from `implied_reorders`: `lots` the reorders the\nscript's lines fire, `put_units` the merchandise units put away (= units received),\n`put_s` their put-away seconds, `packs` the storage units the lots pack into, `recv_s`\ntheir EXACT unload seconds.  `unknown_skus` counts script lines whose SKU the catalogue\nmap did not hold -- zero on a healthy run, and reported rather than silently skipped.\n`per_sku_lines` keeps every line's quantity per SKU IN SCRIPT ORDER, because the\norder-up-to rule's lots depend on the sequence (`fired_lots`).",
       "kind": "class",
       "signature": ""
     },
@@ -11724,6 +11737,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, value: float) -> float"
+    },
+    "Optimization/simconfig/staffing.py::_levels": {
+      "decorators": [],
+      "doc": "`(Q, rp, P)` -- the order-up-to target, the reorder point and the pipeline allowance\n-- as `inventory_reorder._fire_reorders` reads them off the SKU's DECLARATION.\n\nThe declaration, not a default: `equilibrium_qty -> 1` / `reorder_point -> 0` sent an\nundeclared order down the base-stock branch and returned a one-line lot, so the era's\nput-away and receiving crews would have been sized off a lot no SKU was ever declared to\norder.  The one caller (`implied_reorders`) runs after the fixed point has declared, so an\nundeclared order here is a bug in the caller.  `stock_qty` stays: it is the documented\nduck-typed legacy contract.  The pipeline is `Order.pipeline_allowance()` (the era's\nstamp, else the `round(rp \u00d7 lead \u00f7 (lead + 1))` heuristic) -- a duck-typed order without\none takes the heuristic.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order) -> tuple[int, int, int]"
     },
     "Optimization/simconfig/staffing.py::analytic_pick": {
       "decorators": [],
@@ -11788,9 +11808,16 @@
       "kind": "function",
       "signature": "(load_seconds_per_day: float, crew: int, day_seconds: float) -> float"
     },
+    "Optimization/simconfig/staffing.py::fired_lots": {
+      "decorators": [],
+      "doc": "The lots the order-up-to rule fires while `quantities` -- one script's lines for this\nSKU, in script order -- are picked against its declared levels: `{lot: expected count}`.\n\nReplaces the one ROUNDED lot this derivation used to pack (\"Close the put closed form's\nthree known gaps\"): every pack-proportional term -- the whole put travel term, the put\nintercept, the receiving intercept -- is per PACK, and the packer packs whole units, so\npricing one rounded lot and scaling it by a fractional reorder count under-counted packs\nby 7% on the store and 3% on fulfillment.  Two regimes, exactly as\n`inventory_reorder._fire_reorders` fires them:\n\n  * BASE STOCK (`rp >= Q - 1`; every SKU on the line floor, \"Choose the coverage\n    floor\"): the shelf holds `Q` at the start of every day (a lead-0 top-up lands before\n    the next batch), so a line of `q` units SERVES `min(q, Q)`, fires a lot of exactly\n    what it took, and re-offers the remainder next day against a full shelf again\n    (`unpicked_unstocked`, \"Fit the store's window to its own steady state\": nothing is\n    lost).  A line is therefore `q // Q` lots of `Q` and one of `q % Q` -- the reference\n    pair fires 1.3 lots per line.  With a pipeline `P > 0` a lot below `P + 1` does not\n    fire alone (the position only drops to the trigger once `P + 1` units are gone), so\n    such a lot is priced as `P + 1` at a count that conserves units -- a FLOOR on the\n    pack count, exact at `P = 0`, which is every catalogue the generator authors today.\n  * ABOVE THE FLOOR: the expected lot is the position at the reorder point,\n    `Q + P - rp`, and the reorders are `\u03a3q \u00f7 lot`, kept FRACTIONAL (a steady-state\n    expectation, not this window's transient -- a 40-day script would fire nothing for\n    a SKU whose demand never crosses `Q - rp`).  The lot is handed on as a fraction and\n    `received_law` prices it between its two integer neighbours, so the rounding bias\n    is gone here too.  The crossing line's overshoot (about half a mean line) is not\n    modelled; no fielded catalogue has an above-floor SKU to measure it on.\n\nThe lot is what the ledger ORDERS; what arrives is `received_law`'s business.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, quantities) -> dict"
+    },
     "Optimization/simconfig/staffing.py::implied_reorders": {
       "decorators": [],
-      "doc": "Stage B's supply side: the put-away and receiving work the script implies.\n\nSteady state (f = 1.0) replenishes every unit picked, so each SKU's expected reorders\nare `units demanded \u00f7 lot`, each lot packs into the storage units the sim's own packer\nwould produce (`Inbound.pack.receive` -> `viable_storage_units`, honouring a\n`stock_plan`), and each pack costs\n\n    put-away   travel + M(y) \u00b7 (put_intercept + qty \u00b7 put_per_item + qty \u00b7 var)\n    receiving  recv_intercept + recv_per_item + qty \u00b7 var                (EXACT)\n\n`put_site`, when given, is `(unit) -> (travel_s, height_mult)` -- the expected travel\nfrom the aisle mouth and the height multiplier of the pack's destination under the run's\nplacement distribution (`expected_travel.put_site_pricer`).  None prices every put at\nthe ground with no travel (the script-only prediction).\n\nFractional reorders are expectations and are kept fractional.  `f_put` scales the put\nload and `f_recv` the receiving load (\"units put per unit picked\" / packs received per\npack demanded); at 1.0 both are the steady state, any other value models a growing or\nshrinking warehouse, which is exactly why they are knobs.  Mutates and returns `totals`.",
+      "doc": "Stage B's supply side: the put-away and receiving work the script implies.\n\nSteady state (f = 1.0) replenishes every unit picked.  Each SKU's script lines fire the\nlots `fired_lots` says they do, each lot arrives as `received_law` says it does, and\neach arrived quantity packs into the storage units the sim's own packer would produce\n(`Inbound.pack.receive` -> `viable_storage_units`, honouring a `stock_plan`).  Each\npack costs\n\n    put-away   travel + M(y) \u00b7 (put_intercept + qty \u00b7 put_per_item + qty \u00b7 var)\n    receiving  recv_intercept + recv_per_item + qty \u00b7 var                (EXACT)\n\n`put_site`, when given, is `(unit) -> (travel_s, height_mult)` -- the expected travel\nfrom the aisle mouth and the height multiplier of the pack's destination under the run's\nplacement distribution (`expected_travel.put_site_pricer`).  None prices every put at\nthe ground with no travel (the script-only prediction).\n\nThe packer is asked once per (SKU, arrived quantity) and the answer cached: a floored\nSKU's lots never exceed its level plus the jitter, so the distinct questions per SKU are\nfew.  There is NO cart-swap term: the era runs one uncarted put queue at\n`swap_coef = 0` and the harness REFUSES anything else (`run_simulation._check_era_flags`,\n`workunits.refuse_unpriceable_put`) rather than under-price it here.  `f_put` scales the\nput load and `f_recv` the receiving load (\"units put per unit picked\" / packs received\nper pack demanded); at 1.0 both are the steady state, any other value models a growing\nor shrinking warehouse, which is exactly why they are knobs.  Mutates and returns\n`totals`.",
       "is_async": false,
       "kind": "function",
       "signature": "(totals: ScriptTotals, orders_by_sku: dict, pricing: PricingConfig, *, f_put: float, f_recv: float, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float, put_site=None) -> ScriptTotals"
@@ -11802,6 +11829,13 @@
       "kind": "function",
       "signature": "(pickers: int, day_seconds: float, rho_pick: float) -> float"
     },
+    "Optimization/simconfig/staffing.py::received_law": {
+      "decorators": [],
+      "doc": "What arrives for a lot the ledger ordered: `{quantity: probability}`.\n\n`_fire_reorders` receives `max(1, round(N(lot, lot \u00d7 cv)))` when the SKU carries a\n`supply_cv`, the lot itself otherwise.  The Gaussian is discretised on the unit cells\n(`r - \u00bd, r + \u00bd`], everything below 1\u00bd arriving as one; \u00b15\u03c3 covers the tail to 1e-6.\nA FRACTIONAL lot with no jitter (the above-floor expectation) is the mixture of its two\ninteger neighbours weighted by its fractional part, so the packer -- which packs whole\nunits -- is asked two whole questions instead of one rounded one.  Always sums to one;\na lot at or below one arrives as one unit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lot: float, supply_cv: float) -> dict"
+    },
     "Optimization/simconfig/staffing.py::regime_orders": {
       "decorators": [],
       "doc": "The catalogue section one channel picks from: `regime_of(order) == regime`, or the\nwhole catalogue when `regime` is None (the store-only path).",
@@ -11809,16 +11843,9 @@
       "kind": "function",
       "signature": "(orders, regime: str | None) -> list"
     },
-    "Optimization/simconfig/staffing.py::reorder_lot": {
-      "decorators": [],
-      "doc": "The quantity one reorder of `order` brings in, in expectation.\n\nThe manager's order-up-to rule (`inventory_reorder._fire_reorders`): when the inventory\nposition falls to the reorder point it orders `equilibrium + pipeline - position`, the\npipeline allowance being `Order.pipeline_allowance()` (the era's stamp, else the\n`round(rp \u00d7 lead \u00f7 (lead + 1))` heuristic).  Two regimes:\n\n  * BASE STOCK (`rp >= Q - 1`, every SKU on the line floor -- \"Choose the coverage\n    floor\", decision 1): the sampler draws distinct SKUs per batch, so a floored SKU is\n    picked at most one LINE per batch.  The target is the position `Q + P` (`P` the\n    pipeline allowance) and a fire needs the position at or below `Q - 1`, i.e. at\n    least `P + 1` units taken since the last fire.  At `P = 0` -- every catalogue the\n    generator authors today (`LEAD_TIME_MEAN_BATCHES = 0.0`) -- EVERY line fires for\n    exactly what it took and the expected lot is the SKU's mean line,\n    `Demand.line.mean()`.  With a pipeline, a line smaller than `P + 1` does not fire\n    alone, so the lot is at least `P + 1`: `max(E[line], P + 1)`, exact at `P = 0` and\n    a floor on the truth otherwise.  The old rule's answer here was\n    `max(1, Q + pipeline - rp)` = 1 at lead 0: one PACK per unit, a tenfold over-count\n    of the receiving load on a ten-unit line.\n  * above the floor: the position AT the reorder point gives the expected lot,\n    `Q + pipeline - rp`; the supply-cv jitter is zero-mean and drops out.  Floors at 1.\n\nA duck-typed order without a line law (a test double) takes the second rule.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(order) -> float"
-    },
     "Optimization/simconfig/staffing.py::script_totals": {
       "decorators": [],
-      "doc": "Stage B's demand side: units, lines and the analytic pick seconds of a batch list.\n\n`batches` are `Workload_Builder.Batch` objects (or anything with `.items: {sku: qty}`);\n`orders_by_sku` maps a SKU to its `Order` for the handling term.  Per-SKU unit totals\nare kept for `implied_reorders`.",
+      "doc": "Stage B's demand side: units, lines and the analytic pick seconds of a batch list.\n\n`batches` are `Workload_Builder.Batch` objects (or anything with `.items: {sku: qty}`);\n`orders_by_sku` maps a SKU to its `Order` for the handling term.  Each SKU's line\nquantities are kept, in script order, for `implied_reorders`.",
       "is_async": false,
       "kind": "function",
       "signature": "(batches, orders_by_sku: dict, pricing: PricingConfig) -> ScriptTotals"
@@ -12450,6 +12477,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(totals, override) -> dict"
+    },
+    "Optimization/simdriver/workunits.py::refuse_unpriceable_put": {
+      "decorators": [],
+      "doc": "REFUSE a put-away configuration the era's closed form cannot price.\n\n`staffing.implied_reorders` prices a put as travel from the mouth plus handling at the\ndestination -- no cart-swap term, one site speed -- because that is the whole cost of a\nput on the ONE uncarted queue the era runs (`put_queue.single_queue`, `swap_coef = 0`).\nA split queue set carries per-queue crews with their own speeds and a `swap_coef` the\nrunner does bind (`strategy_runner`: `store_and_fulfillment(... swap_coef=...)`), and\nthe derivation would silently under-price both.  `run_simulation._check_era_flags`\nrefuses the two flags at the parser; this is the same refusal at the SEAM, for a\ncaller that reached the derivation without the CLI (a test harness, a programmatic\nlaunch, a spec that wrote CONFIG directly).  Pure and module-level: tested with a dict.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(global_cfg: dict) -> None"
     },
     "Schema/__init__.py": {
       "decorators": [],

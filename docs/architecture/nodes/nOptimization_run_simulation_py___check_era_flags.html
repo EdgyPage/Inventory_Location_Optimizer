@@ -23,6 +23,10 @@ era&quot;):
     put and receiving crews are derived from the pickers, never declared;
   * `--put-queue-split` is an error -- single queue only for this map; per-stream sizing
     is the out-of-scope swept-axis effort;
+  * a nonzero `--put-swap-coef` is an error -- the put crew is sized by a closed form
+    with no cart-swap term (`staffing.implied_reorders`), and the single queue the era
+    runs never reads the coefficient anyway, so accepting it would record a knob the
+    run ignores and the derivation cannot price;
   * the cadence is pinned at ONE release per day: an unset `--releases-per-day` is
     completed to 1 (with a note), an explicit other value is an error, because the
     derivation makes one batch one day&#x27;s demand;

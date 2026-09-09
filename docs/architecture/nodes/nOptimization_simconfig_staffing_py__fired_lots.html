@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fired_lots · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_staffing_py__fired_lots" data-id="Optimization/simconfig/staffing.py::fired_lots">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a> <span class="sep">›</span> <span class="here"><code>fired_lots</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>fired_lots</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
+
+<pre class="sig"><code>def fired_lots(order, quantities) -&gt; dict</code></pre>
+<section class="doc">The lots the order-up-to rule fires while `quantities` -- one script&#x27;s lines for this
+SKU, in script order -- are picked against its declared levels: `{lot: expected count}`.
+
+Replaces the one ROUNDED lot this derivation used to pack (&quot;Close the put closed form&#x27;s
+three known gaps&quot;): every pack-proportional term -- the whole put travel term, the put
+intercept, the receiving intercept -- is per PACK, and the packer packs whole units, so
+pricing one rounded lot and scaling it by a fractional reorder count under-counted packs
+by 7% on the store and 3% on fulfillment.  Two regimes, exactly as
+`inventory_reorder._fire_reorders` fires them:
+
+  * BASE STOCK (`rp &gt;= Q - 1`; every SKU on the line floor, &quot;Choose the coverage
+    floor&quot;): the shelf holds `Q` at the start of every day (a lead-0 top-up lands before
+    the next batch), so a line of `q` units SERVES `min(q, Q)`, fires a lot of exactly
+    what it took, and re-offers the remainder next day against a full shelf again
+    (`unpicked_unstocked`, &quot;Fit the store&#x27;s window to its own steady state&quot;: nothing is
+    lost).  A line is therefore `q // Q` lots of `Q` and one of `q % Q` -- the reference
+    pair fires 1.3 lots per line.  With a pipeline `P &gt; 0` a lot below `P + 1` does not
+    fire alone (the position only drops to the trigger once `P + 1` units are gone), so
+    such a lot is priced as `P + 1` at a count that conserves units -- a FLOOR on the
+    pack count, exact at `P = 0`, which is every catalogue the generator authors today.
+  * ABOVE THE FLOOR: the expected lot is the position at the reorder point,
+    `Q + P - rp`, and the reorders are `Σq ÷ lot`, kept FRACTIONAL (a steady-state
+    expectation, not this window&#x27;s transient -- a 40-day script would fire nothing for
+    a SKU whose demand never crosses `Q - rp`).  The lot is handed on as a fraction and
+    `received_law` prices it between its two integer neighbours, so the rounding bias
+    is gone here too.  The crossing line&#x27;s overshoot (about half a mean line) is not
+    modelled; no fielded catalogue has an above-floor SKU to measure it on.
+
+The lot is what the ledger ORDERS; what arrives is `received_law`&#x27;s business.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py___levels.html"><code>_levels</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__implied_reorders.html"><code>implied_reorders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__fired_lots">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20fired_lots">Source ↗</a></p>
+</article>
+</main>
+</body></html>
