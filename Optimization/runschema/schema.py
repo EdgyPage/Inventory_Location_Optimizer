@@ -131,7 +131,7 @@ _FIGURE_FAMILY_EVALUATIONS: dict = {
     'trajectories': ['trajectories.overtime'],
     'labor':        ['labor.delta_grid', 'labor.delta_topn', 'labor.per_batch',
                      'labor.production_legs'],
-    'throughput':   ['throughput.missed', 'throughput.volume'],
+    'throughput':   ['throughput.audit', 'throughput.missed', 'throughput.volume'],
     'task_time':    ['task_time.breakdown', 'task_time.duration'],
     'layout':       ['layout.churn', 'layout.travel'],
     'significance': ['sig.by_initial', 'sig.suite'],
