@@ -258,13 +258,16 @@ _Avoid_: travel fraction, overhead ratio
 
 **Utilization**:
 The share of a crew's granted production time it spends working, read over a window of days as
-a ratio of sums. Its declared target is the input every derived crew is sized from; the band
-around its expected value is what a run is verified against.
+a ratio of sums. For put-away and receiving its declared target is the input the crew is sized
+from; for picking it is derived from the first-time confidence and stamped. The band around its
+expected value is what a run is verified against, never the declared target itself.
 _Avoid_: duty cycle (that is the grant, not the work), load factor, occupancy
 
 **Headroom**:
-The declared distance between a crew's target utilization and saturation. It is chosen, never
-left over, so that a placement decision has room to move the site's operations.
+The distance between a crew's expected utilization and saturation. It is chosen, never left
+over, so that a placement decision has room to move the site's operations: declared as a
+utilization target for put-away and receiving, and for picking as the consequence of the
+first-time confidence, which fixes how much of a day's overflow the crew may leave.
 _Avoid_: safety margin, slack, buffer
 
 ### Day-over-day
@@ -295,10 +298,14 @@ cadence rather than with time, so it drifts silently whenever a batch outlives a
 department's capacity is denominated in the same unit as the work that arrives at it.
 
 **Equilibrium**:
-A window of working days each of which drains inside its production time with nothing standing
-and no release late, every crew's utilization inside its band, and missed share holding a level
-rather than trending. A precondition for the reference run; a report for every other run.
-_Avoid_: steady state (that names the replenishment scalars, not the day), stable
+A window of working days over which the labour carry stays bounded and does not trend, the cut
+share of picks sits at its expected value, no release is late, every crew's utilization is inside
+its band, and the supply share holds its expected level rather than trending. Not "every day
+drains": a day's demand is drawn with a declared spread, so some days exceed a full shift at any
+headroom, and what equilibrium means for that queue is that its overflow is absorbed within the
+window, never that it is absent. A report for every run; the site never judges itself.
+_Avoid_: steady state (that names the replenishment scalars, not the day), stable, every day
+drained
 
 **Era**:
 A declared regime of the site — its working day, its labour model, its demand script — under
@@ -377,9 +384,21 @@ again into smaller units that fit. Priced to the receiving crew per resulting pa
 expected to happen never, so a recorded repack is a finding about the warehouse's sizing.
 _Avoid_: rescue, split
 
+**First-time completion**:
+A pick that is reached on the day it was released and filled from the shelf it was sent to.
+Its two failures are separate flows -- the day cut it (labour) or the shelf was empty (supply)
+-- and under the era neither loses the unit: it is re-offered the next day. The joint
+confidence that a pick completes the first time is the one declared scalar the picking crew and
+the line floor are derived from, per pick as an expected share of units, never per day; the two
+sides multiply and are split equally between shelf and crew.
+_Avoid_: service level, fill rate (that is the shelf side alone), drained day (that is a day,
+not a pick), first-pass (the shelf side alone)
+
 **Staffing record**:
-A run's declaration of who worked it: the declared inputs (pickers per channel, the utilization
-and replenishment scalars, the put crew's mode, the stock coverage in days and the line floor),
+A run's declaration of who worked it: the declared inputs (demand per channel in the sampler's
+own unit, the first-time confidence, the put-away and receiving utilization and replenishment
+scalars, the put crew's mode, the stock coverage in days), the day law the demand is drawn
+under, the line floor and pickers per channel derived from them,
 the expected labour constants it ran under with their provenance and the expected day they were
 read off, the crews and expected throughput derived from them, and the expected first-pass fill
 rate the coverage rescaling stamped at the planned levels. Recorded with the run and

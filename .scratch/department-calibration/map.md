@@ -56,6 +56,18 @@ regime someone chose rather than one the defaults inherited.
     a run that cannot refuses -- and the catalogue carries NO stock levels: stock is a run's
     declaration derived at setup in EVERY mode (ADR-0002). The era-only planner rule never
     existed; there is one planner contract.
+  - **Demand is declared, the picking crew is derived, and the guarantee is per pick**
+    (decided 2026-09-08,
+    [Fit the store's window to its own steady state](issues/27-fit-the-store-window-to-its-steady-state.md),
+    ADR-0004; REVERSES 01's "pickers are the one declared input"). Under the era NOTHING IS LOST
+    -- a cut or unfilled pick is re-offered next day -- so every crew is sized on DEMANDED units.
+    One declared scalar, the joint first-time confidence (0.95), replaces `rho_pick`: the line
+    floor is solved so the stamped fill clears sqrt(c), the crew is the smallest integer whose
+    expected cut share of units is under 1 - sqrt(c), both closed forms over the chosen inventory
+    and the DECLARED day law (a Gaussian line count with a declared cv -- `settings.py`
+    `*_BATCH_MEAN/STD`). Put-away and receiving keep rho; their backlog is reported. "Every day
+    drained" is a reading, not a verdict. BUILD PENDING (29, 30, 31); until 31 reads clean the
+    era's numbers stay provisional.
   - **No bespoke conversions implicit in the inventory.** A standing preference from the
     same decision: nothing authored on the catalogue may carry an implicit batch or day (the
     coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
@@ -425,6 +437,26 @@ regime someone chose rather than one the defaults inherited.
   re-centring (-> the ranked-arms fog patch), and `s_recv` is a dead field whose comment claimed a
   reader it never had.
 
+- [Fit the store's window to its own steady state](issues/27-fit-the-store-window-to-its-steady-state.md):
+  RESOLVED 2026-09-08 -- **the window was the wrong lever**; 40 days / 20-39 measured, one site
+  window, stands. The store's series showed NOTHING IS LOST under the era (missed and cut units are
+  re-offered next day, lead-0 top-ups land first; picked + standing = script demand exactly), so
+  `derive` had sized both crews on SERVED units (demand x 0.922) when they must pick all of demand
+  -- 0.92 on the record's own numbers, and fulfillment passed only on a script 6.7% light. The
+  missed-share hump was pure labour overflow (`unpicked_daycut`) from a queue near saturation;
+  the supply share was flat at 0.070 vs 0.078 expected, on-hand flat, every queue zero; and the
+  clause was READING day-cut + stockout with re-attempts double-counted while calling itself
+  supply-only. The day law is a DECLARED Gaussian on the line count (cv 1/3 store, 1/4 ff), so
+  14/40 days exceed a full day at any headroom and "every day drained" is not a property of
+  equilibrium. Ten decisions: crews size on DEMANDED units; the actual script is priced; the
+  declared input FLIPS (demand declared in the sampler's unit, crew derived, picker flags refused
+  under the era -- ADR-0004); `rho_pick` is replaced by one joint **first-time confidence**
+  (0.95: reached on its day AND filled), per pick, split equally, the floor solved for fill >=
+  sqrt(c) (~1.27 lines, +19% stock) and the smallest integer crew for expected cut share <=
+  1 - sqrt(c) (store ~32 at ~0.72) -- closed forms over the chosen inventory; put/receiving keep
+  rho; `missed_share` splits into `supply` and `labour` clauses and strict `drained` becomes a
+  reading; both leaves re-checked before the hold lifts. Graduated 29, 30, 31.
+
 ## Not yet specified
 
 - **What the own-bin share and free-index depth should be BANDED at.** 24 shipped both as
@@ -432,9 +464,11 @@ regime someone chose rather than one the defaults inherited.
   FIRST observation -- own-bin share exactly **0.000** on every day of both leaves, free index never
   below **1,197,833 of 2,096,050 bins** (~57% free, drifting 1.6% over 40 days) -- so the readings
   now exist. It stays fog rather than a ticket because a threshold still cannot be phrased sharply:
-  the store leaf those numbers came from is not in a steady state
-  ([Fit the store's window to its own steady state](issues/27-fit-the-store-window-to-its-steady-state.md)),
-  and one fifo arm at one shape is not a distribution to band against. Sharpens when 27 lands.
+  the store leaf those numbers came from was a crew sized on served units under a one-line floor
+  (27), and the floor is about to rise to ~1.27 lines with a larger warehouse; one fifo arm at one
+  shape is not a distribution to band against. Sharpens when
+  [Re-check the reference pair under the first-time guarantee](issues/31-recheck-under-the-first-time-guarantee.md)
+  reads the own-bin share and free-index depth under the solved floor.
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
   inflation changed what a split arm trades: aisles for travel, not capacity for travel (it
   used to raise fill by shrinking the shelf under a fixed stock, and `cells._tightest_split`'s
