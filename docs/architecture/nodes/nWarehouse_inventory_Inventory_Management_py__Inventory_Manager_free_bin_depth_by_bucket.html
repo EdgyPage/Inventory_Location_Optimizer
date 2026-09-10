@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>free_bin_depth_by_bucket · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_free_bin_depth_by_bucket" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager.free_bin_depth_by_bucket">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>free_bin_depth_by_bucket</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>free_bin_depth_by_bucket</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def free_bin_depth_by_bucket(self) -&gt; list</code></pre>
+<section class="doc">The free index PER BUCKET: `[(BinKey, free), ...]` in key order, a LEVEL per bucket.
+
+One row per key `_index` has ever held, INCLUDING buckets whose list is empty -- a
+bucket that ran dry is the finding, and dropping its row would report it as &quot;no such
+bucket&quot; rather than as zero.  The keys are the four coordinates the record&#x27;s
+`coverage.final.&lt;ch&gt;.fielded.buckets` stamps its setup `free` under, so a reader joins
+the two on `(handling, category, size, unit)` and needs no other map.  A leaf&#x27;s own
+section is the rows whose `unit` is its regime&#x27;s; the other section&#x27;s rows are the
+artefact `free_bin_depth` cannot separate.  Sorted, so the row order is a pure function
+of warehouse state (the same determinism contract every other reader keeps).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_free_bin_depth_by_bucket">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20free_bin_depth_by_bucket">Source ↗</a></p>
+</article>
+</main>
+</body></html>

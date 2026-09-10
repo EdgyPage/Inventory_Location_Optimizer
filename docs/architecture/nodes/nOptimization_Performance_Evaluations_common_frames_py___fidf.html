@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_fidf · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_common_frames_py___fidf" data-id="Optimization/Performance_Evaluations/common/frames.py::_fidf">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a> <span class="sep">›</span> <span class="here"><code>_fidf</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_fidf</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization/Performance_Evaluations/common/frames.py</code></a></p>
+
+<pre class="sig"><code>def _fidf(rows)</code></pre>
+<section class="doc">The RAW `free_index` rows, one LEVEL per (batch, BinKey) -- the rework clause&#x27;s
+per-bucket depth (department-calibration 32, decision 3).
+
+THE AUDIT&#x27;S ONLY PATH TO THE TABLE, and an explicit column dict like `_bdf`&#x27;s for the
+same reason: `throughput/audit.py` builds `free_rows` from this frame, so a column
+missing here would make `equilibrium._rework_clause` read every bucket as unrecorded
+and report a clean depth on exactly the run it exists to flag (the vacuity ticket 24
+fell into with the flows).  Deliberately unfolded -- the clause takes per-bucket minima,
+means and drawdowns over a window, none of which survive a fold here.  Empty with its
+columns on a vintage without the table, which the clause reports as &quot;depth unrecorded
+per bucket&quot;, never as a warehouse with no free bins.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__free_index_frame.html"><code>free_index_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_common_frames_py___fidf">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/common/frames.py#:~:text=def%20_fidf">Source ↗</a></p>
+</article>
+</main>
+</body></html>

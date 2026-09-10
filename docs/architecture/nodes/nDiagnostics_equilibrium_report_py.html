@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostics.equilibrium_report · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_equilibrium_report_py" data-id="Diagnostics/equilibrium_report.py">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <span class="here"><code>Diagnostics/equilibrium_report.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Diagnostics.equilibrium_report</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_equilibrium_report_py.html"><code>Diagnostics/equilibrium_report.py</code></a></p>
+
+<pre class="sig"><code>Diagnostics.equilibrium_report</code></pre>
+<section class="doc">equilibrium_report.py — the calibrated era&#x27;s equilibrium check, per leaf, off a finished run.
+
+Reads a run tree through its own contract and prints `Optimization/simconfig/equilibrium.py`&#x27;s
+verdict for every arm of every channel run: the five clauses (labour, released_late,
+utilization, supply, rework) over a window of working days, each with its reading, exactly
+as the throughput audit logs them -- without re-running the analysis.  Built for &quot;Split the
+missed-share clause into supply and labour&quot; (department-calibration 30), whose done-when is a
+re-read of two finished runs, and for the re-check that follows it (31).
+
+    python Diagnostics/equilibrium_report.py &lt;run_root&gt;                  # every closed day
+    python Diagnostics/equilibrium_report.py &lt;run_root&gt; --window 20-39   # the measured window
+    python Diagnostics/equilibrium_report.py &lt;run_root&gt; --arm fifo --json out.json
+
+`&lt;run_root&gt;` is a run directory under the `COMPARISON_OUTPUT_DIR` from `.env` (a path, or a
+bare name resolved against it) -- read the key, never paste a machine-local path.
+
+The expectations come off the run&#x27;s OWN staffing record (the run spec at the run root, the
+same object `run_analysis` stamps onto `sim_result`), keyed by the leaf&#x27;s pair and channel, and re-centred
+per arm on its stamped `expected_pick` -- the same three calls the audit makes
+(`expectations_for`, `arm_expectations`, `check`), so the two cannot disagree.  A leaf whose
+record carries no derived block (a flag-off run) is reported as such and skipped.  A window
+outside the ledger&#x27;s closed days is refused per arm rather than judged over days that never
+happened.
+
+Exit status: 0 when every judged arm passed, 1 when any failed, 2 when nothing could be
+judged.  The `--json` file carries every verdict&#x27;s `as_dict()` under `&lt;cell&gt;/&lt;leaf&gt;/&lt;arm&gt;`,
+which is what a ticket&#x27;s answer quotes.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py.html"><code>Optimization.simconfig.equilibrium</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nDiagnostics_equilibrium_report_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nDiagnostics_equilibrium_report_py___db_path.html"><code>_db_path</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nDiagnostics_equilibrium_report_py___leaf_label.html"><code>_leaf_label</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nDiagnostics_equilibrium_report_py__bucket_table__n.html"><code>_n</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nDiagnostics_equilibrium_report_py___window_arg.html"><code>_window_arg</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nDiagnostics_equilibrium_report_py__bucket_table.html"><code>bucket_table</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nDiagnostics_equilibrium_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nDiagnostics_equilibrium_report_py__report.html"><code>report</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_equilibrium_report_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/equilibrium_report.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

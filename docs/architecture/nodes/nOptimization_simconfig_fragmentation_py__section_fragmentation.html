@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>section_fragmentation · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_fragmentation_py__section_fragmentation" data-id="Optimization/simconfig/fragmentation.py::section_fragmentation">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a> <span class="sep">›</span> <span class="here"><code>section_fragmentation</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>section_fragmentation</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def section_fragmentation(orders, *, lines_per_day: float | None=None, days=(), lines_per_day_by_sku: dict | None=None, j_max: int=J_MAX) -&gt; dict</code></pre>
+<section class="doc">The expected extra units per bucket over one channel section: the closed form the
+record stamps.
+
+    {&#x27;buckets&#x27;: {BinKey: {&#x27;fielded&#x27;: int, &#x27;expected_units&#x27;: float,
+                          &#x27;expected_extra&#x27;: float,
+                          &#x27;expected_extra_at&#x27;: [per day in `days`]}},
+     &#x27;expected_extra&#x27;: float,          # the section sum, stationary
+     &#x27;expected_extra_at&#x27;: [...],       # the section sum per day in `days`
+     &#x27;n_skus&#x27;, &#x27;n_classes&#x27;, &#x27;capped_classes&#x27;, &#x27;positive_lead_skus&#x27;,
+     &#x27;stationary_bins_per_sku&#x27;, &#x27;fielded_bins_per_sku&#x27;,
+     &#x27;chains&#x27;: {class_key: SkuChain}}
+
+`expected_extra` is `expected_units - fielded` and can be NEGATIVE for a bucket: a
+partial pallet packs into a smaller tier than the full one it replaces, so a plan&#x27;s
+singleton or small-tier remainder migrates down a tier under churn (the reference
+store&#x27;s `singleton` bucket empties toward `small`).  The section sum is what the
+shelf needs beyond its declaration.
+
+`days` (with `lines_per_day`, the section&#x27;s declared line count) adds the transient:
+the expected extra at each day after a fresh fielding, the line share per SKU being
+`freq / sum freq` as `coverage.daily_demand` weights it -- or, when
+`lines_per_day_by_sku` is given, that map&#x27;s rate per SKU (a SKU absent from it sees
+no line).  The seam exists because the stationary law needs no line rate while the
+transient is only as good as its rate: the batch sampler&#x27;s affinity lift spreads a
+section&#x27;s lines over SKUs differently from the line share (the fulfillment section
+of the reference pair touches about a quarter fewer SKUs by day 25 than the share
+predicts), and a trajectory band would read the sampler&#x27;s own rate through this
+seam rather than the share.</section>
+<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain.html"><code>SkuChain</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__bucket_of.html"><code>bucket_of</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__class_key.html"><code>class_key</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__plan_slots.html"><code>plan_slots</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__poisson_weights.html"><code>poisson_weights</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__tier_prefix.html"><code>tier_prefix</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__derived_holds.html"><code>derived_holds</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__stamp_fragmentation.html"><code>stamp_fragmentation</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_fragmentation_py__section_fragmentation">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/fragmentation.py#:~:text=def%20section_fragmentation">Source ↗</a></p>
+</article>
+</main>
+</body></html>

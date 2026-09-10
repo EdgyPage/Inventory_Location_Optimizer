@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin.html"><code>PlanningMixin</code></a> <span class="sep">›</span> <span class="here"><code>field_requirement</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>field_requirement</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>@classmethod
 def field_requirement(cls, orders: list[Order], slots: dict | None=None) -&gt; tuple[list[Order], set]</code></pre>
 <section class="doc">Field every order at exactly its declared level, packed exactly as
@@ -52,7 +52,7 @@ is random — the old `rng` seeded the contest, and the contest is gone.
 `Order.declare_stock` is the one mutation site for the four level slots (ADR-0002);
 the order-up-to, the reorder point and the pipeline stamp pass through unchanged,
 because the planner no longer has an opinion about them.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py__UnfieldableRequirement.html"><code>UnfieldableRequirement</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py___equilibrium_qty.html"><code>_equilibrium_qty</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py__UnfieldableRequirement.html"><code>UnfieldableRequirement</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py___equilibrium_qty.html"><code>_equilibrium_qty</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__derived_holds.html"><code>derived_holds</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_planning_py__PlanningMixin_field_requirement">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_planning.py#:~:text=def%20field_requirement">Source ↗</a></p>
 </article>
 </main>

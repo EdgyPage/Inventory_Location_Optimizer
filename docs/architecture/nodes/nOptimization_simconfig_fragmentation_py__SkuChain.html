@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkuChain · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_fragmentation_py__SkuChain" data-id="Optimization/simconfig/fragmentation.py::SkuChain">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a> <span class="sep">›</span> <span class="here"><code>SkuChain</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>SkuChain</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a></p>
+
+<pre class="sig"><code>@dataclass
+class SkuChain</code></pre>
+<section class="doc">The fragmentation chain of one SKU CLASS -- every SKU sharing a line law, a
+`stock_plan` and a reorder point shares it, whatever its size tier.
+
+`kinds` is the fixed list of unit kinds the plan can ever produce (every `packing(r)`
+for `r = 1..Q`); `stationary_units[k]` the expected units of kind `k` on the shelf
+under the stationary law, `trajectory_units[j, k]` the same after exactly `j` lines
+from the fielded state, `fielded_units[k]` what the plan fields.  `stationary_bins`
+is the expected bin count, `bins_law` its distribution `{bins: p}`, `rho` the share
+of lines that empty a full shelf (`P(q &gt;= Q)`), `states` the reachable state count.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_fragmentation_py__section_fragmentation.html"><code>section_fragmentation</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_fragmentation_py__SkuChain">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/fragmentation.py#:~:text=class%20SkuChain">Source ↗</a></p>
+</article>
+</main>
+</body></html>

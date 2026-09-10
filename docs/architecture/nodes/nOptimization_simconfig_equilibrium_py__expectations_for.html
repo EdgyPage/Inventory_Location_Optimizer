@@ -29,6 +29,9 @@ Returns
     {&#x27;pair&#x27;, &#x27;channel&#x27;, &#x27;day_seconds&#x27;, &#x27;band_tol&#x27;,
      &#x27;departments&#x27;: {dept: {&#x27;crew&#x27;: int, &#x27;expected&#x27;: float}},   # only those that apply
      &#x27;absent&#x27;: {dept: why},
+     &#x27;fill_rate&#x27;, &#x27;expected_missed_share&#x27;,      # the supply clause&#x27;s level (None pre-floor)
+     &#x27;expected_cut_share&#x27;, &#x27;expected_cut_share_sd&#x27;, &#x27;guarantee&#x27;,   # the labour clause&#x27;s
+     &#x27;expected_repacked_packs&#x27;,
      &#x27;flags&#x27;: {&#x27;overridden&#x27;, &#x27;saturated&#x27;}}
 
 A department with no crew on this site, or whose expected value the record does not
@@ -36,7 +39,7 @@ carry for this channel, is ABSENT rather than expected at zero: a band around 0.
 pass a crew that did nothing and fail one that did anything, and neither is a finding.
 Raises `RecordError` on a record with no derived block for the pair (a flag-off run) or
 no section for the channel.</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__RecordError.html"><code>RecordError</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___expected_repacked_packs.html"><code>_expected_repacked_packs</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__picker_key.html"><code>picker_key</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_context_py__EvalContext_staffing_expectations.html"><code>staffing_expectations</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__RecordError.html"><code>RecordError</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___expected_repacked_packs.html"><code>_expected_repacked_packs</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___guarantee_crew.html"><code>_guarantee_crew</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__setup_free_by_bucket.html"><code>setup_free_by_bucket</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_staffing_py__channel_crew.html"><code>channel_crew</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_equilibrium_report_py__report.html"><code>report</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_context_py__EvalContext_staffing_expectations.html"><code>staffing_expectations</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py__expectations_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20expectations_for">Source ↗</a></p>
 </article>
 </main>

@@ -15,17 +15,20 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def arm_expectations(expectations: dict, expected_pick: dict | None) -&gt; dict</code></pre>
-<section class="doc">The expectations for ONE ARM: the pair&#x27;s, with the picking band re-centred on the
-arm&#x27;s own expected seconds per unit under its initial placement.
+<section class="doc">The expectations for ONE ARM: the pair&#x27;s, with the picking band -- and the labour
+clause&#x27;s expected cut share -- re-centred on the arm&#x27;s own expected seconds per unit
+under its initial placement.
 
 The pair&#x27;s pick expectation was drawn at the class-uniform `s_pick` (the demand&#x27;s
-fixed point, so it equals rho by construction).  An arm whose placement makes a unit
-cheaper is EXPECTED to run below it -- by the ratio of the two expectations, since the
-demand is shared -- and the band belongs around that number (&quot;Derive the expected-travel
-closed form&quot;: the per-arm expectation is stamped for the report only).  Without a
-stamped `expected_pick` (a flag-off arm, an older run) the pair&#x27;s expectations are
-returned unchanged; the pick department is left alone when either `s_pick` is unknown.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li></ul></section>
+fixed point).  An arm whose placement makes a unit cheaper is EXPECTED to run below it
+-- by the ratio of the two expectations, since the demand is shared -- and the band
+belongs around that number (&quot;Derive the expected-travel closed form&quot;: the per-arm
+expectation is stamped for the report only).  The same ratio scales the day&#x27;s load and
+its sd, so the arm&#x27;s expected cut share is `cut_share(load·r, sd·r, K, S)` -- a cheaper
+unit is cut less often -- and its sampling sd follows.  Without a stamped
+`expected_pick` (a flag-off arm, an older run) the pair&#x27;s expectations are returned
+unchanged; the pick department is left alone when either `s_pick` is unknown.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__cut_share.html"><code>cut_share</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__cut_share_sd.html"><code>cut_share_sd</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_equilibrium_report_py__report.html"><code>report</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py__arm_expectations">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20arm_expectations">Source ↗</a></p>
 </article>
 </main>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>declared_packing · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_planning_py__PlanningMixin_declared_packing" data-id="Warehouse/inventory/inventory_planning.py::PlanningMixin.declared_packing">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin.html"><code>PlanningMixin</code></a> <span class="sep">›</span> <span class="here"><code>declared_packing</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>declared_packing</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>@classmethod
+def declared_packing(cls, orders: list[Order]) -&gt; tuple[dict, dict]</code></pre>
+<section class="doc">Both halves of `_packing` in one pass, for a caller that needs the requirement AND
+the per-order slots -- `({bucket: bins}, {id(order): slots})` -- and will hand the
+slots to `field_requirement` rather than pay for a second packing.  The era&#x27;s
+coverage loop stamps every SKU&#x27;s plan BEFORE it plans the warehouse, because the
+fragmentation chain the derived headroom reads packs a lot by that plan
+(`era_coverage.derived_holds`).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__derived_holds.html"><code>derived_holds</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_planning_py__PlanningMixin_declared_packing">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_planning.py#:~:text=def%20declared_packing">Source ↗</a></p>
+</article>
+</main>
+</body></html>

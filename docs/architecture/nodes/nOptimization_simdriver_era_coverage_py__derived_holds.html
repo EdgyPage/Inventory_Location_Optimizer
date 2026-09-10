@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>derived_holds · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_era_coverage_py__derived_holds" data-id="Optimization/simdriver/era_coverage.py::derived_holds">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>derived_holds</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>derived_holds</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def derived_holds(orders_all: list, specs: list, *, min_headroom: float, log: logging.Logger) -&gt; tuple[dict, dict, dict]</code></pre>
+<section class="doc">The era&#x27;s per-bucket hold map for a DECLARED catalogue, before the warehouse is
+planned: `(holds, fills, frags)` -- `{bucket: bins}` for the planner, `derive_fill`&#x27;s
+table, and each channel&#x27;s `section_fragmentation` result (keyed by channel name).
+
+The chain packs a lot by the SKU&#x27;s `stock_plan`, which the planner writes when it
+fields -- AFTER sizing.  So every SKU&#x27;s plan is stamped here first (one packing pass,
+`declared_packing` + `field_requirement` with its slots); the planner&#x27;s own packing
+then honours the stamped plan (`viable_storage_units`&#x27; plan branch) and fields the same
+thing, which the loop&#x27;s fielded-equals-declared check states rather than assumes.  The
+chain computed here is the one the record stamps (`stamp_fragmentation(frag=)`): same
+declaration, same plan, one derivation.
+
+COST: one packing pass plus the chain per channel, EVERY round of the loop (the chain
+used to run once, after convergence).  Under the era the loop is one round, so setup
+grows by one packing and the chain (about a minute on the 400k-SKU reference pair);
+the `[coverage] fill DERIVED ... [Ns]` line below is where that time shows.</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_simconfig_fragmentation_py__section_fragmentation.html"><code>section_fragmentation</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_staffing_py__regime_orders.html"><code>regime_orders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__derive_fill.html"><code>derive_fill</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_declared_packing.html"><code>declared_packing</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li><li><a href="nWarehouse_inventory_inventory_planning_py__PlanningMixin_field_requirement.html"><code>field_requirement</code></a> <span class="dim">Warehouse/inventory/inventory_planning.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__fixed_point.html"><code>fixed_point</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_era_coverage_py__derived_holds">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/era_coverage.py#:~:text=def%20derived_holds">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -13,6 +13,14 @@ files:
       - {name: "runtime_view", file: "Diagnostics/bucket_fill.py", kind: "function"}
       - {name: "main", file: "Diagnostics/bucket_fill.py", kind: "function"}
     notes: ""
+  "Diagnostics/equilibrium_report.py":
+    purpose: "the calibrated era's equilibrium check, per leaf, off a finished run."
+    layer: "diagnostics"
+    key_symbols:
+      - {name: "report", file: "Diagnostics/equilibrium_report.py", kind: "function"}
+      - {name: "bucket_table", file: "Diagnostics/equilibrium_report.py", kind: "function"}
+      - {name: "main", file: "Diagnostics/equilibrium_report.py", kind: "function"}
+    notes: ""
   "Diagnostics/receiving_report.py":
     purpose: "the receiving stream, reconciled against the run that wrote it."
     layer: "diagnostics"
@@ -156,6 +164,7 @@ files:
     key_symbols:
       - {name: "SEMANTIC_USES", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "const"}
       - {name: "pair_model", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "function"}
+      - {name: "floor_text", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "function"}
       - {name: "render", file: "Optimization/Performance_Evaluations/catalog/inventory.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/catalog/rules.py":
@@ -381,6 +390,8 @@ files:
       - {name: "yard_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "drain_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "missed_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "carry_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "free_index_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "work_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "shift_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "metric_frames", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -696,6 +707,10 @@ files:
       - {name: "ROLL_OVER_UNPICKED", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "FF_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "STORE_DEMAND", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FF_DEMAND", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "FIRST_TIME_CONFIDENCE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "MIN_HEADROOM", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICK_MODE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "FF_PICK_MODE", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "PUT_CREW_SIZE", file: "Optimization/config/settings.py", kind: "const"}
@@ -750,7 +765,10 @@ files:
       - {name: "seed_batches", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "n_batches", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "channel_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "channel_demand", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "min_headroom", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "staffing_spec", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "staffing_provenance", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "era_on", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "k_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -908,7 +926,10 @@ files:
       - {name: "CAP_SHIFT_DAYS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "SIM_CAPABILITIES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "OCCUPANCY_LADDER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "BATCH_UNKNOWN_ON_OLDER_VINTAGES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_CARRY_SPLIT_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "PRE_REWORK_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "PRE_FREE_INDEX_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "KEYFRAME_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -942,6 +963,7 @@ files:
       - {name: "save_shift_days", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_checkpoint_bundle", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "load_free_index", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_carryover", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -1199,6 +1221,7 @@ files:
       - {name: "stock_levels", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "rescale_section", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "fill_rate", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "solve_floor_lines", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "converged", file: "Optimization/simconfig/coverage.py", kind: "function"}
     notes: ""
   "Optimization/simconfig/equilibrium.py":
@@ -1210,9 +1233,11 @@ files:
       - {name: "RecordError", file: "Optimization/simconfig/equilibrium.py", kind: "class"}
       - {name: "Clause", file: "Optimization/simconfig/equilibrium.py", kind: "class"}
       - {name: "Verdict", file: "Optimization/simconfig/equilibrium.py", kind: "class"}
-      - {name: "picker_key", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "bucket_label", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "setup_free_by_bucket", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "expectations_for", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "arm_expectations", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "demand_flows", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "window_of", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "check_rows", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "check", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
@@ -1235,6 +1260,23 @@ files:
       - {name: "solve_n", file: "Optimization/simconfig/expected_travel.py", kind: "function"}
       - {name: "put_site_pricer", file: "Optimization/simconfig/expected_travel.py", kind: "function"}
     notes: ""
+  "Optimization/simconfig/fragmentation.py":
+    purpose: "the stationary bin fragmentation of a replenished SKU, in closed form."
+    layer: "optimization"
+    key_symbols:
+      - {name: "plan_slots", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "packing", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "plan_total", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "drain_all", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "line_pmf", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "SkuChain", file: "Optimization/simconfig/fragmentation.py", kind: "class"}
+      - {name: "poisson_weights", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "class_key", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "unit_for", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "tier_prefix", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "bucket_of", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+      - {name: "section_fragmentation", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
+    notes: ""
   "Optimization/simconfig/staffing.py":
     purpose: "the calibrated era's staffing DERIVATION, as a pure module."
     layer: "optimization"
@@ -1242,6 +1284,15 @@ files:
       - {name: "PricingConfig", file: "Optimization/simconfig/staffing.py", kind: "class"}
       - {name: "analytic_pick", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "pick_capacity", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "first_time_split", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "line_moments", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "units_cv", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "partial_expectation", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "cut_share", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "cut_share_sd", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "solve_pickers", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "picker_key", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "channel_crew", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "daily_demand", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "batch_content", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "ScriptTotals", file: "Optimization/simconfig/staffing.py", kind: "class"}
@@ -1277,6 +1328,7 @@ files:
     purpose: "the calibrated era's stage-A expectation per channel, and the pair-level fixed point that sizes the warehouse in stock days."
     layer: "opt_simdriver"
     key_symbols:
+      - {name: "declared_lines", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "ChannelSpec", file: "Optimization/simdriver/era_coverage.py", kind: "class"}
       - {name: "channel_specs", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "stage_a", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
@@ -1284,8 +1336,15 @@ files:
       - {name: "declared_at", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "MissingCoverageRecord", file: "Optimization/simdriver/era_coverage.py", kind: "class"}
       - {name: "declare_from_record", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "floors_at", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "next_guess", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "fielded_block", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "derive_fill", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "derived_holds", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "stamp_fill", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "holds_at", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "stamp_fragmentation", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "resolve_floors", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "fixed_point", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/scenario.py":
@@ -3360,12 +3419,13 @@ files:
     key_symbols:
       - {name: "S", file: "Tests/unit/test_equilibrium_check.py", kind: "const"}
       - {name: "TOL", file: "Tests/unit/test_equilibrium_check.py", kind: "const"}
+      - {name: "FRESH", file: "Tests/unit/test_equilibrium_check.py", kind: "const"}
       - {name: "test_the_reference_window_passes_and_every_clause_reports_its_reading", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
-      - {name: "test_one_capped_day_in_twenty_fails_the_drained_clause_and_names_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_capped_day_is_a_reading_never_a_failed_clause", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_day_the_ledger_never_closed_fails_rather_than_passing_vacuously", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_is_drained_reads_labour_only_and_never_the_supply_carry", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
-      - {name: "test_a_day_with_supply_carry_only_is_drained_and_the_clause_reports_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
-      - {name: "test_a_day_with_daycut_carry_only_is_capped", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_day_with_supply_carry_only_is_drained_and_the_reading_says_so", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_day_with_daycut_carry_only_is_capped_and_the_ledger_level_rides_the_reading", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_day_that_ended_at_its_cap_with_a_late_last_finish_is_capped_not_drained", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_day_that_ended_early_with_nothing_standing_is_drained", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_the_pre_amendment_stamp_is_the_contradiction_the_released_late_clause_raises_on", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
@@ -3376,16 +3436,32 @@ files:
       - {name: "test_a_department_outside_the_band_fails_the_utilization_clause", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_the_band_is_around_the_expected_value_not_around_rho", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_utilization_is_a_ratio_of_sums_over_the_window_never_a_mean_of_days", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
-      - {name: "test_a_trending_missed_share_fails_and_the_level_is_recorded_not_gated", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_an_absent_department_is_not_gated_and_says_why", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_an_empty_window_is_refused", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_fresh_demand_is_the_effective_batch_less_the_previous_carry", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_re_attempted_stockout_is_counted_once_and_the_share_is_over_fresh_demand", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_carry_larger_than_the_stated_demand_is_an_instrument_error", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_unrecorded_flows_fail_both_clauses_rather_than_reading_as_everything_served", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_trending_supply_share_fails_and_names_the_halves", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_the_supply_level_is_judged_against_the_stamped_fill_within_its_tolerance", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "CUT_SD", file: "Tests/unit/test_equilibrium_check.py", kind: "const"}
+      - {name: "test_the_cut_share_band_is_the_laws_sampling_sd_over_the_window", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_cut_share_outside_the_band_fails_the_labour_clause", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_labour_carry_past_a_days_capacity_fails_even_when_the_share_is_in_band", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_trending_cut_share_fails_with_the_level_in_band", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_the_labour_trend_band_is_the_laws_never_the_typed_supply_tolerance", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_without_a_stamped_law_the_trend_band_is_the_windows_own_within_half_spread", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_spread_less_law_reports_the_level_rather_than_testing_float_equality", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_without_a_guarantee_the_cut_share_is_reported_not_judged", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_pure_overflow_series_passes_supply_and_fails_labour", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_a_pure_stockout_series_passes_labour_and_fails_supply", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_expectations_are_read_per_department_off_the_derived_block", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
-      - {name: "test_arm_expectations_recentre_the_pick_band_by_the_ratio_of_expected_seconds", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_the_expected_cut_share_and_its_sd_come_off_the_stamped_guarantee", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_arm_expectations_recentre_the_pick_band_and_the_cut_share_by_the_ratio_of_expected_seconds", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_department_with_no_crew_is_absent_not_expected_at_zero", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
-      - {name: "test_the_expected_missed_share_comes_off_the_stamped_fill_rate_or_is_none", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
-      - {name: "test_the_missed_share_clause_carries_the_expectation_but_never_gates_on_it", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_the_expected_supply_share_comes_off_the_stamped_fill_rate_or_is_none", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_record_without_the_pair_or_the_channel_is_a_record_error", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
-      - {name: "test_check_reads_the_three_sources_off_a_sim_db", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
+      - {name: "test_check_reads_the_four_sources_off_a_sim_db", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
       - {name: "test_a_run_that_never_closed_a_day_fails_on_the_ledger_not_on_a_plausible_pass", file: "Tests/unit/test_equilibrium_check.py", kind: "function"}
     notes: ""
   "Tests/unit/test_equilibrium_reorder.py":
@@ -3469,6 +3545,75 @@ files:
       - {name: "test_a_put_priced_at_one_known_bin_is_put_cost_exactly", file: "Tests/unit/test_expected_travel.py", kind: "function"}
       - {name: "test_an_unbuilt_class_raises_instead_of_pricing_at_zero", file: "Tests/unit/test_expected_travel.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_fill_headroom.py":
+    purpose: "the planner's fill headroom is DERIVED under the calibrated era."
+    layer: "tests"
+    key_symbols:
+      - {name: "H", file: "Tests/unit/test_fill_headroom.py", kind: "const"}
+      - {name: "restore", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "A", file: "Tests/unit/test_fill_headroom.py", kind: "const"}
+      - {name: "B", file: "Tests/unit/test_fill_headroom.py", kind: "const"}
+      - {name: "C", file: "Tests/unit/test_fill_headroom.py", kind: "const"}
+      - {name: "D", file: "Tests/unit/test_fill_headroom.py", kind: "const"}
+      - {name: "test_the_hold_is_the_requirement_plus_the_extra_floored_at_the_minimum_headroom", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_a_zero_headroom_is_the_fragmentation_alone_and_the_bounds_refuse", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_a_named_bucket_is_sized_to_hold_its_map_and_every_other_keeps_the_fill_rule", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_no_hold_map_is_the_old_arithmetic_exactly", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_an_empty_bucket_named_by_the_map_is_sized_to_its_extra", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_a_hold_the_capacity_cannot_meet_refuses_and_names_the_extra_bins", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_the_loop_derives_the_holds_before_it_plans_and_stamps_them", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_flag_off_the_loop_calls_a_planner_that_never_learned_the_keyword", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_a_mixed_catalogue_derives_one_hold_map_and_stamps_each_section_its_own", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_stamp_fill_refuses_a_plan_that_drifted_from_the_derivation", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_holds_at_reads_only_a_derived_record", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_the_era_sizes_every_bucket_from_the_derived_fill_and_a_rebuild_reproduces_it", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_flag_off_the_run_is_sized_at_the_typed_fill_and_records_it", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_min_headroom_is_an_era_only_staffing_key_with_its_default", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_the_knob_has_a_flag_and_settings_names_it", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_a_typed_fill_under_the_era_is_an_error", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_the_flag_takes_a_free_share_and_a_pre_feature_era_resume_is_refused", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_a_typed_min_headroom_without_the_era_is_an_error", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_a_cells_derivation_keeps_the_coverage_the_freeze_recorded", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+      - {name: "test_the_run_spec_records_the_typed_fills_as_none_under_the_era_and_a_none_is_skipped", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_first_time_guarantee.py":
+    purpose: "demand is declared, the picking crew and the line floor are derived from the joint first-time confidence (ADR-0004)."
+    layer: "tests"
+    key_symbols:
+      - {name: "S", file: "Tests/unit/test_first_time_guarantee.py", kind: "const"}
+      - {name: "C", file: "Tests/unit/test_first_time_guarantee.py", kind: "const"}
+      - {name: "SIDE", file: "Tests/unit/test_first_time_guarantee.py", kind: "const"}
+      - {name: "BOUND", file: "Tests/unit/test_first_time_guarantee.py", kind: "const"}
+      - {name: "section", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "restore", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_split_is_the_square_root_and_refuses_the_poles", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_partial_expectation_is_the_normal_overflow_by_hand", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_cut_share_sd_is_the_normal_overflows_spread_by_hand", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_solve_pickers_is_the_smallest_crew_inside_the_bound_and_walks_up_from_the_mean_day", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_reference_pair_solves_to_the_crew_the_ticket_predicted", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_sabotage_pricing_on_served_units_breaks_the_cut_share_bound", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_line_moments_and_the_units_cv_by_hand", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_closed_form_cut_share_matches_a_monte_carlo_of_the_declared_law", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_floor_solves_to_the_smallest_line_count_that_clears_the_fill", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_floor_stays_at_one_line_when_one_line_already_clears_it_and_refuses_the_unreachable", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_a_section_above_its_floor_solves_the_same_root_through_coverage_days", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_regime_decides_which_keys_are_inputs", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_reference_defaults_reproduce_the_previous_fixed_point", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_provenance_follows_the_regime", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_record_round_trips_through_both_restore_sites", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_a_typed_crew_or_picking_target_under_the_era_is_an_error", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_a_typed_demand_or_confidence_without_the_era_is_an_error", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_each_regime_accepts_its_own_flags", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_each_new_knob_has_a_flag", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_a_per_arm_count_is_refused_under_the_era_even_when_it_restates_the_placeholder", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_channel_crew_prefers_the_derived_block_over_every_record_shape", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_worker_checks_its_crew_against_the_derived_block", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_expectations_read_the_derived_crew", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_derived_crew_reaches_the_channel_and_the_payload", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_the_era_declares_the_day_solves_the_floor_and_the_crew_in_one_round", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_flag_off_is_byte_identical_to_the_declared_crew_regime", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+      - {name: "test_floors_at_reads_per_channel_and_falls_back_to_the_scalar_then_the_default", file: "Tests/unit/test_first_time_guarantee.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_forward_pick_family.py":
     purpose: "one spelling for forward-pick vs reserve."
     layer: "tests"
@@ -3483,6 +3628,60 @@ files:
       - {name: "test_the_size_tier_does_not_change_the_answer", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
       - {name: "test_candidate_matching_never_crosses_unit_families", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
       - {name: "test_no_module_selects_between_the_two_bin_indexes_by_hand", file: "Tests/unit/test_forward_pick_family.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_fragmentation.py":
+    purpose: "the stationary-fragmentation closed form against hand computations, the packer it reproduces, and the era_coverage record it stamps (department-calibration 34)."
+    layer: "tests"
+    key_symbols:
+      - {name: "TwoOutcome", file: "Tests/unit/test_fragmentation.py", kind: "class"}
+      - {name: "section", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_packing_is_the_packers_plan_branch_on_real_orders", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_packing_refuses_a_lot_past_the_plan_and_an_order_without_a_plan", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_drain_all_takes_the_smallest_unit_first_for_every_depth_in_one_pass", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_a_tie_is_split_uniformly_over_the_tied_units_and_branches_merge", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_the_chain_on_a_two_outcome_law_matches_the_hand_computation", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_base_stock_is_the_default_and_a_reorder_point_below_it_drains_the_shelf", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_a_plan_of_single_item_units_never_fragments", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_the_solver_falls_back_to_the_iterate_when_the_direct_solve_declines", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_line_pmf_truncates_and_renormalises_the_tail_and_refuses_an_empty_law", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_poisson_weights_are_a_distribution_with_the_tail_in_the_last_column", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_section_sums_share_chains_by_class_and_reconcile_with_the_fielding", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_class_key_separates_regime_law_plan_and_reorder_point", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_a_partial_lot_migrates_the_plans_remainder_down_a_tier", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_the_transient_reads_the_line_share_or_the_rate_a_caller_hands_in", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_the_module_is_pure", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_stamp_fragmentation_writes_every_bucket_row_and_the_section_block", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_stamp_fragmentation_raises_on_a_bucket_the_plan_never_built", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+      - {name: "test_fixed_point_stamps_the_fragmentation_on_the_record", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_free_index_by_bucket.py":
+    purpose: "the tier spill, the free index per bucket, and the rework clause that judges three events at zero (department-calibration 32 / 33)."
+    layer: "tests"
+    key_symbols:
+      - {name: "SMALL", file: "Tests/unit/test_free_index_by_bucket.py", kind: "const"}
+      - {name: "MEDIUM", file: "Tests/unit/test_free_index_by_bucket.py", kind: "const"}
+      - {name: "test_a_unit_whose_own_tier_is_dry_spills_up_and_is_counted", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_a_placement_into_the_units_own_tier_is_not_a_spill", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_free_bin_depth_by_bucket_partitions_the_index_and_keeps_a_dry_bucket_at_zero", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_snapshot_resets_the_spill_flow_and_the_bucket_depth_does_not", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_the_recorder_stamps_the_tier_pair_and_a_spill_row_is_the_one_where_they_differ", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_a_top_up_row_carries_the_bin_tier_and_no_unit_tier", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_free_index_rows_ride_the_bundle_and_read_back_from_the_file", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_the_tier_pair_round_trips_through_bin_placement", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_the_vintages_before_the_table_read_unknown_never_zero", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_the_reference_window_passes_and_reports_the_depth_per_bucket_of_the_record", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_a_tier_spill_fails_the_clause_naming_the_dry_bucket", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_a_top_up_fails_the_clause_with_no_knob_and_without_a_repack_expectation", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_an_unrecorded_spill_count_is_unknown_and_cannot_fail_a_zero", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_a_dry_bucket_shows_in_the_per_bucket_reading_while_the_leaf_total_stays_high", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_without_a_record_every_recorded_bucket_is_reported_and_a_window_is_respected", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_expectations_for_carries_the_setup_free_per_bucket_off_the_fielded_block", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_check_reads_the_free_index_off_a_sim_db_and_a_spill_fails_it", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_a_forced_spill_fails_the_clause_through_the_audits_own_frames", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_the_inspection_table_carries_the_three_events_and_the_depth", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_the_diagnostic_prints_a_per_bucket_table", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_the_runner_snapshots_the_bucket_depth_per_batch_and_flushes_it_with_the_bundle", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
+      - {name: "test_a_forced_spill_fails_the_clause_through_the_audits_call_site", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
     notes: ""
   "Tests/unit/test_fulfillment_channels.py":
     purpose: "test_fulfillment_channels.py"
@@ -4607,6 +4806,8 @@ files:
       - {name: "test_without_expectations_the_verdicts_render_and_every_utilization_is_nan", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
       - {name: "test_a_day_with_no_batch_carries_zero_batches_and_nan_legs", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
       - {name: "test_the_reading_vocabulary_tells_a_saving_from_a_failure", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_the_share_reading_vocabulary_names_the_band_the_trend_and_the_carry", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
+      - {name: "test_the_inspection_table_carries_a_supply_and_a_cut_share_row_per_arm", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
       - {name: "test_the_flags_line_names_an_override_and_the_closed_form", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
       - {name: "test_the_evaluation_is_registered_gated_and_grouped", file: "Tests/unit/test_throughput_audit.py", kind: "function"}
     notes: ""

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>derive_fill · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_era_coverage_py__derive_fill" data-id="Optimization/simdriver/era_coverage.py::derive_fill">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>derive_fill</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>derive_fill</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def derive_fill(req: dict, extra: dict, min_headroom: float) -&gt; dict</code></pre>
+<section class="doc">The bins each bucket must HOLD under the era, and the fill that implies:
+
+    hold_b = max(requirement_b + E[extra_b],  requirement_b / (1 - min_headroom))
+    fill_b = requirement_b / hold_b                    (1 - min_headroom on an empty bucket)
+
+-- &quot;Band the own-bin share and the free-index depth&quot;, decision 7: the warehouse holds
+its declaration AND the stationary fragmentation base stock creates
+(`fragmentation.section_fragmentation`, the `expected_extra` per bucket), floored at a
+declared minimum headroom for what the chain does not model (settings `MIN_HEADROOM`).
+`expected_extra` can be NEGATIVE (a remainder unit migrating down a tier), and a bucket
+can carry extra with no requirement at all (the tier it migrates INTO); both read
+correctly here, the first taking the headroom floor, the second sized to its extra.
+
+Pure: `{bucket: {&#x27;requirement&#x27;, &#x27;expected_extra&#x27;, &#x27;hold&#x27;, &#x27;fill&#x27;, &#x27;headroom_floored&#x27;}}`
+over the union of both maps&#x27; buckets, `headroom_floored` saying the minimum bound (the
+fragmentation alone would have left less free).  Refuses a headroom outside [0, 1).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__derived_holds.html"><code>derived_holds</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_era_coverage_py__derive_fill">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/era_coverage.py#:~:text=def%20derive_fill">Source ↗</a></p>
+</article>
+</main>
+</body></html>

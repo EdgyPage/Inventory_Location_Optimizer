@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>solve_floor_lines · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_coverage_py__solve_floor_lines" data-id="Optimization/simconfig/coverage.py::solve_floor_lines">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>solve_floor_lines</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>solve_floor_lines</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def solve_floor_lines(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, fill_min: float, lo: float=DEFAULT_FLOOR_LINES, tol: float=FLOOR_SOLVE_TOL, hi_max: float=FLOOR_SOLVE_MAX) -&gt; dict</code></pre>
+<section class="doc">The shelf side of the first-time guarantee (ADR-0004): the smallest `floor_lines`
+at which the section&#x27;s expected first-pass fill clears `fill_min` (`sqrt(c)`), with
+the line count DECLARED.
+
+`fill(f)` is `fill_rate` over the levels `rescale_section(f)` declares -- a pure
+catalogue closed form while every SKU sits on the floor, and the same root when a
+section is not fully floored (a SKU above its floor takes `coverage_days × d_s`, which
+the formula already reads, so `coverage_days` enters the fill through the levels and
+nothing here changes).  It is a non-decreasing STEP function of `f` (`L_s = ceil(f ×
+E[q_s])` moves one SKU at a time), so the root is bracketed by doubling from `lo` and
+bisected to `tol` lines, and the answer is the bracket&#x27;s UPPER end rounded up to the
+tolerance -- always at or above the true threshold, never below it.  `lo` is the
+one-line floor: a SKU never holds less than a pick&#x27;s worth of itself, so a confidence
+one line already clears solves to exactly `lo` and says so (`at_lower_bound`).
+
+MUTATES the orders (every evaluation re-declares through `rescale_section`) and leaves
+them declared at the SOLVED floor.  Refuses a `fill_min` outside [0, 1) and a section
+that cannot reach it by `hi_max` lines.  Returns
+
+    {&#x27;floor_lines&#x27;, &#x27;fill_rate&#x27;, &#x27;fill_min&#x27;, &#x27;evaluations&#x27;, &#x27;at_lower_bound&#x27;,
+     &#x27;bracket&#x27;: (lo, hi)}</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__resolve_floors.html"><code>resolve_floors</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_coverage_py__solve_floor_lines">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/coverage.py#:~:text=def%20solve_floor_lines">Source ↗</a></p>
+</article>
+</main>
+</body></html>

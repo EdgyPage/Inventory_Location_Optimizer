@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-09-08T00:00:00.000Z
+  modified: 2026-09-10T14:21:05.585Z
 ---
 
 **AMENDED 2026-09-08 by ADR-0003.** The rule is now *empty bin first, the SKU's own bin only
@@ -52,7 +52,15 @@ repack rescue → singleton rescue → `pending`.
 **The trap if you go looking** (unchanged, and now sharper): an experiment that "turns on
 empty-bin preference" and shows no change is not evidence the feature is inert — it is
 evidence the free index never ran dry. Read `batch_stats.free_bins` and `put_topups` before
-attributing a null result to the scoring.
+attributing a null result to the scoring — but read `batch_stats.free_bins` knowing it sums
+BOTH channels' geometry, not the leaf's own section: see [[free-bins-counts-the-whole-geometry]].
+
+As of 2026-09-10, on `comparison_20260909_204522`, the free index is OBSERVED sliding toward
+that dry-out rather than holding: -6,763/day (store) and -18,279/day (fulfillment) over a
+40-day window, i.e. 3%/10% of the run's setup headroom consumed by day 40, not yet zero. This
+is consistent with ADR-0003's "runs to near zero in steady state" but is a slide mid-window,
+not the steady state itself — the window never reaches it.
 
 See [[putaway-seams-for-inbound]], [[placement-pools-and-the-audit-point]],
-[[warehouse-size-comes-from-the-levels]], [[drain-order-is-smallest-first]].
+[[warehouse-size-comes-from-the-levels]], [[drain-order-is-smallest-first]],
+[[free-bins-counts-the-whole-geometry]].

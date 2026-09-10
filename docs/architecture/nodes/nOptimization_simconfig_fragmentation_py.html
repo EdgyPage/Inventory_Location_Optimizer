@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.fragmentation · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_fragmentation_py" data-id="Optimization/simconfig/fragmentation.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/fragmentation.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.fragmentation</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simconfig.fragmentation</code></pre>
+<section class="doc">fragmentation.py -- the stationary bin fragmentation of a replenished SKU, in closed form.
+
+Under the calibrated era every SKU on the line floor runs base stock at a lead of zero
+(`coverage.py`): a line of `q` serves `min(q, Q)` off a shelf holding `Q`, the order-up-to
+fires exactly what it took, and the lot lands before the next batch.  Three decided rules
+then fragment the shelf across bins (ADR-0003; &quot;.scratch/department-calibration&quot;,
+&quot;Let a base-stock top-up reach the shelf&quot; and &quot;Band the own-bin share and the free-index
+depth&quot;):
+
+  * a top-up lands in an EMPTY bin first (`Inventory_Manager._candidates_raw`), so a
+    partial line leaves a remnant AND opens a bin for the lot that replaces it;
+  * picks drain the SKU&#x27;s SMALLEST bin first (`Workload_Builder.drain_sku`), which is what
+    clears a remnant and hands its bin back;
+  * the lot is packed by the planner&#x27;s `stock_plan` -- its LEADING slots filled in order
+    (`Storage_Primitive.viable_storage_units`), so a partial lot of `r` is `r // per`
+    units of `per` and one of `r % per`, and a pallet of fewer items can sit in a smaller
+    size tier than the full one it replaces.
+
+So each SKU is a Markov chain over the multiset of units on its shelf, driven by its own
+stamped line law (`Demand.line`).  This module derives the chain&#x27;s STATIONARY distribution
+and its TRANSIENT from a fresh fielding, and sums the expected units per bucket (BinKey)
+over a section -- the closed form the record&#x27;s `fielded.buckets[].expected_extra` stamps
+and the fill headroom is derived from (&quot;Derive the stationary fragmentation closed form&quot;,
+&quot;Derive the fill headroom from the fragmentation&quot;).
+
+THE CHAIN.  A unit is `(q_now, single, n0)`: the items it holds now, and the kind it was
+packed as (singleton or pallet, and the quantity it was packed with -- the KIND decides
+the size tier, which the bin keeps even as picks thin the unit).  A state is the sorted
+tuple of units; sorted ascending it IS the drain order.  With `S` the items on the shelf,
+`Q` the order-up-to and `rp` the reorder point, a line of `q`:
+
+  * `q &lt; S`: drain `q` smallest-first; if the shelf is then at or below `rp`, the
+    position rule fires `Q - on_hand` and `packing(Q - on_hand)` lands in fresh bins
+    (base stock is `rp = Q - 1`: every line fires exactly what it took);
+  * `q &gt;= S`: the shelf is emptied and refilled to the fielded state `f`, the remainder
+    re-offered next day against a full shelf again (nothing is lost, ADR-0004), so the
+    state after the whole line is `f` with the residual `(q - S) mod Q` drained and
+    repacked -- `staffing.fired_lots` prices the same line as lots of `Q` and one of the
+    residual.
+
+The stationary law is `pi = pi P` over the states reachable from `f` (a sparse power
+iteration on the lazy chain); the transient after `j` lines is the forward iterate from `f`.
+A SKU that sees `lambda_s` lines a day is at day `t` the Poisson(`lambda_s t`) mixture
+over `j`; `lambda_s` is `n * pi_s` with `pi_s` the line share `freq / sum freq` as
+`coverage.daily_demand` weights it, unless a caller hands a rate per SKU.
+
+WHAT IS AND IS NOT MODELLED (stated so the check&#x27;s residual has a name):
+
+  * the supply jitter (`_fire_reorders`&#x27; `max(1, round(N(lot, lot * cv)))`) is not: the
+    lot is taken as exactly what the position rule ordered;
+  * a lead is taken as zero: the lot lands before the next line.  Every catalogue the
+    generator authors today has lead 0; with a lead the multiset a lot lands as is the
+    same, only its timing against the lines between is not, and the record names the
+    SKUs priced this way (`positive_lead_skus`);
+  * two lines for one SKU in one batch are aggregated by the sampler into one quantity;
+    the chain treats each line alone (on the reference pair a SKU sees a second line in the
+    same day on under 1% of its days);
+  * a location tie between units of EQUAL quantity and DIFFERENT kind is split uniformly
+    over the tied units: `drain_sku` breaks ties by `(aisle_id, bayX, bayY)`, and the built
+    layout interleaves every tier&#x27;s aisles across the whole id range, so the tie carries
+    no information;
+  * the top-up always finds an empty bin of its own tier -- a spill or an own-bin top-up
+    is judged at zero by the equilibrium check, not modelled here.
+
+Checked (2026-09-10, `.scratch/department-calibration/assets/fragmentation-derivation.md`)
+against the two finished era runs on the reference pair: scored at each SKU&#x27;s realized
+line count the chain reproduces both leaves&#x27; bin change over 25 days to -3%, the one-line
+mean to a third of a percent; the store&#x27;s 39-day drawdown at the declared line share to
+-4%; the fulfillment section&#x27;s transient over-reads because the batch sampler&#x27;s affinity
+lift spreads its lines over fewer SKUs than the line share says (the seam below).
+
+THIS MODULE IS PURE: orders with a declared level and a `stock_plan` in, floats out.  It
+imports no CONFIG and touches no file.  The size tier of a kind is read off the packer&#x27;s
+own unit classes (`Pallet`, `Singleton`, `FulfillmentBin`) through `binkey_of`, so the
+bucket a unit lands in is the one the sim would build for it.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py.html"><code>Warehouse.inventory.inventory_common</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_kernel_regime_py.html"><code>Warehouse.kernel.regime</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li><li><a href="nWarehouse_layout_Storage_Primitive_py.html"><code>Warehouse.layout.Storage_Primitive</code></a> <span class="dim">Warehouse/layout/Storage_Primitive.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py.html"><code>Optimization.simdriver.era_coverage</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(29)</span></h2><ul><li><a href="nOptimization_simconfig_fragmentation_py__Kind.html"><code>Kind</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain.html"><code>SkuChain</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__State.html"><code>State</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__Unit.html"><code>Unit</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py___LGAMMA.html"><code>_LGAMMA</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain___post_init__.html"><code>__post_init__</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py___add.html"><code>_add</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__direct.html"><code>_direct</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__kernel.html"><code>_kernel</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__landing.html"><code>_landing</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__partial.html"><code>_partial</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__solve.html"><code>_solve</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__stationary.html"><code>_stationary</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__units.html"><code>_units</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__bucket_of.html"><code>bucket_of</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__class_key.html"><code>class_key</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__drain_all.html"><code>drain_all</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__section_fragmentation_grow.html"><code>grow</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__line_pmf.html"><code>line_pmf</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__packing.html"><code>packing</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__plan_slots.html"><code>plan_slots</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__plan_total.html"><code>plan_total</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__poisson_weights.html"><code>poisson_weights</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__section_fragmentation.html"><code>section_fragmentation</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain_stationary_extra.html"><code>stationary_extra</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__tier_prefix.html"><code>tier_prefix</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__unit_for.html"><code>unit_for</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain_units_at_days.html"><code>units_at_days</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain_units_at_lines.html"><code>units_at_lines</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_fragmentation_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/fragmentation.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

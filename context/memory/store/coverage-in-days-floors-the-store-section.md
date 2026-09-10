@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 6cbf7fb6-ff44-4fc0-ab07-fd51c5082bd3
-  modified: 2026-09-07T03:19:14.423Z
+  modified: 2026-09-09T04:03:39.525Z
 ---
 
 Measured 2026-09-06 while building "Rescale stock coverage at setup" (department-calibration
@@ -34,4 +34,11 @@ base stock (`rp = Q - 1`), and on this catalogue BOTH sections sit ~100% on it, 
 `.fill['fill_rate']` (the expected first-pass fill rate `missed_share` is read against) before
 interpreting an era run's store numbers; "a wave inside the window" is retired -- base stock is a
 trickle from day `lead`, and the store's answer is explicitly no wave.
-See [[fifo-restock-drifts-to-class-uniform]], [[no-calibration-simulations]].
+
+**Update 2026-09-08 (department-calibration 29, ADR-0004):** the floor is now SOLVED per
+section under the era, not read off `COVERAGE_DAYS`/`SAFETY_DAYS` --
+`Optimization/simconfig/coverage.py:solve_floor_lines` -- and on this catalogue the store
+section still solves to ~1.27 lines, consistent with the near-total Q=1 floor measured here.
+`settings.FLOOR_LINES` is `None` under the era (solved), and stays a flag-off-only override.
+See [[fifo-restock-drifts-to-class-uniform]], [[no-calibration-simulations]],
+[[nothing-is-lost-under-the-era]].

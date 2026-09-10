@@ -20,7 +20,9 @@
 `bin_state` (&#x27;empty&#x27; | &#x27;occupied&#x27;, ADR-0003) is selected only when the file HAS it and
 filled with &#x27;empty&#x27; otherwise -- the `row.keys()` guard this file&#x27;s raw loaders have
 always used, and the honest value for a pre-ADR run, where put-away could not add to an
-occupied bin.  Selecting it unconditionally would make every archived file raise.</section>
+occupied bin.  Selecting it unconditionally would make every archived file raise.
+The tier pair (`unit_size` / `bin_size`) is guarded the same way and filled with NULL,
+because a file without the columns did not record a fit and &#x27;empty&#x27; has no analogue.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py__load_bin_placements">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20load_bin_placements">Source ↗</a></p>
 </article>

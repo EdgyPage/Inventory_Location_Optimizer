@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_trend_tol · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py___trend_tol" data-id="Optimization/simconfig/equilibrium.py::_trend_tol">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a> <span class="sep">›</span> <span class="here"><code>_trend_tol</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_trend_tol</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+
+<pre class="sig"><code>def _trend_tol(series: list[float], sd_day: float | None) -&gt; tuple[float, str, float | None]</code></pre>
+<section class="doc">The labour trend&#x27;s band: `(tol, source, sd)`, `CUT_SHARE_Z` sds of the DIFFERENCE of
+two half-window means, `sd · sqrt(1/n1 + 1/n2)`.
+
+`sd` is the declared law&#x27;s per-day spread (`expected_cut_share_sd`, source `declared`)
+when the record stamps one; without it (the 2026-09-08 runs) the window&#x27;s own pooled
+WITHIN-half sample sd (source `empirical`) -- within, not overall, so a real step does not
+widen the band that judges it.  Fewer than four days leave nothing to pool, and the typed
+`TREND_TOL` stands in (source `typed`).  The typed number alone was the review&#x27;s critical
+finding: half a day&#x27;s spread, failing a healthy window a third of the time.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py___labour_clause.html"><code>_labour_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___trend_tol">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_trend_tol">Source ↗</a></p>
+</article>
+</main>
+</body></html>

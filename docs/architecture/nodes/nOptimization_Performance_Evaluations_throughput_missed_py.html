@@ -31,6 +31,17 @@ is not an oversight: the whistle stopping a picker mid-shift is a staffing fact,
 it in would let a longer working day read as better inbound. `unpicked_notasks` is out for
 the same kind of reason — no task was built for it, which is scheduling.
 
+## A per-batch share, not the equilibrium check&#x27;s
+
+`missed_share` here is per EFFECTIVE batch: `items_demanded` under the era is the sampled
+demand plus the previous batch&#x27;s carry, and a unit the shelf fails on two consecutive days
+is in two batches&#x27; rows. The calibrated era&#x27;s equilibrium check judges supply on a
+different arithmetic — the same two reasons over FRESH demand with each unit counted once
+(`Optimization/simconfig/equilibrium.py`, `demand_flows`, the `supply` clause) — because its
+expectation, the stamped `1 - fill`, is a first-pass quantity. The two agree only with
+rollover off. This figure keeps its definition because it draws on every vintage, and a run
+alone does not say whether it re-offered anything.
+
 ## Ungated by the yard, gated by carryover
 
 Demand service is meaningful with no inbound model at all, so these draw on every run that

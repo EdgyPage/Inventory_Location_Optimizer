@@ -17,22 +17,31 @@
 <pre class="sig"><code>def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict, scripts: dict, pricing_names: dict) -&gt; dict</code></pre>
 <section class="doc">The derived block, from declared inputs + resolved constants + the script.
 
-`inputs` is the staffing record&#x27;s INPUTS (`sim_config.staffing_spec()` shape: the two
-picker counts, `rho_pick/rho_put/rho_recv`, `f_put/f_recv`, `band_tol`,
-`put_crew_mode`, plus the three crew-cost scales the harness copies in).
+`inputs` is the staffing record&#x27;s INPUTS (`sim_config.staffing_spec()` shape:
+`rho_put/rho_recv`, `f_put/f_recv`, `band_tol`, `put_crew_mode`, plus the three
+crew-cost scales the harness copies in; `rho_pick` is NOT read here since ADR-0004).
 `constants` is `{&#x27;s_pick&#x27;: {channel: constant}, &#x27;s_put&#x27;: {channel: constant}}` as the
 harness resolves them (the expectation, or a declared override).  BOTH are keyed by
 channel: a site-wide put price is what this derivation used to get wrong, and there is
-no longer anywhere to put one.  `channels` maps a channel name to its stage-A dict
-(`analytic`, `batch`, `pickers`, `n_skus`, and `expected` -- the expected day the
-constant was read off, recorded beside it);
-`scripts` maps it to its `ScriptTotals`.  Channels absent from `channels` (a
-store-only catalogue) are recorded as absent and contribute nothing.
+no longer anywhere to put one.  `channels` maps a channel name to its stage-A dict:
+`pickers` (the crew stage A SOLVED from the first-time confidence -- `solve_pickers`),
+`daily_demand_units` (the declared day&#x27;s DEMANDED units), `analytic`, `batch`,
+`n_skus`, `expected` (the expected day at the declared line count, recorded beside the
+constant), and optionally `demand` and `guarantee` (the declaration and the solve&#x27;s
+stamp, carried through verbatim); `scripts` maps it to its `ScriptTotals`.  Channels
+absent from `channels` (a store-only catalogue) are recorded as absent and contribute
+nothing.
+
+THE PICKING LOAD IS THE SAMPLED SCRIPT&#x27;S DEMANDED UNITS at `s_pick` (&quot;Fit the store&#x27;s
+window to its own steady state&quot;, decision 5: the derivation prices the actual script,
+the declared law is what the guarantee was made against, both are stamped and named
+apart).  Its expected utilization is that load against the granted day `K × S` -- a
+DERIVED number near 0.72 on the reference store, never a target.
 
 The put and receiving crews are SITE totals: one crew each, summing both channels&#x27;
 per-day loads.  Each channel leaf&#x27;s expected utilization for those two departments is
 its own load against the WHOLE site crew, which is why it sits well below ρ.</section>
-<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__constant.html"><code>constant</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__crew_size.html"><code>crew_size</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__expected_utilization.html"><code>expected_utilization</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__pick_capacity.html"><code>pick_capacity</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__constant.html"><code>constant</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__crew_size.html"><code>crew_size</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__expected_utilization.html"><code>expected_utilization</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__derive">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20derive">Source ↗</a></p>
 </article>
 </main>

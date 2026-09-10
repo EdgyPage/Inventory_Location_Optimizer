@@ -1,11 +1,11 @@
 ---
 name: nothing-is-lost-under-the-era
-description: "under the era a missed or cut pick is re-offered next day and a lead-0 top-up lands first, so every crew must be sized on DEMANDED units (never demand x fill); decided 2026-09-08 that demand is declared and the picking crew derived from one joint first-time confidence (0.95, per pick) -- build pending (department-calibration 29-31)"
+description: "under the era a missed or cut pick is re-offered next day and a lead-0 top-up lands first, so every crew must be sized on DEMANDED units (never demand x fill); decided 2026-09-08 that demand is declared and the picking crew derived from one joint first-time confidence (0.95, per pick) -- ticket 29 (ADR-0004) LANDED 2026-09-08 (4bd9323a); 30/31 outstanding, numbers provisional until 31 reads clean"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 8e904077-e98e-48df-bf37-3218dc483108
-  modified: 2026-09-09T01:16:52.478Z
+  modified: 2026-09-09T04:03:31.695Z
 ---
 
 Measured 2026-09-08 on the store leaf of the fifo era check (department-calibration 27): picked
@@ -26,6 +26,17 @@ a joint first-time confidence (reached on its day AND filled, per pick, split eq
 solved for fill >= sqrt(c), smallest integer crew for expected cut share <= 1 - sqrt(c)), and
 "every day drained" becomes a reading. Put-away and receiving keep rho. Until ticket 31 reads
 clean the era's numbers are provisional and the inbound hold stands. The 2026-09-08 runs' pick
-numbers were produced under the wrong crew and are not a baseline. See
-[[coverage-in-days-floors-the-store-section]], [[no-calibration-simulations]],
-[[a-count-is-not-a-claim]].
+numbers were produced under the wrong crew and are not a baseline.
+
+**Update 2026-09-08 (ticket 29, ADR-0004, 4bd9323a):** landed. Under the era `store_demand` /
+`ff_demand` (the sampler's unit) and `first_time_confidence` are the declared inputs
+(`sim_config.ERA_ONLY_KEYS`); the line floor is solved per section
+(`Optimization/simconfig/coverage.py:solve_floor_lines`) and the picking crew is solved from it
+(`Optimization/simconfig/staffing.py:solve_pickers`). The one reader of a channel's crew is
+`Optimization/simconfig/staffing.py:channel_crew` -- read the record through it, never
+`inputs['store_pickers']` / `inputs['ff_pickers']`, which are recorded `None` under the era
+(`sim_config.FLAG_OFF_ONLY_KEYS`, `staffing_spec()`). `rho_pick` and `--store-pickers` /
+`--ff-pickers` / `--rho-pick` are refused under the era (`run_simulation._check_era_flags`).
+Tickets 30 and 31 are still pending, so the era's numbers stay provisional until 31 reads clean.
+See [[coverage-in-days-floors-the-store-section]], [[no-calibration-simulations]],
+[[a-count-is-not-a-claim]], [[config-knob-has-five-seams]].

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_ledger_reading · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py___ledger_reading" data-id="Optimization/simconfig/equilibrium.py::_ledger_reading">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a> <span class="sep">›</span> <span class="here"><code>_ledger_reading</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_ledger_reading</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+
+<pre class="sig"><code>def _ledger_reading(shift_rows, days: list[int]) -&gt; dict</code></pre>
+<section class="doc">The ledger&#x27;s per-day verdicts as a READING (written by `is_drained`), for the labour
+clause: never a verdict of its own since the split.
+
+`capped` are the days that ended with labour standing or a task past the cap; `missing`
+the days the ledger never closed (those DO fail the clause -- an unclosed day is not a
+measured one).  `overtime_days` are CAPPED days since the overtime amendment; through the
+loaders a drained day never appears on that list (a pre-amendment ledger is served with
+the term folded in).  `overtime_only_days` are the capped days that overtime ALONE capped
+-- nothing standing at close-out, the last task a few seconds past the whistle -- named
+apart because &quot;declared throughput not delivered&quot; overstates such a day: it delivered
+everything, late.  A day whose labour carry the vintage did not record (NULL) is never
+counted there.  The SUPPLY carry is reported: `supply_standing_days` closed with demand
+the shelf could not serve still rolling forward, `supply_standing_max_units` the largest
+such LEVEL (never summed across days); `supply_split_recorded` is False on the pre-split
+vintage (487a65bf83a9), whose rows carry the halves as NULL.  `labour_standing_max_units`
+is the ledger&#x27;s own labour LEVEL at its worst close-out, the cross-check for the flows.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py___get.html"><code>_get</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py___labour_clause.html"><code>_labour_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___ledger_reading">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_ledger_reading">Source ↗</a></p>
+</article>
+</main>
+</body></html>

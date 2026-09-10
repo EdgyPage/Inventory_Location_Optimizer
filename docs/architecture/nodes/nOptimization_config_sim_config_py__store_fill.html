@@ -21,7 +21,12 @@ Was `_INITIAL_FILL`, an import-time scalar — which quietly broke this module&#
 that CONFIG is the single source of truth and is mutated in place: a runtime override
 (a CLI flag, a test) never reached the snapshot, and `sim_assets` writes this value into
 the warehouse DB as `target_fill`, so the run&#x27;s own provenance recorded the stale
-number.</section>
+number.
+
+FLAG-OFF ONLY since &quot;Derive the fill headroom from the fragmentation&quot;: under the era the
+planner is handed a per-bucket hold map derived from the stationary fragmentation and
+floored at `min_headroom()`, `--store-fill` is refused, and the run spec records this
+key as None.  The value still stands in CONFIG there, read by nothing that sizes.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets__plan.html"><code>_plan</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__store_fill">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20store_fill">Source ↗</a></p>
 </article>

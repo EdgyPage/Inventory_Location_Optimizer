@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>line_moments · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_staffing_py__line_moments" data-id="Optimization/simconfig/staffing.py::line_moments">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a> <span class="sep">›</span> <span class="here"><code>line_moments</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>line_moments</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def line_moments(orders) -&gt; dict</code></pre>
+<section class="doc">The first two moments of ONE line&#x27;s units over a section, weighted the way the
+sampler weights (a SKU&#x27;s line share `π_s = freq / Σ freq`), off each SKU&#x27;s STAMPED
+line law: `{&#x27;m1&#x27;: E[q], &#x27;m2&#x27;: E[q²], &#x27;var&#x27;: Var[q], &#x27;n_skus&#x27;}`.
+
+`E[q²] = Σ_j (2j + 1) P(q &gt; j)` from `line.survival`, summed to the law&#x27;s 1 - 1e-12
+quantile (the tail past it is below float noise on a Poisson).  Zeros on an empty
+section or a zero weight sum.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__stage_a.html"><code>stage_a</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__line_moments">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20line_moments">Source ↗</a></p>
+</article>
+</main>
+</body></html>

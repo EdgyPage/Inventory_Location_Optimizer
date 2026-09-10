@@ -14,21 +14,31 @@
 <h1><span class="kind kind-function">function</span> <code>fixed_point</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float, safety_days: float, floor_lines: float, inputs: dict, day_seconds: float, log: logging.Logger, tol: float=_cov.DEFAULT_TOL, max_rounds: int=_cov.DEFAULT_MAX_ROUNDS) -&gt; tuple</code></pre>
+<pre class="sig"><code>def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float, safety_days: float, floor_lines: float | None, inputs: dict, day_seconds: float, log: logging.Logger, tol: float=_cov.DEFAULT_TOL, max_rounds: int=_cov.DEFAULT_MAX_ROUNDS) -&gt; tuple</code></pre>
 <section class="doc">Iterate Q(n) -&gt; plan -&gt; geometry -&gt; n at pair level.  Returns
 `(plan, warehouse_meta, stage_a_result, record)` for the LAST round.
 
 `plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and
-builds the warehouse: `(plan, warehouse_meta)`.  `orders_all` is the whole catalogue; the
+builds the warehouse: `(plan, warehouse_meta)`.  UNDER THE ERA it is called as
+`plan_fn(bucket_hold=holds)` with the derived hold map (`derived_holds`); flag-off with
+no argument at all, so a planner closure that never learned the keyword is still the
+flag-off path.  `orders_all` is the whole catalogue; the
 plan&#x27;s `sampled` subset (or the whole list when the planner samples nothing) is what
-stage A prices.  The record is JSON-shaped and rides `staffing.calibration[&lt;pair&gt;]
-[&#x27;coverage&#x27;]`:
+stage A prices.  `floor_lines` is the INPUT as declared: None means the one-line default
+flag-off and &quot;solve it&quot; under the era (`resolve_floors`).  The derived fill is on when
+`inputs[&#x27;min_headroom&#x27;]` is not None (`staffing_spec()` records it so under the era and
+None flag-off).  The record is JSON-shaped and
+rides `staffing.calibration[&lt;pair&gt;][&#x27;coverage&#x27;]`:
 
-    {&#x27;coverage_days&#x27;, &#x27;safety_days&#x27;, &#x27;floor_lines&#x27;, &#x27;tol&#x27;, &#x27;max_rounds&#x27;, &#x27;rounds&#x27;: [...],
-     &#x27;seed&#x27;: {&#x27;method&#x27;: &#x27;analytic_pick&#x27;, &#x27;lines_per_day&#x27;: {channel: n}},   # round 0
+    {&#x27;coverage_days&#x27;, &#x27;safety_days&#x27;, &#x27;floor_lines&#x27;,   # the INPUT (None = solved)
+     &#x27;floor&#x27;: {channel: {&#x27;floor_lines&#x27;, &#x27;provenance&#x27;, &#x27;solved&#x27;}},   # what each declares at
+     &#x27;tol&#x27;, &#x27;max_rounds&#x27;, &#x27;rounds&#x27;: [...],
+     &#x27;seed&#x27;: {&#x27;method&#x27;: &#x27;analytic_pick&#x27; | &#x27;declared&#x27;, &#x27;lines_per_day&#x27;: {channel: n}},
      &#x27;final&#x27;: {channel: rescale stats + &#x27;fill&#x27; + &#x27;fielded&#x27;},   # the declared levels, the
                                                     #   fill rate at them, and the proof
-                                                    #   the plan fielded exactly them
+                                                    #   the plan fielded exactly them --
+                                                    #   with, per bucket, what it was
+                                                    #   sized to hold (`stamp_fill`)
      &#x27;planned_sum_q&#x27;, &#x27;lines_per_day&#x27;: {channel: n}, &#x27;residual&#x27;: {channel: n/n_prev - 1},
      &#x27;converged&#x27;: bool}
 
@@ -38,7 +48,7 @@ base-stock share after planning.  Priced post-plan for a reason that no longer b
 the planner used to grow a level into leftover capacity, so the shelf that served a line
 was not the one declared -- and it now equals the pre-plan price by construction, which
 is what `final[&lt;channel&gt;][&#x27;fielded&#x27;]` (`fielded_block`) states and this loop RAISES on.</section>
-<section class="rel"><h2>Callees <span class="count">(9)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__converged.html"><code>converged</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__fill_rate.html"><code>fill_rate</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__rescale_section.html"><code>rescale_section</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_staffing_py__regime_orders.html"><code>regime_orders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py___lines.html"><code>_lines</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__fielded_block.html"><code>fielded_block</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__next_guess.html"><code>next_guess</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__seed_lines.html"><code>seed_lines</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__stage_a.html"><code>stage_a</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(14)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__converged.html"><code>converged</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__fill_rate.html"><code>fill_rate</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__rescale_section.html"><code>rescale_section</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_staffing_py__regime_orders.html"><code>regime_orders</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py___guarantee_inputs.html"><code>_guarantee_inputs</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py___lines.html"><code>_lines</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__derived_holds.html"><code>derived_holds</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__fielded_block.html"><code>fielded_block</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__next_guess.html"><code>next_guess</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__resolve_floors.html"><code>resolve_floors</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__seed_lines.html"><code>seed_lines</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__stage_a.html"><code>stage_a</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__stamp_fill.html"><code>stamp_fill</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__stamp_fragmentation.html"><code>stamp_fragmentation</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_era_coverage_py__fixed_point">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/era_coverage.py#:~:text=def%20fixed_point">Source ↗</a></p>
 </article>
 </main>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stamp_fill · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_era_coverage_py__stamp_fill" data-id="Optimization/simdriver/era_coverage.py::stamp_fill">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>stamp_fill</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>stamp_fill</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def stamp_fill(fielded: dict, fills: dict | None, min_headroom: float | None, *, name: str=&#x27;&#x27;) -&gt; dict</code></pre>
+<section class="doc">Stamp how one channel&#x27;s `fielded` block was SIZED (in place) and return the block.
+
+Every `buckets[]` row (already carrying `fill` and `hold` from the plan) gains
+`headroom_floored`, and the block gains
+
+    &#x27;fill&#x27;: {&#x27;provenance&#x27;: &#x27;derived&#x27; | &#x27;assumed&#x27;,
+             &#x27;min_headroom&#x27;: h | None,           # the era&#x27;s declared floor
+             &#x27;typed&#x27;: f | None,                  # the flag-off fill the rows share
+             &#x27;derived&#x27;: {&#x27;section_fill&#x27;,         # sum requirement / sum hold
+                         &#x27;expected_extra&#x27;,       # the section&#x27;s stationary extra
+                         &#x27;headroom_floored_buckets&#x27;} | None}
+
+`fills` is `derive_fill`&#x27;s table under the era and None flag-off, where the derived
+block is None and the typed fill is what the rows say (&quot;flag-off keeps the typed fill
+and records the derived one as None&quot;).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__fixed_point.html"><code>fixed_point</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_era_coverage_py__stamp_fill">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/era_coverage.py#:~:text=def%20stamp_fill">Source ↗</a></p>
+</article>
+</main>
+</body></html>

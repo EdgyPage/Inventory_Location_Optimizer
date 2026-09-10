@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-25T13:13:54.925Z
+  modified: 2026-09-10T21:17:42.087Z
 ---
 
 `Optimization/config/settings.py` documents the wiring for a new knob and names four seams.
@@ -29,5 +29,20 @@ symptom is a run whose spec records `cut_at_day_end=True` and whose every worker
 **Cheapest check:** if the knob's effect shows up under `-m pytest` but not in a real sweep,
 look at `_shared` before looking anywhere else.
 
+**Update 2026-09-08 (ADR-0004):** a staffing key can now be regime-conditional, not just a
+plain default -- `Optimization/config/sim_config.py:ERA_ONLY_KEYS` /
+`Optimization/config/sim_config.py:FLAG_OFF_ONLY_KEYS`, read by
+`Optimization/config/sim_config.py:staffing_spec()`, which records the OTHER regime's keys as
+`None` (e.g. `store_pickers` is `None` under the era, `store_demand` is `None` flag-off). A key
+absent from both lists still needs all five seams above; a staffing key present in either list
+is `None` by design in the off regime -- do not "fix" that None as a missing wiring.
+
+**Update 2026-09-10 (ticket 35):** `min_headroom` is a fresh era-only example, not just the
+2026-09-08 three -- declared `Optimization/config/settings.py:MIN_HEADROOM` (0.05), threaded
+via `Optimization/config/sim_config.py:min_headroom()`, exposed as `--min-headroom` and
+refused flag-off, and carried in `ERA_ONLY_KEYS` alongside `store_demand`/`ff_demand`/
+`first_time_confidence`. See [[derived-fill-is-the-fourth-comparability-break]].
+
 See [[heredoc-python-breaks-the-spawn-pool]] (the same spawn/re-import mechanism, different
-symptom), [[one-clock-one-speed-one-config]], [[worker-recycling-pinned-at-one]].
+symptom), [[one-clock-one-speed-one-config]], [[worker-recycling-pinned-at-one]],
+[[nothing-is-lost-under-the-era]].

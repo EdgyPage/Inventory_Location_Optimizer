@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>demand_flows · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py__demand_flows" data-id="Optimization/simconfig/equilibrium.py::demand_flows">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a> <span class="sep">›</span> <span class="here"><code>demand_flows</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>demand_flows</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+
+<pre class="sig"><code>def demand_flows(batch_rows, carry_rows) -&gt; dict</code></pre>
+<section class="doc">Per batch, the demand ledger the two flow clauses read: `{batch_id: {...}}`.
+
+`items_demanded` is the EFFECTIVE batch -- the sampled demand PLUS everything the
+previous batch rolled forward (`strategy_runner`: `sum(_eff_batch.items.values())`) --
+and nothing records the sampled half.  It is recovered exactly from the flows: the
+previous batch&#x27;s carry is its four pick-side `carryover` reasons summed (the cut&#x27;s, the
+two supply ones, and a skipped batch&#x27;s `unpicked_notasks`), which is precisely
+`_pending`, so
+
+    fresh_i = items_demanded_i - Σ carry_{i-1}
+
+holds whenever the carry is re-offered -- `roll_over_unpicked`, which the era completes
+to on (`run_simulation._check_era_flags`).  Flag-off the rows are recorded and NOT
+re-offered, and this identity does not hold; the check is the era&#x27;s, and a caller with
+expectations has one (`expectations_for` refuses a record with no derived block).
+A carry larger than the demand is the runner contradicting itself and RAISES
+`InstrumentError`.
+
+Per batch:
+
+    demanded    the effective batch (`items_demanded`)
+    carry_in    the previous batch&#x27;s whole pick-side carry
+    fresh       demanded - carry_in
+    picked      `total_items`
+    cut         `unpicked_daycut` units this batch (the labour flow, re-cuts included:
+                a re-offered unit the whistle stops again is overflow again -- the
+                queue&#x27;s cost, which the labour clause is there to see)
+    supply      the two supply reasons this batch, re-attempts INCLUDED
+    supply_new  the same, each unit counted ONCE: per SKU, the rise in the family&#x27;s
+                failure count over the previous batch (`max(0, x_i - x_{i-1})`).  A LOWER
+                BOUND on the first-attempt failures: exact when the whole SKU demand fails
+                (a stockout: `x_i = fresh_i + x_{i-1}`), LOW when a restock lands
+                mid-shortage (10 carried + 6 fresh against 8 received, 8 fail -&gt; 0 new,
+                though up to 6 fresh units failed first time), because demand has no unit
+                identity and per-SKU fresh demand is not recorded -- only the batch total
+                is.  Recording it (a schema change) is what would make this exact; until
+                then the supply level can read low against `1 - fill` when the shelf is
+                under-stocked, and a reader should weigh `units.reattempts` beside it.
+                The fill-rate expectation is a FIRST-PASS quantity, and a re-offered line
+                meets a restocked shelf -- its second failure is a second draw, not the
+                same miss twice.
+    notasks     a skipped batch&#x27;s demand rolling forward whole (neither family)
+    recorded    False when no PICK-SIDE row exists (after the reason filter, so a table
+                holding only the put side&#x27;s levels or the pre-2026-08-25 `unplaced` rows
+                does not count): the flows are unrecorded on such a vintage, and a batch
+                that served everything and a batch the table never saw both read zero
+                here -- the clauses tell them apart by whether `demanded - picked` is
+                nonzero</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__InstrumentError.html"><code>InstrumentError</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___get.html"><code>_get</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py__demand_flows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20demand_flows">Source ↗</a></p>
+</article>
+</main>
+</body></html>

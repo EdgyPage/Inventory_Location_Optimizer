@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_stationary · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_fragmentation_py__SkuChain__stationary" data-id="Optimization/simconfig/fragmentation.py::SkuChain._stationary">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a> <span class="sep">›</span> <a href="nOptimization_simconfig_fragmentation_py__SkuChain.html"><code>SkuChain</code></a> <span class="sep">›</span> <span class="here"><code>_stationary</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_stationary</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a></p>
+
+<pre class="sig"><code>def _stationary(self, PT, n: int) -&gt; np.ndarray</code></pre>
+<section class="doc">`pi = pi P` by power iteration on the LAZY chain `(P + I) / 2` from the fielded
+state -- the same stationary law, and aperiodic whatever cycle the drain runs in.
+The chain regenerates whenever a line empties the shelf, so the reachable set holds
+one recurrent class and the iterate converges geometrically; it stops when the
+L1 step is below `POWER_TOL`.  A chain still moving at `POWER_SWITCH` steps is a
+slow mixer and goes to the pinned direct solve (`_direct`); `solver` records which
+path answered, `iterations` how many steps it took.
+
+A direct solve with a normalisation ROW was tried first and dropped: the dense row
+fills the LU factors in, and a 9,000-state class cost four seconds against a
+twentieth of that by iteration; the pinned form keeps the system sparse.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__direct.html"><code>_direct</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain__solve.html"><code>_solve</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_fragmentation_py__SkuChain__stationary">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/fragmentation.py#:~:text=def%20_stationary">Source ↗</a></p>
+</article>
+</main>
+</body></html>

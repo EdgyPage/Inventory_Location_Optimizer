@@ -15,14 +15,20 @@
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
 <pre class="sig"><code>def channel_pickers(name: str) -&gt; int</code></pre>
-<section class="doc">The declared picker count of channel `name`, read from CONFIG at CALL time.
+<section class="doc">The DECLARED picker count of channel `name`, read from CONFIG at CALL time.
 
 The `recv_crew_spec` pattern: a flag writes CONFIG, a resume and a re-analysis restore
 into CONFIG, so CONFIG is the only place this may be read from.
 A None (a pre-record run spec restored by `run_analysis._apply_run_shape`) resolves to the
 leaf default -- that run fielded the compile-time constant of its day, which is what the
 constant still is.  An unknown channel is a KeyError, deliberately: a third channel needs
-its own declared knob, not a silent share of someone else&#x27;s.</section>
+its own declared knob, not a silent share of someone else&#x27;s.
+
+UNDER THE ERA THIS IS A PLACEHOLDER (ADR-0004): the channel is built from it and then
+the derivation replaces the crew with the solved one (`workunits._derive_staffing_for_pair`),
+the record carries the picker keys as None, and every reader that needs a crew reads it
+through `staffing.channel_crew`, which prefers the derived block.  Nothing sizes from
+this value under the era.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(5)</span></h2><ul><li><a href="nOptimization_config_sim_config_py__k_pickers.html"><code>k_pickers</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_config_sim_config_py__staffing_spec.html"><code>staffing_spec</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__seed_lines.html"><code>seed_lines</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__stage_a.html"><code>stage_a</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_workunits_py___channel_runs_for.html"><code>_channel_runs_for</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__channel_pickers">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20channel_pickers">Source ↗</a></p>
 </article>

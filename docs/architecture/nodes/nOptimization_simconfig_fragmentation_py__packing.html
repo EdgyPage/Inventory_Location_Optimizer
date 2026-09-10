@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>packing · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_fragmentation_py__packing" data-id="Optimization/simconfig/fragmentation.py::packing">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a> <span class="sep">›</span> <span class="here"><code>packing</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>packing</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_fragmentation_py.html"><code>Optimization/simconfig/fragmentation.py</code></a></p>
+
+<pre class="sig"><code>def packing(plan: tuple, r: int) -&gt; tuple[Kind, ...]</code></pre>
+<section class="doc">The units a lot of `r` items packs into: the plan&#x27;s LEADING slots filled in order,
+`take = min(per, remaining)` per unit -- `viable_storage_units`&#x27; plan branch, for a
+lot at or below the plan&#x27;s total (a lot never exceeds the order-up-to).  Returns the
+kinds `(single, n0)` in packing order; `r &lt;= 0` packs nothing.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_fragmentation_py__plan_total.html"><code>plan_total</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_fragmentation_py__SkuChain___post_init__.html"><code>__post_init__</code></a> <span class="dim">Optimization/simconfig/fragmentation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_fragmentation_py__packing">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/fragmentation.py#:~:text=def%20packing">Source ↗</a></p>
+</article>
+</main>
+</body></html>

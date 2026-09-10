@@ -51,14 +51,34 @@ steps:
     summary: >
       Per pair: load the catalog, size the warehouse (plan_warehouse with per-regime
       sizing from CONFIG), persist the planned inventory + warehouse stats (rename-proof
-      fingerprint), and return the picklable shared dict every worker receives.
+      fingerprint), and return the picklable shared dict every worker receives. Where the
+      plan SAMPLES, this runs the pair-level stock-coverage fixed point (era_coverage.
+      fixed_point, every mode, not only under the era) and stamps its stationary bin
+      fragmentation per bucket (stamp_fragmentation, SkuChain's closed form) onto the
+      coverage record later written into run_spec.json's staffing.calibration block. Under
+      the era (min_headroom not None), each round first derives every bucket's fill headroom
+      from that same fragmentation chain (era_coverage.derived_holds, calling
+      declared_packing/derive_fill) and hands the resulting hold map to plan_fn/plan_warehouse
+      as bucket_hold, sized in place of the flag-off STORE_FILL/FF_FILL; stamp_fill then
+      records provenance ('derived' vs 'assumed') and per-bucket fill/hold/headroom_floored
+      onto the fielded block. A rebuild or frozen cell reads the holds back via holds_at
+      rather than re-deriving them.
     functions:
       - {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function}
       - {name: plan_warehouse, file: Warehouse/inventory/inventory_planning.py, kind: function}
       - {name: compute_warehouse_fingerprint, file: Optimization/persistence/Warehouse_Data.py, kind: function}
+      - {name: fixed_point, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: derived_holds, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: derive_fill, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: stamp_fill, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: holds_at, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: declared_packing, file: Warehouse/inventory/inventory_planning.py, kind: function}
+      - {name: stamp_fragmentation, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: section_fragmentation, file: Optimization/simconfig/fragmentation.py, kind: function}
+      - {name: SkuChain, file: Optimization/simconfig/fragmentation.py, kind: class}
     reads: [inventory_db, affinity_db]
     writes: [warehouse_db, planned_inventory_db]
-    guards: [Tests/unit/test_warehouse_sizing.py, Tests/unit/test_regime_sizing.py]
+    guards: [Tests/unit/test_warehouse_sizing.py, Tests/unit/test_regime_sizing.py, Tests/unit/test_fragmentation.py, Tests/unit/test_fill_headroom.py]
     next: [derive_staffing]
 
   - id: derive_staffing

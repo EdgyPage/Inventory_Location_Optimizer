@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_guarantee_crew · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_equilibrium_py___guarantee_crew" data-id="Optimization/simconfig/equilibrium.py::_guarantee_crew">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a> <span class="sep">›</span> <span class="here"><code>_guarantee_crew</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_guarantee_crew</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
+
+<pre class="sig"><code>def _guarantee_crew(section: dict, pickers: int, S: float) -&gt; dict | None</code></pre>
+<section class="doc">The stamped guarantee&#x27;s crew block (ADR-0004) as the labour clause reads it, or None
+on a record that predates it: `{&#x27;pickers&#x27;, &#x27;load_s&#x27;, &#x27;sd_s&#x27;, &#x27;cut_share&#x27;, &#x27;cut_share_sd&#x27;}`.
+
+`cut_share` is the stamped expectation; `cut_share_sd` is derived from the same law
+(`staffing.cut_share_sd`) so the band around it is the law&#x27;s, not a typed number.  The
+crew in the block is the solved K; `pickers` (the derived crew off `channel_crew`) is
+the same number on every record `derive` wrote, and is what the sd is priced at.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__cut_share_sd.html"><code>cut_share_sd</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__expectations_for.html"><code>expectations_for</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___guarantee_crew">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_guarantee_crew">Source ↗</a></p>
+</article>
+</main>
+</body></html>
