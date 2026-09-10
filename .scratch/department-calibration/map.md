@@ -69,16 +69,17 @@ regime someone chose rather than one the defaults inherited.
     drained" is a reading, not a verdict. BUILT 2026-09-08 (29: demand declared, floor and crew
     solved, the regime decides which keys are inputs). The instrument split LANDED 2026-09-09
     (30: `supply` and `labour` clauses over the `carryover` flows and fresh demand; a capped day
-    is a reading); the re-check (31) is pending, and until it reads clean the era's numbers stay
-    provisional.
+    is a reading); the re-check (31) READ CLEAN 2026-09-09 -- both leaves in band on every clause
+    at K = 31 / 23 and floors 1.273 / 1.267 -- so the era is CALIBRATED and its numbers are no
+    longer provisional.
   - **No bespoke conversions implicit in the inventory.** A standing preference from the
     same decision: nothing authored on the catalogue may carry an implicit batch or day (the
     coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
     expected demand; the method must scale to any item distribution unchanged.
-  - **The inbound campaign holds.** Phase 2 was already held at the pilot resolution;
-    whether phase 1 also waits for the calibrated era is
+  - **The inbound campaign holds -- LIFTED 2026-09-09.** Phase 2 was already held at the pilot
+    resolution; whether phase 1 also waits for the calibrated era is
     [Sequence the inbound funnel](issues/05-sequence-the-inbound-funnel.md), not settled
-    charter.
+    charter. The hold's condition (31 reads clean) is met; the inbound map's 23 / 24 may proceed.
 - **The mechanism largely exists, dormant** — this map is mostly calibration plus one
   missing seam, not new physics: `SHIFT_DRAIN_OR_CAP` (off by default) forces the pick cut
   on, gives receiving the SITE's day, and closes each day with the drain-or-cap ledger;
@@ -514,19 +515,21 @@ regime someone chose rather than one the defaults inherited.
   the raw flow over effective demand; raw over fresh would be 0.092 and fail -- the re-attempt
   rule is the definition. Neither leaf's cut-share LEVEL is judged until 31's run stamps a
   guarantee.
+- [Re-check the reference pair under the first-time guarantee](issues/31-recheck-under-the-first-time-guarantee.md):
+  RESOLVED 2026-09-09. One 40-day era run on the reference pair (`comparison_20260909_204522`)
+  under 29's derivation and 30's clauses: **both leaves pass every clause on days 20-39**, so
+  the era's numbers stop being provisional and 05's hold on the inbound funnel LIFTS (the
+  inbound map's 23 / 24 may proceed). Stamped: store K = 31 (cut share 0.0227 vs 0.0212, band
+  ±0.034; carry max 0.08 day; supply 0.026 vs 0.025), fulfillment K = 23 (0.0130 vs 0.0254;
+  0.027 vs 0.025); floors 1.2728 / 1.2668 lines at fill 0.975; the warehouse 2,466,650 bins over
+  2,761 aisles (+17.7%) holding 5.24 M units (+20.3%). The sampled script's day cv runs under
+  the declared law on both sections (0.28 / 0.21 vs 0.33 / 0.25, ~1.5 sd of a 40-day estimate).
+  The `receive` rows 27 could not explain are the era's DERIVED receiving crew (22): the run
+  spec's `recv_crew_size 0` is the flag-off key the era never reads, and the rows are priced by
+  the receiving utilization clause. Own-bin share 0.000 and ~58% free again -- graduated.
 
 ## Not yet specified
 
-- **What the own-bin share and free-index depth should be BANDED at.** 24 shipped both as
-  reported-not-judged because no run under ADR-0003 had shown a steady state. 25 produced the
-  FIRST observation -- own-bin share exactly **0.000** on every day of both leaves, free index never
-  below **1,197,833 of 2,096,050 bins** (~57% free, drifting 1.6% over 40 days) -- so the readings
-  now exist. It stays fog rather than a ticket because a threshold still cannot be phrased sharply:
-  the store leaf those numbers came from was a crew sized on served units under a one-line floor
-  (27), and the floor is about to rise to ~1.27 lines with a larger warehouse; one fifo arm at one
-  shape is not a distribution to band against. Sharpens when
-  [Re-check the reference pair under the first-time guarantee](issues/31-recheck-under-the-first-time-guarantee.md)
-  reads the own-bin share and free-index depth under the solved floor.
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
   inflation changed what a split arm trades: aisles for travel, not capacity for travel (it
   used to raise fill by shrinking the shelf under a fixed stock, and `cells._tightest_split`'s
