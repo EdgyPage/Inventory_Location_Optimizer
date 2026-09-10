@@ -136,8 +136,15 @@ def test_a_utilization_target_must_lie_in_the_unit_interval():
 def test_the_campaign_specs_default_to_the_era_and_the_reference_run_is_gone():
     assert ERA_RUN_DEFAULTS == {'shift_drain_or_cap': True, 'releases_per_day': 1,
                                 'roll_over_unpicked': True, 'cut_at_day_end': True}
-    for name in ('inbound_select', 'inbound_policies', 'inbound_pilot'):
+    for name in ('inbound_select', 'inbound_policies'):
         assert SPECS[name]['run_defaults'] is ERA_RUN_DEFAULTS, name
+    # The pilot gate carries the era PLUS its arrival regime, and no crew key: the crew is
+    # derived under the era ("Verify the derived receiving crew").
+    pilot = SPECS['inbound_pilot']['run_defaults']
+    assert ERA_RUN_DEFAULTS.items() <= pilot.items()
+    assert pilot['inbound_standing_yard'] is True and pilot['inbound_trailer_type'] == '53'
+    assert pilot['inbound_lead_spread'] > 0 and pilot['inbound_lead_minutes'] > 0
+    assert not {k for k in pilot if k.startswith('recv_') or k.startswith('put_')}
     for name in ('single', 'scheduler_ab', '_canary_single', '_canary_sweep'):
         assert 'run_defaults' not in SPECS[name], f'{name} must stay flag-off (byte-identical)'
     # No calibration simulations ("Derive the expected-travel closed form"): the reference
@@ -155,6 +162,9 @@ def test_run_defaults_overlay_args_but_an_explicit_flag_wins_with_a_note():
     args = _ns()
     assert _apply_run_defaults(args, {'ks': [1]}, explicit=set()) == []
     assert args.shift_drain_or_cap is False
+    with pytest.raises(ValueError, match='inbound_lead_sprad'):
+        _apply_run_defaults(_ns(), {'run_defaults': {'inbound_lead_sprad': 0.7}},
+                            explicit=set())
 
 
 def test_the_era_completes_the_cadence_the_cut_and_the_roll_over():

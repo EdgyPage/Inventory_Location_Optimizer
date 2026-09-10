@@ -162,6 +162,25 @@ def test_standing_without_a_receiving_crew_fails_loudly(monkeypatch):
         inbound_spec()
 
 
+def test_the_derived_receiving_crew_satisfies_the_yard_guard_under_the_era(monkeypatch):
+    """Under the calibrated era the declared `recv_crew_size` key is the flag-off input the
+    derivation never writes (the run spec records 0) and the crew the dock is built with is
+    `derived.receiving.crew`, handed in the way `recv_crew_spec(size=)` takes it.  Read off
+    the declared key alone, the guard refused every era launch with the yard on."""
+    from Optimization.config.sim_config import CONFIG, inbound_spec
+    g = CONFIG['global']
+    monkeypatch.setitem(g, 'inbound_standing_yard', True)
+    monkeypatch.setitem(g, 'inbound_trailer_type', '53')
+    monkeypatch.setitem(g, 'recv_crew_size', 0)
+    assert inbound_spec(recv_crew_size=22)['standing'] is True
+    with pytest.raises(ValueError, match='RECV_CREW_SIZE'):
+        inbound_spec(recv_crew_size=0)      # a derived crew of zero is still nobody
+    with pytest.raises(ValueError, match='RECV_CREW_SIZE'):
+        inbound_spec()                      # None reads the declared key: flag-off, 0
+    monkeypatch.setitem(g, 'recv_crew_size', 2)
+    assert inbound_spec()['standing'] is True, 'flag-off the declared key still decides'
+
+
 def test_a_wellformed_standing_spec_carries_the_whole_family(monkeypatch):
     from Optimization.config.sim_config import CONFIG, inbound_spec
     g = CONFIG['global']

@@ -709,8 +709,15 @@ INBOUND_KEYS: tuple[str, ...] = (
 )
 
 
-def inbound_spec() -> dict | None:
+def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
     """The trailer pipeline's configuration as a picklable record, or **None** for off.
+
+    `recv_crew_size` is the DERIVED receiving crew under the calibrated era
+    (`staffing.derive`), handed in by the caller that holds the derived block -- the
+    `recv_crew_spec(size=)` pattern, and for the same reason: derived values are never
+    CONFIG keys.  None reads the declared `recv_crew_size` key, which is every flag-off
+    run.  It is read by exactly one guard, the standing yard's "a yard nobody can unload"
+    refusal below; nothing else about the record depends on it.
 
     None rather than a dict with a flag, for the same reason `recv_crew_spec` returns None:
     the worker tests `args.get('inbound') is None` and skips the whole build -- no
@@ -763,11 +770,21 @@ def inbound_spec() -> dict | None:
                 "standing yard with no trailers is a config contradiction; name a type "
                 "('53'/'28') or clear the flag")
         return None
-    if standing and int(g.get('recv_crew_size') or 0) < 1:
+    # The crew that unloads the yard: the derived one when the caller holds it, else the
+    # declared key.  Reading the declared key ALONE refused every era launch with the yard
+    # on (inbound-optimization, "Verify the derived receiving crew"): under the era that
+    # key is the flag-off input the derivation never writes -- the run spec records it as
+    # 0 -- while the crew the dock is actually built with is `derived.receiving.crew`
+    # (department-calibration, "Design the staffing record", decision 4).
+    _crew = (int(g.get('recv_crew_size') or 0) if recv_crew_size is None
+             else int(recv_crew_size))
+    if standing and _crew < 1:
+        _src = 'declared RECV_CREW_SIZE' if recv_crew_size is None else 'derived receiving crew'
         raise ValueError(
-            'INBOUND_STANDING_YARD needs a receiving crew (RECV_CREW_SIZE >= 1): '
-            'unloading a staged trailer is crew labour, and with no crew the yard '
-            'would stand forever with nothing raising')
+            f'INBOUND_STANDING_YARD needs a receiving crew ({_src} read {_crew}; flag-off '
+            f'RECV_CREW_SIZE >= 1, under the era a derived crew >= 1): unloading a staged '
+            f'trailer is crew labour, and with no crew the yard would stand forever with '
+            f'nothing raising')
     allocation = str(g.get('inbound_crew_allocation') or 'split')
     if allocation not in ('split', 'merged'):
         raise ValueError(f'unknown INBOUND_CREW_ALLOCATION {allocation!r}; '

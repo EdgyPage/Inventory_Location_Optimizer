@@ -247,5 +247,5 @@ def test_the_family_crosses_the_worker_payload_as_one_record():
     ignored by every worker that actually runs the simulation."""
     from Optimization.simdriver import workunits
     src = inspect.getsource(workunits)
-    assert 'inbound             = inbound_spec()' in src, (
+    assert 'inbound             = inbound_spec(recv_crew_size=_recv_size)' in src, (
         'the worker payload does not carry the inbound family')

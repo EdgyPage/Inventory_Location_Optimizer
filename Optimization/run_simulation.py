@@ -332,6 +332,12 @@ def _apply_run_defaults(args, spec_dict: dict, explicit: set) -> list[str]:
     """
     notes = []
     for key, val in (spec_dict.get('run_defaults') or {}).items():
+        # A misspelt key would land on the Namespace and reach nothing: the CONFIG
+        # write-back iterates the key LISTS, not vars(args), so the run would carry the
+        # parser default under a spec that says otherwise -- the same silent hazard
+        # `cells._inbound_axis` refuses for the cell axis.
+        if not hasattr(args, key):
+            raise ValueError(f'run_defaults names {key!r}, which is not a parser flag')
         if key in explicit:
             if getattr(args, key) != val:
                 notes.append(f'  spec default: {key} {val!r} -> {getattr(args, key)!r} '

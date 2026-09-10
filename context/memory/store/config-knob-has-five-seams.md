@@ -43,6 +43,15 @@ via `Optimization/config/sim_config.py:min_headroom()`, exposed as `--min-headro
 refused flag-off, and carried in `ERA_ONLY_KEYS` alongside `store_demand`/`ff_demand`/
 `first_time_confidence`. See [[derived-fill-is-the-fourth-comparability-break]].
 
+**Update 2026-09-10 (inbound 23): a GUARD on a declared key is era-blind.** Derived values are
+never CONFIG keys, so under the era a declared staffing key stays at its flag-off default
+(`recv_crew_size` records 0) while the crew lives in `derived.receiving.crew`. Any accessor
+that tests the declared key -- `sim_config.inbound_spec()`'s standing-yard guard did, and so
+did the resume planner's `receiving=` one call earlier -- refuses or misjudges every era run.
+The pattern is `recv_crew_spec(size=)`: the caller that holds the derived block hands the
+value in, None reads the declared key. Grep for `g.get('recv_crew_size')` /
+`g.get('put_crew_size')` before adding a check that must hold under both regimes.
+
 See [[heredoc-python-breaks-the-spawn-pool]] (the same spawn/re-import mechanism, different
 symptom), [[one-clock-one-speed-one-config]], [[worker-recycling-pinned-at-one]],
 [[nothing-is-lost-under-the-era]].

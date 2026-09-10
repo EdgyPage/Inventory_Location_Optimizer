@@ -365,16 +365,37 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   the STRICT one (`free_doors == 0`) is right; 08's "unmeasured multiplier" on the futuresight
   window is **1.00 drains/batch** (structural), so `'all'` is affordable and 06's `demand_v`
   memo is not a prerequisite. Not done, and named: the futuresight wall-clock bench.
+- [Verify the derived receiving crew under arrivals](issues/23-verify-the-derived-receiving-crew.md):
+  **OUT OF BAND -- fulfillment, the supply clause, every arm; the campaign holds.** One 40-day era
+  run with the yard on and no crew flag (`comparison_20260910_173151`): every crew of both leaves
+  in band (recv 0.173/0.181, 0.694/0.665), the dock never stood a unit overnight, store passes
+  every clause -- and fulfillment's supply level reads **0.148 vs 0.025**, trending up. Not the
+  receiving crew: the coverage record stamps `lead_days` from the catalogue's `lead_time_mean`
+  (0.0), while the trailer pipeline realizes a **1.78-day** order-to-shelf lead (Little's law,
+  48,598 units in transit against 27,294 ordered/day; the reference's in-transit is 0). Graduated
+  to department-calibration as
+  [Declare the coverage against the inbound lead](../department-calibration/issues/36-declare-the-coverage-against-the-inbound-lead.md).
+  Second reading, 22's declared stop: under the derived crew (22 receivers, site day) **the yard
+  never binds** -- strict contention 0/40, binding cuts 0 (fulfillment), door utilization 15%,
+  detention p50 0.18 d; doors 4 / lead 480 / spread 0.7 were pilot outputs under the retired
+  per-batch grant. Graduated here as
+  [Decide the contention regime under the derived crew](issues/25-decide-the-contention-regime-under-the-derived-crew.md)
+  and [Re-verify the gate under the lead-aware record](issues/26-reverify-the-gate-under-the-lead-aware-record.md).
+  Built: the standing-yard guard read only the declared crew key and refused every era launch
+  (`inbound_spec(recv_crew_size=)` now takes the derived crew; the resume planner's `receiving=`
+  had the same blindness); `inbound_pilot` carries its arrival regime as `PILOT_RUN_DEFAULTS`, so
+  the gate re-runs as `--spec inbound_pilot --n-batches 40`.
 
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
   ONE fog item remains: the RESUME-GUARD EXTENSION TO YARD STATE. Nothing inspects inbound
   state on resume today — `_plan_strategy_start` takes `roll_over` and `receiving`, not
-  `inbound`. The standing yard is covered only BY ACCIDENT, because `inbound_spec` refuses a
-  standing yard without a receiving crew, so `recv_crew_spec()` is never None there; but a
-  v1 trailer run with a trailer type and NO receiving crew has worker-local trailers in no
-  checkpoint and is not refused under `--resume-granularity batch`. Out of scope stays out
+  `inbound`. The standing yard is covered because `inbound_spec` refuses a standing yard
+  without a receiving crew, so the planner's `receiving=` is never False there (since 23 both
+  read the DERIVED crew under the era, not the declared key); but a v1 trailer run with a
+  trailer type and NO receiving crew has worker-local trailers in no checkpoint and is not
+  refused under `--resume-granularity batch`. Out of scope stays out
   of scope (no trailer checkpoint format) — this is a refusal, not a format.
   (Done: the standing-yard mechanics — 09 —, the space-timeline build — 11 —, the
   ordering-seam generalization — 12 —, the gain evaluator + gain-plan arms — 14 —, the
@@ -426,6 +447,16 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   phase 1 launches (the funnel inherits the reference window, 40 site days with 20–39 measured, so
   the 136/480-unit sizing above is stale). `restock_selection.json` will pin the staffing record
   and `inbound_policies` refuse under a different one.
+  **2026-09-10: the verification (23) read OUT OF BAND and the hold is back on.** The receiving
+  crew is fine; the coverage record carries no lead and the yard does not bind under the derived
+  crew. Execution order is now: department-calibration's
+  [Declare the coverage against the inbound lead](../department-calibration/issues/36-declare-the-coverage-against-the-inbound-lead.md)
+  and this map's
+  [Decide the contention regime under the derived crew](issues/25-decide-the-contention-regime-under-the-derived-crew.md)
+  (independent) →
+  [Re-verify the gate under the lead-aware record](issues/26-reverify-the-gate-under-the-lead-aware-record.md)
+  → 24 → phase 1 → selection → phase 2 → publish. The pilot regime no longer rides a command
+  line at all: `PILOT_RUN_DEFAULTS` carries it.
 
 ## Out of scope
 

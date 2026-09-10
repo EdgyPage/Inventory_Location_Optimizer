@@ -94,7 +94,7 @@ PHASE2_FINITE_W = 5
 #: calibrated era (`--shift-drain-or-cap`) the dock inherits the SITE's day, the receiving crew is
 #: DERIVED from the pickers' daily demand, and passing either of these two flags explicitly is an
 #: ERROR ("Design the staffing record", decision 4).  Flag-off they still work verbatim.  The
-#: `inbound_pilot` spec's era-shaped successor is inbound ticket 23's work.
+#: era-shaped `inbound_pilot` below carries NEITHER ("Verify the derived receiving crew").
 PHASE2_RECV_CREW_SIZE = 4
 PHASE2_RECV_DAY_SECONDS = 43200.0
 
@@ -110,6 +110,21 @@ ERA_RUN_DEFAULTS = {
     'releases_per_day': 1,
     'roll_over_unpicked': True,
     'cut_at_day_end': True,
+}
+
+#: THE PILOT GATE'S WHOLE REGIME as run-level defaults: the era, plus the arrival regime the
+#: gate committed ("Run the pilot gate", 5) -- the same constants phase 2's inbound axis
+#: reads, so the pilot and the campaign cannot drift apart.  Carrying them here rather than
+#: on the command line closes the reproducibility seam 22 named: the gate re-runs as
+#: `--spec inbound_pilot --n-batches 40` and nothing else.  NO crew key rides here, by
+#: decision: under the era the receiving crew is derived and typing one is an error.
+PILOT_RUN_DEFAULTS = {
+    **ERA_RUN_DEFAULTS,
+    'inbound_trailer_type': '53',
+    'inbound_standing_yard': True,
+    'inbound_dock_doors': PHASE2_DOCK_DOORS,
+    'inbound_lead_minutes': PHASE2_LEAD_MINUTES,
+    'inbound_lead_spread': PHASE2_LEAD_SPREAD,
 }
 
 #: H as MULTIPLES of the calibrated threshold, never absolute days — a horizon authored
@@ -210,12 +225,13 @@ SPECS = {
     # and binding cuts) under `fifo`, calibrate `INBOUND_FEE_THRESHOLD_DAYS`, and bench the
     # window; no pilot number is ever published.
     #
-    # The inbound knobs ride the COMMAND LINE rather than an inbound axis, because the gate is
-    # one arrival regime, not a sweep.  The receiving crew and its day, which are what actually
-    # decide whether the yard binds, are DERIVED under the era (`run_defaults`): the pilot's
-    # committed regime (PHASE2_RECV_CREW_SIZE / PHASE2_RECV_DAY_SECONDS) is an error there, and
-    # the gate becomes a one-cell inbound-on VERIFICATION read through the equilibrium report,
-    # not a search ("Sequence the inbound funnel").  Its era-shaped form is inbound ticket 23's.
+    # The inbound knobs ride `run_defaults` (PILOT_RUN_DEFAULTS) rather than an inbound axis,
+    # because the gate is one arrival regime, not a sweep.  The receiving crew and its day,
+    # which are what actually decide whether the yard binds, are DERIVED under the era: the
+    # pilot's committed regime (PHASE2_RECV_CREW_SIZE / PHASE2_RECV_DAY_SECONDS) is an error
+    # there, and the gate is a one-cell inbound-on VERIFICATION read through the equilibrium
+    # report, not a search ("Sequence the inbound funnel"; "Verify the derived receiving
+    # crew").  40 site days, days 20-39 measured -- the reference window.
     # The scheduler is pinned to `lpt` to match phase 2: the scheduler moves batch DURATION,
     # and batch duration is what decides how many leads elapse before the next drain observes
     # them, so a pilot on the retired scheduler would calibrate a different arrival regime.
@@ -225,7 +241,7 @@ SPECS = {
     'inbound_pilot': {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
         'schedulers': ['lpt'], 'arms': ('fifo', 'tmin'), 'reference': 'k1_off',
-        'run_defaults': ERA_RUN_DEFAULTS,
+        'run_defaults': PILOT_RUN_DEFAULTS,
     },
     # Schema-preflight canary: the SMALLEST spec that still produces a MULTI-cell tree (so the
     # cell level, `_frozen/`, and the cross-cell what-if outputs all appear).  Two cells x one

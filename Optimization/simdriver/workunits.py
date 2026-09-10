@@ -355,6 +355,19 @@ def _prepare_channel_run(
         inventory_label       = _pair_label,
         channel               = ch.name,
     )
+    # THE DERIVED CREWS.  Under the calibrated era `_build_work_units` has run the derivation
+    # for this pair (`_derive_staffing_for_pair`) and left its block on `shared['staffing']`;
+    # the put and receiving crews are then the derived site totals, handed to the accessors
+    # as `size=` -- derived values are never CONFIG keys.  Flag-off `shared` carries no such
+    # block, both accessors read their declared keys, and the payload is byte-identical.
+    # Resolved BEFORE the resume planner below: whether a dock exists is a question the
+    # planner asks (a batch-level resume must refuse when one does), and under the era the
+    # answer lives in the derived block, never in the declared key.
+    _st = shared.get('staffing')
+    _put_size = _st['derived']['put']['crew'] if _st else None
+    _recv_size = _st['derived']['receiving']['crew'] if _st else None
+    _staffing_payload = ({'inputs': staffing_spec(), **_st} if _st else staffing_spec())
+
     resume      = _load_resume(ch_run_dir)
     prev_ids    = resume['run_ids'] if resume else {}
     prev_starts = resume.get('next_batch', {}) if resume else {}
@@ -365,7 +378,7 @@ def _prepare_channel_run(
             resume_granularity, prev_ids.get(s.key), prev_starts.get(s.key, 0),
             resume is not None, log,
             roll_over=bool(work_day_spec().get('roll_over_unpicked')),
-            receiving=recv_crew_spec() is not None)
+            receiving=recv_crew_spec(size=_recv_size) is not None)
     if resume:
         log.info(f'  Resuming [{ch.name}]  '
                  + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))
@@ -373,16 +386,6 @@ def _prepare_channel_run(
         log.info(f'  New run [{ch.name}]  '
                  + '  '.join(f'{s.key}={run_ids[s.key]}' for s in ch_strategies))
     _save_resume(ch_run_dir, run_ids, starts)
-
-    # THE DERIVED CREWS.  Under the calibrated era `_build_work_units` has run the derivation
-    # for this pair (`_derive_staffing_for_pair`) and left its block on `shared['staffing']`;
-    # the put and receiving crews are then the derived site totals, handed to the accessors
-    # as `size=` -- derived values are never CONFIG keys.  Flag-off `shared` carries no such
-    # block, both accessors read their declared keys, and the payload is byte-identical.
-    _st = shared.get('staffing')
-    _put_size = _st['derived']['put']['crew'] if _st else None
-    _recv_size = _st['derived']['receiving']['crew'] if _st else None
-    _staffing_payload = ({'inputs': staffing_spec(), **_st} if _st else staffing_spec())
 
     _shared = dict(
         inv_db              = _worker_invdb,
@@ -420,7 +423,9 @@ def _prepare_channel_run(
         # store's machine speed would write rows whose mode and duration disagree.
         put_crew            = put_crew_spec(size=_put_size),
         recv_crew           = recv_crew_spec(size=_recv_size),
-        inbound             = inbound_spec(),
+        # The yard's "someone must unload it" guard reads the SAME derived crew the dock
+        # is built with; None (flag-off) makes it read the declared key, byte-identically.
+        inbound             = inbound_spec(recv_crew_size=_recv_size),
         put_queues          = put_queues_spec(),
         # The other crews' PRICE as scalars of the pickers' -- the fifth seam of a knob.
         # Not in the payload = silently the kernel default in every spawned worker.
