@@ -24,6 +24,12 @@ SEMANTIC_USES = {'sim_db': {
     'batch_stats.recv_cut': 'read', 'batch_stats.recv_seconds': 'read',
     'batch_stats.put_topups': 'read', 'batch_stats.recv_repacks': 'read',
     'batch_stats.recv_repacked_packs': 'read', 'batch_stats.free_bins': 'read',
+    'batch_stats.put_spills': 'read',
+    # The free index per bucket: a LEVEL per (batch, BinKey), read and never summed across
+    # batches; the rework clause takes per-bucket minima, means and drawdowns over a window.
+    'free_index.batch_id': 'read', 'free_index.handling': 'read',
+    'free_index.category': 'read', 'free_index.size': 'read', 'free_index.unit': 'read',
+    'free_index.free': 'read',
     'batch_stats.lead_queue_depth': 'read', 'batch_stats.in_transit_qty': 'read',
     'batch_stats.is_outlier': 'read', 'batch_stats.batch_start_time': 'read',
     # Demand service.  `carryover.qty` is declared READ, not SUM, and that is the honest
@@ -117,6 +123,10 @@ def _bdf(stats):
         'recv_repacks'          : getattr(s, 'recv_repacks', 0),
         'recv_repacked_packs'   : getattr(s, 'recv_repacked_packs', 0),
         'free_bins'             : getattr(s, 'free_bins', None),
+        # The tier spill is the `free_bins` case, not the `put_topups` one: spilling up has
+        # always existed and only the 2026-09-10 vintage counts it, so an older run reads
+        # UNKNOWN and the clause says "unrecorded" rather than passing a zero it never saw.
+        'put_spills'            : getattr(s, 'put_spills', None),
         # The working day a batch was RELEASED into (0 on every continuous-release run)
         # and the seconds it missed its slot by.  Carried so the day frame below can join
         # the ledger to the batches through `work_day`; `tables.tidy` lists `work_day` as
@@ -326,6 +336,30 @@ def _cdf(rows, df_b):
     # A batch with no demand did not achieve perfect service; it was not measured.
     df['missed_share'] = np.where(dem > 0.0, df['missed_pieces'] / dem * 100.0, np.nan)
     return df
+
+
+_FREE_INDEX_COLS = ['batch_id', 'handling', 'category', 'size', 'unit', 'free']
+
+
+def _fidf(rows):
+    """The RAW `free_index` rows, one LEVEL per (batch, BinKey) -- the rework clause's
+    per-bucket depth (department-calibration 32, decision 3).
+
+    THE AUDIT'S ONLY PATH TO THE TABLE, and an explicit column dict like `_bdf`'s for the
+    same reason: `throughput/audit.py` builds `free_rows` from this frame, so a column
+    missing here would make `equilibrium._rework_clause` read every bucket as unrecorded
+    and report a clean depth on exactly the run it exists to flag (the vacuity ticket 24
+    fell into with the flows).  Deliberately unfolded -- the clause takes per-bucket minima,
+    means and drawdowns over a window, none of which survive a fold here.  Empty with its
+    columns on a vintage without the table, which the clause reports as "depth unrecorded
+    per bucket", never as a warehouse with no free bins.
+    """
+    if not rows:
+        return pd.DataFrame(columns=_FREE_INDEX_COLS)
+    return pd.DataFrame([{
+        'batch_id': int(r['batch_id']), 'handling': r['handling'], 'category': r['category'],
+        'size': r['size'], 'unit': r['unit'], 'free': int(r['free']),
+    } for r in rows])
 
 
 _CARRY_COLS = ['batch_id', 'reason', 'sku', 'qty']

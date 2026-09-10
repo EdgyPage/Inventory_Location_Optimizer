@@ -206,6 +206,7 @@ class EvalContext:
         self._dcache: dict = {}     # per-drain yard frames
         self._mcache: dict = {}     # per-batch demand-service frames
         self._ccache: dict = {}     # raw carryover rows (the equilibrium check's flows)
+        self._ficache: dict = {}    # raw free_index rows (the rework clause's per-bucket depth)
         self._wcache: dict = {}     # per-batch production-labour frames
         self._scache: dict = {}     # per-day drain-or-cap ledger frames
         self._expect = None         # staffing expectations, resolved once (False = none)
@@ -261,6 +262,9 @@ class EvalContext:
 
     def carry_df(self, key):
         return _requests.carry_frame(self, key)
+
+    def free_index_df(self, key):
+        return _requests.free_index_frame(self, key)
 
     def work_df(self, key):
         return _requests.work_frame(self, key)

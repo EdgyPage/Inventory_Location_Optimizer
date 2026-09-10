@@ -58,8 +58,9 @@ def _db_path(rt, cr, strategy: dict) -> str:
 
 
 def report(root: str, *, window: tuple[int, int] | None = None, arm: str | None = None,
-           out=print) -> dict:
-    """Every arm's verdict, `{leaf_label/arm_key: Verdict.as_dict()}`; prints one line each."""
+           buckets: bool = True, out=print) -> dict:
+    """Every arm's verdict, `{leaf_label/arm_key: Verdict.as_dict()}`; prints one line each,
+    followed (unless `buckets=False`) by the rework clause's per-bucket depth table."""
     from Optimization.persistence.Picking_Data import load_shift_days
     from Optimization.runschema import resolve_base_dir, resolver_for
     from Optimization.simconfig import equilibrium as eq
@@ -103,8 +104,32 @@ def report(root: str, *, window: tuple[int, int] | None = None, arm: str | None 
                 results[f'{label}/{s["key"]}'] = {'instrument_error': str(exc)}
                 continue
             out(f'{label} {s["key"]}: {eq.summarize(v)}')
+            if buckets:
+                for line in bucket_table(v):
+                    out('    ' + line)
             results[f'{label}/{s["key"]}'] = v.as_dict()
     return results
+
+
+def bucket_table(verdict) -> list[str]:
+    """The rework clause's per-bucket depth as text rows: one line per bucket of the leaf's
+    section -- setup free (the record), the window's first and last readings, its minimum
+    and mean, the drawdown, and the batches that read dry.  A header line first; one line
+    saying so when the run's vintage never recorded the depth per bucket."""
+    b = verdict.clauses['rework'].reading.get('buckets') or {}
+    if not b:
+        return ['free index per bucket: unrecorded on this vintage']
+    w = max(len(k) for k in b)
+    lines = [f'{"bucket":<{w}}  {"setup":>10} {"first":>10} {"min":>10} {"mean":>12} '
+             f'{"last":>10} {"drawdown":>10}  dry batches']
+    for k, v in b.items():
+        def _n(x, fmt=',d'):
+            return '-' if x is None else format(x, fmt)
+        lines.append(f'{k:<{w}}  {_n(v["setup_free"]):>10} {_n(v["first"]):>10} '
+                     f'{_n(v["min"]):>10} {_n(v["mean"], ",.1f"):>12} {_n(v["last"]):>10} '
+                     f'{_n(v["drawdown"], "+,d"):>10}  '
+                     f'{len(v["dry_batches"]) if v["dry_batches"] else "-"}')
+    return lines
 
 
 def main(argv=None) -> int:
@@ -113,9 +138,12 @@ def main(argv=None) -> int:
     p.add_argument('--window', help='LO-HI working days to judge (default: every closed day)')
     p.add_argument('--arm', help='one strategy key (default: every arm)')
     p.add_argument('--json', help='write every verdict\'s as_dict() here')
+    p.add_argument('--no-buckets', action='store_true',
+                   help='omit the per-bucket free-index table under each arm')
     a = p.parse_args(argv)
     try:
-        results = report(a.run, window=_window_arg(a.window), arm=a.arm)
+        results = report(a.run, window=_window_arg(a.window), arm=a.arm,
+                         buckets=not a.no_buckets)
     except Exception as exc:                                   # noqa: BLE001 - reported
         print(f'equilibrium_report: cannot read {a.run!r}: {exc}')
         return 2

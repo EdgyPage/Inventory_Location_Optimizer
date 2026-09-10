@@ -56,6 +56,13 @@ the silent failure moved. `Schema/compat.py` closes it. Keep it closed.
      registered beside the family), register a per-vintage `dataset.override(...)` for the
      OUTGOING id that re-aliases its physical columns to the query's SAME logical names. Never
      edit a consumer script for a schema change — that is the entire point of the layer.
+   - **A pure column ADDITION to a queried table needs an override too** — the same select
+     list minus the new columns, for the outgoing id (`Picking_Data._batch_frame_sql`). The
+     query's `optional` default is filled only AFTER the SQL runs, and the canonical SQL names
+     every column, so a file lacking one is `UnsupportedQuery` and the loader falls to its
+     legacy body's dataclass default instead (memory
+     `optional-fill-only-answers-through-an-override`: `free_bins` read 0, not None, on the
+     798778f4fae1 vintage for two days). Prove the fill with a faked-vintage read-back test.
    - Only if the outgoing shape was never captured (a change that predates `--sync`) do you need
      `--capture <family> <a real file of that vintage>`, or a **hash-verified reconstruction**:
      rebuild it from an adjacent committed shape plus the one documented delta, and accept it ONLY

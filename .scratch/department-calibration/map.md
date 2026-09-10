@@ -548,6 +548,19 @@ regime someone chose rather than one the defaults inherited.
   from the stationary fragmentation closed form (a Markov chain over the line law); `free_bins`
   keeps its name and meaning. Graduated 33, 34, 35; three glossary terms; ADR-0003 observation.
 
+- [Build the per-bucket free index, the tier spill and the judged rework clause](issues/33-build-the-per-bucket-free-index-and-judged-rework.md):
+  LANDED 2026-09-10 (`sim_db` `02a78953886c` -> `b87cfbb8d041`). The tier spill is counted at
+  the placement commit point (`put_spills`, the tier pair on `bin_placement`), the free index is
+  written PER BUCKET (`free_index`, one level per BinKey per batch), and `rework` judges spills,
+  top-ups and repacks at zero -- no knob -- naming the dry bucket, while the depth is reported
+  per bucket against the record's `setup_free`. THE CHECK on the reference pair: batch 0
+  reproduces the record's setup free on all 60 + 3 buckets exactly, 0 spills / 0 top-ups, and
+  batches 0-1 of every existing surface are IDENTICAL to the 2026-09-09 run. Found on the way:
+  the "optional-fill serves older vintages" claim was never true -- a pure column addition needs
+  a per-vintage override or the loader falls to its legacy dataclass 0 (`free_bins` read 0 on
+  798778f4fae1 files for two days; fixed, memory
+  `optional-fill-only-answers-through-an-override`).
+
 ## Not yet specified
 
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's

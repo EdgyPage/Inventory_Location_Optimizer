@@ -29,6 +29,12 @@ trending, and the `supply` clause reads the first-attempt supply share against t
 `1 - fill`.  "Every day drained" is a reading inside the labour clause, never a verdict.
 The two shares ride the inspection table as two more rows per arm beside the departments.
 
+Since "Band the own-bin share and the free-index depth" (2026-09-10) the `rework` clause
+judges the tier spill, the own-bin top-up and the repack at exactly zero and reads the
+free-index depth PER BUCKET off the `free_index` table (`ctx.free_index_df`) against the
+record's per-bucket setup free; the table carries the three events and the depth (the
+section and its driest bucket) as five more rows per arm.
+
 Overtime caps a day ("Overtime behind a drained day raises the instrument", 2026-09-07):
 a day whose last task finished past its cap is labour that did not fit the day, and the
 loader serves a pre-amendment ledger's `drained` with that term folded in -- which is what
@@ -75,6 +81,15 @@ _DEPT_LABEL = {'pick': 'picking', 'put': 'put-away', 'recv': 'receiving'}
 #: The two flow clauses' rows in the inspection table: (clause, label, decimals).
 _SHARE_ROWS = (('supply', 'supply share', 3), ('labour', 'cut share', 4))
 
+#: The rework clause's three events in the inspection table: (reading key, label).  Each is
+#: judged at exactly zero (the spill and the top-up with no knob; the repack against the
+#: record's stamped `f_repack`), so the "expected" cell is 0 and the read names the dry
+#: bucket(s) -- department-calibration 32.  The free-index depth follows as two REPORTED
+#: rows: the section's setup free against its window-end reading with the drawdown in the
+#: read cell, then the driest bucket by its window minimum against its own setup free.
+_REWORK_ROWS = (('spills', 'tier spills'), ('topups', 'own-bin top-ups'),
+                ('repacked_packs', 'repacked packs'))
+
 
 def _verdict_for(ctx, key, sdf, expectations):
     """The check over every day this arm's ledger closed, or None without expectations."""
@@ -82,9 +97,11 @@ def _verdict_for(ctx, key, sdf, expectations):
         return None
     lo, hi = int(sdf['day'].min()), int(sdf['day'].max())
     bdf, wdf, cdf = ctx.batch_df(key), ctx.work_df(key), ctx.carry_df(key)
+    fdf = ctx.free_index_df(key)
     shift_rows = sdf.to_dict('records')
     batch_rows = bdf.to_dict('records') if not bdf.empty else []
     carry_rows = cdf.to_dict('records') if not cdf.empty else []
+    free_rows = fdf.to_dict('records') if not fdf.empty else []
     work_rows = []
     if not wdf.empty:
         for r in wdf.to_dict('records'):
@@ -94,7 +111,7 @@ def _verdict_for(ctx, key, sdf, expectations):
                               'seconds': r['unload_seconds']})
     return _eq.check_rows(shift_rows=shift_rows, batch_rows=batch_rows, work_rows=work_rows,
                           carry_rows=carry_rows, day_lo=lo, day_hi=hi,
-                          expectations=expectations)
+                          expectations=expectations, free_rows=free_rows)
 
 
 def _read(dept, reading, is_base, tol):
@@ -151,6 +168,68 @@ def _share_rows(head, verdict):
     return out
 
 
+def _rework_rows(head, verdict):
+    """The rework clause's rows of the inspection table for one arm, after the shares: the
+    three events judged at zero, then the per-bucket depth as a report."""
+    out = []
+    r = verdict.clauses['rework'].reading if verdict is not None else {}
+    dry = r.get('dry_buckets') or []
+    where = (f' · dry: {", ".join(dry)}' if dry
+             else ('' if r.get('buckets_recorded') else ' · depth unrecorded per bucket'))
+    for key, label in _REWORK_ROWS:
+        row = [''] * len(head)
+        n = r.get(key)
+        exp = (r.get('expected_repacked_packs') if key == 'repacked_packs' else 0)
+        if not r:
+            row += [label, '-', '-', '-', '-', 'n/a']
+        elif n is None:
+            row += [label, '-', '0', 'unrecorded', '-', 'n/a (unrecorded on this vintage)']
+        else:
+            exp_txt = ('-' if exp is None else f'{exp:g}')
+            read = ('none' if n == 0 else f'ABOVE zero{where}')
+            if key == 'repacked_packs' and exp is None:
+                read = 'reported, not judged (no f_repack)'
+            row += [label, '-', exp_txt, f'{int(n):,}', '0', read]
+        out.append(row)
+    # The depth, two rows: the section (the record's buckets) setup vs window end with the
+    # drawdown in the read cell, then the DRIEST bucket by its window minimum -- its own
+    # setup free against its minimum, the label in the read cell.  Two rows because one
+    # cell cannot hold a bucket label beside the numbers at this font (measured: the single
+    # row overflowed two columns on the 60-bucket store leaf).
+    b = {k: v for k, v in (r.get('buckets') or {}).items() if v.get('last') is not None}
+    row = [''] * len(head)
+    if not b:
+        row += ['free index', '-', '-', '-', '-',
+                'n/a (per-bucket depth unrecorded)' if r else 'n/a']
+        out.append(row)
+        row = [''] * len(head)
+        row += ['driest bucket', '-', '-', '-', '-', 'n/a']
+        out.append(row)
+        return out
+    setup = [v['setup_free'] for v in b.values() if v.get('setup_free') is not None]
+    last = sum(v['last'] for v in b.values())
+    dd = sum(v['drawdown'] for v in b.values())
+    row += ['free index', '-', (f'{sum(setup):,} at setup' if setup else '-'),
+            f'{last:,}', '-', f'drawdown {dd:+,} over {len(b)} bucket(s)']
+    out.append(row)
+    driest = min(b, key=lambda k: b[k]['min'])
+    d = b[driest]
+    row = [''] * len(head)
+    row += ['driest bucket', '-',
+            (f'{d["setup_free"]:,} at setup' if d.get('setup_free') is not None else '-'),
+            f'{d["min"]:,}', '-', _short_bucket(driest)]
+    out.append(row)
+    return out
+
+
+def _short_bucket(label: str) -> str:
+    """`handling/category/size` for the table: the `unit` segment is implied by the size
+    class in this repo (`ff_*` is fulfillment, `singleton` is singleton, the rest pallet)
+    and the full label does not fit the cell.  Display only -- the reading keeps the key."""
+    parts = label.split('/')
+    return '/'.join(parts[:3]) if len(parts) == 4 else label
+
+
 def _rows(ctx, s, sdf, verdict, expectations):
     n = int(len(sdf))
     capped = int(sdf['capped'].sum())
@@ -174,6 +253,7 @@ def _rows(ctx, s, sdf, verdict, expectations):
                     f'{r["realized"]:.3f}', f'±{tol:.2f}', _read(dept, r, is_base, tol)]
         out.append(row)
     out.extend(_share_rows(head, verdict))
+    out.extend(_rework_rows(head, verdict))
     return out
 
 

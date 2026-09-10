@@ -136,7 +136,12 @@ class BinRecorder:
             self.placements.append(BinPlacementRecord(
                 run_id=self.run_id, batch_id=self._batch, seq=self._place_seq,
                 aisle_id=aisle_id, bayX=bay_x, bayY=bay_y, sku=sku, qty=qty, cause=cause,
-                bin_state='empty', score=score, score_rank=score_rank, policy=policy))
+                bin_state='empty',
+                # The tier pair: a spill is the row where these differ (department-
+                # calibration 32, decision 2).  `unit.storage_size` can be falsy for a unit
+                # with no tier claim, which is recorded as unknown, not as a fit.
+                unit_size=(unit.storage_size or None), bin_size=bin_.storage_size,
+                score=score, score_rank=score_rank, policy=policy))
             self._place_seq += 1
             self.units_placed += qty
 
@@ -158,7 +163,9 @@ class BinRecorder:
             self.placements.append(BinPlacementRecord(
                 run_id=self.run_id, batch_id=self._batch, seq=self._place_seq,
                 aisle_id=aisle_id, bayX=bay_x, bayY=bay_y, sku=order.sku, qty=n,
-                cause=cause, bin_state='occupied'))
+                # `unit_size` stays None: the rung hands over `n` items, not the unit they
+                # were cut from, and a top-up into the SKU's own bin cannot spill anyway.
+                cause=cause, bin_state='occupied', bin_size=bin_.storage_size))
             self._place_seq += 1
             self.units_placed += n
 

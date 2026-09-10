@@ -45,14 +45,24 @@ clauses the old pair was silently conflating:
                    expected first-pass missed share), TREND as before (half-window means of the
                    per-batch share within `TREND_TOL`; memories `knees-hide-from-r-squared`,
                    `per-batch-series-are-autocorrelated`).
-    rework         no pack was REPACKED (ADR-0003).  The staffing record stamps
-                   `f_repack = 0` (provenance `assumed`), so a measured repack contradicts
-                   the record and fails: rework only happens once the free index is dry,
-                   which is a finding about the warehouse's SIZING rather than a cost to
-                   absorb into a utilization band.  The own-bin share and the free-index
-                   depth ride the same reading but are REPORTED, NOT JUDGED -- they are new
-                   instruments with no observed steady state, and a threshold now would be
-                   invented rather than derived.
+    rework         THREE EVENTS JUDGED AT EXACTLY ZERO, the depth REPORTED PER BUCKET ("Band
+                   the own-bin share and the free-index depth", 2026-09-10).  A TIER SPILL
+                   (`put_spills`: the candidate chain moved up a size tier because the unit's
+                   own bucket was dry), a TOP-UP into an occupied bin (`put_topups`: the whole
+                   tier chain was dry), and a REPACK (the own bins were full too, judged
+                   against the record's stamped `f_repack = 0`) are the same finding at three
+                   rungs -- the warehouse's SIZING, never a cost to absorb into a band -- and
+                   each fails the clause with the bucket(s) that read dry.  The zero for the
+                   spill and the top-up is ADR-0003's own claim, hard-coded, NO KNOB
+                   (decision 4): nothing on the record prices either differently from a
+                   placement, so a tolerance would have no number to derive from.  The
+                   free-index DEPTH is read per bucket off the `free_index` table (the leaf's
+                   own section by construction; `batch_stats.free_bins` is the whole
+                   geometry) against the setup `free` the record stamps per bucket, and is
+                   reported -- minimum, mean and drawdown over the window -- never judged:
+                   a typed level floor certifies nothing on a store whose slide outlives the
+                   window (decision 6), and the trajectory band waits for the stationary
+                   fragmentation closed form (34).
 
 WHY THE SPLIT.  The old `missed_share` read `(items_demanded - total_items) / items_demanded`
 per batch.  Under the era that difference is the day cut PLUS the stockout, and
@@ -86,6 +96,10 @@ check reads, and where each number comes from:
                                         and the two cause families per batch
     put / receiving `load_work_hours`   seconds per (batch, role), joined to the day
                                         through `batch_stats.work_day`
+    the free index  `load_free_index`   (batch_id, handling, category, size, unit, free):
+                                        the depth PER BUCKET, joined to the day through
+                                        the batch; `[]` on a vintage before the table,
+                                        which the rework clause reports as unrecorded
 
 LEVELS VERSUS FLOWS.  The ledger's `standing_carry_labour` / `standing_carry_supply` are
 LEVELS at close-out: what the day's LAST batch rolled forward.  They equal the day's flows only
@@ -243,6 +257,24 @@ class Verdict:
 # at the top) and stays importable from here for the readers that took it from this module.
 
 
+def bucket_label(handling, category, size, unit) -> str:
+    """The BinKey as ONE string, `handling/category/size/unit` -- the key the rework clause's
+    per-bucket reading is keyed by, so `Verdict.as_dict` stays JSON-ready.  One constructor
+    for the label, shared by the record side (`setup_free_by_bucket`) and the row side
+    (`_rework_clause`), so the two cannot spell a bucket differently."""
+    return f'{handling}/{category}/{size}/{unit}'
+
+
+def setup_free_by_bucket(final_ch: dict) -> dict | None:
+    """`{bucket_label: free}` off one channel's `coverage.final.<ch>` block, or None when the
+    record carries no `fielded.buckets` (a run before "Field the requirement")."""
+    buckets = (final_ch.get('fielded') or {}).get('buckets')
+    if buckets is None:
+        return None
+    return {bucket_label(b['handling'], b['category'], b['size'], b['unit']): int(b['free'])
+            for b in buckets}
+
+
 def _expected_repacked_packs(derived: dict, inputs: dict) -> float | None:
     """The `f_repack` the record stamped, or None if it carries none.
 
@@ -367,8 +399,15 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
     # The expected first-pass fill rate the coverage loop stamped for this channel at the
     # planned levels ("Choose the coverage floor", decision 5): the `supply` clause's LEVEL is
     # read against `1 - fill_rate`.  None on a run whose record predates the line floor.
-    fill = (((cal.get('coverage') or {}).get('final') or {}).get(ch) or {}).get('fill') or {}
+    final_ch = ((cal.get('coverage') or {}).get('final') or {}).get(ch) or {}
+    fill = final_ch.get('fill') or {}
     fill_rate = fill.get('fill_rate')
+    # The setup free index PER BUCKET the planner stamped for this channel's section
+    # ("Field the requirement": `fielded.buckets[]` carries requirement / capacity / free per
+    # BinKey).  The rework clause reads the run's `free_index` rows against it; keyed by the
+    # same four coordinates joined with '/', so the reading is JSON-ready.  None on a record
+    # that predates the fielded block, which the clause reports as "no setup reference".
+    setup_free = setup_free_by_bucket(final_ch)
     # The stamped guarantee (ADR-0004): the `labour` clause's level is read against the
     # expected cut share of the derived crew.  None on a record that predates the guarantee
     # (the 2026-09-08 runs), which the clause reports without judging.
@@ -388,6 +427,7 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
         # None on a record that predates the term, which the clause reports without judging
         # -- a missing expectation is not a passing one.
         'expected_repacked_packs': _expected_repacked_packs(derived, inputs),
+        'setup_free': setup_free,
         'flags': {
             # A declared `--s-pick-*` / `--s-put` replaced the expectation for this pair.
             'overridden': bool(cal.get('overrides')),
@@ -902,44 +942,91 @@ def _supply_clause(flows: dict, days: list[int], expected: float | None) -> Clau
     return Clause('supply', not reasons, reading, '; '.join(reasons))
 
 
-def _rework_clause(batch_rows, days: list[int], expected_repack_packs: float | None) -> Clause:
-    """ADR-0003's rework, per day.  JUDGED on the repack, REPORTED on the rest.
+def _opt_int(v) -> int | None:
+    """An optional count: None for a NULL the loader handed back as None or a frame handed
+    back as NaN (the `free_bins` / `put_spills` rule: unknown, never zero)."""
+    if v is None or _isnan(v):
+        return None
+    return int(v)
 
-    THE ASYMMETRY IS THE DECISION.  A repack is rework the staffing record says should not
-    happen at all (`f_repack = 0`, provenance `assumed`), so measuring one contradicts the
-    record and the clause FAILS -- loudly, rather than being absorbed into a utilization
-    band where a warehouse one size too small looks like a busy day.  `expected` is that
-    stamped number; `None` means no record was carried and the clause reports without
-    judging, because a missing expectation is not a passing one.
 
-    The own-bin share and the free-index depth are the OPPOSITE case.  Both are new
-    instruments with no steady state observed yet -- nobody knows what share is normal
-    under base stock -- so a threshold now would be invented rather than derived.  They ride
-    the reading so a run can be read, and they move no verdict until a run under ADR-0003
-    shows what the steady state is.
+def _rework_clause(batch_rows, days: list[int], expected_repack_packs: float | None,
+                   free_rows=None, setup_free: dict | None = None) -> Clause:
+    """ADR-0003's rework, per day.  THREE EVENTS JUDGED AT ZERO; the depth REPORTED PER BUCKET.
 
-    `put_topups` and the two repack flows are 0 on every pre-ADR vintage BY CONSTRUCTION
-    (put-away could not add to an occupied bin), so this clause passes trivially on an old run
-    -- the reading's `n` says how many batches it saw.  `free_bins` is NOT in that group: such
-    a run had free bins and simply never recorded how many, so it reports None rather than a
-    floor of 0, which would read as an exhausted index.
+    THE THREE EVENTS ARE ONE FINDING AT THREE RUNGS of the put-away chain, and each fails
+    the clause with a SIZING message ("Band the own-bin share and the free-index depth",
+    decisions 1, 2 and 4 -- ADR-0003 is the decision record; this docstring does not
+    re-decide):
+
+      * a TIER SPILL (`put_spills`): `_candidates_raw` moved up a size tier because the
+        unit's own bucket had no free bin.  The FIRST deviation from the put pricer's
+        per-class assumption, and the one event that fires while the other two still read 0.
+      * a TOP-UP into an occupied bin (`put_topups`): the whole tier chain was dry.
+      * a REPACK (`recv_repacked_packs`): the own bins were full too.  Judged against the
+        record's stamped `f_repack = 0` (provenance `assumed`); `expected` None means no
+        record was carried and the repack is reported without judging, because a missing
+        expectation is not a passing one.
+
+    The zero for the spill and the top-up is the ADR's own claim, hard-coded here and NOT a
+    staffing key: nothing on the record prices a spill or a top-up differently from a
+    placement, so a tolerance would have no number to derive from.  A run that wants a tight
+    warehouse gets the finding it asked for.
+
+    THE DEPTH IS REPORTED PER BUCKET, NEVER JUDGED (decisions 3 and 6).  `free_rows` are the
+    `free_index` table's rows -- one LEVEL per BinKey per batch, the leaf's own section by
+    construction -- read over the window against `setup_free`, the `free` the record stamps
+    per bucket at setup (`coverage.final.<ch>.fielded.buckets`).  Per bucket: the window's
+    first and last reading, minimum, mean, the drawdown (first - last), and the batches that
+    read dry.  A typed level floor was rejected: it certifies nothing on a store whose slide
+    outlives the window and fails a healthy run the moment the window moves; the trajectory
+    band waits for the stationary fragmentation closed form (34).  When the record carries
+    `setup_free`, only ITS buckets are reported -- the other section's rows are exactly the
+    artefact `batch_stats.free_bins` cannot separate.  The readings this decision was drawn
+    from are the corrected 2026-09-09 numbers (`comparison_20260909_204522`): 18.0% / 15.2%
+    of the section free at setup (the 0.85 fill plus aisle rounding), falling 6,763 / 18,279
+    bins over 40 days -- NOT the 57-59% the whole-geometry total showed.
+
+    BATCH 0 CARRIES INITIAL STOCKING.  The runner's first snapshot folds every event since
+    the manager was built into batch 0's row, so a spill or a top-up during initial
+    stocking is judged like any other -- deliberately: the planner fields every bucket at
+    exactly its declaration, so a spill at setup is that promise broken one bucket early,
+    and on the reference pair batch 0 reads 0 / 0 (`comparison_20260910_100637`).  Batch
+    0's `own_bin_share` is the one reading this skews (its denominator,
+    `reorder_placements`, excludes setup), which is why the share is reported and the
+    count is judged.
+
+    VINTAGES.  `put_topups` and the two repack flows are 0 on every pre-ADR vintage BY
+    CONSTRUCTION (put-away could not add to an occupied bin), so those terms pass trivially
+    on an old run -- the reading's `n` says how many batches it saw.  `put_spills` and
+    `free_bins` are NOT in that group: an older run spilled and had free bins and simply
+    never recorded either, so both read None (unknown) rather than 0, and an unknown spill
+    count cannot fail a clause judged at zero -- the reading says `spills: None` and the
+    reason names it.  `free_rows` is `[]` on a vintage before the table, reported as
+    "depth unrecorded per bucket", never as a warehouse with no free bins.
     """
     in_window = set(days)
     rows = [b for b in batch_rows if int(_get(b, 'work_day')) in in_window]
+    day_of = {int(_get(b, 'batch_id')): int(_get(b, 'work_day')) for b in rows}
     by_day: dict[int, dict] = {}
+    spills_known = False
     for b in rows:
         d = by_day.setdefault(int(_get(b, 'work_day')), {
-            'topups': 0, 'places': 0, 'repacks': 0, 'packs': 0, 'free': []})
+            'topups': 0, 'spills': 0, 'places': 0, 'repacks': 0, 'packs': 0, 'free': []})
         d['topups']  += int(_get(b, 'put_topups', 0) or 0)
         d['places']  += int(_get(b, 'reorder_placements', 0) or 0)
         d['repacks'] += int(_get(b, 'recv_repacks', 0) or 0)
         d['packs']   += int(_get(b, 'recv_repacked_packs', 0) or 0)
+        _sp = _opt_int(_get(b, 'put_spills', None))
+        if _sp is not None:
+            spills_known = True
+            d['spills'] += _sp
         # UNKNOWN, not zero, on a vintage that never recorded it -- a pre-ADR run certainly
         # had free bins, and reporting a floor of 0 would read as an exhausted index, which
         # is precisely the finding this clause exists to surface.
-        _free = _get(b, 'free_bins', None)
+        _free = _opt_int(_get(b, 'free_bins', None))
         if _free is not None:
-            d['free'].append(int(_free))
+            d['free'].append(_free)
     per_day = {}
     for d, v in sorted(by_day.items()):
         free = v['free']
@@ -948,38 +1035,95 @@ def _rework_clause(batch_rows, days: list[int], expected_repack_packs: float | N
             # Against `reorder_placements` because that is what a top-up IS one of -- the
             # put-away expectation stays one placement per top-up.
             'own_bin_share': (v['topups'] / v['places']) if v['places'] else None,
-            'topups': v['topups'], 'placements': v['places'],
+            'topups': v['topups'], 'spills': (v['spills'] if spills_known else None),
+            'placements': v['places'],
             'repacks': v['repacks'], 'repacked_packs': v['packs'],
             # A LEVEL sampled per batch: report the day's floor and mean, never a sum.
             'free_bins_min': min(free) if free else None,
             'free_bins_mean': (sum(free) / len(free)) if free else None,
         }
-    packs = sum(v['packs'] for v in by_day.values())
-    acts  = sum(v['repacks'] for v in by_day.values())
-    reading = {'n': len(rows), 'days': per_day, 'repacked_packs': packs, 'repacks': acts,
+    packs  = sum(v['packs'] for v in by_day.values())
+    acts   = sum(v['repacks'] for v in by_day.values())
+    topups = sum(v['topups'] for v in by_day.values())
+    spills = sum(v['spills'] for v in by_day.values()) if spills_known else None
+
+    # ── the depth per bucket, over the window ────────────────────────────────────────
+    # Rows are (batch, key) LEVELS; the window is the batches whose day is in it.  Kept in
+    # batch order so first/last mean what they say.
+    series: dict[str, list] = {}
+    for r in sorted((r for r in (free_rows or []) if int(_get(r, 'batch_id')) in day_of),
+                    key=lambda r: int(_get(r, 'batch_id'))):
+        key = bucket_label(_get(r, 'handling'), _get(r, 'category'),
+                           _get(r, 'size'), _get(r, 'unit'))
+        series.setdefault(key, []).append((int(_get(r, 'batch_id')), int(_get(r, 'free'))))
+    # The record's buckets when it has any (the leaf's own section); the run's own rows
+    # otherwise -- an EMPTY fielded block is treated like an absent one, so the run's rows
+    # still show rather than every bucket reading absent.
+    keys = sorted(setup_free) if setup_free else sorted(series)
+    buckets: dict[str, dict] = {}
+    for key in keys:
+        s = series.get(key) or []
+        vals = [n for _b, n in s]
+        buckets[key] = {
+            'setup_free': (setup_free.get(key) if setup_free else None),
+            'n': len(s),
+            'first': (vals[0] if vals else None), 'last': (vals[-1] if vals else None),
+            'min': (min(vals) if vals else None),
+            'mean': ((sum(vals) / len(vals)) if vals else None),
+            # Positive when the bucket LOST free bins over the window.
+            'drawdown': ((vals[0] - vals[-1]) if vals else None),
+            'dry_batches': [b for b, n in s if n == 0],
+        }
+    dry = [k for k, v in buckets.items() if v['dry_batches']]
+    reading = {'n': len(rows), 'days': per_day,
+               'topups': topups, 'spills': spills,
+               'repacked_packs': packs, 'repacks': acts,
                'expected_repacked_packs': (float(expected_repack_packs)
-                                           if expected_repack_packs is not None else None)}
+                                           if expected_repack_packs is not None else None),
+               'buckets': buckets, 'buckets_recorded': bool(series),
+               'dry_buckets': dry}
+
+    def _where() -> str:
+        if not series:
+            return 'per-bucket depth unrecorded on this vintage'
+        if dry:
+            return f'bucket(s) read dry: {", ".join(dry)}'
+        return 'no bucket read dry at a batch boundary'
+
+    reasons = []
+    if spills:
+        reasons.append(
+            f'{spills} tier spill(s): a unit\'s own size bucket had no free bin and the chain '
+            f'placed it a tier up ({_where()}); the bucket is under-sized, a finding about the '
+            f'warehouse rather than a cost to absorb into a band')
+    if topups:
+        reasons.append(
+            f'{topups} top-up(s) into an occupied bin: the whole tier chain was dry for those '
+            f'units ({_where()}); a sizing finding, judged at zero with no knob')
     if expected_repack_packs is None:
-        return Clause('rework', True, reading,
-                      'no f_repack in the record; rework reported, not judged')
+        reasons.append('no f_repack in the record; the repack is reported, not judged')
+        judged = not (spills or topups)
+        return Clause('rework', judged, reading, '; '.join(reasons))
     if packs > float(expected_repack_packs):
-        return Clause(
-            'rework', False, reading,
+        reasons.append(
             f'{packs} pack(s) repacked over {acts} rescue(s) against an expected '
             f'{float(expected_repack_packs):g}; the free index ran dry, which is a finding '
             f'about the warehouse sizing rather than a cost to absorb into a band')
-    return Clause('rework', True, reading, '')
+    return Clause('rework', not reasons, reading, '; '.join(reasons))
 
 
 def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, day_hi: int,
-               expectations: dict) -> Verdict:
+               expectations: dict, free_rows=None) -> Verdict:
     """The five clauses over already-loaded rows.  See the module docstring for each.
 
     `shift_rows` are `load_shift_days` dicts; `batch_rows` are `BatchStats` (or dicts with
     the same fields); `work_rows` are `load_work_hours` dicts; `carry_rows` are
     `load_carryover` rows (dicts or dataclasses with batch_id, reason, sku, qty) -- REQUIRED,
     not defaulted, because an empty list reads as "everything served" and a caller that
-    forgot to load the table must not get that answer by accident.  Raises `InstrumentError`
+    forgot to load the table must not get that answer by accident.  `free_rows` are
+    `load_free_index` rows and ARE defaulted: an absent table means "the depth was never
+    recorded per bucket", which the rework clause reports as exactly that -- the reading is
+    never judged, so a missing list cannot manufacture a pass.  Raises `InstrumentError`
     from the released-late clause and from `demand_flows`; every other outcome is a `Verdict`.
     """
     if day_hi < day_lo:
@@ -992,27 +1136,30 @@ def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, da
         'utilization': _utilization_clause(batch_rows, work_rows, days, expectations),
         'supply': _supply_clause(flows, days, (expectations or {}).get('expected_missed_share')),
         'rework': _rework_clause(
-            batch_rows, days, (expectations or {}).get('expected_repacked_packs')),
+            batch_rows, days, (expectations or {}).get('expected_repacked_packs'),
+            free_rows, (expectations or {}).get('setup_free')),
     }
     return Verdict(all(c.passed for c in clauses.values()), int(day_lo), int(day_hi), clauses)
 
 
 def check(db_path: str, run_id: int, day_lo: int, day_hi: int, *,
           expectations: dict) -> Verdict:
-    """The check over one arm's sim DB: load the four sources, judge the window.
+    """The check over one arm's sim DB: load the five sources, judge the window.
 
     `expectations` is `expectations_for(...)` for this leaf.  The loaders are the
-    version-negotiating ones (`shift_days`, `work_events` and `carryover` are conditional
-    tables: a pre-era vintage answers `[]`, which the labour clause reports as a window the
-    ledger never closed rather than as a plausible pass).
+    version-negotiating ones (`shift_days`, `work_events`, `carryover` and `free_index` are
+    conditional tables: a pre-era vintage answers `[]`, which the labour clause reports as a
+    window the ledger never closed rather than as a plausible pass, and the rework clause
+    as a depth never recorded per bucket).
     """
     from Optimization.persistence.Picking_Data import (
-        load_batch_stats, load_carryover, load_shift_days, load_work_hours)
+        load_batch_stats, load_carryover, load_free_index, load_shift_days, load_work_hours)
     return check_rows(shift_rows=load_shift_days(db_path, run_id),
                       batch_rows=load_batch_stats(db_path, run_id),
                       work_rows=load_work_hours(db_path, run_id),
                       carry_rows=load_carryover(db_path, run_id),
-                      day_lo=day_lo, day_hi=day_hi, expectations=expectations)
+                      day_lo=day_lo, day_hi=day_hi, expectations=expectations,
+                      free_rows=load_free_index(db_path, run_id))
 
 
 def _num(v) -> bool:
@@ -1063,11 +1210,27 @@ def summarize(verdict: Verdict) -> str:
                        if v['own_bin_share'] is not None]
             _floor = [v['free_bins_min'] for v in r['days'].values()
                       if v['free_bins_min'] is not None]
+            _b = r.get('buckets') or {}
+            _read = {k: v for k, v in _b.items() if v.get('min') is not None}
+            if _read:
+                # The driest bucket by its window minimum, and the section's drawdown: the
+                # two numbers a reader wants before the per-bucket table.
+                _k = min(_read, key=lambda k: _read[k]['min'])
+                _dd = sum(v['drawdown'] for v in _read.values())
+                _depth = (f'{len(_read)} bucket(s), driest {_k} at {_read[_k]["min"]:,}'
+                          + (f' of {_read[_k]["setup_free"]:,} at setup'
+                             if _read[_k].get('setup_free') is not None else '')
+                          + f', section drawdown {_dd:+,}')
+            else:
+                _depth = 'per-bucket depth unrecorded'
+            _sp = r.get('spills')
             parts.append(
-                f'{name}={tag} ({r["repacked_packs"]} pack(s) repacked over '
+                f'{name}={tag} ({r.get("topups", 0)} top-up(s), '
+                f'{"unrecorded" if _sp is None else _sp} spill(s), '
+                f'{r["repacked_packs"]} pack(s) repacked over '
                 f'{r["repacks"]} rescue(s); own-bin share '
                 f'{(sum(_shares) / len(_shares)) if _shares else float("nan"):.3f}, '
-                f'free index floor {min(_floor) if _floor else "n/a"})')
+                f'whole-geometry free floor {min(_floor) if _floor else "n/a"}; {_depth})')
         else:
             parts.append(f'{name}={tag} (max lag {c.reading["max_lag_s"]:,.1f} s)')
     return (f'window days {verdict.day_lo}-{verdict.day_hi}: '

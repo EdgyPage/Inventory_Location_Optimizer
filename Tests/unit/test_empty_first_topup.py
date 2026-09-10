@@ -693,8 +693,10 @@ def test_snapshot_putaway_rework_resets_the_flows_and_free_bin_depth_does_not():
 
     assert mgr.free_bin_depth() == free_before - 2, (
         f'free index went {free_before} -> {mgr.free_bin_depth()}; the rescue took 2 bins')
-    assert mgr.snapshot_putaway_rework() == (0, 1, 2), 'the first snapshot must report the batch'
-    assert mgr.snapshot_putaway_rework() == (0, 0, 0), (
+    # (top-ups, spills, rescue acts, packs): the rescue's packs are re-tiered units landing
+    # in bins of their OWN new tier, so the split is rework but not a spill.
+    assert mgr.snapshot_putaway_rework() == (0, 0, 1, 2), 'the first snapshot must report the batch'
+    assert mgr.snapshot_putaway_rework() == (0, 0, 0, 0), (
         'the flows survived a snapshot; a second call in the same batch would double-count '
         'them and the runner makes exactly one')
     assert mgr.free_bin_depth() == free_before - 2, (

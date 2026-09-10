@@ -38,11 +38,13 @@ import numpy as np
 
 from Optimization.persistence.Picking_Data import (load_batch_stats, load_task_stats,
                                                    load_picker_events, load_carryover,
+                                                   load_free_index,
                                                    load_shift_days, load_work_hours,
                                                    load_yard_drains, load_yard_trailers)
 from Optimization.metrics.Simulation_Analytics import task_time_breakdown
 from Optimization.Performance_Evaluations.common.frames import (_bdf, _cdf, _crdf, _ddf,
-                                                                _sdf, _tdf, _wdf, _ydf)
+                                                                _fidf, _sdf, _tdf, _wdf,
+                                                                _ydf)
 from Optimization.Performance_Evaluations.common.series import _build_series
 
 
@@ -196,6 +198,18 @@ def carry_frame(ctx, key):
         s = ctx._by_key[key]
         df = _crdf(load_carryover(s['db_path'], s['run_id']))
         ctx._ccache[key] = df
+    return df
+
+
+def free_index_frame(ctx, key):
+    """One strategy's RAW `free_index` rows, memoised in ctx._ficache -- the rework clause's
+    per-bucket depth.  Unfolded on purpose: the clause takes per-bucket minima, means and
+    drawdowns over a window.  Empty with its columns on a vintage before the table."""
+    df = ctx._ficache.get(key)
+    if df is None:
+        s = ctx._by_key[key]
+        df = _fidf(load_free_index(s['db_path'], s['run_id']))
+        ctx._ficache[key] = df
     return df
 
 

@@ -1185,6 +1185,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     yt: list = []   # yard: FINISHED trailer stamps (the censored tail flushes after the loop)
     yd: list = []   # yard: per-drain levels — the contention pair and the binding-cut pair
     sd: list = []   # the drain-or-cap shift's ledger: one close-out row per working day
+    fi: list = []   # the free index per bucket: one `(batch, *BinKey, free)` row per bucket per batch
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
     demand_breaks  = 0   # batches that picked MORE than was demanded (see the ledger)
@@ -1400,12 +1401,19 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # leaving a NULL every consumer has to special-case.
         _rcv = mgr.receiving_snapshot()
         # ADR-0003's rework flows and the free-index level, taken HERE for exactly the
-        # reasons above: `snapshot_putaway_rework` RESETS all three, so one call per batch,
+        # reasons above: `snapshot_putaway_rework` RESETS all four, so one call per batch,
         # above the skip guard so a skipped batch records its own top-ups (put-away runs in
         # `check_reorders`, which a skipped batch still performs).  `free_bin_depth` is a
-        # level and resets nothing, but it is read here so it is read at the same instant.
+        # level and resets nothing, but it is read here so it is read at the same instant --
+        # and so is its per-bucket form, which is the reading a clause can act on (the total
+        # is the whole geometry; department-calibration 32, decision 3).
+        # BATCH 0 CARRIES INITIAL STOCKING'S EVENTS, unlike `pop_churn`, which is drained
+        # once before the loop: a spill or a top-up while fielding the declaration is the
+        # planner's promise broken and the rework clause judges it (its docstring says so);
+        # draining it here would hide exactly that finding.
         _rwk = mgr.snapshot_putaway_rework()
         _free = mgr.free_bin_depth()
+        fi.extend((i, *_k, _n) for _k, _n in mgr.free_bin_depth_by_bucket())
         # The yard's two row sources, drained here for `queue_state_rows`' reason: both
         # RESET, so exactly one call per batch, above the skip guard so a skipped batch
         # records its drain too (a batch that picked nothing still received trailers).
@@ -1579,7 +1587,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             _bs.work_day      = _release.day_of(i)
             (_bs.recv_depth, _bs.recv_unloaded,
              _bs.recv_cut, _bs.recv_seconds) = _rcv
-            (_bs.put_topups, _bs.recv_repacks, _bs.recv_repacked_packs) = _rwk
+            (_bs.put_topups, _bs.put_spills,
+             _bs.recv_repacks, _bs.recv_repacked_packs) = _rwk
             _bs.free_bins = _free
             _bs.released_late = _late
             pb.append(_bs)
@@ -1661,7 +1670,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         bs.items_demanded     = sum(_eff_batch.items.values())
         bs.work_day           = _release.day_of(i)
         (bs.recv_depth, bs.recv_unloaded, bs.recv_cut, bs.recv_seconds) = _rcv
-        (bs.put_topups, bs.recv_repacks, bs.recv_repacked_packs) = _rwk
+        (bs.put_topups, bs.put_spills, bs.recv_repacks, bs.recv_repacked_packs) = _rwk
         bs.free_bins = _free
         bs.released_late      = _late
         # THE CARRY: everything this batch was asked for and did not pick, by CAUSE.  Each
@@ -1819,7 +1828,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 bin_placements=_bp, bin_evictions=_be,
                 aisle_metrics=pm, reorder_queue=pq, work_events=we,
                 put_queue_state=pqs, carryover=cov,
-                yard_trailers=yt, yard_drains=yd, shift_days=sd)
+                yard_trailers=yt, yard_drains=yd, shift_days=sd, free_index=fi)
             save_worker_checkpoint(run_dir, strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -1870,7 +1879,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
             pqs.clear(); cov.clear()
-            yt.clear(); yd.clear(); sd.clear()
+            yt.clear(); yd.clear(); sd.clear(); fi.clear()
             we.clear()
             reorders_ckpt      = 0
             units_ordered_ckpt = 0
@@ -1912,7 +1921,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             bin_placements=_bp, bin_evictions=_be,
             aisle_metrics=pm, reorder_queue=pq, work_events=we,
             put_queue_state=pqs, carryover=cov,
-            yard_trailers=yt, yard_drains=yd, shift_days=sd)
+            yard_trailers=yt, yard_drains=yd, shift_days=sd, free_index=fi)
         t_save_run += time.perf_counter() - _ts_final
 
     # THE FINAL DAY'S CLOSE-OUT, deliberately OUTSIDE the `if pb:` above (same reasoning as

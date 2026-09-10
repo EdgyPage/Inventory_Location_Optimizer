@@ -89,6 +89,14 @@ SIM_DB_SEMANTICS: dict = {
                                   note='top-ups into a bin already holding the SKU; '
                                        'non-zero only when the free index was dry, so it '
                                        'is read against free_bins and never alone'),
+        'put_spills':         Col(FLOW, 'units', 'batch', account=PACKS,
+                                  null_means='a vintage before 2026-09-10 never counted '
+                                             'the spill; unknown, never zero',
+                                  note='placements into a LARGER size tier than the '
+                                       'unit\'s own -- the chain spilled up because the '
+                                       'unit\'s bucket was dry; the first deviation from '
+                                       'the put pricer\'s per-class assumption and judged '
+                                       'at exactly zero (no knob); singletons never spill'),
         'recv_repacks':       Col(FLOW, 'units', 'batch', account=PACKS,
                                   note='rescue ACTS (repack or singleton); the staffing '
                                        'record expects zero and the equilibrium audit '
@@ -100,8 +108,29 @@ SIM_DB_SEMANTICS: dict = {
         'free_bins':          Col(LEVEL, 'bins', 'batch',
                                   note='free index at batch end; re-counts every still-free '
                                        'bin every batch, so SUM is meaningless -- same trap '
-                                       'as recv_cut'),
+                                       'as recv_cut.  THE WHOLE GEOMETRY, not the leaf\'s '
+                                       'section: a channel leaf counts the other channel\'s '
+                                       'untouched bins as free (57-59% read where the '
+                                       'section\'s headroom was 15-18%, memory '
+                                       'free-bins-counts-the-whole-geometry); the '
+                                       'per-bucket reading is the free_index table'),
         'is_outlier':         Col(LABEL, 'flag', 'batch'),
+    },
+    # ── the free index per bucket (department-calibration 32, decision 3) ───────────
+    'free_index': {
+        'run_id':   _KEY,
+        'batch_id': _KEY,
+        'handling': _ENUM,      # the BinKey's four coordinates, the record's bucket key
+        'category': _ENUM,
+        'size':     _ENUM,
+        'unit':     _ENUM,      # 'pallet' | 'singleton' | 'fulfillment': the regime, so a
+                                # leaf's own section is the rows in its regime
+        'free':     Col(LEVEL, 'bins', 'batch',
+                        note='this bucket\'s free index, read at the same instant as '
+                             'batch_stats.free_bins; re-measured per batch so SUM across '
+                             'batches is meaningless -- read per bucket over a window '
+                             '(minimum, mean, drawdown from the record\'s stamped setup '
+                             'free); ZERO is a real reading (a dry bucket), not a gap'),
     },
     'carryover': {
         'run_id':   _KEY,
@@ -219,6 +248,16 @@ SIM_DB_SEMANTICS: dict = {
         'cause':      _ENUM,
         'bin_state':  _ENUM,   # 'empty' | 'occupied' (ADR-0003): the bin's state at landing,
                                # independent of `cause`, which is where the unit came FROM
+        'unit_size':  Col(LABEL, 'enum', 'row',
+                          null_means='a pre-2026-09-10 row, or a top-up row (the rung does '
+                                     'not carry the unit it was cut from; a top-up cannot '
+                                     'spill)',
+                          note='the unit\'s own size tier; differs from bin_size exactly '
+                               'when the chain spilled up (batch_stats.put_spills counts '
+                               'those rows per batch)'),
+        'bin_size':   Col(LABEL, 'enum', 'row',
+                          null_means='a pre-2026-09-10 row: the tier was not recorded',
+                          note='the landing bin\'s size tier'),
         'score':      Col(SCORE, 'policy-relative', 'row',
                           null_means='no score was recorded — a zero would claim a '
                                      'perfect placement',

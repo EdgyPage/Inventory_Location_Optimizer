@@ -90,6 +90,11 @@ class BatchStats:
     # 0 on every pre-ADR vintage BY CONSTRUCTION, not by convention: put-away could not add
     # to an occupied bin, so a top-up was unreachable and the rescues emitted nothing.
     put_topups: int = 0            # FLOW: top-ups into a bin already holding the SKU
+    # FLOW: placements that landed in a LARGER size tier than the unit's own (the chain
+    # spilled up because the unit's bucket was dry).  Unlike the three ADR-0003 flows, 0 is
+    # NOT the true pre-vintage value: spilling up has always existed and was simply never
+    # counted, so older vintages read it as UNKNOWN (None), the `free_bins` rule.
+    put_spills: int = 0
     recv_repacks: int = 0          # FLOW: rescue acts (repack or singleton)
     recv_repacked_packs: int = 0   # FLOW: packs those acts produced; the labour is per PACK
     # NOT a flow -- a LEVEL read at batch end.  Never sum it; see `recv_cut`.
@@ -345,6 +350,16 @@ _CREATE_BATCH_STATS = """
         -- free index was dry for that unit -- the own-bin rung cannot fire otherwise -- so
         -- this is read against `free_bins`, never alone.
         put_topups             INTEGER NOT NULL DEFAULT 0,
+        -- FLOW: placements that landed in a LARGER size tier than the unit's own -- the
+        -- candidate chain spilled up because the unit's own bucket had no free bin.  The
+        -- FIRST deviation from the put pricer's per-class assumption, and the one of the
+        -- three ADR-0003 events that fires while `put_topups` and the repacks still read 0
+        -- ("Band the own-bin share and the free-index depth", decision 2).  Singletons
+        -- have no tier chain and never spill.  Judged at exactly zero, no knob.
+        -- UNLIKE the three flows around it, 0 is NOT the true pre-vintage value: spilling
+        -- up has always existed and was never counted, so older vintages read it as
+        -- UNKNOWN (None), the `free_bins` rule below, never as zero.
+        put_spills             INTEGER NOT NULL DEFAULT 0,
         -- FLOW: repack/singleton rescue ACTS, and the packs they produced.  Two columns
         -- because one act can split a unit many ways and the ratio is the only thing that
         -- says how badly; the labour is priced per PACK and lands in `recv_seconds`.
@@ -755,6 +770,16 @@ _CREATE_BIN_PLACEMENT = """
         -- could not add to an occupied bin -- which is what the older-vintage override
         -- returns rather than a NULL every consumer would have to special-case.
         bin_state  TEXT  NOT NULL DEFAULT 'empty',
+        -- THE TIER PAIR: the size class the unit belongs to and the size class of the bin
+        -- it landed in.  They differ exactly when the candidate chain spilled UP (the
+        -- unit's own bucket had no free bin), so a spill is auditable per row and
+        -- `batch_stats.put_spills` is the per-batch count of rows where they differ.
+        -- NULL on every row written before this vintage -- the tiers were not recorded,
+        -- and a default would claim a fit nobody checked -- and `unit_size` is NULL on a
+        -- top-up row (`bin_state = 'occupied'`), whose merchandise was cut from a unit the
+        -- own-bin rung does not carry; a top-up cannot spill, so nothing is lost.
+        unit_size  TEXT,
+        bin_size   TEXT,
         -- The number the assignment policy MINIMISED (or maximised) to choose this bin,
         -- captured at the moment of choice.  Units differ by policy and are not comparable
         -- across arms: seconds of anchor gap for the map policies, seconds of marginal
@@ -870,6 +895,35 @@ _CREATE_YARD_DRAINS = """
     ) WITHOUT ROWID
 """
 
+# ── the free index PER BUCKET, one row per BinKey per batch ──────────────────────────────
+# The per-bucket form of `batch_stats.free_bins` ("Band the own-bin share and the free-index
+# depth", decision 3).  That total is the WHOLE geometry, so on a channel leaf it counts the
+# other section's untouched bins as free (57-59% read where the section's real headroom was
+# 15-18%), and a leaf total dominated by near-empty structural-floor buckets says nothing
+# about the busy ones.  This table counts each bucket on its own: the leaf's section is the
+# rows whose `unit` is its regime's, by construction.  Keyed by the four BinKey coordinates
+# the record's `coverage.final.<ch>.fielded.buckets` stamps its setup `free` under, so the
+# equilibrium check joins the two on the key and needs no other map.  ~60 store + 3
+# fulfillment rows per batch.  Its own table rather than 63 batch_stats columns for the
+# reason the yard tables are: the bucket set is the geometry's, not the schema's.
+_CREATE_FREE_INDEX = """
+    CREATE TABLE IF NOT EXISTS free_index (
+        run_id    INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id  INTEGER NOT NULL,  -- pairs 1:1 with batch_stats.batch_id; read at the same
+                                     -- instant as free_bins (after put-away, before picks)
+        handling  TEXT    NOT NULL,  -- the BinKey, in its order
+        category  TEXT    NOT NULL,
+        size      TEXT    NOT NULL,
+        unit      TEXT    NOT NULL,  -- 'pallet' | 'singleton' | 'fulfillment': the regime
+        -- LEVEL: bins in this bucket's free index.  DO NOT SUM ACROSS BATCHES (the recv_cut
+        -- scar); the additive statistics are per bucket over the window -- minimum, mean,
+        -- and the drawdown from the record's stamped setup free.  ZERO is a real reading
+        -- here: a bucket that ran dry writes 0, it does not vanish.
+        free      INTEGER NOT NULL,
+        PRIMARY KEY (run_id, batch_id, handling, category, size, unit)
+    ) WITHOUT ROWID
+"""
+
 # ── the drain-or-cap shift's LEDGER, one row per working day ─────────────────────────────
 # The persisted form of the `[shift] day N ended ...` log line ("Declare the equilibrium bands",
 # decision 5).  Written as each close-out fires -- and the close-out fires at the FIRST batch of
@@ -958,6 +1012,7 @@ def _apply_run_schema(con: sqlite3.Connection) -> None:
     con.execute(_CREATE_YARD_TRAILERS)
     con.execute(_CREATE_YARD_DRAINS)
     con.execute(_CREATE_SHIFT_DAYS)
+    con.execute(_CREATE_FREE_INDEX)
     _migrate_run_columns(con)
 
 
@@ -1125,7 +1180,20 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 before this shape and the rescues emitted nothing.  Served by the
     #                 `batch_frame` optional-fill and `load_bin_placements`' column guard,
     #                 which is why no consumer of either needs to know the id.
-    known_ids=('798778f4fae1',  # the carry split, before ADR-0003's rework columns
+    #                 2026-09-08 .. 2026-09-10: the two re-check runs of "Re-read the check"
+    #                 and "Re-check the reference pair under the first-time guarantee" (the
+    #                 pair the era was calibrated on); no published run used it.
+    #   b87cfbb8d041  the per-bucket free index, 2026-09-10 .. : the `free_index` table,
+    #                 `batch_stats.put_spills`, `bin_placement.unit_size` / `bin_size`
+    #                 ("Band the own-bin share and the free-index depth", decisions 2-3).
+    #                 Every EARLIER vintage reads `put_spills` and the two tiers as UNKNOWN
+    #                 (None), not zero: spilling up always existed and was never counted.
+    #                 Served by the `batch_frame` optional-fill (None), `load_bin_placements`'
+    #                 column guard (NULL) and `load_free_index`'s negotiation ([]).
+    known_ids=('02a78953886c',  # ADR-0003's rework, before the per-bucket free index:
+                                # 2026-09-08 .. 2026-09-10 (the two re-check runs the era
+                                # was calibrated on; no published run)
+              '798778f4fae1',  # the carry split, before ADR-0003's rework columns
               '487a65bf83a9',  # the ledger before the carry split, 2026-09-05 .. 2026-09-06
               'be2a593727be',
               'ce01ca0095b2',
@@ -1236,6 +1304,11 @@ CONDITIONAL_READS = {
     # loader returns [] -- and an era-less run of the new vintage has the table with no rows,
     # which is the same honest answer ("no day was ever closed out").
     'load_shift_days':     'shift_days',
+    # The free index per bucket, added 2026-09-10 with the judged rework clause.  Negotiated
+    # the same way: a pre-table vintage raises `UnsupportedQuery` inside `_query_rows` and
+    # the loader returns [] -- which the rework clause reports as "depth unrecorded per
+    # bucket", never as a warehouse with no free bins.
+    'load_free_index':     'free_index',
     'load_carryover':      'carryover',      # written since 2026-08-24, read from here on
     # The production-labour fold, added 2026-08-31 — `work_events` had no consumer outside
     # Diagnostics until the objective needed the put leg.  Negotiated like the yard pair.
@@ -1423,20 +1496,45 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
                    'recv_seconds': 0.0,
                    # ADR-0003's rework.  0 on every earlier vintage is the TRUE value, not a
                    # stand-in: put-away could not add to an occupied bin before this shape,
-                   # so a top-up was unreachable and the rescues emitted nothing.  A pure
-                   # column ADDITION needs no `override` -- `optional` is the override for
-                   # this case, and registering one would only restate the canonical SQL.
+                   # so a top-up was unreachable and the rescues emitted nothing.
+                   # A DEFAULT HERE IS ONLY READ THROUGH AN OVERRIDE.  The canonical SQL
+                   # names every column, so a vintage lacking one is UNSUPPORTED by it and
+                   # `load_batch_stats` falls to its frozen legacy body, whose answer is the
+                   # dataclass default (0 -- which is how `free_bins` read 0, not None, on
+                   # the 798778f4fae1 vintage until 2026-09-10).  A pure column addition
+                   # therefore DOES need a per-vintage override for the outgoing id: the
+                   # same select list minus the added columns (`_batch_frame_sql`, below the
+                   # vintage constants), so the fill here is what the reader gets.
                    'put_topups': 0, 'recv_repacks': 0, 'recv_repacked_packs': 0,
                    # None, not 0: an older run HAD free bins and never recorded the count.
-                   'free_bins': None}
+                   'free_bins': None,
+                   # None for the same reason: the chain spilled up on every vintage that
+                   # had a tier ladder, and only this one counts it.
+                   'put_spills': None}
+#: The optional columns whose fill is None BY DESIGN -- a vintage that never recorded them
+#: reads UNKNOWN, never zero -- so the type gate (`test_written_columns_are_readable`) asserts
+#: the None rather than the column's INTEGER.  Every other optional default is the true
+#: pre-vintage value in the column's own type.  The legacy loader body (unvetted archive
+#: vintages) sets the same two to None explicitly, since the dataclass default is a WRITER's
+#: default and that body is the one place it would otherwise be READ.
+BATCH_UNKNOWN_ON_OLDER_VINTAGES = ('free_bins', 'put_spills')
 _BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                *_BATCH_OPTIONAL)
 
+def _batch_frame_sql(*omit: str) -> str:
+    """The `batch_frame` select list minus the columns a vintage lacks -- an override for a
+    pure column addition, so the OPTIONAL fill (not the legacy dataclass default) answers
+    for the absent ones.  Every name in `omit` must be optional, or the contract check in
+    `dataset.query` raises for the vintage."""
+    assert set(omit) <= set(_BATCH_OPTIONAL), sorted(set(omit) - set(_BATCH_OPTIONAL))
+    return ('SELECT ' + ', '.join(c for c in _BATCH_COLS if c not in omit)
+            + ' FROM batch_stats WHERE run_id = :run_id')
+
+
 _dataset.register_query(_dataset.Query(
     name='batch_frame', family='sim_db',
-    sql=('SELECT ' + ', '.join(_BATCH_COLS)
-         + ' FROM batch_stats WHERE run_id = :run_id'),
+    sql=_batch_frame_sql(),
     columns=_BATCH_COLS,
     tables={'batch_stats': _BATCH_COLS},
     optional=_BATCH_OPTIONAL))
@@ -1507,6 +1605,15 @@ _dataset.register_query(_dataset.Query(
     columns=_YARD_DRAIN_COLS,
     tables={'yard_drains': ('run_id', *_YARD_DRAIN_COLS)}))
 
+_FREE_INDEX_COLS = ('batch_id', 'handling', 'category', 'size', 'unit', 'free')
+_dataset.register_query(_dataset.Query(
+    name='free_index_frame', family='sim_db',
+    sql=('SELECT ' + ', '.join(_FREE_INDEX_COLS)
+         + ' FROM free_index WHERE run_id = :run_id'
+           ' ORDER BY batch_id, handling, category, size, unit'),
+    columns=_FREE_INDEX_COLS,
+    tables={'free_index': ('run_id', *_FREE_INDEX_COLS)}))
+
 _SHIFT_DAY_COLS = ('day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put',
                    'standing_dock', 'standing_carry', 'standing_carry_labour',
                    'standing_carry_supply', 'last_finish')
@@ -1539,6 +1646,27 @@ _dataset.register_query(_dataset.Query(
 #: The overtime term is folded in as for every vintage (`_SHIFT_DAY_DRAINED_SQL`): not a
 #: re-derivation from the labour terms, but the definition's own stamp read off the row.
 PRE_CARRY_SPLIT_SIM_SCHEMA_ID = '487a65bf83a9'
+
+#: The carry split before ADR-0003's rework (2026-09-06 .. 2026-09-08): no `bin_state`, no
+#: rework flows, no `free_bins`.  The `batch_frame` override below omits the five, so the
+#: optional fill answers -- 0 for the three flows (true by construction) and None for
+#: `free_bins` (unknown).  Until 2026-09-10 no override existed and the canonical SQL, which
+#: names every column, was unsupported on this vintage: the loader fell to its legacy body
+#: and `free_bins` read the dataclass 0 the docstrings said it never would.
+PRE_REWORK_SIM_SCHEMA_ID = '798778f4fae1'
+
+#: ADR-0003's rework before the per-bucket free index (2026-09-08 .. 2026-09-10).  The
+#: table and the three columns are pure ADDITIONS: `batch_frame`'s override omits
+#: `put_spills` so the optional fill reads None, `load_bin_placements`' column guard reads
+#: the tier pair as NULL, and `load_free_index` negotiates to `[]`.  Named so a test can
+#: fake the vintage.
+PRE_FREE_INDEX_SIM_SCHEMA_ID = '02a78953886c'
+
+_dataset.override('sim_db', 'batch_frame', PRE_FREE_INDEX_SIM_SCHEMA_ID,
+                  _batch_frame_sql('put_spills'))
+_dataset.override('sim_db', 'batch_frame', PRE_REWORK_SIM_SCHEMA_ID,
+                  _batch_frame_sql('put_spills', 'put_topups', 'recv_repacks',
+                                   'recv_repacked_packs', 'free_bins'))
 _dataset.override(
     'sim_db', 'shift_day_frame', PRE_CARRY_SPLIT_SIM_SCHEMA_ID,
     'SELECT ' + _shift_day_select(c for c in _SHIFT_DAY_COLS
@@ -1915,8 +2043,8 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
         'queue_depth,lead_queue_depth,in_transit_qty,items_demanded,'
         'work_day,released_late,'
         'recv_depth,recv_unloaded,recv_cut,recv_seconds,'
-        'put_topups,recv_repacks,recv_repacked_packs,free_bins,is_outlier) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'put_topups,put_spills,recv_repacks,recv_repacked_packs,free_bins,is_outlier) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
             (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
              r.task_makespan, r.thr_task, r.thr_batch,
@@ -1927,7 +2055,8 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
              getattr(r, 'work_day', 0), getattr(r, 'released_late', 0.0),
              getattr(r, 'recv_depth', 0), getattr(r, 'recv_unloaded', 0),
              getattr(r, 'recv_cut', 0), getattr(r, 'recv_seconds', 0.0),
-             getattr(r, 'put_topups', 0), getattr(r, 'recv_repacks', 0),
+             getattr(r, 'put_topups', 0), getattr(r, 'put_spills', 0),
+             getattr(r, 'recv_repacks', 0),
              getattr(r, 'recv_repacked_packs', 0), getattr(r, 'free_bins', 0),
              int(r.is_outlier))
             for r in records
@@ -1998,6 +2127,11 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
                 in_transit_qty         = (row['in_transit_qty']
                                           if 'in_transit_qty' in row.keys() else 0),
                 is_outlier             = bool(row['is_outlier']),
+                # UNKNOWN on every unvetted archive vintage (none has the columns): the
+                # dataclass 0 is the writer's default and would read as an exhausted index
+                # / a counted zero here (`BATCH_UNKNOWN_ON_OLDER_VINTAGES`).
+                free_bins              = None,
+                put_spills             = None,
             )
             for row in rows
         ]
@@ -2558,6 +2692,12 @@ class BinPlacementRecord:
     # to 'empty' because that is what every construction site outside the own-bin rung
     # means -- a placement into a free bin -- and what every pre-ADR row is.
     bin_state: str = 'empty'
+    # The tier pair (see the DDL): the unit's own size class and the landing bin's.  Both
+    # default to None -- unknown -- so a construction site that predates them (a test, the
+    # replay harness) writes NULL rather than claiming a fit; `BinRecorder` fills both on a
+    # placement and only `bin_size` on a top-up.
+    unit_size:  str | None = None
+    bin_size:   str | None = None
     # Defaulted, so every existing construction site keeps working and an unscored path
     # says so by omission rather than by inventing a number.  See the DDL comment.
     score:      float | None = None
@@ -2593,10 +2733,11 @@ def _insert_bin_placements(con: sqlite3.Connection, run_id: int, records: list) 
     con.executemany(
         'INSERT OR REPLACE INTO bin_placement '
         '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause, bin_state, '
-        ' score, score_rank, policy) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        ' unit_size, bin_size, score, score_rank, policy) '
+        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause,
-          getattr(r, 'bin_state', 'empty'), r.score, r.score_rank, r.policy)
+          getattr(r, 'bin_state', 'empty'), getattr(r, 'unit_size', None),
+          getattr(r, 'bin_size', None), r.score, r.score_rank, r.policy)
          for r in records])
 
 
@@ -2717,12 +2858,13 @@ def save_checkpoint_bundle(
     yard_trailers  : list | None = None,
     yard_drains    : list | None = None,
     shift_days     : list | None = None,
+    free_index     : list | None = None,
 ) -> None:
     """All per-checkpoint writers on ONE connection with ONE commit.
 
-    `work_events`, `put_queue_state`, `carryover`, the two `yard_*` lists and `shift_days`
-    are keyword-OPTIONAL, so a caller that predates them -- a test, a Diagnostics harness --
-    is unchanged and writes no rows.
+    `work_events`, `put_queue_state`, `carryover`, the two `yard_*` lists, `shift_days` and
+    `free_index` are keyword-OPTIONAL, so a caller that predates them -- a test, a
+    Diagnostics harness -- is unchanged and writes no rows.
 
     A bundle argument that is accepted and never inserted is this function's characteristic
     failure: `work_events` was one for a while, and the reconciliation that was supposed to
@@ -2764,9 +2906,34 @@ def save_checkpoint_bundle(
             _insert_yard_drains(con, run_id, yard_drains)
         if shift_days:
             _insert_shift_days(con, run_id, shift_days)
+        if free_index:
+            _insert_free_index(con, run_id, free_index)
         con.commit()
     finally:
         con.close()
+
+
+def _insert_free_index(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    """`(batch_id, handling, category, size, unit, free)` tuples -- the runner's
+    `(i, *BinKey, free)` off `free_bin_depth_by_bucket`."""
+    con.executemany(
+        'INSERT OR REPLACE INTO free_index '
+        '(run_id, batch_id, handling, category, size, unit, free) '
+        'VALUES (?,?,?,?,?,?,?)',
+        [(run_id, b, h, c, s, u, n) for b, h, c, s, u, n in records])
+
+
+def load_free_index(path: str, run_id: int) -> list:
+    """The free index per bucket per batch, in (batch, key) order.  `[]` on a pre-table
+    vintage, which is "the depth was never recorded per bucket", never "no bucket had a
+    free bin".
+
+    Every `free` is a LEVEL re-measured per batch: `sum()` over a bucket's rows restates the
+    same free bins once per batch (the `recv_cut` scar).  The statistics that mean something
+    are per bucket over a window -- minimum, mean, and the drawdown from the record's stamped
+    setup `free` -- which is how the rework clause reads it.
+    """
+    return _query_rows('free_index_frame', path, run_id=run_id) or []
 
 
 def load_bin_placements(path: str, run_id: int, batch_id: int | None = None) -> list:
@@ -2776,13 +2943,17 @@ def load_bin_placements(path: str, run_id: int, batch_id: int | None = None) -> 
     filled with 'empty' otherwise -- the `row.keys()` guard this file's raw loaders have
     always used, and the honest value for a pre-ADR run, where put-away could not add to an
     occupied bin.  Selecting it unconditionally would make every archived file raise.
+    The tier pair (`unit_size` / `bin_size`) is guarded the same way and filled with NULL,
+    because a file without the columns did not record a fit and 'empty' has no analogue.
     """
     con = _ro_conn(path)
     try:
         _have = {r[1] for r in con.execute('PRAGMA table_info(bin_placement)')}
         _state = 'bin_state' if 'bin_state' in _have else "'empty' AS bin_state"
+        _tiers = ('unit_size, bin_size' if 'unit_size' in _have
+                  else 'NULL AS unit_size, NULL AS bin_size')
         sql = ('SELECT batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause, ' + _state
-               + ' FROM bin_placement WHERE run_id=?')
+               + ', ' + _tiers + ' FROM bin_placement WHERE run_id=?')
         args = [run_id]
         if batch_id is not None:
             sql += ' AND batch_id=?'

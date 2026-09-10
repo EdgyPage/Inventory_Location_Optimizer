@@ -294,6 +294,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         #: ratio is the only thing that says how badly.  Counted even with no dock bound,
         #: so a dockless run still reports its rework instead of silently having none.
         self._put_topups: int = 0
+        #: `_put_spills` counts placements that landed in a LARGER size tier than the unit's
+        #: own -- `_candidates_raw` spills UP within the handling x category chain before the
+        #: own-bin rung is ever reached, so a spill is the FIRST deviation from the put
+        #: pricer's per-class assumption and fires while `_put_topups` still reads 0
+        #: ("Band the own-bin share and the free-index depth", decision 2).  Singletons have
+        #: no tier chain and cannot spill.  Counted at the commit point, so every path that
+        #: places a unit (the ranked wave, the per-unit drain, a reslot) is covered.
+        self._put_spills: int = 0
         self._recv_repacks: int = 0
         self._recv_repacked_packs: int = 0
         #: One `(yard_start, free_doors_start, yard_end, staged_remainder_end)` per STANDING
@@ -935,6 +943,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                 self._queued_qty[sku] = rem
             else:
                 self._queued_qty.pop(sku, None)
+        # THE TIER SPILL, observed here and nowhere else: the unit's own tier is what the
+        # planner sized its bucket for, and a bin of a different size means the chain spilled
+        # up because that bucket was dry.  Handling, category and regime already agree
+        # (asserted above and by construction of every candidate list), so size is the one
+        # coordinate that can differ.  A falsy `storage_size` is a unit with no tier claim
+        # (the ranking `_candidates_raw` gives it is 0, i.e. anything fits) and is not a spill.
+        if unit.storage_size and bin_.storage_size != unit.storage_size:
+            self._put_spills += 1
         bin_.storage = unit
         self._index_remove(bin_)
         self._unavailable[id(bin_)] = bin_
@@ -1209,14 +1225,16 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         return self._dock.drain_repacks() if self._dock is not None else []
 
     def snapshot_putaway_rework(self) -> tuple:
-        """`(put_topups, recv_repacks, recv_repacked_packs)`, resetting all three.
+        """`(put_topups, put_spills, recv_repacks, recv_repacked_packs)`, resetting all four.
 
         Per-batch FLOWS, so they reset -- the `cut`-is-a-level trap in reverse: these really
         are flows and summing them over batches is the right thing to do, which is only true
-        because the drain happens exactly once per batch.
+        because the drain happens exactly once per batch.  The spill rides second so the
+        three ADR-0003 events read in the order the chain fires them: a spill (the tier chain
+        moved up), a top-up (the whole chain was dry), a repack (the own bins were full too).
         """
-        out = (self._put_topups, self._recv_repacks, self._recv_repacked_packs)
-        self._put_topups = self._recv_repacks = self._recv_repacked_packs = 0
+        out = (self._put_topups, self._put_spills, self._recv_repacks, self._recv_repacked_packs)
+        self._put_topups = self._put_spills = self._recv_repacks = self._recv_repacked_packs = 0
         return out
 
     def free_bin_depth(self) -> int:
@@ -1225,8 +1243,29 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         ADR-0003's other half of the record: the own-bin rung fires because this ran to
         zero, so the share is only readable next to the depth that produced it.  Not reset,
         because a level is not a flow.
+
+        THE WHOLE GEOMETRY, not the leaf's section: `_index` holds every bucket the warehouse
+        was built with, and a channel leaf simulates one section of it, so this total counts
+        the other channel's untouched bins as free (memory `free-bins-counts-the-whole-
+        geometry`: 57% read where the section's real headroom was 15-18%).  It keeps its
+        meaning under its name -- `batch_stats.free_bins` is published -- and the reading a
+        clause can act on is `free_bin_depth_by_bucket`.
         """
         return sum(len(v) for v in self._index.values())
+
+    def free_bin_depth_by_bucket(self) -> list:
+        """The free index PER BUCKET: `[(BinKey, free), ...]` in key order, a LEVEL per bucket.
+
+        One row per key `_index` has ever held, INCLUDING buckets whose list is empty -- a
+        bucket that ran dry is the finding, and dropping its row would report it as "no such
+        bucket" rather than as zero.  The keys are the four coordinates the record's
+        `coverage.final.<ch>.fielded.buckets` stamps its setup `free` under, so a reader joins
+        the two on `(handling, category, size, unit)` and needs no other map.  A leaf's own
+        section is the rows whose `unit` is its regime's; the other section's rows are the
+        artefact `free_bin_depth` cannot separate.  Sorted, so the row order is a pure function
+        of warehouse state (the same determinism contract every other reader keeps).
+        """
+        return sorted((k, len(v)) for k, v in self._index.items())
 
     # ── the yard's raw material (RAW STAMPS ONLY — every span derives at analysis) ──
     # Three accessors, one per row source, and none of them computes a span, a detention

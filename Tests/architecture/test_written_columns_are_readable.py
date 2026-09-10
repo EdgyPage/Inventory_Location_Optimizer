@@ -91,6 +91,12 @@ def test_the_optional_defaults_match_the_column_types():
     for col, default in pd._BATCH_OPTIONAL.items():
         t = ddl_types.get(col)
         assert t is not None, f'{col} is optional-filled but is not a batch_stats column'
+        if col in pd.BATCH_UNKNOWN_ON_OLDER_VINTAGES:
+            # Unknown-by-design: a vintage that never recorded the column must read None,
+            # never a zero in the column's type (an exhausted index / a counted zero).
+            assert default is None, f'{col} is declared unknown-on-older-vintages but ' \
+                                    f'defaults to {default!r}'
+            continue
         if t == 'REAL':
             assert isinstance(default, float), f'{col} is REAL but defaults to {default!r}'
         elif t == 'INTEGER':
