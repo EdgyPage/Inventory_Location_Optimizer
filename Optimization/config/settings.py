@@ -253,6 +253,19 @@ FF_DEMAND = 0.0181380                  # fraction of fulfillment SKUs per day.  
 # of units is under 1 - sqrt(c).  Replaces `RHO_PICK` under the era (picking only; the
 # put and receiving crews keep theirs).  --first-time-confidence
 FIRST_TIME_CONFIDENCE = 0.95
+# The MINIMUM HEADROOM every bin bucket keeps at setup under the era.  The fill a bucket is
+# sized to is DERIVED there -- `requirement / (requirement + E[extra bins])` from the
+# stationary fragmentation the record stamps (simconfig/fragmentation.py; department-
+# calibration, "Derive the fill headroom from the fragmentation") -- so a bucket whose
+# churn needs no extra bins would otherwise be sized at 100%.  This floors the free share
+# at a declared number: `fill <= 1 - MIN_HEADROOM`.  What it covers is what the chain does
+# NOT model -- the supply jitter (a lot rounded above what was ordered needs a bin the
+# expectation did not), a tier spill or an own-bin top-up (judged at zero by the equilibrium
+# check, not modelled), and two lines for one SKU in one batch -- so it is an ASSUMPTION,
+# recorded `assumed` unless typed, never a measurement.  ERA-ONLY: flag-off the fill is
+# `STORE_FILL` / `FF_FILL` below and this is None; under the era THOSE two flags are the
+# error, exactly as the picker flags are.  --min-headroom
+MIN_HEADROOM = 0.05
 
 # The MODE each pick pool works in.  These were implicit in the pool names
 # ('store_machine', 'fulfillment_walker') and in constants.py's comments for years
@@ -415,8 +428,11 @@ PUT_MACHINE_Y = 2.0
 STORE_CART = 'StoreCart'
 FF_CART = 'FulfillmentCart'
 
-STORE_FILL = 0.85                      # sizing headroom; --store-fill
-FF_FILL = 0.85                         # --ff-fill
+STORE_FILL = 0.85                      # sizing headroom; --store-fill.  FLAG-OFF ONLY:
+FF_FILL = 0.85                         # --ff-fill.  Under the calibrated era the fill is
+                                       # DERIVED per bucket from the stationary
+                                       # fragmentation, floored at MIN_HEADROOM above, and
+                                       # typing either flag is an error.
 
 STORE_BATCH_MEAN = 0.15                # batch size as a fraction of the channel's SKUs
 STORE_BATCH_STD = 0.05

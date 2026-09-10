@@ -737,6 +737,16 @@ def _record_derived(base_dir: str, label: str, derived: dict, calibration: dict,
                 f'recorded derived block is authoritative on resume, so this run cannot '
                 f'continue under different crews. Start a new run instead.')
         return
+    # A MULTI-CELL era run has already recorded the pair's COVERAGE block: the freeze planned
+    # the inventory (`_record_coverage` from `scenario`), and every cell then reshapes the
+    # FROZEN inventory, whose derivation carries `coverage: None`.  Replacing the whole
+    # calibration block here dropped that record on the first cell -- the analysis stage then
+    # found "no stock declaration" for every cell and rebuilt nothing (found by the derived
+    # fill's sweep canary, "Derive the fill headroom from the fragmentation").  A recorded
+    # coverage stands; the fresh block fills in beside it.
+    prev_cal = (st.get('calibration') or {}).get(label) or {}
+    if calibration.get('coverage') is None and prev_cal.get('coverage') is not None:
+        calibration = {**calibration, 'coverage': prev_cal['coverage']}
     st.setdefault('derived', {})[label] = derived
     st.setdefault('calibration', {})[label] = calibration
     _write_run_spec(root, spec)

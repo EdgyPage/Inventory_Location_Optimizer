@@ -124,8 +124,10 @@ regime someone chose rather than one the defaults inherited.
   section; read per bucket off the record's `fielded` block. Under base stock a picked SKU holds
   two bins most of the time (remnant + empty-first top-up), so the setup headroom drains at the
   first-partial-pick rate toward a stationary fragmentation the record now DERIVES (34, landed
-  2026-09-10: `fielded.fragmentation`); the planner's 0.85 fill is an assumed number standing
-  where that closed form belongs (35).
+  2026-09-10: `fielded.fragmentation`); the planner's 0.85 fill WAS an assumed number standing
+  where that closed form belongs -- 35 (LANDED 2026-09-10) derives the fill per bucket from it,
+  floored at `min_headroom` (0.05, assumed); the reference warehouse is 2,536 aisles / 2,311,000
+  bins now, a comparability break.
 
 ## Decisions so far
 
@@ -577,6 +579,20 @@ regime someone chose rather than one the defaults inherited.
   buckets exceed their setup free two to three times because picked singleton remainders come
   back as pallets of 1 -- what 35 sizes.
 
+- [Derive the fill headroom from the fragmentation](issues/35-derive-the-fill-headroom-from-the-fragmentation.md):
+  LANDED 2026-09-10. Under the era each bucket is sized to HOLD `max(requirement + E[extra],
+  requirement / (1 - min_headroom))` bins -- the declaration AND the fragmentation base stock
+  creates -- through a planner `bucket_hold` map derived each round before the plan
+  (`era_coverage.derive_fill` / `derived_holds`), recorded per bucket (`fill`, `hold`,
+  `headroom_floored`, the `fielded.fill` block) and read back by every rebuild (`holds_at`);
+  `min_headroom` (0.05, `assumed`) is a new era-only staffing key on all five seams, the typed
+  fills refuse under the era and record as None. Flag-off is byte-identical (per-bucket oracle).
+  THE REFERENCE PAIR: 2,761 aisles / 2,466,650 bins -> **2,536 / 2,311,000**; the store's `small`
+  buckets grow (food/small 76,000 -> 98,000, fill 0.652), every `singleton` bucket shrinks to the
+  floor; crews and floors unchanged. The fourth comparability break (memory
+  `derived-fill-is-the-fourth-comparability-break`). Found on the way: a multi-cell era run lost its
+  coverage record to the first cell's derived block and its analysis rebuilt nothing -- fixed.
+
 ## Not yet specified
 
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
@@ -631,6 +647,13 @@ regime someone chose rather than one the defaults inherited.
   per bucket can be judged against the expected drawdown for those days, the way the labour clause
   is judged against `cut_share_sd`. Dim until 34 says whether the transient has a closed form or
   only the stationary level does.
+- **A derived minimum headroom.** 35 floors every bucket's free share at `MIN_HEADROOM = 0.05`,
+  an assumption covering what the fragmentation chain does not model (the supply jitter
+  `max(1, round(N(lot, lot · cv)))`, a tier spill or own-bin top-up judged at zero, two lines
+  for one SKU in one batch). The jitter's law is stamped on the SKU (`supply_cv`), so the bins a
+  rounded-up lot needs beyond the expectation may have a closed form per bucket, the way the
+  stationary extra does; dim until a run under the derived fill shows a bucket's free index
+  crossing the 5% floor (22 of 51 reference buckets sit on it).
 
 ## Out of scope
 

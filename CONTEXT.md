@@ -267,7 +267,10 @@ _Avoid_: duty cycle (that is the grant, not the work), load factor, occupancy
 The distance between a crew's expected utilization and saturation. It is chosen, never left
 over, so that a placement decision has room to move the site's operations: declared as a
 utilization target for put-away and receiving, and for picking as the consequence of the
-first-time confidence, which fixes how much of a day's overflow the crew may leave.
+first-time confidence, which fixes how much of a day's overflow the crew may leave. On the
+shelf the same word is the free share of a bin bucket at setup: under the era it is DERIVED per
+bucket from the stationary fragmentation (the bucket is sized to hold its declaration plus the
+extra bins churn creates) and never less than a declared minimum; flag-off it is the typed fill.
 _Avoid_: safety margin, slack, buffer
 
 ### Day-over-day

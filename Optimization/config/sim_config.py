@@ -247,6 +247,10 @@ CONFIG = {
         'store_demand'        : _s.STORE_DEMAND,
         'ff_demand'           : _s.FF_DEMAND,
         'first_time_confidence': _s.FIRST_TIME_CONFIDENCE,
+        # The minimum headroom the era's DERIVED fill keeps per bucket (settings,
+        # `MIN_HEADROOM`).  Era-only like the three above: flag-off the fill is the typed
+        # `channels.<ch>.fill` and this is None; under the era the typed fill is unread.
+        'min_headroom'        : _s.MIN_HEADROOM,
         # The era's declared scalars (settings, "the calibrated era's declared scalars")
         # and the put crew's MODE -- staffing INPUTS, on STAFFING_KEYS with the pickers.
         # `rho_pick` is flag-off only since ADR-0004 (the confidence replaces it).
@@ -365,14 +369,16 @@ def n_batches() -> int:
 #: SHAPE in one place, on the `INBOUND_KEYS` precedent: the CLI flags, the run-spec record and
 #: BOTH restore sites iterate this list rather than retyping the keys, so a new staffing input
 #: cannot be recorded and then not restored.  Order is the order the flags are emitted in.
-#: The two picker counts, the two demand declarations and the first-time confidence, the
-#: utilization / replenishment scalars, the band tolerance, the put crew's mode, the stock
-#: coverage, and the three calibration overrides (.scratch/department-calibration, "Design
-#: the staffing record", decision 2; ADR-0004).  Derived values are NEVER on this list: the
-#: derivation's outputs live in the run spec's `staffing.derived` block and cannot be set
-#: from the command line.
+#: The two picker counts, the two demand declarations, the first-time confidence and the
+#: minimum headroom, the utilization / replenishment scalars, the band tolerance, the put
+#: crew's mode, the stock coverage, and the three calibration overrides
+#: (.scratch/department-calibration, "Design the staffing record", decision 2; ADR-0004;
+#: "Derive the fill headroom from the fragmentation").  Derived values are NEVER on this
+#: list: the derivation's outputs live in the run spec's `staffing.derived` block and cannot
+#: be set from the command line.
 STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
                                   'store_demand', 'ff_demand', 'first_time_confidence',
+                                  'min_headroom',
                                   'rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv', 'f_repack',
                                   'band_tol', 'put_crew_mode',
                                   'coverage_days', 'safety_days', 'floor_lines',
@@ -385,12 +391,17 @@ STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
 CALIBRATION_KEYS: tuple[str, ...] = ('s_pick_store', 's_pick_ff', 's_put')
 
 #: The keys that mean something ONLY under the calibrated era (ADR-0004: demand is the
-#: declared input and the picking crew is solved from the confidence) and the keys that
-#: mean something ONLY flag-off (the declared pickers and their utilization target).  Each
-#: regime records the other's keys as None -- `staffing_spec()` below -- so a record never
-#: shows a crew of 25 beside a derived one of 32, or a utilization target nothing read.
-#: `run_simulation._check_era_flags` refuses the wrong regime's flags when typed.
-ERA_ONLY_KEYS: tuple[str, ...] = ('store_demand', 'ff_demand', 'first_time_confidence')
+#: declared input and the picking crew is solved from the confidence; the fill is derived
+#: per bucket and floored at the minimum headroom) and the keys that mean something ONLY
+#: flag-off (the declared pickers and their utilization target).  Each regime records the
+#: other's keys as None -- `staffing_spec()` below -- so a record never shows a crew of 25
+#: beside a derived one of 32, or a utilization target nothing read.
+#: `run_simulation._check_era_flags` refuses the wrong regime's flags when typed.  The two
+#: typed fills (`--store-fill` / `--ff-fill`) are the era's flag-off-only counterpart of
+#: `min_headroom`; they are channel keys rather than staffing keys, so they are refused by
+#: name there and recorded as None in the run spec under the era.
+ERA_ONLY_KEYS: tuple[str, ...] = ('store_demand', 'ff_demand', 'first_time_confidence',
+                                  'min_headroom')
 FLAG_OFF_ONLY_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers', 'rho_pick')
 
 #: The scalar inputs' settings defaults, for a None restored from a pre-record run spec
@@ -411,6 +422,7 @@ _SCALAR_DEFAULTS: dict = {
 _ERA_DEFAULTS: dict = {
     'store_demand': _s.STORE_DEMAND, 'ff_demand': _s.FF_DEMAND,
     'first_time_confidence': _s.FIRST_TIME_CONFIDENCE,
+    'min_headroom': _s.MIN_HEADROOM,
 }
 
 #: Which global key each channel's pick crew is sized from (flag-off), and which its demand
@@ -464,6 +476,21 @@ def channel_demand(name: str) -> float | None:
     return v
 
 
+def min_headroom() -> float | None:
+    """The minimum free share every bin bucket keeps at setup under the era, read from CONFIG
+    at call time; None flag-off, where the typed `store_fill()` / `ff_fill()` size the
+    warehouse and nothing reads this.  A None IN the key under the era (a spec restored from
+    a run that predates the derived fill) resolves to the settings default.  Refuses a value
+    outside [0, 1): a headroom of one is a bucket sized for nothing."""
+    if not era_on():
+        return None
+    v = CONFIG['global'].get('min_headroom')
+    v = _ERA_DEFAULTS['min_headroom'] if v is None else float(v)
+    if not (0.0 <= v < 1.0):
+        raise ValueError(f'min_headroom must be a free share in [0, 1); got {v!r}')
+    return v
+
+
 def staffing_spec() -> dict:
     """The staffing record's INPUTS as a picklable dict, one entry per STAFFING_KEYS key.
 
@@ -493,8 +520,10 @@ def staffing_spec() -> dict:
         v = g.get('first_time_confidence')
         out['first_time_confidence'] = (_ERA_DEFAULTS['first_time_confidence'] if v is None
                                         else float(v))
+        out['min_headroom'] = min_headroom()
     else:
         out['first_time_confidence'] = None
+        out['min_headroom'] = None
     for k, default in _SCALAR_DEFAULTS.items():
         v = g.get(k)
         out[k] = default if v is None else v
@@ -909,12 +938,18 @@ def store_fill() -> float:
     (a CLI flag, a test) never reached the snapshot, and `sim_assets` writes this value into
     the warehouse DB as `target_fill`, so the run's own provenance recorded the stale
     number.
+
+    FLAG-OFF ONLY since "Derive the fill headroom from the fragmentation": under the era the
+    planner is handed a per-bucket hold map derived from the stationary fragmentation and
+    floored at `min_headroom()`, `--store-fill` is refused, and the run spec records this
+    key as None.  The value still stands in CONFIG there, read by nothing that sizes.
     """
     return CONFIG['channels']['store']['fill']
 
 
 def ff_fill() -> float:
-    """The fulfillment regime's fill headroom, read at call time.  Same rule as store_fill."""
+    """The fulfillment regime's fill headroom, read at call time.  Same rule as store_fill,
+    flag-off only for the same reason."""
     return CONFIG['channels']['fulfillment']['fill']
 
 

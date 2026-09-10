@@ -22,6 +22,18 @@ bucket and the bins short, rather than fielding less in silence.
 
 `store_fill` / `ff_fill` therefore mean "the share of each bucket the declared levels occupy
 at setup"; the rest is free bins, which is the headroom a base-stock top-up lands in.
+
+THE PROMISE, RE-STATED for a run that DERIVES its headroom ("Derive the fill headroom from
+the fragmentation").  A typed fill is an assumption about how much of that headroom the
+churn will need; under the calibrated era the caller knows (`simconfig/fragmentation.py`
+stamps the expected stationary extra bins per bucket) and hands the planner `bucket_hold`:
+the bins each bucket must HOLD -- its declaration plus its stationary fragmentation, never
+less than the declared minimum headroom leaves (`era_coverage.derive_fill`).  A bucket
+named there is sized to hold that many bins and the promise is checked against it, so
+"the warehouse holds its declaration" becomes "the warehouse holds its declaration AND the
+fragmentation base stock creates", and a refusal names the extra bins short, not only the
+requirement.  A bucket the map does not name keeps the fill rule; `bucket_hold=None` is the
+fill rule for every bucket, byte for byte.
 """
 from __future__ import annotations
 
@@ -315,6 +327,16 @@ class PlanningMixin:
         return cls._packing(orders)[0]
 
     @classmethod
+    def declared_packing(cls, orders: list[Order]) -> tuple[dict, dict]:
+        """Both halves of `_packing` in one pass, for a caller that needs the requirement AND
+        the per-order slots -- `({bucket: bins}, {id(order): slots})` -- and will hand the
+        slots to `field_requirement` rather than pay for a second packing.  The era's
+        coverage loop stamps every SKU's plan BEFORE it plans the warehouse, because the
+        fragmentation chain the derived headroom reads packs a lot by that plan
+        (`era_coverage.derived_holds`)."""
+        return cls._packing(orders)
+
+    @classmethod
     def plan_warehouse(
         cls,
         orders      : list[Order],
@@ -333,6 +355,7 @@ class PlanningMixin:
         regime_sizing: dict | None = None,
         sample       : bool = True,
         log          : Any = None,
+        bucket_hold  : dict | None = None,
     ) -> 'WarehousePlan':
         """Size a warehouse to hold *orders* at their DECLARED levels, and field them there.
 
@@ -353,6 +376,18 @@ class PlanningMixin:
 
         Planning is DETERMINISTIC: there is no sampling left to seed.  A caller that used to
         pass `rng` was seeding a SKU contest for capacity that no longer happens.
+
+        bucket_hold: optional `{bucket: bins}` -- the bins a bucket must HOLD, which under
+        the calibrated era is its requirement plus the stationary fragmentation base stock
+        creates, never less than the declared minimum headroom leaves
+        (`era_coverage.derive_fill`; "Derive the fill headroom from the fragmentation").
+        A bucket named here is sized at `max(1, ceil(hold / eff))` replicas (the aisle-split
+        inflation still applies) INSTEAD of the fill rule, and step 4 checks
+        `capacity >= hold` for it, so the refusal names the extra bins short and not only
+        the requirement.  Its recorded `fill` is `requirement / hold` -- the share the
+        declaration occupies of what the bucket was sized for.  A bucket not named keeps
+        the fill rule; None (the default, and every flag-off run) is the fill rule for all
+        of them, byte for byte.
 
         composition: optional factored basis vector of *bin* ratios — a dict with
         any of the keys 'handling', 'category', 'size', 'unit', each mapping a
@@ -460,14 +495,33 @@ class PlanningMixin:
             — so sizing asks for the replicas that leave the requirement covered AFTER the cut."""
             return fill_for(bucket) / _split_inflation(*_split_for(bucket))
 
+        # THE HOLD MAP.  A bucket the caller names is sized to HOLD `bucket_hold[b]` bins:
+        # the same `ceil(x / (eff · f))` arithmetic with `x` the hold and `f` a fill of one,
+        # so the aisle-split inflation still divides `f` and the untouched buckets keep the
+        # fill rule.  `bucket_hold=None` leaves both tables exactly as they were, so the
+        # flag-off path is byte-identical -- a `hold = req / fill` rewrite would not be,
+        # because `ceil(req / (eff · fill))` and `ceil((req / fill) / eff)` differ by an ulp
+        # exactly on the boundaries the fill was chosen to sit on.
+        if bucket_hold:
+            hold = {b: float(v) for b, v in bucket_hold.items()}
+            _size_req: dict = {**req, **hold}
+
+            def _size_fill(bucket: tuple) -> float:
+                f = 1.0 if bucket in hold else fill_for(bucket)
+                return f / _split_inflation(*_split_for(bucket))
+        else:
+            hold = {}
+            _size_req = req
+            _size_fill = _fill_eff
+
         if regime_sizing is None:
             if composition is not None:
                 target_total = (float(min_bins) if min_bins
-                                else float(_demand_total(bucket_list, req, _eff, _fill_eff)))
+                                else float(_demand_total(bucket_list, _size_req, _eff, _size_fill)))
                 replicas = _ratio_replicas(
                     bucket_list, lambda b: _comp_weight(b, composition), _eff, target_total)
             else:
-                replicas = _demand_replicas(bucket_list, req, _eff, _fill_eff)
+                replicas = _demand_replicas(bucket_list, _size_req, _eff, _size_fill)
             _apply_caps(bucket_list, replicas, _eff, min_bins, max_bins, max_aisles, log)
         else:
             store_buckets = [b for b in bucket_list if b[3] != FULFILLMENT]
@@ -477,17 +531,17 @@ class PlanningMixin:
             s_comp = scfg.get('composition')
             if s_comp is not None:
                 s_target = (float(scfg['min_bins']) if scfg.get('min_bins')
-                            else float(_demand_total(store_buckets, req, _eff, _fill_eff)))
+                            else float(_demand_total(store_buckets, _size_req, _eff, _size_fill)))
                 replicas = _ratio_replicas(
                     store_buckets, lambda b: _comp_weight(b, s_comp), _eff, s_target)
             else:
-                replicas = _demand_replicas(store_buckets, req, _eff, _fill_eff)
+                replicas = _demand_replicas(store_buckets, _size_req, _eff, _size_fill)
             _apply_caps(store_buckets, replicas, _eff,
                         scfg.get('min_bins'), scfg.get('max_bins'), scfg.get('max_aisles'), log)
 
             # fulfillment partition: demand-driven, exactly as the store is.
             if has_ff:
-                replicas.update(_demand_replicas(ff_buckets, req, _eff, _fill_eff))
+                replicas.update(_demand_replicas(ff_buckets, _size_req, _eff, _size_fill))
                 _apply_caps(ff_buckets, replicas, _eff,
                             fcfg.get('min_bins'), fcfg.get('max_bins'), fcfg.get('max_aisles'), log)
 
@@ -559,24 +613,48 @@ class PlanningMixin:
         # ("Field the floor", decisions 3 and 9).  A bucket in `req` with no capacity at all
         # is the same failure at its limit: a SKU whose handling/category the caller did not
         # enumerate has nowhere in this warehouse to be.
+        #
+        # A bucket the HOLD MAP names is checked against its hold instead: `capacity >= hold`,
+        # the declaration AND the fragmentation base stock creates, so the shortfall it
+        # reports is the extra bins short and not only the requirement.  Its `fill` is the
+        # share the declaration occupies of what it was sized for.
         fielding: dict[BinKey, dict] = {}
         short: list = []
-        for b in sorted(set(req) | set(capacity), key=repr):
+        for b in sorted(set(req) | set(capacity) | set(hold), key=repr):
             need   = int(req.get(b, 0))
             cap    = int(capacity.get(b, 0))
-            budget = math.floor(cap * fill_for(b) + 1e-9)
+            if b in hold:
+                to_hold = hold[b]
+                fill_b  = (need / to_hold) if to_hold > 0.0 else fill_for(b)
+                need_bins = int(math.ceil(to_hold - 1e-9))
+                budget = cap
+                fielding[b] = {'requirement': need, 'capacity': cap, 'budget': int(budget),
+                               'free': cap - need, 'fill': float(fill_b), 'hold': float(to_hold)}
+                if need_bins > cap:
+                    short.append((b, need_bins, cap, int(budget)))
+                continue
+            fill_b = fill_for(b)
+            budget = math.floor(cap * fill_b + 1e-9)
             fielding[b] = {'requirement': need, 'capacity': cap,
-                           'budget': int(budget), 'free': cap - need}
+                           'budget': int(budget), 'free': cap - need,
+                           'fill': float(fill_b),
+                           'hold': (need / fill_b) if fill_b > 0.0 else float(need)}
             if need > budget:
                 short.append((b, need, cap, int(budget)))
         if short:
-            _lines = '\n'.join(
-                f'    {h}/{cat}/{size}/{unit}: needs {need:,} bins, '
-                f'{cap:,} emitted x fill = {bud:,} available ({need - bud:,} short)'
-                for (h, cat, size, unit), need, cap, bud in short[:12])
+            def _line(b, need, cap, bud):
+                h, cat, size, unit = b
+                if b in hold:
+                    return (f'    {h}/{cat}/{size}/{unit}: must hold {need:,} bins '
+                            f'({int(req.get(b, 0)):,} declared + {need - int(req.get(b, 0)):,} '
+                            f'expected extra), {cap:,} emitted ({need - cap:,} short)')
+                return (f'    {h}/{cat}/{size}/{unit}: needs {need:,} bins, '
+                        f'{cap:,} emitted x fill = {bud:,} available ({need - bud:,} short)')
+            _lines = '\n'.join(_line(*s) for s in short[:12])
             raise UnfieldableRequirement(
-                f'{len(short)} bucket(s) cannot hold the stock levels this run declared, so '
-                f'the line floor cannot be kept:\n{_lines}'
+                f'{len(short)} bucket(s) cannot hold the stock levels this run declared'
+                + (' and the fragmentation they create' if hold else '')
+                + f', so the line floor cannot be kept:\n{_lines}'
                 + (f'\n    ... and {len(short) - 12} more' if len(short) > 12 else '')
                 + '\nThe warehouse is sized from the declaration, so something overrode that '
                   'sizing: a max_bins/max_aisles cap, a composition basis vector, an aisle '

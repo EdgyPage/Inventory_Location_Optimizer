@@ -30,6 +30,17 @@ from Optimization.config.sim_config import (
 _HERE = os.path.dirname(os.path.abspath(__file__))   # recovered_params.json lives here
 
 
+def _target_fill(coverage: dict | None, typed: float) -> float:
+    """The store's sizing target for the warehouse-stats row: the DERIVED section fill when
+    the coverage record carries one (`era_coverage.stamp_fill`), else the typed fill."""
+    blk = ((((coverage or {}).get('final') or {}).get('store') or {}).get('fielded') or {}
+           ).get('fill') or {}
+    derived = blk.get('derived')
+    if derived and derived.get('section_fill') is not None:
+        return float(derived['section_fill'])
+    return float(typed)
+
+
 def load_run_inventory(path: str, limit: int | None = None):
     """The ONE loader both the parent (`build_shared_assets`) and the workers
     (`strategy_runner`) use for a run's inventory.
@@ -111,7 +122,11 @@ def build_shared_assets(
 
     _sample = warehouse_db_path is not None and frozen_inventory_db is None
 
-    def _plan():
+    def _plan(bucket_hold: dict | None = None):
+        # `bucket_hold`: the era's DERIVED sizing per bucket ("Derive the fill headroom from
+        # the fragmentation") -- handed in by the coverage loop on a run, read back off the
+        # run's record on a rebuild, derived from the frozen declaration on a what-if cell.
+        # None is the typed fill for every bucket, byte for byte.
         return Inventory_Manager.plan_warehouse(
             inventory.orders,
             categories   = _CATEGORIES,
@@ -129,6 +144,7 @@ def build_shared_assets(
             # already fielded, so we only need the SHAPE (sample=False) and keep the frozen orders.
             sample       = _sample,
             log          = log,
+            bucket_hold  = bucket_hold,
         )
 
     def _build(cfg):
@@ -165,7 +181,8 @@ def build_shared_assets(
         _inputs = staffing_spec()
         _mixed, _specs = _era_cov.channel_specs(inventory)
         plan, warehouse_meta, _sa, coverage = _era_cov.fixed_point(
-            inventory.orders, lambda: (lambda p: (p, _build(p.warehouse_cfg)))(_plan()),
+            inventory.orders,
+            lambda **kw: (lambda p: (p, _build(p.warehouse_cfg)))(_plan(**kw)),
             _specs, coverage_days=float(_inputs['coverage_days']),
             safety_days=float(_inputs['safety_days']),
             # None = solve it under the era, one line flag-off (`era_coverage.resolve_floors`).
@@ -175,18 +192,32 @@ def build_shared_assets(
                        'aisles': len(warehouse_meta.aisles)}
     else:
         # A rebuild re-declares from the run's own record before planning; a frozen inventory
-        # already carries the declaration its freeze wrote.  Neither re-derives.
+        # already carries the declaration its freeze wrote.  Neither re-derives the levels.
+        # The SIZING follows the same rule: a rebuild reads the holds the run derived off its
+        # record (`holds_at`, None for a typed-fill run), a frozen cell derives them from the
+        # frozen declaration under the era (its plans are stamped, so the chain reads them
+        # directly) -- otherwise every cell after the first would be sized at the typed fill
+        # while the first was sized at the derived one.
+        from Optimization.simdriver import era_coverage as _era_cov          # noqa: E402
+        _hold = None
         if coverage_record is not None:
-            from Optimization.simdriver import era_coverage as _era_cov      # noqa: E402
             _mixed, _specs = _era_cov.channel_specs(inventory)
             _era_cov.declare_from_record(inventory.orders, _specs, coverage_record, log=log)
+            _hold = _era_cov.holds_at(coverage_record)
+            if _hold:
+                log.info(f'  [coverage] sizing from the {len(_hold)} bucket hold(s) the run '
+                         f'derived (its record; not re-derived)')
         elif not any(c.stock_declared() for c in inventory.orders):
             raise RuntimeError(
                 f'{_src_db}: this inventory carries no stock declaration and none was handed '
                 f'in, so the warehouse would be sized from nothing (ADR-0002 -- a catalogue '
                 f"holds no level). A rebuild must pass `coverage_record=` (the run's own "
                 f'`staffing.calibration[<pair>].coverage`); a run that samples derives its own.')
-        plan = _plan()
+        elif (_h := staffing_spec().get('min_headroom')) is not None:
+            _mixed, _specs = _era_cov.channel_specs(inventory)
+            _hold, _fills, _frags = _era_cov.derived_holds(
+                inventory.orders, _specs, min_headroom=float(_h), log=log)
+        plan = _plan(bucket_hold=_hold)
     if plan.sampled:                 # empty when sample=False (analysis / frozen path)
         inventory.orders = plan.sampled
     n_skus             = len(inventory.orders)
@@ -352,7 +383,9 @@ def build_shared_assets(
             total_aisles  = total_aisles,
             total_bins    = total_bins,
             expected_fill = expected_fill,
-            target_fill   = store_fill(),    # store fill headroom (the sizing target)
+            # The store's sizing target: the typed fill flag-off; under the era the DERIVED
+            # section fill the record stamps (`fielded.fill.derived.section_fill`).
+            target_fill   = _target_fill(coverage, store_fill()),
             max_aisles    = _agg_cap('max_aisles'),
             max_bins      = _agg_cap('max_bins'),
             avg_eq_qty    = avg_eq,

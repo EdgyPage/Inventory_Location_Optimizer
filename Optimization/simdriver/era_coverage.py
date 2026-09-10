@@ -44,6 +44,18 @@ Two things live here because they are one loop:
     at or above it and refused below.  Flag-off the floor is one line and the loop
     iterates as before.
 
+  * THE DERIVED FILL ("Derive the fill headroom from the fragmentation").  UNDER THE ERA
+    (`inputs['min_headroom']` is not None) the planner's fill is not typed: each round,
+    after the levels are declared and before the warehouse is planned, every SKU's plan is
+    stamped and the stationary fragmentation chain (`simconfig/fragmentation.py`) prices
+    the extra bins each bucket grows into under base stock; the bucket is then sized to
+    HOLD `max(requirement + E[extra], requirement / (1 - min_headroom))` bins
+    (`derive_fill`, handed to the planner as `bucket_hold`).  The record's
+    `fielded.buckets[]` carries `fill` and `hold` beside `expected_extra`, and a rebuild
+    reads the holds back (`holds_at`) rather than re-deriving them.  Flag-off the typed
+    `store_fill` / `ff_fill` size the warehouse exactly as before and the record says so
+    (`fielded.fill.provenance = 'assumed'`, `derived = None`).
+
 The loop is driven from `sim_assets.build_shared_assets` WHEREVER IT SAMPLES -- in every mode,
 not only under the era, because a level is now a run's declaration in every mode (ADR-0002,
 decision 6); the era flag decides only whether the clock cuts and caps, and flag-off the day
@@ -486,8 +498,12 @@ def fielded_block(section: list, plan, regime: str | None, floor_lines: float) -
         if q_fielded > q_declared:
             above += 1
     is_ff = (regime == _FULFILLMENT)
+    # `fill` and `hold` are what the planner SIZED the bucket at -- the typed fill and
+    # `requirement / fill` flag-off, the derived fill and the hold under the era -- so a
+    # reader can see the number without re-deriving it ("Derive the fill headroom").
     rows = [{'handling': b[0], 'category': b[1], 'size': b[2], 'unit': b[3],
-             'requirement': t['requirement'], 'capacity': t['capacity'], 'free': t['free']}
+             'requirement': t['requirement'], 'capacity': t['capacity'], 'free': t['free'],
+             'fill': float(t['fill']), 'hold': float(t['hold'])}
             for b, t in sorted((plan.fielding or {}).items(), key=lambda kv: repr(kv[0]))
             if regime is None or (b[3] == _FULFILLMENT) == is_ff]
     return {'n_skus': len(section), 'fielded_sum_q': int(fielded_q),
@@ -495,10 +511,178 @@ def fielded_block(section: list, plan, regime: str | None, floor_lines: float) -
             'above_declaration_skus': int(above), 'buckets': rows}
 
 
+def derive_fill(req: dict, extra: dict, min_headroom: float) -> dict:
+    """The bins each bucket must HOLD under the era, and the fill that implies:
+
+        hold_b = max(requirement_b + E[extra_b],  requirement_b / (1 - min_headroom))
+        fill_b = requirement_b / hold_b                    (1 - min_headroom on an empty bucket)
+
+    -- "Band the own-bin share and the free-index depth", decision 7: the warehouse holds
+    its declaration AND the stationary fragmentation base stock creates
+    (`fragmentation.section_fragmentation`, the `expected_extra` per bucket), floored at a
+    declared minimum headroom for what the chain does not model (settings `MIN_HEADROOM`).
+    `expected_extra` can be NEGATIVE (a remainder unit migrating down a tier), and a bucket
+    can carry extra with no requirement at all (the tier it migrates INTO); both read
+    correctly here, the first taking the headroom floor, the second sized to its extra.
+
+    Pure: `{bucket: {'requirement', 'expected_extra', 'hold', 'fill', 'headroom_floored'}}`
+    over the union of both maps' buckets, `headroom_floored` saying the minimum bound (the
+    fragmentation alone would have left less free).  Refuses a headroom outside [0, 1).
+    """
+    h = float(min_headroom)
+    if not (0.0 <= h < 1.0):
+        raise ValueError(f'min_headroom must be a free share in [0, 1); got {min_headroom!r}')
+    out: dict = {}
+    for b in sorted(set(req) | set(extra), key=repr):
+        r = int(req.get(b, 0))
+        e = float(extra.get(b, 0.0))
+        frag_hold = r + e
+        floor_hold = r / (1.0 - h)
+        hold = max(frag_hold, floor_hold, 0.0)
+        floored = bool(r > 0 and frag_hold < floor_hold - 1e-9)
+        fill = (r / hold) if hold > 0.0 else (1.0 - h)
+        out[tuple(b)] = {'requirement': r, 'expected_extra': e, 'hold': float(hold),
+                         'fill': float(fill), 'headroom_floored': floored}
+    return out
+
+
+def derived_holds(orders_all: list, specs: list, *, min_headroom: float,
+                  log: logging.Logger) -> tuple[dict, dict, dict]:
+    """The era's per-bucket hold map for a DECLARED catalogue, before the warehouse is
+    planned: `(holds, fills, frags)` -- `{bucket: bins}` for the planner, `derive_fill`'s
+    table, and each channel's `section_fragmentation` result (keyed by channel name).
+
+    The chain packs a lot by the SKU's `stock_plan`, which the planner writes when it
+    fields -- AFTER sizing.  So every SKU's plan is stamped here first (one packing pass,
+    `declared_packing` + `field_requirement` with its slots); the planner's own packing
+    then honours the stamped plan (`viable_storage_units`' plan branch) and fields the same
+    thing, which the loop's fielded-equals-declared check states rather than assumes.  The
+    chain computed here is the one the record stamps (`stamp_fragmentation(frag=)`): same
+    declaration, same plan, one derivation.
+
+    COST: one packing pass plus the chain per channel, EVERY round of the loop (the chain
+    used to run once, after convergence).  Under the era the loop is one round, so setup
+    grows by one packing and the chain (about a minute on the 400k-SKU reference pair);
+    the `[coverage] fill DERIVED ... [Ns]` line below is where that time shows.
+    """
+    from Warehouse.inventory.Inventory_Management import Inventory_Manager   # noqa: E402
+    t0 = time.perf_counter()
+    req, slots = Inventory_Manager.declared_packing(orders_all)
+    Inventory_Manager.field_requirement(orders_all, slots)
+    extra: dict = {}
+    frags: dict = {}
+    for s in specs:
+        section = _staffing.regime_orders(orders_all, s.regime)
+        fr = _frag.section_fragmentation(section)
+        frags[s.name] = fr
+        for b, row in fr['buckets'].items():
+            extra[tuple(b)] = extra.get(tuple(b), 0.0) + float(row['expected_extra'])
+    fills = derive_fill(req, extra, min_headroom)
+    # A bucket that must hold NOTHING (no requirement, no positive extra) is not named: the
+    # planner's fill rule gives it its one structural replica, and `holds_at` reads the
+    # record back on the same rule, so a run's map and its rebuild's are the same map.
+    holds = {b: v['hold'] for b, v in fills.items() if v['hold'] > 0.0}
+    n_floored = sum(1 for v in fills.values() if v['headroom_floored'])
+    r_sum = sum(v['requirement'] for v in fills.values())
+    h_sum = sum(v['hold'] for v in fills.values())
+    per_channel = ', '.join(f"{n} {fr['expected_extra']:+,.0f}" for n, fr in frags.items())
+    log.info(f"  [coverage] fill DERIVED per bucket from the stationary fragmentation "
+             f"({per_channel} extra bins): {r_sum:,} bins declared -> {h_sum:,.0f} to hold "
+             f"({(r_sum / h_sum) if h_sum else 0.0:.3f} overall), {n_floored} of "
+             f"{len(fills)} bucket(s) at the {min_headroom:.0%} minimum headroom  "
+             f"[{time.perf_counter() - t0:.0f}s]")
+    return holds, fills, frags
+
+
+def stamp_fill(fielded: dict, fills: dict | None, min_headroom: float | None, *,
+               name: str = '') -> dict:
+    """Stamp how one channel's `fielded` block was SIZED (in place) and return the block.
+
+    Every `buckets[]` row (already carrying `fill` and `hold` from the plan) gains
+    `headroom_floored`, and the block gains
+
+        'fill': {'provenance': 'derived' | 'assumed',
+                 'min_headroom': h | None,           # the era's declared floor
+                 'typed': f | None,                  # the flag-off fill the rows share
+                 'derived': {'section_fill',         # sum requirement / sum hold
+                             'expected_extra',       # the section's stationary extra
+                             'headroom_floored_buckets'} | None}
+
+    `fills` is `derive_fill`'s table under the era and None flag-off, where the derived
+    block is None and the typed fill is what the rows say ("flag-off keeps the typed fill
+    and records the derived one as None").
+    """
+    rows = fielded['buckets']
+    if fills is None:
+        for r in rows:
+            r['headroom_floored'] = False
+        typed = sorted({float(r['fill']) for r in rows})
+        fielded['fill'] = {'provenance': 'assumed', 'min_headroom': None,
+                           'typed': (typed[0] if len(typed) == 1 else typed) if typed else None,
+                           'derived': None}
+        return fielded['fill']
+    n_floored = 0
+    req_sum = 0
+    hold_sum = 0.0
+    extra_sum = 0.0
+    for r in rows:
+        b = (r['handling'], r['category'], r['size'], r['unit'])
+        v = fills.get(b)
+        r['headroom_floored'] = bool(v['headroom_floored']) if v else False
+        if v is None:
+            # An empty structural bucket the map never named: the planner gave it its one
+            # replica under the fill rule, so its row would read the typed fill beside a
+            # DERIVED block -- a number nobody derived.  Say what `derive_fill` says of an
+            # empty bucket instead.
+            r['fill'] = 1.0 - float(min_headroom)
+        if v and abs(float(r['hold']) - float(v['hold'])) > 1e-6:
+            raise ValueError(
+                f'{name}: bucket {b} was sized to hold {r["hold"]:,.1f} bins but the derived '
+                f'fill asks {v["hold"]:,.1f}; the planner and the derivation have drifted apart')
+        n_floored += int(r['headroom_floored'])
+        req_sum += int(r['requirement'])
+        hold_sum += float(r['hold'])
+        extra_sum += float(v['expected_extra']) if v else 0.0
+    fielded['fill'] = {'provenance': 'derived', 'min_headroom': float(min_headroom),
+                       'typed': None,
+                       'derived': {'section_fill': (req_sum / hold_sum) if hold_sum else 0.0,
+                                   'expected_extra': float(extra_sum),
+                                   'headroom_floored_buckets': int(n_floored)}}
+    return fielded['fill']
+
+
+def holds_at(record: dict | None) -> dict | None:
+    """`{bucket: bins to hold}` a run DERIVED its warehouse from, read off its coverage
+    record's `final[<ch>].fielded.buckets[]` -- or None when the run sized at a typed fill
+    (flag-off, or a record written before the derived fill existed).
+
+    The REBUILD path's counterpart of `declare_from_record`: a rebuild re-plans the run's
+    warehouse from its catalogue and must size every bucket exactly as the run did.
+    Re-running the chain would be both slow and a re-derivation from THIS checkout's code;
+    the record already holds the only thing the planner needs.  A row sized to hold
+    nothing (an empty structural bucket the fill rule gave its one replica) is not a hold
+    the run named, and is skipped as `derived_holds` skips it.
+    """
+    out: dict = {}
+    derived = False
+    for _ch, st in ((record or {}).get('final') or {}).items():
+        fb = (st.get('fielded') or {}) if isinstance(st, dict) else {}
+        blk = fb.get('fill') or {}
+        if blk.get('provenance') != 'derived':
+            continue
+        derived = True
+        for r in fb.get('buckets') or []:
+            if float(r['hold']) > 0.0:
+                out[(r['handling'], r['category'], r['size'], r['unit'])] = float(r['hold'])
+    return out if derived else None
+
+
 def stamp_fragmentation(fielded: dict, section: list, log: logging.Logger, *,
-                        name: str = '') -> dict:
+                        name: str = '', frag: dict | None = None) -> dict:
     """Stamp the stationary fragmentation onto one channel's `fielded` block (in place) and
-    return the closed form's summary.
+    return the closed form's summary.  `frag` is a `section_fragmentation` result already
+    computed for exactly this section and declaration (the era's `derived_holds` prices it
+    before the plan); None prices it here.
 
     Every `buckets[]` row gains `expected_extra` (the expected units of that bucket in
     steady state beyond its `requirement`; 0.0 on a bucket no SKU's plan can reach), and
@@ -514,7 +698,8 @@ def stamp_fragmentation(fielded: dict, section: list, log: logging.Logger, *,
     drifted apart -- the same contract the fielded-equals-declared check above states.
     """
     t0 = time.perf_counter()
-    frag = _frag.section_fragmentation(section)
+    if frag is None:
+        frag = _frag.section_fragmentation(section)
     rows = {(r['handling'], r['category'], r['size'], r['unit']): r for r in fielded['buckets']}
     for r in fielded['buckets']:
         r['expected_extra'] = 0.0
@@ -611,10 +796,15 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     `(plan, warehouse_meta, stage_a_result, record)` for the LAST round.
 
     `plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and
-    builds the warehouse: `(plan, warehouse_meta)`.  `orders_all` is the whole catalogue; the
+    builds the warehouse: `(plan, warehouse_meta)`.  UNDER THE ERA it is called as
+    `plan_fn(bucket_hold=holds)` with the derived hold map (`derived_holds`); flag-off with
+    no argument at all, so a planner closure that never learned the keyword is still the
+    flag-off path.  `orders_all` is the whole catalogue; the
     plan's `sampled` subset (or the whole list when the planner samples nothing) is what
     stage A prices.  `floor_lines` is the INPUT as declared: None means the one-line default
-    flag-off and "solve it" under the era (`resolve_floors`).  The record is JSON-shaped and
+    flag-off and "solve it" under the era (`resolve_floors`).  The derived fill is on when
+    `inputs['min_headroom']` is not None (`staffing_spec()` records it so under the era and
+    None flag-off).  The record is JSON-shaped and
     rides `staffing.calibration[<pair>]['coverage']`:
 
         {'coverage_days', 'safety_days', 'floor_lines',   # the INPUT (None = solved)
@@ -623,7 +813,9 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
          'seed': {'method': 'analytic_pick' | 'declared', 'lines_per_day': {channel: n}},
          'final': {channel: rescale stats + 'fill' + 'fielded'},   # the declared levels, the
                                                         #   fill rate at them, and the proof
-                                                        #   the plan fielded exactly them
+                                                        #   the plan fielded exactly them --
+                                                        #   with, per bucket, what it was
+                                                        #   sized to hold (`stamp_fill`)
          'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},
          'converged': bool}
 
@@ -668,6 +860,12 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     converged = False
     history: dict = {s.name: [] for s in specs}      # per channel: [(n_in, n_out), ...]
     prev = n
+    # THE DERIVED FILL: on when the era declares a minimum headroom.  `fills` / `frags` are
+    # the LAST round's derivation, which the stamps below reuse (same declaration, same
+    # plan); flag-off both stay None and `plan_fn` is called exactly as it always was.
+    min_headroom = inputs.get('min_headroom')
+    fills: dict | None = None
+    frags: dict = {}
     for r in range(1, int(max_rounds) + 1):
         # Round 1 declares at the SEED's line count (nothing to bracket yet, and nothing
         # planned yet); every later round at `next_guess` -- the plain iterate until the root
@@ -679,7 +877,12 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
                                               safety_days=safety_days,
                                               floor_lines=floors[s.name])
                  for s in specs}
-        plan, meta = plan_fn()
+        if min_headroom is not None:
+            holds, fills, frags = derived_holds(orders_all, specs,
+                                                min_headroom=float(min_headroom), log=log)
+            plan, meta = plan_fn(bucket_hold=holds)
+        else:
+            plan, meta = plan_fn()
         sampled = plan.sampled or orders_all
         sa = stage_a(sampled, _et.Geometry.from_warehouse(meta), specs, inputs=inputs,
                      day_seconds=day_seconds, log=log)
@@ -741,8 +944,19 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
         # each SKU's line law and plan -- stamped in EVERY mode, like the fill rate, so the
         # record says what the declaration needs beyond itself whether or not the era is on.
         # `expected_extra` can be negative on a bucket whose remainder unit migrates down a
-        # tier; the section sum is the number the fill headroom derives from.
-        stamp_fragmentation(fielded, section, log, name=s.name)
+        # tier; the section sum is the number the fill headroom derives from.  Under the
+        # era the chain was priced before the plan (`derived_holds`) and is reused here.
+        stamp_fragmentation(fielded, section, log, name=s.name, frag=frags.get(s.name))
+        # ...and how the bucket was SIZED: the derived hold and fill under the era, the
+        # typed fill flag-off ("Derive the fill headroom from the fragmentation").
+        blk = stamp_fill(fielded, fills, None if min_headroom is None else float(min_headroom),
+                         name=s.name)
+        if blk['derived'] is not None:
+            log.info(f"  [coverage] {s.name}: sized at a DERIVED fill of "
+                     f"{blk['derived']['section_fill']:.3f} over the section "
+                     f"({blk['derived']['expected_extra']:+,.0f} expected extra bins; "
+                     f"{blk['derived']['headroom_floored_buckets']} bucket(s) at the "
+                     f"{blk['min_headroom']:.0%} minimum headroom)")
     record['final'] = stats
     record['lines_per_day'] = n
     record['residual'] = {k: (n[k] / prev[k] - 1.0) if prev.get(k) else 0.0 for k in n}

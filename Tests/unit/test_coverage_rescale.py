@@ -289,7 +289,10 @@ class _Plan:
         self.total_bins = 30
         Inventory_Manager.field_requirement(self.sampled)
         self.requirement = Inventory_Manager.bucket_requirements(self.sampled)
-        self.fielding = {b: {'requirement': n, 'capacity': n * 2, 'budget': n, 'free': n}
+        # `fill` / `hold` ride every fielding row since "Derive the fill headroom from the
+        # fragmentation": what the bucket was SIZED at (a typed 0.5 here, hold = req / fill).
+        self.fielding = {b: {'requirement': n, 'capacity': n * 2, 'budget': n, 'free': n,
+                             'fill': 0.5, 'hold': n / 0.5}
                          for b, n in self.requirement.items()}
 
 
@@ -483,10 +486,16 @@ def test_the_record_stamps_that_the_floors_promise_was_kept(monkeypatch, section
     for row in fielded['buckets']:
         # `expected_extra` rides every row since "Derive the stationary fragmentation
         # closed form" (`era_coverage.stamp_fragmentation`); its own tests are
-        # `test_fragmentation.py`.
+        # `test_fragmentation.py`.  `fill` / `hold` / `headroom_floored` since "Derive the
+        # fill headroom from the fragmentation" (`stamp_fill`; `test_fill_headroom.py`).
         assert set(row) == {'handling', 'category', 'size', 'unit',
-                            'requirement', 'capacity', 'free', 'expected_extra'}, row
+                            'requirement', 'capacity', 'free', 'expected_extra',
+                            'fill', 'hold', 'headroom_floored'}, row
         assert row['capacity'] - row['requirement'] == row['free'], row
+    # Flag-off (no `min_headroom` in the inputs) the record says the fill was TYPED and the
+    # derived one is None.
+    assert fielded['fill'] == {'provenance': 'assumed', 'min_headroom': None, 'typed': 0.5,
+                               'derived': None}, fielded['fill']
 
 
 def _break_the_floor(section) -> int:

@@ -52,7 +52,11 @@ WAREHOUSE_SEMANTICS: dict = {
         'total_aisles':          Col(COUNT, 'aisles', 'run'),
         'total_bins':            Col(COUNT, 'bins', 'run'),
         'expected_fill':         Col(SHARE, '1', 'run'),
-        'target_fill':           Col(SHARE, '1', 'run'),
+        'target_fill':           Col(SHARE, '1', 'run',
+                                     note='the store sizing target: the typed fill flag-off, '
+                                          'the DERIVED section fill under the era (sum '
+                                          'requirement / sum hold) -- regime-dependent, '
+                                          'not one quantity across runs'),
         'max_aisles_cap':        Col(LEVEL, 'aisles', 'run',
                                      null_means='no cap configured'),
         'max_bins_cap':          Col(LEVEL, 'bins', 'run',

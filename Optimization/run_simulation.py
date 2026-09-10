@@ -191,6 +191,24 @@ def _unit_fraction(text: str) -> float:
     return v
 
 
+def _free_share(text: str) -> float:
+    """An argparse `type=` for a free share of a bin bucket: a number in [0, 1).
+
+    Zero is a real setting ("trust the fragmentation chain, no floor"); one is a bucket
+    sized for nothing, and the derivation would divide by `1 - 1`.  Fails at the parser,
+    naming the flag, rather than as a bare ValueError at run-spec build after the run dir
+    exists (`sim_config.min_headroom`).
+    """
+    try:
+        v = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'{text!r} is not a number')
+    if not (0.0 <= v < 1.0):
+        raise argparse.ArgumentTypeError(
+            f'{v} is not a free share: the minimum headroom lies in [0, 1)')
+    return v
+
+
 def _futuresight_window(text: str):
     """An argparse `type=` for the futuresight window: `'all'` or a non-negative int.
 
@@ -219,6 +237,17 @@ def _apply_run_spec(args, spec, explicit):
     (store_composition_override, notes) — the resolved store composition is injected directly so
     a since-deleted --s-composition file can't break resume."""
     notes = []
+    # An ERA run recorded before the derived fill ("Derive the fill headroom from the
+    # fragmentation") carries a NUMERIC `store_fill` (the typed 0.85 it was sized at) and no
+    # `min_headroom`; resumed here, the parser default would take the derived branch and
+    # re-size a warehouse its completed arms never ran on.  Nothing on this checkout can size
+    # at a typed fill under the era, so the resume is refused rather than re-planned.
+    if spec.get('shift_drain_or_cap') and spec.get('store_fill') is not None:
+        raise SystemExit(
+            f"this run was sized at a typed fill ({spec.get('store_fill')}) under "
+            f'--shift-drain-or-cap, which predates the derived fill headroom; the era now '
+            f'sizes every bucket from the stationary fragmentation and cannot rebuild the '
+            f'warehouse those arms ran on. Start a new run instead of resuming this one.')
     # The staffing record is NESTED (`staffing.inputs.<key>`); flatten its inputs beside the
     # flat keys so one loop restores every family.  A pre-record spec has no `staffing`, so
     # its keys are simply absent and the flags' CONFIG defaults stand -- never a KeyError.
@@ -284,6 +313,13 @@ _ERA_DERIVED_FLAGS: tuple[str, ...] = (
     'put_crew_size', 'put_cart_crew', 'put_pallet_crew', 'put_ff_crew',
 )
 
+#: The two typed fills: flag-off only.  Under the era the planner sizes every bucket to a
+#: DERIVED hold (the declaration plus its stationary fragmentation, floored at
+#: `--min-headroom`), and the run spec records both as None ("Derive the fill headroom from
+#: the fragmentation").  Not on `sim_config.FLAG_OFF_ONLY_KEYS` because they are channel
+#: keys (`CONFIG['channels'][<ch>]['fill']`), not staffing keys.
+_ERA_DERIVED_FILL_FLAGS: tuple[str, ...] = ('store_fill', 'ff_fill')
+
 
 def _apply_run_defaults(args, spec_dict: dict, explicit: set) -> list[str]:
     """Overlay a cell-matrix spec's `run_defaults` onto args, for a NEW run.
@@ -335,10 +371,10 @@ def _check_era_flags(args, explicit: set) -> list[str]:
         if bad:
             raise SystemExit(
                 f'{", ".join("--" + f.replace("_", "-") for f in bad)} declare the calibrated '
-                f"era's demand and first-time confidence and are read only under "
-                f'--shift-drain-or-cap; flag-off the crew is declared (--store-pickers / '
-                f'--ff-pickers) and the batch content is the channel default. Add '
-                f'--shift-drain-or-cap, or drop them.')
+                f"era's demand, first-time confidence and minimum headroom and are read only "
+                f'under --shift-drain-or-cap; flag-off the crew is declared (--store-pickers / '
+                f'--ff-pickers), the batch content is the channel default and the fill is '
+                f'typed (--store-fill / --ff-fill). Add --shift-drain-or-cap, or drop them.')
         return []
     bad = [f for f in _ERA_DERIVED_FLAGS if f in explicit]
     if bad:
@@ -358,6 +394,18 @@ def _check_era_flags(args, explicit: set) -> list[str]:
             f'error: {", ".join("--" + f.replace("_", "-") for f in bad)}. Declare the '
             f'demand instead, or drop --shift-drain-or-cap to run the flag-off regime with '
             f'a declared crew.')
+    # "Derive the fill headroom from the fragmentation": the fill each bucket is sized to
+    # is DERIVED per bucket from the stationary fragmentation and floored at
+    # --min-headroom, so a typed fill under the era is a headroom nobody derived --
+    # refused exactly as the picker flags are.  These are channel keys, not staffing
+    # keys, so they are named here rather than on FLAG_OFF_ONLY_KEYS.
+    bad = [f for f in _ERA_DERIVED_FILL_FLAGS if f in explicit]
+    if bad:
+        raise SystemExit(
+            f'under --shift-drain-or-cap the fill headroom is DERIVED per bin bucket from the '
+            f'stationary fragmentation, floored at --min-headroom, so these flags are an '
+            f'error: {", ".join("--" + f.replace("_", "-") for f in bad)}. Declare the '
+            f'minimum headroom instead, or drop --shift-drain-or-cap to size at a typed fill.')
     if getattr(args, 'put_queue_split', False):
         raise SystemExit(
             'under --shift-drain-or-cap the put crew is one derived site crew on a single '
@@ -639,6 +687,15 @@ def main():
              'crew is the smallest integer whose expected cut share of units is under '
              '1 - sqrt(C). Replaces --rho-pick under the era (put-away and receiving keep '
              f'theirs). Default {CONFIG["global"]["first_time_confidence"]:g}. Era-only.')
+    parser.add_argument(
+        '--min-headroom', type=_free_share, default=CONFIG['global']['min_headroom'],
+        metavar='H',
+        help='The MINIMUM free share every bin bucket keeps at setup. Under the era the fill '
+             'a bucket is sized to is DERIVED -- requirement / (requirement + the expected '
+             'stationary extra bins the fragmentation chain stamps) -- and never above 1 - H, '
+             'covering what the chain does not model (supply jitter, spills, own-bin '
+             'top-ups). Replaces --store-fill / --ff-fill under the era, which are an error '
+             f'there. Default {CONFIG["global"]["min_headroom"]:g}. Era-only.')
     # ── the era's declared scalars: every step of the derivation is a knob ─────────
     # Each is a staffing INPUT (STAFFING_KEYS), recorded `declared` when typed and
     # `assumed` when the settings default stood.  ρ is a utilization target in (0, 1];
@@ -1041,9 +1098,12 @@ def main():
             'ff_max_aisles': args.ff_max_aisles, 'ff_max_bins': args.ff_max_bins, 'ff_min_bins': args.ff_min_bins,
             's_composition': _store_comp,
             # Read back by run_analysis so a standalone re-analysis sizes the warehouse the way
-            # the RUN did, not the way this checkout's CONFIG happens to be set.
-            'store_fill'   : CONFIG['channels']['store']['fill'],
-            'ff_fill'      : CONFIG['channels']['fulfillment']['fill'],
+            # the RUN did, not the way this checkout's CONFIG happens to be set.  None under
+            # the era: nothing sized from a typed fill there -- the per-bucket holds the run
+            # derived ride the coverage record, and both restore sites skip a None
+            # ("Derive the fill headroom from the fragmentation").
+            'store_fill'   : None if g['shift_drain_or_cap'] else CONFIG['channels']['store']['fill'],
+            'ff_fill'      : None if g['shift_drain_or_cap'] else CONFIG['channels']['fulfillment']['fill'],
             'checkpoint_frac': g['checkpoint_frac'],
             'sampler'      : g['sampler'],
             # The working day: two runs with different days are otherwise
