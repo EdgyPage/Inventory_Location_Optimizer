@@ -41,8 +41,8 @@ from Optimization.persistence.Picking_Data import (load_batch_stats, load_task_s
                                                    load_shift_days, load_work_hours,
                                                    load_yard_drains, load_yard_trailers)
 from Optimization.metrics.Simulation_Analytics import task_time_breakdown
-from Optimization.Performance_Evaluations.common.frames import (_bdf, _cdf, _ddf, _sdf,
-                                                                _tdf, _wdf, _ydf)
+from Optimization.Performance_Evaluations.common.frames import (_bdf, _cdf, _crdf, _ddf,
+                                                                _sdf, _tdf, _wdf, _ydf)
 from Optimization.Performance_Evaluations.common.series import _build_series
 
 
@@ -183,6 +183,19 @@ def missed_frame(ctx, key):
         s = ctx._by_key[key]
         df = _cdf(load_carryover(s['db_path'], s['run_id']), batch_frame(ctx, key))
         ctx._mcache[key] = df
+    return df
+
+
+def carry_frame(ctx, key):
+    """One strategy's RAW carryover rows, memoised in ctx._ccache -- the equilibrium check's
+    flows (`equilibrium.demand_flows`).  Unfolded on purpose: the per-SKU rows are what let
+    the check count a re-attempted supply failure once; `missed_frame` is the folded
+    per-batch view for the demand-service figures."""
+    df = ctx._ccache.get(key)
+    if df is None:
+        s = ctx._by_key[key]
+        df = _crdf(load_carryover(s['db_path'], s['run_id']))
+        ctx._ccache[key] = df
     return df
 
 

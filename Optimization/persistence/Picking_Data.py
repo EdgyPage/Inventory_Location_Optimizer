@@ -2834,7 +2834,10 @@ def load_shift_days(path: str, run_id: int) -> list:
     delivered), and only the first can keep a day from draining.  On the pre-split vintage
     (`PRE_CARRY_SPLIT_SIM_SCHEMA_ID`) both halves read as None and `drained` is as that
     runner judged it.  The `standing_*` columns are LEVELS at close-out and never sum
-    across days.  `end_s < cap_end` with `drained` is a day the crews got off the clock
+    across days -- the two carry halves are what the day's LAST batch rolled forward and
+    equal the day's `carryover` flows only under one batch per day, so the check's flow
+    clauses read `load_carryover` and treat these as a cross-check ("Split the missed-share
+    clause into supply and labour").  `end_s < cap_end` with `drained` is a day the crews got off the clock
     early; `last_finish > cap_end` is START-gate overtime (a task begun before the whistle
     finished after it) -- and such a day is CAPPED: overtime is labour that did not fit the
     day ("Overtime behind a drained day raises the instrument", 2026-09-07).  A ledger

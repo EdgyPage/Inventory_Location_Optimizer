@@ -108,6 +108,25 @@ def test_partial_expectation_is_the_normal_overflow_by_hand():
     assert math.isclose(st.partial_expectation(100.0, 10.0, 110.0), 10.0 * 0.0833155, rel_tol=1e-4)
 
 
+def test_cut_share_sd_is_the_normal_overflows_spread_by_hand():
+    """`E[X²] = sd²·[(1 + z²)(1 - Φ(z)) - z·φ(z)]` at z = 0 is sd²/2, and E[X] = sd/sqrt(2π),
+    so the overflow's sd is sd·sqrt(1/2 - 1/(2π)) = 0.5838·sd; over E[W] it is the share's.
+    Zero with no spread (the share is exact) and with no load; a seeded Monte-Carlo of the
+    same law agrees to a few percent, which is what the labour clause's band is priced on."""
+    import random
+    assert math.isclose(st.cut_share_sd(100.0, 10.0, 1, 100.0),
+                        10.0 * math.sqrt(0.5 - 1.0 / (2.0 * math.pi)) / 100.0, rel_tol=1e-9)
+    assert st.cut_share_sd(100.0, 0.0, 1, 80.0) == 0.0
+    assert st.cut_share_sd(0.0, 10.0, 1, 80.0) == 0.0
+    rng = random.Random(7)
+    load, sd, cap = 600000.0, 200000.0, 32 * 28800.0
+    draws = [max(0.0, rng.gauss(load, sd) - cap) / load for _ in range(200_000)]
+    mean = sum(draws) / len(draws)
+    mc_sd = math.sqrt(sum((x - mean) ** 2 for x in draws) / (len(draws) - 1))
+    assert math.isclose(st.cut_share_sd(load, sd, 32, 28800.0), mc_sd, rel_tol=0.03)
+    assert math.isclose(st.cut_share(load, sd, 32, 28800.0), mean, rel_tol=0.03)
+
+
 def test_solve_pickers_is_the_smallest_crew_inside_the_bound_and_walks_up_from_the_mean_day():
     load, cv = 100_000.0, 0.3
     r = st.solve_pickers(load, cv, S, BOUND)

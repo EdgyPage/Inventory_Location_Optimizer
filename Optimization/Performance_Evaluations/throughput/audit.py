@@ -17,9 +17,17 @@ Nothing here fails a run.  The sim never judges itself, and neither does the aud
 
 A DRAINED day is a LABOUR verdict (`equilibrium.is_drained`, amending decision 4 by "Choose
 the coverage floor", decision 7): the supply carry -- demand no bin could serve -- is stock
-not delivered, `missed_share`'s quantity, and never keeps a day from draining.  The per-day
-frame carries both halves (`standing_carry_labour` / `standing_carry_supply`) and the
-drained clause's reading lists the days that closed with supply carry standing.
+not delivered, the `supply` clause's quantity, and never keeps a day from draining.  The
+per-day frame carries both halves (`standing_carry_labour` / `standing_carry_supply`) and
+the labour clause's `drained` reading lists the days that closed with supply carry standing.
+
+Since "Split the missed-share clause into supply and labour" (2026-09-09) the check judges
+the two causes apart, both as `carryover` FLOWS over FRESH demand (`equilibrium.demand_flows`,
+fed from `ctx.carry_df`): the `labour` clause reads the realized cut share against the
+stamped expected cut share (ADR-0004) with the standing labour carry bounded and not
+trending, and the `supply` clause reads the first-attempt supply share against the stamped
+`1 - fill`.  "Every day drained" is a reading inside the labour clause, never a verdict.
+The two shares ride the inspection table as two more rows per arm beside the departments.
 
 Overtime caps a day ("Overtime behind a drained day raises the instrument", 2026-09-07):
 a day whose last task finished past its cap is labour that did not fit the day, and the
@@ -56,7 +64,7 @@ from Optimization.Performance_Evaluations.common.style import _stitle
 from Optimization.Performance_Evaluations.core import quantities as _q
 from Optimization.simconfig import equilibrium as _eq
 
-_COLS = ('arm', 'days', 'drained', 'capped', 'overtime', 'dept', 'crew', 'expected',
+_COLS = ('arm', 'days', 'drained', 'capped', 'overtime', 'reading', 'crew', 'expected',
          'realized', 'band', 'read')
 
 #: relative column widths, so the capped and read cells have room for their words
@@ -64,15 +72,19 @@ _COL_W = (1.4, 0.5, 0.6, 1.2, 0.7, 0.9, 0.5, 0.8, 0.8, 0.6, 1.5)
 
 _DEPT_LABEL = {'pick': 'picking', 'put': 'put-away', 'recv': 'receiving'}
 
+#: The two flow clauses' rows in the inspection table: (clause, label, decimals).
+_SHARE_ROWS = (('supply', 'supply share', 3), ('labour', 'cut share', 4))
+
 
 def _verdict_for(ctx, key, sdf, expectations):
     """The check over every day this arm's ledger closed, or None without expectations."""
     if expectations is None or sdf.empty:
         return None
     lo, hi = int(sdf['day'].min()), int(sdf['day'].max())
-    bdf, wdf = ctx.batch_df(key), ctx.work_df(key)
+    bdf, wdf, cdf = ctx.batch_df(key), ctx.work_df(key), ctx.carry_df(key)
     shift_rows = sdf.to_dict('records')
     batch_rows = bdf.to_dict('records') if not bdf.empty else []
+    carry_rows = cdf.to_dict('records') if not cdf.empty else []
     work_rows = []
     if not wdf.empty:
         for r in wdf.to_dict('records'):
@@ -81,7 +93,8 @@ def _verdict_for(ctx, key, sdf, expectations):
             work_rows.append({'batch_id': r['batch_id'], 'role': 'receive',
                               'seconds': r['unload_seconds']})
     return _eq.check_rows(shift_rows=shift_rows, batch_rows=batch_rows, work_rows=work_rows,
-                          day_lo=lo, day_hi=hi, expectations=expectations)
+                          carry_rows=carry_rows, day_lo=lo, day_hi=hi,
+                          expectations=expectations)
 
 
 def _read(dept, reading, is_base, tol):
@@ -94,6 +107,48 @@ def _read(dept, reading, is_base, tol):
     if dept == 'pick' and delta < 0 and not is_base:
         return 'below: travel saving'
     return 'below band' if delta < 0 else 'ABOVE band'
+
+
+def _read_share(reading):
+    """The one-word reading of a flow clause's level, plus its trend and (labour) its carry.
+
+    `in_band` is None when the record carries no expectation for the level -- the reading
+    says so rather than pretending; a trend past its tolerance or a carry past a day's
+    capacity is named even when the level sits in band, because each fails the clause on
+    its own."""
+    if not reading or reading.get('level') is None:
+        return 'n/a'
+    ok = reading.get('in_band')
+    word = ('n/a (no expectation)' if ok is None
+            else 'in band' if ok
+            else ('below band' if reading['delta'] < 0 else 'ABOVE band'))
+    extra = []
+    trend = reading.get('trend')
+    if trend is not None and abs(trend) > reading.get('trend_tol', _eq.TREND_TOL):
+        extra.append('trending')
+    if reading.get('carry_bounded') is False:
+        extra.append('carry past a day')
+    return word + (f' · {", ".join(extra)}' if extra else '')
+
+
+def _share_rows(head, verdict):
+    """The supply and cut-share rows of the inspection table for one arm, after the
+    departments: expected / realized / band / read, the crew cell blank."""
+    out = []
+    for clause, label, nd in _SHARE_ROWS:
+        r = verdict.clauses[clause].reading if verdict is not None else {}
+        row = [''] * len(head)
+        lvl, exp, tol = r.get('level'), r.get('expected'), r.get('tol')
+        if lvl is None:
+            row += [label, '-', '-', '-', '-', 'n/a']
+        else:
+            row += [label, '-',
+                    (f'{exp:.{nd}f}' if exp is not None else '-'),
+                    f'{lvl:.{nd}f}',
+                    (f'±{tol:.{nd}f}' if tol is not None else '-'),
+                    _read_share(r)]
+        out.append(row)
+    return out
 
 
 def _rows(ctx, s, sdf, verdict, expectations):
@@ -118,6 +173,7 @@ def _rows(ctx, s, sdf, verdict, expectations):
             row += [_DEPT_LABEL[dept], str(r['crew']), f'{r["expected"]:.3f}',
                     f'{r["realized"]:.3f}', f'±{tol:.2f}', _read(dept, r, is_base, tol)]
         out.append(row)
+    out.extend(_share_rows(head, verdict))
     return out
 
 
@@ -133,8 +189,12 @@ def _flags(expectations):
     exp_miss = expectations.get('expected_missed_share')
     if exp_miss is not None:
         # The record's stamped first-pass fill rate ("Choose the coverage floor", decision 5):
-        # the level `missed_share` is read against, printed per arm by `summarize` in the log.
-        bits.append(f'expected missed share {exp_miss:.3f} (1 - the stamped fill rate)')
+        # the level the `supply` clause is read against, printed per arm by `summarize`.
+        bits.append(f'expected supply share {exp_miss:.3f} (1 - the stamped fill rate)')
+    exp_cut = expectations.get('expected_cut_share')
+    if exp_cut is not None:
+        # ADR-0004's stamped guarantee: the level the `labour` clause is read against.
+        bits.append(f'expected cut share {exp_cut:.4f} (the stamped guarantee)')
     return (' · '.join(bits) if bits
             else "expectations from the closed form on this run's geometry")
 

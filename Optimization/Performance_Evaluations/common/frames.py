@@ -32,7 +32,8 @@ SEMANTIC_USES = {'sim_db': {
     # both PIECES — and totals what is left, which is a different operation from the one
     # the tag refuses.
     'carryover.reason': 'read', 'carryover.qty': 'read',
-    'carryover.batch_id': 'read', 'batch_stats.items_demanded': 'ratio',
+    'carryover.batch_id': 'read', 'carryover.sku': 'read',
+    'batch_stats.items_demanded': 'ratio',
     # The yard.  Every stamp is READ and then DIFFERENCED against another stamp on the
     # same clock; no stamp is ever summed, which is the misread the tags exist to stop.
     # The four drain levels are read and never summed across drains — `binding_cut` counts
@@ -207,10 +208,12 @@ def _tdf(stats, aisle_unittype_map, aisle_handling_map):
 # inline at each call site was wrong by 1000x in all five copies, because each copy stated
 # the divisor instead of importing it.
 
-#: The two carryover reasons that mean DEMAND WENT UNSERVED.  `unpicked_daycut` is
-#: deliberately absent: the whistle stopping a picker is a staffing fact, and counting it
+#: The two carryover reasons that mean DEMAND WENT UNSERVED BY THE SHELF.  `unpicked_daycut`
+#: is deliberately absent: the whistle stopping a picker is a staffing fact, and counting it
 #: here would let a longer shift read as better inbound.  `unpicked_notasks` likewise —
 #: no task was built for it, which is a scheduling outcome, not an availability one.
+#: The same pair is `equilibrium.SUPPLY_REASONS`; what differs is the DENOMINATOR and the
+#: re-attempt rule, see `_cdf`.
 MISSED_REASONS = ('unpicked_unstocked', 'unpicked_unavailable')
 
 
@@ -297,6 +300,15 @@ def _cdf(rows, df_b):
     The denominator is the STATED whole `items_demanded`, not what was picked: a
     denominator that shrinks as service degrades would flatter exactly the arms this
     quantity exists to expose.
+
+    THIS IS A PER-EFFECTIVE-BATCH SHARE, NOT THE EQUILIBRIUM CHECK'S.  Under the era
+    `items_demanded` is the sampled demand PLUS the previous batch's carry, and a unit the
+    shelf fails twice appears in two batches' rows -- so the share here counts a re-offered
+    unit each time it is re-offered, on each batch that was asked for it.  The check's
+    `supply` clause reads the same two reasons over FRESH demand with each unit counted once
+    (`equilibrium.demand_flows`); the two agree only with rollover off, where nothing is
+    re-offered.  This frame keeps its definition because it serves every vintage, rollover
+    on or off, and the run alone cannot say which it was.
     """
     demanded = (df_b.set_index('batch_id')['items_demanded']
                 if 'items_demanded' in df_b else pd.Series(dtype=float))
@@ -314,6 +326,26 @@ def _cdf(rows, df_b):
     # A batch with no demand did not achieve perfect service; it was not measured.
     df['missed_share'] = np.where(dem > 0.0, df['missed_pieces'] / dem * 100.0, np.nan)
     return df
+
+
+_CARRY_COLS = ['batch_id', 'reason', 'sku', 'qty']
+
+
+def _crdf(rows):
+    """The RAW carryover rows, one per (batch, reason, sku) -- the equilibrium check's flows.
+
+    Deliberately unfolded: `equilibrium.demand_flows` needs the per-SKU rows to count a
+    re-attempted supply failure once and to recover fresh demand from the previous batch's
+    whole carry, and it selects reasons itself (`sim_semantics`' ByDiscriminator on `reason`
+    is why no total is taken here).  Empty with its columns on a vintage without the table,
+    which the check reports as unrecorded rather than as everything served.
+    """
+    if not rows:
+        return pd.DataFrame(columns=_CARRY_COLS)
+    return pd.DataFrame([{
+        'batch_id': int(r['batch_id']), 'reason': r['reason'],
+        'sku': int(r['sku']), 'qty': int(r['qty']),
+    } for r in rows])
 
 
 # ── production labour: the three legs of the objective, per batch ────────────────

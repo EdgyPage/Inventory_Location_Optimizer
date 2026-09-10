@@ -468,12 +468,18 @@ SIM_DB_SEMANTICS: dict = {
         'standing_carry_labour': Col(LEVEL, 'units', 'row', account=PIECES,
                                      note="the cut's own carry (unpicked_daycut): standing "
                                           'LABOUR, the only carry the drained verdict reads. '
+                                          "A LEVEL at close-out = the day's LAST batch's "
+                                          '`carryover` flow; equals the day\'s flow only under '
+                                          'one batch per day. The equilibrium check\'s labour '
+                                          'clause reads the flows and cross-checks this. '
                                           'NULL on the pre-split vintage 487a65bf83a9'),
         'standing_carry_supply': Col(LEVEL, 'units', 'row', account=PIECES,
                                      note="the shelf's carry (unpicked_unavailable + "
                                           'unpicked_unstocked): stock not delivered, judged '
-                                          'by missed share, never by the drained verdict. '
-                                          'NULL on the pre-split vintage'),
+                                          "by the check's supply clause off the `carryover` "
+                                          'flows, never by the drained verdict. A LEVEL, the '
+                                          "last batch's flow, and it cannot say which units "
+                                          'are re-attempts. NULL on the pre-split vintage'),
         'last_finish':    Col(STAMP, 's', 'arm', clock=SIM,
                               note='the latest crew clock in the day; > cap_end is START-gate '
                                    'overtime'),

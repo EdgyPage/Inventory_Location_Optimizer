@@ -296,6 +296,7 @@
     },
     "figures_throughput_pngs": {
       "evaluation": [
+        "throughput.audit",
         "throughput.missed",
         "throughput.volume"
       ],

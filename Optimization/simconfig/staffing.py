@@ -280,6 +280,31 @@ def cut_share(load_s: float, sd_s: float, pickers: int, day_seconds: float) -> f
     return partial_expectation(load_s, sd_s, float(pickers) * float(day_seconds)) / float(load_s)
 
 
+def cut_share_sd(load_s: float, sd_s: float, pickers: int, day_seconds: float) -> float:
+    """The standard deviation of ONE DAY's cut share under the declared law -- the spread
+    `cut_share` is the mean of, so a measured window can be read against the stamped
+    expectation with a tolerance the law implies rather than one somebody typed
+    ("Split the missed-share clause into supply and labour", the labour clause).
+
+    For `W ~ Normal(mean, sd)` and `X = (W - C)^+` at `C = K·S`:
+
+        E[X²] = sd²·[(1 + z²)(1 - Φ(z)) - z·φ(z)]        z = (C - mean) / sd
+
+    (integrate `(t - z)²` against φ from z: `∫t²φ = (1 - Φ) + zφ`, `∫tφ = φ`, `∫φ = 1 - Φ`),
+    and the share's sd is `sqrt(E[X²] - E[X]²) / E[W]`.  A window of `n` iid days then has
+    a sampling sd of `cut_share_sd / sqrt(n)` on its mean share; the clause's band is a
+    declared multiple of that.  Zero at `sd = 0` (the day is exactly the mean, the share is
+    exact) and with no load."""
+    load = float(load_s); sd = float(sd_s)
+    if load <= 0.0 or sd <= 0.0:
+        return 0.0
+    cap = float(pickers) * float(day_seconds)
+    z = (cap - load) / sd
+    ex2 = sd * sd * ((1.0 + z * z) * (1.0 - _Phi(z)) - z * _phi(z))
+    ex = partial_expectation(load, sd, cap)
+    return math.sqrt(max(0.0, ex2 - ex * ex)) / load
+
+
 def solve_pickers(load_s: float, cv: float, day_seconds: float, cut_share_max: float,
                   *, k_max: int = 100_000) -> dict:
     """The smallest integer crew whose expected cut share is at or under `cut_share_max`.

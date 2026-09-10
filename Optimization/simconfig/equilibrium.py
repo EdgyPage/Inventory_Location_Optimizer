@@ -2,44 +2,48 @@
 
 "Declare the equilibrium bands" (.scratch/department-calibration, decision 4) turned "the crews
 have something to do, within bounds" into one function of (db, day_lo, day_hi) returning a
-verdict with reasons: five clauses over a window of working days, all STRICT.
+verdict with reasons: five clauses over a window of working days.  "Split the missed-share
+clause into supply and labour" (2026-09-09, ADR-0004's instrument) replaced two of the
+original five -- the strict `drained` and the level-free `missed_share` -- with the two
+clauses the old pair was silently conflating:
 
-    drained        every day in the window ended DRAINED (the persisted `shift_days` ledger) --
-                   not "most": with 15% headroom one capped day in twenty means the derivation
-                   is wrong, not unlucky.  A day the ledger never closed fails the same way.
-                   DRAINED IS A LABOUR JUDGMENT (`is_drained`, below -- the ONE definition;
-                   the runner's close-out calls it): nothing cut, no put or dock work
-                   standing, no `unpicked_daycut` carry.  The two SUPPLY reasons the cut
-                   rolls forward (`unpicked_unavailable`: the bin held less;
-                   `unpicked_unstocked`: no bin held the SKU) are stock not delivered, which
-                   `missed_share` already owns; counted as standing work they meant no
-                   finite stock level could ever drain a day under lumpy lines ("Choose the
-                   coverage floor", decision 7, amending decision 4: 0/20 days drained with
-                   pickers in band and every task realized).  The supply carry stays in the
-                   ledger (`standing_carry_supply`) and this clause REPORTS it per day.
-                   OVERTIME CAPS A DAY ("Overtime behind a drained day raises the
-                   instrument", 2026-09-07, amending 18): a day whose last task finished
-                   after its cap (`last_finish > cap_end`, START-gate overtime) is labour
-                   that did not fit the day, so `is_drained` takes it as its fifth term.
-                   Before the amendment such a day was stamped DRAINED with its lag on
-                   the next release, and the second clause raised on a healthy run (the
-                   store leaf of the line-floor check, day 3: 138 s).  The amendment
-                   moved no column, so no vintage records it: `load_shift_days` serves
-                   the amended verdict off the row's own two stamps for every ledger, a
-                   no-op on one the amended runner wrote.
+    labour         the picking crew's queue is in equilibrium.  THREE terms, all judged on the
+                   `carryover` FLOWS over FRESH demand (`demand_flows`, below): the realized
+                   cut share (`unpicked_daycut` units over fresh units, a ratio of sums over
+                   the window) sits within a band of the STAMPED expected cut share (ADR-0004,
+                   `guarantee.crew.cut_share`; the band is `CUT_SHARE_Z` sampling sds of the
+                   declared day law, `staffing.cut_share_sd`); the standing labour carry at
+                   any day's close stays under ONE day's capacity in units (crew x S / s_pick);
+                   and the per-day cut share does not trend (half-window means within
+                   `CUT_SHARE_Z` sds of their difference under the same law -- the typed
+                   `TREND_TOL` is half a day's spread and failed a healthy window a third of
+                   the time).  A day the ledger never closed still fails it.  "Every day
+                   drained" is GONE as a verdict: the day's line count is a Gaussian draw with a
+                   declared cv (a third on the store), so 14 of 40 days exceed a full shift at
+                   ANY headroom and a strict drained count was never a property of equilibrium
+                   ("Fit the store's window to its own steady state", decision 9).  `drained`
+                   survives as a READING inside this clause -- days drained, days capped, the
+                   overtime and early days, the supply carry standing -- read off the ledger's
+                   own verdict (`is_drained`, below, still the ONE definition the runner's
+                   close-out calls).
     released_late  = 0 behind every drained day.  A self-consistency assertion, not a clause
                    that can fail: release waits on the picker clock and the cut is a
-                   between-bins START gate, so a day that drained leaves exactly 0 lag on
-                   the NEXT release, and lag there -- or on the first day of the run -- is
-                   an INSTRUMENT BUG.  It RAISES `InstrumentError` rather than failing.
+                   between-bins START gate, so a day that drained leaves exactly 0 lag on the
+                   NEXT release, and lag there -- or on the first day of the run -- is an
+                   INSTRUMENT BUG.  It RAISES `InstrumentError` rather than failing.
                    Lag behind a CAPPED day is that day's overrun and is recorded.
     utilization    realized utilization (worked ÷ granted, a RATIO OF SUMS over the window,
                    never a mean of per-day ratios) inside `band_tol` of the EXPECTED value the
                    derivation recorded per department per leaf -- never of ρ, which integer
-                   site crews and single-channel leaves undercut by construction.
-    missed_share   stable: the mean of the window's second half minus the mean of its first
-                   half within ±0.02 absolute.  The LEVEL is recorded, never gated; no
-                   regression slope (memories `knees-hide-from-r-squared`,
+                   site crews and single-channel leaves undercut by construction.  Under
+                   ADR-0004 the picking expectation comes from the DERIVED crew.
+    supply         the shelf's first-pass service.  The two SUPPLY reasons only
+                   (`unpicked_unstocked`: no bin held the SKU; `unpicked_unavailable`: the bin
+                   held less), each unit counted ONCE -- on the first batch its SKU's supply
+                   failure rose -- over FRESH demand; LEVEL (a ratio of sums) within
+                   `SUPPLY_LEVEL_TOL` of the record's `1 - fill_rate` (the solved floor's
+                   expected first-pass missed share), TREND as before (half-window means of the
+                   per-batch share within `TREND_TOL`; memories `knees-hide-from-r-squared`,
                    `per-batch-series-are-autocorrelated`).
     rework         no pack was REPACKED (ADR-0003).  The staffing record stamps
                    `f_repack = 0` (provenance `assumed`), so a measured repack contradicts
@@ -50,51 +54,97 @@ verdict with reasons: five clauses over a window of working days, all STRICT.
                    instruments with no observed steady state, and a threshold now would be
                    invented rather than derived.
 
+WHY THE SPLIT.  The old `missed_share` read `(items_demanded - total_items) / items_demanded`
+per batch.  Under the era that difference is the day cut PLUS the stockout, and
+`items_demanded` is the EFFECTIVE batch -- the sampled demand plus everything the previous
+batch rolled forward -- so a re-offered unit was counted again in both terms (cumulative
+312,302 demanded against 255,817 fresh on the store leaf of `comparison_20260908_094846`).
+The clause read a labour overflow (0.037 -> 0.159 across the halves) while the supply share it
+claimed to judge was flat at 0.070 against an expected 0.078.  Now every share here is a FLOW
+over FRESH demand, and the two causes are two clauses with two expectations.
+
 ONE PURE FUNCTION, and the sim never judges itself (decision 6).  It was designed with two
 callers; the reference-run driver that used it as a PRECONDITION is retired ("Derive the
-expected-travel closed form": there are no calibration simulations), so the one caller left
-is the throughput audit (`Performance_Evaluations/throughput/audit.py`), which calls it on
-every run and REPORTS: on a campaign arm a picking utilization below the band is the arm's travel saving --
-the effect being measured -- and a capped day is "declared throughput not delivered"; neither
-fails the run (decision 7).
+expected-travel closed form": there are no calibration simulations), so the callers left are
+the throughput audit (`Performance_Evaluations/throughput/audit.py`), which calls it on every
+run and REPORTS -- on a campaign arm a picking utilization below the band is the arm's travel
+saving, the effect being measured, and a capped day is "declared throughput not delivered";
+neither fails the run (decision 7) -- and `Diagnostics/equilibrium_report.py`, which prints
+the same verdict per leaf off a finished run tree.
 
 The arithmetic lives in `check_rows` over already-loaded rows so a test can prove every
 clause CAN fail without a database; `check` is the thin loader in front of it.  What the
 check reads, and where each number comes from:
 
-    the ledger      `load_shift_days`   day, drained, cap_end, end_s, last_finish
+    the ledger      `load_shift_days`   day, drained, cap_end, end_s, last_finish, and the
+                                        close-out LEVELS (reported, cross-checked, never judged)
     picking         `load_batch_stats`  task_makespan (Σ task time = the crew's worked
                                         seconds), work_day, released_late, items_demanded,
                                         total_items
+    the flows       `load_carryover`    (batch_id, reason, sku, qty): the pick side's four
+                                        FLOWS, from which `demand_flows` recovers fresh demand
+                                        and the two cause families per batch
     put / receiving `load_work_hours`   seconds per (batch, role), joined to the day
                                         through `batch_stats.work_day`
+
+LEVELS VERSUS FLOWS.  The ledger's `standing_carry_labour` / `standing_carry_supply` are
+LEVELS at close-out: what the day's LAST batch rolled forward.  They equal the day's flows only
+under one batch per day (which the era completes `--releases-per-day` to), and they can never
+say which units are re-attempts.  The two clauses therefore read the `carryover` flows and
+report the ledger's levels beside them as a cross-check.
 
 The GRANT is the whole declared day for every crew (crew × S per day): a day that drained
 early still granted S, and utilization is against the grant, not the shift end.
 
 No CONFIG, no settings, no run tree -- the same discipline `staffing.py` keeps.  The expected
 values arrive in an `expectations` dict built by `expectations_for` from the staffing record
-(the run spec's, or the copy stamped onto `sim_result` -- 03's sixth seam), so both callers
-read the same numbers through the same function.
+(the run spec's, or the copy stamped onto `sim_result` -- 03's sixth seam), so every caller
+reads the same numbers through the same function.
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
 
-from Optimization.simconfig.staffing import channel_crew, picker_key   # noqa: F401
+from Optimization.simconfig.staffing import (channel_crew, cut_share as _cut_share,
+                                             cut_share_sd as _cut_share_sd,
+                                             picker_key)   # noqa: F401
 
 #: The three departments the bands are drawn for, in the order the derivation records them.
 DEPARTMENTS: tuple[str, ...] = ('pick', 'put', 'recv')
 
 #: The five clauses, in the order they are judged.  `released_late` is the one that raises.
-CLAUSES: tuple[str, ...] = ('drained', 'released_late', 'utilization', 'missed_share',
-                            'rework')
+CLAUSES: tuple[str, ...] = ('labour', 'released_late', 'utilization', 'supply', 'rework')
 
-#: Missed share may drift this much (absolute) between the window's two halves.  Decision 4;
-#: an ASSUMED number, declared here rather than in settings because it is a property of the
-#: check, not of any run.
-MISSED_TREND_TOL: float = 0.02
+#: The SUPPLY share may drift this much (absolute) between the window's two halves.  Decision
+#: 4's missed-share tolerance; an ASSUMED number, declared here rather than in settings because
+#: it is a property of the check, not of any run.  A per-batch supply share is a mean over
+#: thousands of lines and moves by thousandths, so a typed band fits it.  It is NOT the labour
+#: clause's trend tolerance: a per-day cut share has the day law's spread (0.06-0.12 on the
+#: reference pair), and at 0.02 the labour trend failed 26-52% of healthy iid windows in a
+#: Monte-Carlo (review of 2026-09-09) -- that clause derives its band, `_trend_tol` below,
+#: and falls back to this number only when fewer than four days leave nothing to derive from.
+TREND_TOL: float = 0.02
+
+#: The supply LEVEL may sit this far (absolute) from the stamped `1 - fill_rate`.  ASSUMED,
+#: like `TREND_TOL`: the closed form stamps the expectation but not a spread for a finite
+#: window over a SKU mix (memory `window-mix-before-model-error`: a 1-2% residual on a per-unit
+#: term is the window's mix before it is model error).
+SUPPLY_LEVEL_TOL: float = 0.02
+
+#: The labour LEVEL's band, in sampling standard deviations of the window's mean cut share
+#: under the declared day law (`staffing.cut_share_sd / sqrt(n_days)`).  DECLARED; the sd
+#: itself is derived, so the band tightens with the window and widens with the declared cv
+#: rather than being a number somebody typed.
+CUT_SHARE_Z: float = 2.0
+
+#: The pick side's carryover reasons, by cause family.  SUPPLY is stock not delivered (the
+#: shelf's); LABOUR is the cut's own (the crew's).  `unpicked_notasks` is a skipped batch's
+#: whole demand rolling forward (neither cause) and counts toward the carry only.  All four
+#: are FLOWS in pieces (`sim_semantics`); the put side's reasons are LEVELS and never read here.
+SUPPLY_REASONS: tuple[str, ...] = ('unpicked_unstocked', 'unpicked_unavailable')
+LABOUR_REASON: str = 'unpicked_daycut'
+PICK_CARRY_REASONS: tuple[str, ...] = SUPPLY_REASONS + (LABOUR_REASON, 'unpicked_notasks')
 
 #: `work_events.role` values for the two crews the check reads through `load_work_hours`.
 _WORK_ROLE = {'put': 'put', 'recv': 'receive'}
@@ -114,33 +164,38 @@ def is_drained(*, cut: bool, standing_put: int, standing_dock: int,
     released-late clause then raises on a healthy run -- the store leaf of the line-floor
     check, day 3, 138 s of overtime with nothing standing.  The SUPPLY carry -- demand no bin could
     serve (`unpicked_unavailable`, `unpicked_unstocked`) -- is deliberately NOT an argument:
-    it is stock not delivered, `missed_share`'s quantity, and a crew that realized every task
-    it was given has drained its day whatever the shelf held.  Counting it made the verdict
-    unreachable: under lumpy lines some SKU is always short, so 0/20 days drained on the
-    reference run with pickers in band ("Choose the coverage floor", decision 7).
+    it is stock not delivered, the `supply` clause's quantity, and a crew that realized every
+    task it was given has drained its day whatever the shelf held.  Counting it made the
+    verdict unreachable: under lumpy lines some SKU is always short, so 0/20 days drained on
+    the reference run with pickers in band ("Choose the coverage floor", decision 7).
 
     The lead queue is never standing work either (transit is calendar, not labour), and
     releases are exhausted by construction at a day boundary, so neither is read.
 
     ONE definition, two readers: `strategy_runner._shift_close_out` writes the ledger's
-    `drained` with it; `_drained_clause` reads that column rather than re-deriving, so a
-    pre-split vintage's verdicts stand as its runner judged them.  The overtime term is
-    the one exception, and it lives in the LOADER, not the clause: the amendment moved no
-    column, so no vintage separates a ledger stamped before it from one stamped after,
-    and `Picking_Data.load_shift_days` serves `drained` with the term folded in off the
-    row's own `last_finish` / `cap_end` -- a no-op on a ledger this definition wrote.
+    `drained` with it; the `labour` clause READS that column into its `drained` reading
+    rather than re-deriving, so a pre-split vintage's verdicts stand as its runner judged
+    them -- and since the split of 2026-09-09 a capped day is a READING, never a failed
+    clause.  The overtime term is the one exception, and it lives in the LOADER, not the
+    clause: the amendment moved no column, so no vintage separates a ledger stamped before
+    it from one stamped after, and `Picking_Data.load_shift_days` serves `drained` with the
+    term folded in off the row's own `last_finish` / `cap_end` -- a no-op on a ledger this
+    definition wrote.
     """
     return (not cut) and (not overtime) and int(standing_put) == 0 \
         and int(standing_dock) == 0 and int(standing_carry_labour) == 0
 
 
 class InstrumentError(RuntimeError):
-    """A nonzero `released_late` on a DRAINED day: the instrument contradicts itself.
+    """The instrument contradicts itself: a nonzero `released_late` on a DRAINED day, or a
+    batch whose inherited carry exceeds its stated demand.
 
     A drained day means nothing was cut and nothing stood at close-out, and release waits
     on the picker clock, so a batch released late into such a day is impossible unless the
-    ledger or the release clamp is wrong.  Raised, never returned as a failed clause: a
-    failed clause says the SITE is out of equilibrium; this says the MEASUREMENT is.
+    ledger or the release clamp is wrong.  `items_demanded` is the sampled demand PLUS the
+    previous batch's carry, so a carry larger than the demand is impossible unless the
+    runner or the rollover is wrong.  Raised, never returned as a failed clause: a failed
+    clause says the SITE is out of equilibrium; this says the MEASUREMENT is.
     """
 
 
@@ -224,6 +279,24 @@ def _packs_budget(f_repack: float) -> float:
     return 0.0
 
 
+def _guarantee_crew(section: dict, pickers: int, S: float) -> dict | None:
+    """The stamped guarantee's crew block (ADR-0004) as the labour clause reads it, or None
+    on a record that predates it: `{'pickers', 'load_s', 'sd_s', 'cut_share', 'cut_share_sd'}`.
+
+    `cut_share` is the stamped expectation; `cut_share_sd` is derived from the same law
+    (`staffing.cut_share_sd`) so the band around it is the law's, not a typed number.  The
+    crew in the block is the solved K; `pickers` (the derived crew off `channel_crew`) is
+    the same number on every record `derive` wrote, and is what the sd is priced at.
+    """
+    crew = ((section.get('guarantee') or {}).get('crew') or {})
+    if crew.get('cut_share') is None or crew.get('load_s') is None or crew.get('sd_s') is None:
+        return None
+    load = float(crew['load_s']); sd = float(crew['sd_s'])
+    return {'pickers': int(pickers), 'load_s': load, 'sd_s': sd,
+            'cut_share': float(crew['cut_share']),
+            'cut_share_sd': _cut_share_sd(load, sd, int(pickers), S)}
+
+
 def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
     """The expected utilization per department for ONE channel leaf, off the staffing record.
 
@@ -239,6 +312,9 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
         {'pair', 'channel', 'day_seconds', 'band_tol',
          'departments': {dept: {'crew': int, 'expected': float}},   # only those that apply
          'absent': {dept: why},
+         'fill_rate', 'expected_missed_share',      # the supply clause's level (None pre-floor)
+         'expected_cut_share', 'expected_cut_share_sd', 'guarantee',   # the labour clause's
+         'expected_repacked_packs',
          'flags': {'overridden', 'saturated'}}
 
     A department with no crew on this site, or whose expected value the record does not
@@ -289,15 +365,22 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
                             else f'no expected value recorded for {ch!r}')
     cal = (staffing.get('calibration') or {}).get(pair) or {}
     # The expected first-pass fill rate the coverage loop stamped for this channel at the
-    # planned levels ("Choose the coverage floor", decision 5): `missed_share`'s LEVEL is read
-    # against `1 - fill_rate`.  None on a run whose record predates the line floor.
+    # planned levels ("Choose the coverage floor", decision 5): the `supply` clause's LEVEL is
+    # read against `1 - fill_rate`.  None on a run whose record predates the line floor.
     fill = (((cal.get('coverage') or {}).get('final') or {}).get(ch) or {}).get('fill') or {}
     fill_rate = fill.get('fill_rate')
+    # The stamped guarantee (ADR-0004): the `labour` clause's level is read against the
+    # expected cut share of the derived crew.  None on a record that predates the guarantee
+    # (the 2026-09-08 runs), which the clause reports without judging.
+    guarantee = _guarantee_crew(section, pickers, S) if pickers > 0 else None
     return {
         'pair': pair, 'channel': ch, 'day_seconds': S, 'band_tol': float(band_tol),
         'departments': departments, 'absent': absent,
         'fill_rate': (float(fill_rate) if fill_rate is not None else None),
         'expected_missed_share': (1.0 - float(fill_rate) if fill_rate is not None else None),
+        'expected_cut_share': (guarantee['cut_share'] if guarantee else None),
+        'expected_cut_share_sd': (guarantee['cut_share_sd'] if guarantee else None),
+        'guarantee': guarantee,
         # ADR-0003's rework budget, in PACKS, read off the receiving block's stamped
         # `f_repack` (0.0, provenance `assumed`).  It is a per-pack RATE in the record and a
         # count here because the clause counts packs; at 0 the two coincide, and when a real
@@ -314,16 +397,19 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
 
 
 def arm_expectations(expectations: dict, expected_pick: dict | None) -> dict:
-    """The expectations for ONE ARM: the pair's, with the picking band re-centred on the
-    arm's own expected seconds per unit under its initial placement.
+    """The expectations for ONE ARM: the pair's, with the picking band -- and the labour
+    clause's expected cut share -- re-centred on the arm's own expected seconds per unit
+    under its initial placement.
 
     The pair's pick expectation was drawn at the class-uniform `s_pick` (the demand's
-    fixed point, so it equals rho by construction).  An arm whose placement makes a unit
-    cheaper is EXPECTED to run below it -- by the ratio of the two expectations, since the
-    demand is shared -- and the band belongs around that number ("Derive the expected-travel
-    closed form": the per-arm expectation is stamped for the report only).  Without a
-    stamped `expected_pick` (a flag-off arm, an older run) the pair's expectations are
-    returned unchanged; the pick department is left alone when either `s_pick` is unknown.
+    fixed point).  An arm whose placement makes a unit cheaper is EXPECTED to run below it
+    -- by the ratio of the two expectations, since the demand is shared -- and the band
+    belongs around that number ("Derive the expected-travel closed form": the per-arm
+    expectation is stamped for the report only).  The same ratio scales the day's load and
+    its sd, so the arm's expected cut share is `cut_share(load·r, sd·r, K, S)` -- a cheaper
+    unit is cut less often -- and its sampling sd follows.  Without a stamped
+    `expected_pick` (a flag-off arm, an older run) the pair's expectations are returned
+    unchanged; the pick department is left alone when either `s_pick` is unknown.
     """
     if not expectations or not expected_pick:
         return expectations
@@ -332,15 +418,26 @@ def arm_expectations(expectations: dict, expected_pick: dict | None) -> dict:
     s_arm = expected_pick.get('s_pick')
     if not pick or not s_pair or not s_arm:
         return expectations
+    r = float(s_arm) / float(s_pair)
     out = dict(expectations)
     out['departments'] = dict(expectations['departments'])
-    out['departments']['pick'] = {**pick, 'expected': float(pick['expected']) * float(s_arm) / float(s_pair),
+    out['departments']['pick'] = {**pick, 'expected': float(pick['expected']) * r,
                                   'pair_expected': float(pick['expected']),
                                   'arm_s_pick': float(s_arm)}
+    g = expectations.get('guarantee')
+    if g:
+        S = float(expectations['day_seconds'])
+        load, sd, K = g['load_s'] * r, g['sd_s'] * r, int(g['pickers'])
+        out['guarantee'] = {**g, 'load_s': load, 'sd_s': sd,
+                            'cut_share': _cut_share(load, sd, K, S),
+                            'cut_share_sd': _cut_share_sd(load, sd, K, S),
+                            'pair_cut_share': g['cut_share']}
+        out['expected_cut_share'] = out['guarantee']['cut_share']
+        out['expected_cut_share_sd'] = out['guarantee']['cut_share_sd']
     return out
 
 
-# ── the check over loaded rows ──────────────────────────────────────────────────────────
+# ── the flows: fresh demand and the two cause families, per batch ───────────────────────
 
 def _get(row, name, default=0):
     """A field off a dataclass row or a dict row -- the loaders return both shapes."""
@@ -354,29 +451,176 @@ def _isnan(v) -> bool:
     return isinstance(v, float) and math.isnan(v)
 
 
+def demand_flows(batch_rows, carry_rows) -> dict:
+    """Per batch, the demand ledger the two flow clauses read: `{batch_id: {...}}`.
+
+    `items_demanded` is the EFFECTIVE batch -- the sampled demand PLUS everything the
+    previous batch rolled forward (`strategy_runner`: `sum(_eff_batch.items.values())`) --
+    and nothing records the sampled half.  It is recovered exactly from the flows: the
+    previous batch's carry is its four pick-side `carryover` reasons summed (the cut's, the
+    two supply ones, and a skipped batch's `unpicked_notasks`), which is precisely
+    `_pending`, so
+
+        fresh_i = items_demanded_i - Σ carry_{i-1}
+
+    holds whenever the carry is re-offered -- `roll_over_unpicked`, which the era completes
+    to on (`run_simulation._check_era_flags`).  Flag-off the rows are recorded and NOT
+    re-offered, and this identity does not hold; the check is the era's, and a caller with
+    expectations has one (`expectations_for` refuses a record with no derived block).
+    A carry larger than the demand is the runner contradicting itself and RAISES
+    `InstrumentError`.
+
+    Per batch:
+
+        demanded    the effective batch (`items_demanded`)
+        carry_in    the previous batch's whole pick-side carry
+        fresh       demanded - carry_in
+        picked      `total_items`
+        cut         `unpicked_daycut` units this batch (the labour flow, re-cuts included:
+                    a re-offered unit the whistle stops again is overflow again -- the
+                    queue's cost, which the labour clause is there to see)
+        supply      the two supply reasons this batch, re-attempts INCLUDED
+        supply_new  the same, each unit counted ONCE: per SKU, the rise in the family's
+                    failure count over the previous batch (`max(0, x_i - x_{i-1})`).  A LOWER
+                    BOUND on the first-attempt failures: exact when the whole SKU demand fails
+                    (a stockout: `x_i = fresh_i + x_{i-1}`), LOW when a restock lands
+                    mid-shortage (10 carried + 6 fresh against 8 received, 8 fail -> 0 new,
+                    though up to 6 fresh units failed first time), because demand has no unit
+                    identity and per-SKU fresh demand is not recorded -- only the batch total
+                    is.  Recording it (a schema change) is what would make this exact; until
+                    then the supply level can read low against `1 - fill` when the shelf is
+                    under-stocked, and a reader should weigh `units.reattempts` beside it.
+                    The fill-rate expectation is a FIRST-PASS quantity, and a re-offered line
+                    meets a restocked shelf -- its second failure is a second draw, not the
+                    same miss twice.
+        notasks     a skipped batch's demand rolling forward whole (neither family)
+        recorded    False when no PICK-SIDE row exists (after the reason filter, so a table
+                    holding only the put side's levels or the pre-2026-08-25 `unplaced` rows
+                    does not count): the flows are unrecorded on such a vintage, and a batch
+                    that served everything and a batch the table never saw both read zero
+                    here -- the clauses tell them apart by whether `demanded - picked` is
+                    nonzero
+    """
+    by_batch: dict[int, dict] = {}
+    for r in carry_rows:
+        reason = _get(r, 'reason', None)
+        if reason not in PICK_CARRY_REASONS:
+            continue                                   # the put side's LEVELS: never read
+        b = by_batch.setdefault(int(_get(r, 'batch_id')), {})
+        fam = b.setdefault(reason, {})
+        sku = _get(r, 'sku', None)
+        fam[sku] = fam.get(sku, 0) + int(_get(r, 'qty', 0) or 0)
+
+    def _family(b: int, reasons) -> dict:
+        out: dict = {}
+        for reason in reasons:
+            for sku, q in (by_batch.get(b) or {}).get(reason, {}).items():
+                out[sku] = out.get(sku, 0) + q
+        return out
+
+    ordered = sorted(batch_rows, key=lambda r: int(_get(r, 'batch_id')))
+    flows: dict = {}
+    prev: int | None = None
+    recorded = bool(by_batch)                          # pick-side rows, after the filter
+    for r in ordered:
+        b = int(_get(r, 'batch_id'))
+        demanded = int(_get(r, 'items_demanded', 0) or 0)
+        carry_in = sum(_family(prev, PICK_CARRY_REASONS).values()) if prev is not None else 0
+        fresh = demanded - carry_in
+        if fresh < 0:
+            raise InstrumentError(
+                f'batch {b} states {demanded:,} demanded but inherited {carry_in:,} from batch '
+                f'{prev}; the carry cannot exceed the effective demand it is part of, so the '
+                f'runner and the rollover disagree -- an instrument bug, not an equilibrium '
+                f'failure')
+        supply_now = _family(b, SUPPLY_REASONS)
+        supply_prev = _family(prev, SUPPLY_REASONS) if prev is not None else {}
+        supply_new = sum(max(0, q - supply_prev.get(sku, 0)) for sku, q in supply_now.items())
+        flows[b] = {
+            'batch_id': b, 'work_day': int(_get(r, 'work_day', 0) or 0),
+            'demanded': demanded, 'carry_in': carry_in, 'fresh': fresh,
+            'picked': int(_get(r, 'total_items', 0) or 0),
+            'cut': sum(_family(b, (LABOUR_REASON,)).values()),
+            'supply': sum(supply_now.values()), 'supply_new': supply_new,
+            'notasks': sum(_family(b, ('unpicked_notasks',)).values()),
+            'recorded': recorded,
+        }
+        prev = b
+    return flows
+
+
+def _unrecorded(rows) -> str:
+    """The reason a flow clause cannot be judged: no carryover rows, yet demand went unserved."""
+    if not rows or rows[0]['recorded']:
+        return ''
+    gap = sum(r['demanded'] - r['picked'] for r in rows)
+    if gap <= 0:
+        return ''
+    return (f'no carryover rows, yet {gap:,} demanded unit(s) went unpicked in the window: the '
+            f'flows are unrecorded (a pre-carryover vintage), so this clause cannot be judged')
+
+
+def _halves(series: list[float]) -> tuple[float, float, float]:
+    """(first-half mean, second-half mean, second - first) of an ordered series of >= 2."""
+    half = len(series) // 2
+    first = sum(series[:half]) / half
+    second = sum(series[half:]) / (len(series) - half)
+    return first, second, second - first
+
+
+def _trend_tol(series: list[float], sd_day: float | None) -> tuple[float, str, float | None]:
+    """The labour trend's band: `(tol, source, sd)`, `CUT_SHARE_Z` sds of the DIFFERENCE of
+    two half-window means, `sd · sqrt(1/n1 + 1/n2)`.
+
+    `sd` is the declared law's per-day spread (`expected_cut_share_sd`, source `declared`)
+    when the record stamps one; without it (the 2026-09-08 runs) the window's own pooled
+    WITHIN-half sample sd (source `empirical`) -- within, not overall, so a real step does not
+    widen the band that judges it.  Fewer than four days leave nothing to pool, and the typed
+    `TREND_TOL` stands in (source `typed`).  The typed number alone was the review's critical
+    finding: half a day's spread, failing a healthy window a third of the time.
+    """
+    n = len(series)
+    n1 = n // 2
+    n2 = n - n1
+    if sd_day is not None and sd_day > 0.0:
+        sd = float(sd_day); source = 'declared'
+    elif n >= 4:
+        halves = (series[:n1], series[n1:])
+        ss = 0.0
+        for h in halves:
+            m = sum(h) / len(h)
+            ss += sum((x - m) ** 2 for x in h)
+        sd = math.sqrt(ss / (n - 2)); source = 'empirical'
+    else:
+        return TREND_TOL, 'typed', None
+    return CUT_SHARE_Z * sd * math.sqrt(1.0 / n1 + 1.0 / n2), source, sd
+
+
+# ── the check over loaded rows ──────────────────────────────────────────────────────────
+
 def window_of(shift_rows) -> tuple[int, int] | None:
     """(first day, last day) the ledger closed, or None when no day was ever closed out."""
     days = [int(_get(r, 'day')) for r in shift_rows]
     return (min(days), max(days)) if days else None
 
 
-def _drained_clause(shift_rows, days: list[int]) -> Clause:
-    """Every day DRAINED, read off the ledger's own verdict (written by `is_drained`).
+def _ledger_reading(shift_rows, days: list[int]) -> dict:
+    """The ledger's per-day verdicts as a READING (written by `is_drained`), for the labour
+    clause: never a verdict of its own since the split.
 
-    The SUPPLY carry is reported beside it, never judged: `supply_standing_days` are the
-    days that closed with demand the shelf could not serve still rolling forward, and
-    `supply_standing_max_units` the largest such level (a LEVEL, so never summed across
-    days).  A drained day on that list is the whole point of the labour-only rule -- the
-    crew finished, the stock did not.  `supply_split_recorded` is False on a pre-split
-    vintage (487a65bf83a9), whose rows carry the halves as NULL and whose `drained` was
-    judged with the supply carry counted as standing work.  `overtime_days` are CAPPED
-    days since the overtime amendment; through the loaders a drained day never appears
-    on that list (a pre-amendment ledger is served with the term folded in).
-    `overtime_only_days` are the capped days that overtime ALONE capped -- nothing
-    standing at close-out, the last task a few seconds past the whistle -- named in the
-    reason because "declared throughput not delivered" overstates such a day: it
-    delivered everything, late.  A day whose labour carry the vintage did not record
-    (NULL) is never counted there.
+    `capped` are the days that ended with labour standing or a task past the cap; `missing`
+    the days the ledger never closed (those DO fail the clause -- an unclosed day is not a
+    measured one).  `overtime_days` are CAPPED days since the overtime amendment; through the
+    loaders a drained day never appears on that list (a pre-amendment ledger is served with
+    the term folded in).  `overtime_only_days` are the capped days that overtime ALONE capped
+    -- nothing standing at close-out, the last task a few seconds past the whistle -- named
+    apart because "declared throughput not delivered" overstates such a day: it delivered
+    everything, late.  A day whose labour carry the vintage did not record (NULL) is never
+    counted there.  The SUPPLY carry is reported: `supply_standing_days` closed with demand
+    the shelf could not serve still rolling forward, `supply_standing_max_units` the largest
+    such LEVEL (never summed across days); `supply_split_recorded` is False on the pre-split
+    vintage (487a65bf83a9), whose rows carry the halves as NULL.  `labour_standing_max_units`
+    is the ledger's own labour LEVEL at its worst close-out, the cross-check for the flows.
     """
     ledger = {int(_get(r, 'day')): r for r in shift_rows}
     missing = [d for d in days if d not in ledger]
@@ -386,36 +630,140 @@ def _drained_clause(shift_rows, days: list[int]) -> Clause:
     early = [d for d in days if d in ledger and int(_get(ledger[d], 'drained'))
              and float(_get(ledger[d], 'end_s')) < float(_get(ledger[d], 'cap_end'))]
 
+    def _level(r, name):
+        v = _get(r, name, None)
+        return None if v is None or _isnan(v) else int(v)
+
     def _nothing_standing(r) -> bool:
-        lab = _get(r, 'standing_carry_labour', None)
+        lab = _level(r, 'standing_carry_labour')
         return (int(_get(r, 'standing_put', 0) or 0) == 0
                 and int(_get(r, 'standing_dock', 0) or 0) == 0
-                and lab is not None and not _isnan(lab) and int(lab) == 0)
+                and lab is not None and lab == 0)
 
     overtime_only = [d for d in overtime if d in capped and _nothing_standing(ledger[d])]
-    supply = {d: int(_get(ledger[d], 'standing_carry_supply', None))
-              for d in days if d in ledger
-              and _get(ledger[d], 'standing_carry_supply', None) is not None
-              and not _isnan(_get(ledger[d], 'standing_carry_supply', None))}
-    reading = {'days': len(days), 'drained': len(days) - len(missing) - len(capped),
-               'capped': capped, 'missing': missing,
-               'overtime_days': overtime, 'overtime_only_days': overtime_only,
-               'drained_early_days': early,
-               'supply_standing_days': [d for d, q in supply.items() if q > 0],
-               'supply_standing_max_units': max(supply.values(), default=0),
-               'supply_split_recorded': bool(supply) or not any(d in ledger for d in days)}
-    reason = ''
-    if missing:
-        reason = (f'{len(missing)} day(s) in the window were never closed out by the ledger '
-                  f'({missing[:6]}{" ..." if len(missing) > 6 else ""})')
-    elif capped:
-        reason = (f'{len(capped)} of {len(days)} day(s) ended CAPPED -- declared throughput '
-                  f'not delivered ({capped[:6]}{" ..." if len(capped) > 6 else ""})')
-        if overtime_only:
-            reason += (f'; {len(overtime_only)} of them by overtime alone -- nothing standing, '
-                       f'the last task finished past the cap ({overtime_only[:6]}'
-                       f'{" ..." if len(overtime_only) > 6 else ""})')
-    return Clause('drained', not missing and not capped, reading, reason)
+    supply = {d: _level(ledger[d], 'standing_carry_supply') for d in days if d in ledger}
+    supply = {d: q for d, q in supply.items() if q is not None}
+    labour = {d: _level(ledger[d], 'standing_carry_labour') for d in days if d in ledger}
+    labour = {d: q for d, q in labour.items() if q is not None}
+    return {'days': len(days), 'drained': len(days) - len(missing) - len(capped),
+            'capped': capped, 'missing': missing,
+            'overtime_days': overtime, 'overtime_only_days': overtime_only,
+            'drained_early_days': early,
+            'supply_standing_days': [d for d, q in supply.items() if q > 0],
+            'supply_standing_max_units': max(supply.values(), default=0),
+            'labour_standing_max_units': max(labour.values(), default=0),
+            'supply_split_recorded': bool(supply) or not any(d in ledger for d in days)}
+
+
+def _labour_clause(shift_rows, flows: dict, days: list[int], expectations: dict) -> Clause:
+    """The picking queue in equilibrium: the cut share at its stamped expectation, the
+    standing labour carry under a day's capacity, and the per-day cut share not trending.
+
+    LEVEL.  `cut_share` = Σ cut ÷ Σ fresh over the window, a ratio of sums.  Judged against
+    `expected_cut_share` (the guarantee's `E[(W - K·S)^+] / E[W]`, ADR-0004) within
+    `CUT_SHARE_Z` sampling sds of the declared law over `n_days` days; REPORTED, not judged,
+    on a record with no guarantee (the 2026-09-08 runs).  The closed form is for a day that
+    starts clean, so a queue carrying overflow forward reads ABOVE it -- which is the finding.
+
+    CARRY.  The standing labour carry at a day's close is the cut flow of the day's LAST
+    batch (what rolls into the next day); it must stay under ONE day's capacity in units,
+    `crew × S ÷ s_pick` (the arm's re-centred `s_pick` when stamped).  A carry past a full
+    day is a queue that cannot clear, whatever the share reads.  Reported, not judged, when
+    no `s_pick` is on the record to price the cap.  The ledger's own level
+    (`standing_carry_labour`) rides the reading as a cross-check.
+
+    TREND.  Half-window means of the per-day cut share within `CUT_SHARE_Z` sds of their
+    difference under the day law (`_trend_tol`: the stamped sd, else the window's pooled
+    within-half sd).  Under one batch per day the share is the carry over fresh demand, so a
+    queue that is building or draining across the window shows here even when its mean sits
+    in band.
+
+    A day the ledger never closed fails the clause outright (an unmeasured day is not a
+    drained one); a CAPPED day does not -- it is the `drained` reading's business.
+    """
+    ledger = _ledger_reading(shift_rows, days)
+    in_window = set(days)
+    rows = sorted((f for f in flows.values() if f['work_day'] in in_window),
+                  key=lambda f: (f['work_day'], f['batch_id']))
+    fresh = sum(f['fresh'] for f in rows)
+    cut = sum(f['cut'] for f in rows)
+    level = (cut / fresh) if fresh > 0 else None
+    # per DAY: the share, and the carry the day's last batch rolled forward
+    by_day: dict[int, dict] = {}
+    for f in rows:
+        d = by_day.setdefault(f['work_day'], {'fresh': 0, 'cut': 0, 'carry_end': 0})
+        d['fresh'] += f['fresh']; d['cut'] += f['cut']; d['carry_end'] = f['cut']
+    shares = [v['cut'] / v['fresh'] for _, v in sorted(by_day.items()) if v['fresh'] > 0]
+    carry_end = {d: v['carry_end'] for d, v in by_day.items()}
+    carry_max_day = max(carry_end, key=carry_end.get) if carry_end else None
+    carry_max = carry_end.get(carry_max_day, 0) if carry_max_day is not None else 0
+
+    expected = expectations.get('expected_cut_share')
+    sd_day = expectations.get('expected_cut_share_sd')
+    if sd_day is not None and float(sd_day) <= 0.0:
+        sd_day = None                    # a spread-less law: report, never an exact-equality test
+    n_days = len(shares)
+    tol = (CUT_SHARE_Z * float(sd_day) / math.sqrt(n_days)
+           if sd_day is not None and n_days > 0 else None)
+    pick = (expectations.get('departments') or {}).get('pick') or {}
+    s_pick = pick.get('arm_s_pick') or pick.get('s_pick')
+    S = float(expectations['day_seconds'])
+    cap_units = (int(pick['crew']) * S / float(s_pick)) if pick and s_pick else None
+
+    reading = {
+        'n': len(rows), 'n_days': n_days, 'units': {'fresh': fresh, 'cut': cut},
+        'level': level, 'expected': (float(expected) if expected is not None else None),
+        'delta': (level - float(expected) if expected is not None and level is not None
+                  else None),
+        'tol': tol, 'sd_day': (float(sd_day) if sd_day is not None else None),
+        'z': CUT_SHARE_Z,
+        'carry_max_units': carry_max, 'carry_max_day': carry_max_day,
+        'cap_units': cap_units,
+        'carry_max_days': ((carry_max / cap_units) if cap_units else None),
+        'carry_end_units': carry_end,
+        'drained': ledger,
+    }
+    reasons: list[str] = []
+    unrec = _unrecorded(rows)
+    if ledger['missing']:
+        m = ledger['missing']
+        reasons.append(f'{len(m)} day(s) in the window were never closed out by the ledger '
+                       f'({m[:6]}{" ..." if len(m) > 6 else ""})')
+    if unrec:
+        reasons.append(unrec)
+    if level is None:
+        reasons.append('no fresh demand in the window; the cut share is unmeasured')
+    if expected is not None and level is not None and tol is not None:
+        ok = abs(level - float(expected)) <= tol
+        reading['in_band'] = ok
+        if not ok:
+            reasons.append(f'cut share {level:.4f} vs expected {float(expected):.4f} '
+                           f'({level - float(expected):+.4f}, band ±{tol:.4f} = {CUT_SHARE_Z:g} '
+                           f'sd over {n_days} day(s))')
+    else:
+        reading['in_band'] = None                      # reported, not judged
+    if cap_units is not None:
+        ok = carry_max < cap_units
+        reading['carry_bounded'] = ok
+        if not ok:
+            reasons.append(f'standing labour carry {carry_max:,} unit(s) on day {carry_max_day} '
+                           f'is {carry_max / cap_units:.2f} day(s) of the crew\'s capacity '
+                           f'({cap_units:,.0f} units); a queue past a full day cannot clear')
+    else:
+        reading['carry_bounded'] = None
+    if n_days >= 2:
+        first, second, trend = _halves(shares)
+        t_tol, t_src, t_sd = _trend_tol(shares, sd_day)
+        reading.update({'first_half': first, 'second_half': second, 'trend': trend,
+                        'trend_tol': t_tol, 'trend_tol_source': t_src, 'trend_sd': t_sd})
+        if abs(trend) > t_tol:
+            reasons.append(f'cut share trending: second half {second:.3f} vs first half '
+                           f'{first:.3f} ({trend:+.3f}, tolerance ±{t_tol:.3f} = '
+                           f'{CUT_SHARE_Z:g} sd of the difference, {t_src} spread)')
+    elif not reasons:
+        reasons.append(f'only {n_days} day(s) with fresh demand in the window; a trend needs '
+                       f'two halves')
+    return Clause('labour', not reasons, reading, '; '.join(reasons))
 
 
 def _released_late_clause(shift_rows, batch_rows, days: list[int]) -> Clause:
@@ -428,7 +776,7 @@ def _released_late_clause(shift_rows, batch_rows, days: list[int]) -> Clause:
     drained day 2 behind a capped day 1).  The self-consistency assertion is therefore that
     lag in day d exists only behind a CAPPED day d - 1; lag behind a drained day, or on the
     first day of the run (nothing to overrun), is the instrument contradicting itself.  A
-    day d - 1 the ledger never closed cannot be judged here; the drained clause reports it.
+    day d - 1 the ledger never closed cannot be judged here; the labour clause reports it.
     """
     ledger = {int(_get(r, 'day')): r for r in shift_rows}
     lag_by_day: dict = {d: 0.0 for d in days}
@@ -497,42 +845,61 @@ def _utilization_clause(batch_rows, work_rows, days: list[int], expectations: di
     return Clause('utilization', not out_of_band, reading, reason)
 
 
-def _missed_share_clause(batch_rows, days: list[int], expected: float | None = None) -> Clause:
-    """Stable, never gated on its level.  `expected` is the record's `1 - fill_rate` for this
-    leaf (the expected first-pass missed share under base stock), carried into the reading as
-    `expected` / `delta` so the audit can read the level against it; it moves no verdict."""
+def _supply_clause(flows: dict, days: list[int], expected: float | None) -> Clause:
+    """The shelf's first-pass service: the supply share at its stamped level, not trending.
+
+    LEVEL.  `Σ supply_new ÷ Σ fresh` over the window -- each unit counted once, on the first
+    batch its SKU's shortfall rose (`demand_flows`) -- judged within `SUPPLY_LEVEL_TOL` of
+    `expected`, the record's `1 - fill_rate` (the solved floor's expected first-pass missed
+    share under base stock, "Choose the coverage floor", decision 5).  A ratio of sums,
+    because the fill rate is one (`Σ served ÷ Σ units`, units-weighted).  REPORTED, not
+    judged, on a record with no stamped fill.
+
+    TREND.  Half-window means of the per-batch share within `TREND_TOL`, as decision 4 had it.
+    `units.supply` is the raw flow with re-attempts; `units.reattempts` is what the old
+    clause was double-counting.
+    """
     in_window = set(days)
-    rows = sorted((b for b in batch_rows if int(_get(b, 'work_day')) in in_window),
-                  key=lambda b: (int(_get(b, 'work_day')), int(_get(b, 'batch_id'))))
-    shares: list[float] = []
-    for b in rows:
-        demanded = float(_get(b, 'items_demanded', 0) or 0)
-        if demanded <= 0.0:
-            continue                                   # unmeasured, not perfect
-        shares.append((demanded - float(_get(b, 'total_items', 0) or 0)) / demanded)
-    n = len(shares)
-    if n < 2:
-        lvl = shares[0] if shares else None
-        return Clause('missed_share', False,
-                      {'n': n, 'level': lvl,
-                       'expected': (float(expected) if expected is not None else None),
-                       'delta': (lvl - float(expected)
-                                 if expected is not None and lvl is not None else None)},
-                      f'only {n} batch(es) with demand in the window; a trend needs two halves')
-    half = n // 2
-    first = sum(shares[:half]) / half
-    second = sum(shares[half:]) / (n - half)
-    trend = second - first
-    ok = abs(trend) <= MISSED_TREND_TOL
-    level = sum(shares) / n
-    reading = {'n': n, 'level': level, 'first_half': first,
-               'second_half': second, 'trend': trend, 'tol': MISSED_TREND_TOL,
+    rows = sorted((f for f in flows.values() if f['work_day'] in in_window),
+                  key=lambda f: (f['work_day'], f['batch_id']))
+    fresh = sum(f['fresh'] for f in rows)
+    new = sum(f['supply_new'] for f in rows)
+    raw = sum(f['supply'] for f in rows)
+    shares = [f['supply_new'] / f['fresh'] for f in rows if f['fresh'] > 0]
+    level = (new / fresh) if fresh > 0 else None
+    reading = {'n': len(shares), 'level': level,
                'expected': (float(expected) if expected is not None else None),
-               'delta': (level - float(expected) if expected is not None else None)}
-    reason = ('' if ok else
-              f'missed share trending: second half {second:.3f} vs first half {first:.3f} '
-              f'({trend:+.3f}, tolerance ±{MISSED_TREND_TOL:.2f})')
-    return Clause('missed_share', ok, reading, reason)
+               'delta': (level - float(expected)
+                         if expected is not None and level is not None else None),
+               'tol': SUPPLY_LEVEL_TOL,
+               'units': {'fresh': fresh, 'demanded': sum(f['demanded'] for f in rows),
+                         'supply': raw, 'supply_new': new, 'reattempts': raw - new}}
+    reasons: list[str] = []
+    unrec = _unrecorded(rows)
+    if unrec:
+        reasons.append(unrec)
+    if level is None:
+        reasons.append('no fresh demand in the window; the supply share is unmeasured')
+    if expected is not None and level is not None:
+        ok = abs(level - float(expected)) <= SUPPLY_LEVEL_TOL
+        reading['in_band'] = ok
+        if not ok:
+            reasons.append(f'supply share {level:.3f} vs expected {float(expected):.3f} off the '
+                           f'stamped fill rate ({level - float(expected):+.3f}, band '
+                           f'±{SUPPLY_LEVEL_TOL:.2f})')
+    else:
+        reading['in_band'] = None
+    if len(shares) >= 2:
+        first, second, trend = _halves(shares)
+        reading.update({'first_half': first, 'second_half': second, 'trend': trend,
+                        'trend_tol': TREND_TOL})
+        if abs(trend) > TREND_TOL:
+            reasons.append(f'supply share trending: second half {second:.3f} vs first half '
+                           f'{first:.3f} ({trend:+.3f}, tolerance ±{TREND_TOL:.2f})')
+    elif not reasons:
+        reasons.append(f'only {len(shares)} batch(es) with fresh demand in the window; a trend '
+                       f'needs two halves')
+    return Clause('supply', not reasons, reading, '; '.join(reasons))
 
 
 def _rework_clause(batch_rows, days: list[int], expected_repack_packs: float | None) -> Clause:
@@ -604,23 +971,26 @@ def _rework_clause(batch_rows, days: list[int], expected_repack_packs: float | N
     return Clause('rework', True, reading, '')
 
 
-def check_rows(*, shift_rows, batch_rows, work_rows, day_lo: int, day_hi: int,
+def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, day_hi: int,
                expectations: dict) -> Verdict:
-    """The four clauses over already-loaded rows.  See the module docstring for each.
+    """The five clauses over already-loaded rows.  See the module docstring for each.
 
     `shift_rows` are `load_shift_days` dicts; `batch_rows` are `BatchStats` (or dicts with
-    the same fields); `work_rows` are `load_work_hours` dicts.  Raises `InstrumentError`
-    from the second clause; every other outcome is a `Verdict`.
+    the same fields); `work_rows` are `load_work_hours` dicts; `carry_rows` are
+    `load_carryover` rows (dicts or dataclasses with batch_id, reason, sku, qty) -- REQUIRED,
+    not defaulted, because an empty list reads as "everything served" and a caller that
+    forgot to load the table must not get that answer by accident.  Raises `InstrumentError`
+    from the released-late clause and from `demand_flows`; every other outcome is a `Verdict`.
     """
     if day_hi < day_lo:
         raise ValueError(f'empty window: day_lo={day_lo} > day_hi={day_hi}')
     days = list(range(int(day_lo), int(day_hi) + 1))
+    flows = demand_flows(batch_rows, carry_rows)
     clauses = {
-        'drained': _drained_clause(shift_rows, days),
+        'labour': _labour_clause(shift_rows, flows, days, expectations),
         'released_late': _released_late_clause(shift_rows, batch_rows, days),
         'utilization': _utilization_clause(batch_rows, work_rows, days, expectations),
-        'missed_share': _missed_share_clause(
-            batch_rows, days, (expectations or {}).get('expected_missed_share')),
+        'supply': _supply_clause(flows, days, (expectations or {}).get('expected_missed_share')),
         'rework': _rework_clause(
             batch_rows, days, (expectations or {}).get('expected_repacked_packs')),
     }
@@ -629,49 +999,66 @@ def check_rows(*, shift_rows, batch_rows, work_rows, day_lo: int, day_hi: int,
 
 def check(db_path: str, run_id: int, day_lo: int, day_hi: int, *,
           expectations: dict) -> Verdict:
-    """The check over one arm's sim DB: load the three sources, judge the window.
+    """The check over one arm's sim DB: load the four sources, judge the window.
 
     `expectations` is `expectations_for(...)` for this leaf.  The loaders are the
-    version-negotiating ones (`shift_days` and `work_events` are conditional tables: a
-    pre-era vintage answers `[]`, which the first clause reports as a window the ledger
-    never closed rather than as a plausible pass).
+    version-negotiating ones (`shift_days`, `work_events` and `carryover` are conditional
+    tables: a pre-era vintage answers `[]`, which the labour clause reports as a window the
+    ledger never closed rather than as a plausible pass).
     """
     from Optimization.persistence.Picking_Data import (
-        load_batch_stats, load_shift_days, load_work_hours)
+        load_batch_stats, load_carryover, load_shift_days, load_work_hours)
     return check_rows(shift_rows=load_shift_days(db_path, run_id),
                       batch_rows=load_batch_stats(db_path, run_id),
                       work_rows=load_work_hours(db_path, run_id),
+                      carry_rows=load_carryover(db_path, run_id),
                       day_lo=day_lo, day_hi=day_hi, expectations=expectations)
 
 
+def _num(v) -> bool:
+    """A number the summary can format: an int or a float that is not NaN (`_isnan`)."""
+    return isinstance(v, (int, float)) and not _isnan(v)
+
+
 def summarize(verdict: Verdict) -> str:
-    """One log line per clause, for the reference-run driver and the audit's INFO output."""
+    """One log line per clause, for the equilibrium report and the audit's INFO output."""
     parts = []
     for name, c in verdict.clauses.items():
         tag = 'ok' if c.passed else 'FAIL'
-        if name == 'drained':
-            r = c.reading
-            parts.append(f'{name}={tag} ({r["drained"]}/{r["days"]} drained, '
-                         f'{len(r["capped"])} capped '
-                         f'({len(r.get("overtime_only_days", ()))} by overtime alone), '
-                         f'{len(r["missing"])} missing, '
-                         f'{len(r.get("supply_standing_days", ()))} with supply carry standing)')
+        r = c.reading
+        if name == 'labour':
+            d = r['drained']
+            lvl, exp = r.get('level'), r.get('expected')
+            if _num(lvl):
+                against = (f' vs expected {exp:.4f} ({r["delta"]:+.4f}, band ±{r["tol"]:.4f})'
+                           if _num(exp) and _num(r.get('tol')) else '')
+                carry = (f'carry max {r["carry_max_units"]:,} units'
+                         + (f' = {r["carry_max_days"]:.2f} day(s)'
+                            if _num(r.get('carry_max_days')) else ''))
+                parts.append(
+                    f'{name}={tag} (cut share {lvl:.4f}{against}; {carry}; '
+                    f'trend {r.get("trend", float("nan")):+.3f}; {d["drained"]}/{d["days"]} '
+                    f'drained, {len(d["capped"])} capped '
+                    f'({len(d.get("overtime_only_days", ()))} by overtime alone), '
+                    f'{len(d["missing"])} missing, '
+                    f'{len(d.get("supply_standing_days", ()))} with supply carry standing)')
+            else:
+                parts.append(f'{name}={tag} (n={r.get("n")}, {len(d["missing"])} missing)')
         elif name == 'utilization':
             bits = [f'{d}={v["realized"]:.3f}/{v["expected"]:.3f}'
-                    for d, v in c.reading.items() if 'realized' in v]
+                    for d, v in r.items() if 'realized' in v]
             parts.append(f'{name}={tag} ({", ".join(bits) or "no department expected"})')
-        elif name == 'missed_share':
-            r = c.reading
-            lvl = r.get('level')
-            exp = r.get('expected')
-            against = (f', expected {exp:.3f} off the stamped fill rate ({r["delta"]:+.3f})'
-                       if isinstance(exp, (int, float)) else '')
-            parts.append(f'{name}={tag} (level {lvl:.3f}, trend {r.get("trend", float("nan")):+.3f}'
-                         f'{against})'
-                         if isinstance(lvl, (int, float)) and not (isinstance(lvl, float) and math.isnan(lvl))
-                         else f'{name}={tag} (n={r.get("n")})')
+        elif name == 'supply':
+            lvl, exp = r.get('level'), r.get('expected')
+            if _num(lvl):
+                against = (f', expected {exp:.3f} off the stamped fill rate ({r["delta"]:+.3f}, '
+                           f'band ±{r["tol"]:.2f})' if _num(exp) else '')
+                parts.append(f'{name}={tag} (level {lvl:.3f}, trend '
+                             f'{r.get("trend", float("nan")):+.3f}{against}; '
+                             f'{r["units"]["reattempts"]:,} re-attempt unit(s) counted once)')
+            else:
+                parts.append(f'{name}={tag} (n={r.get("n")})')
         elif name == 'rework':
-            r = c.reading
             _shares = [v['own_bin_share'] for v in r['days'].values()
                        if v['own_bin_share'] is not None]
             _floor = [v['free_bins_min'] for v in r['days'].values()

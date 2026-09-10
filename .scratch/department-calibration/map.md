@@ -67,8 +67,10 @@ regime someone chose rather than one the defaults inherited.
     and the DECLARED day law (a Gaussian line count with a declared cv -- `settings.py`
     `*_BATCH_MEAN/STD`). Put-away and receiving keep rho; their backlog is reported. "Every day
     drained" is a reading, not a verdict. BUILT 2026-09-08 (29: demand declared, floor and crew
-    solved, the regime decides which keys are inputs); the instrument split (30) and the re-check
-    (31) are pending, and until 31 reads clean the era's numbers stay provisional.
+    solved, the regime decides which keys are inputs). The instrument split LANDED 2026-09-09
+    (30: `supply` and `labour` clauses over the `carryover` flows and fresh demand; a capped day
+    is a reading); the re-check (31) is pending, and until it reads clean the era's numbers stay
+    provisional.
   - **No bespoke conversions implicit in the inventory.** A standing preference from the
     same decision: nothing authored on the catalogue may carry an implicit batch or day (the
     coverage-in-generation-batches trap of 09). Stock coverage is per SKU in days of its own
@@ -494,6 +496,24 @@ regime someone chose rather than one the defaults inherited.
   canaries, and an era canary through the pool: floors solved 1.2728 / 1.2858 at fill 0.975,
   the DERIVED crew in every arm's run params. The reference pair's own floor and crew come with
   31's run; the era's numbers stay PROVISIONAL until it reads clean.
+- [Split the missed-share clause into supply and labour](issues/30-split-the-missed-share-clause.md):
+  LANDED 2026-09-09 (AFK build). `missed_share` and the strict `drained` are gone; `supply` and
+  `labour` judge the two causes apart, both as `carryover` FLOWS over FRESH demand
+  (`equilibrium.demand_flows`: fresh = the effective batch less the previous batch's whole carry,
+  a stockout counted on its first attempt per SKU, the cut on every attempt). `supply`: level
+  within a typed 0.02 of the stamped `1 - fill`, trend as before. `labour`: cut share within 2
+  sampling sds of the stamped expected cut share (the sd is a new closed form,
+  `staffing.cut_share_sd`, so the band is the declared law's over the window), the day-end
+  labour carry under one day's capacity in units, the per-day cut share not trending (its band
+  derived the same way -- the review found a typed 0.02 failed 26-52% of healthy windows; the
+  supply trend keeps the typed number); a capped day is a READING, a missing day still fails.
+  The first-attempt supply count is a LOWER bound (per-SKU fresh demand is unrecorded). The audit's table carries both shares per arm;
+  `Diagnostics/equilibrium_report.py` prints the verdict per leaf off a finished run. Re-read on
+  the 2026-09-08 pair, days 20-39: store supply 0.080 vs 0.078 PASSES, labour FAILS on the
+  overflow's trend (0.311 -> 0.130); fulfillment passes every clause. The ticket's "0.070" was
+  the raw flow over effective demand; raw over fresh would be 0.092 and fail -- the re-attempt
+  rule is the definition. Neither leaf's cut-share LEVEL is judged until 31's run stamps a
+  guarantee.
 
 ## Not yet specified
 
@@ -535,6 +555,12 @@ regime someone chose rather than one the defaults inherited.
   throttles picks — a lag/propagation read, not just levels) is dim until the era exists.
   04 left one sharp edge of it: whether a CAPPED day on a campaign arm is also a comparison
   caveat (the arm did not deliver the declared throughput) is reported, not yet judged.
+- **A derived band for the supply level.** 30 gave the labour clause a band the declared law
+  implies (`staffing.cut_share_sd` over the window) but left the supply level's at a typed 0.02:
+  the fill closed form stamps a point, and the spread of a finite window's first-attempt share
+  over the section's SKU mix (memory `window-mix-before-model-error`) has no closed form on the
+  record yet. Dim until a leaf reads near the edge of the typed band; on the 2026-09-08 pair both
+  sit within 0.004 of it.
 
 ## Out of scope
 

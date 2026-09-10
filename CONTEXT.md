@@ -298,9 +298,11 @@ cadence rather than with time, so it drifts silently whenever a batch outlives a
 department's capacity is denominated in the same unit as the work that arrives at it.
 
 **Equilibrium**:
-A window of working days over which the labour carry stays bounded and does not trend, the cut
-share of picks sits at its expected value, no release is late, every crew's utilization is inside
-its band, and the supply share holds its expected level rather than trending. Not "every day
+A window of working days over which the cut share of picks sits at its expected value and does
+not trend, the standing labour carry stays under a day's capacity, no release is late, every
+crew's utilization is inside its band, and the supply share holds its expected level rather than
+trending. Both shares are flows over fresh demand, a stockout counted on its first attempt (the
+staffing record's fill rate is a first-pass promise) and the cut on every attempt. Not "every day
 drains": a day's demand is drawn with a declared spread, so some days exceed a full shift at any
 headroom, and what equilibrium means for that queue is that its overflow is absorbed within the
 window, never that it is absent. A report for every run; the site never judges itself.

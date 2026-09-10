@@ -205,6 +205,7 @@ class EvalContext:
         self._ycache: dict = {}     # per-trailer yard frames
         self._dcache: dict = {}     # per-drain yard frames
         self._mcache: dict = {}     # per-batch demand-service frames
+        self._ccache: dict = {}     # raw carryover rows (the equilibrium check's flows)
         self._wcache: dict = {}     # per-batch production-labour frames
         self._scache: dict = {}     # per-day drain-or-cap ledger frames
         self._expect = None         # staffing expectations, resolved once (False = none)
@@ -257,6 +258,9 @@ class EvalContext:
 
     def missed_df(self, key):
         return _requests.missed_frame(self, key)
+
+    def carry_df(self, key):
+        return _requests.carry_frame(self, key)
 
     def work_df(self, key):
         return _requests.work_frame(self, key)

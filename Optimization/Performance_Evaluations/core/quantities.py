@@ -436,7 +436,11 @@ QUANTITIES: tuple = (
         notes='missed_pieces over the STATED whole `items_demanded`, so the share is of '
               'what was asked for rather than of what was picked — a denominator that '
               'shrinks when service degrades would flatter exactly the arms it should '
-              'expose.'),
+              'expose. Per EFFECTIVE batch: under the era `items_demanded` includes the '
+              'previous batch\'s carry and a re-offered unit the shelf fails again is '
+              'counted again. The equilibrium check\'s `supply` clause is the first-attempt '
+              'share over FRESH demand (`equilibrium.demand_flows`); the two agree only '
+              'with rollover off.'),
 
     # ── the yard: did it bind, and what did the policy cost in trailer-days ──────
     # All five read tables that exist only from the yard vintage on, so all five name the
