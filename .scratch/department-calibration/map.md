@@ -118,6 +118,14 @@ regime someone chose rather than one the defaults inherited.
   are receiving work (inbound does the repacking), priced and recorded; expected repacks are
   stamped zero. Picks drain a SKU's smallest bin first.
 
+- **The free index slides, and the leaf total cannot see it** (found 2026-09-10,
+  [Band the own-bin share and the free-index depth](issues/32-band-the-own-bin-share-and-free-index.md)).
+  `batch_stats.free_bins` is the WHOLE geometry, so a leaf's reading includes the other channel's
+  section; read per bucket off the record's `fielded` block. Under base stock a picked SKU holds
+  two bins most of the time (remnant + empty-first top-up), so the setup headroom drains at the
+  first-partial-pick rate toward a stationary fragmentation the record does not yet derive (34);
+  the planner's 0.85 fill is an assumed number standing where that closed form belongs (35).
+
 ## Decisions so far
 
 <!-- one line per closed ticket: gist + link -->
@@ -528,6 +536,18 @@ regime someone chose rather than one the defaults inherited.
   spec's `recv_crew_size 0` is the flag-off key the era never reads, and the rows are priced by
   the receiving utilization clause. Own-bin share 0.000 and ~58% free again -- graduated.
 
+- [Band the own-bin share and the free-index depth](issues/32-band-the-own-bin-share-and-free-index.md):
+  RESOLVED 2026-09-10. The ticket's 57-59% was an ARTEFACT: `free_bins` counts the whole geometry,
+  so each leaf reads the other section as free; against the record's per-bucket `fielded` block
+  the real headroom is 18.0% / 15.2% (the 0.85 fill), and it FALLS every day of the run (store
+  -6,763, fulfillment -18,279) because base stock + empty-first + smallest-first drain settles a
+  picked SKU at two bins -- ADR-0003's consequence 1 is the prediction of this, and the window
+  cannot see where the store's slide ends. Decided: own-bin share and a newly recorded TIER SPILL
+  are judged at exactly zero with no knob; the depth is recorded PER BUCKET (the leaf's own section
+  by construction) and REPORTED against its stamped setup free; the fill headroom becomes DERIVED
+  from the stationary fragmentation closed form (a Markov chain over the line law); `free_bins`
+  keeps its name and meaning. Graduated 33, 34, 35; three glossary terms; ADR-0003 observation.
+
 ## Not yet specified
 
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
@@ -564,6 +584,14 @@ regime someone chose rather than one the defaults inherited.
   over the section's SKU mix (memory `window-mix-before-model-error`) has no closed form on the
   record yet. Dim until a leaf reads near the edge of the typed band; on the 2026-09-08 pair both
   sit within 0.004 of it.
+
+- **A trajectory band for the free-index depth.** 32 left the per-bucket depth REPORTED against
+  its stamped setup free, judged only through the events (top-up, spill, repack all zero). Once
+  [Derive the stationary fragmentation closed form](issues/34-derive-the-stationary-fragmentation-closed-form.md)
+  stamps E[extra bins] per bucket -- and, if it falls out, the transient -- the window's drawdown
+  per bucket can be judged against the expected drawdown for those days, the way the labour clause
+  is judged against `cut_share_sd`. Dim until 34 says whether the transient has a closed form or
+  only the stationary level does.
 
 ## Out of scope
 

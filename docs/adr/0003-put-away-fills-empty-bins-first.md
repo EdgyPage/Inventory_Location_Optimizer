@@ -38,3 +38,16 @@ Picks drain a SKU's smallest bin first so remnants clear and bins return to the 
   no golden; it may become a knob later, which is why the rework is recorded rather than hidden.
 - The 2026-08-25 preference that a putter and a picker never meet in one bin survives as the
   first rung of the rule, not as an invariant.
+
+## Observed (2026-09-10)
+
+Two 40-day runs on the reference pair at 0.85 fill read own-bin share 0.000 and no repack, and the
+free index fell on every day of both: 3% of the store section's setup headroom and 10% of
+fulfillment's in 40 days, at the rate SKUs take their first partial pick. The mechanism is the
+rule as written -- a remnant stays, the top-up opens an empty bin, and the smallest-first drain
+clears the remnant only on a later line -- so a picked SKU settles at two bins most of the time.
+The first consequence above is that slide's destination; the window does not reach it on the
+store. Its stationary level is a closed form over the line law, and the sizing headroom is to be
+derived from it rather than assumed (department-calibration 34, 35). A top-up into an occupied
+bin and a tier spill are judged at zero; the depth is reported per bucket
+(department-calibration 32).

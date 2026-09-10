@@ -386,6 +386,26 @@ again into smaller units that fit. Priced to the receiving crew per resulting pa
 expected to happen never, so a recorded repack is a finding about the warehouse's sizing.
 _Avoid_: rescue, split
 
+**Bucket**:
+The class a bin and a unit are matched in: handling, category, size tier and unit family. A
+warehouse is sized bucket by bucket from the declared levels, and a free bin is only free for the
+units of its bucket.
+_Avoid_: size class alone, tier alone, BinKey (the code's name for it)
+
+**Free index**:
+The empty bins of a section, counted per bucket, that a top-up or a first placement can land in.
+It is the setup headroom above the declared levels, and under base stock it drains toward a
+steady level as picked SKUs come to hold a remnant and a top-up in two bins. A whole-geometry
+count that includes another channel's section is not a section's free index.
+_Avoid_: slack bins, spare capacity, empty bins in total
+
+**Tier spill**:
+A put that finds no empty bin in the unit's own tier and takes one from a larger tier of the same
+handling and category, ahead of consolidating into the SKU's own bin. The earliest sign that a
+bucket ran dry, and the first departure from the price a put was expected to cost; expected to
+happen never.
+_Avoid_: upgrade, overflow
+
 **First-time completion**:
 A pick that is reached on the day it was released and filled from the shelf it was sent to.
 Its two failures are separate flows -- the day cut it (labour) or the shelf was empty (supply)
