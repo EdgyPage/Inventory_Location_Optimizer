@@ -61,6 +61,7 @@ from Optimization.config.sim_config import (CONFIG, CALIBRATION_KEYS, channel_pi
                                             _DEMAND_KEY)
 from Optimization.simconfig import coverage as _cov
 from Optimization.simconfig import expected_travel as _et
+from Optimization.simconfig import fragmentation as _frag
 from Optimization.simconfig import staffing as _staffing
 from Warehouse.kernel.regime import FULFILLMENT as _FULFILLMENT
 from Warehouse.layout.Storage_Primitive import viable_storage_units
@@ -494,6 +495,58 @@ def fielded_block(section: list, plan, regime: str | None, floor_lines: float) -
             'above_declaration_skus': int(above), 'buckets': rows}
 
 
+def stamp_fragmentation(fielded: dict, section: list, log: logging.Logger, *,
+                        name: str = '') -> dict:
+    """Stamp the stationary fragmentation onto one channel's `fielded` block (in place) and
+    return the closed form's summary.
+
+    Every `buckets[]` row gains `expected_extra` (the expected units of that bucket in
+    steady state beyond its `requirement`; 0.0 on a bucket no SKU's plan can reach), and
+    the block gains
+
+        'fragmentation': {'expected_extra',          # the section sum, provenance `derived`
+                          'provenance', 'method', 'n_classes', 'capped_classes',
+                          'positive_lead_skus', 'fielded_bins_per_sku',
+                          'stationary_bins_per_sku', 'seconds'}
+
+    A kind that maps to a bucket the plan never built RAISES: the planner sizes a bucket
+    for every tier the packer can produce, so a miss is the planner and the packer having
+    drifted apart -- the same contract the fielded-equals-declared check above states.
+    """
+    t0 = time.perf_counter()
+    frag = _frag.section_fragmentation(section)
+    rows = {(r['handling'], r['category'], r['size'], r['unit']): r for r in fielded['buckets']}
+    for r in fielded['buckets']:
+        r['expected_extra'] = 0.0
+    for b, fr_row in frag['buckets'].items():
+        row = rows.get(tuple(b))
+        if row is None:
+            raise ValueError(
+                f'{name}: the fragmentation chain packs a lot into bucket {tuple(b)}, which the '
+                f'plan never built -- the planner sizes a bucket for every tier the packer can '
+                f'produce, so this is the planner and the packer having drifted apart')
+        row['expected_extra'] = float(fr_row['expected_extra'])
+    seconds = time.perf_counter() - t0
+    fielded['fragmentation'] = {
+        'expected_extra': float(frag['expected_extra']), 'provenance': 'derived',
+        'method': 'stationary_chain', 'n_classes': int(frag['n_classes']),
+        'capped_classes': int(frag['capped_classes']),
+        'positive_lead_skus': int(frag['positive_lead_skus']),
+        'fielded_bins_per_sku': float(frag['fielded_bins_per_sku']),
+        'stationary_bins_per_sku': float(frag['stationary_bins_per_sku']),
+        'seconds': float(seconds)}
+    req = sum(int(r['requirement']) for r in fielded['buckets'])
+    log.info(f"  [coverage] {name}: stationary fragmentation {frag['expected_extra']:+,.0f} bins "
+             f"over a requirement of {req:,} ({frag['fielded_bins_per_sku']:.3f} -> "
+             f"{frag['stationary_bins_per_sku']:.3f} bins/SKU, {frag['n_classes']} SKU classes"
+             + (f", {frag['positive_lead_skus']:,} SKU(s) with a lead priced at lead 0"
+                if frag['positive_lead_skus'] else '')
+             + (f", {frag['capped_classes']} class(es) at the iteration cap"
+                if frag['capped_classes'] else '')
+             + f")  [{seconds:.0f}s]")
+    return frag
+
+
 def resolve_floors(orders_all: list, specs: list, n: dict, *, coverage_days: float,
                    safety_days: float, floor_lines: float | None, inputs: dict,
                    log: logging.Logger) -> tuple[dict, dict]:
@@ -683,6 +736,13 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
                 f'{fielded["above_declaration_skus"]:,} above their declaration. The planner fields '
                 f'the requirement exactly (ADR-0002, "Field the requirement"); a difference '
                 f'here is a packing that disagrees with the one the warehouse was sized from.')
+        # THE STATIONARY FRAGMENTATION ("Derive the stationary fragmentation closed form"):
+        # the bins the fielded shelf grows into under base stock, per bucket, derived from
+        # each SKU's line law and plan -- stamped in EVERY mode, like the fill rate, so the
+        # record says what the declaration needs beyond itself whether or not the era is on.
+        # `expected_extra` can be negative on a bucket whose remainder unit migrates down a
+        # tier; the section sum is the number the fill headroom derives from.
+        stamp_fragmentation(fielded, section, log, name=s.name)
     record['final'] = stats
     record['lines_per_day'] = n
     record['residual'] = {k: (n[k] / prev[k] - 1.0) if prev.get(k) else 0.0 for k in n}

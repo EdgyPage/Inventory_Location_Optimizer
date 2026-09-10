@@ -481,8 +481,11 @@ def test_the_record_stamps_that_the_floors_promise_was_kept(monkeypatch, section
         f"{fielded['declared_sum_q']}")
     assert fielded['buckets'], 'the per-bucket requirement/capacity/free table is empty'
     for row in fielded['buckets']:
+        # `expected_extra` rides every row since "Derive the stationary fragmentation
+        # closed form" (`era_coverage.stamp_fragmentation`); its own tests are
+        # `test_fragmentation.py`.
         assert set(row) == {'handling', 'category', 'size', 'unit',
-                            'requirement', 'capacity', 'free'}, row
+                            'requirement', 'capacity', 'free', 'expected_extra'}, row
         assert row['capacity'] - row['requirement'] == row['free'], row
 
 

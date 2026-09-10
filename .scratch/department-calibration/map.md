@@ -123,8 +123,9 @@ regime someone chose rather than one the defaults inherited.
   `batch_stats.free_bins` is the WHOLE geometry, so a leaf's reading includes the other channel's
   section; read per bucket off the record's `fielded` block. Under base stock a picked SKU holds
   two bins most of the time (remnant + empty-first top-up), so the setup headroom drains at the
-  first-partial-pick rate toward a stationary fragmentation the record does not yet derive (34);
-  the planner's 0.85 fill is an assumed number standing where that closed form belongs (35).
+  first-partial-pick rate toward a stationary fragmentation the record now DERIVES (34, landed
+  2026-09-10: `fielded.fragmentation`); the planner's 0.85 fill is an assumed number standing
+  where that closed form belongs (35).
 
 ## Decisions so far
 
@@ -561,6 +562,21 @@ regime someone chose rather than one the defaults inherited.
   798778f4fae1 files for two days; fixed, memory
   `optional-fill-only-answers-through-an-override`).
 
+- [Derive the stationary fragmentation closed form](issues/34-derive-the-stationary-fragmentation-closed-form.md):
+  LANDED 2026-09-10. Each SKU is a Markov chain over the multiset of units on its shelf (a unit
+  keeps the size tier it was packed at), driven by its line law: smallest-first drain, the
+  position rule's lot packed by the plan's leading slots into fresh bins, a shelf-emptying line
+  refilling the fielded state. Solved per (regime, law, plan, rp) class -- 489 classes for the
+  pair, 16 s -- and stamped in EVERY mode: `fielded.buckets[].expected_extra` and a
+  `fielded.fragmentation` block (`derived`). Checked on both finished runs: at each SKU's realized
+  line count the chain reproduces both leaves to -3% (tolerance +/-5% per SKU; jitter is the
+  named residual); the store's 39-day drawdown to -4% and every keyframe tier within 10%. The
+  fulfillment transient over-reads at the declared line share because the sampler's affinity
+  lift touches a quarter fewer SKUs than the share says -- a seam takes a per-SKU rate. The
+  pair: store +62,305 bins (28% of its headroom), fulfillment +48,204 (26%); six store `small`
+  buckets exceed their setup free two to three times because picked singleton remainders come
+  back as pallets of 1 -- what 35 sizes.
+
 ## Not yet specified
 
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
@@ -591,6 +607,16 @@ regime someone chose rather than one the defaults inherited.
   throttles picks — a lag/propagation read, not just levels) is dim until the era exists.
   04 left one sharp edge of it: whether a CAPPED day on a campaign arm is also a comparison
   caveat (the arm did not deliver the declared throughput) is reported, not yet judged.
+- **An affinity-aware line share.** 34 found that the batch sampler's affinity lift spreads a
+  fulfillment section's lines over SKUs almost flat across the frequency deciles (41,669 SKUs
+  touched by day 25 against the line share's 54,995; correlation of frequency with realized
+  lines 0.04), while every closed form on the record weights SKUs by `freq / sum freq`. Section
+  SUMS are right; per-SKU line COUNTS on fulfillment are not, which is where 13's -6.8%
+  fulfillment residual and the fragmentation transient's +23% both live. Whether the record
+  should carry a sampler-faithful per-SKU rate (and how one is derived without a run) is dim
+  until a closed form needs the per-SKU count rather than the section sum -- the trajectory
+  band is the first that will, and `fragmentation.section_fragmentation` already takes the
+  rate through `lines_per_day_by_sku`.
 - **A derived band for the supply level.** 30 gave the labour clause a band the declared law
   implies (`staffing.cut_share_sd` over the window) but left the supply level's at a typed 0.02:
   the fill closed form stamps a point, and the spread of a finite window's first-attempt share
