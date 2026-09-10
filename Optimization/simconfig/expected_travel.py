@@ -127,7 +127,7 @@ class Geometry:
     """The built warehouse as the expectation reads it: aisles grouped by BinKey.
 
     `from_warehouse` reads a `Warehouse` (the pair-level `warehouse_meta` or a worker's
-    own build); `from_layout_rows` reads `warehouse.db`'s `aisle_layout` rows, so an
+    own build); `from_layout_rows` reads the archived `aisle_layout` table rows, so an
     analysis can recompute an expectation off the archive without rebuilding.
     """
 

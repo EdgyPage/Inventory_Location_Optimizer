@@ -102,8 +102,8 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
                               f'log for the batch that broke first.')
                 done_uids.add(uid)
                 # The arm's expected day under its own initial placement (strategy_runner
-                # `_arm_expected_pick`): onto the skeleton's strategy entry, so sim_meta.json
-                # and hence sim_result['strategies'] carry it to the throughput audit.  Absent
+                # `_arm_expected_pick`): onto the skeleton's strategy entry, so the group's meta
+                # document and hence sim_result['strategies'] carry it to the throughput audit.  Absent
                 # on a flag-off arm, and then nothing is written -- byte-identical.
                 if res.get('expected_pick') is not None:
                     for _s in meta[gk]['sim_skeleton'].get('strategies', []):
