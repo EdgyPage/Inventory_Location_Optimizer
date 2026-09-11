@@ -256,12 +256,30 @@ BEFORE anything runs: the inbound-optimization map resumes at
   `_finalize_config_run`'s additive-run merge describes a path `skip_completed = resume` blocks.
   No glossary term and no ADR, and the ticket says why.
 
+- [Harden the three positional seams](issues/11-harden-the-positional-seams.md): **BUILT and live
+  on `develop`** — three commits, one per REASON rather than per seam: the two amendments made
+  seams 2 and 5 share two files, and 4 is worthless apart from 3. `RESERVED_PREFIX` is now READ by
+  every walker and applied at the pair, config AND channel depths; a work unit STATES its identity
+  (`workunits._stamp_identity` stamps `group_keys` + `arm_key`) so neither `record_arm` nor the
+  `expected_pick` attach slices a uid; and an evaluation's scope is validated against
+  `registry.SCOPES` at decoration AND given a namespace by a map TOTAL over those scopes, with
+  `site` minted as the fifth. **One decision the ticket did not contain:** a multi-leaf unit's
+  single `expected_pick` is REFUSED with a warning rather than copied onto both arms — a new
+  silent wrong answer is worse than an unattached value, and the shape stays 02's to settle.
+  **The fourth spelling of "no channel" was three sites, not one** — the runtime LOOKUP was as
+  wrong as the UPDATE, so a store arm's identity gate read a row it could never find; the rule now
+  lives on `ChannelRun.channel_key`, beside `group_key`. Byte-identity proven by the preflight
+  canaries (two full runs through the real pool, `tree shape UNCHANGED`), not only by tests; every
+  new guard mutation-checked. **Two findings:** the architecture layer was stale BEFORE this work
+  — 09 never ran the chain, so the derived commit syncs `8a5b4f42` too and the marker moves to
+  `4066071a`; and `--catalog-merge` seeds a new entry's `purpose` from a docstring FRAGMENT, which
+  is not a `purpose: TODO` and so escapes CLAUDE.md §1's fill step entirely.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
   they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
   what remains of it is owner routing, not extraction). The other four:
-  [Harden the three positional seams](issues/11-harden-the-positional-seams.md) (out of 03) and
   [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10) and
   [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md) (out of 04) and
   [Seat the one-owner bundle indirection](issues/13-seat-the-one-owner-bundle-indirection.md)
