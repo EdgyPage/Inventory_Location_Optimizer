@@ -3302,7 +3302,7 @@
     },
     "Optimization/Performance_Evaluations/core/artifact_map.py::_rel_dir": {
       "decorators": [],
-      "doc": "A template's directory relative to its stage root \u2014 the segments after the tree levels\n(`{cell}/{pair}/{config}/{channel?}` per-leaf, `{cell}/_aggregate/{config}/{channel?}`\naggregate, `_dossier/...` run).  Level placeholders are exactly the `{...}`-braced\nsegments; `{initial_group}` is NOT a level (it is a subdir the eval creates), so braced\nsegments only strip from the FRONT.\n\nA leading `_`-prefixed segment is a RESERVED STAGE ROOT, not an output subdir: the\ncontract uses that prefix for exactly these (`_aggregate`, `_dossier`, `_frozen`) and\nthe run tree reserves it, so matching the prefix is the rule rather than listing the\nnames.  This read `parts[0] == '_aggregate'` when `_aggregate` was the only one.",
+      "doc": "A template's directory relative to its stage root \u2014 the segments after the tree levels\n(`{cell}/{pair}/{config}/{channel?}` per-leaf, `{cell}/_aggregate/{config}/{channel?}`\naggregate, `_dossier/...` run).  Level placeholders are exactly the `{...}`-braced\nsegments; `{initial_group}` is NOT a level (it is a subdir the eval creates), so braced\nsegments only strip from the FRONT.\n\nA `RESERVED_PREFIX`-prefixed leading segment is a RESERVED STAGE ROOT, not an output\nsubdir: the contract uses that prefix for exactly these (`_aggregate`, `_dossier`,\n`_frozen`, `_site`) and the run tree DECLARES it, so matching the declared prefix is the\nrule rather than listing the names.  This read `parts[0] == '_aggregate'` when\n`_aggregate` was the only one, then a retyped `'_'` literal.",
       "is_async": false,
       "kind": "function",
       "signature": "(template: str) -> str"
@@ -4152,6 +4152,13 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/Performance_Evaluations/core/registry.py::SCOPES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('per_strategy', 'config', 'aggregate', 'run', 'site')"
+    },
     "Optimization/Performance_Evaluations/core/registry.py::_derive_views": {
       "decorators": [],
       "doc": "The view set for one figure evaluation \u2014 quantities x mark, minus its suppressions.\n\nAn INSPECTION or EFFECT mark answers for itself: a scorecard has no baseline in it and\na distribution+effect panel IS the contrast, so neither needs a quantity declared to\nknow what it can show.",
@@ -4232,6 +4239,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::REQUEST_SCOPE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'per_strategy': 'config', 'config': 'config', 'aggregate': 'aggregate', 'run': 'run', 'site': 'site'}"
     },
     "Optimization/Performance_Evaluations/core/requests.py::Request": {
       "decorators": [
@@ -9484,10 +9498,10 @@
     },
     "Optimization/persistence/runtime_metrics.py::record_arm": {
       "decorators": [],
-      "doc": "Insert one arm's runtime row (idempotent by (cell,pair,config,channel,arm) \u2014 a re-run/resume\nof the arm overwrites its row).  uid = (pair, config, channel, arm); res = the worker return dict.\nBest-effort: callers wrap this so a runtime-DB hiccup never sinks a real run.",
+      "doc": "Insert one arm's runtime row (idempotent by (cell,pair,config,channel,arm) \u2014 a re-run/resume\nof the arm overwrites its row).  `res` = the worker return dict.\n\nThe four key fields are KEYWORD-ONLY, and deliberately.  This took a work-unit uid and\nunpacked it positionally, which was safe only while every uid meant\n`(pair, config, channel, arm)`.  The coupled unit's uid is `(label, 'coupled', arm_store,\narm_ful)` \u2014 same arity, different meanings \u2014 so the positional read would have written\n`channel = <arm_store>` into a TEXT NOT NULL column whose IntegrityError the supervisor\nswallows with a warning: neither the wrong value nor a rejected row would announce itself.\nA caller now has to say which is which, and a caller holding a differently-shaped uid gets\na TypeError at the call site instead of a wrong row.\n\nBest-effort: callers wrap this so a runtime-DB hiccup never sinks a real run.",
       "is_async": false,
       "kind": "function",
-      "signature": "(run_root: str, cell: str, uid, res: dict) -> None"
+      "signature": "(run_root: str, cell: str, res: dict, *, pair: str, config: str, channel: str, arm: str) -> None"
     },
     "Optimization/persistence/runtime_metrics.py::record_precompute": {
       "decorators": [],
@@ -10077,7 +10091,7 @@
     },
     "Optimization/run_whatif_delta.py::_channel_of": {
       "decorators": [],
-      "doc": "The channel a run belongs to.  ChannelRun.channel is None on a store-only layout (no channel\nsubdir) \u2014 that IS the store channel, so name it rather than emitting a blank column.",
+      "doc": "The channel a run belongs to \u2014 `ChannelRun.channel_key`, kept as a name here because\nthree what-if writers import it.  The rule itself now lives on the dataclass that owns the\nambiguity, so there is one answer rather than one per reader.",
       "is_async": false,
       "kind": "function",
       "signature": "(cr) -> str"
@@ -11241,6 +11255,15 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/runschema/runlayout.py::ChannelRun.channel_key": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The channel this run SIMULATED, spelled as every writer's `channel` column spells it.\n\n`channel` is the run-tree LEVEL, and it is None on a store-only layout because there is\nno `<channel>/` directory to name.  The channel itself is not absent: a non-mixed\ncatalogue yields store runs only (`workunits._channel_runs_for`), and those arms wrote\n`channel = 'store'`.  So the missing level means STORE, never 'no channel', and a reader\nthat spells it `''` silently matches no row \u2014 which is what\n`run_map_precompute`'s runtime lookup and its `WHERE channel=?` backfill did.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
     "Optimization/runschema/runlayout.py::ChannelRun.group_key": {
       "decorators": [
         "property"
@@ -11256,6 +11279,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(run_path: str, run_name: str) -> list[tuple[str, str, str]]"
+    },
+    "Optimization/runschema/runlayout.py::_reserved": {
+      "decorators": [],
+      "doc": "True for a driver bookkeeping subtree (`_aggregate`, `_frozen`, `_site`, `_viz`, ...).\n\nThe run-tree contract DECLARES the prefix (`schema.RESERVED_PREFIX`); every walker below\nreads it rather than retyping `_`, and applies it at EVERY level.  The skip used to exist\nat the pair level only, so a reserved subtree the contract owns one level deeper --\n`<pair>/_site/` -- walked as a phantom CONFIG, and any `sim_*.db` beneath it surfaced as\nan extra ARM.  A reserved name is never an axis value at any depth.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str) -> bool"
     },
     "Optimization/runschema/runlayout.py::_sim_dbs_in": {
       "decorators": [],
@@ -11287,14 +11317,14 @@
     },
     "Optimization/runschema/runlayout.py::iter_channel_runs": {
       "decorators": [],
-      "doc": "Yield every channel-run dir under base_dir that contains *marker*.\n\nStore-only runs put the marker directly at <config>/; mixed-catalog runs put one\nper channel at <config>/<channel>/.  Top-level entries starting with '_'\n(e.g. _aggregate/) are skipped.  Order: sorted pair, then config, then channel.",
+      "doc": "Yield every channel-run dir under base_dir that contains *marker*.\n\nStore-only runs put the marker directly at <config>/; mixed-catalog runs put one\nper channel at <config>/<channel>/.  Reserved entries (`_reserved`) are skipped at\nEVERY level, not just the top.  Order: sorted pair, then config, then channel.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, marker: str='sim_meta.json') -> Iterator[ChannelRun]"
     },
     "Optimization/runschema/runlayout.py::iter_sim_dbs": {
       "decorators": [],
-      "doc": "Yield (ChannelRun, sim_db_path) for every per-strategy result DB under base_dir.\n\nStructural walk over <pair>/<config>[/<channel>]/sim_<strategy>.db \u2014 keyframe DBs\nexcluded.  Channel subdirs are found even when sim_meta.json was never finalized\n(crashed runs), so blank-arm scans see everything.",
+      "doc": "Yield (ChannelRun, sim_db_path) for every per-strategy result DB under base_dir.\n\nStructural walk over <pair>/<config>[/<channel>]/sim_<strategy>.db \u2014 keyframe DBs\nexcluded.  Channel subdirs are found even when sim_meta.json was never finalized\n(crashed runs), so blank-arm scans see everything.  Reserved entries (`_reserved`) are\nskipped at every level: `<pair>/_site/` holds the coupled unit's site DB, and a walker\nthat descended into it would report that DB as an extra arm of a phantom config.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> Iterator[tuple[ChannelRun, str]]"
@@ -13341,7 +13371,7 @@
     },
     "Optimization/simdriver/workunits.py::_build_work_units": {
       "decorators": [],
-      "doc": "(Re-)prepare all work units from on-disk state.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.",
+      "doc": "(Re-)prepare all work units from on-disk state.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy) and\n               args carries its own `group_keys` + `arm_key` (the parent reads those, not\n               uid slices \u2014 the uid's slots are not stable across unit kinds).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.",
       "is_async": false,
       "kind": "function",
       "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity)"
@@ -13415,6 +13445,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str) -> tuple"
+    },
+    "Optimization/simdriver/workunits.py::_stamp_identity": {
+      "decorators": [],
+      "doc": "Carry the unit's IDENTITY on its payload; return the unit's uid.\n\nA uid is positional, and its four slots mean `(pair, config, channel, arm)` only because\nevery unit today is one channel leaf.  The coupled unit (site-dock 02) is\n`(label, 'coupled', arm_store, arm_ful)` \u2014 same arity, different meanings \u2014 so a parent-side\nreader asking \"which group(s) does this finalize\" or \"which arm is this\" must not answer by\nslicing.  It reads `group_keys` / `arm_key`, which the unit states about itself.\n\nA one-leaf unit states exactly `[uid[:3]]` and `uid[3]`, so nothing moves today.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sa: dict, label: str, cfg_name: str) -> tuple"
     },
     "Optimization/simdriver/workunits.py::_worker_inventory_args": {
       "decorators": [],

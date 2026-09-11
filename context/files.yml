@@ -380,6 +380,7 @@ files:
     purpose: "The Evaluation descriptor + @evaluation decorator + module-level registry."
     layer: "evaluations"
     key_symbols:
+      - {name: "SCOPES", file: "Optimization/Performance_Evaluations/core/registry.py", kind: "const"}
       - {name: "Evaluation", file: "Optimization/Performance_Evaluations/core/registry.py", kind: "class"}
       - {name: "evaluation", file: "Optimization/Performance_Evaluations/core/registry.py", kind: "function"}
     notes: ""
@@ -390,6 +391,7 @@ files:
       - {name: "Denied", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
       - {name: "EraUnmet", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
       - {name: "Request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
+      - {name: "REQUEST_SCOPE", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "const"}
       - {name: "request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "batch_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "task_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -2672,6 +2674,14 @@ files:
       - {name: "test_the_seconds_match_the_cost_model", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
       - {name: "test_an_unload_is_a_put_at_the_origin_with_no_height", file: "Tests/integration/test_receiving_phase.py", kind: "function"}
     notes: ""
+  "Tests/integration/test_reserved_prefix_walk.py":
+    purpose: "Locks the run-tree reserved prefix: declared once (schema.RESERVED_PREFIX), honoured at the pair, config AND channel depths, so a reserved subtree is never walked as a phantom config or an extra arm."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_reserved_dirs_yield_no_channel_run", file: "Tests/integration/test_reserved_prefix_walk.py", kind: "function"}
+      - {name: "test_reserved_dirs_yield_no_sim_db", file: "Tests/integration/test_reserved_prefix_walk.py", kind: "function"}
+      - {name: "test_the_plants_are_real_leaves", file: "Tests/integration/test_reserved_prefix_walk.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_run_layout.py":
     purpose: "Locks the run_layout.json descriptor \u2014 write/read round-trip, descriptor-driven cells() with no DBs on disk, and write_run_layout keys == the JSON Schema properties."
     layer: "tests"
@@ -2761,6 +2771,8 @@ files:
       - {name: "test_backfill_refuses_to_invent_a_row_or_an_unknown_source", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_the_setup_span_is_not_a_section", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_key_is_unique_and_overwrites", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_a_store_only_backfill_finds_the_row_the_arm_wrote", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
+      - {name: "test_key_fields_are_keyword_only", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
       - {name: "test_load_absent_is_empty", file: "Tests/integration/test_runtime_metrics.py", kind: "function"}
     notes: ""
   "Tests/integration/test_simconfig_registry.py":
@@ -2792,6 +2804,14 @@ files:
       - {name: "test_the_conservation_ledger_cannot_see_this_which_is_why_it_needs_a_test", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
       - {name: "test_with_rollover_off_a_skipped_batch_carries_nothing", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
       - {name: "test_the_skip_branch_is_what_is_being_exercised", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_unit_identity_is_carried.py":
+    purpose: "Locks the parent-side reading of a work unit's identity from its PAYLOAD (group_keys / arm_key), never by slicing a uid whose slots differ per unit kind."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_expected_pick_lands_on_the_arm_the_payload_names", file: "Tests/integration/test_unit_identity_is_carried.py", kind: "function"}
+      - {name: "test_a_coupled_shaped_uid_succeeds_instead_of_being_logged_as_a_failure", file: "Tests/integration/test_unit_identity_is_carried.py", kind: "function"}
+      - {name: "test_the_builder_stamps_exactly_the_slices_it_replaced", file: "Tests/integration/test_unit_identity_is_carried.py", kind: "function"}
     notes: ""
   "Tests/integration/test_viewer_errors.py":
     purpose: "the viewer's schema-failure boundary: everything 501s, nothing 500s."
@@ -3565,6 +3585,16 @@ files:
       - {name: "test_the_table_is_in_the_declared_shape_and_the_semantics_cover_it", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail", file: "Tests/unit/test_era_wiring.py", kind: "function"}
       - {name: "test_a_nonzero_put_swap_coef_is_an_error_under_the_era_at_the_cli_and_at_the_seam", file: "Tests/unit/test_era_wiring.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_evaluation_scope.py":
+    purpose: "Locks the evaluation scope string: validated against registry.SCOPES at decoration, and given a request namespace by a total map rather than a silent fallback to config."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_registered_evaluation_declares_a_known_scope", file: "Tests/unit/test_evaluation_scope.py", kind: "function"}
+      - {name: "test_an_unknown_scope_raises_at_decoration_time", file: "Tests/unit/test_evaluation_scope.py", kind: "function"}
+      - {name: "test_the_request_namespace_map_is_total_over_the_scopes", file: "Tests/unit/test_evaluation_scope.py", kind: "function"}
+      - {name: "test_the_two_leaf_scopes_share_one_namespace_and_the_rest_do_not", file: "Tests/unit/test_evaluation_scope.py", kind: "function"}
+      - {name: "test_resolve_needs_refuses_a_scope_with_no_namespace", file: "Tests/unit/test_evaluation_scope.py", kind: "function"}
     notes: ""
   "Tests/unit/test_expected_travel.py":
     purpose: "the expected-travel closed form against hand computations on a toy warehouse."

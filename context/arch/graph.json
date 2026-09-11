@@ -2251,6 +2251,11 @@
       "src": "Optimization/Performance_Evaluations/core/artifact_map.py"
     },
     {
+      "dst": "Optimization/runschema/schema.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/artifact_map.py"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/artifact_map.py::_rel_dir",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/artifact_map.py::findings"
@@ -2747,6 +2752,11 @@
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/quantities.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/core/requests.py"
     },
@@ -10261,6 +10271,11 @@
       "src": "Optimization/runschema/preflight.py"
     },
     {
+      "dst": "Optimization/runschema/schema.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/preflight.py"
+    },
+    {
       "dst": "Optimization/runschema/sim_manifest.py",
       "kind": "imports",
       "src": "Optimization/runschema/preflight.py"
@@ -10279,6 +10294,11 @@
       "dst": "Warehouse/generation/generate_inventory.py",
       "kind": "imports",
       "src": "Optimization/runschema/preflight.py"
+    },
+    {
+      "dst": "Optimization/runschema/schema.py::RESERVED_PREFIX",
+      "kind": "ref",
+      "src": "Optimization/runschema/preflight.py::_generalize_file"
     },
     {
       "dst": "Optimization/runschema/preflight.py::_write_canary_catalog",
@@ -10691,6 +10711,11 @@
       "src": "Optimization/runschema/resolver.py::RunTree.whatif_outputs"
     },
     {
+      "dst": "Optimization/runschema/schema.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/runlayout.py"
+    },
+    {
       "dst": "Optimization/runschema/sim_manifest.py",
       "kind": "imports",
       "src": "Optimization/runschema/runlayout.py"
@@ -10714,6 +10739,11 @@
       "dst": "Schema/profile_tree.py::read_profile_layout",
       "kind": "calls",
       "src": "Optimization/runschema/runlayout.py::_profile_pairs"
+    },
+    {
+      "dst": "Optimization/runschema/runlayout.py::_reserved",
+      "kind": "calls",
+      "src": "Optimization/runschema/runlayout.py::cells"
     },
     {
       "dst": "Optimization/runschema/runlayout.py::iter_sim_dbs",
@@ -10741,7 +10771,17 @@
       "src": "Optimization/runschema/runlayout.py::iter_channel_runs"
     },
     {
+      "dst": "Optimization/runschema/runlayout.py::_reserved",
+      "kind": "calls",
+      "src": "Optimization/runschema/runlayout.py::iter_channel_runs"
+    },
+    {
       "dst": "Optimization/runschema/runlayout.py::ChannelRun",
+      "kind": "calls",
+      "src": "Optimization/runschema/runlayout.py::iter_sim_dbs"
+    },
+    {
+      "dst": "Optimization/runschema/runlayout.py::_reserved",
       "kind": "calls",
       "src": "Optimization/runschema/runlayout.py::iter_sim_dbs"
     },
@@ -13372,6 +13412,11 @@
     },
     {
       "dst": "Optimization/simdriver/workunits.py::_record_derived",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_build_work_units"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_stamp_identity",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
@@ -24489,6 +24534,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/registry.py",
+      "id": "Optimization/Performance_Evaluations/core/registry.py::SCOPES",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/core/registry.py",
+      "name": "SCOPES",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/registry.py",
       "id": "Optimization/Performance_Evaluations/core/registry.py::_derive_views",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/registry.py",
@@ -24582,6 +24635,14 @@
       "module": "Optimization/Performance_Evaluations/core/requests.py",
       "name": "__repr__",
       "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::REQUEST_SCOPE",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "REQUEST_SCOPE",
+      "public": true
     },
     {
       "file": "Optimization/Performance_Evaluations/core/requests.py",
@@ -32561,6 +32622,14 @@
     },
     {
       "file": "Optimization/runschema/runlayout.py",
+      "id": "Optimization/runschema/runlayout.py::ChannelRun.channel_key",
+      "kind": "function",
+      "module": "Optimization/runschema/runlayout.py",
+      "name": "channel_key",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/runlayout.py",
       "id": "Optimization/runschema/runlayout.py::ChannelRun.group_key",
       "kind": "function",
       "module": "Optimization/runschema/runlayout.py",
@@ -32573,6 +32642,14 @@
       "kind": "function",
       "module": "Optimization/runschema/runlayout.py",
       "name": "_profile_pairs",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/runlayout.py",
+      "id": "Optimization/runschema/runlayout.py::_reserved",
+      "kind": "function",
+      "module": "Optimization/runschema/runlayout.py",
+      "name": "_reserved",
       "public": false
     },
     {
@@ -35045,6 +35122,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
       "name": "_run_root_spec",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_stamp_identity",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_stamp_identity",
       "public": false
     },
     {

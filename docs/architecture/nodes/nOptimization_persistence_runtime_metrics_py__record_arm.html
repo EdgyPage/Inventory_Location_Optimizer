@@ -14,9 +14,19 @@
 <h1><span class="kind kind-function">function</span> <code>record_arm</code></h1>
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_runtime_metrics_py.html"><code>Optimization/persistence/runtime_metrics.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def record_arm(run_root: str, cell: str, uid, res: dict) -&gt; None</code></pre>
+<pre class="sig"><code>def record_arm(run_root: str, cell: str, res: dict, *, pair: str, config: str, channel: str, arm: str) -&gt; None</code></pre>
 <section class="doc">Insert one arm&#x27;s runtime row (idempotent by (cell,pair,config,channel,arm) — a re-run/resume
-of the arm overwrites its row).  uid = (pair, config, channel, arm); res = the worker return dict.
+of the arm overwrites its row).  `res` = the worker return dict.
+
+The four key fields are KEYWORD-ONLY, and deliberately.  This took a work-unit uid and
+unpacked it positionally, which was safe only while every uid meant
+`(pair, config, channel, arm)`.  The coupled unit&#x27;s uid is `(label, &#x27;coupled&#x27;, arm_store,
+arm_ful)` — same arity, different meanings — so the positional read would have written
+`channel = &lt;arm_store&gt;` into a TEXT NOT NULL column whose IntegrityError the supervisor
+swallows with a warning: neither the wrong value nor a rejected row would announce itself.
+A caller now has to say which is which, and a caller holding a differently-shaped uid gets
+a TypeError at the call site instead of a wrong row.
+
 Best-effort: callers wrap this so a runtime-DB hiccup never sinks a real run.</section>
 <section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_persistence_runtime_metrics_py___parse_arm.html"><code>_parse_arm</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nOptimization_persistence_runtime_metrics_py__runtime_db_path.html"><code>runtime_db_path</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li><li><a href="nSchema_compat_py__stamp_checked.html"><code>stamp_checked</code></a> <span class="dim">Schema/compat.py</span></li><li><a href="nSchema_connect_py__close.html"><code>close</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_supervisor_py___run_pool.html"><code>_run_pool</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_runtime_metrics_py__record_arm">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/runtime_metrics.py#:~:text=def%20record_arm">Source ↗</a></p>

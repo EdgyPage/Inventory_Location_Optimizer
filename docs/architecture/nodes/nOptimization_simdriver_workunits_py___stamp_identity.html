@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_stamp_identity · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___stamp_identity" data-id="Optimization/simdriver/workunits.py::_stamp_identity">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_stamp_identity</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_stamp_identity</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _stamp_identity(sa: dict, label: str, cfg_name: str) -&gt; tuple</code></pre>
+<section class="doc">Carry the unit&#x27;s IDENTITY on its payload; return the unit&#x27;s uid.
+
+A uid is positional, and its four slots mean `(pair, config, channel, arm)` only because
+every unit today is one channel leaf.  The coupled unit (site-dock 02) is
+`(label, &#x27;coupled&#x27;, arm_store, arm_ful)` — same arity, different meanings — so a parent-side
+reader asking &quot;which group(s) does this finalize&quot; or &quot;which arm is this&quot; must not answer by
+slicing.  It reads `group_keys` / `arm_key`, which the unit states about itself.
+
+A one-leaf unit states exactly `[uid[:3]]` and `uid[3]`, so nothing moves today.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___build_work_units.html"><code>_build_work_units</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___stamp_identity">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_stamp_identity">Source ↗</a></p>
+</article>
+</main>
+</body></html>
