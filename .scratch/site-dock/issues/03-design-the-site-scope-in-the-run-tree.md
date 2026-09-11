@@ -52,5 +52,15 @@ fees belong to the site, and writing them into each arm's channel DB writes them
    some quantities genuinely site-scoped — decide the scope vocabulary before the first quantity
    needs it.
 
+7. **The two leaves share no ancestor below `<pair>/`** — found by
+   [Design the coupled work unit](02-design-the-coupled-work-unit.md) and harder than this
+   ticket's framing assumed. `config` sits **above** `channel` in `LEVELS`
+   (`runschema/schema.py:63-74`), and the two channels draw from different config sets
+   (`CONFIG['channels'][name]['configs']` — `store` and `ful_calibrated` today), so a coupled
+   unit's leaves live at `<pair>/store/store/` and `<pair>/ful_calibrated/fulfillment/`. A
+   site-scoped artifact therefore cannot live under `<config>/` at all: the only directory that
+   dominates both leaves is the pair. Whatever scope this ticket creates has to sit there or
+   above, or the tree needs a level it does not have.
+
 Starting map of seams: [`../../inbound-optimization/assets/site_dock_sizing.md`](../../inbound-optimization/assets/site_dock_sizing.md)
 §2.

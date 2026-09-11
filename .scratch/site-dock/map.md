@@ -100,6 +100,15 @@ BEFORE anything runs: the inbound-optimization map resumes at
   `_release_to_stock` — the sizing inventory's "hard break" — does not change at all. Standing yard
   only, refusing loudly otherwise; `check_reorders` untouched as the single-channel composition.
 
+- [Design the coupled work unit](issues/02-design-the-coupled-work-unit.md): the unit is
+  `(label, 'coupled', arm_store, arm_ful)` and carries its `group_keys` rather than having them
+  sliced off the uid, so one unit finalizes two leaves and a crash finalizes neither;
+  `_run_strategy_worker_impl` splits at its existing seam (`:1292`) into a per-channel leaf builder
+  called twice under one batch loop, and `_prepare_channel_run` survives unforked as a callee. The
+  site crews leave the per-leaf payload for unit scope — **the double count is fixed by deletion**.
+  **The charter's "(pair, config, arm-pair)" could not be built:** `config` sits above `channel` and
+  the channels use different config sets, so the two leaves share no ancestor below `<pair>/`.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. The **one-leaf** extraction
@@ -113,11 +122,6 @@ BEFORE anything runs: the inbound-optimization map resumes at
   coupled run shows a day where one channel's put queue actually starves while the other's crew
   sits. The faithful version — both leaves on one time-ordered loop — is a cadence change of the
   same family the inbound map ruled out, so it graduates only with evidence.
-- **The resume guard under a coupled unit.** One unit finalizes two leaves, so a mid-flight kill
-  leaves a half-written pair; `_finalize_config_run` (`supervisor.py:24-54`) writes one `sim_meta`
-  per run dir and `runlayout.py:133` makes it the per-channel completeness marker. Whether the
-  coupled unit needs its own refusal (the inbound map's uniform-grain mechanism) is dim until the
-  work-unit shape closes.
 - **Where the campaign's staffing record pins a PAIR.** `restock_selection.json` was to pin the
   staffing record and `inbound_policies` refuse under a different one; with diagonal pairing the
   hand-off carries pairs, and whether the pin is per channel or per site is dim until the funnel
