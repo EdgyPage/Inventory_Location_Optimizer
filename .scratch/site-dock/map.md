@@ -91,10 +91,23 @@ BEFORE anything runs: the inbound-optimization map resumes at
 
 <!-- one line per closed ticket: the gist, then the link for the detail -->
 
+- [Design the site receiving coordinator](issues/01-design-the-site-receiving-coordinator.md): a
+  `SiteReceiving` coordinator in `Inbound/receiving.py` holds the one dock, yard and drain record
+  and reaches each leaf through two public ports (`plan_lot`, `accept`) — the import boundary makes
+  that seam structural, not conventional. **Two findings dissolved the pack-routing question:** a
+  `LoadPlan` is already single-SKU (`planned_lots` is per contiguous lot), so a mixed trailer never
+  produces a mixed pack; and `regime_of` already answers ownership, so no field is carried and
+  `_release_to_stock` — the sizing inventory's "hard break" — does not change at all. Standing yard
+  only, refusing loudly otherwise; `check_reorders` untouched as the single-channel composition.
+
 ## Not yet specified
 
-- **The builds** — every implementation graduates here once its governing decisions close. Nothing
-  is specifiable yet: all four frontier tickets are design.
+- **The remaining builds** — the coupled half of every design ticket. The **one-leaf** extraction
+  graduated out of 01 as
+  [Extract the one-leaf receiving coordinator](issues/09-extract-the-one-leaf-coordinator.md)
+  because it is byte-identical and needs no second leaf; everything that only means something once
+  two leaves exist (the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the ADR, the
+  `CONTEXT.md` amendments) waits on 02's work-unit shape.
 - **Within-day put interleaving.** The charter shares a DAY budget, so a putter cannot take the
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
   coupled run shows a day where one channel's put queue actually starves while the other's crew
