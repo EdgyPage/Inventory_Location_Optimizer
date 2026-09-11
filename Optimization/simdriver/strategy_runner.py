@@ -61,6 +61,7 @@ from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
 from Inbound.gain import (
     FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle)
 from Inbound.pack import packer as _inbound_packer
+from Inbound.receiving import SiteReceiving as _SiteReceiving
 from Inbound.space import SpaceTimeline as _SpaceTimeline
 from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
 from Inbound.transit import TrailerTransit as _TrailerTransit, YardTransit as _YardTransit
@@ -1012,6 +1013,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # rather than an empty dict: "nothing was constructed" is checkable, "an empty thing
     # exists" is something a later `max()` or snapshot can still fold in.
     _recv_spec = args.get('recv_crew')
+    # The dock, kept as a local: the receiving coordinator holds the same object the
+    # manager was handed, and `None` here is "no receiving crew ran".
+    _dock = None
     _recv_crew = _recv_workers = _recv_day = None
     if _recv_spec is not None:
         _recv_crew = _Crew(role=_Role.RECEIVE, mode=_Mode.of(_recv_spec['mode']),
@@ -1042,8 +1046,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 _ckw['volume_coef'] = float(_inb_cost['unload_volume_coef'])
             if _ckw:
                 _ucost = _dc_replace(_ucost, **_ckw)
-        mgr.enable_receiving(_Dock(_DockSpec(size=_recv_spec['size'],
-                                             sources=_recv_sources), cost=_ucost))
+        _dock = _Dock(_DockSpec(size=_recv_spec['size'],
+                       sources=_recv_sources), cost=_ucost)
+        mgr.enable_receiving(_dock)
         # The rich packer rides with the crew: LoadPlans exist so the dock can count
         # deliveries; unbound (every store-only run) the mixin's default packs the same units.
         mgr.packer = _inbound_packer
@@ -1093,6 +1098,15 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # handed.
             _space_tl = _SpaceTimeline(_drain_sku)
             _space_tl.attach(mgr)
+            # THE RECEIVING COORDINATOR owns the standing drain (`Inbound/receiving.py`):
+            # one dock, one yard, and each channel's leaf reached through two ports.  Built
+            # and bound here for the same reason the transit and the packer are -- nothing
+            # under Warehouse/ imports Inbound, so the broker holds what it is handed.  It
+            # is bound only when a receiving crew exists, because `_receive` returns before
+            # the standing branch without a dock and a coordinator with no dock could not
+            # drain one.
+            if _dock is not None:
+                mgr.receiving = _SiteReceiving(_dock, mgr.transit)
             # THE GAIN BUNDLE rides only when a gain policy is named (unlike the
             # timeline, which is always on): the seeded fifo/lifo keys never read it,
             # so building arm machinery nothing consumes would be unconsumed infra.

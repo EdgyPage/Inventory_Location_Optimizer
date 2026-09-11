@@ -94,6 +94,12 @@ files:
       - {name: "dock_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "bounded_order", file: "Inbound/priorities.py", kind: "function"}
     notes: ""
+  "Inbound/receiving.py":
+    purpose: "the site's receiving coordinator: one dock, one yard, N leaves."
+    layer: "inbound"
+    key_symbols:
+      - {name: "SiteReceiving", file: "Inbound/receiving.py", kind: "class"}
+    notes: "Owns the standing drain, which used to be the manager's `_receive_standing`. Reaches each channel's leaf through two public ports (`plan_lot`, `accept`) and never imports one: `Warehouse <-> Inbound` is forbidden both ways, so the driver binds it (`mgr.receiving`). That is what lets one dock serve two leaves."
   "Inbound/space.py":
     purpose: "the event-stamped space timeline the standing dock's decisions read."
     layer: "inbound"
@@ -4674,6 +4680,18 @@ files:
       - {name: "test_verify_catches_a_lying_pin", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_diff_names_the_actual_difference", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_diff_is_empty_for_an_unchanged_db", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_site_receiving.py":
+    purpose: "the receiving coordinator, and the two ports it reaches through."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_one_leaf_through_the_coordinator_matches_check_reorders", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_coordinator_returns_the_yard_row_rather_than_recording_it", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_plan_lot_returns_both_halves_and_neither_derives_the_other", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_plan_lot_debits_only_the_packer_shortfall", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_accept_flips_the_ledger_and_charges_the_leaf_not_the_dock", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_a_standing_transit_without_a_coordinator_refuses_loudly", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_site_composition_substitutes_only_the_receive_phase", file: "Tests/unit/test_site_receiving.py", kind: "function"}
     notes: ""
   "Tests/unit/test_sorted_bins_container.py":
     purpose: "`_SortedBins` behaves exactly like the `set[Aisle.Bin]` it"

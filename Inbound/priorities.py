@@ -63,7 +63,7 @@ class DockContext:
         self.free_doors = free_doors
         self.yard_depth = yard_depth
         # The space arrival point (module docstring): the drain's frozen
-        # `Inbound.space.SpaceView`, assigned at ctx-freeze by `_receive_standing` when
+        # `Inbound.space.SpaceView`, assigned at ctx-freeze by `SiteReceiving.receive` when
         # the standing yard runs; None everywhere else — the v1 path and every fifo key
         # never read it.
         self.space = None

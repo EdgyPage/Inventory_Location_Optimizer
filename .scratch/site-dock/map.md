@@ -214,12 +214,29 @@ BEFORE anything runs: the inbound-optimization map resumes at
   key, silently — verified both ways; the filter tags by the leaf the coordinator just froze and
   asserts with `regime_of(bin)` on the value, never on the key.
 
+- [Extract the one-leaf receiving coordinator](issues/09-extract-the-one-leaf-coordinator.md):
+  **BUILT and live on `develop`.** `Inbound/receiving.py` owns the standing drain, the manager
+  keeps only `plan_lot` and `accept`, and the driver binds the coordinator where it already builds
+  the `Dock` and the `YardTransit` — one implementation, exercised by production. **The ticket
+  contained a decision after all:** its items 2 and 3 pulled against each other, because
+  `Warehouse <-> Inbound` is forbidden both ways, so leaving the driver untouched would have meant
+  the drain existing TWICE (the two unload modes cannot be imported back into the manager). Wiring
+  it now makes `test_standing_yard_e2e.py:193` — row-for-row over every table — the byte-identity
+  proof instead of one hand-written test. Both port signatures deviate from 01 under force:
+  `plan_lot` must return `(plans, items)` because a plan holds several units and the grouping is
+  not recoverable, and `accept` takes `dur` alone because `t0`/`w` are the dock's row. The yard row
+  is RETURNED, not recorded, which left `drain_yard_drains` and its five call sites untouched.
+  **Two findings:** the test sweep was five `_manager` helpers, not the ~56 sites a raw count of
+  `YardTransit(` suggested — counting constructor calls is not counting call sites; and the
+  behavioural equivalence test **passed on mutated code** (zero-lead scenario, so phase order moved
+  nothing), so the order is now pinned as a recorded call SEQUENCE, and both failure modes were
+  re-checked by mutation. Gates: 2010 unit, 4 e2e, arch + site + context + guards + memory all OK.
+
 ## Not yet specified
 
-- **The remaining builds** — the coupled half of every design ticket. Some have graduated out
-  because they are byte-identical and need no second leaf (five of them):
-  [Extract the one-leaf receiving coordinator](issues/09-extract-the-one-leaf-coordinator.md)
-  (out of 01),
+- **The remaining builds** — the coupled half of every design ticket. Some graduated out because
+  they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
+  what remains of it is owner routing, not extraction). The other four:
   [Harden the three positional seams](issues/11-harden-the-positional-seams.md) (out of 03) and
   [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md) (out of 04) and
   [Seat the one-owner bundle indirection](issues/13-seat-the-one-owner-bundle-indirection.md)

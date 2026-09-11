@@ -276,11 +276,19 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # THE SPACE TIMELINE, the standing yard's space instrument (`Inbound/space.py`).
         # None = never constructed, which is every run without INBOUND_STANDING_YARD: the
         # three hooks that feed it (reclaim-harvest, the fill in _execute_placement, the
-        # ctx-freeze in _receive_standing) are `is None` tests on this one attribute, so
+        # ctx-freeze in the coordinator's drain) are `is None` tests on one attribute, so
         # flag-off byte-identity is by construction.  Attached by the driver
         # (`SpaceTimeline.attach(mgr)`, the BinRecorder rebind precedent): injection,
         # never import.
         self.space_timeline = None
+        # THE RECEIVING COORDINATOR (`Inbound/receiving.py`), which owns the standing
+        # drain: one dock and one yard for the whole site, driving each channel's leaf
+        # through the two ports `plan_lot` and `accept`.  None = never constructed,
+        # which is every run without a standing yard.  Bound by the driver, never
+        # imported: `Warehouse -> Inbound` is forbidden in both directions
+        # (`context/architecture.yml:102-103`), which is exactly why the coordinator can
+        # sit above two managers when neither may know the other exists.
+        self.receiving = None
         #: Receiving labour, in seconds. Deliberately NOT folded into `_put_seconds`: that
         #: figure has been published, and widening what it counts would move it silently.
         #: Repack rework (ADR-0003) DOES land here -- it is receiving work, done by the
@@ -305,7 +313,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._recv_repacks: int = 0
         self._recv_repacked_packs: int = 0
         #: One `(yard_start, free_doors_start, yard_end, staged_remainder_end)` per STANDING
-        #: drain — the `yard_drains` row, appended by `_receive_standing` and drained per
+        #: drain — the `yard_drains` row, returned by the coordinator's drain and drained per
         #: batch.  Empty on every run without the standing yard, which is what makes the
         #: table have zero rows there rather than a batch's worth of honest-looking zeros:
         #: a v1 or dockless run has no yard, and "the yard was empty" is a different claim

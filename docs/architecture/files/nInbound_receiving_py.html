@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbound/receiving.py · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="file">
+<h1><code>Inbound/receiving.py</code></h1>
+<p class="meta">layer <span class="chip">inbound</span></p>
+<p class="purpose">the site&#x27;s receiving coordinator: one dock, one yard, N leaves.</p><div class="doc">Owns the standing drain, which used to be the manager&#x27;s `_receive_standing`. Reaches each channel&#x27;s leaf through two public ports (`plan_lot`, `accept`) and never imports one: `Warehouse &lt;-&gt; Inbound` is forbidden both ways, so the driver binds it (`mgr.receiving`). That is what lets one dock serve two leaves.</div>
+<section><h2>Key symbols</h2><ul class="rel"><li><a href="../nodes/nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section>
+<section><h2>Nodes in this file <span class="count">(6)</span></h2><table class="tbl"><tr><th>kind</th><th>name</th><th class="num">fan-in</th><th class="num">fan-out</th></tr><tr><td>class</td><td><a href="../nodes/nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a></td><td class="num">1</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nInbound_receiving_py__SiteReceiving___init__.html"><code>__init__</code></a></td><td class="num">0</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nInbound_receiving_py__SiteReceiving__unload_merged.html"><code>_unload_merged</code></a></td><td class="num">1</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nInbound_receiving_py__SiteReceiving__unload_split.html"><code>_unload_split</code></a></td><td class="num">1</td><td class="num">1</td></tr><tr><td>function</td><td><a href="../nodes/nInbound_receiving_py__SiteReceiving_drain.html"><code>drain</code></a></td><td class="num">0</td><td class="num">1</td></tr><tr><td>function</td><td><a href="../nodes/nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a></td><td class="num">1</td><td class="num">2</td></tr></table></section>
+<section class="rel"><h2>Module imports <span class="count">(1)</span></h2><ul><li><a href="../nodes/nWarehouse_kernel_allocation_py.html"><code>Warehouse.kernel.allocation</code></a> <span class="dim">Warehouse/kernel/allocation.py</span></li></ul></section>
+</article>
+</main>
+</body></html>

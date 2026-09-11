@@ -1021,6 +1021,31 @@
       "src": "Inbound/priorities.py"
     },
     {
+      "dst": "Warehouse/kernel/allocation.py",
+      "kind": "imports",
+      "src": "Inbound/receiving.py"
+    },
+    {
+      "dst": "Warehouse/kernel/allocation.py::partition",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._unload_split"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving.receive",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.drain"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._unload_merged",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._unload_split",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
       "dst": "Inbound/space.py::SpaceView",
       "kind": "calls",
       "src": "Inbound/space.py::SpaceTimeline.freeze"
@@ -12481,6 +12506,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Inbound/receiving.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Inbound/space.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -12707,6 +12737,11 @@
     },
     {
       "dst": "Inbound/dock.py::DockSpec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -17611,21 +17646,6 @@
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._notify_pick"
     },
     {
-      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive_standing",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_merged",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive_standing"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_split",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive_standing"
-    },
-    {
       "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._reclaim_empty_bins"
@@ -17634,11 +17654,6 @@
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_to_stock",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._release_arrivals"
-    },
-    {
-      "dst": "Warehouse/kernel/allocation.py::partition",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_split"
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._advance_lead_queue",
@@ -21086,6 +21101,62 @@
       "kind": "function",
       "module": "Inbound/priorities.py",
       "name": "yard_key",
+      "public": true
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py",
+      "kind": "module",
+      "module": "Inbound/receiving.py",
+      "name": "Inbound.receiving",
+      "public": true
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving",
+      "kind": "class",
+      "module": "Inbound/receiving.py",
+      "name": "SiteReceiving",
+      "public": true
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving.__init__",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._unload_merged",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_unload_merged",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._unload_split",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_unload_split",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving.drain",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "drain",
+      "public": true
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving.receive",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "receive",
       "public": true
     },
     {
@@ -40898,14 +40969,6 @@
     },
     {
       "file": "Warehouse/inventory/inventory_reorder.py",
-      "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive_standing",
-      "kind": "function",
-      "module": "Warehouse/inventory/inventory_reorder.py",
-      "name": "_receive_standing",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/inventory_reorder.py",
       "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._reclaim_empty_bins",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
@@ -40938,19 +41001,11 @@
     },
     {
       "file": "Warehouse/inventory/inventory_reorder.py",
-      "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_merged",
+      "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.accept",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
-      "name": "_unload_merged",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/inventory_reorder.py",
-      "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_split",
-      "kind": "function",
-      "module": "Warehouse/inventory/inventory_reorder.py",
-      "name": "_unload_split",
-      "public": false
+      "name": "accept",
+      "public": true
     },
     {
       "file": "Warehouse/inventory/inventory_reorder.py",
@@ -40958,6 +41013,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
       "name": "check_reorders",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.plan_lot",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "plan_lot",
       "public": true
     },
     {

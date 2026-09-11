@@ -26,6 +26,7 @@ import numpy as np
 import pytest
 
 from Inbound.dock import Dock, DockSpec
+from Inbound.receiving import SiteReceiving
 from Inbound.pack import packer
 from Inbound.trailer import POSITION_VOLUME, Trailer28
 from Inbound.transit import DISCARDED, DONE, STANDING, TrailerTransit, YardTransit
@@ -84,7 +85,12 @@ def _manager(transit, crew: int = 2, skus=(101, 102, 103)):
         mgr._originals[sku] = _order(sku)
     mgr.transit = transit
     mgr.packer = packer
-    mgr.enable_receiving(Dock(DockSpec(size=crew, sources=('reorder', 'trailer'))))
+    dock = Dock(DockSpec(size=crew, sources=('reorder', 'trailer')))
+    mgr.enable_receiving(dock)
+    # The standing drain lives on the coordinator, so a manager that will be driven
+    # through it needs one bound -- the same injection the driver does. Harmless on a
+    # v1/BatchTransit manager, which never reaches the standing branch.
+    mgr.receiving = SiteReceiving(dock, transit)
     return mgr
 
 

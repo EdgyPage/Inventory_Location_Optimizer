@@ -823,7 +823,7 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
             f'v1 fifo under the policy\'s name, nothing raising.  Set the flag or '
             f'clear the knobs')
     # The door-team cap: trailer physics, and the standing yard's alone.  v1's release()
-    # hands the whole drain over at once and never reaches `_unload_split`, so a cap
+    # hands the whole drain over at once and never reaches the split unload, so a cap
     # declared without the flag would be recorded, carried across the worker boundary and
     # then read by nobody -- a run whose spec says 'ten receivers per door' and whose dock
     # put every receiver on one trailer, with nothing raising.  Same refusal as the two

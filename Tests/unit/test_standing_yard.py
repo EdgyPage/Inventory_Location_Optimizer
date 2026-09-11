@@ -1,6 +1,6 @@
 """test_standing_yard.py — doors become real, and flag-off stays byte-identical.
 
-The standing yard (`YardTransit` + the manager's `_receive_standing`) changes WHERE
+The standing yard (`YardTransit` + `Inbound.receiving.SiteReceiving`) changes WHERE
 merchandise waits — on the trailer, behind real doors — and WHO decides — drain-frozen
 yard/dock rankings, door-team crews.  What it must NOT change is placement physics, and
 this file pins the four byte-identity layers the design decided:
@@ -29,6 +29,7 @@ import random
 import pytest
 
 from Inbound.dock import Dock, DockSpec
+from Inbound.receiving import SiteReceiving
 from Inbound.pack import packer
 from Inbound.trailer import POSITION_VOLUME, Trailer28
 from Inbound.transit import TrailerTransit, YardTransit
@@ -82,7 +83,12 @@ def _manager(transit, crew: int = 2, skus=(101, 102, 103), weights=None):
         mgr._originals[sku] = _order(sku, weight=weights.get(sku, 2.0))
     mgr.transit = transit
     mgr.packer = packer
-    mgr.enable_receiving(Dock(DockSpec(size=crew, sources=('reorder', 'trailer'))))
+    dock = Dock(DockSpec(size=crew, sources=('reorder', 'trailer')))
+    mgr.enable_receiving(dock)
+    # The standing drain lives on the coordinator, so a manager that will be driven
+    # through it needs one bound -- the same injection the driver does. Harmless on a
+    # v1/BatchTransit manager, which never reaches the standing branch.
+    mgr.receiving = SiteReceiving(dock, transit)
     return mgr
 
 

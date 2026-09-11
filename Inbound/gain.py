@@ -613,7 +613,7 @@ def _load_units(trailer) -> list:
     if pend is None:
         raise ValueError(
             f'gain entry ranked trailer #{trailer.seq} with no pack plan — the gain '
-            f'arms read pending (plans-at-arrival); rank after _receive_standing has '
+            f'arms read pending (plans-at-arrival); rank after the site drain has '
             f'planned the yard, or set pending on the test trailer')
     return [item.unit for item in pend[trailer.taken:]]
 

@@ -33,7 +33,7 @@ Warehouse at all.
                     index — the OTHER door into `_index`, and the one that runs with
                     the standing yard off
     fill            `_execute_placement`: a bin was occupied — version bump, stamp expiry
-    freeze          ctx-freeze inside `_receive_standing`: ONE projection per drain
+    freeze          ctx-freeze inside `SiteReceiving.receive`: ONE projection per drain
                     serves every decision in it (no per-decision rescans), delivered as
                     `ctx.space`, the named view the priority seams reserved
 

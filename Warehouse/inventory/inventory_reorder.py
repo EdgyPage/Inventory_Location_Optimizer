@@ -673,7 +673,20 @@ class ReorderMixin:
         if dock is None:
             return
         if getattr(self.transit, 'STANDING', False):
-            self._receive_standing(dock, self.transit, deadline)
+            # THE COORDINATOR OWNS THE DRAIN.  `Warehouse -> Inbound` is forbidden in both
+            # directions (`context/architecture.yml:102-103`), so it arrives by INJECTION
+            # like the dock, the packer and the transit: whoever builds the standing yard
+            # builds the coordinator and binds it.  A loud refusal rather than an inline
+            # fallback, because a second implementation of this drain is precisely what
+            # the extraction removed -- and a silent one would be a run answering a
+            # different question (memory `pool-run-swallows-dead-arms`).
+            if self.receiving is None:
+                raise RuntimeError(
+                    'a standing transit is bound but no receiving coordinator is: the '
+                    'standing drain lives on `Inbound.receiving.SiteReceiving` and is '
+                    'reached through `mgr.receiving`. Bind one where the Dock and the '
+                    'YardTransit are built')
+            self._yard_drains.append(self.receiving.receive(self, deadline))
             return
         dock.note_arrivals(arrivals)
         while dock.items and dock.can_start(deadline):
@@ -695,299 +708,71 @@ class ReorderMixin:
         if deadline is not None and dock.items:
             dock.cut += len(dock.items)
 
-    # ── the standing yard (INBOUND_STANDING_YARD; `_receive` reroutes here) ───────────
+    # ── the standing yard's two ports (`Inbound.receiving.SiteReceiving` calls these) ──
     #
-    # Doors are real: at most `doors` trailers staged, a trailer holds its door across
-    # drains until fully unloaded, the yard-pull fires when a door frees.  Decisions are
-    # drain-quantized over FROZEN rankings (the `put_policy` purity contract); the data is
-    # event-stamped.  The division of labour with `YardTransit`: the transit holds trailer,
-    # yard and door STATE; this side owns every DECISION, because it owns what a decision
-    # needs — `_originals` and the packer (plans-at-arrival), the ledger (the per-unit
-    # deferred→queued flip), and the crew (via the injected dock's clock operations).
+    # The standing drain itself lives on the COORDINATOR, because one dock serves the
+    # whole site and a manager is one channel's.  What stays here is what a manager alone
+    # can answer: `_originals` and the packer (plans-at-arrival), and the ledger (the
+    # per-unit deferred→queued flip).  The transit holds trailer, yard and door STATE;
+    # the coordinator owns every DECISION; these two methods are the only way it reaches
+    # merchandise.
+    #
+    # They are PUBLIC on purpose.  A cross-package caller that reached a private would be
+    # a boundary violation dressed as an underscore, and they are separately callable —
+    # which is what makes the drain's two merchandise-bearing steps testable without
+    # standing up a dock.
 
-    def _receive_standing(self, dock, transit, deadline: float | None) -> None:
-        """One drain of the standing dock: plan arrivals, fill doors, unload, hand off.
+    def plan_lot(self, sku: int, qty: int, source: str) -> tuple:
+        """Plans-at-arrival for ONE contiguous lot: `(plans, items)`.
 
-        Four steps, and their order is the design:
+        Returns both halves because both are consumed and neither derives the other: the
+        `LoadPlan`s become `trailer.plans` and the dock's arrival notice, while the
+        stamped items become `trailer.pending`.  A plan holds several units, so the
+        grouping is not recoverable from the items alone.
 
-        1. PLANS-AT-ARRIVAL.  Every trailer that joined the yard gets its pack plan NOW,
-           per contiguous lot — the same portions the v1 drain packs — and its units are
-           stamped immediately, so a pallet that stands three batches in the yard is three
-           batches old when it finally reaches floor space.  The merchandise stays in
-           `_deferred_qty`: nothing is queued until a crew actually pulls it.
-        2. THE DOOR FILL, NOT budget-gated.  Staging is yard-jockey work, not receiving
-           labour, so even a zero-budget drain fills every free door from the drain-frozen
-           yard ranking.
-        3. THE UNLOAD, budget-gated, per the crew-allocation mode ('split' door teams or
-           the 'merged' pooled gang).  The whistle is a START gate, one unload of overtime
-           per worker, exactly as the v1 path's.  Same-drain refills consume the frozen
-           rankings; no mid-drain re-scoring.
-        4. THE CANONICAL HANDOFF.  Whatever the allocation, unloaded units reach `_queue`
-           in merged order — trailers by dock rank, units by local rank, filtered to what
-           actually unloaded — never in labor-completion order.  That is the containment
-           property: crew allocation moves labor stamps and makespans ONLY, never
-           placement physics.  The deferred→queued flip rides the handoff, per unit, so
-           `position = on_hand + queued + deferred` never wobbles.
+        `source` rides in from the transit (`transit.SOURCE`) rather than being read off
+        `self.transit`, because the coordinator's transit is the site's and a leaf's may
+        be unbound entirely once there are two.
         """
-        epoch = self._now_s if self._now_s is not None else 0.0
-        source = getattr(transit, 'SOURCE', 'reorder')
         pack = self.packer if self.packer is not None else _pack_plain
-        ctx = transit.freeze_ctx()
-        # CTX-FREEZE IS VIEW-FREEZE: one space projection per drain serves every decision
-        # in it (no per-decision rescans).  `ctx.space` is the named-view arrival point
-        # the priority seams reserved; every seeded 'fifo' key ignores it, so with both
-        # policies 'fifo' the view is pure data -- neutrality rides the degenerate
-        # lockstep (test_space_timeline).
-        if self.space_timeline is not None:
-            ctx.space = self.space_timeline.freeze(self, epoch)
+        rc = self._originals[sku].reorder()
+        deliveries = (self.inbound_split(sku, qty)
+                      if self.inbound_split is not None else None)
+        plans: list = []
+        items: list = []
+        got = 0
+        for plan in pack(rc, qty, deliveries):
+            plans.append(plan)
+            for unit in plan.units:
+                items.append(self._stamp(unit, source))
+                got += unit.quantity
+        if got < qty:
+            # The packer placed less than arrived.  v1's net effect exactly: the
+            # release debits the full delivery, the queue credits what packed —
+            # here the shortfall debits at arrival so the remainder ledger stays
+            # the PLANNED quantities the census also counts.
+            self._deferred_qty[sku] = max(
+                0, self._deferred_qty.get(sku, 0) - (qty - got))
+        return plans, items
 
-        # 1. plans-at-arrival (manager-side: the transit can reach neither _originals nor
-        #    the packer).  Stamped in yard order, so ages are monotone with arrival.
-        plans_new: list = []
-        for trailer in transit.unplanned():
-            items: list = []
-            tplans: list = []
-            for sku, qty in transit.planned_lots(trailer, ctx):
-                rc = self._originals[sku].reorder()
-                deliveries = (self.inbound_split(sku, qty)
-                              if self.inbound_split is not None else None)
-                got = 0
-                for plan in pack(rc, qty, deliveries):
-                    tplans.append(plan)
-                    for unit in plan.units:
-                        items.append(self._stamp(unit, source))
-                        got += unit.quantity
-                if got < qty:
-                    # The packer placed less than arrived.  v1's net effect exactly: the
-                    # release debits the full delivery, the queue credits what packed —
-                    # here the shortfall debits at arrival so the remainder ledger stays
-                    # the PLANNED quantities the census also counts.
-                    self._deferred_qty[sku] = max(
-                        0, self._deferred_qty.get(sku, 0) - (qty - got))
-            trailer.plans = tplans
-            trailer.pending = items
-            trailer.taken = 0
-            plans_new.extend(tplans)
-            if not items:
-                # Nothing packed at all: no work to hold a door open for.
-                transit.discard(trailer, epoch)
-        dock.note_arrivals(plans_new)
+    def accept(self, item, dur: float) -> None:
+        """The canonical handoff for ONE unloaded unit: ledger flip, labour, queue.
 
-        # 2. the door fill — NOT budget-gated (yard-jockey work, not crew labour).
-        yard_next = deque(transit.yard_order(ctx))
-        while transit.free_doors > 0 and yard_next:
-            transit.stage(yard_next.popleft(), epoch)
-        # The drain-frozen DOCK ranking, over everything now staged (carried remainders
-        # and fresh stagings alike): the allocation preference and the handoff order.
-        work_order = transit.dock_order(ctx)
+        `position = on_hand + queued + deferred` never wobbles, because the three ledger
+        moves and the queue entry happen together here.
 
-        # 3. the unload, per the allocation mode.  The DOOR-TEAM CAP is trailer physics
-        #    (at most `cap` receivers can support one trailer's unload and pack at once),
-        #    so it is read here once and applies in BOTH modes; None is today's uncapped
-        #    dealing, byte-identically.  Only the standing transit carries it -- the v1
-        #    path never reaches this method and never reads the knob.
-        cap = getattr(transit, 'door_team', None)
-        if getattr(transit, 'allocation', 'merged') == 'split':
-            done = self._unload_split(dock, transit, deadline, epoch,
-                                      work_order, yard_next, cap)
-        else:
-            done = self._unload_merged(dock, transit, deadline, epoch,
-                                       work_order, yard_next, cap)
-
-        # 4. the canonical handoff, with the per-unit ledger flip.  `dock.seconds`
-        #    accrues HERE, in canonical order, for both allocation modes: summed in
-        #    charge order instead, split's float association differs from merged's by
-        #    an ulp, and "identical except labor stamps" stops being byte-true.
-        for trailer, recs in done:
-            for item, t0, dur, w in recs:
-                unit = item.unit
-                sku = unit.order.sku
-                self._deferred_qty[sku] = max(
-                    0, self._deferred_qty.get(sku, 0) - unit.quantity)
-                self._queued_sku_counts[sku] = self._queued_sku_counts.get(sku, 0) + 1
-                self._queued_qty[sku] = self._queued_qty.get(sku, 0) + unit.quantity
-                dock.records.append((t0, dur, sku, unit.quantity, w))
-                dock.unloaded += 1
-                dock.seconds += dur
-                self._recv_seconds += dur
-                self._queue(item)
-
-        # What the whistle cost: the remainders standing on STAGED trailers, in storage
-        # units, counted once.  The yard is never cut — waiting there is calendar, the
-        # fee proxy's domain, not a labour boundary's.
-        left = sum(len(t.pending) - t.taken for t in transit.staged()
-                   if t.pending is not None)
-        if deadline is not None and left:
-            dock.cut += left
-
-        # THE DRAIN'S ROW.  Two pairs, and they answer two different questions.  The START
-        # pair is CONTENTION — standing trailers against free doors at freeze, which is
-        # what "did the yard bind" means before anything was served.  The END pair is the
-        # BINDING CUT — trailers this drain never reached and units it left on a door.
-        # Both are LEVELS: they are re-measured every drain and summing either across
-        # drains restates the same standing trailers once per batch (the `recv_cut` scar).
-        # `left` is computed above the whistle test, not inside it: a drain that ran out of
-        # WORK leaves the same remainder as one that ran out of DAY, and only one of those
-        # is a cut — the level says what was standing either way.
-        self._yard_drains.append(
-            (ctx.yard_depth, ctx.free_doors, transit.yard_depth, left))
-
-    def _unload_merged(self, dock, transit, deadline, epoch, work_order, yard_next,
-                       cap: int | None = None):
-        """The 'merged' pooled gang: v1's physics kept as the verification bridge.
-
-        One crew works trailers strictly in dock-rank order, completing the top-ranked
-        first; a freed door pulls the frozen-ranking-next trailer, which joins the END of
-        the work list.  In the degenerate configuration (FIFO, doors >= every trailer, no
-        cap) the charge sequence is exactly the v1 drain's — the lockstep pin.
-        Under a door-team `cap` the gang IS one team of `cap` on one trailer — the cap is
-        a property of the trailer, not of the dealing rule — so the rest of the crew
-        idles; None keeps the whole crew, byte-identically.
-        Returns [(trailer, [(item, t0, dur, worker), ...])] in canonical drain order.
+        Takes `dur` and not the whole `(t0, dur, w)` record: `t0` and `w` are fields of
+        the DOCK's row, and the dock is the coordinator's — handing them to a leaf would
+        be two dead parameters plus an invitation to write the row twice.
         """
-        done: list = [(t, []) for t in work_order]
-        # A team of everybody IS the pooled gang; charge_team so `seconds` accrues at
-        # the handoff (canonical order) rather than here — see that loop's comment.
-        gang = list(range(dock.crew_size))
-        if cap is not None:
-            gang = gang[:cap]
-        idx = 0
-        while idx < len(done):
-            trailer, recs = done[idx]
-            pend = trailer.pending or []
-            gated = False
-            while trailer.taken < len(pend):
-                if not dock.can_start(deadline):
-                    gated = True
-                    break
-                item = pend[trailer.taken]
-                order = item.unit.order
-                dur = dock.unload_seconds(order.weight, order.volume(),
-                                          item.unit.quantity)
-                t0, w = dock.charge_team(gang, dur)
-                recs.append((item, t0, dur, w))
-                trailer.taken += 1
-            if gated:
-                break
-            at = epoch + (recs[-1][1] + recs[-1][2] if recs else 0.0)
-            transit.door_freed(trailer, at)
-            if yard_next:
-                nxt = yard_next.popleft()
-                transit.stage(nxt, at)
-                done.append((nxt, []))
-            idx += 1
-        return done
-
-    def _unload_split(self, dock, transit, deadline, epoch, work_order, yard_next,
-                      cap: int | None = None):
-        """The 'split' door teams: the standing model's own physics.
-
-        At ctx-freeze the workers are DEALT across staged trailers in dock-priority
-        order, cycling, so the top ranks take the extras when the division is uneven
-        (`allocation.partition`, round-robin).  Each team charges earliest-free WITHIN
-        the team.  Doors therefore free STAGGERED — the realistic dynamic the fee and
-        space signals need — and when one does, the yard-pull stages the frozen-next
-        trailer and the freed team reassigns: (1) to the top-ranked staged trailer with
-        NO workers — the one-worker-many-doors inversion's guard — (2) else to its own
-        door's replacement, (3) else to the top-ranked trailer with the fewest workers.
-        A worker idles only when nothing staged has units.  Dock priority is thereby a
-        worker-ALLOCATION preference: decisive when workers < staged trailers, graded
-        otherwise.
-
-        THE DOOR-TEAM CAP (`cap`; None = uncapped, the dealing above verbatim).  At most
-        `cap` receivers support one trailer's unload and pack at once, every worker
-        additive, the steps inside an unload not modelled.  The deal stays EVEN and each
-        team is then cut to `cap`; the cut-off workers simply are not dealt, and idle for
-        the drain.  Even, not greedy: 22 receivers over three staged trailers deal 8/7/7,
-        and the cap binds only when the even division would put more than `cap` on a door
-        (22 over two doors is 10/10, with two standing idle until a door frees).  A greedy
-        deal — 10/10/2 — is the rule 25 rejected: it makes the cap bind at every door
-        count and turns dock priority into a capacity grant.
-
-        The reassignment respects the cap by SPREADING a freed team over the (1)-(2)-(3)
-        targets in order, each taking up to its own room, instead of handing the whole team
-        to one.  That matters at step (3), where the target already has a team: the
-        pre-cap code extended it unconditionally, which under a cap would put `2 x cap`
-        receivers on one trailer.  Uncapped the room is unbounded, so the head of the list
-        takes the whole team and the None path is byte-identical rather than merely
-        equivalent.  Nothing is dealt to a cut worker later: whenever a target has room it
-        is a FRESH staging with room `cap`, and a freed team that was cut is itself exactly
-        `cap`, so it fills the door alone.
-
-        The loop advances whichever team can start soonest, so charges interleave in
-        true clock order and a reassignment always sees every earlier emptying's effect.
-        Returns the same shape as `_unload_merged`, in the same canonical order.
-        """
-        done: list = [(t, []) for t in work_order]
-        recs_of = {id(t): recs for t, recs in done}
-        alive: list = list(work_order)
-        teams: dict = {}
-        if alive:
-            crew = list(range(dock.crew_size))
-            for trailer, team in zip(alive, partition(crew, len(alive))):
-                teams[id(trailer)] = team if cap is None else team[:cap]
-        while True:
-            best = None
-            best_ns = 0.0
-            for trailer in alive:
-                team = teams.get(id(trailer))
-                if not team or trailer.taken >= len(trailer.pending or []):
-                    continue
-                ns = dock.team_next_free(team)
-                if best is None or ns < best_ns:
-                    best, best_ns = trailer, ns
-            if best is None:
-                break                              # nothing workable anywhere
-            if deadline is not None and best_ns >= deadline:
-                break                              # the START gate, globally: best_ns is
-                                                   # the min over teams, so nobody can
-            item = best.pending[best.taken]
-            order = item.unit.order
-            dur = dock.unload_seconds(order.weight, order.volume(), item.unit.quantity)
-            t0, w = dock.charge_team(teams[id(best)], dur)
-            recs_of[id(best)].append((item, t0, dur, w))
-            best.taken += 1
-            if best.taken < len(best.pending):
-                continue
-            # The trailer came up empty: the door frees AT THAT INSTANT (staggered, not
-            # at the drain boundary), the yard-pull fires, and the freed team reassigns.
-            at = epoch + t0 + dur
-            transit.door_freed(best, at)
-            freed = teams.pop(id(best))
-            alive.remove(best)
-            nxt = None
-            if yard_next:
-                nxt = yard_next.popleft()
-                transit.stage(nxt, at)
-                teams[id(nxt)] = []
-                alive.append(nxt)
-                recs: list = []
-                done.append((nxt, recs))
-                recs_of[id(nxt)] = recs
-            live = [t for t in alive
-                    if t.pending is not None and t.taken < len(t.pending)]
-            # The reassignment order, (1)-(2)-(3) as one ranked list rather than one
-            # target: uncapped, the head of the list takes the whole team (the single
-            # target the three steps used to resolve to); under the cap each takes up to
-            # its room and the tail spills to the next.
-            pos = {id(t): i for i, t in enumerate(alive)}
-            targets = [t for t in live if not teams.get(id(t))]                 # (1)
-            if nxt is not None and nxt in live and nxt not in targets:          # (2)
-                targets.append(nxt)
-            targets.extend(sorted((t for t in live if t not in targets),        # (3)
-                                  key=lambda t: (len(teams.get(id(t), ())),
-                                                 pos[id(t)])))
-            for target in targets:
-                if not freed:
-                    break
-                room = (len(freed) if cap is None
-                        else max(0, cap - len(teams.get(id(target), ()))))
-                if room <= 0:
-                    continue
-                teams[id(target)].extend(freed[:room])
-                freed = freed[room:]
-            # Anything still in `freed` idles: every staged trailer with work is at its cap.
-        return done
+        unit = item.unit
+        sku = unit.order.sku
+        self._deferred_qty[sku] = max(
+            0, self._deferred_qty.get(sku, 0) - unit.quantity)
+        self._queued_sku_counts[sku] = self._queued_sku_counts.get(sku, 0) + 1
+        self._queued_qty[sku] = self._queued_qty.get(sku, 0) + unit.quantity
+        self._recv_seconds += dur
+        self._queue(item)
 
     def _drain_putaway(self, deadline: float | None = None) -> None:
         """Place the stock queue into bins (retries prior-batch stragglers too).

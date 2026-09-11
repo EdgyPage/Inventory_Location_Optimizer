@@ -9,10 +9,10 @@
   <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
 </header>
 <main>
-<article class="node" id="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__unload_split" data-id="Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_split">
-<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin.html"><code>ReorderMixin</code></a> <span class="sep">›</span> <span class="here"><code>_unload_split</code></span></nav>
+<article class="node" id="nInbound_receiving_py__SiteReceiving__unload_split" data-id="Inbound/receiving.py::SiteReceiving._unload_split">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a> <span class="sep">›</span> <a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="sep">›</span> <span class="here"><code>_unload_split</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_unload_split</code></h1>
-<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _unload_split(self, dock, transit, deadline, epoch, work_order, yard_next, cap: int | None=None)</code></pre>
 <section class="doc">The &#x27;split&#x27; door teams: the standing model&#x27;s own physics.
@@ -52,8 +52,8 @@ is a FRESH staging with room `cap`, and a freed team that was cut is itself exac
 The loop advances whichever team can start soonest, so charges interleave in
 true clock order and a reassignment always sees every earlier emptying&#x27;s effect.
 Returns the same shape as `_unload_merged`, in the same canonical order.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_allocation_py__partition.html"><code>partition</code></a> <span class="dim">Warehouse/kernel/allocation.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive_standing.html"><code>_receive_standing</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
-<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__unload_split">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_unload_split">Source ↗</a></p>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_allocation_py__partition.html"><code>partition</code></a> <span class="dim">Warehouse/kernel/allocation.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving__unload_split">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20_unload_split">Source ↗</a></p>
 </article>
 </main>
 </body></html>
