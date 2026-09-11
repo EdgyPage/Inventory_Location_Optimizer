@@ -63,6 +63,7 @@ files:
     layer: "inbound"
     key_symbols:
       - {name: "GainBundle", file: "Inbound/gain.py", kind: "class"}
+      - {name: "OneOwnerBundle", file: "Inbound/gain.py", kind: "class"}
       - {name: "plan_order", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_myopic", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_forecast", file: "Inbound/gain.py", kind: "function"}
@@ -3835,6 +3836,10 @@ files:
       - {name: "test_driver_gate_refuses_futuresight_without_knob_or_script", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_driver_window_slice_clamps_and_copies", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_bound_composes_bound_first_with_a_gain_entry", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_one_owner_hands_back_the_same_instance_for_every_key", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_bare_bundle_is_refused_rather_than_sniffed_for", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_cursor_tracks_the_group_being_priced", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_provider_that_answers_one_key_differently_moves_the_price", file: "Tests/unit/test_gain_plan.py", kind: "function"}
     notes: ""
   "Tests/unit/test_inbound_load_plan.py":
     purpose: "packing is a property of the ARRIVAL, not of the order."

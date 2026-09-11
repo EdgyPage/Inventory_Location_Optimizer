@@ -12781,6 +12781,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Inbound/gain.py::OneOwnerBundle",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Inbound/receiving.py::SiteReceiving",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
@@ -20696,6 +20701,46 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::OneOwnerBundle",
+      "kind": "class",
+      "module": "Inbound/gain.py",
+      "name": "OneOwnerBundle",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::OneOwnerBundle.__init__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::OneOwnerBundle.fee_threshold_days",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "fee_threshold_days",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::OneOwnerBundle.for_key",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "for_key",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::OneOwnerBundle.urgency_horizon_days",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "urgency_horizon_days",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_Evaluator",
       "kind": "class",
       "module": "Inbound/gain.py",
@@ -20821,6 +20866,14 @@
       "module": "Inbound/gain.py",
       "name": "_useat",
       "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator.b",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "b",
+      "public": true
     },
     {
       "file": "Inbound/gain.py",

@@ -20,7 +20,32 @@
 Owns the sort-once structures (per-key bins in arm-D order, computed lazily the
 first time a key is touched and NEVER rebuilt — the structure the Tier-1 sabotage
 test perturbs), the consumed-bin set the greedy advances, and the pricing.  Reads
-the frozen `SpaceView` and the bundle; its only writes are its own bookkeeping.</section>
+the frozen `SpaceView` and the bundle provider; its only writes are its own
+bookkeeping.
+
+# ── the owner cursor, and why ONE evaluator can serve two leaves ──────────────
+
+`b` is not a field: it resolves `provider.for_key(self._key)`, and `_key` is set in
+`_params` — which `place_load` calls exactly once per BinKey group, before it
+branches on the adapter, so every read that follows a group&#x27;s `_params` sees that
+group&#x27;s arm.  Under `OneOwnerBundle` that is one instance for every key and the
+indirection is inert; under the site dock&#x27;s composite it is the WHOLE dispatch, at
+the granularity the loop already has.
+
+The property this rests on: **a spill chain never crosses regimes.**  `_chain`
+varies only `size`, holding `handling` / `category` / `unit_category` fixed, and
+regime is read off exactly those three (`inventory_common`: regime is itself a
+BinKey component).  Every other cache here — `_sorted_now`, `_sorted_pred`, `_wp`,
+`_chain_cache`, `_worst`, `_mom`, `taken` — is BinKey- or bin-id-keyed.  So two
+owners share this object with zero cross-talk, and nothing here needs to know which
+of them it is serving.  Take that property away and the caches, not the cursor, are
+what goes wrong.
+
+One read precedes any cursor: `place_load` calls `self.b.binkey_of(u)` to key the
+groups in the first place, with `_key` still None.  That is lawful because the
+three site-wide fields (`binkey_of`, `tier_ranks_for`, `put_speed`) are the same
+object for every owner — a provider that made THEM vary per key would be answering
+a different question than this evaluator asks.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py__plan_order.html"><code>plan_order</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=class%20_Evaluator">Source ↗</a></p>
 </article>

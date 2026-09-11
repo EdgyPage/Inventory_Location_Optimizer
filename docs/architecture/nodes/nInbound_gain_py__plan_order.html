@@ -15,8 +15,10 @@
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
 <pre class="sig"><code>def plan_order(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, _ev: _Evaluator | None=None) -&gt; list</code></pre>
-<section class="doc">10&#x27;s greedy over the frozen view.  `forced_prefix` is the urgency gate&#x27;s FIFO
-head — consumed first, unscored.  `window_rates` is the futuresight entry&#x27;s
+<section class="doc">10&#x27;s greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
+resolves through (`OneOwnerBundle` on a single-channel run), never a bare
+`GainBundle`.  `forced_prefix` is the urgency gate&#x27;s FIFO head — consumed first,
+unscored.  `window_rates` is the futuresight entry&#x27;s
 aggregated window (see `_window_rates`), None for every lawful arm.  `_ev` exists
 ONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure
 the test perturbs); production callers never pass it.</section>

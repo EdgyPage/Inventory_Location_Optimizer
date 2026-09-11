@@ -33,8 +33,8 @@ counters are worth having only while they stay disjoint.
 
 PUBLIC, AND ONCE PER DAY RATHER THAN ONCE PER DRAIN.  A caller that drains twice
 in one day -- a site put pool giving each channel a sub-deadline and then
-re-draining both against the whole day -- must call `_stock` with `deadline=None`
-and charge the cut itself, once, against the full-day deadline.  `cut` is a LEVEL:
+re-draining both against the whole day -- passes `charge_cut=False` to both drains
+and calls this itself, once, against the FULL-DAY deadline.  `cut` is a LEVEL:
 it re-counts the standing queue every time it is charged, so a second charge
 inside one batch inflates it where no downstream &quot;count the non-zero batches&quot; rule
 can undo it.  `_stock` calls this inline, so the single-drain path is unchanged.
