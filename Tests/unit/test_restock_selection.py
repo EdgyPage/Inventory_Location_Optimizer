@@ -18,6 +18,21 @@ produces a plausible answer instead of an error:
     family refuses at the first drain. A top-five holding four unfaithful families would be
     discovered when an arm died mid-sweep.
 
+Phase 2 runs the COUPLED site dock, which adds four more of the same kind — each one a way of
+handing phase 2 a plausible answer instead of an error:
+
+  * **The pairing is the rank DIAGONAL, built from `chosen`.** `arms` is `sorted(set(...))`,
+    so a pairing built from it is alphabetical: still a list of pairs, still the right length,
+    and wrong in a way no downstream code can detect.
+  * **Ragged rankings zip to the common length and SAY so.** A silent truncation hands phase 2
+    a shorter campaign than the ranking supports.
+  * **The extension cap counts the UNION across channels.** Extending `_gain_bundle_for` is
+    work per FAMILY, site-wide, so a per-channel cap of N can commit 2N — a bound that can be
+    silently doubled is not bounding the thing it exists to bound.
+  * **A coupled run root is refused.** Phase 1 is uncoupled by definition; pointed at a coupled
+    root the selector would rank coupled leaves and emit a hand-off indistinguishable from a
+    real one. It is the only place in the hand-off where a wrong-phase number enters silently.
+
 Run:  python -m pytest Tests/unit/test_restock_selection.py -q
 """
 from __future__ import annotations
@@ -44,16 +59,22 @@ def _leaf(root, cell, pair, config, arms, channel=None):
         json.dump({'strategies': [{'key': k, sel.METRIC_FIELD: v} for k, v in arms.items()]}, f)
 
 
-def _layout(root, cells, pairs=('prof_a',)):
+def _layout(root, cells, pairs=('prof_a',), coupled=None):
     """The run descriptor. Written because it is what a real run has — `runlayout.cells`
     infers cells from `sim_*.db` files only when there is none, and a scratch tree of JSON has
-    no DBs to infer from."""
+    no DBs to infer from.
+
+    `coupled` is left ABSENT unless a test asks for it: that is the shape of every run that
+    exists today, and the selector's guard has to be inert on it."""
     from Optimization.runschema import contract
+    doc = {'version': 2, 'schema_id': contract.head(), 'kind': 'single',
+           'spec': 'inbound_select', 'base': os.path.basename(root),
+           'reference': cells[0], 'cells': [{'name': c} for c in cells],
+           'pairs': list(pairs), 'channels': ['store'], 'arms': None}
+    if coupled is not None:
+        doc['coupled'] = coupled
     with open(os.path.join(root, 'run_layout.json'), 'w') as f:
-        json.dump({'version': 2, 'schema_id': contract.head(), 'kind': 'single',
-                   'spec': 'inbound_select', 'base': os.path.basename(root),
-                   'reference': cells[0], 'cells': [{'name': c} for c in cells],
-                   'pairs': list(pairs), 'channels': ['store'], 'arms': None}, f)
+        json.dump(doc, f)
 
 
 def _arms(**by_rule):
@@ -285,3 +306,171 @@ def test_an_unanalyzed_run_says_what_to_run(tmp_path):
     _layout(root, ['k1_off'])
     with pytest.raises(SystemExit, match='analyze_run'):
         sel.select(root, log=lambda *_a: None)
+
+
+# ── the rank diagonal: rule pairs for the coupled phase 2 ────────────────────────
+
+def _two_channel_root(tmp_path, store_arms, ful_arms, coupled=None):
+    """A phase-1 root with both channels ranked, each on its own arm-key -> seconds map."""
+    root = str(tmp_path / 'run')
+    _leaf(root, 'k1_off', 'prof_a', 'store', store_arms, channel='store')
+    _leaf(root, 'k1_off', 'prof_a', 'ful_calibrated', ful_arms, channel='fulfillment')
+    _layout(root, ['k1_off'], coupled=coupled)
+    return root
+
+
+def test_the_rule_pairs_are_the_rank_diagonal_not_the_sorted_arm_set(tmp_path):
+    """The two channels rank on scales that are not comparable, so the pairing is applied
+    AFTER ranking, by zipping the ordered `chosen` lists. `arms` is `sorted(set(...))` — a
+    pairing built from it is alphabetical, which is still a list of pairs and still the right
+    length, and wrong in a way nothing downstream can detect.
+
+    The two channels are given OPPOSITE rankings so the diagonal and the alphabetical zip
+    cannot agree by accident, and so element 0 of a pair provably comes from the store."""
+    root = _two_channel_root(
+        tmp_path,
+        _arms(tmin=3600.0, tmax=7200.0, fifo=36000.0),
+        _arms(tmax=3600.0, tmin=7200.0, fifo=36000.0))
+    doc = sel.select(root, k=2, log=lambda *_a: None)
+    rp = doc['rule_pairs']
+    assert rp['order'] == ['store', 'fulfillment'], 'the tuple order is stated, not implied'
+    assert rp['chosen'][:2] == [['tmin', 'tmax'], ['tmax', 'tmin']]
+    assert rp['complete'] is True and rp['incomplete_reason'] is None
+    # ...and the alphabetical zip it must not be:
+    assert doc['channels']['store']['arms'] == ['fifo', 'tmax', 'tmin']
+    assert rp['chosen'][0] != ['fifo', 'fifo'], 'built from `chosen`, never from `arms`'
+
+
+def test_the_fifo_rule_pair_rides_along_outside_k(tmp_path):
+    """Same two reasons as the scalar rider — the rollup's baseline and the order-blind
+    negative control — and `('fifo', 'fifo')` is the only spelling of it that cannot be
+    satisfied by fifo appearing on one side of a pair."""
+    root = _two_channel_root(tmp_path, _arms(**_CHEAP), _arms(**_CHEAP))
+    rp = sel.select(root, k=2, log=lambda *_a: None)['rule_pairs']
+    assert rp['chosen'] == [['tmin', 'tmin'], ['tmax', 'tmax'], ['fifo', 'fifo']]
+    assert rp['rider'] == ['fifo', 'fifo']
+    assert rp['chosen'][-1] == rp['rider'], 'appended, so it is not one of the k'
+
+
+def test_ragged_rankings_zip_to_the_common_length_and_say_so(tmp_path):
+    """The lists genuinely can differ: a rule disqualified for a missing reading, a cap that
+    backfills on one side only, or fewer rankable rules than k. A silent truncation would hand
+    phase 2 a shorter campaign than the ranking supports — so the zip takes the common length,
+    logs loudly and stamps `complete: false`, and `select` still WRITES, because the ranking is
+    what a human reads to choose between re-running phase 1 and accepting the short campaign."""
+    root = _two_channel_root(
+        tmp_path,
+        _arms(tmin=3600.0, tmax=7200.0),                                     # 2 rules
+        _arms(tmin=3600.0, tmax=7200.0, rank_random=10800.0, comp=14400.0))  # 4 rules
+    said = []
+    doc = sel.select(root, k=3, log=said.append)
+    rp = doc['rule_pairs']
+    assert len(doc['channels']['store']['chosen']) == 2
+    assert len(doc['channels']['fulfillment']['chosen']) == 3
+    assert rp['chosen'] == [['tmin', 'tmin'], ['tmax', 'tmax'], ['fifo', 'fifo']]
+    assert rp['complete'] is False
+    assert 'ragged' in rp['incomplete_reason']
+    assert 'store chose 2' in rp['incomplete_reason']
+    assert any('ragged' in m for m in said), 'loudly, not only in the artifact'
+    with open(os.path.join(root, 'restock_selection.json')) as f:
+        assert json.load(f)['rule_pairs']['complete'] is False, 'written anyway'
+
+
+def test_a_one_channel_run_produces_no_rule_pairs_and_fabricates_no_rider(run_root):
+    """A diagonal needs two rankings. A pair list holding nothing but a manufactured
+    `('fifo', 'fifo')` would read as a very short campaign rather than as the store-only run
+    it came from."""
+    said = []
+    rp = sel.select(run_root, k=2, log=said.append)['rule_pairs']
+    assert rp['chosen'] == []
+    assert rp['complete'] is False
+    assert 'fulfillment' in rp['incomplete_reason']
+    assert any('no rule pairs' in m for m in said)
+
+
+def test_a_rule_pair_is_runnable_only_if_both_members_are_faithful(tmp_path):
+    """A gain cell builds a bundle for EVERY arm in the set, so one unfaithful member refuses
+    the whole coupled unit at worker startup. "Both channels are individually fine" is not the
+    property that makes a unit run, so the report is per pair as well as per rule."""
+    root = _two_channel_root(tmp_path,
+                             _arms(comp=3600.0, tmin=7200.0),
+                             _arms(tmin=3600.0, comp=7200.0))
+    said = []
+    doc = sel.select(root, k=1, log=said.append)
+    assert doc['rule_pairs']['chosen'] == [['comp', 'tmin'], ['fifo', 'fifo']]
+    assert doc['rule_pairs']['needs_bundle_extension'] == [
+        {'rule_pair': ['comp', 'tmin'], 'unfaithful': ['comp']}]
+    assert any('cannot run until' in m for m in said)
+
+
+# ── the extension cap counts the union across channels ───────────────────────────
+
+def test_the_extension_cap_is_a_union_across_channels(tmp_path):
+    """Extending `_gain_bundle_for` is work per FAMILY, site-wide: both channels choosing
+    `comp` costs ONE extension, not two. Under a per-channel cap of 2 the store would go on to
+    commit `cmin` as well and the project would owe three extensions for a cap of two — a bound
+    that can be silently doubled is not bounding the thing it exists to bound.
+
+    Fulfillment is consumed first (alphabetical), spends the whole cap on comp + expn; the
+    store then gets comp FREE — already paid for — and is backfilled past cmin."""
+    root = _two_channel_root(
+        tmp_path,
+        _arms(comp=3600.0, cmin=7200.0, tmin=10800.0, tmax=14400.0),
+        _arms(comp=3600.0, expn=7200.0, tmin=10800.0, tmax=14400.0))
+    said = []
+    doc = sel.select(root, k=2, extension_cap=2, log=said.append)
+    ful, store = doc['channels']['fulfillment'], doc['channels']['store']
+    assert ful['chosen'] == ['comp', 'expn']
+    assert store['chosen'] == ['comp', 'tmin'], (
+        'comp is free (the union already holds it) but cmin is a THIRD family and is capped')
+    assert store['backfilled_past'] == ['cmin']
+    assert doc['extension_union'] == ['comp', 'expn'], 'two distinct families, not three'
+    assert len(doc['extension_union']) <= doc['extension_cap']
+    assert any('union across channels' in m for m in said)
+
+
+def test_the_channel_consumption_order_is_recorded_because_it_is_a_decision(tmp_path):
+    """One channel's choice now depends on the other's through an alphabetical order that
+    means nothing physically. There is no order-free alternative — the two rankings share
+    units but not scales, so no global rank exists to allocate against — so the order is
+    declared on the artifact rather than left to be re-derived from a `sorted()` call."""
+    root = _two_channel_root(tmp_path, _arms(**_CHEAP), _arms(**_CHEAP))
+    doc = sel.select(root, k=2, log=lambda *_a: None)
+    assert doc['extension_channel_order'] == ['fulfillment', 'store']
+    assert 'UNION' in doc['extension_cap_scope']
+
+
+# ── the one guard, and the stamp that has nothing to gate ────────────────────────
+
+def test_a_coupled_run_root_is_refused(tmp_path):
+    """Phase 1 is uncoupled by definition. Pointed at a coupled root the selector would rank
+    coupled leaves perfectly happily and emit a hand-off artifact indistinguishable from a real
+    one — the only place in the whole hand-off where a wrong-phase number enters silently."""
+    root = _two_channel_root(tmp_path, _arms(**_CHEAP), _arms(**_CHEAP), coupled=True)
+    with pytest.raises(SystemExit, match='COUPLED'):
+        sel.select(root, log=lambda *_a: None)
+    assert not os.path.exists(os.path.join(root, 'restock_selection.json')), (
+        'refused before it ranked anything, so no artifact exists to be mistaken for one')
+
+
+def test_the_guard_is_inert_on_every_run_that_exists_today(tmp_path):
+    """`coupled` is ABSENT from every run written so far, so the guard must read a missing key
+    as uncoupled rather than refusing the entire existing archive."""
+    root = _two_channel_root(tmp_path, _arms(**_CHEAP), _arms(**_CHEAP))
+    from Optimization.runschema.sim_manifest import read_run_layout
+    assert 'coupled' not in read_run_layout(root)
+    assert sel.select(root, k=1, log=lambda *_a: None)['rule_pairs']['chosen']
+
+
+def test_the_put_regime_is_stamped_because_there_is_no_join_to_gate(tmp_path):
+    """Phase 1 fields the site's put and receiving crews TWICE (one whole derived crew per
+    leaf) and phase 2 fields them once. What doubles is capacity, not labour seconds, so the
+    hours move by an amount that differs per arm and RANKS are no more invariant than hours.
+    Nothing in the codebase reads two run roots, so this stamp and the published caveat are the
+    whole of how that asymmetry is carried."""
+    root = _two_channel_root(tmp_path, _arms(**_CHEAP), _arms(**_CHEAP))
+    doc = sel.select(root, k=1, log=lambda *_a: None)
+    assert doc['put_regime'] == 'per-leaf' == sel.PUT_REGIME
+    note = doc['put_regime_note']
+    assert 'twice' in note and 'RANKS' in note, (
+        'a reader who takes the stamp as "hours only" would still compare ranks across it')

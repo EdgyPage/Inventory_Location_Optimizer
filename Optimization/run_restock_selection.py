@@ -1,4 +1,4 @@
-"""run_restock_selection.py — phase 1's hand-off: rank the restock rules, choose phase 2's arms.
+"""run_restock_selection.py — phase 1's hand-off: rank the restock rules, pair them for phase 2.
 
 The inbound funnel is two phases, not one product sweep ("Design the phased funnel",
 `.scratch/inbound-optimization`).  Phase 1 is a fresh, inbound-OFF run of the full assignment
@@ -35,13 +35,37 @@ Three things about that metric decide the shape of the code below:
   it as the analysis baseline, and `uni_fifo`/`opt_fifo` are byte-identical runs, which makes
   the same row phase 2's order-blind negative control.  It rides along whether or not it ranks.
 
+**Phase 2 runs the COUPLED site dock, so the hand-off is a diagonal of RULE PAIRS.**  Under
+one site dock a work unit finalizes both channel leaves at once, so phase 2 cannot sweep the
+two channels' rule sets independently: it needs to be told which store rule runs beside which
+fulfillment rule.  The pairing is the rank diagonal — store's 1st with fulfillment's 1st, and
+so on — because the campaign's question is "does space-aware inbound beat FIFO"; the arm pair
+is a CONTROL, not an axis, and the cross product would spend ~4x the wall confounding the
+inbound comparison with a placement interaction nobody asked about.  Hence `rule_pairs` in the
+artifact, built from the ORDERED `chosen` lists; `arms` keeps its per-channel meaning, for the
+leaf projections ("Re-shape the funnel for arm pairs", `.scratch/site-dock`).
+
+**Two consequences of that coupling land here rather than in phase 2:**
+
+* **The extension cap counts the UNION of families across both channels.**  Extending
+  `_gain_bundle_for` is work per FAMILY, site-wide — both channels choosing `map` costs one
+  extension, not two — so a per-channel cap of 3 could silently commit the project to six.
+  Channels are consumed in this module's existing deterministic order and that order is
+  RECORDED, because an alphabetical tiebreak between two unrelated hour scales is a decision,
+  not an implementation detail.
+* **Phase 1 is uncoupled and phase 2 is not, so hours do not cross the boundary.**  The
+  artifact stamps `put_regime: 'per-leaf'` to say so.  Nothing in the codebase reads two run
+  roots, so there is no join to gate — the stamp and the published caveat are the whole of how
+  the asymmetry is carried.  The one reachable mistake IS gated: pointed at a coupled run root,
+  `select()` refuses rather than emitting a hand-off indistinguishable from a real one.
+
 Run AFTER `analyze_run` (which writes the series JSONs):
 
     python -m Optimization.analyze_run <phase-1 run root>
     python -m Optimization.run_restock_selection <phase-1 run root>
 
-Then copy the chosen `arms` into `whatif_config.PHASE2_ARMS` and run phase 2 with
-`--spec inbound_policies`.  The copy is deliberate and manual: the arm set is a decision a
+Then copy `rule_pairs.chosen` into phase 2's rule-pair list and run phase 2 with
+`--spec inbound_policies`.  The copy is deliberate and manual: the rule set is a decision a
 person signs off on, and a spec that read a JSON file at import would make it invisible.
 """
 from __future__ import annotations
@@ -78,6 +102,29 @@ DEFAULT_EXTENSION_CAP = 3
 
 #: The rule that rides along whatever it ranks.
 BASELINE_RULE = 'fifo'
+
+#: The two channels a rule pair joins, in the tuple order every pair is written in.  Store
+#: first, because that is the order the campaign reads and a tuple whose order is implicit is
+#: a tuple that gets read backwards.  `pair` already means the INVENTORY PROFILE everywhere in
+#: this harness (`run.pairs` in this very artifact, `<cell>/<pair>/`, `_derive_staffing_for_pair`),
+#: so nothing here is a bare `pair`: it is a RULE pair, spelled out.
+STORE_CHANNEL = 'store'
+FULFILLMENT_CHANNEL = 'fulfillment'
+RULE_PAIR_ORDER = (STORE_CHANNEL, FULFILLMENT_CHANNEL)
+
+#: The rule pair that rides along whatever ranks, for the same two reasons the scalar rider
+#: does — the rollup's baseline and the order-blind negative control — and outside both k and
+#: the extension cap.
+BASELINE_RULE_PAIR = (BASELINE_RULE, BASELINE_RULE)
+
+#: How phase 1 fields the site's put and receiving crews, stamped on the artifact.  Phase 1 is
+#: the UNCOUPLED leaf model, so each leaf fields the whole derived SITE crew and the site's
+#: labour is fielded twice; phase 2 couples and fields it once.  What doubles is put and
+#: receiving CAPACITY, not labour seconds, so under drain-or-cap the hours move by an amount
+#: that differs PER ARM — precisely by how much an arm trades put time for pick time, which is
+#: the trade phase 2 exists to measure.  A rank comparison across the boundary is therefore no
+#: more invariant than an hours comparison.
+PUT_REGIME = 'per-leaf'
 
 
 def _finite(x) -> bool:
@@ -204,7 +251,7 @@ def _rank_channel(leaves, log) -> dict:
     return {'leaves': sorted(leaf_ids), 'ranking': ok + bad, 'unknown_arms': sorted(unknown)}
 
 
-def _choose(ranking, k: int, extension_cap: int, log) -> dict:
+def _choose(ranking, k: int, extension_cap: int, log, committed: list[str]) -> dict:
     """The top-k rules, with the extension cap applied and the `fifo` rider added.
 
     The cap is 08's: only `FAITHFUL_GAIN_FAMILIES` have a faithful gain bundle today, and every
@@ -212,6 +259,17 @@ def _choose(ranking, k: int, extension_cap: int, log) -> dict:
     families than the cap allows, take the highest-ranked `extension_cap` of them and backfill
     from the next faithful rules down — so the cost of phase 2 is bounded by a decision made
     here rather than discovered when an arm dies mid-sweep.
+
+    **`committed` is the UNION, and it is mutated.**  It carries the distinct unfaithful
+    families already committed by the channels consumed before this one, and this channel adds
+    to it.  Extending `_gain_bundle_for` is work per FAMILY, site-wide, so a family the other
+    channel already paid for is free here, and the cap bounds the total bill rather than one
+    channel's share of it — a per-channel cap of N can commit 2N, which is not bounding the
+    thing the cap exists to bound.  The caller passes the same list to every channel and
+    records both the union and the ORDER the channels were consumed in: one channel's choice
+    now depends on the other's through an order that means nothing physically, and there is no
+    order-free alternative, because the two rankings share units but not scales and so admit no
+    global rank to allocate against.  Declared and recorded beats arbitrary and hidden.
     """
     rankable = [r for r in ranking if r['rank'] is not None]
     chosen, needs_ext, skipped = [], [], []
@@ -219,13 +277,16 @@ def _choose(ranking, k: int, extension_cap: int, log) -> dict:
         if len(chosen) >= k:
             break
         if r['needs_bundle_extension']:
-            if len(needs_ext) >= extension_cap:
-                skipped.append(r['rule'])
-                continue
+            if r['rule'] not in committed:       # already paid for by an earlier channel: free
+                if len(committed) >= extension_cap:
+                    skipped.append(r['rule'])
+                    continue
+                committed.append(r['rule'])
             needs_ext.append(r['rule'])
         chosen.append(r['rule'])
     if skipped:
-        log(f'    extension cap {extension_cap} reached; backfilled past {skipped} '
+        log(f'    extension cap {extension_cap} reached (union across channels so far: '
+            f'{committed}); backfilled past {skipped} '
             f'(each would need _gain_bundle_for extended before phase 2 could run it)')
     if len(chosen) < k:
         log(f'    !! only {len(chosen)} rule(s) available for a k of {k}: the ranking is '
@@ -254,6 +315,64 @@ def _choose(ranking, k: int, extension_cap: int, log) -> dict:
             'backfilled_past': skipped}
 
 
+def _rule_pairs(channels: dict, log) -> dict:
+    """The diagonal: rank-aligned `(store_rule, fulfillment_rule)`, store first.
+
+    Built from the two channels' ORDERED `chosen` lists, never from `arms` — `arms` is
+    `sorted(set(...))` and the sort destroys rank order, which is the only thing a diagonal
+    reads.  The ranking itself stays per channel: the two hour scales are not comparable (the
+    channels' receiving loads differ ~7x, the same fact behind `PHASE2_THRESHOLD_DAYS`), so the
+    diagonal is applied AFTER ranking rather than by merging the rankings.
+
+    **Ragged rankings zip to the common length and the artifact says so.**  The two lists
+    genuinely can differ in length — a rule disqualified for a missing reading, a cap that
+    backfills on one side only, or `len(chosen) < k`.  The zip takes the common length, logs
+    loudly and stamps `complete: false` with the reason; the caller still WRITES, because the
+    ranking is the valuable part and a human needs to read it to decide between re-running
+    phase 1 and accepting a shorter campaign.  The refusal that costs money belongs at the
+    phase-2 launcher, not here.
+
+    **A one-channel run produces no pairs at all, and does not fabricate the rider.**  A
+    diagonal needs two rankings; a pair list holding nothing but a manufactured
+    `('fifo', 'fifo')` would look like a (very short) campaign rather than like the
+    store-only run it came from.
+    """
+    absent = [c for c in RULE_PAIR_ORDER if c not in channels]
+    if absent:
+        reason = (f'no rule pairs: the run has no {" or ".join(absent)} ranking '
+                  f'(channels present: {sorted(channels) or "none"}). A diagonal needs both '
+                  f'channels ranked; phase 2 cannot be handed a pairing from this run')
+        log(f'\n    !! {reason}')
+        return {'order': list(RULE_PAIR_ORDER), 'chosen': [], 'complete': False,
+                'incomplete_reason': reason, 'rider': list(BASELINE_RULE_PAIR),
+                'needs_bundle_extension': []}
+
+    chosen = {c: list(channels[c]['chosen']) for c in RULE_PAIR_ORDER}
+    n = min(len(v) for v in chosen.values())
+    reason = None
+    if len({len(v) for v in chosen.values()}) > 1:
+        reason = ('ragged rankings: ' + ', '.join(f'{c} chose {len(chosen[c])}'
+                                                  for c in RULE_PAIR_ORDER) +
+                  f'; zipped to the common length {n}, so the longer channel\'s tail is '
+                  f'dropped. Re-run phase 1, or accept a campaign of {n} rule pair(s)')
+        log(f'\n    !! {reason}')
+    pairs = [[chosen[c][i] for c in RULE_PAIR_ORDER] for i in range(n)]
+    if list(BASELINE_RULE_PAIR) not in pairs:
+        pairs.append(list(BASELINE_RULE_PAIR))
+
+    # A rule pair is runnable only if BOTH its members are faithful: a gain cell builds a
+    # bundle for every arm in the set, not only for the arms a gain policy was chosen for, and
+    # refuses at worker startup for any arm it cannot price (`Inbound/gain.py`).  Reported per
+    # pair as well as per rule, because "both channels are individually fine" is not the
+    # property that makes a unit run.
+    ext = [{'rule_pair': p,
+            'unfaithful': [r for r in dict.fromkeys(p) if r not in FAITHFUL_GAIN_FAMILIES]}
+           for p in pairs if any(r not in FAITHFUL_GAIN_FAMILIES for r in p)]
+    return {'order': list(RULE_PAIR_ORDER), 'chosen': pairs, 'complete': reason is None,
+            'incomplete_reason': reason, 'rider': list(BASELINE_RULE_PAIR),
+            'needs_bundle_extension': ext}
+
+
 def select(base_dir: str, k: int = DEFAULT_K,
            extension_cap: int = DEFAULT_EXTENSION_CAP, log=print) -> dict:
     """Rank the restock rules of a phase-1 run and write the selection artifact at its root.
@@ -262,6 +381,21 @@ def select(base_dir: str, k: int = DEFAULT_K,
     layouts would rank two different warehouses on one scale — so a multi-cell run is refused
     rather than silently summed or silently reduced to its first cell.
     """
+    from Optimization.runschema.sim_manifest import read_run_layout, _load_run_spec
+    layout = read_run_layout(base_dir) or {}
+    # The one place in the whole hand-off where a wrong-phase number can enter the campaign
+    # silently.  Phase 1 is uncoupled BY DEFINITION — it is what `put_regime` below stamps —
+    # so a coupled root is not a phase-1 run; pointed at one the selector would rank coupled
+    # leaves perfectly happily and emit an artifact indistinguishable from a real one.  Written
+    # defensively: `coupled` is falsy on every run that exists today, so this is inert until
+    # the marker lands and bites the moment it does.
+    if layout.get('coupled'):
+        raise SystemExit(
+            f'{base_dir} is a COUPLED run root (`run_layout.json` says coupled: true), and '
+            f'phase 1 is uncoupled by definition. Ranking its leaves would produce a hand-off '
+            f'artifact indistinguishable from a real one, carrying phase-2 hours into a '
+            f'phase-1 decision. Point this at the phase-1 run root instead')
+
     rt, cells = _tree_for(base_dir)
     if not cells:
         raise SystemExit(f'no cells under {base_dir}; is this a run root, and has it run?')
@@ -281,11 +415,16 @@ def select(base_dir: str, k: int = DEFAULT_K,
     for run, meta, series in leaves:
         by_channel[meta.get('channel') or run.channel or 'store'].append((run, meta, series))
 
+    # One list, threaded through every channel: the extension cap bounds the UNION of distinct
+    # unfaithful families, and `sorted()` is the order that union is consumed in.  It is
+    # alphabetical — fulfillment, then store — which means nothing physically and is therefore
+    # recorded on the artifact rather than left to be re-derived from this line.
+    committed: list[str] = []
     channels = {}
     for channel, chan_leaves in sorted(by_channel.items()):
         log(f'\n{"="*70}\n  {channel}\n{"="*70}')
         ranked = _rank_channel(chan_leaves, log)
-        picked = _choose(ranked['ranking'], k, extension_cap, log)
+        picked = _choose(ranked['ranking'], k, extension_cap, log, committed)
         for r in ranked['ranking']:
             if r['rank'] is None:
                 continue
@@ -297,8 +436,17 @@ def select(base_dir: str, k: int = DEFAULT_K,
         log(f"    arms for phase 2 (with the {BASELINE_RULE} rider): {picked['arms']}")
         channels[channel] = {**ranked, **picked}
 
-    from Optimization.runschema.sim_manifest import read_run_layout, _load_run_spec
-    layout = read_run_layout(base_dir) or {}
+    rule_pairs = _rule_pairs(channels, log)
+    if rule_pairs['chosen']:
+        log(f"\n  rule pairs ({' , '.join(rule_pairs['order'])}), rank-aligned:")
+        for i, p in enumerate(rule_pairs['chosen'], start=1):
+            rider = '  (the mandatory rider)' if p == list(BASELINE_RULE_PAIR) else ''
+            log(f'    {i:>2}. {p[0]:<18} x {p[1]:<18}{rider}')
+    for e in rule_pairs['needs_bundle_extension']:
+        log(f"    !! the rule pair {e['rule_pair']} cannot run until _gain_bundle_for serves "
+            f"{e['unfaithful']}: a gain cell prices EVERY arm in the set, so one unfaithful "
+            f"member refuses the whole unit at worker startup")
+
     spec = _load_run_spec(base_dir) or {}
     doc = {
         'version': 1,
@@ -325,8 +473,27 @@ def select(base_dir: str, k: int = DEFAULT_K,
         },
         'k': k,
         'extension_cap': extension_cap,
+        'extension_cap_scope': 'the UNION of distinct unfaithful families across both '
+                               'channels — extending _gain_bundle_for is work per FAMILY, '
+                               'site-wide, so both channels choosing the same family costs '
+                               'one extension and a per-channel cap of N could commit 2N',
+        'extension_channel_order': sorted(by_channel),
+        'extension_union': list(committed),
         'baseline_rule': BASELINE_RULE,
+        'baseline_rule_pair': list(BASELINE_RULE_PAIR),
         'faithful_gain_families': list(FAITHFUL_GAIN_FAMILIES),
+        'put_regime': PUT_REGIME,
+        'put_regime_note': 'phase 1 runs the UNCOUPLED leaf model, so each leaf fields the '
+                           'whole derived SITE put and receiving crew and the site\'s labour '
+                           'is fielded twice; phase 2 couples and fields it once. What '
+                           'doubles is CAPACITY, not labour seconds, so under drain-or-cap '
+                           'the hours move by an amount that differs per arm — by exactly how '
+                           'much an arm trades put time for pick time, the trade phase 2 '
+                           'exists to measure. Neither hours nor RANKS are comparable across '
+                           'the phases; the matrix\'s own deltas are what the campaign '
+                           'publishes. Nothing reads two run roots, so this stamp and the '
+                           'published caveat are the whole of how that is carried',
+        'rule_pairs': rule_pairs,
         'channels': channels,
     }
     # `analysis_path`, not `rt.path`: the run is resolved through the contract it was SIMULATED
@@ -343,8 +510,10 @@ def select(base_dir: str, k: int = DEFAULT_K,
         json.dump(doc, f, indent=2)
     os.replace(tmp, out)
     log(f'\nWrote {out}')
-    log('Copy each channel\'s `arms` into whatif_config.PHASE2_ARMS before running '
-        '`--spec inbound_policies`.')
+    log('Copy `rule_pairs.chosen` into phase 2\'s rule-pair list before running '
+        '`--spec inbound_policies`; each channel\'s `arms` is the leaf projection of it.')
+    if not rule_pairs['complete']:
+        log(f"!! `rule_pairs.complete` is false — {rule_pairs['incomplete_reason']}")
     return doc
 
 
@@ -356,8 +525,9 @@ def main() -> None:
     ap.add_argument('-k', type=int, default=DEFAULT_K, metavar='N',
                     help='how many restock RULES to choose (each costs 2 arms)')
     ap.add_argument('--extension-cap', type=int, default=DEFAULT_EXTENSION_CAP, metavar='N',
-                    help='how many chosen rules may lack a faithful gain bundle before the '
-                         'selector backfills from the faithful set instead')
+                    help='how many DISTINCT unfaithful families, counted as a union across '
+                         'both channels, may be committed before the selector backfills from '
+                         'the faithful set instead')
     args = ap.parse_args()
     from Optimization.runschema import resolve_base_dir
     base = resolve_base_dir(args.base_dir)

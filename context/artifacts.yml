@@ -347,8 +347,9 @@ artifacts:
     writer: {function: select, file: Optimization/run_restock_selection.py}
     readers: []
     match: "restock_selection"
-    fields: [version, written, run, metric, k, extension_cap, baseline_rule,
-             faithful_gain_families, channels]
+    fields: [version, written, run, metric, k, extension_cap, extension_cap_scope,
+             extension_channel_order, extension_union, baseline_rule, baseline_rule_pair,
+             faithful_gain_families, put_regime, put_regime_note, rule_pairs, channels]
 
   # ── cross-cell what-if outputs (multi-cell runs only) ───────────────────────────
   whatif_delta_csv:

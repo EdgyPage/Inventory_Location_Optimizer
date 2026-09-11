@@ -333,7 +333,7 @@ python -m Optimization.analyze_run <run_dir> --reference k1_off_rr --preset BY_I
 |-----|----------|
 | `run_analysis.py` | the per-cell graph + statistics suite → `figures/<family>/`, `tables/`, `_aggregate/` |
 | `run_channel_rollup.py` | store + fulfillment combined into a whole-warehouse view |
-| `run_restock_selection.py` | the inbound funnel's phase-1 → phase-2 hand-off: all 17 restock rules ranked per channel on total production hours → `restock_selection.json` |
+| `run_restock_selection.py` | the inbound funnel's phase-1 → phase-2 hand-off: all 17 restock rules ranked per channel on total production hours, then paired down the rank diagonal for the coupled phase 2 → `restock_selection.json` |
 | `run_whatif_delta.py` | the cross-cell steady-state delta matrix (multi-cell) |
 | `run_whatif_labor.py` | the same runs told in modeled labor-hours |
 | `run_whatif_volume.py` | cumulative volume vs elapsed time — throughput as a *rate* |
