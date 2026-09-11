@@ -279,8 +279,21 @@ def _rows(ctx, s, sdf, verdict, expectations):
             why = ((expectations or {}).get('absent') or {}).get(dept, 'no record')
             row += [_DEPT_LABEL[dept], '-', '-', '-', '-', f'n/a ({why})']
         else:
+            reading = _read(dept, r, is_base, tol)
+            if dept == 'recv':
+                # THE DOCK'S PARALLELISM CEILING beside the receiving row, reported and
+                # never banded ("Decide the contention regime under the derived crew", 4).
+                # The crew is derived as a site total and the dock is capped at `cap` per
+                # door, so when `cap x doors` seats less than the whole crew a receiving
+                # utilization below its band is the DOCK, not a staffing error — and the
+                # reader should not have to infer that from a door count elsewhere.
+                # Printed whether or not it binds: "the dock could seat everyone" is the
+                # fact that makes a below-band reading damning rather than explained.
+                ceil_v = ctx.dock_ceiling()
+                if ceil_v is not None:
+                    reading += f' · dock seats {ceil_v * 100.0:.0f}%'
             row += [_DEPT_LABEL[dept], str(r['crew']), f'{r["expected"]:.3f}',
-                    f'{r["realized"]:.3f}', f'±{tol:.2f}', _read(dept, r, is_base, tol)]
+                    f'{r["realized"]:.3f}', f'±{tol:.2f}', reading]
         out.append(row)
     out.extend(_share_rows(head, verdict))
     out.extend(_rework_rows(head, verdict))

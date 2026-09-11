@@ -408,6 +408,30 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   `check_reorders`. [Cap the door team](issues/28-cap-the-door-team.md) is now the frontier;
   26 waits on it and on the site-dock coupling.
 
+- [Cap the door team](issues/28-cap-the-door-team.md): **BUILT** -- `INBOUND_DOOR_TEAM` (default
+  None = uncapped) across all five seams, on `PILOT_RUN_DEFAULTS` at 10 and in every axis entry
+  (cleared on `inb_off`, which the spec would otherwise refuse); the cap is read in BOTH allocation
+  modes because it belongs to the trailer. **The ticket's acceptance example was wrong and was
+  corrected, not built**: "10/10/2" is a GREEDY deal and contradicts 25's even splits and the
+  ticket's own rule -- measured, 22 receivers over three doors deal 8/7/7 (cap inert) and over two
+  10/10 with two idle, against 11/11 uncapped, so the cap binds only when the EVEN division would
+  exceed it. The part with teeth was the reassignment: a freed team now SPREADS over the (1)-(2)-(3)
+  targets up to each one's room, because the pre-cap step (3) extended a team unconditionally and
+  would have seated twice the cap on one trailer. An idle pool for the cut workers was built and
+  then REMOVED as provably unreachable (a non-empty pool means every team is exactly the cap, and a
+  fresh door's room is exactly the cap). 25's decision 4 landed as two un-banded read-outs -- the
+  DOCK CEILING (`cap x doors / crew`, on the scorecard and as a suffix on the audit's receiving row,
+  printed whether or not it binds) and the RECEIVER BUSY SHARE -- both stamped onto `sim_result`,
+  since CONFIG is not a channel to a spawned analysis worker. **Rendering on the real reference pair
+  caught a defect the unit tests missed**: the busy share read 184% because `_arm_span_days` is
+  CALENDAR time while a crew grant is WORK days (3x on an 8-hour day) -- now over distinct
+  `work_day` values, and store reads 61% against the audit's independently-sourced 0.608,
+  fulfillment 16% against 0.165. The ceiling also forced the scorecard's door count to prefer the
+  RECORDED value over its resumed-arm-lower-bound derivation. Byte-identical with the cap off drain
+  by drain in both modes, both halves of the rule proven to fail by sabotage; unit 2002 green, yard
+  e2e 4 green, preflight re-proved the tree shape unchanged (no schema event). Owed: the derived
+  arch layer, as at 09/13/15/21.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -485,6 +509,14 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   order: [Chain the supplier lead before the trailer](issues/27-chain-the-supplier-lead-before-the-trailer.md)
   and [Cap the door team](issues/28-cap-the-door-team.md) (independent, frontier) -> the
   site-dock effort -> 26 on the coupled dock -> 24 -> phase 1 -> selection -> phase 2 -> publish.
+  **2026-09-11: 27 and 28 are both RESOLVED, so this map's frontier is EMPTY and the next act is
+  not a ticket on it** -- it is the SITE-DOCK CHARTING SESSION (Out of scope, below, which carries
+  the destination and the seed). The two remaining tickets both wait on that effort:
+  [Re-verify the gate under the lead-aware record](issues/26-reverify-the-gate-under-the-lead-aware-record.md)
+  reads the gate on the coupled dock, and [Re-size the funnel in site days](issues/24-resize-the-funnel-in-site-days.md)
+  cannot size a cell until a cell is a PAIR of arms. The declared physics they will run under is
+  now complete: the supplier lead chains in front of the trailer, and the door team is capped at
+  ten with the dock's parallelism ceiling reported beside every receiving utilization.
 
 ## Out of scope
 

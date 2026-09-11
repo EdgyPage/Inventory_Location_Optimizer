@@ -345,14 +345,14 @@ class YardTransit(TrailerTransit):
     #: What `_receive` probes (via getattr, default False) to find the standing surfaces.
     STANDING = True
 
-    __slots__ = ('allocation', '_yard_key', '_dock_key', '_staged', 'stamps',
+    __slots__ = ('allocation', 'door_team', '_yard_key', '_dock_key', '_staged', 'stamps',
                  'gain_bundle')
 
     def __init__(self, trailer_type: type = None, *, lead_s: float = 0.0,
                  lead_sigma: float = 0.0, lead_seed: int = 0,
                  doors: int = 4, yard_policy: str = 'fifo', dock_policy: str = 'fifo',
                  local_policy: str = 'fifo', bound: int | None = None,
-                 allocation: str = 'split'):
+                 allocation: str = 'split', door_team: int | None = None):
         super().__init__(trailer_type, lead_s=lead_s, lead_sigma=lead_sigma,
                          lead_seed=lead_seed, doors=doors,
                          global_policy='fifo', local_policy=local_policy, bound=bound)
@@ -365,6 +365,15 @@ class YardTransit(TrailerTransit):
         # 'split' deals door teams (the standing model's physics); 'merged' is the v1
         # pooled gang, kept as honest physics and as the lockstep verification bridge.
         self.allocation = allocation
+        # THE DOOR-TEAM CAP: at most this many receivers on one trailer at once, every one
+        # additive.  Trailer PHYSICS, so it is state here and a property of neither policy
+        # nor allocation mode -- the manager reads it in both.  None = uncapped (today's
+        # dealing, byte-identically).  Validated at the spec seam; re-checked here because
+        # a test or a future caller may construct the transit directly.
+        if door_team is not None and int(door_team) < 1:
+            raise ValueError(f'door_team {door_team!r} must be at least 1 receiver, or '
+                             f'None for uncapped')
+        self.door_team = None if door_team is None else int(door_team)
         self._staged: list = []       # holding a door, in staging order
         self.stamps: list = []        # (seq, arrived, staged, emptied, status) per finished
         # The gain arms' machinery (`Inbound.gain.GainBundle`), assigned by the DRIVER

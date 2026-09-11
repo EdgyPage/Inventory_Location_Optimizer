@@ -166,6 +166,19 @@ INBOUND_CREW_ALLOCATION = 'split'  # 'split' = door teams (the standing physics:
 INBOUND_YARD_POLICY = 'fifo'     # freed door <- which standing trailer (YARD_POLICIES)
 INBOUND_DOCK_POLICY = 'fifo'     # crew <- which staged trailer     (DOCK_POLICIES);
                                  # under door teams this is a worker-ALLOCATION preference
+INBOUND_DOOR_TEAM = None         # TRAILER PHYSICS, not a policy: at most this many receivers
+                                 # can support one trailer's unload and pack at once, every
+                                 # one additive (the steps inside an unload -- the liftgate,
+                                 # the aisle of the trailer, the pack bench -- are not
+                                 # modelled, so the cap is what stands in for them).  Applies
+                                 # in BOTH allocation modes, because it is a property of the
+                                 # trailer rather than of the dealing rule: 'merged' under a
+                                 # cap is ONE team of `cap` on one trailer.  The deal stays
+                                 # EVEN and is then cut ("Decide the contention regime under
+                                 # the derived crew", 3): 22 receivers over three staged
+                                 # trailers is 8/7/7, over two is 10/10 with two idle until a
+                                 # door frees.  None = uncapped, today's dealing byte-
+                                 # identically -- the whole crew can stand at one door.
 # The two days-denominated knobs ("Name the policy arms", 05).  Labor-hours and fee-days
 # never blend into one scalar anywhere: the fee side is only ever the yes/no urgency test
 # these two express, and the SAME threshold feeds the yard fee report -- one knob, two

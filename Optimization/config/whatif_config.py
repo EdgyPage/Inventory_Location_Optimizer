@@ -80,6 +80,16 @@ PHASE2_LEAD_MINUTES = 480.0        # ~ one working day, the first probe 02 named
                                    # the yard ranks by arrival, not dispatch, at every leaf
 PHASE2_LEAD_SPREAD = 0.7
 PHASE2_DOCK_DOORS = 4
+#: THE DOOR-TEAM CAP, declared physics rather than a swept axis ("Decide the contention regime
+#: under the derived crew", 3): at most ten receivers support one trailer's unload and pack at
+#: once, every one additive.  It is what makes a door count mean anything -- with an uncapped
+#: team the crew unloads at its full rate through ONE door and every other door is bookkeeping,
+#: which is how a leaf-model yard came to read slack at any door count.  At 10 the site's 22
+#: derived receivers need three doors to be fully dealt, so `PHASE2_DOCK_DOORS = 4` leaves the
+#: CREW binding and the doors a ceiling -- the physical picture.  Held constant across the
+#: matrix: it is not a policy, and sweeping it would confound the ordering comparison with a
+#: capacity change.
+PHASE2_DOOR_TEAM = 10
 PHASE2_FINITE_W = 5
 
 #: THE PILOT'S RECEIVING REGIME, kept as a RECORD of what the gate ran under and NOT a
@@ -123,6 +133,7 @@ PILOT_RUN_DEFAULTS = {
     'inbound_trailer_type': '53',
     'inbound_standing_yard': True,
     'inbound_dock_doors': PHASE2_DOCK_DOORS,
+    'inbound_door_team': PHASE2_DOOR_TEAM,
     'inbound_lead_minutes': PHASE2_LEAD_MINUTES,
     'inbound_lead_spread': PHASE2_LEAD_SPREAD,
 }
@@ -136,7 +147,8 @@ PHASE2_H_MULTIPLES = (0.25, 0.5, 1.0)
 
 def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
                         lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD,
-                        doors=PHASE2_DOCK_DOORS, finite_w=PHASE2_FINITE_W,
+                        doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM,
+                        finite_w=PHASE2_FINITE_W,
                         h_multiples=PHASE2_H_MULTIPLES):
     """The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), …].
 
@@ -157,7 +169,8 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
     never the reference.  The reference is `fifo`, so every delta reads "versus FIFO", which
     is the campaign's own question.
     """
-    on = dict(trailer_type='53', dock_doors=doors, lead_minutes=lead_minutes,
+    on = dict(trailer_type='53', dock_doors=doors, door_team=door_team,
+              lead_minutes=lead_minutes,
               lead_spread=lead_spread, standing_yard=True,
               fee_threshold_days=threshold_days,
               urgency_horizon_days=0.0, futuresight_batches=None)
@@ -178,7 +191,11 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
         axis.append((f'fsight_w{w}', _policy('futuresight', futuresight_batches=w)))
     # The inbound-OFF anchor: no trailer type is the family's STRUCTURAL off switch, so the
     # manager keeps its batch lead queue and this cell is comparable with phase 1.
+    # `door_team` clears here for the same reason `lead_spread` does: it is the standing
+    # yard's knob and `inbound_spec()` refuses it without the flag, so an anchor inheriting
+    # the cap would raise at spec build rather than run.
     axis.append(('inb_off', {**on, 'trailer_type': None, 'standing_yard': False,
+                             'door_team': None,
                              'lead_minutes': 0.0, 'lead_spread': 0.0,
                              'yard_policy': 'fifo', 'dock_policy': 'fifo'}))
     return axis

@@ -1083,7 +1083,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 dock_policy=_inb_spec['dock_policy'],
                 local_policy=_inb_spec['local_policy'],
                 bound=_inb_spec['bound'],
-                allocation=_inb_spec['allocation'])
+                allocation=_inb_spec['allocation'],
+                door_team=_inb_spec['door_team'])
             # THE SPACE TIMELINE rides the standing yard unconditionally -- no policy
             # gate, no extra knob, by decision: every drain's DockContext carries a
             # frozen SpaceView even while both policies are 'fifo', which is what keeps

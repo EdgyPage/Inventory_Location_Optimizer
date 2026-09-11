@@ -209,6 +209,7 @@ CONFIG = {
         'inbound_crew_allocation'  : _s.INBOUND_CREW_ALLOCATION,
         'inbound_yard_policy'      : _s.INBOUND_YARD_POLICY,
         'inbound_dock_policy'      : _s.INBOUND_DOCK_POLICY,
+        'inbound_door_team'        : _s.INBOUND_DOOR_TEAM,
         'inbound_fee_threshold_days'   : _s.INBOUND_FEE_THRESHOLD_DAYS,
         'inbound_urgency_horizon_days' : _s.INBOUND_URGENCY_HORIZON_DAYS,
         'inbound_futuresight_batches'  : _s.INBOUND_FUTURESIGHT_BATCHES,
@@ -702,7 +703,7 @@ INBOUND_KEYS: tuple[str, ...] = (
     'inbound_lead_minutes', 'inbound_lead_spread',
     'inbound_global_policy', 'inbound_local_policy', 'inbound_trailer_bound',
     'inbound_standing_yard', 'inbound_crew_allocation',
-    'inbound_yard_policy', 'inbound_dock_policy',
+    'inbound_yard_policy', 'inbound_dock_policy', 'inbound_door_team',
     'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
     'inbound_futuresight_batches',
     'inbound_unload_intercept', 'inbound_unload_weight_coef', 'inbound_unload_volume_coef',
@@ -821,6 +822,26 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
             f'are UNREAD without INBOUND_STANDING_YARD: the run would complete as '
             f'v1 fifo under the policy\'s name, nothing raising.  Set the flag or '
             f'clear the knobs')
+    # The door-team cap: trailer physics, and the standing yard's alone.  v1's release()
+    # hands the whole drain over at once and never reaches `_unload_split`, so a cap
+    # declared without the flag would be recorded, carried across the worker boundary and
+    # then read by nobody -- a run whose spec says 'ten receivers per door' and whose dock
+    # put every receiver on one trailer, with nothing raising.  Same refusal as the two
+    # policies above, for the same reason.
+    door_team = g.get('inbound_door_team')
+    if door_team is not None:
+        door_team = int(door_team)
+        if door_team < 1:
+            raise ValueError(
+                f'INBOUND_DOOR_TEAM ({door_team}) must be at least 1 receiver: a cap of '
+                f'zero is a dock nobody may work at, which would defer every trailer '
+                f'forever rather than cap anything.  Clear it for uncapped')
+        if not standing:
+            raise ValueError(
+                f'INBOUND_DOOR_TEAM ({door_team}) is the standing yard\'s knob and is '
+                f'UNREAD without INBOUND_STANDING_YARD: v1\'s release() hands the whole '
+                f'drain over at once and never deals door teams, so the run would '
+                f'complete uncapped under the cap\'s name.  Set the flag or clear the cap')
     return {
         'trailer_type': str(ttype),
         'doors': int(g.get('inbound_dock_doors') or 4),
@@ -841,6 +862,10 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
         'allocation': allocation,
         'yard_policy': yard_policy,
         'dock_policy': dock_policy,
+        # The door-team cap, already validated above.  None = uncapped; the dealing rule
+        # reads it in BOTH allocation modes, because the cap is the trailer's, not the
+        # dealing rule's.
+        'door_team': door_team,
         # The gate's two days-denominated knobs.  Explicit None tests, not `or`:
         # a 0.0 threshold (everything overdue from arrival) is a legal sweep point
         # that `or` would silently revert to the default.

@@ -781,13 +781,18 @@ class ReorderMixin:
         # and fresh stagings alike): the allocation preference and the handoff order.
         work_order = transit.dock_order(ctx)
 
-        # 3. the unload, per the allocation mode.
+        # 3. the unload, per the allocation mode.  The DOOR-TEAM CAP is trailer physics
+        #    (at most `cap` receivers can support one trailer's unload and pack at once),
+        #    so it is read here once and applies in BOTH modes; None is today's uncapped
+        #    dealing, byte-identically.  Only the standing transit carries it -- the v1
+        #    path never reaches this method and never reads the knob.
+        cap = getattr(transit, 'door_team', None)
         if getattr(transit, 'allocation', 'merged') == 'split':
             done = self._unload_split(dock, transit, deadline, epoch,
-                                      work_order, yard_next)
+                                      work_order, yard_next, cap)
         else:
             done = self._unload_merged(dock, transit, deadline, epoch,
-                                       work_order, yard_next)
+                                       work_order, yard_next, cap)
 
         # 4. the canonical handoff, with the per-unit ledger flip.  `dock.seconds`
         #    accrues HERE, in canonical order, for both allocation modes: summed in
@@ -827,19 +832,25 @@ class ReorderMixin:
         self._yard_drains.append(
             (ctx.yard_depth, ctx.free_doors, transit.yard_depth, left))
 
-    def _unload_merged(self, dock, transit, deadline, epoch, work_order, yard_next):
+    def _unload_merged(self, dock, transit, deadline, epoch, work_order, yard_next,
+                       cap: int | None = None):
         """The 'merged' pooled gang: v1's physics kept as the verification bridge.
 
         One crew works trailers strictly in dock-rank order, completing the top-ranked
         first; a freed door pulls the frozen-ranking-next trailer, which joins the END of
         the work list.  In the degenerate configuration (FIFO, doors >= every trailer, no
         cap) the charge sequence is exactly the v1 drain's — the lockstep pin.
+        Under a door-team `cap` the gang IS one team of `cap` on one trailer — the cap is
+        a property of the trailer, not of the dealing rule — so the rest of the crew
+        idles; None keeps the whole crew, byte-identically.
         Returns [(trailer, [(item, t0, dur, worker), ...])] in canonical drain order.
         """
         done: list = [(t, []) for t in work_order]
         # A team of everybody IS the pooled gang; charge_team so `seconds` accrues at
         # the handoff (canonical order) rather than here — see that loop's comment.
         gang = list(range(dock.crew_size))
+        if cap is not None:
+            gang = gang[:cap]
         idx = 0
         while idx < len(done):
             trailer, recs = done[idx]
@@ -867,7 +878,8 @@ class ReorderMixin:
             idx += 1
         return done
 
-    def _unload_split(self, dock, transit, deadline, epoch, work_order, yard_next):
+    def _unload_split(self, dock, transit, deadline, epoch, work_order, yard_next,
+                      cap: int | None = None):
         """The 'split' door teams: the standing model's own physics.
 
         At ctx-freeze the workers are DEALT across staged trailers in dock-priority
@@ -882,6 +894,26 @@ class ReorderMixin:
         worker-ALLOCATION preference: decisive when workers < staged trailers, graded
         otherwise.
 
+        THE DOOR-TEAM CAP (`cap`; None = uncapped, the dealing above verbatim).  At most
+        `cap` receivers support one trailer's unload and pack at once, every worker
+        additive, the steps inside an unload not modelled.  The deal stays EVEN and each
+        team is then cut to `cap`; the cut-off workers simply are not dealt, and idle for
+        the drain.  Even, not greedy: 22 receivers over three staged trailers deal 8/7/7,
+        and the cap binds only when the even division would put more than `cap` on a door
+        (22 over two doors is 10/10, with two standing idle until a door frees).  A greedy
+        deal — 10/10/2 — is the rule 25 rejected: it makes the cap bind at every door
+        count and turns dock priority into a capacity grant.
+
+        The reassignment respects the cap by SPREADING a freed team over the (1)-(2)-(3)
+        targets in order, each taking up to its own room, instead of handing the whole team
+        to one.  That matters at step (3), where the target already has a team: the
+        pre-cap code extended it unconditionally, which under a cap would put `2 x cap`
+        receivers on one trailer.  Uncapped the room is unbounded, so the head of the list
+        takes the whole team and the None path is byte-identical rather than merely
+        equivalent.  Nothing is dealt to a cut worker later: whenever a target has room it
+        is a FRESH staging with room `cap`, and a freed team that was cut is itself exactly
+        `cap`, so it fills the door alone.
+
         The loop advances whichever team can start soonest, so charges interleave in
         true clock order and a reassignment always sees every earlier emptying's effect.
         Returns the same shape as `_unload_merged`, in the same canonical order.
@@ -893,7 +925,7 @@ class ReorderMixin:
         if alive:
             crew = list(range(dock.crew_size))
             for trailer, team in zip(alive, partition(crew, len(alive))):
-                teams[id(trailer)] = team
+                teams[id(trailer)] = team if cap is None else team[:cap]
         while True:
             best = None
             best_ns = 0.0
@@ -934,15 +966,27 @@ class ReorderMixin:
                 recs_of[id(nxt)] = recs
             live = [t for t in alive
                     if t.pending is not None and t.taken < len(t.pending)]
-            target = next((t for t in live if not teams.get(id(t))), None)      # (1)
-            if target is None and nxt is not None and nxt in live:              # (2)
-                target = nxt
-            if target is None and live:                                         # (3)
-                pos = {id(t): i for i, t in enumerate(alive)}
-                target = min(live, key=lambda t: (len(teams.get(id(t), ())),
-                                                  pos[id(t)]))
-            if target is not None:
-                teams[id(target)].extend(freed)
+            # The reassignment order, (1)-(2)-(3) as one ranked list rather than one
+            # target: uncapped, the head of the list takes the whole team (the single
+            # target the three steps used to resolve to); under the cap each takes up to
+            # its room and the tail spills to the next.
+            pos = {id(t): i for i, t in enumerate(alive)}
+            targets = [t for t in live if not teams.get(id(t))]                 # (1)
+            if nxt is not None and nxt in live and nxt not in targets:          # (2)
+                targets.append(nxt)
+            targets.extend(sorted((t for t in live if t not in targets),        # (3)
+                                  key=lambda t: (len(teams.get(id(t), ())),
+                                                 pos[id(t)])))
+            for target in targets:
+                if not freed:
+                    break
+                room = (len(freed) if cap is None
+                        else max(0, cap - len(teams.get(id(target), ()))))
+                if room <= 0:
+                    continue
+                teams[id(target)].extend(freed[:room])
+                freed = freed[room:]
+            # Anything still in `freed` idles: every staged trailer with work is at its cap.
         return done
 
     def _drain_putaway(self, deadline: float | None = None) -> None:

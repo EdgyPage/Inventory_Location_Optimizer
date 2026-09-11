@@ -376,6 +376,33 @@ class EvalContext:
                 self._fee_days = float(recorded)
         return self._fee_days
 
+    def dock_ceiling(self) -> float | None:
+        """`cap x doors / crew` — the share of the derived receiving crew the dock could
+        have employed AT ONCE, or None when the run declared no door-team cap.
+
+        The read-out the door-team cap owes ("Decide the contention regime under the derived
+        crew", 4): receiver utilization stays a REPORTED number and the crew stays as the
+        staffing record derives it, so when a capped dock cannot seat the whole crew, the
+        receiving row's realized share has a ceiling that is PHYSICS rather than a staffing
+        error. Below 1.0 the dock is the narrower resource; at or above it the cap never
+        binds and the number is inert.
+
+        None means uncapped, and that is honest for every run before the cap existed as well
+        as for one that chose it — unlike `fee_threshold_days`, whose default is a real
+        number and so has to say when it is falling back. Reads the values stamped onto
+        `sim_result` (CONFIG is not a channel to a spawned analysis worker) and the crew off
+        the staffing record, so it answers None on a flag-off run, which derives no crew.
+        """
+        cap = self.sim_result.get('inbound_door_team')
+        doors = self.sim_result.get('inbound_dock_doors')
+        if cap is None or not doors:
+            return None
+        exp = self.staffing_expectations()
+        crew = int(((exp or {}).get('departments') or {}).get('recv', {}).get('crew') or 0)
+        if crew <= 0:
+            return None
+        return float(int(cap) * int(doors)) / float(crew)
+
 
 class AggregateContext:
     """Cross-profile context for one pick-config group (consumes the series.json list)."""

@@ -832,6 +832,15 @@ def main():
         help='Crew <- which STAGED trailer (the dock-priority registry). Under door teams '
              'this is a worker-allocation preference.')
     parser.add_argument(
+        '--inbound-door-team', type=_positive_int,
+        default=CONFIG['global']['inbound_door_team'], metavar='N',
+        help='TRAILER PHYSICS: at most N receivers support one trailer at once, every one '
+             'additive. Applies in BOTH allocation modes (the cap belongs to the trailer, '
+             'not the dealing rule). The deal stays EVEN and is then cut, so 22 receivers '
+             'over three staged trailers is 8/7/7 and over two is 10/10 with two idle until '
+             'a door frees. Omit for uncapped — the whole crew may stand at one door. '
+             'Requires --inbound-standing-yard, which is the only path that deals teams.')
+    parser.add_argument(
         '--inbound-fee-threshold-days', type=_nonneg_float,
         default=CONFIG['global']['inbound_fee_threshold_days'], metavar='DAYS',
         help='Free yard days before a trailer accrues overage. ONE knob, TWO readers — the '

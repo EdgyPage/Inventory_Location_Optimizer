@@ -157,7 +157,20 @@ The sub-crew dealt to one staged trailer for a drain, in dock-priority order; a 
 reassigns to unmanned staged trailers first. What makes several trailers unload at once.
 Capped: at most a declared number of receivers can support one trailer's unload and pack at
 once (ten on the campaign), every one additive; the rest work other doors or idle. The steps
-inside an unload are not modelled.
+inside an unload are not modelled. The deal is EVEN and then cut to the cap, so the cap binds
+only when an even split would exceed it.
+
+**Dock ceiling**:
+The share of the derived receiving crew the dock can seat at once — the door-team cap times
+the doors, over the crew. A reported configuration fact with no direction and no band: below
+100% the dock is the narrower resource, so a receiving utilization under its band is physics
+rather than a staffing error. Uncapped there is no ceiling.
+_Avoid_: door utilization (that is occupied door-time, a different question)
+
+**Receiver busy share**:
+Receiver-seconds charged over crew-days — how much of the receiving crew's granted time was
+worked. Read beside door utilization, never instead of it: a capped dock can saturate its
+doors while the crew idles, and saturate the crew with doors to spare.
 
 ### Priorities
 

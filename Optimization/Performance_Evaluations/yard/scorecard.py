@@ -38,8 +38,8 @@ from Optimization.Performance_Evaluations.common import chartkit, io
 from Optimization.Performance_Evaluations.common.style import _stitle
 from Optimization.Performance_Evaluations.common.units import SECONDS_PER_DAY
 
-_COLS = ('arm', 'trailers', 'censored', 'doors', 'door util', 'yard depth (mean/max)',
-         'free doors (mean)', 'drains bound')
+_COLS = ('arm', 'trailers', 'censored', 'doors', 'door util', 'receiver busy',
+         'dock ceiling', 'yard depth (mean/max)', 'free doors (mean)', 'drains bound')
 
 
 def _arm_span_days(ctx, key) -> float:
@@ -52,10 +52,59 @@ def _arm_span_days(ctx, key) -> float:
     return max(0.0, end - start) / float(SECONDS_PER_DAY)
 
 
+def _receiver_busy(ctx, key) -> str:
+    """The crew's BUSY SHARE: receiver-seconds charged ÷ (crew × day_seconds × WORK DAYS).
+
+    The door-team cap's own read-out ("Decide the contention regime under the derived crew",
+    4), and deliberately beside door utilization rather than in place of it: doors can be
+    saturated while the crew idles (a capped dock cannot seat everyone) and the crew can be
+    saturated with doors to spare. Neither direction is better, which is why this lives in
+    the inspection table and is not a Quantity.
+
+    THE DENOMINATOR IS WORK DAYS, not the arm's calendar span, and the distinction is not
+    pedantic: the sim clock only advances through working hours, so an arm of 40 work days on
+    an 8-hour day spans 13.3 CALENDAR days. Dividing a crew's seconds by the calendar span
+    over-reads the share by exactly the ratio of the two — it reported 184% busy on the first
+    real run this was rendered against, which is how it was caught. `_arm_span_days` is the
+    right denominator for DOOR utilization (door spans are calendar time) and the wrong one
+    here, which is why the two read-outs beside each other do not share one.
+
+    Counted as DISTINCT `work_day` values rather than batches, so it stays right if a day
+    ever releases more than one batch, and it is the same count
+    `equilibrium._utilization_clause` grants against — the two reports cannot mean different
+    things by "busy". '-' when the run derived no crew (flag-off) or recorded no receiving
+    seconds; never 0%, which is a different and stronger claim.
+    """
+    exp = ctx.staffing_expectations()
+    if not exp:
+        return '-'
+    crew = int(((exp.get('departments') or {}).get('recv') or {}).get('crew') or 0)
+    S = float(exp.get('day_seconds') or 0.0)
+    if crew <= 0 or S <= 0.0:
+        return '-'
+    bdf = ctx.batch_df(key)
+    if bdf.empty or 'recv_seconds' not in bdf.columns or 'work_day' not in bdf.columns:
+        return '-'
+    n_days = int(bdf['work_day'].nunique())
+    if n_days <= 0:
+        return '-'
+    worked = float(np.nansum(bdf['recv_seconds'].values))
+    return f'{worked / (crew * S * n_days) * 100.0:.0f}%'
+
+
 def _row(ctx, s, tdf, ddf):
     n = len(tdf)
     cens = int(tdf['censored'].sum()) if n else 0
-    doors = int(ddf['free_doors_start'].max()) if not ddf.empty else 0
+    # RECORDED first, derived second. The derivation below is exact only when the run's
+    # first drain is in the frame, so on a resumed arm it is a lower bound — and printing a
+    # lower-bound door count beside a ceiling computed from the recorded one would put two
+    # different door counts in one table. The run spec records the count now (the run-shape
+    # layer), so the fallback is for runs that predate the recording, exactly as the fee
+    # threshold's is.
+    doors = int(ctx.sim_result.get('inbound_dock_doors') or 0)
+    derived_doors = int(ddf['free_doors_start'].max()) if not ddf.empty else 0
+    if doors <= 0:
+        doors = derived_doors
     span = _arm_span_days(ctx, s['key'])
     door_days = float(np.nansum(tdf['door_span_days'].values)) if n else 0.0
     # '-' rather than 0% when the denominator is missing: a utilization of zero is a real
@@ -68,8 +117,12 @@ def _row(ctx, s, tdf, ddf):
     free = '-' if ddf.empty else f"{ddf['free_doors_start'].mean():.1f}"
     bound = ('-' if ddf.empty
              else f"{int(ddf['binding_cut'].sum())} of {len(ddf)}")
+    # The ceiling is a RUN fact (cap × doors ÷ crew), the same on every row; it is printed
+    # per row anyway so a reader comparing two arms never has to carry it in their head.
+    ceil_v = ctx.dock_ceiling()
+    ceiling = 'uncapped' if ceil_v is None else f'{ceil_v * 100.0:.0f}%'
     return [_stitle(s), str(n), f'{cens}' if cens else '0', str(doors) if doors else '-',
-            util, depth, free, bound]
+            util, _receiver_busy(ctx, s['key']), ceiling, depth, free, bound]
 
 
 @evaluation(key='yard.scorecard', label='Yard read-outs with no direction',
@@ -102,9 +155,13 @@ def render(ctx, params):
         hc.set_facecolor('#34495e')
         hc.set_text_props(color='white', fontweight='bold', fontsize=7)
     ch.title('Yard read-outs',
-             'inspection only — none of these has a better direction · door count derived '
-             'as max(free doors at freeze), so utilization is an upper bound on a resumed '
-             f'arm · free threshold {ctx.fee_threshold_days():g} d')
+             'inspection only — none of these has a better direction · door count recorded '
+             'by the run (derived as max free doors at freeze only on a run that predates '
+             'the recording, where utilization is then an upper bound) · receiver busy = '
+             'receiver-seconds ÷ crew × WORK days (door util is over CALENDAR span — the '
+             'clock only runs in working hours) · dock ceiling = cap × doors ÷ crew, the share '
+             'of the crew the dock can seat at once · free threshold '
+             f'{ctx.fee_threshold_days():g} d')
     out = io.out_dir(ctx)
     ch.save(os.path.join(out, 'absolute_yard_scorecard.png'), view='absolute')
     ctx.log.info(f'  yard scorecard: {len(rows)} arms -> {out}')

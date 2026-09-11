@@ -120,6 +120,15 @@ def _sim_result_from_meta(meta: dict) -> dict:
     # already restored the recorded value into CONFIG in THIS (parent) process; None here means
     # the run predates recording, which is what makes the context's fallback fire and say so.
     sim_result['inbound_fee_threshold_days'] = CONFIG['global'].get('inbound_fee_threshold_days')
+    # The DOCK'S PARALLELISM, for the same reason and through the same channel: the door-team
+    # cap and the door count together say how much of the derived crew the dock could employ
+    # at once (`cap x doors`), which is what tells a receiving utilization below its band from
+    # a physics ceiling ("Decide the contention regime under the derived crew", 4). Both are
+    # run-level CONFIG, so neither reaches a SPAWNED evaluation any other way. None on an
+    # uncapped run, which is every run before the cap existed -- and None is honest there,
+    # because those runs really were uncapped.
+    sim_result['inbound_door_team'] = CONFIG['global'].get('inbound_door_team')
+    sim_result['inbound_dock_doors'] = CONFIG['global'].get('inbound_dock_doors')
     # THE STAFFING RECORD, whole, as one key -- the sixth seam.  `EvalContext.k_pickers` reads
     # ITS channel's count off `inputs`, which is why the channel rides beside it (a pre-channel
     # meta is a store-only run).  Stamping the entire record rather than one number means the
