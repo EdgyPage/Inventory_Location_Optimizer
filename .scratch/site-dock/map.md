@@ -410,7 +410,10 @@ BEFORE anything runs: the inbound-optimization map resumes at
   seated, so what remains of 05 is the composite that answers through it), and **16's is DONE**
   (10's two byte-identical precursors are in, so what remains of 10 is the reconciler alone), and
   **17's is DONE** (out of 15's within-leaf half — so what remains of 15 is the site-scope work
-  alone), leaving **no open build ticket on this map**;
+  alone). The KEYSTONE has now graduated out of this lump as
+  [Build the coupled work unit and its two-leaf worker](issues/18-build-the-coupled-work-unit.md),
+  because almost every patch below says in so many words that it needs a second leaf to exist and
+  that ticket is what makes one exist; everything else here stays fog until it lands.
   **12's are DONE**, so what remains of 04 is the pool itself and not its seams, and **14's is
   DONE**, so what remains of 06 is the SPEC side alone. The
   ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
