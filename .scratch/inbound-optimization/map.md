@@ -398,6 +398,15 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   Graduated: [Cap the door team](issues/28-cap-the-door-team.md) (task, frontier); the
   channel coupling at the dock is beyond this destination -- Out of scope, with the successor
   seed. The campaign holds behind it: 27 and 28 -> the site-dock effort -> 26 -> 24 -> phase 1.
+- [Chain the supplier lead before the trailer](issues/27-chain-the-supplier-lead-before-the-trailer.md):
+  **BUILT**, commit `8b6796b4` -- the flag-off batch countdown now sits in front of the trailer's loading, inside
+  `TrailerTransit` (`_at_site`, ticked by `advance`, flushed in fire order before every load and
+  at the top of both `release` bodies), `dispatched_s` stamped at the drain the order LOADS in
+  so the two stages add; the census counts the site queue; department-calibration 37's interim
+  refusal is deleted. Byte-identical at lead 0 drain by drain, against a pre-chain stand-in AND
+  a digest pinned from `6eaf30fc`; the two-SKU acceptance runs through the real
+  `check_reorders`. [Cap the door team](issues/28-cap-the-door-team.md) is now the frontier;
+  26 waits on it and on the site-dock coupling.
 
 ## Not yet specified
 
