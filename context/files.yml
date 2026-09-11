@@ -1053,7 +1053,7 @@ files:
       - {name: "main", file: "Optimization/run_map_precompute.py", kind: "function"}
     notes: ""
   "Optimization/run_restock_selection.py":
-    purpose: "phase 1's hand-off: rank the restock rules, choose phase 2's arms."
+    purpose: "phase 1's hand-off: rank the restock rules, pair them for phase 2."
     layer: "optimization"
     key_symbols:
       - {name: "METRIC_FIELD", file: "Optimization/run_restock_selection.py", kind: "const"}
@@ -1061,6 +1061,11 @@ files:
       - {name: "DEFAULT_K", file: "Optimization/run_restock_selection.py", kind: "const"}
       - {name: "DEFAULT_EXTENSION_CAP", file: "Optimization/run_restock_selection.py", kind: "const"}
       - {name: "BASELINE_RULE", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "STORE_CHANNEL", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "FULFILLMENT_CHANNEL", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "RULE_PAIR_ORDER", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "BASELINE_RULE_PAIR", file: "Optimization/run_restock_selection.py", kind: "const"}
+      - {name: "PUT_REGIME", file: "Optimization/run_restock_selection.py", kind: "const"}
       - {name: "select", file: "Optimization/run_restock_selection.py", kind: "function"}
       - {name: "main", file: "Optimization/run_restock_selection.py", kind: "function"}
     notes: ""
@@ -4569,6 +4574,16 @@ files:
       - {name: "test_all_seventeen_rules_are_recorded_not_just_the_cut", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_a_multi_cell_run_is_refused", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_an_unanalyzed_run_says_what_to_run", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_rule_pairs_are_the_rank_diagonal_not_the_sorted_arm_set", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_fifo_rule_pair_rides_along_outside_k", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_ragged_rankings_zip_to_the_common_length_and_say_so", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_one_channel_run_produces_no_rule_pairs_and_fabricates_no_rider", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_rule_pair_is_runnable_only_if_both_members_are_faithful", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_extension_cap_is_a_union_across_channels", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_channel_consumption_order_is_recorded_because_it_is_a_decision", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_coupled_run_root_is_refused", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_guard_is_inert_on_every_run_that_exists_today", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_put_regime_is_stamped_because_there_is_no_join_to_gate", file: "Tests/unit/test_restock_selection.py", kind: "function"}
     notes: ""
   "Tests/unit/test_rng_determinism.py":
     purpose: "test_rng_determinism.py"

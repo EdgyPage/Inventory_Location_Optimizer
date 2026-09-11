@@ -8936,6 +8936,11 @@
       "src": "Optimization/run_restock_selection.py::select"
     },
     {
+      "dst": "Optimization/run_restock_selection.py::_rule_pairs",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
       "dst": "Optimization/run_restock_selection.py::_tree_for",
       "kind": "calls",
       "src": "Optimization/run_restock_selection.py::select"
@@ -31077,6 +31082,14 @@
     },
     {
       "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::BASELINE_RULE_PAIR",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "BASELINE_RULE_PAIR",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
       "id": "Optimization/run_restock_selection.py::DEFAULT_EXTENSION_CAP",
       "kind": "const",
       "module": "Optimization/run_restock_selection.py",
@@ -31093,6 +31106,14 @@
     },
     {
       "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::FULFILLMENT_CHANNEL",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "FULFILLMENT_CHANNEL",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
       "id": "Optimization/run_restock_selection.py::METRIC_FIELD",
       "kind": "const",
       "module": "Optimization/run_restock_selection.py",
@@ -31105,6 +31126,30 @@
       "kind": "const",
       "module": "Optimization/run_restock_selection.py",
       "name": "METRIC_QUANTITY",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::PUT_REGIME",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "PUT_REGIME",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::RULE_PAIR_ORDER",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "RULE_PAIR_ORDER",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::STORE_CHANNEL",
+      "kind": "const",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "STORE_CHANNEL",
       "public": true
     },
     {
@@ -31153,6 +31198,14 @@
       "kind": "function",
       "module": "Optimization/run_restock_selection.py",
       "name": "_rule_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_restock_selection.py",
+      "id": "Optimization/run_restock_selection.py::_rule_pairs",
+      "kind": "function",
+      "module": "Optimization/run_restock_selection.py",
+      "name": "_rule_pairs",
       "public": false
     },
     {

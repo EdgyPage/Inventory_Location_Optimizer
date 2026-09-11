@@ -9889,7 +9889,7 @@
     },
     "Optimization/run_restock_selection.py": {
       "decorators": [],
-      "doc": "run_restock_selection.py \u2014 phase 1's hand-off: rank the restock rules, choose phase 2's arms.\n\nThe inbound funnel is two phases, not one product sweep (\"Design the phased funnel\",\n`.scratch/inbound-optimization`).  Phase 1 is a fresh, inbound-OFF run of the full assignment\nsuite whose ONLY job is to rank the restock rules; phase 2 sweeps the ten inbound policies over\nthe rules phase 1 chose.  This module is the seam between them, and it writes the one artifact\nthat carries the decision:\n\n    <phase-1 run root>/restock_selection.json\n\n**The unit is a restock RULE, not an arm.**  `strategies.CHANNEL_RESTOCKS` filters on\n`Strategy.restock`, so choosing `tmin` necessarily takes both `uni_tmin_norsl` and\n`opt_tmin_norsl`: 17 rules, each costing 2 arms.  \"Top-k arms\" is not an expressible unit, and\na selector that ranked arms would hand phase 2 an arm set it cannot configure.\n\n**The metric is TOTAL PRODUCTION HOURS** \u2014 unload + put + pick, the objective the whole effort\nis about (\"Define the inbound objective\").  It reaches this module as `ss_prod_total` in each\nchannel run's `series_json` artifact: a steady-state MEAN of `production_seconds` per batch,\nresolved through the contract rather than by name.  Ranking on\npick hours alone \u2014 all that `channel_rollup` and `whatif_labor` offer \u2014 would systematically\nfavour arms that buy pick time with put-away time, which is the exact trade phase 2 measures.\n\nThree things about that metric decide the shape of the code below:\n\n* **Do NOT read the cross-profile summary CSV.**  `_aggregate_series` normalizes each profile to\n  its own baseline, so that file holds RATIOS; `total_production_time` is deliberately absent\n  from `AGGREGATE_ORDER` for the same reason.  Hours are additive and physical, ranks are not,\n  so this module sums `ss_prod_total` over the profiles' series documents itself.\n* **Absence must be LOUD.**  The metric is capability-gated: a run with no `work_events` rows\n  produces no `total_production_time` at all and `ss_prod_total` comes out NaN \u2014 correctly, an\n  unmeasured leg is not a leg measured at zero.  A selector that read a missing value as a tie\n  would rank all seventeen rules on nothing, so a rule with any missing or non-finite reading is\n  EXCLUDED from the ranking and reported by name.\n* **`fifo` is mandatory, and is not one of the k.**  `run_channel_rollup._baseline_entry` needs\n  it as the analysis baseline, and `uni_fifo`/`opt_fifo` are byte-identical runs, which makes\n  the same row phase 2's order-blind negative control.  It rides along whether or not it ranks.\n\nRun AFTER `analyze_run` (which writes the series JSONs):\n\n    python -m Optimization.analyze_run <phase-1 run root>\n    python -m Optimization.run_restock_selection <phase-1 run root>\n\nThen copy the chosen `arms` into `whatif_config.PHASE2_ARMS` and run phase 2 with\n`--spec inbound_policies`.  The copy is deliberate and manual: the arm set is a decision a\nperson signs off on, and a spec that read a JSON file at import would make it invisible.",
+      "doc": "run_restock_selection.py \u2014 phase 1's hand-off: rank the restock rules, pair them for phase 2.\n\nThe inbound funnel is two phases, not one product sweep (\"Design the phased funnel\",\n`.scratch/inbound-optimization`).  Phase 1 is a fresh, inbound-OFF run of the full assignment\nsuite whose ONLY job is to rank the restock rules; phase 2 sweeps the ten inbound policies over\nthe rules phase 1 chose.  This module is the seam between them, and it writes the one artifact\nthat carries the decision:\n\n    <phase-1 run root>/restock_selection.json\n\n**The unit is a restock RULE, not an arm.**  `strategies.CHANNEL_RESTOCKS` filters on\n`Strategy.restock`, so choosing `tmin` necessarily takes both `uni_tmin_norsl` and\n`opt_tmin_norsl`: 17 rules, each costing 2 arms.  \"Top-k arms\" is not an expressible unit, and\na selector that ranked arms would hand phase 2 an arm set it cannot configure.\n\n**The metric is TOTAL PRODUCTION HOURS** \u2014 unload + put + pick, the objective the whole effort\nis about (\"Define the inbound objective\").  It reaches this module as `ss_prod_total` in each\nchannel run's `series_json` artifact: a steady-state MEAN of `production_seconds` per batch,\nresolved through the contract rather than by name.  Ranking on\npick hours alone \u2014 all that `channel_rollup` and `whatif_labor` offer \u2014 would systematically\nfavour arms that buy pick time with put-away time, which is the exact trade phase 2 measures.\n\nThree things about that metric decide the shape of the code below:\n\n* **Do NOT read the cross-profile summary CSV.**  `_aggregate_series` normalizes each profile to\n  its own baseline, so that file holds RATIOS; `total_production_time` is deliberately absent\n  from `AGGREGATE_ORDER` for the same reason.  Hours are additive and physical, ranks are not,\n  so this module sums `ss_prod_total` over the profiles' series documents itself.\n* **Absence must be LOUD.**  The metric is capability-gated: a run with no `work_events` rows\n  produces no `total_production_time` at all and `ss_prod_total` comes out NaN \u2014 correctly, an\n  unmeasured leg is not a leg measured at zero.  A selector that read a missing value as a tie\n  would rank all seventeen rules on nothing, so a rule with any missing or non-finite reading is\n  EXCLUDED from the ranking and reported by name.\n* **`fifo` is mandatory, and is not one of the k.**  `run_channel_rollup._baseline_entry` needs\n  it as the analysis baseline, and `uni_fifo`/`opt_fifo` are byte-identical runs, which makes\n  the same row phase 2's order-blind negative control.  It rides along whether or not it ranks.\n\n**Phase 2 runs the COUPLED site dock, so the hand-off is a diagonal of RULE PAIRS.**  Under\none site dock a work unit finalizes both channel leaves at once, so phase 2 cannot sweep the\ntwo channels' rule sets independently: it needs to be told which store rule runs beside which\nfulfillment rule.  The pairing is the rank diagonal \u2014 store's 1st with fulfillment's 1st, and\nso on \u2014 because the campaign's question is \"does space-aware inbound beat FIFO\"; the arm pair\nis a CONTROL, not an axis, and the cross product would spend ~4x the wall confounding the\ninbound comparison with a placement interaction nobody asked about.  Hence `rule_pairs` in the\nartifact, built from the ORDERED `chosen` lists; `arms` keeps its per-channel meaning, for the\nleaf projections (\"Re-shape the funnel for arm pairs\", `.scratch/site-dock`).\n\n**Two consequences of that coupling land here rather than in phase 2:**\n\n* **The extension cap counts the UNION of families across both channels.**  Extending\n  `_gain_bundle_for` is work per FAMILY, site-wide \u2014 both channels choosing `map` costs one\n  extension, not two \u2014 so a per-channel cap of 3 could silently commit the project to six.\n  Channels are consumed in this module's existing deterministic order and that order is\n  RECORDED, because an alphabetical tiebreak between two unrelated hour scales is a decision,\n  not an implementation detail.\n* **Phase 1 is uncoupled and phase 2 is not, so hours do not cross the boundary.**  The\n  artifact stamps `put_regime: 'per-leaf'` to say so.  Nothing in the codebase reads two run\n  roots, so there is no join to gate \u2014 the stamp and the published caveat are the whole of how\n  the asymmetry is carried.  The one reachable mistake IS gated: pointed at a coupled run root,\n  `select()` refuses rather than emitting a hand-off indistinguishable from a real one.\n\nRun AFTER `analyze_run` (which writes the series JSONs):\n\n    python -m Optimization.analyze_run <phase-1 run root>\n    python -m Optimization.run_restock_selection <phase-1 run root>\n\nThen copy `rule_pairs.chosen` into phase 2's rule-pair list and run phase 2 with\n`--spec inbound_policies`.  The copy is deliberate and manual: the rule set is a decision a\nperson signs off on, and a spec that read a JSON file at import would make it invisible.",
       "kind": "module",
       "signature": null
     },
@@ -9899,6 +9899,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'fifo'"
+    },
+    "Optimization/run_restock_selection.py::BASELINE_RULE_PAIR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(BASELINE_RULE, BASELINE_RULE)"
     },
     "Optimization/run_restock_selection.py::DEFAULT_EXTENSION_CAP": {
       "decorators": [],
@@ -9914,6 +9921,13 @@
       "signature": null,
       "value_preview": "5"
     },
+    "Optimization/run_restock_selection.py::FULFILLMENT_CHANNEL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'fulfillment'"
+    },
     "Optimization/run_restock_selection.py::METRIC_FIELD": {
       "decorators": [],
       "doc": null,
@@ -9928,6 +9942,27 @@
       "signature": null,
       "value_preview": "'total_production_time'"
     },
+    "Optimization/run_restock_selection.py::PUT_REGIME": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'per-leaf'"
+    },
+    "Optimization/run_restock_selection.py::RULE_PAIR_ORDER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(STORE_CHANNEL, FULFILLMENT_CHANNEL)"
+    },
+    "Optimization/run_restock_selection.py::STORE_CHANNEL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'store'"
+    },
     "Optimization/run_restock_selection.py::_REPO_ROOT": {
       "decorators": [],
       "doc": null,
@@ -9937,10 +9972,10 @@
     },
     "Optimization/run_restock_selection.py::_choose": {
       "decorators": [],
-      "doc": "The top-k rules, with the extension cap applied and the `fifo` rider added.\n\nThe cap is 08's: only `FAITHFUL_GAIN_FAMILIES` have a faithful gain bundle today, and every\nother family refuses at the first drain by design.  If the top k holds more unfaithful\nfamilies than the cap allows, take the highest-ranked `extension_cap` of them and backfill\nfrom the next faithful rules down \u2014 so the cost of phase 2 is bounded by a decision made\nhere rather than discovered when an arm dies mid-sweep.",
+      "doc": "The top-k rules, with the extension cap applied and the `fifo` rider added.\n\nThe cap is 08's: only `FAITHFUL_GAIN_FAMILIES` have a faithful gain bundle today, and every\nother family refuses at the first drain by design.  If the top k holds more unfaithful\nfamilies than the cap allows, take the highest-ranked `extension_cap` of them and backfill\nfrom the next faithful rules down \u2014 so the cost of phase 2 is bounded by a decision made\nhere rather than discovered when an arm dies mid-sweep.\n\n**`committed` is the UNION, and it is mutated.**  It carries the distinct unfaithful\nfamilies already committed by the channels consumed before this one, and this channel adds\nto it.  Extending `_gain_bundle_for` is work per FAMILY, site-wide, so a family the other\nchannel already paid for is free here, and the cap bounds the total bill rather than one\nchannel's share of it \u2014 a per-channel cap of N can commit 2N, which is not bounding the\nthing the cap exists to bound.  The caller passes the same list to every channel and\nrecords both the union and the ORDER the channels were consumed in: one channel's choice\nnow depends on the other's through an order that means nothing physically, and there is no\norder-free alternative, because the two rankings share units but not scales and so admit no\nglobal rank to allocate against.  Declared and recorded beats arbitrary and hidden.",
       "is_async": false,
       "kind": "function",
-      "signature": "(ranking, k: int, extension_cap: int, log) -> dict"
+      "signature": "(ranking, k: int, extension_cap: int, log, committed: list[str]) -> dict"
     },
     "Optimization/run_restock_selection.py::_finite": {
       "decorators": [],
@@ -9969,6 +10004,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(arm_key: str) -> str | None"
+    },
+    "Optimization/run_restock_selection.py::_rule_pairs": {
+      "decorators": [],
+      "doc": "The diagonal: rank-aligned `(store_rule, fulfillment_rule)`, store first.\n\nBuilt from the two channels' ORDERED `chosen` lists, never from `arms` \u2014 `arms` is\n`sorted(set(...))` and the sort destroys rank order, which is the only thing a diagonal\nreads.  The ranking itself stays per channel: the two hour scales are not comparable (the\nchannels' receiving loads differ ~7x, the same fact behind `PHASE2_THRESHOLD_DAYS`), so the\ndiagonal is applied AFTER ranking rather than by merging the rankings.\n\n**Ragged rankings zip to the common length and the artifact says so.**  The two lists\ngenuinely can differ in length \u2014 a rule disqualified for a missing reading, a cap that\nbackfills on one side only, or `len(chosen) < k`.  The zip takes the common length, logs\nloudly and stamps `complete: false` with the reason; the caller still WRITES, because the\nranking is the valuable part and a human needs to read it to decide between re-running\nphase 1 and accepting a shorter campaign.  The refusal that costs money belongs at the\nphase-2 launcher, not here.\n\n**A one-channel run produces no pairs at all, and does not fabricate the rider.**  A\ndiagonal needs two rankings; a pair list holding nothing but a manufactured\n`('fifo', 'fifo')` would look like a (very short) campaign rather than like the\nstore-only run it came from.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(channels: dict, log) -> dict"
     },
     "Optimization/run_restock_selection.py::_tree_for": {
       "decorators": [],

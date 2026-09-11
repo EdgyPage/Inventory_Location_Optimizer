@@ -14,14 +14,25 @@
 <h1><span class="kind kind-function">function</span> <code>_choose</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_restock_selection_py.html"><code>Optimization/run_restock_selection.py</code></a></p>
 
-<pre class="sig"><code>def _choose(ranking, k: int, extension_cap: int, log) -&gt; dict</code></pre>
+<pre class="sig"><code>def _choose(ranking, k: int, extension_cap: int, log, committed: list[str]) -&gt; dict</code></pre>
 <section class="doc">The top-k rules, with the extension cap applied and the `fifo` rider added.
 
 The cap is 08&#x27;s: only `FAITHFUL_GAIN_FAMILIES` have a faithful gain bundle today, and every
 other family refuses at the first drain by design.  If the top k holds more unfaithful
 families than the cap allows, take the highest-ranked `extension_cap` of them and backfill
 from the next faithful rules down — so the cost of phase 2 is bounded by a decision made
-here rather than discovered when an arm dies mid-sweep.</section>
+here rather than discovered when an arm dies mid-sweep.
+
+**`committed` is the UNION, and it is mutated.**  It carries the distinct unfaithful
+families already committed by the channels consumed before this one, and this channel adds
+to it.  Extending `_gain_bundle_for` is work per FAMILY, site-wide, so a family the other
+channel already paid for is free here, and the cap bounds the total bill rather than one
+channel&#x27;s share of it — a per-channel cap of N can commit 2N, which is not bounding the
+thing the cap exists to bound.  The caller passes the same list to every channel and
+records both the union and the ORDER the channels were consumed in: one channel&#x27;s choice
+now depends on the other&#x27;s through an order that means nothing physically, and there is no
+order-free alternative, because the two rankings share units but not scales and so admit no
+global rank to allocate against.  Declared and recorded beats arbitrary and hidden.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py__select.html"><code>select</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_restock_selection_py___choose">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_restock_selection.py#:~:text=def%20_choose">Source ↗</a></p>
 </article>
