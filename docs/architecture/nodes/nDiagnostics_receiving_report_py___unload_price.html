@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_unload_price · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_receiving_report_py___unload_price" data-id="Diagnostics/receiving_report.py::_unload_price">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a> <span class="sep">›</span> <span class="here"><code>_unload_price</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_unload_price</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _unload_price(con, db_path: str, where: str, args: dict) -&gt; dict</code></pre>
+<section class="doc">Check 6&#x27;s state: re-price every receive row from the run&#x27;s OWN per-SKU handle term.
+
+`duration - qty * handle_var` must collapse to `per_item + intercept` -- one constant per
+run, carrying no SKU and no quantity. See the module docstring for why that identity holds
+and what a spread would mean.
+
+PER RUN, never across runs: `per_item` and `intercept` come from the run&#x27;s pick config, so
+two runs in one file may legitimately price differently. A per-arm DB holds one run anyway
+(and since the fresh-run branch refuses to `create_run` over a db that already holds one,
+a second is legacy or additive), but the loop is what makes `run_id=None` honest.
+
+Reads `sku_scores` through the caller&#x27;s IMMUTABLE connection rather than through
+`load_sku_scores`, which opens a plain `mode=ro`: that mints `-wal`/`-shm` beside an
+archived DB and cannot remove them (see `_open_ro`), and archived runs are exactly this
+tool&#x27;s subject. The receive rows come through `load_receive_events`, whose own open is
+immutable -- and whose `receive_event_frame` query serves the four columns this needs,
+already ordered, already filtered to `role=&#x27;receive&#x27;` (so repacks arrive included, which
+is the point). A second inline query here would be a second thing to keep in step with
+the DDL.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__load_receive_events.html"><code>load_receive_events</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py___unload_price">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20_unload_price">Source ↗</a></p>
+</article>
+</main>
+</body></html>

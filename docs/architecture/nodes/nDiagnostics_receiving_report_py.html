@@ -38,7 +38,7 @@ and disagreement names which half is wrong.
 Nothing forces those to agree. They share no code below the manager, and each is a plausible
 number on its own.
 
-# ── the five checks, and the specific defect each one catches ─────────────────────
+# ── the six checks, and the specific defect each one catches ──────────────────────
 
 1. **Seconds agree.** `SUM(duration) WHERE role=&#x27;receive&#x27;` against `SUM(recv_seconds)`.
    Catches a dropped `we.extend`, a `bs.recv_seconds` assignment that never ran (the skipped
@@ -68,8 +68,66 @@ number on its own.
    Then `SUM(duration) WHERE role=&#x27;put&#x27;` and the same query on `event_type` disagree, and
    there is nothing to point at. Every put and receive row must carry an event_type equal
    to its role, and no other row may claim one -- which also catches a put row typed &#x27;pick&#x27;.
-   Pick rows are exempt: picking has its own vocabulary (task_start / pick / done / cut) and
-   is the one stream where the two legitimately differ.
+   Two exemptions, and both are declared rather than defensive. Pick rows are exempt because
+   picking has its own vocabulary (task_start / pick / done / cut) and is the one stream
+   where the two legitimately differ. `repack` is exempt because it is the one `role =
+   &#x27;receive&#x27;` event type that is DECLARED to differ: `metrics.work_events.repack_rows` says
+   outright that a repack is receiving work by the receiving crew at the dock&#x27;s own per-pack
+   price, so `role` is `&#x27;receive&#x27;` and only the event type moves -- which is what lets &quot;what
+   did receiving cost&quot; sum `role=&#x27;receive&#x27;` and get unloads AND rework while &quot;how much rework
+   was there&quot; filters `event_type=&#x27;repack&#x27;`. `repack` joins &#x27;put&#x27; and &#x27;receive&#x27; as a word no
+   foreign row may claim, so the exemption widens the vocabulary rather than weakening it.
+
+6. **The unload price is ONE constant.** Every `role=&#x27;receive&#x27;` row satisfies
+
+       duration - qty * sku_scores.handle_var(sku)  ==  C
+
+   for a single C per run, because `unload_cost` IS `per_item + intercept + qty * v_s`
+   (`Inbound/unload.py`, `Warehouse/kernel/cost_model.per_pick`) and `v_s` is already in this
+   very DB: `UnloadCost.from_putaway` takes its weight/volume coefficients from
+   `PutawayCost.from_pick`, which carries the PICK coefficients through unchanged, and
+   `Order.compute_labor_cost` computes the stored `handle_var` from the same function on the
+   same inputs. So the whole chain picking -&gt; put-away -&gt; receiving is checkable from one
+   file: no catalogue, no config record, no fit.
+
+   What it catches is a coefficient entering receiving by the side door -- a dock built from
+   its class defaults instead of the run&#x27;s pick config (the 55x drift `UnloadCost`&#x27;s docstring
+   was written against), a weight/volume transform that diverged, an intercept scale applied
+   twice. Every one of those moves the residual per ROW while leaving the two surfaces checks
+   1 and 2 compare in perfect agreement with each other.
+
+   Repack rows are INCLUDED, not filtered: `_charge_repack` prices a rescue with
+   `dock.unload_seconds` -- the same `unload_cost` -- so a repack satisfies the same C, and
+   including them makes this the only thing in the repo that verifies that docstring&#x27;s central
+   claim, *&quot;no new coefficient enters the model&quot;*. It is also why check 5&#x27;s exemption lands
+   first: a check that FAILed every repack row would mask this one.
+
+   C is fixed by SPREAD (`max(c) - min(c) &lt;= _TOL`) rather than against a reference, because
+   there is no second place the intercept is written down; the recompute re-associates the
+   float, so it is not bit-exact (relative error ~1e-14 on a ~50 s duration). An EMPTY
+   `sku_scores` makes the check inactive -- the same idiom a run with no receiving crew gets,
+   and not a silent PASS on a vintage that cannot answer. A receive row whose SKU is absent
+   from a NON-empty `sku_scores` is a separate failure (`every_received_sku_is_scored`), kept
+   separate because it is the one clause here that can go red for a reason outside receiving.
+
+   ON THE ARCHIVE, this check partitions the runs by ERA, and the partition is sharp rather
+   than marginal. Every run from 2026-09-06 on passes at a spread of 1e-15 .. 1e-13 seconds;
+   every run before the per-item charge break (`fc7a46a5`, 2026-09-05) fails by ~4,600 s,
+   because that era&#x27;s dock was built from `UnloadCost`&#x27;s CLASS DEFAULTS rather than from the
+   run&#x27;s pick config -- measured on a 2026-09-01 arm: 1.03 s charged to unload a unit whose
+   `handle_var` alone is 1.79 s. That is not a false alarm and it is not a vintage the check
+   should be quiet about: it is the &quot;second set of magic numbers&quot; `UnloadCost`&#x27;s docstring
+   was written against, realized, and it means pre-break receiving labour is not denominated
+   in the same model as the rest of the run. A red verdict there is the tool working. What
+   would have made the check unsound is an inability to tell the two apart, which is the sin
+   the missing contiguity check below is a monument to -- and there is no ambiguity here:
+   1e-15 against 4.6e+03.
+
+   The cross-leaf clause -- `C_store == C_ful`, the site dock&#x27;s sharpest falsifier -- needs two
+   leaves and is not here. Note what the archive already says about it: the two channels run
+   DIFFERENT pick configs (store intercept 15, fulfillment 10), so today&#x27;s per-leaf docks price
+   at C = 7.6 s and C = 5.1 s respectively. Equality is therefore a claim about a SITE dock
+   having one price list, not something a coupled run would satisfy for free.
 
 # ── usage ─────────────────────────────────────────────────────────────────────────
 
@@ -80,7 +138,7 @@ Run roots may be bare names (resolved under COMPARISON_OUTPUT_DIR) or absolute p
 are enumerated through the run&#x27;s own contract (`runschema.resolver_for`) and never by joining
 path strings: the store CONFIG and the store CHANNEL are both named `store`, so
 `&lt;cell&gt;/&lt;pair&gt;/store/store/` is a real path, and two levels are conditional.</section>
-<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(9)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__SEMANTIC_USES.html"><code>SEMANTIC_USES</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___HERE.html"><code>_HERE</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___TOL.html"><code>_TOL</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___open_ro.html"><code>_open_ro</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___sim_dbs.html"><code>_sim_dbs</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(10)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__SEMANTIC_USES.html"><code>SEMANTIC_USES</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___HERE.html"><code>_HERE</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___TOL.html"><code>_TOL</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___open_ro.html"><code>_open_ro</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___sim_dbs.html"><code>_sim_dbs</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___unload_price.html"><code>_unload_price</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py">Source ↗</a></p>
 </article>
 </main>
