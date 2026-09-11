@@ -45,3 +45,11 @@ warehouse. Two things for this ticket's build: `inbound_select` takes the same
 restating, since phase 1 is no longer an inbound-off run -- what its byte-identity check is
 against is this ticket's to record. The regime itself (doors, median, spread) is 25's and must
 be fixed before phase 1 launches, because median and spread now move the record.
+
+2026-09-10, from resolving
+[Decide the contention regime under the derived crew](25-decide-the-contention-regime-under-the-derived-crew.md):
+the campaign now holds behind the site-dock coupling (map, Out of scope), and the sizing this
+ticket owes changes shape with it -- a phase-2 cell becomes a PAIR of arms (one store rule, one
+fulfillment rule) under one inbound policy, so the unit count is no longer `arms x policies`
+per channel leaf. Re-estimate against the coupled run's wall and RSS per site day once it
+exists; the calibration pin and the once-declared window are unchanged.

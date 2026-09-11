@@ -143,3 +143,16 @@ decision 1 is a scoping choice the Out-of-scope entry records.
 - [Chain the supplier lead before the trailer](../../inbound-optimization/issues/27-chain-the-supplier-lead-before-the-trailer.md)
   (task, AFK, the inbound map) -- decision 2's dispatch side.
 - Inbound 26's blocking edge on this ticket is replaced by edges on both.
+
+## Comments
+
+2026-09-10, from inbound-optimization
+[Decide the contention regime under the derived crew](../../inbound-optimization/issues/25-decide-the-contention-regime-under-the-derived-crew.md):
+the Consequences' "doors are the record-neutral contention knob" did not survive contact with
+the mechanics -- `_unload_split` deals the crew uncapped, so doors throttle nothing at any
+count, and the artefact behind the slack yard was the leaf model (each channel's inbound alone
+with the SITE crew). The regime chosen is the site's own dock: one crew at `rho_recv`, mixed
+trailers, a declared ten-receiver cap per trailer as physics. Decision 3 stands unchanged (the
+record stamps the unconstrained lead; the dock's excess is the campaign's effect) and the lead
+law is held at 480 / 0.7, so nothing on the record moves. The coupling of the two channels at
+the dock is a successor effort on the inbound map's Out-of-scope list.

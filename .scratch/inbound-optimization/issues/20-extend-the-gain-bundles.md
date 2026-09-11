@@ -114,3 +114,10 @@ Two tickets now sit between that lift and phase 1 on this map —
 [Verify the derived receiving crew under arrivals](23-verify-the-derived-receiving-crew.md) and
 [Re-size the funnel in site days](24-resize-the-funnel-in-site-days.md). This ticket's gate is
 unchanged: the ranking in `restock_selection.json`, which does not exist yet.
+
+2026-09-10, from resolving
+[Decide the contention regime under the derived crew](25-decide-the-contention-regime-under-the-derived-crew.md):
+gate unchanged (the ranking in `restock_selection.json`), but note for whoever works it that
+under the site-dock coupling a gain bundle prices a trailer against TWO arms at once (a store
+rule and a fulfillment rule), so `channels.<ch>.needs_bundle_extension` names families per
+channel and the bundle for a paired cell is the pair of them.

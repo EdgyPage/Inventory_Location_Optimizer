@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 25, 27
+Blocked by: 25, 27, 28
 
 Graduated 2026-09-10 from
 [Verify the derived receiving crew under arrivals](23-verify-the-derived-receiving-crew.md).
@@ -56,3 +56,18 @@ declares fulfillment at floor 1.4994 (was 1.2668), sum Q 2,595,593 (was 2,220,09
 re-taken from it (setup at the pilot regime took ~35 min before the transit-tail truncation).
 Read "supply near the explained level but above the band" as the yard binding, and a gap the
 realized lead cannot explain as model error.
+
+## Comments
+
+2026-09-10, from resolving
+[Decide the contention regime under the derived crew](25-decide-the-contention-regime-under-the-derived-crew.md):
+**this ticket also waits on the site-dock coupling** (map, Out of scope: the successor
+effort), which has no ticket here to list -- the gate is re-run on the COUPLED dock, not per
+leaf. What it now reads: the site's receiving utilization against the record's `rho_recv`, the
+crew's busy share and the dock's parallelism ceiling (28), strict contention and binding cuts
+per SITE against 25's band (a quarter to a half of drains; detention p50 under the threshold;
+stable depth; standing-at-end a tail), the realized order-to-shelf lead against the stamped
+1.766 with `1 - fill(realized)` as the explained supply level (36 decision 10), and the
+overage-by-threshold table -- this ticket fixes `PHASE2_THRESHOLD_DAYS` (25 decision 6). Do
+not start before 28 and the coupling have landed; a per-leaf re-run would re-measure the
+artefact 25 retired.

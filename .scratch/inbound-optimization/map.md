@@ -385,6 +385,19 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   (`inbound_spec(recv_crew_size=)` now takes the derived crew; the resume planner's `receiving=`
   had the same blindness); `inbound_pilot` carries its arrival regime as `PILOT_RUN_DEFAULTS`, so
   the gate re-runs as `--spec inbound_pilot --n-batches 40`.
+- [Decide the contention regime under the derived crew](issues/25-decide-the-contention-regime-under-the-derived-crew.md):
+  **the regime is the SITE'S OWN dock, and the leaf model cannot express it.** One dock, mixed
+  trailers, one crew at the record's `rho_recv` (0.846 stamped on the reference pair), the
+  lead law held at 480 / 0.7, a declared ten-receiver cap per trailer as physics (even splits,
+  additive, `INBOUND_DOOR_TEAM`), receiver utilization REPORTED not re-derived, an acceptance
+  band per site (contention on a quarter to a half of drains, detention p50 under the
+  threshold, stable depth), the fee threshold owned by 26. Off the route: fewer doors (an
+  uncapped team unloads at the crew's rate at any count; under the cap a leaf still cannot
+  bind), a wider spread (costs stock), share-slicing, background trailers. Every slack-yard
+  number was an artefact of running each channel's inbound alone with the site crew.
+  Graduated: [Cap the door team](issues/28-cap-the-door-team.md) (task, frontier); the
+  channel coupling at the dock is beyond this destination -- Out of scope, with the successor
+  seed. The campaign holds behind it: 27 and 28 -> the site-dock effort -> 26 -> 24 -> phase 1.
 
 ## Not yet specified
 
@@ -457,6 +470,12 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   [Re-verify the gate under the lead-aware record](issues/26-reverify-the-gate-under-the-lead-aware-record.md)
   → 24 → phase 1 → selection → phase 2 → publish. The pilot regime no longer rides a command
   line at all: `PILOT_RUN_DEFAULTS` carries it.
+  **2026-09-10, later: the hold is now behind the SITE-DOCK COUPLING** (Out of scope, the
+  successor seed). 25 found the slack yard was the leaf model, not a knob: the campaign's dock
+  is the site's, and phase 2's cells become PAIRS of arms under one inbound policy. Execution
+  order: [Chain the supplier lead before the trailer](issues/27-chain-the-supplier-lead-before-the-trailer.md)
+  and [Cap the door team](issues/28-cap-the-door-team.md) (independent, frontier) -> the
+  site-dock effort -> 26 on the coupled dock -> 24 -> phase 1 -> selection -> phase 2 -> publish.
 
 ## Out of scope
 
@@ -488,3 +507,18 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   decides whether phase 1 also waits for the calibrated era (phase 2 already holds). The
   inbound campaign is runnable without it — the pilot proved a passing regime — but runs
   under a scarcity that effort would let someone CHOOSE rather than inherit.
+- **Coupling the two channels at the dock -- one site inbound simulation.** Surfaced by
+  [Decide the contention regime under the derived crew](issues/25-decide-the-contention-regime-under-the-derived-crew.md)
+  and ruled out here the same day (2026-09-10). The regime the campaign wants is the site's own
+  dock (one reorder stream of both channels, trailers carrying mixed store and fulfillment
+  lots, one yard, one door set, one receiving crew, unloaded lots handed to each channel's own
+  put-away and picking), and the leaf model of 2026-07-02 -- each channel an independent
+  worker with its own inbound -- cannot express it. Beyond this destination because it reaches
+  the leaf model itself, the run-tree contract (a site level above the channel leaves), the
+  funnel's cell arithmetic (a phase-2 cell is a PAIR of arms under one inbound policy), the
+  faithful-to-arm gain evaluator (pricing one trailer against two arms' machinery) and every
+  per-leaf analysis surface. **Successor: a charting session with this seed** -- destination
+  "the site dock landed on `develop`: both channels' inbound through one yard, doors and crew,
+  flag-off byte-identical, the funnel's cells paired, so the inbound campaign runs on the
+  site's own contention"; the sizing inventory linked from 25's assets is its starting map of
+  seams. This campaign holds behind it; 27 and 28 do not.

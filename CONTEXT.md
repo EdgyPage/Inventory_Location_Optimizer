@@ -101,8 +101,11 @@ A drain ending with inbound work still standing — unserved trailers in the yar
 trailers with a remainder. Evidence the regime binds; across policy arms, fewer is better.
 
 **Yard contention**:
-Standing trailers versus free doors, read at drain start. Whether doors were the scarce
-resource.
+A drain starting with trailers standing and no free door, so a trailer waits for a door that
+is still held from the last drain. Whether doors were the scarce resource. A deep yard that
+still drains whole is not contention: it changes only the order trailers are worked in, never
+the set.
+_Avoid_: more trailers than free doors (the loose reading; satisfied by any deep yard)
 
 **Door utilization**:
 The share of available door-time occupied — summed door spans against doors times the run's
@@ -112,6 +115,12 @@ yard.
 **Dock**:
 The receiving area — its doors and the crew working them. Its depth is the report; it refuses
 nothing.
+
+**Site dock**:
+The one dock both channels' trailers arrive at. A trailer carries store and fulfillment lots
+together, and one yard, one door set and one receiving crew serve both; contention is a fact of
+the site, never of a channel. A channel run modelling its own inbound alone sees an artefact.
+_Avoid_: channel dock, per-leaf dock
 
 **Unloading**:
 Taking loose items off an arrived trailer. Receiving-crew work; costs time.
@@ -146,6 +155,9 @@ never placement.
 **Door team**:
 The sub-crew dealt to one staged trailer for a drain, in dock-priority order; a freed team
 reassigns to unmanned staged trailers first. What makes several trailers unload at once.
+Capped: at most a declared number of receivers can support one trailer's unload and pack at
+once (ten on the campaign), every one additive; the rest work other doors or idle. The steps
+inside an unload are not modelled.
 
 ### Priorities
 

@@ -1,7 +1,7 @@
 # Chain the supplier lead before the trailer
 
 Type: task
-Status: open
+Status: claimed
 
 Graduated 2026-09-10 from department-calibration's
 [Declare the coverage against the inbound lead](../../department-calibration/issues/36-declare-the-coverage-against-the-inbound-lead.md),
@@ -57,3 +57,11 @@ record already prices `attr_s + transit_days` per SKU (`coverage.sku_lead_days`)
 grid day is `round(attr x lead_unit_days) + k` (`coverage._served_under_lead`) -- one batch a day
 under the era -- so the chained pipeline must realize exactly that: `round(lead_time_mean)`
 batches at the ordering site, then the trailer's own draw. No record change is owed here.
+
+2026-09-10, from resolving
+[Decide the contention regime under the derived crew](25-decide-the-contention-regime-under-the-derived-crew.md):
+still on the frontier and still worth doing first. The supplier-lead queue sits in front of the
+trailer's loading regardless of whose orders share the trailer, so the build is the same under
+the site-dock coupling (map, Out of scope); the one seam the coupling later rewrites is WHOSE
+released orders `TrailerTransit.dispatch` loads (both channels' instead of one leaf's). Keep
+the queue's contract free of the manager so it survives that move.
