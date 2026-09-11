@@ -296,14 +296,31 @@ BEFORE anything runs: the inbound-optimization map resumes at
   copy, `work_events` (668 put rows) and `put_queue_state` row-for-row to zero; six guard
   mutations, six caught.
 
+- [Seat the one-owner bundle indirection](issues/13-seat-the-one-owner-bundle-indirection.md):
+  **BUILT and live on `develop`** — `_Evaluator` holds a PROVIDER and resolves
+  `for_key(BinKey)` through a cursor `_params` advances once per group; the driver wraps its
+  one bundle in `OneOwnerBundle`, which answers every key with that same instance, and
+  `_gain_bundle_for` is untouched. A bare bundle is REFUSED rather than sniffed for, so the
+  one path 05 decision 3 asked for has nothing to rot into. **One decision the ticket did not
+  contain:** `gain_gated` reads its two days-denominated knobs off `ctx.gain` ITSELF, which is
+  now the provider — so the provider carries them, because the gate composes hours and days
+  ABOVE any one owner and must not pick an arbitrary owner's copy; **the composite therefore
+  owes a loud refusal when two owners' copies disagree**, stated here so 05's build does not
+  rediscover it. **The finding:** a mutation moving the cursor INSIDE the `_wp` memo
+  **survived** a single-call test — the memo is cold on the first `place_load`, so the defect
+  only shows on a WARM evaluator, which is what `plan_order` actually uses. Byte-identity
+  measured, not argued: 6 scenarios x 5 adapters x both deferral modes against a
+  `git archive HEAD` copy, **4,675 lines and one differing** (the flag naming which path ran),
+  against 1,506 under a mutant resolution; both preflight canaries `tree shape UNCHANGED`.
+  Gates: 2027 unit, 31 e2e, all nine verifiers. Five guard mutations, five caught.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
   they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
-  what remains of it is owner routing, not extraction). The other four:
+  what remains of it is owner routing, not extraction), and **13's is DONE** (the indirection is
+  seated, so what remains of 05 is the composite that answers through it). The two still open:
   [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10) and
-  [Seat the one-owner bundle indirection](issues/13-seat-the-one-owner-bundle-indirection.md)
-  (out of 05) and
   [Re-shape the selection hand-off](issues/14-reshape-the-selection-handoff.md) (out of 06);
   **12's are DONE**, so what remains of 04 is the pool itself and not its seams. The
   ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
@@ -320,8 +337,10 @@ BEFORE anything runs: the inbound-optimization map resumes at
   the site `put_clock` and its day-start base, and the two coupled refusals — all of which
   now bind to seams that EXIST (`bind_crew(clocks=)`, `drain_putaway_records(reset_clocks=)`,
   `_stock(charge_cut=)`, `count_put_cut`), so what is left is the rule and not the wiring; and out of 05 the
-  `SiteGainBundle` itself, the second `_gain_bundle_for` call, and the three-part commensurability
-  test (its sabotage included), all of which need two owners to exist before they can be written;
+  `SiteGainBundle` itself, the second `_gain_bundle_for` call, its refusal when two owners'
+  gate knobs disagree (13), and the three-part commensurability test (its sabotage included),
+  all of which need two owners to exist before they can be written — the cursor and the
+  provider protocol they hang on are already in (13);
   and out of 10 the reconciler itself — `_reconcile_coupled_unit`, the two-leaf completeness
   test, the torn-pair repair with its `sim_meta.json` removal and leaf reset, the site-DB arm of
   that reset, the `coupled` refusal reason, and the planted four-state matrix with its mutation
