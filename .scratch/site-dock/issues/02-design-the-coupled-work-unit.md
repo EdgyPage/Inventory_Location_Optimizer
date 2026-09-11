@@ -181,3 +181,21 @@ which is also what keeps the phase-1 asymmetry the map already promises to publi
   `<pair>/`, so a site-scoped artifact cannot live under `<config>/` at all. Noted in its body.
 - **The resume guard** graduated out of the map's fog, now that the unit shape is settled:
   [Design the coupled unit's resume guard](10-design-the-coupled-resume-guard.md).
+
+## Amendment (2026-09-11, from ticket 04)
+
+**Section 5's "`put_clock` stays per leaf" is superseded: `put_clock` becomes site-wide.**
+
+This answer hedged — "regardless of what ticket 04 decides about the shared **budget**" — on the
+assumption that 04 would share a budget. It shares the **clock list** instead
+([Design the site put-away pool](04-design-the-site-put-away-pool.md), section 1), and a shared
+list cannot carry two epochs: `put_clock` is the absolute carry `crew_start` is measured from
+(`strategy_runner.py:1765`, `work_events.put_rows`), so two carries over one list stamp the same
+worker's same second at two different absolute instants.
+
+The amendment follows this answer's own reasoning for `recv_clock` — "under one dock there is one
+such carry"; under one put crew there is one put carry. Segregated *volume* does not imply
+segregated *people*, and the carry belongs to the people.
+
+`arm_clock` is unchanged and stays per leaf. The coupled put base is the **site day start**,
+`max(day_start(i), put_clock_site)`; 04 section 9 holds the rejected alternative and the reasoning.

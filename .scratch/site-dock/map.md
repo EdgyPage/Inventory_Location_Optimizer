@@ -127,17 +127,34 @@ BEFORE anything runs: the inbound-optimization map resumes at
   reserved-prefix guard exists at one tree depth only, `record_arm` unpacks the now-variable uid
   positionally into a NOT NULL column whose error is swallowed, and an evaluation's scope string
   is validated by nothing.
+- [Design the site put-away pool](issues/04-design-the-site-put-away-pool.md): the pool IS a shared
+  `list[float]` — both leaves' queues bind the same clocks, so `crew_clock.charge` books every put
+  to whoever is free earliest across both channels and segregation survives in the queues, not the
+  people. One crew at unit scope with `first_uid = max(k_pickers)` (a uid gap in the smaller leaf,
+  in exchange for a putter meaning the same person in both DBs). The day is split by the two
+  recorded `expected_utilization` values — no new record field — then a **residue pass** makes
+  "finishes early releases labour" true in both directions; without it fulfillment absorbs every
+  cut as a pure artefact of loop order. `Inbound/putaway_pool.py` owns the rule, the list and the
+  once-per-day reset (01's two ports become three); the boundaries leave `Inbound/` the only
+  package that may sit above two managers. Two prices over one crew, stated and TESTED against the
+  `s_put` ratio. The band reads ONE site number and retires the "single-channel leaves undercut
+  rho" caveat for put. Two loud refusals: no working-day grid, and `PUT_QUEUE_SPLIT` (two answers
+  to the same question). **Amends 02: `put_clock` becomes site-wide**, based at the site day start
+  — a shared list cannot carry two epochs. The source stamp and the carryover key both dissolved.
 
 ## Not yet specified
 
-- **The remaining builds** — the coupled half of every design ticket. Two have graduated out
-  because they are byte-identical and need no second leaf:
+- **The remaining builds** — the coupled half of every design ticket. Some have graduated out
+  because they are byte-identical and need no second leaf (three of them):
   [Extract the one-leaf receiving coordinator](issues/09-extract-the-one-leaf-coordinator.md)
-  (out of 01) and
-  [Harden the three positional seams](issues/11-harden-the-positional-seams.md) (out of 03). The
+  (out of 01),
+  [Harden the three positional seams](issues/11-harden-the-positional-seams.md) (out of 03) and
+  [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md) (out of 04). The
   ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a second leaf: the
   owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact declarations and
-  their contract bump, and the site evaluation context 07 will need.
+  their contract bump, the site evaluation context 07 will need, and — out of 04 — the
+  `Inbound/putaway_pool.py` module itself, the proportional split with its residue pass,
+  the site `put_clock` and its day-start base, and the two coupled refusals.
 - **Within-day put interleaving.** The charter shares a DAY budget, so a putter cannot take the
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
   coupled run shows a day where one channel's put queue actually starves while the other's crew
