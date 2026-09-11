@@ -27,6 +27,7 @@ import types
 
 import pytest
 
+from Warehouse.kernel import crew_clock
 from Warehouse.kernel.cost_model import (
     DEFAULT_HEIGHT_BRACKETS, SpeedProfile, handle_var, height_multiplier, per_pick,
 )
@@ -261,7 +262,7 @@ def test_the_labor_total_still_accumulates_across_batches():
 
 # ── a crew of N works like N people ───────────────────────────────────────────────
 
-def _crew_mgr(size, speed=MACHINE, queues=None):
+def _crew_mgr(size, speed=MACHINE, queues=None, clocks=None):
     from Warehouse.inventory.Inventory_Management import Inventory_Manager
     from Warehouse.inventory.put_queue import single_queue
     m = Inventory_Manager.__new__(Inventory_Manager)
@@ -270,8 +271,9 @@ def _crew_mgr(size, speed=MACHINE, queues=None):
     m._put_clock = 0.0
     m._put_seconds = 0.0
     m._put_records = []
+    m._put_pool_clocks = None
     m._put_queues = queues if queues is not None else single_queue()
-    m.enable_putaway_timing(speed, size=size)
+    m.enable_putaway_timing(speed, size=size, clocks=clocks)
     return m
 
 
@@ -446,3 +448,111 @@ def test_swapping_the_queue_set_keeps_timing_bound():
     assert all(q.timed for q in m.put_queues), 'the swap dropped the crews'
     m._cost_putaway(_cat_unit('pallet'), _bin(), 'reorder')
     assert m.putaway_seconds > 0.0
+
+
+# ── ONE CREW, TWO QUEUE SETS: the put pool's seams ────────────────────────────────
+#
+# Two byte-identical precursors to the site put-away pool (`.scratch/site-dock`, ticket 04):
+# one crew of putters worked by BOTH channels' queues over segregated volume -- the people
+# are shared, the merchandise is not.  Nothing injects a crew today and nothing drains
+# without resetting, so every assertion below describes a SEAM rather than a behaviour of
+# any run.  That is why they are pinned now: each becomes a silent wrong answer the moment
+# coupling lands, and none of them raises on the way there.
+
+
+def _put(m, n=1):
+    for _ in range(n):
+        m._cost_putaway(_unit(), _bin(), 'reorder')
+
+
+def test_an_injected_crew_is_the_same_list_and_not_a_copy():
+    """`crew_clock` is functions over a bare list and `reset` mutates in place, so identity
+    IS the sharing. A defensive copy here would make two channels' putters look pooled and
+    behave as two crews -- twice the site's labour, and nothing to see on any row."""
+    shared = crew_clock.new_clocks(2, 'site')
+    m = _crew_mgr(2, clocks=shared)
+    assert m.put_queues.queues[0].clocks is shared
+
+
+def test_two_managers_on_one_crew_queue_behind_each_other():
+    """The pool's whole content: a putter busy on one channel is busy on the other. One
+    worker, two managers, so the second put cannot start until the first finishes."""
+    shared = crew_clock.new_clocks(1, 'site')
+    a, b = _crew_mgr(1, clocks=shared), _crew_mgr(1, clocks=shared)
+    _put(a)
+    first = a.drain_putaway_records(reset_clocks=False)[0]
+    _put(b)
+    second = b.drain_putaway_records(reset_clocks=False)[0]
+    assert second[0] == pytest.approx(first[0] + first[1]), 'the two managers ran in parallel'
+
+    # The mirror, so the row above cannot pass on a coincidence: two managers each minting
+    # their own crew of one both start at zero, which is today.
+    c, d = _crew_mgr(1), _crew_mgr(1)
+    _put(c)
+    _put(d)
+    assert c.drain_putaway_records()[0][0] == 0.0
+    assert d.drain_putaway_records()[0][0] == 0.0
+
+
+def test_every_default_queue_in_one_manager_shares_the_one_crew():
+    """Streams stay segregated -- their own items, carts and counters -- while the people
+    are one crew. `store_and_fulfillment`'s three queues under a pool are three queues and
+    one crew, not three crews."""
+    shared = crew_clock.new_clocks(2, 'site')
+    m = _crew_mgr(2, clocks=shared, queues=_split_queues())
+    assert all(q.clocks is shared for q in m.put_queues)
+
+
+def test_an_injected_crew_survives_a_queue_set_swap():
+    """Held on the MANAGER rather than passed through once. The setter re-binds, and a
+    rebind that minted fresh clocks would drop the pool on the floor with nothing raising
+    -- `enable_putaway_timing` then swapping in split streams is the normal order."""
+    shared = crew_clock.new_clocks(1, 'site')
+    m = _crew_mgr(1, clocks=shared)
+    m.put_queues = _split_queues()
+    assert all(q.clocks is shared for q in m.put_queues)
+
+
+def test_an_injected_crew_that_contradicts_its_declared_size_is_refused():
+    """`crew_size` reads the LIST, so keeping the list and ignoring the number would make
+    every utilization denominator downstream disagree with the staffing record that sized
+    the crew -- and both numbers are plausible."""
+    with pytest.raises(ValueError, match='contradicts the declared size'):
+        _crew_mgr(2, clocks=crew_clock.new_clocks(3, 'site'))
+
+
+def test_a_queue_naming_its_own_crew_refuses_an_injected_pool():
+    """An injected list is the manager's DEFAULT crew. A run where some streams draw on
+    the pool and others field their own people is neither the pooled model nor today's,
+    with nothing on any row distinguishing the two -- so it is refused rather than
+    half applied."""
+    crew = types.SimpleNamespace(speed=MACHINE, size=1)
+    with pytest.raises(ValueError, match='cannot be half applied'):
+        _crew_mgr(1, clocks=crew_clock.new_clocks(1, 'site'),
+                  queues=_split_queues(cart_crew=crew))
+
+
+def test_a_drain_can_hand_the_records_over_and_leave_the_crew_standing():
+    """The reset is the one behavioural change a shared list demands: on a coupled run one
+    leaf's drain would zero the other leaf's half-spent day, and every row after it would
+    be plausible. So the pool owns the reset, and asks for the records without it."""
+    m = _crew_mgr(1, clocks=crew_clock.new_clocks(1, 'site'))
+    _put(m)
+    first = m.drain_putaway_records(reset_clocks=False)
+    _put(m)
+    second = m.drain_putaway_records(reset_clocks=False)
+    assert second[0][0] == pytest.approx(first[0][0] + first[0][1]), \
+        'the second put restarted a day the drain was told not to end'
+    # `_put_clock` is `max(q.finish)` by construction, so it moves with the clocks or not
+    # at all -- zeroing it beside running clocks is the manager disagreeing with its crew.
+    assert m._put_clock == pytest.approx(second[0][0] + second[0][1])
+
+
+def test_the_default_drain_still_ends_the_day():
+    """Non-vacuity for the flag: the identical sequence under the default resets both."""
+    m = _crew_mgr(1)
+    _put(m)
+    m.drain_putaway_records()
+    assert m._put_clock == 0.0
+    _put(m)
+    assert m.drain_putaway_records()[0][0] == 0.0

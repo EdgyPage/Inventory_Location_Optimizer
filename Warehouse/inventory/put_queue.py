@@ -221,10 +221,33 @@ class PutQueue:
     # five, and two copies of `min(clocks) < deadline` will drift -- one of them says `<=`
     # some day and the number it produces is plausible forever.  The kernel imports nothing,
     # so both packages reach it without inverting anything.
-    def bind_crew(self, speed, cost, size: int) -> None:
-        """Give this queue its own crew. Idempotent per (speed, cost, size)."""
+    def bind_crew(self, speed, cost, size: int, clocks: list | None = None) -> None:
+        """Give this queue its own crew. Idempotent per (speed, cost, size).
+
+        `clocks` INJECTS a pre-built worker list instead of minting one, so two queues --
+        in one manager or in two -- can be worked by the same people.  `crew_clock` is
+        functions over a bare `list[float]` and `reset` mutates IN PLACE, which is what
+        makes sharing free: every `charge` on either queue books against the same list, so
+        a worker busy on one stream is busy on the other.  Whoever passes it OWNS THE
+        RESET -- see `Inventory_Manager.drain_putaway_records`.
+
+        None -- every caller today -- mints this queue's own crew, which is the whole
+        history of this method.
+        """
         self.speed, self.cost = speed, cost
-        self.clocks = crew_clock.new_clocks(size, self.name)
+        if clocks is None:
+            self.clocks = crew_clock.new_clocks(size, self.name)
+            return
+        # A declared size that disagrees with the list is a configuration error, not a
+        # preference to resolve: `crew_size` reads the LIST, so keeping the list and
+        # ignoring the number would make every utilization denominator downstream
+        # disagree with the staffing record that sized the crew -- and both are plausible.
+        # Unreachable today; nothing injects.
+        if crew_clock.size_of(clocks) != size:
+            raise ValueError(
+                f'{self.name}: an injected crew of {crew_clock.size_of(clocks)} '
+                f'worker(s) contradicts the declared size {size}')
+        self.clocks = clocks
 
     @property
     def crew_size(self) -> int:

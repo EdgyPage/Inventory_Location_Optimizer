@@ -366,6 +366,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         self._put_cost = None                        # PutawayCost | None
         self._put_clock: float = 0.0                 # slowest stream's FINISH across queues
         self._put_size: int = 1                      # default crew size; per-queue crews win
+        self._put_pool_clocks: list | None = None    # injected default crew; None = mint one
         self._put_seconds: float = 0.0               # total put-away labor this run
         self._put_records: list = []                 # (t_start, dur, sku, qty, aisle, x, y, source)
 
@@ -1117,7 +1118,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
             # unit it was cut from.
             self._cost_putaway(type(bin_.storage)(order, n), bin_, source, queue=queue)
 
-    def enable_putaway_timing(self, speed, cost=None, size: int = 1) -> None:
+    def enable_putaway_timing(self, speed, cost=None, size: int = 1,
+                              clocks: list | None = None) -> None:
         """Bind a put crew's travel speed + cost model, so every placement costs seconds.
 
         Follows `enable_sigma_fd`'s precedent: a binder the harness calls, so the domain
@@ -1128,12 +1130,20 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         contend for an aisle, and does not change which unit lands in which bin -- the same
         items are picked, in the same order, at the same instants.  It records a duration
         and a row.  Contention is the inbound feature, not this seam.
+
+        `clocks` gives the DEFAULT crew a pre-built worker list rather than minting one --
+        the seam a site-wide put pool binds to, so one list of putters serves two managers
+        over segregated volume.  Held on the MANAGER because the queue set can be replaced
+        after this call (`put_queues` setter -> `_bind_put_crews`), and a rebind that minted
+        fresh clocks would drop the pool on the floor with nothing raising.  A caller that
+        passes it owns the reset; see `drain_putaway_records`.  None is every caller today.
         """
         from Warehouse.operations.putaway import PutawayCost
         if size < 1:
             raise ValueError(f'a put crew of {size} does no work; size must be >= 1')
         self._put_speed = speed
         self._put_size = size
+        self._put_pool_clocks = clocks
         self._put_cost = cost if cost is not None else PutawayCost()
         # ONE CLOCK PER WORKER, AND ONE SET OF WORKERS PER QUEUE.  A single serial clock
         # made a crew of N take exactly as long as a crew of one, while
@@ -1315,7 +1325,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         """Total put-away labor recorded so far, in seconds.  0.0 when timing is off."""
         return self._put_seconds
 
-    def drain_putaway_records(self) -> list:
+    def drain_putaway_records(self, reset_clocks: bool = True) -> list:
         """Hand over this batch's put-away records, and start the crew's clock over.
 
         A DRAIN IS A BATCH BOUNDARY.  The records carry `t_start` on the crew's own clock
@@ -1335,11 +1345,23 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
         Drained rather than read so the caller takes ownership once per batch and the
         manager never holds a run's worth of rows.
+
+        `reset_clocks=False` hands the records over and LEAVES THE CREW WHERE IT IS, for a
+        caller that owns the reset because it owns the clocks -- a site put pool whose one
+        list is bound to both channels' queues, where a leaf resetting at its own drain
+        would zero the other leaf's half-spent day with nothing raising and every
+        subsequent row plausible.  Such a caller must still reset once per batch, or the
+        paragraph above describes exactly what happens to it.  The default is every caller
+        today.
         """
         recs, self._put_records = self._put_records, []
-        for q in self._put_queues:
-            q.reset_clocks()
-        self._put_clock = 0.0
+        if reset_clocks:
+            for q in self._put_queues:
+                q.reset_clocks()
+            # `_put_clock` is `max(q.finish)` by construction, so it moves with the clocks
+            # or not at all: zeroing it beside running clocks would leave the manager's own
+            # view of the put side disagreeing with the crew it is read from.
+            self._put_clock = 0.0
         return recs
 
     def _cost_putaway(self, unit: StorageUnit, bin_: Aisle.Bin, source,
@@ -1388,7 +1410,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         return (self._sigma_freq.get(sku, 0.0)
                 * (self._sigma_x * bin_.x_phys + self._sigma_y * bin_.y_phys))
 
-    def _stock(self, budget: int | None = None, deadline: float | None = None) -> None:
+    def _stock(self, budget: int | None = None, deadline: float | None = None,
+               charge_cut: bool = True) -> None:
         """Dispatch the queued wave to the placement policy: a ranked wave if the
         policy carries a ``place_wave``, otherwise the per-unit path.  Single entry
         used by enqueue/enqueue_all (initial stock) and check_reorders (reorders).
@@ -1407,6 +1430,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         two constraints are independent and both are checked -- a budget is people, a
         deadline is the clock, and a warehouse can run out of either first.  ``None`` is
         every run that does not ask for a day cut.
+
+        ``charge_cut=False`` drains against the deadline but leaves the cut UNCHARGED, for
+        a caller that drains twice in one day and charges once at the end -- see
+        `count_put_cut`.  True is the default and every caller today.
 
         Runs the coupling guard first — even on an empty queue — so an armed/fn
         mismatch fails loudly before any placement: when travel costs are armed,
@@ -1480,23 +1507,48 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
                     'cannot clear it, and this call is giving up rather than spinning',
                     _MAX_REFILL_PASSES, len(self._held))
                 break
-        # WHAT THE WHISTLE COST, counted once and outside the loop.  The three gates above
-        # each defer work without counting it, deliberately: any of them can fire on several
-        # refill passes, and a counter incremented inside the loop would report how many
-        # passes the drain happened to need rather than how much work the day boundary left
-        # standing -- the exact defect `blocked` was fixed for.
+        # WHAT THE WHISTLE COST, counted once and outside the loop -- see count_put_cut,
+        # which is this call and nothing else.
         #
-        # Safe to compute afterwards because a clock only ever advances: a queue that could
-        # not start during the drain still cannot start now, so what remains on it is
-        # precisely what the whistle stopped.
-        #
-        # `_held` is NOT counted.  A held item was refused FLOOR SPACE and never reached a
-        # queue; that is `blocked`, a different problem with a different fix, and the two
-        # counters are worth having only while they stay disjoint.
-        if deadline is not None:
-            for queue in self.put_queues:
-                if queue.items and not queue.can_start(deadline):
-                    queue.cut += len(queue.items)
+        # `charge_cut=False` says SOMEONE ELSE WILL, and is the other half of that method
+        # being public: a caller that drains twice in one day cannot let each drain charge,
+        # because `cut` is a level and the second charge re-counts what the first already
+        # did, inside one batch.  Default True is every caller today.
+        if charge_cut:
+            self.count_put_cut(deadline)
+
+    def count_put_cut(self, deadline: float | None) -> None:
+        """Charge every queue the whistle stopped: `cut += len(queue.items)`.
+
+        COUNTED ONCE, AND OUTSIDE THE DRAIN LOOP.  The three gates in `_stock` each defer
+        work without counting it, deliberately: any of them can fire on several refill
+        passes, and a counter incremented inside the loop would report how many passes the
+        drain happened to need rather than how much work the day boundary left standing --
+        the exact defect `blocked` was fixed for.
+
+        Safe to compute afterwards because a clock only ever advances: a queue that could
+        not start during the drain still cannot start now, so what remains on it is
+        precisely what the whistle stopped.
+
+        `_held` is NOT counted.  A held item was refused FLOOR SPACE and never reached a
+        queue; that is `blocked`, a different problem with a different fix, and the two
+        counters are worth having only while they stay disjoint.
+
+        PUBLIC, AND ONCE PER DAY RATHER THAN ONCE PER DRAIN.  A caller that drains twice
+        in one day -- a site put pool giving each channel a sub-deadline and then
+        re-draining both against the whole day -- passes `charge_cut=False` to both drains
+        and calls this itself, once, against the FULL-DAY deadline.  `cut` is a LEVEL:
+        it re-counts the standing queue every time it is charged, so a second charge
+        inside one batch inflates it where no downstream "count the non-zero batches" rule
+        can undo it.  `_stock` calls this inline, so the single-drain path is unchanged.
+
+        `deadline is None` charges nothing: no whistle blew, so nothing was stopped.
+        """
+        if deadline is None:
+            return
+        for queue in self.put_queues:
+            if queue.items and not queue.can_start(deadline):
+                queue.cut += len(queue.items)
 
     def _stock_per_unit(self, budget: int | None = None, queue=None,
                         deadline: float | None = None) -> None:
@@ -1715,11 +1767,24 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         serialise onto one clock -- which is exactly what a single manager-level
         `_put_clocks` did.
         """
+        # AN INJECTED LIST IS THE MANAGER'S DEFAULT CREW, so a queue naming a crew of its
+        # own is a different set of people and must not be bound to it.  Refused rather
+        # than applied to the subset: a pool exists to be ONE crew across every stream
+        # drawing on it, and a run where some streams share it and others do not is
+        # neither the pooled model nor today's -- with nothing on any row distinguishing
+        # the two.  Unreachable today; nothing injects.
+        if self._put_pool_clocks is not None:
+            named = [q.spec.name for q in self._put_queues if q.spec.crew is not None]
+            if named:
+                raise ValueError(
+                    f'an injected put crew is the manager-wide default, but queue(s) '
+                    f'{named} name a crew of their own; a shared pool cannot be half '
+                    f'applied')
         for q in self._put_queues:
             crew = q.spec.crew
             speed = getattr(crew, 'speed', None) or self._put_speed
             size = getattr(crew, 'size', None) or self._put_size
-            q.bind_crew(speed, self._put_cost, size)
+            q.bind_crew(speed, self._put_cost, size, clocks=self._put_pool_clocks)
 
     @property
     def _stock_queue(self):

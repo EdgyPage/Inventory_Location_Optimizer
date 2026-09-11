@@ -313,3 +313,61 @@ def test_the_deadline_does_not_leak_into_the_budgets_accounting():
     a.mgr.drain_putaway_records()
     a.mgr._stock(budget=1000)
     assert a.mgr._reorder_placements - base > 0
+
+
+# ── 7. the cut is charged once per DAY, not once per drain ────────────────────────
+#
+# `count_put_cut` was extracted from `_stock`'s tail for the site put-away pool
+# (`.scratch/site-dock`, ticket 04 section 4), which drains each channel TWICE in one day:
+# a pass at that channel's own share of the day, then a residue pass against the whole day
+# so a channel finishing early releases labour to the other. `_stock` still calls it inline,
+# so every row above this section is unchanged.
+
+
+def _one_queue(deadline_size=1):
+    a = _assets()
+    a.mgr.put_queues = PutQueueSet([PutQueueSpec('one', accepts=ANY)])
+    a.mgr.enable_putaway_timing(SpeedProfile(2.0, 4.0), size=deadline_size)
+    _fill(a)
+    return a
+
+
+def test_two_passes_in_one_day_charge_the_cut_once():
+    """The pool's shape: neither pass charges, the day charges once at the end, against the
+    full-day deadline. What stands at that moment is what the whistle stopped."""
+    a = _one_queue()
+    q = a.mgr.put_queues.queues[0]
+    a.mgr._stock(deadline=30.0, charge_cut=False)
+    assert q.cut == 0, 'a pass told not to charge charged anyway'
+    a.mgr._stock(deadline=60.0, charge_cut=False)
+    a.mgr.count_put_cut(60.0)
+    assert q.cut > 0, 'the whistle never bit; this row proves nothing'
+    assert q.cut == len(q.items)
+
+
+def test_charging_at_both_passes_would_inflate_the_level():
+    """Why the suppression exists, stated as the defect it prevents. `cut` is a LEVEL: it
+    re-counts the standing queue every time it is charged, so a second charge inside one
+    batch inflates it where no downstream "count the non-zero batches" rule can undo it."""
+    once = _one_queue()
+    once.mgr._stock(deadline=30.0, charge_cut=False)
+    once.mgr._stock(deadline=60.0, charge_cut=False)
+    once.mgr.count_put_cut(60.0)
+    standing = len(once.mgr.put_queues.queues[0].items)
+    charged_once = _cut(once.mgr)
+
+    twice = _one_queue()
+    twice.mgr._stock(deadline=30.0)
+    twice.mgr._stock(deadline=60.0)
+    charged_twice = _cut(twice.mgr)
+
+    assert charged_once == standing, 'the once-charged level is not what is standing'
+    assert charged_twice > charged_once,         'the double charge is invisible; the flag guards nothing'
+
+
+def test_count_put_cut_charges_nothing_without_a_deadline():
+    """No whistle blew, so nothing was stopped -- which is what makes the method safe for a
+    caller to invoke unconditionally at the end of its day."""
+    a = _one_queue()
+    a.mgr.count_put_cut(None)
+    assert _cut(a.mgr) == 0
