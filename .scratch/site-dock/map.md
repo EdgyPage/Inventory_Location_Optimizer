@@ -232,12 +232,37 @@ BEFORE anything runs: the inbound-optimization map resumes at
   nothing), so the order is now pinned as a recorded call SEQUENCE, and both failure modes were
   re-checked by mutation. Gates: 2010 unit, 4 e2e, arch + site + context + guards + memory all OK.
 
+- [Design the coupled unit's resume guard](issues/10-design-the-coupled-resume-guard.md): **both
+  leaves or neither, and a torn pair REPAIRS rather than refuses** — no new marker, because
+  `_finalize_config_run` runs only when `members <= done_uids`, so two finalized leaves cannot
+  exist without a successful unit (a pair-level marker would tear in its own right, and re-run a
+  FINISHED pair). The replay is **forced, not chosen**: one batch loop over two leaves across a
+  shared dock, put clock and `recv_clock` means leaf B cannot step without leaf A, so the orphaned
+  complete leaf is reset exactly as a partial arm is — the existing strategy-granularity reset,
+  bit-identical, widened from an arm to a unit, at `log.warning`. The reset extends to the unit's
+  **third output**, `<pair>/_site/inbound_<arm-pair>.db`, which `reset_strategy_db` does not know;
+  it is the only worker-written site artifact. `coupled` becomes an **independent** third reason in
+  the batch-grain refusal, because the two that fire today are contingent (`receiving` evaporates
+  below a derived crew of 1, `roll_over` is a work-day knob) and neither is a statement about
+  coupling — **which answers sub-question 4 by REFUSAL, not assertion**: two leaves could lawfully
+  restart at different batches, and one batch is one site day, so no downstream code should assert
+  about a state that must not be reachable. `_reconcile_coupled_unit` in `workunits.py`,
+  parent-side before any worker opens a file. **Four findings:** `find_run` resolves
+  `ORDER BY run_id LIMIT 1` — the **oldest** run, so a DB that acquires a second one answers every
+  filtered query from the abandoned run and doubles every unfiltered aggregate, with no symptom; a
+  one-leaf torn window **exists today** on flag-off runs, because the completeness marker is
+  written LAST; a **fifth** positional seam (`supervisor.py:108-110`'s `expected_pick` write-back)
+  turns a SUCCEEDED coupled unit into a logged `strategy FAILED`, amended into 11; and
+  `_finalize_config_run`'s additive-run merge describes a path `skip_completed = resume` blocks.
+  No glossary term and no ADR, and the ticket says why.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
   they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
   what remains of it is owner routing, not extraction). The other four:
   [Harden the three positional seams](issues/11-harden-the-positional-seams.md) (out of 03) and
+  [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10) and
   [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md) (out of 04) and
   [Seat the one-owner bundle indirection](issues/13-seat-the-one-owner-bundle-indirection.md)
   (out of 05) and
@@ -256,6 +281,11 @@ BEFORE anything runs: the inbound-optimization map resumes at
   the site `put_clock` and its day-start base, and the two coupled refusals; and out of 05 the
   `SiteGainBundle` itself, the second `_gain_bundle_for` call, and the three-part commensurability
   test (its sabotage included), all of which need two owners to exist before they can be written;
+  and out of 10 the reconciler itself — `_reconcile_coupled_unit`, the two-leaf completeness
+  test, the torn-pair repair with its `sim_meta.json` removal and leaf reset, the site-DB arm of
+  that reset, the `coupled` refusal reason, and the planted four-state matrix with its mutation
+  sabotages and its one fault-injected torn tree (its two byte-identical precursors already
+  graduated to 16);
   and out of 06 the SPEC side — `PHASE2_ARMS` becoming `PHASE2_PAIRS`, `CHANNEL_RESTOCKS` derived
   from the pair list, the pair-shaped shape refusal in `_run_whatif_matrix`, and the rewrite of
   `whatif_config.py:166-170` (whose cross-phase claim this map's own answer makes false), none of

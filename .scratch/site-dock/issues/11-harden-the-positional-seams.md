@@ -65,3 +65,22 @@ module does not recognise is **silently namespaced as `config`** rather than ref
 the unvalidated `registry.evaluation(scope=...)` string already folded in here, same silence, and
 about to matter: `site` is a fifth scope. Fix the two together — validating the string at
 declaration is worthless while a consumer quietly reinterprets it.
+
+## Amendment - a fifth seam (site-dock 10, 2026-09-11)
+
+`Optimization/simdriver/supervisor.py:108-110` attaches `expected_pick` with
+`meta[gk]['sim_skeleton']` where `gk = uid[:3]` (`:86`), matching `_s.get('key') == uid[3]`.
+[Design the coupled work unit](02-design-the-coupled-work-unit.md) settled `uid[:3]` for the
+**finalize** path by carrying `group_keys`; this block slices the uid **independently and
+earlier**, so that decision does not reach it. Under the coupled uid
+`(label, 'coupled', arm_store, arm_ful)`, `meta[gk]` raises **KeyError** — inside the success
+`try`, so a unit that SUCCEEDED is logged `strategy FAILED`, added to `failed_uids`, and never
+finalizes either leaf.
+
+Unlike the other four this one is **not silent**: it is loudly mis-attributed, which is its own
+failure mode — a reader scanning `run.log` sees a failing arm and goes looking for a simulation
+bug that does not exist. Fix it the same way: take the group key and the arm key from the payload
+rather than by slicing, alongside the `group_keys` list 02 already adds.
+
+Byte-identical today for the same reason as the rest: on a flag-off unit `group_keys` is
+`[uid[:3]]` and the arm key is `uid[3]`.
