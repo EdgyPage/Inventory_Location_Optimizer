@@ -22,6 +22,12 @@ _Avoid_: receiving (as a domain name; the crew keeps the name)
 The storage-and-fulfillment side of the site: putting, storing, picking. Narrower than the
 `Warehouse/` package, whose name is historical.
 
+**Channel**:
+One of the site's two demand streams, store or fulfillment, each with its own orders, its own
+section of the warehouse and its own picking crew. A channel is a stream, never a building: the
+site's dock, yard and receiving crew serve both, and so does its put-away pool.
+_Avoid_: operation, stream, leg
+
 **Ordering site**:
 The unmodeled origin that loads and dispatches trailers. A reorder is a notification sent to it
 automatically; optimizing its behaviour is out of scope.
@@ -271,9 +277,18 @@ A proportion of a stated whole.
 **Grain**:
 The per-what of one row: per batch, per arm, per picker, session-cumulative.
 
+**Scope**:
+What a recorded value is a property of: the whole site, or one channel. Orthogonal to grain — a
+yard drain is per batch and the site's, a dock queue depth is per batch and a channel's. A site
+value divided by a channel's share is not that channel's number, and a channel value summed
+across channels is the site's only when nothing is counted twice.
+_Avoid_: level (that is a kind), scale
+
 **Clock**:
 Which axis a time value lives on — sim-modeled, wall-compute, or batch-denominated. Two values
-on different clocks never form a ratio.
+on different clocks never form a ratio. Two values on the same axis but different origins do not
+compare either: a receiving stamp is taken from the site's clock, a pick or put stamp from its
+own channel's.
 
 **Unit of account**:
 What a count counts — packs or merchandise pieces. Never added across accounts.

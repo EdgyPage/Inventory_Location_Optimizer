@@ -75,10 +75,13 @@ BEFORE anything runs: the inbound-optimization map resumes at
   (`Inventory_Management.py:254`, `:275`), so one object can serve two managers without touching
   `Warehouse/`; and `staffing.py` already derives site totals, so the coupled run is what the
   record has been describing all along. Re-resolve its line numbers before trusting one.
-- **`CONTEXT.md` is ahead of the code.** **Site dock** is already a resolved term — *"The one dock
-  both channels' trailers arrive at… contention is a fact of the site, never of a channel. A channel
-  run modelling its own inbound alone sees an artefact."* **Packing** needs the channel-partition
-  amendment (charter, pack ownership). Code identifiers follow at build time.
+- **`CONTEXT.md` is ahead of the code, and now covers the scope split.** **Site dock** was already
+  a resolved term — *"The one dock both channels' trailers arrive at… contention is a fact of the
+  site, never of a channel. A channel run modelling its own inbound alone sees an artefact."*
+  **Packing** already carries the channel-partition line the charter needed. 03 added **Channel**
+  and **Scope** and amended **Clock**; the decision behind them is
+  [ADR-0005](../../docs/adr/0005-inbound-scope-splits-at-the-pack.md). Code identifiers follow at
+  build time. Nothing further is owed the glossary by this map unless a ticket coins a term.
 - Memories every session should load: `site-dock-is-shared-across-channels`,
   `channel-experiment-independent-warehouses`, `receiving-is-its-own-crew`,
   `one-clock-one-speed-one-config`, `config-knob-has-five-seams`,
@@ -109,14 +112,32 @@ BEFORE anything runs: the inbound-optimization map resumes at
   **The charter's "(pair, config, arm-pair)" could not be built:** `config` sits above `channel` and
   the channels use different config sets, so the two leaves share no ancestor below `<pair>/`.
 
+- [Design the site scope in the run tree](issues/03-design-the-site-scope-in-the-run-tree.md): the
+  scope splits at the **pack**, not at the dock — packing partitions by channel, so every
+  pack-denominated receiving quantity keeps an owning channel and stays in that channel's own DB,
+  and `simulation_runs.channel` needs no sentinel and no DDL change. Only the trailer- and
+  door-denominated rows are homeless; they go to `<cell>/<pair>/_site/inbound_<arm-pair>.db`, the
+  `_dossier` pattern (a literal segment on ordinary artifacts) rather than a new LEVEL, which
+  would cost six modules and a verbatim architecture assert. `site` is minted as a fifth
+  evaluation scope; **the file carries the scope**, nothing is added to `Col`, because site-ness
+  is not a grain. One coupled marker in `run_layout.json` (no contract id moves, and `EvalContext`
+  already anchors on that file); pair completeness needs nothing new. Recorded as
+  [ADR-0005](../../docs/adr/0005-inbound-scope-splits-at-the-pack.md); **Channel** and **Scope**
+  added to `CONTEXT.md` and **Clock** amended. **Three silent seams found and graduated:** the
+  reserved-prefix guard exists at one tree depth only, `record_arm` unpacks the now-variable uid
+  positionally into a NOT NULL column whose error is swallowed, and an evaluation's scope string
+  is validated by nothing.
+
 ## Not yet specified
 
-- **The remaining builds** — the coupled half of every design ticket. The **one-leaf** extraction
-  graduated out of 01 as
+- **The remaining builds** — the coupled half of every design ticket. Two have graduated out
+  because they are byte-identical and need no second leaf:
   [Extract the one-leaf receiving coordinator](issues/09-extract-the-one-leaf-coordinator.md)
-  because it is byte-identical and needs no second leaf; everything that only means something once
-  two leaves exist (the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the ADR, the
-  `CONTEXT.md` amendments) waits on 02's work-unit shape.
+  (out of 01) and
+  [Harden the three positional seams](issues/11-harden-the-positional-seams.md) (out of 03). The
+  ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a second leaf: the
+  owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact declarations and
+  their contract bump, and the site evaluation context 07 will need.
 - **Within-day put interleaving.** The charter shares a DAY budget, so a putter cannot take the
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
   coupled run shows a day where one channel's put queue actually starves while the other's crew
