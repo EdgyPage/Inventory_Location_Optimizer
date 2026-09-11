@@ -15,7 +15,11 @@
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_transit_py.html"><code>Inbound/transit.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def advance(self) -&gt; None</code></pre>
-<section class="doc">Leads are absolute-clock seconds; a batch tick moves nothing by itself.</section>
+<section class="doc">One batch elapsed: orders waiting their supplier lead move one tick closer.
+
+The trailer stage is untouched — its leads are absolute-clock seconds, and a batch
+tick moves nothing there.  The tick is one BATCH, the manager&#x27;s `LEAD_TIME_UNIT`,
+counted exactly as `BatchTransit.advance` counts it.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_transit_py__TrailerTransit_advance">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/transit.py#:~:text=def%20advance">Source ↗</a></p>
 </article>

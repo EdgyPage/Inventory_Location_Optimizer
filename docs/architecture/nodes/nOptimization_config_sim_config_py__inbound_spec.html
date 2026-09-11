@@ -14,8 +14,15 @@
 <h1><span class="kind kind-function">function</span> <code>inbound_spec</code></h1>
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def inbound_spec() -&gt; dict | None</code></pre>
+<pre class="sig"><code>def inbound_spec(recv_crew_size: int | None=None) -&gt; dict | None</code></pre>
 <section class="doc">The trailer pipeline&#x27;s configuration as a picklable record, or **None** for off.
+
+`recv_crew_size` is the DERIVED receiving crew under the calibrated era
+(`staffing.derive`), handed in by the caller that holds the derived block -- the
+`recv_crew_spec(size=)` pattern, and for the same reason: derived values are never
+CONFIG keys.  None reads the declared `recv_crew_size` key, which is every flag-off
+run.  It is read by exactly one guard, the standing yard&#x27;s &quot;a yard nobody can unload&quot;
+refusal below; nothing else about the record depends on it.
 
 None rather than a dict with a flag, for the same reason `recv_crew_spec` returns None:
 the worker tests `args.get(&#x27;inbound&#x27;) is None` and skips the whole build -- no

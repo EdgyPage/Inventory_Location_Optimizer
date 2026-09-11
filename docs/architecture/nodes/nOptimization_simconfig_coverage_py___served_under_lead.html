@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_served_under_lead · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_coverage_py___served_under_lead" data-id="Optimization/simconfig/coverage.py::_served_under_lead">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>_served_under_lead</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_served_under_lead</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
+
+<pre class="sig"><code>def _served_under_lead(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarray, pmf_k: dict) -&gt; np.ndarray</code></pre>
+<section class="doc">`E[min(q, (S - D_K)^+)]` per SKU: the units a line is expected to take off a shelf
+whose order-up-to POSITION is `S` while the SKU&#x27;s own prior lines are still in transit
+(&quot;Declare the coverage against the inbound lead&quot;, decision 5).
+
+The observed lead is `K = a + k` whole days on the site grid: `a` the SKU&#x27;s supplier lead
+rounded to the grid (the ledger&#x27;s own `round(lead_time_mean)`) and `k` the trailer&#x27;s
+transit under `pmf_k` (`transit_day_law`; `{0: 1}` with no pipeline).  The prior lines
+inside those `K` days number `N ~ Poisson(K · rate_s)` at the SKU&#x27;s line rate `n · π_s`
+(the batch is one Poisson draw a day under the era -- the same convention the
+fragmentation chain prices with), each of the stamped line law, so `D_K` is compound
+Poisson and its mass on `0 .. S-1` follows Panjer&#x27;s recursion
+
+    g(0) = e^{-λ},   g(j) = (λ / j) · Σ_{i=1..j} i · f(i) · g(j - i)         λ = K · rate_s
+
+Then, `q` and `D_K` being independent,
+`E[min(q, (S - D)^+)] = Σ_{u&lt;S} P(q &gt; u) · P(D &lt;= S - 1 - u)`.  Vectorised over SKUs in
+groups by shelf size (the recursion is quadratic in `S`, and a floored section is almost
+entirely small shelves), exact to the truncation at `S` -- nothing above the position
+is ever needed -- and to the transit tail `SERVED_TAIL_TOL` leaves unpriced.  The
+recursion is linear in `g`, so a row whose mass outgrows `_PANJER_RESCALE` is divided
+down and its log-scale carried, which keeps a seed that underflows (λ above ~745) from
+zeroing a shelf that serves everything.  At `K = 0` the mass sits at zero and the sum
+is `E[min(q, S)]`.
+
+`a` is the supplier lead ROUNDED TO GRID DAYS after the batch-to-day conversion; at one
+release a day (the era, which pins it) that is the ledger&#x27;s own `round(lead_time_mean)`
+in batches, and at any other release schedule the two roundings differ -- a limitation
+stated, not solved, because nothing declares another schedule.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py___line_pmf.html"><code>_line_pmf</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__fill_rate.html"><code>fill_rate</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_coverage_py___served_under_lead">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/coverage.py#:~:text=def%20_served_under_lead">Source ↗</a></p>
+</article>
+</main>
+</body></html>

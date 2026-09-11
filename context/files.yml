@@ -775,6 +775,7 @@ files:
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "work_day_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "recv_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "inbound_lead_law", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "inbound_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_queues_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -806,6 +807,7 @@ files:
       - {name: "PHASE2_RECV_CREW_SIZE", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RECV_DAY_SECONDS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "ERA_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PILOT_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "phase2_inbound_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -1215,10 +1217,12 @@ files:
     purpose: "stock coverage as a RUNTIME rescaling under declared days, never a generation knob."
     layer: "optimization"
     key_symbols:
+      - {name: "transit_day_law", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "daily_demand", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "line_floor", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "pipeline_qty", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "stock_levels", file: "Optimization/simconfig/coverage.py", kind: "function"}
+      - {name: "sku_lead_days", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "rescale_section", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "fill_rate", file: "Optimization/simconfig/coverage.py", kind: "function"}
       - {name: "solve_floor_lines", file: "Optimization/simconfig/coverage.py", kind: "function"}
@@ -1239,6 +1243,8 @@ files:
       - {name: "arm_expectations", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "demand_flows", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "window_of", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "fill_at", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "realized_lead", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "check_rows", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "check", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "summarize", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
@@ -1344,6 +1350,9 @@ files:
       - {name: "stamp_fill", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "holds_at", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "stamp_fragmentation", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "lead_block", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "transit_of", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
+      - {name: "fill_curve", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "resolve_floors", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "fixed_point", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
     notes: ""
@@ -3819,6 +3828,38 @@ files:
       - {name: "test_the_probe_is_off_by_default_and_changes_no_result", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
       - {name: "test_stats_are_populated_without_a_probe", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_lead_aware_coverage.py":
+    purpose: "the coverage record is declared AT the order-to-shelf lead."
+    layer: "tests"
+    key_symbols:
+      - {name: "D", file: "Tests/unit/test_lead_aware_coverage.py", kind: "const"}
+      - {name: "PILOT", file: "Tests/unit/test_lead_aware_coverage.py", kind: "const"}
+      - {name: "DAY", file: "Tests/unit/test_lead_aware_coverage.py", kind: "const"}
+      - {name: "C", file: "Tests/unit/test_lead_aware_coverage.py", kind: "const"}
+      - {name: "SIDE", file: "Tests/unit/test_lead_aware_coverage.py", kind: "const"}
+      - {name: "restore", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_transit_day_law_is_the_ceiling_of_the_lead_over_the_day", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_transit_day_law_reads_the_tickets_table_and_refuses_bad_inputs", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_lead_per_sku_is_the_supplier_lead_in_days_plus_the_transit", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_rescale_section_declares_at_the_lead_and_is_byte_identical_at_transit_zero", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_at_lead_zero_the_fill_is_the_lead_free_expression_exactly", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_lead_aware_fill_is_poisson_by_hand_under_a_one_day_transit", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_lead_aware_fill_matches_a_monte_carlo_of_the_compound_poisson_form", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_fast_path_prices_the_laws_own_pmf_and_the_slow_path_agrees", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_floor_solves_higher_at_the_lead_than_at_lead_zero", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_lead_block_and_transit_of_round_trip_the_law", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_fixed_point_stamps_the_lead_and_the_curve_and_the_rebuild_reproduces_it", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "CURVE", file: "Tests/unit/test_lead_aware_coverage.py", kind: "const"}
+      - {name: "test_fill_at_interpolates_the_curve_and_holds_its_ends", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_realized_lead_is_littles_law_over_the_window", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_supply_reading_reports_the_lead_and_the_explained_level_without_a_band", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_expectations_for_reads_the_lead_off_the_fill_block_or_none", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_batch_frame_carries_the_two_littles_law_terms", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_audit_table_carries_a_lead_row_under_the_supply_share", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_the_era_declares_at_the_pilot_transit_and_solves_a_higher_floor", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_an_lt1_sibling_declares_at_its_supplier_lead_plus_the_transit", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+      - {name: "test_a_mixed_catalogue_shares_one_transit_and_solves_each_section_at_it", file: "Tests/unit/test_lead_aware_coverage.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_lead_distribution.py":
     purpose: "per-trailer leads, and why spread zero is not a distribution."
     layer: "tests"
@@ -4723,6 +4764,7 @@ files:
     key_symbols:
       - {name: "test_standing_without_a_trailer_type_fails_loudly", file: "Tests/unit/test_standing_yard.py", kind: "function"}
       - {name: "test_standing_without_a_receiving_crew_fails_loudly", file: "Tests/unit/test_standing_yard.py", kind: "function"}
+      - {name: "test_the_derived_receiving_crew_satisfies_the_yard_guard_under_the_era", file: "Tests/unit/test_standing_yard.py", kind: "function"}
       - {name: "test_a_wellformed_standing_spec_carries_the_whole_family", file: "Tests/unit/test_standing_yard.py", kind: "function"}
       - {name: "test_an_unknown_allocation_fails_at_both_seams", file: "Tests/unit/test_standing_yard.py", kind: "function"}
       - {name: "test_flag_off_spec_is_unchanged", file: "Tests/unit/test_standing_yard.py", kind: "function"}
@@ -4755,6 +4797,24 @@ files:
       - {name: "test_vs_baseline_rows_are_auditable_and_self_consistent", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
       - {name: "test_vs_baseline_effect_sizes_point_the_same_way_as_the_percentage", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
       - {name: "test_aggregate_by_initial_pairs_profiles_and_drops_half_pairs", file: "Tests/unit/test_stats_intervals.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_supplier_lead_queue.py":
+    purpose: "the supplier lead is served at the ordering site, before the trailer."
+    layer: "tests"
+    key_symbols:
+      - {name: "DAY_S", file: "Tests/unit/test_supplier_lead_queue.py", kind: "const"}
+      - {name: "test_lead_zero_loads_at_fire_time_and_lead_two_loads_two_drains_later", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "test_a_released_order_is_dispatched_at_the_drain_it_loaded_in_not_the_one_it_fired_in", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "test_a_partial_release_keeps_the_rest_in_fire_order", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "test_lead_zero_never_enters_the_site_queue", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "test_two_orders_releasing_in_one_batch_load_in_fire_order", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "test_a_negative_remainder_is_a_backlog_never_clamped", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "test_through_check_reorders_lead_zero_lands_on_drain_0_and_lead_two_on_drain_2", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "PLAN", file: "Tests/unit/test_supplier_lead_queue.py", kind: "const"}
+      - {name: "test_at_lead_zero_the_chained_transit_is_lockstep_with_the_discarding_one", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "GOLDEN", file: "Tests/unit/test_supplier_lead_queue.py", kind: "const"}
+      - {name: "test_at_lead_zero_the_drain_by_drain_record_is_the_archives", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
+      - {name: "test_a_supplier_lead_delays_every_load_by_that_many_drains", file: "Tests/unit/test_supplier_lead_queue.py", kind: "function"}
     notes: ""
   "Tests/unit/test_task_bin_selection_determinism.py":
     purpose: "test_task_bin_selection_determinism.py"

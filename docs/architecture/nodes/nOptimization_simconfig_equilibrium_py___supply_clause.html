@@ -14,20 +14,32 @@
 <h1><span class="kind kind-function">function</span> <code>_supply_clause</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
 
-<pre class="sig"><code>def _supply_clause(flows: dict, days: list[int], expected: float | None) -&gt; Clause</code></pre>
+<pre class="sig"><code>def _supply_clause(flows: dict, days: list[int], expected: float | None, *, batch_rows=(), lead: dict | None=None) -&gt; Clause</code></pre>
 <section class="doc">The shelf&#x27;s first-pass service: the supply share at its stamped level, not trending.
 
 LEVEL.  `Σ supply_new ÷ Σ fresh` over the window -- each unit counted once, on the first
 batch its SKU&#x27;s shortfall rose (`demand_flows`) -- judged within `SUPPLY_LEVEL_TOL` of
 `expected`, the record&#x27;s `1 - fill_rate` (the solved floor&#x27;s expected first-pass missed
-share under base stock, &quot;Choose the coverage floor&quot;, decision 5).  A ratio of sums,
-because the fill rate is one (`Σ served ÷ Σ units`, units-weighted).  REPORTED, not
-judged, on a record with no stamped fill.
+share under base stock, &quot;Choose the coverage floor&quot;, decision 5, priced AT the stamped
+lead since &quot;Declare the coverage against the inbound lead&quot;).  A ratio of sums, because
+the fill rate is one (`Σ served ÷ Σ units`, units-weighted).  REPORTED, not judged, on a
+record with no stamped fill.
+
+THE LEAD, reported and never banded (decision 10 of the lead ticket): the stamped
+order-to-shelf lead (`lead[&#x27;lead_days&#x27;]`), the REALIZED one off the batch rows
+(`realized_lead`), and the EXPLAINED level `1 - fill(realized)` read off the record&#x27;s
+fill-versus-transit curve at the realized transit (the realized lead less the section&#x27;s
+supplier-lead days) -- so a binding yard reads as supply moved by the yard&#x27;s detention
+(the level sits near the explained value, above the band) and a model error as a gap the
+realized lead cannot explain.  The band itself is unchanged: `SUPPLY_LEVEL_TOL` around the
+stamped expectation.  `reading[&#x27;lead&#x27;]` is `{&#x27;stamped_days&#x27;, &#x27;realized_days&#x27;,
+&#x27;explained&#x27;, &#x27;in_transit_mean&#x27;, &#x27;ordered_mean&#x27;, &#x27;transit_days&#x27;}`, Nones where the record
+or the rows carry nothing.
 
 TREND.  Half-window means of the per-batch share within `TREND_TOL`, as decision 4 had it.
 `units.supply` is the raw flow with re-attempts; `units.reattempts` is what the old
 clause was double-counting.</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Clause.html"><code>Clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___halves.html"><code>_halves</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___unrecorded.html"><code>_unrecorded</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Clause.html"><code>Clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___halves.html"><code>_halves</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___unrecorded.html"><code>_unrecorded</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__fill_at.html"><code>fill_at</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__realized_lead.html"><code>realized_lead</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___supply_clause">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_supply_clause">Source ↗</a></p>
 </article>
 </main>

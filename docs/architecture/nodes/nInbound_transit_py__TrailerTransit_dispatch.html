@@ -15,18 +15,21 @@
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_transit_py.html"><code>Inbound/transit.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def dispatch(self, sku: int, qty: int, lead: int, unit_volume: int | None=None, now_s: float | None=None) -&gt; None</code></pre>
-<section class="doc">Load one fired reorder, item-by-item, FIFO next-fit across trailers.
+<section class="doc">Accept one fired reorder: queue it for its supplier lead, or load it now.
 
-`lead` (batches) is the LEGACY denomination and is deliberately ignored here: a
-trailer&#x27;s lead is seconds on the absolute clock, drawn per trailer by `lead_for`
-(ticket: &quot;Choose the lead-time denomination&quot;).  `unit_volume` None falls back to
-one item per position-volume share of nothing — callers on this seam pass
-`order.volume()`.
+`lead` (batches) is the SKU&#x27;s SUPPLIER lead — the catalogue&#x27;s `lead_time_mean` as
+`_fire_reorders` rounds it — and it is served HERE, in front of the trailer: a
+positive lead joins `_at_site` and loads `lead` drains later (`advance` ticks it,
+`_release_site` loads it at zero); lead 0 loads this instant.  The trailer&#x27;s own
+lead is a different stage — seconds on the absolute clock, drawn per trailer by
+`lead_for` — and the two ADD, which is what the coverage record prices.
 
-The draw happens HERE, at creation, and never again: the lead is a property of the
-trailer from the instant it exists, so `dispatched_s + lead_s` is a fixed arrival
-the yard can be sorted by however many drains later it is observed.</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_trailer_py__Trailer.html"><code>Trailer</code></a> <span class="dim">Inbound/trailer.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__depart.html"><code>_depart</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nInbound_transit_py__TrailerTransit_lead_for.html"><code>lead_for</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+Anything already due at the ordering site loads FIRST, so a released order never
+queues behind this batch&#x27;s lead-0 newcomers: loading order is fire order, the
+tiebreak `BatchTransit.release` has by construction.  `unit_volume` None falls
+back to one item per position-volume share of nothing — callers on this seam
+pass `order.volume()`.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nInbound_transit_py__TrailerTransit__load.html"><code>_load</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__release_site.html"><code>_release_site</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_transit_py__TrailerTransit_dispatch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/transit.py#:~:text=def%20dispatch">Source ↗</a></p>
 </article>
 </main>

@@ -1381,7 +1381,7 @@
     },
     "Inbound/transit.py": {
       "decorators": [],
-      "doc": "transit \u2014 the trailer model on the manager's order-port seam.\n\n`TrailerTransit` binds where `BatchTransit` (the flag-off default in\n`Warehouse/inventory/inventory_reorder.py`) sits: same seam, same phase wrappers, injected\nby the driver and never imported by anything under `Warehouse/` \u2014 the broker rule.  What\nchanges flag-on is the SHAPE of transit: fired reorders load item-by-item into trailers\n(FIFO next-fit \u2014 a lot that outgrows the open trailer continues in a fresh one, which is\n`inbound_split` realized structurally: each trailer's portion packs as its own delivery),\ntrailers dispatch when loading passes them by and arrive per their lead (seconds on the\nabsolute clock, minutes-authored, default ZERO = instantly), stand in the YARD,\nstage to DOCK DOORS, and are worked in priority order \u2014 global over trailers at both dock\nmoments, local over load pallets, both `'fifo'` in v1.\n\n# \u2500\u2500 the lead, and why it is drawn here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA lead is PER TRAILER, drawn at creation from one lognormal \u2014 median `lead_s` \u00d7 spread\n`lead_sigma` \u2014 and homogeneous leads are that distribution's \u03c3 = 0 case, taken literally:\nno generator is constructed and `lead_s` is returned as-is, so \"the default is\nbyte-identical\" is a property of the code path rather than a claim about a distribution.\nThe draw is stateless and SEQ-KEYED (`SeedSequence([seed, tag, seq])`, one draw,\ndiscarded), which is what makes it survive this repo's constraints for free: nothing to\npickle across the spawn boundary, nothing to restore on a resume, and trailer #N drawing\nthe same lead in every arm of a run \u2014 common random numbers across arms.  Heterogeneity\nis the standing yard's alone (`inbound_spec` refuses a spread without it): v1 ranks by\ndispatch seq, so a spread there would shift arrival batches without scrambling any order.\n\n# \u2500\u2500 what the doors do in v1, and deliberately do not \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nDoors are BOOKKEEPING in v1: every arrival lands at the batch epoch and every policy is\nFIFO, so a per-batch door throttle would invent staffing physics the shift-end decision\nalready declined \u2014 the crew's hours are the bound on receiving, exactly as the dock's\nno-backpressure note says.  The door count, free-door census and staging order are all\nreal and reported through `DockContext`, so the policies that make doors bite (arrival\nspread, non-FIFO staging) arrive as registry entries, not as rewiring.\n\n`YardTransit` below is where doors BECOME real: at most `doors` trailers staged, a trailer\nholds its door across drains until fully unloaded, and the yard-pull fires when a door\nfrees.  Gated by `INBOUND_STANDING_YARD`; flag-off binds this class untouched.\n\n# \u2500\u2500 the seam contract \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nMirrors `BatchTransit` exactly \u2014 `SOURCE`, `dispatch`, `advance`, `release`, `depth`,\n`merchandise()`, `snapshot()` \u2014 so the manager's phase bodies cannot tell which transit is\nbound.  `release()` returns `[sku, qty, remaining]` DELIVERIES (one per contiguous trailer\nlot, in unload order); the manager's ledger debit, packer and admission flow are untouched,\nand admissions carry `SOURCE = 'trailer'`, the fourth `PutawayItem` provenance.",
+      "doc": "transit \u2014 the trailer model on the manager's order-port seam.\n\n`TrailerTransit` binds where `BatchTransit` (the flag-off default in\n`Warehouse/inventory/inventory_reorder.py`) sits: same seam, same phase wrappers, injected\nby the driver and never imported by anything under `Warehouse/` \u2014 the broker rule.  What\nchanges flag-on is the SHAPE of transit: fired reorders load item-by-item into trailers\n(FIFO next-fit \u2014 a lot that outgrows the open trailer continues in a fresh one, which is\n`inbound_split` realized structurally: each trailer's portion packs as its own delivery),\ntrailers dispatch when loading passes them by and arrive per their lead (seconds on the\nabsolute clock, minutes-authored, default ZERO = instantly), stand in the YARD,\nstage to DOCK DOORS, and are worked in priority order \u2014 global over trailers at both dock\nmoments, local over load pallets, both `'fifo'` in v1.\n\n# \u2500\u2500 the lead, and why it is drawn here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA lead is PER TRAILER, drawn at creation from one lognormal \u2014 median `lead_s` \u00d7 spread\n`lead_sigma` \u2014 and homogeneous leads are that distribution's \u03c3 = 0 case, taken literally:\nno generator is constructed and `lead_s` is returned as-is, so \"the default is\nbyte-identical\" is a property of the code path rather than a claim about a distribution.\nThe draw is stateless and SEQ-KEYED (`SeedSequence([seed, tag, seq])`, one draw,\ndiscarded), which is what makes it survive this repo's constraints for free: nothing to\npickle across the spawn boundary, nothing to restore on a resume, and trailer #N drawing\nthe same lead in every arm of a run \u2014 common random numbers across arms.  Heterogeneity\nis the standing yard's alone (`inbound_spec` refuses a spread without it): v1 ranks by\ndispatch seq, so a spread there would shift arrival batches without scrambling any order.\n\n# \u2500\u2500 the supplier lead, and where it waits \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe SKU's `lead_time_mean` (batches, the catalogue's attribute) is its SUPPLIER lead \u2014\norder to ready-to-ship at the ordering site \u2014 and it is served BEFORE the trailer, never\ninstead of it (\"Declare the coverage against the inbound lead\", decision 2).  A reorder\nfired with a nonzero supplier lead waits that many batches in `_at_site`, the same\nbatch-denominated countdown the flag-off `BatchTransit` runs (advance one per\n`check_reorders`, release at zero), and loads onto the open trailer only when it\nreleases; lead 0 loads the instant it fires, as it always did.  The two stages are\nadditive, which is exactly what the coverage record prices (`attr_s + transit_days`).\nReleased orders load in FIRE order, ahead of anything fired in the same batch: the\nqueue is flushed before every load, so an order two batches old never queues behind\nthis batch's lead-0 newcomer \u2014 the tiebreak `BatchTransit.release` has by construction\n(queue order).  On a lead-free catalogue the queue is never entered, and every trailer,\nstamp and drain is byte-identical to the pipeline before the queue existed.\n\n# \u2500\u2500 what the doors do in v1, and deliberately do not \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nDoors are BOOKKEEPING in v1: every arrival lands at the batch epoch and every policy is\nFIFO, so a per-batch door throttle would invent staffing physics the shift-end decision\nalready declined \u2014 the crew's hours are the bound on receiving, exactly as the dock's\nno-backpressure note says.  The door count, free-door census and staging order are all\nreal and reported through `DockContext`, so the policies that make doors bite (arrival\nspread, non-FIFO staging) arrive as registry entries, not as rewiring.\n\n`YardTransit` below is where doors BECOME real: at most `doors` trailers staged, a trailer\nholds its door across drains until fully unloaded, and the yard-pull fires when a door\nfrees.  Gated by `INBOUND_STANDING_YARD`; flag-off binds this class untouched.\n\n# \u2500\u2500 the seam contract \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nMirrors `BatchTransit` exactly \u2014 `SOURCE`, `dispatch`, `advance`, `release`, `depth`,\n`merchandise()`, `snapshot()` \u2014 so the manager's phase bodies cannot tell which transit is\nbound.  `release()` returns `[sku, qty, remaining]` DELIVERIES (one per contiguous trailer\nlot, in unload order); the manager's ledger debit, packer and admission flow are untouched,\nand admissions carry `SOURCE = 'trailer'`, the fourth `PutawayItem` provenance.",
       "kind": "module",
       "signature": null
     },
@@ -1426,9 +1426,37 @@
       "kind": "function",
       "signature": "(self, trailer: Trailer) -> None"
     },
+    "Inbound/transit.py::TrailerTransit._load": {
+      "decorators": [],
+      "doc": "Load one order, item-by-item, FIFO next-fit across trailers.\n\nThe trailer's lead is drawn HERE, at creation, and never again: it is a property\nof the trailer from the instant it exists, so `dispatched_s + lead_s` is a fixed\narrival the yard can be sorted by however many drains later it is observed.\n`dispatched_s` is the epoch of the drain the order LOADED in \u2014 after its supplier\nlead, not the drain it fired in.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sku: int, qty: int, unit_volume: int | None, now_s: float | None) -> None"
+    },
+    "Inbound/transit.py::TrailerTransit._release_site": {
+      "decorators": [],
+      "doc": "Load every order whose supplier lead has elapsed (remaining <= 0), in queue \u2014\ni.e. fire \u2014 order.  Called at the top of every `dispatch` and every `release`,\nso a due order rides the same drain whether or not anything fired that batch.\nA negative remainder is never clamped, exactly as `BatchTransit` leaves it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, now_s: float | None) -> None"
+    },
+    "Inbound/transit.py::TrailerTransit._site_qty": {
+      "decorators": [],
+      "doc": "Pieces waiting at the ordering site \u2014 one definition for both censuses.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/transit.py::TrailerTransit._site_rows": {
+      "decorators": [],
+      "doc": "(sku, qty, remaining_batches) per site entry, in fire order \u2014 the snapshot's\nleading rows in both classes.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
     "Inbound/transit.py::TrailerTransit.advance": {
       "decorators": [],
-      "doc": "Leads are absolute-clock seconds; a batch tick moves nothing by itself.",
+      "doc": "One batch elapsed: orders waiting their supplier lead move one tick closer.\n\nThe trailer stage is untouched \u2014 its leads are absolute-clock seconds, and a batch\ntick moves nothing there.  The tick is one BATCH, the manager's `LEAD_TIME_UNIT`,\ncounted exactly as `BatchTransit.advance` counts it.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
@@ -1437,14 +1465,14 @@
       "decorators": [
         "property"
       ],
-      "doc": "In-flight ENTRIES: trailers loading, in transit, or standing in the yard.",
+      "doc": "In-flight ENTRIES: orders waiting at the ordering site, trailers loading, in\ntransit, or standing in the yard.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
     },
     "Inbound/transit.py::TrailerTransit.dispatch": {
       "decorators": [],
-      "doc": "Load one fired reorder, item-by-item, FIFO next-fit across trailers.\n\n`lead` (batches) is the LEGACY denomination and is deliberately ignored here: a\ntrailer's lead is seconds on the absolute clock, drawn per trailer by `lead_for`\n(ticket: \"Choose the lead-time denomination\").  `unit_volume` None falls back to\none item per position-volume share of nothing \u2014 callers on this seam pass\n`order.volume()`.\n\nThe draw happens HERE, at creation, and never again: the lead is a property of the\ntrailer from the instant it exists, so `dispatched_s + lead_s` is a fixed arrival\nthe yard can be sorted by however many drains later it is observed.",
+      "doc": "Accept one fired reorder: queue it for its supplier lead, or load it now.\n\n`lead` (batches) is the SKU's SUPPLIER lead \u2014 the catalogue's `lead_time_mean` as\n`_fire_reorders` rounds it \u2014 and it is served HERE, in front of the trailer: a\npositive lead joins `_at_site` and loads `lead` drains later (`advance` ticks it,\n`_release_site` loads it at zero); lead 0 loads this instant.  The trailer's own\nlead is a different stage \u2014 seconds on the absolute clock, drawn per trailer by\n`lead_for` \u2014 and the two ADD, which is what the coverage record prices.\n\nAnything already due at the ordering site loads FIRST, so a released order never\nqueues behind this batch's lead-0 newcomers: loading order is fire order, the\ntiebreak `BatchTransit.release` has by construction.  `unit_volume` None falls\nback to one item per position-volume share of nothing \u2014 callers on this seam\npass `order.volume()`.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, sku: int, qty: int, lead: int, unit_volume: int | None=None, now_s: float | None=None) -> None"
@@ -1458,21 +1486,21 @@
     },
     "Inbound/transit.py::TrailerTransit.merchandise": {
       "decorators": [],
-      "doc": "Pieces not yet released to the dock \u2014 the in_transit_qty level.",
+      "doc": "Pieces not yet released to the dock \u2014 the in_transit_qty level.  An order\nwaiting at the ordering site counts: the ledger credited it when it fired.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
     },
     "Inbound/transit.py::TrailerTransit.release": {
       "decorators": [],
-      "doc": "Everything the dock can start on this batch, as [sku, qty, 0] deliveries.\n\nOrder of operations IS the model: (1) anything still loading departs \u2014 a trailer\nwaits for nothing in v1; (2) arrivals (lead elapsed against `now_s`) join the\nyard; (3) the yard stages to doors and staged trailers are worked in\nGLOBAL-priority order, each trailer's pallets in LOCAL-priority order, emitting one\ndelivery per contiguous SKU lot \u2014 so a split shipment packs as the pieces it\narrived in.  Worked trailers free their doors within the drain (v1: doors are\nbookkeeping; see the module note).",
+      "doc": "Everything the dock can start on this batch, as [sku, qty, 0] deliveries.\n\nOrder of operations IS the model: (0) orders whose supplier lead has elapsed load,\nin fire order; (1) anything still loading departs \u2014 a trailer waits for nothing\nin v1; (2) arrivals (lead elapsed against `now_s`) join the yard; (3) the yard\nstages to doors and staged trailers are worked in GLOBAL-priority order, each\ntrailer's pallets in LOCAL-priority order, emitting one delivery per contiguous\nSKU lot \u2014 so a split shipment packs as the pieces it arrived in.  Worked trailers\nfree their doors within the drain (v1: doors are bookkeeping; see the module note).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, now_s: float | None=None) -> list"
     },
     "Inbound/transit.py::TrailerTransit.snapshot": {
       "decorators": [],
-      "doc": "(sku, qty, remaining_lead) tuples for the replay rows; remaining is 1 for\nanything still riding a lead, 0 for standing \u2014 batches were never its unit.",
+      "doc": "(sku, qty, remaining_lead) tuples for the replay rows: the batches left for an\norder waiting at the ordering site, then 1 for anything riding a trailer's lead\nand 0 for standing \u2014 batches were never the trailer stage's unit.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -1545,7 +1573,7 @@
     },
     "Inbound/transit.py::YardTransit.merchandise": {
       "decorators": [],
-      "doc": "Pieces not yet handed to the put queue \u2014 mirrors the deferred ledger: full\nloads before arrival, PLANNED quantities once a plan exists (a packing shortfall\nwas already debited at arrival), remainders only on staged trailers.",
+      "doc": "Pieces not yet handed to the put queue \u2014 mirrors the deferred ledger: full\nloads before arrival, PLANNED quantities once a plan exists (a packing shortfall\nwas already debited at arrival), remainders only on staged trailers \u2014 and, in\nfront of all of it, what still waits at the ordering site.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
@@ -1559,14 +1587,14 @@
     },
     "Inbound/transit.py::YardTransit.release": {
       "decorators": [],
-      "doc": "Pure calendar: departs loaders, lands arrivals in the yard, delivers NOTHING.\n\nThe unload pull lives in `_receive` because it is LABOUR \u2014 a lead elapses whether\nor not anyone is at work, but nothing comes off a trailer without a crew.  An\nempty return keeps `_release_arrivals` a structural no-op: no ledger debit, no\npacking, no admission \u2014 the deferred-until-unload contract.",
+      "doc": "Pure calendar: loads what the supplier lead released, departs loaders, lands\narrivals in the yard, delivers NOTHING.\n\nThe unload pull lives in `_receive` because it is LABOUR \u2014 a lead elapses whether\nor not anyone is at work, but nothing comes off a trailer without a crew.  An\nempty return keeps `_release_arrivals` a structural no-op: no ledger debit, no\npacking, no admission \u2014 the deferred-until-unload contract.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, now_s: float | None=None) -> list"
     },
     "Inbound/transit.py::YardTransit.snapshot": {
       "decorators": [],
-      "doc": "(sku, qty, remaining_lead) rows: 1 riding a lead, 0 standing \u2014 yard trailers\nwhole, staged trailers by their remainders.",
+      "doc": "(sku, qty, remaining_lead) rows: the batches left at the ordering site, 1\nriding a lead, 0 standing \u2014 yard trailers whole, staged trailers by their\nremainders.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -5729,6 +5757,13 @@
       "kind": "function",
       "signature": "(expectations)"
     },
+    "Optimization/Performance_Evaluations/throughput/audit.py::_lead_row": {
+      "decorators": [],
+      "doc": "The order-to-shelf lead row under the supply share: the STAMPED lead as the expected\ncell, the REALIZED lead (Little's law over the window, `equilibrium.realized_lead`) as\nthe realized cell, no band, and the read naming the EXPLAINED supply level\n`1 - fill(realized)` off the record's curve (\"Declare the coverage against the inbound\nlead\", decision 10) -- reported, never judged.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(head, reading)"
+    },
     "Optimization/Performance_Evaluations/throughput/audit.py::_read": {
       "decorators": [],
       "doc": "The one-word reading of a department's band position, in the audit's vocabulary.",
@@ -7036,12 +7071,19 @@
       "kind": "function",
       "signature": "() -> float"
     },
-    "Optimization/config/sim_config.py::inbound_spec": {
+    "Optimization/config/sim_config.py::inbound_lead_law": {
       "decorators": [],
-      "doc": "The trailer pipeline's configuration as a picklable record, or **None** for off.\n\nNone rather than a dict with a flag, for the same reason `recv_crew_spec` returns None:\nthe worker tests `args.get('inbound') is None` and skips the whole build -- no\nTrailerTransit, no trailer objects, and the manager keeps the batch lead queue it\nconstructed for itself, byte-identically.\n\nReads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`'s\nsettings snapshot).  The lead MEDIAN is authored in MINUTES and converted to the sim's\nseconds exactly once, here -- the minutes-at-the-surface decision.  The SPREAD is\ndimensionless and crosses as-is; the draw itself lives at trailer creation\n(`Inbound.transit.TrailerTransit.lead_for`), keyed by the world seed carried below,\nso no RNG object ever has to cross the worker payload.\n\nTHE STANDING YARD'S CONTRADICTIONS FAIL HERE, LOUDLY.  `INBOUND_STANDING_YARD` with\nno trailer type is a yard with no trailers; with no receiving crew it is a yard\nnobody can ever unload -- merchandise would stand deferred forever, the run would\ncomplete, and nothing would raise.  And a non-fifo yard/dock policy WITHOUT the\nstanding yard is a policy nothing reads: the run would complete as v1 fifo under\nthe policy's name -- the fake-arm hazard, worn as configuration.  So is a lead\nSPREAD without the standing yard, or over a zero median (see the guard below).  All\nare configuration errors, never a silent no-op: the flag's OFF state is the only\ninert one.",
+      "doc": "The trailer pipeline's LEAD LAW alone -- `{'trailer_type', 'lead_s', 'lead_sigma'}`,\nor **None** when no trailer type is named (the pipeline is off, structurally).\n\nThe three keys `inbound_spec()` reads for the lead, factored out because the coverage\nrecord needs them BEFORE the receiving crew exists: `era_coverage.lead_block` derives\nthe day-grid transit at setup (`coverage.transit_day_law`), and `inbound_spec()`'s\n\"a yard nobody can unload\" guard would refuse that read under the era, where the crew\nis derived only after the fixed point has declared the levels.  No guard here: this\naccessor answers what the lead IS; `inbound_spec()` still refuses every contradiction\nthe moment the worker payload is built.  Reads CONFIG at call time; the median is\nconverted from minutes to seconds here and nowhere else (the same conversion\n`inbound_spec()` records as `lead_s`).",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict | None"
+    },
+    "Optimization/config/sim_config.py::inbound_spec": {
+      "decorators": [],
+      "doc": "The trailer pipeline's configuration as a picklable record, or **None** for off.\n\n`recv_crew_size` is the DERIVED receiving crew under the calibrated era\n(`staffing.derive`), handed in by the caller that holds the derived block -- the\n`recv_crew_spec(size=)` pattern, and for the same reason: derived values are never\nCONFIG keys.  None reads the declared `recv_crew_size` key, which is every flag-off\nrun.  It is read by exactly one guard, the standing yard's \"a yard nobody can unload\"\nrefusal below; nothing else about the record depends on it.\n\nNone rather than a dict with a flag, for the same reason `recv_crew_spec` returns None:\nthe worker tests `args.get('inbound') is None` and skips the whole build -- no\nTrailerTransit, no trailer objects, and the manager keeps the batch lead queue it\nconstructed for itself, byte-identically.\n\nReads CONFIG at CALL time (the `recv_crew_spec` pattern, never `put_crew_spec`'s\nsettings snapshot).  The lead MEDIAN is authored in MINUTES and converted to the sim's\nseconds exactly once, here -- the minutes-at-the-surface decision.  The SPREAD is\ndimensionless and crosses as-is; the draw itself lives at trailer creation\n(`Inbound.transit.TrailerTransit.lead_for`), keyed by the world seed carried below,\nso no RNG object ever has to cross the worker payload.\n\nTHE STANDING YARD'S CONTRADICTIONS FAIL HERE, LOUDLY.  `INBOUND_STANDING_YARD` with\nno trailer type is a yard with no trailers; with no receiving crew it is a yard\nnobody can ever unload -- merchandise would stand deferred forever, the run would\ncomplete, and nothing would raise.  And a non-fifo yard/dock policy WITHOUT the\nstanding yard is a policy nothing reads: the run would complete as v1 fifo under\nthe policy's name -- the fake-arm hazard, worn as configuration.  So is a lead\nSPREAD without the standing yard, or over a zero median (see the guard below).  All\nare configuration errors, never a silent no-op: the flag's OFF state is the only\ninert one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(recv_crew_size: int | None=None) -> dict | None"
     },
     "Optimization/config/sim_config.py::k_pickers": {
       "decorators": [],
@@ -7434,6 +7476,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "3.0"
+    },
+    "Optimization/config/whatif_config.py::PILOT_RUN_DEFAULTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{**ERA_RUN_DEFAULTS, 'inbound_trailer_type': '53', 'inbound_standing_yard': True, 'inbound_dock_doors': PHASE2_DOCK_DOORS, 'inbound_lead_minutes': PHASE2_LEAD_MINUTES, 'inbound_lead_spread': PHASE2..."
     },
     "Optimization/config/whatif_config.py::SPECS": {
       "decorators": [],
@@ -11489,9 +11538,30 @@
     },
     "Optimization/simconfig/coverage.py": {
       "decorators": [],
-      "doc": "coverage.py \u2014 stock coverage as a RUNTIME declaration in days, never a generator knob.\n\nThe catalogue carries NO stock level (ADR-0002, department-calibration \"Field the floor\",\ndecision 5): a level is a RUN's declaration, and this module is where every run makes it.  It\nused to be authored at generation in GENERATION batches (`equilibrium_qty = round(\ncoverage_batches x freq x qty)`), and a generation batch is not a unit of time -- it is \"each\nSKU appears with probability `freq`\", which is worth however many site days the run's pickers\nmake it worth (1,771 of them on the reference catalogue's store section).  The demand a SKU\nsees per DAY is known at setup (.scratch/department-calibration, \"Derive the expected-travel\nclosed form\", decision 2; the derivation note's section 5):\n\n    d_s = n \u00b7 \u03c0_s \u00b7 E[q_s]                    units of SKU s per day\n\n`n` is the pair's fixed point (lines per day the declared crew fills its capacity at), `\u03c0_s`\nthe SKU's line share within its channel section (`freq / \u03a3 freq`) and `E[q_s]` the mean of\nthe SKU's STAMPED line law (`Demand.line.mean()`; today `max(1, Poisson(\u03bb_s))`, so\n`\u03bb_s + e^{-\u03bb_s}`) -- read off the SKU, never re-derived here (\"Stamp the line distribution\non the SKU\").  This module re-derives every\nSKU's stock levels by the GENERATOR'S OWN FORMULA with the day as the unit, floored at ONE\nLINE of the SKU's own demand (\"Choose the coverage floor\", decisions 1-2):\n\n    L_s             = ceil(floor_lines \u00b7 E[q_s])                  the LINE FLOOR, >= 1\n    equilibrium_qty = max(round(coverage_days \u00b7 d_s), L_s)\n    reorder_point   = min(Q - 1, max(round(d_s \u00b7 (lead_days + safety_days)), L_s))   (Q > 1)\n                    = 1                                                              (Q = 1)\n    pipeline_qty    = round(d_s \u00b7 lead_days)                      the lead PIPELINE, stamped\n\nThe floor is a physical number per SKU -- a pick's worth of itself, so no SKU stocks out on a\nsingle line -- and it is what replaced the generator's unit floor (`Q >= 1`), under which a\nslow mover held one unit against ten-unit lines and the store section of the reference pair\nwas 100% floored (\"Rescale stock coverage at setup\", the finding).  A SKU whose coverage is\nshorter than the interval between its lines lands on the floor with `rp = Q - 1`: every pick\nfires an order-up-to for exactly what it took -- the textbook BASE-STOCK (S-1, S) policy,\nwhich `inventory_reorder._fire_reorders` already implements on inventory position.  Coverage\nis nominal AND real only for SKUs above the floor; `rescale_section` returns the shares so the\nrecord can say how much of the section, and of its demand, sits on it.\n\nThe reorder point's lead-time content is stamped, not inferred: `pipeline_qty` is the\nin-transit allowance `_fire_reorders` adds to the order-up-to (decision 6).  The manager's\n`rp \u00d7 lead \u00f7 (lead + 1)` heuristic assumed `rp` encodes lead-time demand; under the line floor\n`rp` encodes a line, and a floored SKU with a two-day lead would have ordered up to ~1.7 lines.\nThe stamp rides the SKU (`Order.pipeline_qty`, a `cartons` column of the planned inventory) so\nthe spawned workers read it; a flag-off run never stamps it and the heuristic stands.\n\nTHIS MODULE IS PURE: orders, a line count and three declared scalars in; the orders'\nstock DECLARATION written through `Order.declare_stock` (the one mutation site for the four\nlevel slots) and a stats dict out.  It imports no CONFIG and touches no file.  The harness seam\nthat drives it -- the pair-level fixed point Q(n) -> plan_warehouse -> geometry -> n -- is\n`Optimization/simdriver/era_coverage.py`, and it runs in EVERY mode: the calibrated era decides\nwhether the clock cuts and caps, never whether a run declares its stock (ADR-0002, decision 6).",
+      "doc": "coverage.py \u2014 stock coverage as a RUNTIME declaration in days, never a generator knob.\n\nThe catalogue carries NO stock level (ADR-0002, department-calibration \"Field the floor\",\ndecision 5): a level is a RUN's declaration, and this module is where every run makes it.  It\nused to be authored at generation in GENERATION batches (`equilibrium_qty = round(\ncoverage_batches x freq x qty)`), and a generation batch is not a unit of time -- it is \"each\nSKU appears with probability `freq`\", which is worth however many site days the run's pickers\nmake it worth (1,771 of them on the reference catalogue's store section).  The demand a SKU\nsees per DAY is known at setup (.scratch/department-calibration, \"Derive the expected-travel\nclosed form\", decision 2; the derivation note's section 5):\n\n    d_s = n \u00b7 \u03c0_s \u00b7 E[q_s]                    units of SKU s per day\n\n`n` is the pair's fixed point (lines per day the declared crew fills its capacity at), `\u03c0_s`\nthe SKU's line share within its channel section (`freq / \u03a3 freq`) and `E[q_s]` the mean of\nthe SKU's STAMPED line law (`Demand.line.mean()`; today `max(1, Poisson(\u03bb_s))`, so\n`\u03bb_s + e^{-\u03bb_s}`) -- read off the SKU, never re-derived here (\"Stamp the line distribution\non the SKU\").  This module re-derives every\nSKU's stock levels by the GENERATOR'S OWN FORMULA with the day as the unit, floored at ONE\nLINE of the SKU's own demand (\"Choose the coverage floor\", decisions 1-2):\n\n    L_s             = ceil(floor_lines \u00b7 E[q_s])                  the LINE FLOOR, >= 1\n    equilibrium_qty = max(round(coverage_days \u00b7 d_s), L_s)\n    reorder_point   = min(Q - 1, max(round(d_s \u00b7 (lead_days + safety_days)), L_s))   (Q > 1)\n                    = 1                                                              (Q = 1)\n    pipeline_qty    = round(d_s \u00b7 lead_days)                      the lead PIPELINE, stamped\n\nThe floor is a physical number per SKU -- a pick's worth of itself, so no SKU stocks out on a\nsingle line -- and it is what replaced the generator's unit floor (`Q >= 1`), under which a\nslow mover held one unit against ten-unit lines and the store section of the reference pair\nwas 100% floored (\"Rescale stock coverage at setup\", the finding).  A SKU whose coverage is\nshorter than the interval between its lines lands on the floor with `rp = Q - 1`: every pick\nfires an order-up-to for exactly what it took -- the textbook BASE-STOCK (S-1, S) policy,\nwhich `inventory_reorder._fire_reorders` already implements on inventory position.  Coverage\nis nominal AND real only for SKUs above the floor; `rescale_section` returns the shares so the\nrecord can say how much of the section, and of its demand, sits on it.\n\nThe reorder point's lead-time content is stamped, not inferred: `pipeline_qty` is the\nin-transit allowance `_fire_reorders` adds to the order-up-to (decision 6).  The manager's\n`rp \u00d7 lead \u00f7 (lead + 1)` heuristic assumed `rp` encodes lead-time demand; under the line floor\n`rp` encodes a line, and a floored SKU with a two-day lead would have ordered up to ~1.7 lines.\nThe stamp rides the SKU (`Order.pipeline_qty`, a `cartons` column of the planned inventory) so\nthe spawned workers read it; a flag-off run never stamps it and the heuristic stands.\n\nTHE LEAD IS TWO ADDITIVE STAGES (\"Declare the coverage against the inbound lead\", decisions\n1-6).  A SKU's `lead_time_mean` is its SUPPLIER lead -- order to ready-to-ship, authored in\nBATCHES and read here as days through `lead_unit_days` (`1 / releases_per_day`: one batch is\none day under the era; 1.0 flag-off, where a batch was always read as a day) -- and the\ntrailer pipeline's transit is the site's, one number per pair, rounded UP to the day grid\nbecause a trailer is observed only at the next drain:\n\n    transit_days = E[ceil(L / D)] = 1 + \u03a3_{k>=1} (1 - \u03a6(ln(k\u00b7D / m) / \u03c3))        (`transit_day_law`)\n    lead_days_s  = lead_time_mean_s \u00b7 lead_unit_days + transit_days\n\nwith `m` the lead median in seconds, `\u03c3` the spread and `D` the site day; exactly 1 at spread\n0 over a one-day median, 0 with no pipeline.  The first-time promise holds AT the lead\n(decision 5): `fill_rate` prices the shelf a line meets as the order-up-to POSITION\n`S = Q + pipeline_qty` less the units of the SKU's own prior lines still in transit, the\nprior lines counted over the integer days the observed lead spans, and `solve_floor_lines`\nabsorbs it unchanged.  At lead zero every term reduces to the lead-free expression EXACTLY --\nthe same code path, not a tolerance -- so a record with no pipeline is byte-identical to one\ndeclared before the lead existed.\n\nTHIS MODULE IS PURE: orders, a line count and three declared scalars in; the orders'\nstock DECLARATION written through `Order.declare_stock` (the one mutation site for the four\nlevel slots) and a stats dict out.  It imports no CONFIG and touches no file.  The harness seam\nthat drives it -- the pair-level fixed point Q(n) -> plan_warehouse -> geometry -> n -- is\n`Optimization/simdriver/era_coverage.py`, and it runs in EVERY mode: the calibrated era decides\nwhether the clock cuts and caps, never whether a run declares its stock (ADR-0002, decision 6).",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/simconfig/coverage.py::_line_pmf": {
+      "decorators": [],
+      "doc": "`P(q_s = i)` for `i = 0 .. upto-1`, one row per line law -- 0 at `i = 0` (a line\nalways demands at least one unit).  The founding family is evaluated in one vectorised\nlog-space pass (`max(1, Poisson(\u03bb))`: `P(q = 1) = e^{-\u03bb}(1 + \u03bb)`, the Poisson mass above);\nany other family falls back to the law's own `pmf`, row by row, so a second family\nprices correctly the day it is stamped and merely loses the fast path.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lines: list, upto: int) -> np.ndarray"
+    },
+    "Optimization/simconfig/coverage.py::_phi": {
+      "decorators": [],
+      "doc": "The standard normal cdf, by `erf`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x: float) -> float"
+    },
+    "Optimization/simconfig/coverage.py::_served_under_lead": {
+      "decorators": [],
+      "doc": "`E[min(q, (S - D_K)^+)]` per SKU: the units a line is expected to take off a shelf\nwhose order-up-to POSITION is `S` while the SKU's own prior lines are still in transit\n(\"Declare the coverage against the inbound lead\", decision 5).\n\nThe observed lead is `K = a + k` whole days on the site grid: `a` the SKU's supplier lead\nrounded to the grid (the ledger's own `round(lead_time_mean)`) and `k` the trailer's\ntransit under `pmf_k` (`transit_day_law`; `{0: 1}` with no pipeline).  The prior lines\ninside those `K` days number `N ~ Poisson(K \u00b7 rate_s)` at the SKU's line rate `n \u00b7 \u03c0_s`\n(the batch is one Poisson draw a day under the era -- the same convention the\nfragmentation chain prices with), each of the stamped line law, so `D_K` is compound\nPoisson and its mass on `0 .. S-1` follows Panjer's recursion\n\n    g(0) = e^{-\u03bb},   g(j) = (\u03bb / j) \u00b7 \u03a3_{i=1..j} i \u00b7 f(i) \u00b7 g(j - i)         \u03bb = K \u00b7 rate_s\n\nThen, `q` and `D_K` being independent,\n`E[min(q, (S - D)^+)] = \u03a3_{u<S} P(q > u) \u00b7 P(D <= S - 1 - u)`.  Vectorised over SKUs in\ngroups by shelf size (the recursion is quadratic in `S`, and a floored section is almost\nentirely small shelves), exact to the truncation at `S` -- nothing above the position\nis ever needed -- and to the transit tail `SERVED_TAIL_TOL` leaves unpriced.  The\nrecursion is linear in `g`, so a row whose mass outgrows `_PANJER_RESCALE` is divided\ndown and its log-scale carried, which keeps a seed that underflows (\u03bb above ~745) from\nzeroing a shelf that serves everything.  At `K = 0` the mass sits at zero and the sum\nis `E[min(q, S)]`.\n\n`a` is the supplier lead ROUNDED TO GRID DAYS after the batch-to-day conversion; at one\nrelease a day (the era, which pins it) that is the ledger's own `round(lead_time_mean)`\nin batches, and at any other release schedule the two roundings differ -- a limitation\nstated, not solved, because nothing declares another schedule.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarray, pmf_k: dict) -> np.ndarray"
     },
     "Optimization/simconfig/coverage.py::converged": {
       "decorators": [],
@@ -11509,10 +11579,10 @@
     },
     "Optimization/simconfig/coverage.py::fill_rate": {
       "decorators": [],
-      "doc": "The expected FIRST-PASS fill rate of one section at the levels the orders carry now:\nthe units a shelf at `Q_s` serves off a line, over the units the line asks for, weighted\nby each SKU's lines per day (\"Choose the coverage floor\", decision 5):\n\n    \u03a3_s  lines_s \u00b7 E[min(q_s, Q_s)]  \u00f7  \u03a3_s  lines_s \u00b7 E[q_s]        lines_s = n \u00b7 \u03c0_s\n\nThe denominator is the section's daily units; the numerator the units served before a\nrestock.  Under base stock with NO pipeline (`pipeline_qty = 0`: a lead of zero, which is\nevery catalogue the generator authors today) the shelf sits at `Q_s` when every line\narrives -- the previous line's order landed -- so this IS the expectation `missed_share`'s\nlevel is read against: `1 - fill_rate` is the expected missed share.  With a lead the\nshelf a line meets is `Q_s` minus what is still in transit, so the number is an UPPER bound\non the fill rate there (the record carries the stamped pipeline beside it).  Call it on the\nPLANNED orders: the shelf that serves the line is the one the run fields, which since\n\"Field the requirement\" is the declared one exactly (the planner no longer grows a level\ninto leftover capacity), so pre-plan and post-plan now price the same number.  Returns\n`{'fill_rate', 'expected_missed_share',\n'units_per_day', 'served_per_day', 'base_stock_skus', 'base_stock_share', 'n_skus',\n'pipeline_units'}` -- the last is \u03a3 `pipeline_qty` over the section, 0 when the premise\nholds exactly.",
+      "doc": "The expected FIRST-PASS fill rate of one section at the levels the orders carry now:\nthe units a shelf serves off a line, over the units the line asks for, weighted by each\nSKU's lines per day (\"Choose the coverage floor\", decision 5):\n\n    \u03a3_s  lines_s \u00b7 E[min(q_s, (S_s - D_s)^+)]  \u00f7  \u03a3_s  lines_s \u00b7 E[q_s]     lines_s = n \u00b7 \u03c0_s\n\n`S_s = Q_s + pipeline_qty_s` is the order-up-to POSITION and `D_s` the units of the SKU's\nown prior lines still in transit when this one arrives -- zero at lead zero, where the\nprevious line's order has landed and the shelf sits at `Q_s`, and priced by\n`_served_under_lead` otherwise (\"Declare the coverage against the inbound lead\", decision\n5: the promise holds AT the lead).  `transit` is `transit_day_law`'s result for the pair\n(None = no pipeline) and `lead_unit_days` reads the SKU's supplier lead as days.  The\ndenominator is the section's daily units; the numerator the units served before a\nrestock, so `1 - fill_rate` is the expected missed share the audit's `supply` clause\nreads.  A SKU with no lead and no pipeline stamp takes the lead-free expression through\nITS OWN code path (`expected_min`), so a record with no pipeline is byte-identical to one\npriced before the lead existed.  Call it on the PLANNED orders: the shelf that serves the\nline is the one the run fields, which since \"Field the requirement\" is the declared one\nexactly, so pre-plan and post-plan price the same number.  Returns\n`{'fill_rate', 'expected_missed_share', 'units_per_day', 'served_per_day',\n'base_stock_skus', 'base_stock_share', 'n_skus', 'pipeline_units', 'transit_days',\n'lead_days'}` -- `pipeline_units` is \u03a3 `pipeline_qty` over the section and `lead_days`\nthe units-weighted mean lead, both 0 when the lead-free premise holds exactly.",
       "is_async": false,
       "kind": "function",
-      "signature": "(orders, lines_per_day: float) -> dict"
+      "signature": "(orders, lines_per_day: float, *, transit: dict | None=None, lead_unit_days: float=1.0) -> dict"
     },
     "Optimization/simconfig/coverage.py::line_floor": {
       "decorators": [],
@@ -11530,17 +11600,24 @@
     },
     "Optimization/simconfig/coverage.py::rescale_section": {
       "decorators": [],
-      "doc": "Re-derive every order's stock levels for one section and return the floor shares.\n\nMUTATES the orders through `Order.declare_stock`: the order-up-to, the reorder point and\nthe stamped lead `pipeline_qty`, with `stock_plan` reset to None -- a plan the warehouse\nplanner wrote for the OLD quantity would otherwise be honoured by `viable_storage_units` at\nthe new one, and the planner re-packs the line-sized quantity.  Returns\n\n    {'n_skus', 'line_families', 'lines_per_day', 'coverage_days', 'safety_days',\n     'floor_lines', 'sum_q', 'units_per_day',\n     'floor_line_skus', 'floor_line_share', 'floor_line_demand_share',   # Q == L_s\n     'base_stock_skus', 'base_stock_share',                              # rp == Q - 1\n     'floor_rp_skus', 'floor_rp_share',           # above the floor, rp lifted to L_s\n     'above_floor_skus', 'realized_coverage_days'}   # \u03a3 Q / \u03a3 d over the SKUs above\n\n`floor_line_demand_share` is the share of the section's daily UNITS that lands on a SKU\nholding exactly its line floor -- the number that says whether the floor is a tail or the\nsection.  `realized_coverage_days` is the coverage the SKUs above the floor actually carry\n(their rounded Q against their demand), which the nominal number only approximates.  The\nexpected first-pass fill rate is NOT here: it depends on the levels the planner finally\nfields, so `fill_rate` prices it on the planned orders once (`era_coverage.fixed_point`).",
+      "doc": "Re-derive every order's stock levels for one section and return the floor shares.\n\nMUTATES the orders through `Order.declare_stock`: the order-up-to, the reorder point and\nthe stamped lead `pipeline_qty`, with `stock_plan` reset to None -- a plan the warehouse\nplanner wrote for the OLD quantity would otherwise be honoured by `viable_storage_units` at\nthe new one, and the planner re-packs the line-sized quantity.  Each SKU's lead is\n`sku_lead_days` -- its supplier lead in days plus the pair's `transit_days` (0 with no\npipeline; `lead_unit_days` 1.0 is the flag-off reading of a batch as a day).  Returns\n\n    {'n_skus', 'line_families', 'lines_per_day', 'coverage_days', 'safety_days',\n     'floor_lines', 'transit_days', 'lead_unit_days',\n     'lead_days',                      # the units-weighted mean lead over the section\n     'sum_q', 'units_per_day',\n     'floor_line_skus', 'floor_line_share', 'floor_line_demand_share',   # Q == L_s\n     'base_stock_skus', 'base_stock_share',                              # rp == Q - 1\n     'floor_rp_skus', 'floor_rp_share',           # above the floor, rp lifted to L_s\n     'above_floor_skus', 'realized_coverage_days'}   # \u03a3 Q / \u03a3 d over the SKUs above\n\n`floor_line_demand_share` is the share of the section's daily UNITS that lands on a SKU\nholding exactly its line floor -- the number that says whether the floor is a tail or the\nsection.  `realized_coverage_days` is the coverage the SKUs above the floor actually carry\n(their rounded Q against their demand), which the nominal number only approximates.  The\nexpected first-pass fill rate is NOT here: it depends on the levels the planner finally\nfields, so `fill_rate` prices it on the planned orders once (`era_coverage.fixed_point`).",
       "is_async": false,
       "kind": "function",
-      "signature": "(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, floor_lines: float) -> dict"
+      "signature": "(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, floor_lines: float, transit_days: float=0.0, lead_unit_days: float=1.0) -> dict"
+    },
+    "Optimization/simconfig/coverage.py::sku_lead_days": {
+      "decorators": [],
+      "doc": "`lead_days_s = lead_time_mean_s \u00b7 lead_unit_days + transit_days`: the SKU's expected\norder-to-shelf lead in days -- its supplier lead (authored in batches, one batch a day\nunder the era) plus the pair's day-grid transit (\"Declare the coverage against the\ninbound lead\", decisions 2 and 4).  Never negative; 0 on a lead-free catalogue with no\npipeline, which is every catalogue the generator has authored so far.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, transit_days: float=0.0, lead_unit_days: float=1.0) -> float"
     },
     "Optimization/simconfig/coverage.py::solve_floor_lines": {
       "decorators": [],
-      "doc": "The shelf side of the first-time guarantee (ADR-0004): the smallest `floor_lines`\nat which the section's expected first-pass fill clears `fill_min` (`sqrt(c)`), with\nthe line count DECLARED.\n\n`fill(f)` is `fill_rate` over the levels `rescale_section(f)` declares -- a pure\ncatalogue closed form while every SKU sits on the floor, and the same root when a\nsection is not fully floored (a SKU above its floor takes `coverage_days \u00d7 d_s`, which\nthe formula already reads, so `coverage_days` enters the fill through the levels and\nnothing here changes).  It is a non-decreasing STEP function of `f` (`L_s = ceil(f \u00d7\nE[q_s])` moves one SKU at a time), so the root is bracketed by doubling from `lo` and\nbisected to `tol` lines, and the answer is the bracket's UPPER end rounded up to the\ntolerance -- always at or above the true threshold, never below it.  `lo` is the\none-line floor: a SKU never holds less than a pick's worth of itself, so a confidence\none line already clears solves to exactly `lo` and says so (`at_lower_bound`).\n\nMUTATES the orders (every evaluation re-declares through `rescale_section`) and leaves\nthem declared at the SOLVED floor.  Refuses a `fill_min` outside [0, 1) and a section\nthat cannot reach it by `hi_max` lines.  Returns\n\n    {'floor_lines', 'fill_rate', 'fill_min', 'evaluations', 'at_lower_bound',\n     'bracket': (lo, hi)}",
+      "doc": "The shelf side of the first-time guarantee (ADR-0004): the smallest `floor_lines`\nat which the section's expected first-pass fill clears `fill_min` (`sqrt(c)`), with\nthe line count DECLARED.\n\n`fill(f)` is `fill_rate` over the levels `rescale_section(f)` declares -- a pure\ncatalogue closed form while every SKU sits on the floor, and the same root when a\nsection is not fully floored (a SKU above its floor takes `coverage_days \u00d7 d_s`, which\nthe formula already reads, so `coverage_days` enters the fill through the levels and\nnothing here changes).  It is a non-decreasing STEP function of `f` (`L_s = ceil(f \u00d7\nE[q_s])` moves one SKU at a time), so the root is bracketed by doubling from `lo` and\nbisected to `tol` lines, and the answer is the bracket's UPPER end rounded up to the\ntolerance -- always at or above the true threshold, never below it.  `lo` is the\none-line floor: a SKU never holds less than a pick's worth of itself, so a confidence\none line already clears solves to exactly `lo` and says so (`at_lower_bound`).\n\nTHE FLOOR IS SOLVED AT THE LEAD (\"Declare the coverage against the inbound lead\",\ndecision 5): `transit` (the pair's `transit_day_law`, None = no pipeline) and\n`lead_unit_days` reach both the levels and the fill, so the same declared confidence\nbuys a higher floor under a pipeline -- the shelf that clears `sqrt(c)` while the\nprevious line's lot is still on the road.  The fill stays a non-decreasing step\nfunction of `f` (the position rises with the floor, the in-transit law does not move).\n\nMUTATES the orders (every evaluation re-declares through `rescale_section`) and leaves\nthem declared at the SOLVED floor.  Refuses a `fill_min` outside [0, 1) and a section\nthat cannot reach it by `hi_max` lines.  Returns\n\n    {'floor_lines', 'fill_rate', 'fill_min', 'evaluations', 'at_lower_bound',\n     'bracket': (lo, hi)}",
       "is_async": false,
       "kind": "function",
-      "signature": "(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, fill_min: float, lo: float=DEFAULT_FLOOR_LINES, tol: float=FLOOR_SOLVE_TOL, hi_max: float=FLOOR_SOLVE_MAX) -> dict"
+      "signature": "(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, fill_min: float, transit: dict | None=None, lead_unit_days: float=1.0, lo: float=DEFAULT_FLOOR_LINES, tol: float=FLOOR_SOLVE_TOL, hi_max: float=FLOOR_SOLVE_MAX) -> dict"
     },
     "Optimization/simconfig/coverage.py::solve_floor_lines.fill": {
       "decorators": [],
@@ -11555,6 +11632,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(d_s: float, lead_days: float, coverage_days: float, safety_days: float, floor_units: int) -> tuple[int, int]"
+    },
+    "Optimization/simconfig/coverage.py::transit_day_law": {
+      "decorators": [],
+      "doc": "The trailer pipeline's transit on the SITE-DAY GRID: the law of `ceil(L / D)` for a\nlognormal lead `L` (median `lead_s` seconds, spread `lead_sigma`) against a day of\n`day_seconds`, and its expectation (\"Declare the coverage against the inbound lead\",\ndecision 3 -- transit and the grid only, no doors, no queue):\n\n    transit_days = E[ceil(L / D)] = 1 + \u03a3_{k>=1} (1 - \u03a6(ln(k\u00b7D / m) / \u03c3))\n    P(ceil(L / D) = k) = \u03a6(ln(k\u00b7D / m) / \u03c3) - \u03a6(ln((k-1)\u00b7D / m) / \u03c3)          k >= 1\n\nReturns `{'transit_days', 'pmf': {k: p}, 'lead_s', 'lead_sigma', 'day_seconds'}`.  The\nceiling is the model, not a rounding choice: a reorder fires and dispatches inside one\ndrain, `arrived = dispatched + L`, and the yard is read once per site day, so a lead of\nany positive length lands at the next drain at the earliest (1.766 days at the pilot's\n480 min / 0.7 / 8 h; the continuous mean, 1.28, is the wrong number).  Spread 0 is taken\nliterally (`ceil(m / D)` with probability one, exactly 1 for a median of one day) and a\nzero median is no transit at all (`{0: 1.0}`, 0 days): a trailer that arrives inside the\ndrain that dispatched it.  Refuses a non-positive day or a negative median or spread.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lead_s: float, lead_sigma: float, day_seconds: float) -> dict"
     },
     "Optimization/simconfig/equilibrium.py": {
       "decorators": [],
@@ -11727,10 +11811,10 @@
     },
     "Optimization/simconfig/equilibrium.py::_supply_clause": {
       "decorators": [],
-      "doc": "The shelf's first-pass service: the supply share at its stamped level, not trending.\n\nLEVEL.  `\u03a3 supply_new \u00f7 \u03a3 fresh` over the window -- each unit counted once, on the first\nbatch its SKU's shortfall rose (`demand_flows`) -- judged within `SUPPLY_LEVEL_TOL` of\n`expected`, the record's `1 - fill_rate` (the solved floor's expected first-pass missed\nshare under base stock, \"Choose the coverage floor\", decision 5).  A ratio of sums,\nbecause the fill rate is one (`\u03a3 served \u00f7 \u03a3 units`, units-weighted).  REPORTED, not\njudged, on a record with no stamped fill.\n\nTREND.  Half-window means of the per-batch share within `TREND_TOL`, as decision 4 had it.\n`units.supply` is the raw flow with re-attempts; `units.reattempts` is what the old\nclause was double-counting.",
+      "doc": "The shelf's first-pass service: the supply share at its stamped level, not trending.\n\nLEVEL.  `\u03a3 supply_new \u00f7 \u03a3 fresh` over the window -- each unit counted once, on the first\nbatch its SKU's shortfall rose (`demand_flows`) -- judged within `SUPPLY_LEVEL_TOL` of\n`expected`, the record's `1 - fill_rate` (the solved floor's expected first-pass missed\nshare under base stock, \"Choose the coverage floor\", decision 5, priced AT the stamped\nlead since \"Declare the coverage against the inbound lead\").  A ratio of sums, because\nthe fill rate is one (`\u03a3 served \u00f7 \u03a3 units`, units-weighted).  REPORTED, not judged, on a\nrecord with no stamped fill.\n\nTHE LEAD, reported and never banded (decision 10 of the lead ticket): the stamped\norder-to-shelf lead (`lead['lead_days']`), the REALIZED one off the batch rows\n(`realized_lead`), and the EXPLAINED level `1 - fill(realized)` read off the record's\nfill-versus-transit curve at the realized transit (the realized lead less the section's\nsupplier-lead days) -- so a binding yard reads as supply moved by the yard's detention\n(the level sits near the explained value, above the band) and a model error as a gap the\nrealized lead cannot explain.  The band itself is unchanged: `SUPPLY_LEVEL_TOL` around the\nstamped expectation.  `reading['lead']` is `{'stamped_days', 'realized_days',\n'explained', 'in_transit_mean', 'ordered_mean', 'transit_days'}`, Nones where the record\nor the rows carry nothing.\n\nTREND.  Half-window means of the per-batch share within `TREND_TOL`, as decision 4 had it.\n`units.supply` is the raw flow with re-attempts; `units.reattempts` is what the old\nclause was double-counting.",
       "is_async": false,
       "kind": "function",
-      "signature": "(flows: dict, days: list[int], expected: float | None) -> Clause"
+      "signature": "(flows: dict, days: list[int], expected: float | None, *, batch_rows=(), lead: dict | None=None) -> Clause"
     },
     "Optimization/simconfig/equilibrium.py::_trend_tol": {
       "decorators": [],
@@ -11797,10 +11881,17 @@
     },
     "Optimization/simconfig/equilibrium.py::expectations_for": {
       "decorators": [],
-      "doc": "The expected utilization per department for ONE channel leaf, off the staffing record.\n\n`staffing` is the record as the run spec holds it (`{inputs, provenance, derived,\ncalibration}`) -- the same object `run_analysis._sim_result_from_meta` stamps onto\n`sim_result`, so the audit passes `ctx.sim_result['staffing']` and the reference-run\ndriver passes `run_spec['staffing']`.  `derived` and `calibration` are keyed BY PAIR\nbecause the catalogue decides the load; `pair` is the inventory label\n(`sim_result['inventory']`, `ChannelRun.pair`).  `channel` is None on a store-only run.\n\nReturns\n\n    {'pair', 'channel', 'day_seconds', 'band_tol',\n     'departments': {dept: {'crew': int, 'expected': float}},   # only those that apply\n     'absent': {dept: why},\n     'fill_rate', 'expected_missed_share',      # the supply clause's level (None pre-floor)\n     'expected_cut_share', 'expected_cut_share_sd', 'guarantee',   # the labour clause's\n     'expected_repacked_packs',\n     'flags': {'overridden', 'saturated'}}\n\nA department with no crew on this site, or whose expected value the record does not\ncarry for this channel, is ABSENT rather than expected at zero: a band around 0.0 would\npass a crew that did nothing and fail one that did anything, and neither is a finding.\nRaises `RecordError` on a record with no derived block for the pair (a flag-off run) or\nno section for the channel.",
+      "doc": "The expected utilization per department for ONE channel leaf, off the staffing record.\n\n`staffing` is the record as the run spec holds it (`{inputs, provenance, derived,\ncalibration}`) -- the same object `run_analysis._sim_result_from_meta` stamps onto\n`sim_result`, so the audit passes `ctx.sim_result['staffing']` and the reference-run\ndriver passes `run_spec['staffing']`.  `derived` and `calibration` are keyed BY PAIR\nbecause the catalogue decides the load; `pair` is the inventory label\n(`sim_result['inventory']`, `ChannelRun.pair`).  `channel` is None on a store-only run.\n\nReturns\n\n    {'pair', 'channel', 'day_seconds', 'band_tol',\n     'departments': {dept: {'crew': int, 'expected': float}},   # only those that apply\n     'absent': {dept: why},\n     'fill_rate', 'expected_missed_share',      # the supply clause's level (None pre-floor)\n     'lead_days', 'transit_days', 'fill_vs_transit',   # the lead it was priced at (None pre-lead)\n     'expected_cut_share', 'expected_cut_share_sd', 'guarantee',   # the labour clause's\n     'expected_repacked_packs',\n     'flags': {'overridden', 'saturated'}}\n\nA department with no crew on this site, or whose expected value the record does not\ncarry for this channel, is ABSENT rather than expected at zero: a band around 0.0 would\npass a crew that did nothing and fail one that did anything, and neither is a finding.\nRaises `RecordError` on a record with no derived block for the pair (a flag-off run) or\nno section for the channel.",
       "is_async": false,
       "kind": "function",
       "signature": "(staffing: dict, *, pair: str, channel: str | None) -> dict"
+    },
+    "Optimization/simconfig/equilibrium.py::fill_at": {
+      "decorators": [],
+      "doc": "The record's fill-versus-transit curve (`era_coverage.fill_curve`, `[{'transit_days',\n'fill_rate'}, ...]` sorted by transit) read at `transit_days`, linearly between points\nand held at the ends; None without a curve.  The one interpolation the audit does: the\ncurve is the closed form evaluated at the stamp's own law with the median scaled, so\nbetween two points it is the same section under a slightly faster or slower road.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(curve: list | None, transit_days: float) -> float | None"
     },
     "Optimization/simconfig/equilibrium.py::is_drained": {
       "decorators": [],
@@ -11808,6 +11899,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(*, cut: bool, standing_put: int, standing_dock: int, standing_carry_labour: int, overtime: bool) -> bool"
+    },
+    "Optimization/simconfig/equilibrium.py::realized_lead": {
+      "decorators": [],
+      "doc": "The realized ORDER-TO-SHELF lead of one leaf over a window, by Little's law:\nmean pieces in transit over mean units ordered per day, both read per batch off\n`batch_stats` (`in_transit_qty`, a LEVEL at batch close; `units_ordered`, the FLOW that\nentered transit that batch) -- the flows inbound-optimization 23 summed by hand.  One\nbatch is one day under the era, so the per-batch mean is the per-day rate.  Returns\n`{'days': lead | None, 'in_transit_mean', 'ordered_mean', 'n'}`; `days` is None when\nthe window ordered nothing (no flow to divide by) or holds no batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batch_rows, days: list[int]) -> dict"
     },
     "Optimization/simconfig/equilibrium.py::setup_free_by_bucket": {
       "decorators": [],
@@ -12773,12 +12871,19 @@
       "kind": "function",
       "signature": "(section: list, plan, regime: str | None, floor_lines: float) -> dict"
     },
-    "Optimization/simdriver/era_coverage.py::fixed_point": {
+    "Optimization/simdriver/era_coverage.py::fill_curve": {
       "decorators": [],
-      "doc": "Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns\n`(plan, warehouse_meta, stage_a_result, record)` for the LAST round.\n\n`plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and\nbuilds the warehouse: `(plan, warehouse_meta)`.  UNDER THE ERA it is called as\n`plan_fn(bucket_hold=holds)` with the derived hold map (`derived_holds`); flag-off with\nno argument at all, so a planner closure that never learned the keyword is still the\nflag-off path.  `orders_all` is the whole catalogue; the\nplan's `sampled` subset (or the whole list when the planner samples nothing) is what\nstage A prices.  `floor_lines` is the INPUT as declared: None means the one-line default\nflag-off and \"solve it\" under the era (`resolve_floors`).  The derived fill is on when\n`inputs['min_headroom']` is not None (`staffing_spec()` records it so under the era and\nNone flag-off).  The record is JSON-shaped and\nrides `staffing.calibration[<pair>]['coverage']`:\n\n    {'coverage_days', 'safety_days', 'floor_lines',   # the INPUT (None = solved)\n     'floor': {channel: {'floor_lines', 'provenance', 'solved'}},   # what each declares at\n     'tol', 'max_rounds', 'rounds': [...],\n     'seed': {'method': 'analytic_pick' | 'declared', 'lines_per_day': {channel: n}},\n     'final': {channel: rescale stats + 'fill' + 'fielded'},   # the declared levels, the\n                                                    #   fill rate at them, and the proof\n                                                    #   the plan fielded exactly them --\n                                                    #   with, per bucket, what it was\n                                                    #   sized to hold (`stamp_fill`)\n     'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},\n     'converged': bool}\n\n`final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields:\nthe expected first-pass fill rate the audit reads `missed_share` against, and the\nbase-stock share after planning.  Priced post-plan for a reason that no longer bites --\nthe planner used to grow a level into leftover capacity, so the shelf that served a line\nwas not the one declared -- and it now equals the pre-plan price by construction, which\nis what `final[<channel>]['fielded']` (`fielded_block`) states and this loop RAISES on.",
+      "doc": "The section's expected first-pass fill as a function of the pair's TRANSIT, at the\nlevels the orders carry now: `[{'transit_days', 'fill_rate'}, ...]` sorted by transit,\none point per distinct day-grid expectation the median scaled by `scales` produces\n(the stamp itself, scale 1, always among them); None when the block names no pipeline.\n\nStamped so the audit can price `1 - fill(realized lead)` -- the EXPLAINED supply level\nof \"Declare the coverage against the inbound lead\", decision 10 -- without the\ncatalogue: an analysis worker holds the record, never the orders.  The levels are held\nFIXED (they were declared at the stamp); only the in-transit law moves, which is what a\nyard that binds does to the shelf.  The law's SHAPE is kept (same spread, the median\nscaled), so the point at scale 1 is the stamped fill exactly and the curve reads as\n\"the same regime, slower or faster\".  Linear between points (`equilibrium.fill_at`).",
       "is_async": false,
       "kind": "function",
-      "signature": "(orders_all: list, plan_fn, specs: list, *, coverage_days: float, safety_days: float, floor_lines: float | None, inputs: dict, day_seconds: float, log: logging.Logger, tol: float=_cov.DEFAULT_TOL, max_rounds: int=_cov.DEFAULT_MAX_ROUNDS) -> tuple"
+      "signature": "(section: list, lines_per_day: float, lead: dict, scales: tuple=FILL_CURVE_SCALES) -> list | None"
+    },
+    "Optimization/simdriver/era_coverage.py::fixed_point": {
+      "decorators": [],
+      "doc": "Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns\n`(plan, warehouse_meta, stage_a_result, record)` for the LAST round.\n\n`plan_fn()` plans `orders_all` (which this loop rescales in place before each call) and\nbuilds the warehouse: `(plan, warehouse_meta)`.  UNDER THE ERA it is called as\n`plan_fn(bucket_hold=holds)` with the derived hold map (`derived_holds`); flag-off with\nno argument at all, so a planner closure that never learned the keyword is still the\nflag-off path.  `orders_all` is the whole catalogue; the\nplan's `sampled` subset (or the whole list when the planner samples nothing) is what\nstage A prices.  `floor_lines` is the INPUT as declared: None means the one-line default\nflag-off and \"solve it\" under the era (`resolve_floors`).  The derived fill is on when\n`inputs['min_headroom']` is not None (`staffing_spec()` records it so under the era and\nNone flag-off).  `lead` is the pair's `lead_block` -- the day-grid transit every level,\npipeline stamp and fill is priced at (\"Declare the coverage against the inbound lead\");\nNone is no pipeline and a batch read as a day, byte-identically the record every run\nbefore the block declared.  The record is JSON-shaped and\nrides `staffing.calibration[<pair>]['coverage']`:\n\n    {'coverage_days', 'safety_days', 'floor_lines',   # the INPUT (None = solved)\n     'lead': {'transit_days', 'provenance', 'trailer_type', 'lead_s', 'lead_sigma',\n              'day_seconds', 'releases_per_day', 'lead_unit_days'},   # `lead_block`\n     'floor': {channel: {'floor_lines', 'provenance', 'solved'}},   # what each declares at\n     'tol', 'max_rounds', 'rounds': [...],\n     'seed': {'method': 'analytic_pick' | 'declared', 'lines_per_day': {channel: n}},\n     'final': {channel: rescale stats + 'fill' + 'fielded'},   # the declared levels, the\n                                                    #   fill rate at them, and the proof\n                                                    #   the plan fielded exactly them --\n                                                    #   with, per bucket, what it was\n                                                    #   sized to hold (`stamp_fill`)\n     'planned_sum_q', 'lines_per_day': {channel: n}, 'residual': {channel: n/n_prev - 1},\n     'converged': bool}\n\n`final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields:\nthe expected first-pass fill rate the audit reads `missed_share` against, and the\nbase-stock share after planning -- priced at the pair's lead, with `lead_days` (the\nsection's units-weighted lead) beside `pipeline_units`, and under a pipeline\n`vs_transit`, the fill as a curve over the transit (`fill_curve`) for the audit's\nexplained level.  Priced post-plan for a reason that no longer bites --\nthe planner used to grow a level into leftover capacity, so the shelf that served a line\nwas not the one declared -- and it now equals the pre-plan price by construction, which\nis what `final[<channel>]['fielded']` (`fielded_block`) states and this loop RAISES on.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders_all: list, plan_fn, specs: list, *, coverage_days: float, safety_days: float, floor_lines: float | None, inputs: dict, day_seconds: float, log: logging.Logger, tol: float=_cov.DEFAULT_TOL, max_rounds: int=_cov.DEFAULT_MAX_ROUNDS, lead: dict | None=None) -> tuple"
     },
     "Optimization/simdriver/era_coverage.py::floors_at": {
       "decorators": [],
@@ -12794,6 +12899,13 @@
       "kind": "function",
       "signature": "(record: dict | None) -> dict | None"
     },
+    "Optimization/simdriver/era_coverage.py::lead_block": {
+      "decorators": [],
+      "doc": "The record's `lead` block: the pair's expected order-to-shelf TRANSIT on the day\ngrid and the unit a SKU's supplier lead is read in (\"Declare the coverage against the\ninbound lead\", decisions 2-4).  JSON-shaped, stamped on the coverage record, and the\nonly thing a rebuild needs to re-declare the same levels (`declare_from_record`):\n\n    {'transit_days',                       # E[ceil(L / D)]  (`coverage.transit_day_law`)\n     'provenance': 'derived',\n     'trailer_type', 'lead_s', 'lead_sigma',   # the law it was read from (None/0/0 off)\n     'day_seconds',                        # the site day D it was gridded against\n     'releases_per_day', 'lead_unit_days'}  # a supplier lead's batch, in days\n\n`lead_law` is `sim_config.inbound_lead_law()` (None = no pipeline: transit 0) and `day`\nis `work_day_spec()`.  `lead_unit_days` is `1 / releases_per_day` -- one batch is one day\nunder the era, which completes `releases_per_day` to 1 -- and 1.0 when no release\nschedule is declared, the flag-off reading of a batch as a day (byte-identical to every\nrecord before this block existed).  DERIVED, never a CONFIG key: the regime's median and\nspread move the record through the closed form, and nothing else does.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lead_law: dict | None, day: dict) -> dict"
+    },
     "Optimization/simdriver/era_coverage.py::next_guess": {
       "decorators": [],
       "doc": "The line count to rescale at next, from this channel's `(n_in, n_out)` history.\n\n`n_out = g(n_in)` is monotone DECREASING: more lines a day means more stock, a bigger\nwarehouse, more travel per pick and so fewer lines the crew can fill -- and its gain is\nabove one on a real catalogue (the reference pair's fulfillment section went 1,818 ->\n14,832 -> 4,048 -> 10,797 under plain iteration).  So the plain iterate is used only\nuntil the root of `f(n) = log g(n) - log n` is BRACKETED (one point with `f > 0`, one\nwith `f < 0`); from then on the next guess is the secant of `f` in log-space between\nthe two bracket ends, pulled to the log-midpoint when it lands within 5% of either end\n(the one-sided stagnation regula falsi is known for).  Every later evaluation shrinks\nthe bracket, so the loop converges on any monotone map.",
@@ -12803,10 +12915,10 @@
     },
     "Optimization/simdriver/era_coverage.py::resolve_floors": {
       "decorators": [],
-      "doc": "The line floor each channel declares at, and the record's `floor` block.\n\nFLAG-OFF (no first-time confidence in `inputs`): the typed `floor_lines`, else the\none-line default; nothing is solved.  UNDER THE ERA (ADR-0004, the shelf side): each\nsection's floor is SOLVED at its declared line count so the stamped first-pass fill\nclears `sqrt(c)` (`coverage.solve_floor_lines`), and a typed `--floor-lines` is\naccepted at or above every channel's solved value (stamped `declared`, the solved one\nrecorded beside it) and REFUSED below it -- a floor under the solved one is a smaller\npromise than the confidence makes, and raising it silently would be the second authored\nknob that moves the crew, the pattern that hid the fill-rate defect.\n\nReturns `({channel: floor}, {channel: {'floor_lines', 'provenance', 'solved': {...}}})`.",
+      "doc": "The line floor each channel declares at, and the record's `floor` block.\n\nFLAG-OFF (no first-time confidence in `inputs`): the typed `floor_lines`, else the\none-line default; nothing is solved.  UNDER THE ERA (ADR-0004, the shelf side): each\nsection's floor is SOLVED at its declared line count so the stamped first-pass fill\nclears `sqrt(c)` (`coverage.solve_floor_lines`), and a typed `--floor-lines` is\naccepted at or above every channel's solved value (stamped `declared`, the solved one\nrecorded beside it) and REFUSED below it -- a floor under the solved one is a smaller\npromise than the confidence makes, and raising it silently would be the second authored\nknob that moves the crew, the pattern that hid the fill-rate defect.  The solve runs AT\nthe pair's lead (`lead`, a `lead_block`; None = no pipeline, a batch read as a day).\n\nReturns `({channel: floor}, {channel: {'floor_lines', 'provenance', 'solved': {...}}})`.",
       "is_async": false,
       "kind": "function",
-      "signature": "(orders_all: list, specs: list, n: dict, *, coverage_days: float, safety_days: float, floor_lines: float | None, inputs: dict, log: logging.Logger) -> tuple[dict, dict]"
+      "signature": "(orders_all: list, specs: list, n: dict, *, coverage_days: float, safety_days: float, floor_lines: float | None, inputs: dict, log: logging.Logger, lead: dict | None=None) -> tuple[dict, dict]"
     },
     "Optimization/simdriver/era_coverage.py::seed_lines": {
       "decorators": [],
@@ -12835,6 +12947,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(fielded: dict, section: list, log: logging.Logger, *, name: str='', frag: dict | None=None) -> dict"
+    },
+    "Optimization/simdriver/era_coverage.py::transit_of": {
+      "decorators": [],
+      "doc": "The `transit_day_law` a lead block was derived from -- None when the block names no\npipeline -- so the fill can be priced at the same law the levels were declared at.\n`scale` multiplies the median (the fill curve's axis); 1.0 is the block itself.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lead: dict | None, scale: float=1.0) -> dict | None"
     },
     "Optimization/simdriver/scenario.py": {
       "decorators": [],
@@ -15945,6 +16064,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> float"
+    },
+    "Warehouse/catalog/Demand.py::LineDistribution.pmf": {
+      "decorators": [],
+      "doc": "P(q = i) for i = 0..upto-1: zero at i = 0, `P(X <= 1)` at i = 1 (the floor folds\nthe Poisson's zero into one unit), the Poisson mass above.  The lead-aware fill\n(`simconfig/coverage._served_under_lead`) convolves it; the founding family has a\nvectorised fast path there and this is the row-by-row form any family answers.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, upto: int) -> np.ndarray"
     },
     "Warehouse/catalog/Demand.py::LineDistribution.poisson": {
       "decorators": [

@@ -62,12 +62,27 @@ steps:
       as bucket_hold, sized in place of the flag-off STORE_FILL/FF_FILL; stamp_fill then
       records provenance ('derived' vs 'assumed') and per-bucket fill/hold/headroom_floored
       onto the fielded block. A rebuild or frozen cell reads the holds back via holds_at
-      rather than re-deriving them.
+      rather than re-deriving them. Before the loop, build_shared_assets derives the pair's
+      lead_block (inbound_lead_law's trailer median/spread gridded against the site day via
+      coverage.transit_day_law) and hands it to fixed_point as `lead`, which declares every
+      round's rescale_section/fill_rate/solve_floor_lines at that transit and stamps the
+      final fill's fill-versus-transit curve (fill_curve) onto the coverage record (the
+      SKU's supplier lead the record adds to the transit is served by TrailerTransit.dispatch
+      at the ordering site before the trailer loads, so the run realizes what was
+      declared); flag-off
+      (no trailer type) this is byte-identical to transit 0.
     functions:
       - {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function}
       - {name: plan_warehouse, file: Warehouse/inventory/inventory_planning.py, kind: function}
       - {name: compute_warehouse_fingerprint, file: Optimization/persistence/Warehouse_Data.py, kind: function}
+      - {name: inbound_lead_law, file: Optimization/config/sim_config.py, kind: function}
       - {name: fixed_point, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: lead_block, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: fill_curve, file: Optimization/simdriver/era_coverage.py, kind: function}
+      - {name: transit_day_law, file: Optimization/simconfig/coverage.py, kind: function}
+      - {name: fill_rate, file: Optimization/simconfig/coverage.py, kind: function}
+      - {name: rescale_section, file: Optimization/simconfig/coverage.py, kind: function}
+      - {name: solve_floor_lines, file: Optimization/simconfig/coverage.py, kind: function}
       - {name: derived_holds, file: Optimization/simdriver/era_coverage.py, kind: function}
       - {name: derive_fill, file: Optimization/simdriver/era_coverage.py, kind: function}
       - {name: stamp_fill, file: Optimization/simdriver/era_coverage.py, kind: function}
@@ -78,7 +93,7 @@ steps:
       - {name: SkuChain, file: Optimization/simconfig/fragmentation.py, kind: class}
     reads: [inventory_db, affinity_db]
     writes: [warehouse_db, planned_inventory_db]
-    guards: [Tests/unit/test_warehouse_sizing.py, Tests/unit/test_regime_sizing.py, Tests/unit/test_fragmentation.py, Tests/unit/test_fill_headroom.py]
+    guards: [Tests/unit/test_warehouse_sizing.py, Tests/unit/test_regime_sizing.py, Tests/unit/test_fragmentation.py, Tests/unit/test_fill_headroom.py, Tests/unit/test_lead_aware_coverage.py]
     next: [derive_staffing]
 
   - id: derive_staffing

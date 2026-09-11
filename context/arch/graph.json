@@ -1088,17 +1088,37 @@
     {
       "dst": "Inbound/trailer.py::Trailer",
       "kind": "calls",
-      "src": "Inbound/transit.py::TrailerTransit.dispatch"
+      "src": "Inbound/transit.py::TrailerTransit._load"
     },
     {
       "dst": "Inbound/transit.py::TrailerTransit._depart",
       "kind": "calls",
-      "src": "Inbound/transit.py::TrailerTransit.dispatch"
+      "src": "Inbound/transit.py::TrailerTransit._load"
     },
     {
       "dst": "Inbound/transit.py::TrailerTransit.lead_for",
       "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit._load"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._load",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit._release_site"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._load",
+      "kind": "calls",
       "src": "Inbound/transit.py::TrailerTransit.dispatch"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._release_site",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.dispatch"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._site_qty",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.merchandise"
     },
     {
       "dst": "Inbound/priorities.py::DockContext",
@@ -1114,6 +1134,16 @@
       "dst": "Inbound/transit.py::TrailerTransit._depart",
       "kind": "calls",
       "src": "Inbound/transit.py::TrailerTransit.release"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._release_site",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.release"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._site_rows",
+      "kind": "calls",
+      "src": "Inbound/transit.py::TrailerTransit.snapshot"
     },
     {
       "dst": "Inbound/priorities.py::dock_key",
@@ -1136,6 +1166,11 @@
       "src": "Inbound/transit.py::YardTransit.freeze_ctx"
     },
     {
+      "dst": "Inbound/transit.py::TrailerTransit._site_qty",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.merchandise"
+    },
+    {
       "dst": "Inbound/priorities.py::bounded_order",
       "kind": "calls",
       "src": "Inbound/transit.py::YardTransit.planned_lots"
@@ -1144,6 +1179,16 @@
       "dst": "Inbound/transit.py::TrailerTransit._depart",
       "kind": "calls",
       "src": "Inbound/transit.py::YardTransit.release"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._release_site",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.release"
+    },
+    {
+      "dst": "Inbound/transit.py::TrailerTransit._site_rows",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.snapshot"
     },
     {
       "dst": "Inbound/priorities.py::bounded_order",
@@ -5394,6 +5439,11 @@
       "dst": "Optimization/Performance_Evaluations/throughput/audit.py::_share_rows",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/throughput/audit.py::_rows"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/throughput/audit.py::_lead_row",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/throughput/audit.py::_share_rows"
     },
     {
       "dst": "Optimization/Performance_Evaluations/throughput/audit.py::_read_share",
@@ -10806,7 +10856,22 @@
       "src": "Optimization/simconfig/core/registry.py::pick_config._wrap"
     },
     {
+      "dst": "Optimization/simconfig/coverage.py::_line_pmf",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::_served_under_lead"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::_served_under_lead",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::fill_rate"
+    },
+    {
       "dst": "Optimization/simconfig/coverage.py::daily_demand",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::fill_rate"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::sku_lead_days",
       "kind": "calls",
       "src": "Optimization/simconfig/coverage.py::fill_rate"
     },
@@ -10826,6 +10891,11 @@
       "src": "Optimization/simconfig/coverage.py::rescale_section"
     },
     {
+      "dst": "Optimization/simconfig/coverage.py::sku_lead_days",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::rescale_section"
+    },
+    {
       "dst": "Optimization/simconfig/coverage.py::stock_levels",
       "kind": "calls",
       "src": "Optimization/simconfig/coverage.py::rescale_section"
@@ -10839,6 +10909,11 @@
       "dst": "Optimization/simconfig/coverage.py::rescale_section",
       "kind": "calls",
       "src": "Optimization/simconfig/coverage.py::solve_floor_lines.fill"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::_phi",
+      "kind": "calls",
+      "src": "Optimization/simconfig/coverage.py::transit_day_law"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py",
@@ -10971,6 +11046,16 @@
       "src": "Optimization/simconfig/equilibrium.py::_supply_clause"
     },
     {
+      "dst": "Optimization/simconfig/equilibrium.py::fill_at",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_supply_clause"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::realized_lead",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::_supply_clause"
+    },
+    {
       "dst": "Optimization/simconfig/equilibrium.py::Clause",
       "kind": "calls",
       "src": "Optimization/simconfig/equilibrium.py::_utilization_clause"
@@ -11089,6 +11174,11 @@
       "dst": "Optimization/simconfig/staffing.py::channel_crew",
       "kind": "calls",
       "src": "Optimization/simconfig/equilibrium.py::expectations_for"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::_get",
+      "kind": "calls",
+      "src": "Optimization/simconfig/equilibrium.py::realized_lead"
     },
     {
       "dst": "Optimization/simconfig/equilibrium.py::bucket_label",
@@ -11811,6 +11901,16 @@
       "src": "Optimization/simdriver/era_coverage.py::fielded_block"
     },
     {
+      "dst": "Optimization/simconfig/coverage.py::fill_rate",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fill_curve"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::transit_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fill_curve"
+    },
+    {
       "dst": "Optimization/simconfig/coverage.py::converged",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
@@ -11851,6 +11951,16 @@
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
     },
     {
+      "dst": "Optimization/simdriver/era_coverage.py::fill_curve",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::lead_block",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
       "dst": "Optimization/simdriver/era_coverage.py::next_guess",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
@@ -11881,9 +11991,19 @@
       "src": "Optimization/simdriver/era_coverage.py::fixed_point"
     },
     {
+      "dst": "Optimization/simdriver/era_coverage.py::transit_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::fixed_point"
+    },
+    {
       "dst": "Optimization/simdriver/era_coverage.py::_Floors",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::floors_at"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::transit_day_law",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::lead_block"
     },
     {
       "dst": "Optimization/simconfig/coverage.py::solve_floor_lines",
@@ -11897,6 +12017,11 @@
     },
     {
       "dst": "Optimization/simdriver/era_coverage.py::_guarantee_inputs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::resolve_floors"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::transit_of",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::resolve_floors"
     },
@@ -12014,6 +12139,11 @@
       "dst": "Optimization/simconfig/fragmentation.py::section_fragmentation",
       "kind": "calls",
       "src": "Optimization/simdriver/era_coverage.py::stamp_fragmentation"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::transit_day_law",
+      "kind": "calls",
+      "src": "Optimization/simdriver/era_coverage.py::transit_of"
     },
     {
       "dst": "Optimization/config/sim_config.py",
@@ -12186,6 +12316,11 @@
       "src": "Optimization/simdriver/sim_assets.py"
     },
     {
+      "dst": "Optimization/config/sim_config.py::inbound_lead_law",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::staffing_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
@@ -12242,6 +12377,11 @@
     },
     {
       "dst": "Optimization/simdriver/era_coverage.py::holds_at",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
+      "dst": "Optimization/simdriver/era_coverage.py::lead_block",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
@@ -15724,6 +15864,11 @@
       "dst": "Warehouse/catalog/Demand.py::LineDistribution._pmf_x",
       "kind": "calls",
       "src": "Warehouse/catalog/Demand.py::LineDistribution.expected_min"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution._pmf_x",
+      "kind": "calls",
+      "src": "Warehouse/catalog/Demand.py::LineDistribution.pmf"
     },
     {
       "dst": "Warehouse/catalog/Demand.py::poisson_sample",
@@ -21218,6 +21363,38 @@
     },
     {
       "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit._load",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "_load",
+      "public": false
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit._release_site",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "_release_site",
+      "public": false
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit._site_qty",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "_site_qty",
+      "public": false
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::TrailerTransit._site_rows",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "_site_rows",
+      "public": false
+    },
+    {
+      "file": "Inbound/transit.py",
       "id": "Inbound/transit.py::TrailerTransit.advance",
       "kind": "function",
       "module": "Inbound/transit.py",
@@ -26074,6 +26251,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "id": "Optimization/Performance_Evaluations/throughput/audit.py::_lead_row",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/throughput/audit.py",
+      "name": "_lead_row",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/throughput/audit.py",
       "id": "Optimization/Performance_Evaluations/throughput/audit.py::_read",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/throughput/audit.py",
@@ -27562,6 +27747,14 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::inbound_lead_law",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "inbound_lead_law",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::inbound_spec",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
@@ -28014,6 +28207,14 @@
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
       "name": "PHASE2_THRESHOLD_DAYS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PILOT_RUN_DEFAULTS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PILOT_RUN_DEFAULTS",
       "public": true
     },
     {
@@ -32674,6 +32875,30 @@
     },
     {
       "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::_line_pmf",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "_line_pmf",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::_phi",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "_phi",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::_served_under_lead",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "_served_under_lead",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
       "id": "Optimization/simconfig/coverage.py::converged",
       "kind": "function",
       "module": "Optimization/simconfig/coverage.py",
@@ -32722,6 +32947,14 @@
     },
     {
       "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::sku_lead_days",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "sku_lead_days",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
       "id": "Optimization/simconfig/coverage.py::solve_floor_lines",
       "kind": "function",
       "module": "Optimization/simconfig/coverage.py",
@@ -32742,6 +32975,14 @@
       "kind": "function",
       "module": "Optimization/simconfig/coverage.py",
       "name": "stock_levels",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/coverage.py",
+      "id": "Optimization/simconfig/coverage.py::transit_day_law",
+      "kind": "function",
+      "module": "Optimization/simconfig/coverage.py",
+      "name": "transit_day_law",
       "public": true
     },
     {
@@ -33026,10 +33267,26 @@
     },
     {
       "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::fill_at",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "fill_at",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
       "id": "Optimization/simconfig/equilibrium.py::is_drained",
       "kind": "function",
       "module": "Optimization/simconfig/equilibrium.py",
       "name": "is_drained",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/equilibrium.py",
+      "id": "Optimization/simconfig/equilibrium.py::realized_lead",
+      "kind": "function",
+      "module": "Optimization/simconfig/equilibrium.py",
+      "name": "realized_lead",
       "public": true
     },
     {
@@ -34122,6 +34379,14 @@
     },
     {
       "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::fill_curve",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "fill_curve",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
       "id": "Optimization/simdriver/era_coverage.py::fixed_point",
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
@@ -34142,6 +34407,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
       "name": "holds_at",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::lead_block",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "lead_block",
       "public": true
     },
     {
@@ -34190,6 +34463,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
       "name": "stamp_fragmentation",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/era_coverage.py",
+      "id": "Optimization/simdriver/era_coverage.py::transit_of",
+      "kind": "function",
+      "module": "Optimization/simdriver/era_coverage.py",
+      "name": "transit_of",
       "public": true
     },
     {
@@ -37742,6 +38023,14 @@
       "kind": "function",
       "module": "Warehouse/catalog/Demand.py",
       "name": "mean",
+      "public": true
+    },
+    {
+      "file": "Warehouse/catalog/Demand.py",
+      "id": "Warehouse/catalog/Demand.py::LineDistribution.pmf",
+      "kind": "function",
+      "module": "Warehouse/catalog/Demand.py",
+      "name": "pmf",
       "public": true
     },
     {

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>solve_floor_lines</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def solve_floor_lines(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, fill_min: float, lo: float=DEFAULT_FLOOR_LINES, tol: float=FLOOR_SOLVE_TOL, hi_max: float=FLOOR_SOLVE_MAX) -&gt; dict</code></pre>
+<pre class="sig"><code>def solve_floor_lines(orders, lines_per_day: float, *, coverage_days: float, safety_days: float, fill_min: float, transit: dict | None=None, lead_unit_days: float=1.0, lo: float=DEFAULT_FLOOR_LINES, tol: float=FLOOR_SOLVE_TOL, hi_max: float=FLOOR_SOLVE_MAX) -&gt; dict</code></pre>
 <section class="doc">The shelf side of the first-time guarantee (ADR-0004): the smallest `floor_lines`
 at which the section&#x27;s expected first-pass fill clears `fill_min` (`sqrt(c)`), with
 the line count DECLARED.
@@ -29,6 +29,13 @@ bisected to `tol` lines, and the answer is the bracket&#x27;s UPPER end rounded 
 tolerance -- always at or above the true threshold, never below it.  `lo` is the
 one-line floor: a SKU never holds less than a pick&#x27;s worth of itself, so a confidence
 one line already clears solves to exactly `lo` and says so (`at_lower_bound`).
+
+THE FLOOR IS SOLVED AT THE LEAD (&quot;Declare the coverage against the inbound lead&quot;,
+decision 5): `transit` (the pair&#x27;s `transit_day_law`, None = no pipeline) and
+`lead_unit_days` reach both the levels and the fill, so the same declared confidence
+buys a higher floor under a pipeline -- the shelf that clears `sqrt(c)` while the
+previous line&#x27;s lot is still on the road.  The fill stays a non-decreasing step
+function of `f` (the position rises with the floor, the in-transit law does not move).
 
 MUTATES the orders (every evaluation re-declares through `rescale_section`) and leaves
 them declared at the SOLVED floor.  Refuses a `fill_min` outside [0, 1) and a section

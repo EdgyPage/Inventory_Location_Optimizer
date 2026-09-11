@@ -26,7 +26,8 @@ transit rounded UP to the day grid, `E[ceil(L/D)] = 1 + sum_k (1 - Phi(ln(kD/m)/
 wrong number. The floor is solved AT the lead, so inbound-on stock and warehouse move (a new
 era); doors never enter the form (the yard's excess is the campaign's effect); a site-level lead
 law on the era was REJECTED. Builds: dept-cal 37 (record) and inbound 27 (chain the supplier
-lead before the trailer, which today discards it). Phase 1 of the funnel runs with the yard on.
+lead before the trailer; BUILT 2026-09-10, the order waits its supplier lead at the ordering
+site and then loads). Phase 1 of the funnel runs with the yard on.
 
 **BUILT 2026-09-10 (department-calibration 37):** the record now declares AT the lead --
 `coverage.transit_day_law` stamps `lead.transit_days` (1.766 at the pilot), every level and

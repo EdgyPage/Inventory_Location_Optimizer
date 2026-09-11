@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sku_lead_days · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_coverage_py__sku_lead_days" data-id="Optimization/simconfig/coverage.py::sku_lead_days">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>sku_lead_days</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>sku_lead_days</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
+
+<pre class="sig"><code>def sku_lead_days(order, transit_days: float=0.0, lead_unit_days: float=1.0) -&gt; float</code></pre>
+<section class="doc">`lead_days_s = lead_time_mean_s · lead_unit_days + transit_days`: the SKU&#x27;s expected
+order-to-shelf lead in days -- its supplier lead (authored in batches, one batch a day
+under the era) plus the pair&#x27;s day-grid transit (&quot;Declare the coverage against the
+inbound lead&quot;, decisions 2 and 4).  Never negative; 0 on a lead-free catalogue with no
+pipeline, which is every catalogue the generator has authored so far.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__fill_rate.html"><code>fill_rate</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nOptimization_simconfig_coverage_py__rescale_section.html"><code>rescale_section</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_coverage_py__sku_lead_days">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/coverage.py#:~:text=def%20sku_lead_days">Source ↗</a></p>
+</article>
+</main>
+</body></html>

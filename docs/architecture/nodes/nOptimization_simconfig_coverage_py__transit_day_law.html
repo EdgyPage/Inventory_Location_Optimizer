@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>transit_day_law · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_coverage_py__transit_day_law" data-id="Optimization/simconfig/coverage.py::transit_day_law">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>transit_day_law</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>transit_day_law</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def transit_day_law(lead_s: float, lead_sigma: float, day_seconds: float) -&gt; dict</code></pre>
+<section class="doc">The trailer pipeline&#x27;s transit on the SITE-DAY GRID: the law of `ceil(L / D)` for a
+lognormal lead `L` (median `lead_s` seconds, spread `lead_sigma`) against a day of
+`day_seconds`, and its expectation (&quot;Declare the coverage against the inbound lead&quot;,
+decision 3 -- transit and the grid only, no doors, no queue):
+
+    transit_days = E[ceil(L / D)] = 1 + Σ_{k&gt;=1} (1 - Φ(ln(k·D / m) / σ))
+    P(ceil(L / D) = k) = Φ(ln(k·D / m) / σ) - Φ(ln((k-1)·D / m) / σ)          k &gt;= 1
+
+Returns `{&#x27;transit_days&#x27;, &#x27;pmf&#x27;: {k: p}, &#x27;lead_s&#x27;, &#x27;lead_sigma&#x27;, &#x27;day_seconds&#x27;}`.  The
+ceiling is the model, not a rounding choice: a reorder fires and dispatches inside one
+drain, `arrived = dispatched + L`, and the yard is read once per site day, so a lead of
+any positive length lands at the next drain at the earliest (1.766 days at the pilot&#x27;s
+480 min / 0.7 / 8 h; the continuous mean, 1.28, is the wrong number).  Spread 0 is taken
+literally (`ceil(m / D)` with probability one, exactly 1 for a median of one day) and a
+zero median is no transit at all (`{0: 1.0}`, 0 days): a trailer that arrives inside the
+drain that dispatched it.  Refuses a non-positive day or a negative median or spread.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py___phi.html"><code>_phi</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__lead_block.html"><code>lead_block</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_era_coverage_py__transit_of.html"><code>transit_of</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_coverage_py__transit_day_law">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/coverage.py#:~:text=def%20transit_day_law">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lead_block · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_era_coverage_py__lead_block" data-id="Optimization/simdriver/era_coverage.py::lead_block">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a> <span class="sep">›</span> <span class="here"><code>lead_block</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>lead_block</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def lead_block(lead_law: dict | None, day: dict) -&gt; dict</code></pre>
+<section class="doc">The record&#x27;s `lead` block: the pair&#x27;s expected order-to-shelf TRANSIT on the day
+grid and the unit a SKU&#x27;s supplier lead is read in (&quot;Declare the coverage against the
+inbound lead&quot;, decisions 2-4).  JSON-shaped, stamped on the coverage record, and the
+only thing a rebuild needs to re-declare the same levels (`declare_from_record`):
+
+    {&#x27;transit_days&#x27;,                       # E[ceil(L / D)]  (`coverage.transit_day_law`)
+     &#x27;provenance&#x27;: &#x27;derived&#x27;,
+     &#x27;trailer_type&#x27;, &#x27;lead_s&#x27;, &#x27;lead_sigma&#x27;,   # the law it was read from (None/0/0 off)
+     &#x27;day_seconds&#x27;,                        # the site day D it was gridded against
+     &#x27;releases_per_day&#x27;, &#x27;lead_unit_days&#x27;}  # a supplier lead&#x27;s batch, in days
+
+`lead_law` is `sim_config.inbound_lead_law()` (None = no pipeline: transit 0) and `day`
+is `work_day_spec()`.  `lead_unit_days` is `1 / releases_per_day` -- one batch is one day
+under the era, which completes `releases_per_day` to 1 -- and 1.0 when no release
+schedule is declared, the flag-off reading of a batch as a day (byte-identical to every
+record before this block existed).  DERIVED, never a CONFIG key: the regime&#x27;s median and
+spread move the record through the closed form, and nothing else does.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__transit_day_law.html"><code>transit_day_law</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_era_coverage_py__fixed_point.html"><code>fixed_point</code></a> <span class="dim">Optimization/simdriver/era_coverage.py</span></li><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_era_coverage_py__lead_block">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/era_coverage.py#:~:text=def%20lead_block">Source ↗</a></p>
+</article>
+</main>
+</body></html>

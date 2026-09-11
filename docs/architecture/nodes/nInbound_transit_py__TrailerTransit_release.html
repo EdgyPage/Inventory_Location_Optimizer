@@ -17,14 +17,14 @@
 <pre class="sig"><code>def release(self, now_s: float | None=None) -&gt; list</code></pre>
 <section class="doc">Everything the dock can start on this batch, as [sku, qty, 0] deliveries.
 
-Order of operations IS the model: (1) anything still loading departs — a trailer
-waits for nothing in v1; (2) arrivals (lead elapsed against `now_s`) join the
-yard; (3) the yard stages to doors and staged trailers are worked in
-GLOBAL-priority order, each trailer&#x27;s pallets in LOCAL-priority order, emitting one
-delivery per contiguous SKU lot — so a split shipment packs as the pieces it
-arrived in.  Worked trailers free their doors within the drain (v1: doors are
-bookkeeping; see the module note).</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_priorities_py__DockContext.html"><code>DockContext</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__bounded_order.html"><code>bounded_order</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__depart.html"><code>_depart</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+Order of operations IS the model: (0) orders whose supplier lead has elapsed load,
+in fire order; (1) anything still loading departs — a trailer waits for nothing
+in v1; (2) arrivals (lead elapsed against `now_s`) join the yard; (3) the yard
+stages to doors and staged trailers are worked in GLOBAL-priority order, each
+trailer&#x27;s pallets in LOCAL-priority order, emitting one delivery per contiguous
+SKU lot — so a split shipment packs as the pieces it arrived in.  Worked trailers
+free their doors within the drain (v1: doors are bookkeeping; see the module note).</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_priorities_py__DockContext.html"><code>DockContext</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_priorities_py__bounded_order.html"><code>bounded_order</code></a> <span class="dim">Inbound/priorities.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__depart.html"><code>_depart</code></a> <span class="dim">Inbound/transit.py</span></li><li><a href="nInbound_transit_py__TrailerTransit__release_site.html"><code>_release_site</code></a> <span class="dim">Inbound/transit.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_transit_py__TrailerTransit_release">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/transit.py#:~:text=def%20release">Source ↗</a></p>
 </article>
 </main>
