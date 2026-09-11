@@ -192,7 +192,10 @@ SIM_DB_SEMANTICS: dict = {
         'role':        _ENUM,
         'mode':        _ENUM,
         'event_type':  Col(LABEL, 'enum', 'row',
-                           note='for put/receive it equals role; for pick a row is a state '
+                           note='for put/receive it equals role, with ONE declared exception '
+                                '— a repack carries role=receive and event_type=repack, so '
+                                'that rework is summable by role and filterable by type '
+                                '(metrics.work_events.repack_rows); for pick a row is a state '
                                 'change and the work is the span BETWEEN rows'),
         'aisle_id':    Col(LABEL, 'id', 'row',
                            null_means='the event has no aisle (a state change or a '

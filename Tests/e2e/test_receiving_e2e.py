@@ -14,7 +14,7 @@ failures are all in the wiring between those layers, not inside any of them:
 None of those raises. Each produces a run that looks completely healthy — `work_events` has
 no consumer anywhere outside `Tests/`, so nothing else in the repo would notice.
 
-`reconcile()` is the assertion, and it is sabotage-checked: all five of its checks were
+`reconcile()` is the assertion, and it is sabotage-checked: all six of its checks were
 confirmed to FAIL against a hand-corrupted copy of a real DB, and the merge-key check catches
 a duplicate that the existing `assert rows == sorted(rows)` guard passes.
 
@@ -189,6 +189,220 @@ def test_the_receive_rows_carry_the_right_role_and_type(tmp_path, monkeypatch):
     assert not [p for p in pairs if p[0] == 'receive' and p[1] != 'receive'], pairs
     assert aisle_null == 0, 'a dock has no aisle'
     assert nonpos == 0, 'an unload moves merchandise; qty must be positive'
+
+
+def test_a_repack_row_is_exempt_but_the_clause_still_bites(tmp_path, monkeypatch):
+    """Check 5's `repack` exemption, and the three rows it must NOT exempt.
+
+    `repack_rows` declares that a repack is receiving work by the receiving crew at the
+    dock's own per-pack price, so `role='receive'` and only `event_type` differs. Check 5's
+    clause said the opposite and would have gone red on the first honest run of ADR-0003's
+    rescue path -- silent until then only because `f_repack` is `assumed` 0.0.
+
+    All four assertions or none: an exemption asserted alone is indistinguishable from
+    deleting the check.
+    """
+    db, run_id = _run_one_arm(tmp_path, monkeypatch, crew_size=2, day_seconds=3600.0)
+    assert reconcile(db, run_id)['verdict'] == 'PASS'
+
+    def _plant(role: str, event_type: str) -> dict:
+        con = sqlite3.connect(db)
+        try:
+            con.execute(
+                "INSERT INTO work_events (run_id, batch_id, seq, t_abs, t_local, "
+                "shift_index, actor_uid, actor_local, role, mode, event_type, aisle_id, "
+                "sku, qty, duration, source) "
+                "SELECT run_id, batch_id, seq + 100000, t_abs, t_local, shift_index, "
+                "actor_uid, actor_local, ?, mode, ?, aisle_id, sku, qty, duration, source "
+                "FROM work_events WHERE run_id = ? AND role = 'receive' LIMIT 1",
+                (role, event_type, run_id))
+            con.commit()
+        finally:
+            con.close()
+        r = reconcile(db, run_id)
+        con = sqlite3.connect(db)
+        try:
+            con.execute('DELETE FROM work_events WHERE seq >= 100000 AND run_id = ?',
+                        (run_id,))
+            con.commit()
+        finally:
+            con.close()
+        return r
+
+    ok = _plant('receive', 'repack')
+    assert ok['checks']['role_matches_event_type'] is True, (
+        'a repack row tripped check 5; `role` is receive by DESIGN and only the type differs')
+
+    for role, etype, why in (('put', 'pick', 'a put row typed pick is the case the '
+                                             'rejected weaker clause sails past'),
+                             ('receive', 'put', 'a receive row typed put is the original '
+                                                'defect check 5 was written for'),
+                             ('put', 'repack', 'the exemption is by (role, type) PAIR; '
+                                               'only a RECEIVE row may be typed repack')):
+        bad = _plant(role, etype)
+        assert bad['checks']['role_matches_event_type'] is False, (
+            f'({role}, {etype}) passed check 5 -- {why}')
+
+
+# ── the unload price is one constant ──────────────────────────────────────────────
+
+@pytest.fixture(scope='module')
+def varied_arm(tmp_path_factory):
+    """An arm whose receiving is VARIED enough for check 6 to mean anything, built once.
+
+    The 6-batch arm the rest of this file uses unloads 7 packs, all of one SKU at qty 1 --
+    and check 6 cancels `qty * handle_var`, so on a single (sku, qty) the residual is
+    constant however the price was computed. Measured: zeroing that SKU's handle term
+    shifted every row by the same amount and the spread check stayed GREEN. 25 batches
+    gives ~420 packs over 16 distinct handle terms and 2 quantities, which the
+    non-vacuity assertion below pins so this cannot silently regress to a degenerate arm.
+
+    Module-scoped because the three tests here only READ it -- each sabotage works on its
+    own copy -- and building it is the expensive half.
+    """
+    with pytest.MonkeyPatch.context() as mp:
+        yield _run_one_arm(tmp_path_factory.mktemp('varied'), mp,
+                           crew_size=2, day_seconds=3600.0, n_batches=25)
+
+
+def test_the_unload_price_collapses_to_the_config_s_own_constant(varied_arm):
+    """Check 6, and the reason it is evidence rather than a tautology.
+
+    `duration - qty * sku_scores.handle_var` must collapse to `per_item + intercept`, one
+    number carrying no SKU and no quantity. The two sides are built by different code from
+    different state -- the dock prices a pack through `unload_cost`, `handle_var` is written
+    at inventory load from the PICK config -- and they agree only because
+    `UnloadCost.from_putaway` -> `PutawayCost.from_pick` carries the pick coefficients
+    through unchanged.
+
+    The constant is asserted against a value DERIVED FROM THE CONFIG here, not merely against
+    itself: a check that only proved internal consistency would pass a dock built entirely
+    from class defaults, which is the 55x drift `UnloadCost`'s docstring was written against
+    and which a 2026-09-01 archive run actually exhibits (1.03 s to unload a unit whose
+    handle term alone is 1.79 s).
+    """
+    from Inbound.unload import UnloadCost
+    from Optimization.config.sim_config import _build_pick_cfg
+    from Warehouse.operations.putaway import PutawayCost
+
+    db, run_id = varied_arm
+
+    # FIRST: the input is not degenerate. The residual cancels `qty * handle_var`, so on one
+    # SKU at one quantity it is constant however the price was computed -- and a green check
+    # would then be measuring nothing. This assertion is what stops the fixture drifting back
+    # to the small arm the rest of the file uses.
+    con = sqlite3.connect(db)
+    try:
+        n_hv, n_qty = con.execute(
+            'SELECT COUNT(DISTINCT s.handle_var), COUNT(DISTINCT w.qty) '
+            'FROM work_events w JOIN sku_scores s ON s.run_id = w.run_id AND s.sku = w.sku '
+            "WHERE w.run_id = ? AND w.role = 'receive'", (run_id,)).fetchone()
+    finally:
+        con.close()
+    assert n_hv > 1 and n_qty > 1, (
+        f'{n_hv} distinct handle terms over {n_qty} distinct quantities -- with one of '
+        f'either, the spread is zero however the price was computed')
+
+    r = reconcile(db, run_id)
+    assert r['active'], 'no receiving happened; the test proves nothing'
+    assert r['checks']['unload_price_is_constant'] is True, r
+    assert r['unload_unscored'] == 0 and r['unload_unpriceable'] == 0, r
+    assert list(r['unload_constants']) == [run_id], r
+
+    # Through the run harness's OWN dict -> PickConfig conversion, not a hand-built one: the
+    # per-key fallbacks that used to live beside it had drifted 55x from the dataclass's, and
+    # a second reconstruction here would be a third place for that to happen.
+    expected = UnloadCost.from_putaway(
+        PutawayCost.from_pick(_build_pick_cfg(rs.REGRESSION_CONFIGS[0], num_pickers=1)))
+    assert abs(r['unload_constants'][run_id]
+               - (expected.per_item + expected.intercept)) <= 1e-9, (
+        f"C = {r['unload_constants'][run_id]} but this run's config derives "
+        f'{expected.per_item + expected.intercept}; the dock is not priced from the pick '
+        f'config it was built from')
+
+
+def test_the_constant_check_catches_its_three_defects(varied_arm, tmp_path):
+    """Sabotage, each against its own copy so the three failures cannot mask each other.
+
+    The third is the one that earns a SEPARATE check key: an unscored SKU is the only clause
+    here that goes red for a reason outside receiving, and reporting it as a spread would
+    point a reader at the cost model when the defect is in what the run recorded.
+    """
+    import shutil
+
+    src, run_id = varied_arm
+    assert reconcile(src, run_id)['verdict'] == 'PASS'
+
+    def _sabotage(name: str, sql: str, args=()) -> dict:
+        cp = str(tmp_path / f'sab_{name}.db')
+        shutil.copy(src, cp)
+        con = sqlite3.connect(cp)
+        try:
+            cur = con.execute(sql, args)
+            assert cur.rowcount > 0, f'{name}: the sabotage changed nothing'
+            con.commit()
+        finally:
+            con.close()
+        return reconcile(cp, run_id)
+
+    # 1. one row's duration moved by 2x the tolerance -- the smallest thing the check claims
+    #    to see, and the one that proves _TOL is not swallowing real error.
+    from Diagnostics.receiving_report import _TOL
+    r = _sabotage('dur', 'UPDATE work_events SET duration = duration + ? '
+                         "WHERE role = 'receive' AND run_id = ? "
+                         'AND id = (SELECT MIN(id) FROM work_events '
+                         "WHERE role = 'receive' AND run_id = ?)",
+                  (2 * _TOL, run_id, run_id))
+    assert r['checks']['unload_price_is_constant'] is False, r
+    assert r['checks']['seconds_agree'] is False, (
+        'a 2e-6 s move should also show in check 1 on this small arm')
+
+    # 2. a coefficient that diverged: one SKU's handle term zeroed. Nothing else in the repo
+    #    compares those two numbers, so this is the side door check 6 exists to shut.
+    r = _sabotage('hv', 'UPDATE sku_scores SET handle_var = 0.0 WHERE run_id = ? AND sku = '
+                        "(SELECT sku FROM work_events WHERE role = 'receive' "
+                        ' AND run_id = ? LIMIT 1)', (run_id, run_id))
+    assert r['checks']['unload_price_is_constant'] is False, r
+    assert r['unload_unscored'] == 0, 'the SKU is still scored; only its value is wrong'
+    assert all(v for k, v in r['checks'].items()
+               if k != 'unload_price_is_constant'), (
+        'zeroing a score broke a check that does not read sku_scores')
+
+    # 3. a received SKU absent from a non-empty sku_scores -- the DISTINCT failure.
+    r = _sabotage('gone', 'DELETE FROM sku_scores WHERE run_id = ? AND sku = '
+                          "(SELECT sku FROM work_events WHERE role = 'receive' "
+                          ' AND run_id = ? LIMIT 1)', (run_id, run_id))
+    assert r['checks']['every_received_sku_is_scored'] is False, r
+    assert r['unload_unscored'] > 0, r
+    assert r['checks']['unload_price_is_constant'] is True, (
+        'the missing SKU was reported as a SPREAD; the two failures are not separable and a '
+        'reader would be pointed at the cost model for a recording defect')
+
+
+def test_an_empty_sku_scores_makes_the_check_inactive_not_green(varied_arm, tmp_path):
+    """A vintage that cannot answer must not report that it answered. The check key is ABSENT
+    from `checks` rather than True -- the same idiom `active=False` uses for a run with no
+    receiving crew, and the reason `verdict` alone is never the whole story."""
+    import shutil
+
+    src, run_id = varied_arm
+    cp = str(tmp_path / 'no_scores.db')
+    shutil.copy(src, cp)
+    con = sqlite3.connect(cp)
+    try:
+        con.execute('DELETE FROM sku_scores WHERE run_id = ?', (run_id,))
+        con.commit()
+    finally:
+        con.close()
+
+    r = reconcile(cp, run_id)
+    assert 'unload_price_is_constant' not in r['checks'], (
+        'an unanswerable file reported a green check 6')
+    assert 'every_received_sku_is_scored' not in r['checks'], (
+        'an empty sku_scores is inactive, not a run that failed to score its SKUs')
+    assert r['unload_constants'] == {} and r['unload_note'], r
+    assert r['verdict'] == 'PASS', 'inactive is not a failure'
+    assert r['active'] is True, 'receiving still happened; only check 6 could not run'
 
 
 # ── the reconciliation can fail ───────────────────────────────────────────────────
