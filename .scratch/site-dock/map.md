@@ -314,15 +314,36 @@ BEFORE anything runs: the inbound-optimization map resumes at
   against 1,506 under a mutant resolution; both preflight canaries `tree shape UNCHANGED`.
   Gates: 2027 unit, 31 e2e, all nine verifiers. Five guard mutations, five caught.
 
+- [Re-shape the selection hand-off](issues/14-reshape-the-selection-handoff.md): **BUILT and
+  live on `develop`** — `restock_selection.json` carries the rank diagonal as `rule_pairs`,
+  zipped from the two channels' ORDERED `chosen` lists (never from `arms`, which is
+  `sorted(set(...))`: a pairing built from it is alphabetical, the right length, and wrong in a
+  way nothing downstream detects — the test gives the two channels OPPOSITE rankings so the two
+  cannot agree by accident). The cap now bounds the UNION of unfaithful families through a
+  `committed` list threaded across channels, with the consumption order recorded because an
+  alphabetical tiebreak between two incomparable hour scales is a decision; `select()` refuses a
+  `coupled: true` root; and `put_regime: 'per-leaf'` is stamped with a note saying RANKS are no
+  more invariant than hours. **Three deviations under force:** the field is `rule_pairs`, not
+  `pairs` — the naming trap bites in this very document, where `run.pairs` already means the
+  inventory profiles; a one-channel run produces NO pairs rather than a lone manufactured rider,
+  which would read as a very short campaign; and the guard moved to the TOP of `select()`,
+  because the existing `read_run_layout` call sits after the whole ranking and refusing there
+  would rank every coupled leaf first. **Two findings:** this module is a run-tree SHAPE SOURCE,
+  so adding a JSON *field* that moves no path still costs a full preflight canary pair (paid
+  twice, the second time for a one-line docstring edit); and `context/artifacts.yml` records each
+  artifact's top-level `fields:` with **nothing verifying it against the writer** — the context
+  gate passed green with this one stale by seven keys. Gates: 2037 unit, all nine verifiers,
+  both canaries `tree shape UNCHANGED`; nine guard mutations, nine caught.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
   they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
   what remains of it is owner routing, not extraction), and **13's is DONE** (the indirection is
-  seated, so what remains of 05 is the composite that answers through it). The two still open:
-  [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10) and
-  [Re-shape the selection hand-off](issues/14-reshape-the-selection-handoff.md) (out of 06);
-  **12's are DONE**, so what remains of 04 is the pool itself and not its seams. The
+  seated, so what remains of 05 is the composite that answers through it). One still open:
+  [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10);
+  **12's are DONE**, so what remains of 04 is the pool itself and not its seams, and **14's is
+  DONE**, so what remains of 06 is the SPEC side alone. The
   ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
   second leaf: the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact
   declarations and their contract bump; out of 07 the site stage and `SiteContext` itself, the
@@ -347,9 +368,10 @@ BEFORE anything runs: the inbound-optimization map resumes at
   sabotages and its one fault-injected torn tree (its two byte-identical precursors already
   graduated to 16);
   and out of 06 the SPEC side — `PHASE2_ARMS` becoming `PHASE2_PAIRS`, `CHANNEL_RESTOCKS` derived
-  from the pair list, the pair-shaped shape refusal in `_run_whatif_matrix`, and the rewrite of
-  `whatif_config.py:166-170` (whose cross-phase claim this map's own answer makes false), none of
-  which mean anything until the coupled unit builder exists to consume a pair.
+  from the rule-pair list, the pair-shaped shape refusal in `_run_whatif_matrix`, and the rewrite
+  of `whatif_config.py:166-170` (whose cross-phase claim this map's own answer makes false), none
+  of which mean anything until the coupled unit builder exists to consume a rule pair — the
+  hand-off side of it is already written and tested (14), so what waits is the consumer.
 - **Within-day put interleaving.** The charter shares a DAY budget, so a putter cannot take the
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
   coupled run shows a day where one channel's put queue actually starves while the other's crew
