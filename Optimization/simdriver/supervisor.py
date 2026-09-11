@@ -22,19 +22,33 @@ from Optimization.persistence import runtime_metrics
 
 
 def _finalize_config_run(sim_skeleton: dict) -> dict:
-    """Post-completion: remove resume file and write sim_meta.json.
+    """Post-completion: write sim_meta.json, THEN remove resume file + checkpoints.
+
+    THE ORDER IS THE SAFETY.  A kill inside this function must leave a directory that is
+    still either resumable or complete — never neither.  The skip guard
+    (`workunits._build_work_units`) reads "complete" as *sim_meta.json present AND
+    resume.pkl absent*, so writing the marker FIRST makes the crash window hold a dir with
+    BOTH files: not complete (so it is re-planned) and still resumable (so `_load_resume`
+    answers).  `_plan_strategy_start` then takes its documented "resumed done arm" branch
+    — ckpt == n_batches, so reuse prev_id, start n_batches, empty loop, re-finalize.
+
+    The reverse order removed resume.pkl FIRST and left a dir that was NEITHER: the guard
+    saw no sim_meta.json and declined to skip, `_load_resume` returned None because the
+    file was already gone, and the fresh-run branch therefore ran `create_run` over a
+    POPULATED db with no `reset_strategy_db`.  That corruption has no symptom — `find_run`
+    resolves `ORDER BY run_id LIMIT 1`, so every run_id-filtered query would answer from
+    the ABANDONED run and every unfiltered aggregate over the file would double.
+    No new state and no new code path — only the sequence.
 
     Returns the sim_result dict (subset of sim_skeleton without inv_db/aff_db).
     """
     run_dir = sim_skeleton['run_dir']
-    rp = _resume_path(run_dir)
-    if os.path.exists(rp):
-        os.remove(rp)
-    _cleanup_checkpoints(run_dir)   # config complete — clear its per-strategy _ckpt_*.pkl
     # Additive runs: if a sim_meta.json already exists (e.g. a --resume run adding
     # a NEW strategy into a prior comparison dir), MERGE the strategy lists instead
     # of overwriting, so run_analysis sees the previously-run strategies plus the
     # new one.  Strategies are de-duplicated by key (the new run wins on collision).
+    # The read-back stays AHEAD of the write: the reordering moved the two REMOVALS
+    # below the merge-and-write pair, it did not touch the pair itself.
     meta_path = os.path.join(run_dir, 'sim_meta.json')
     if os.path.exists(meta_path):
         try:
@@ -48,6 +62,10 @@ def _finalize_config_run(sim_skeleton: dict) -> dict:
                         'strategies': kept + sim_skeleton.get('strategies', [])}
     with open(meta_path, 'w') as _f:
         json.dump(sim_skeleton, _f, indent=2)
+    rp = _resume_path(run_dir)
+    if os.path.exists(rp):
+        os.remove(rp)
+    _cleanup_checkpoints(run_dir)   # config complete — clear its per-strategy _ckpt_*.pkl
     return {k: sim_skeleton[k]
             for k in ('name', 'inventory', 'run_dir', 'strategies',
                       'optimal_sigma_fd', 'optimal_work')

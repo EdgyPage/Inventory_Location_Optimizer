@@ -11,6 +11,9 @@ Locks the automatic crash-recovery of run_simulation.py:
     state left intact) while the rest finish.
   - _plan_strategy_start: honors resume granularity (strategy = reset partial arm to batch 0;
     batch = continue from checkpoint; done arm = no-op).
+  - TORN FINALIZE: _finalize_config_run writes sim_meta.json BEFORE it removes resume.pkl, so a
+    kill inside the finalize window leaves a dir that is still resumable (both files present)
+    rather than one that is neither resumable nor complete.
 
 The pool/data layer is faked so the control flow is exercised deterministically without a real
 ProcessPool or generated DB pairs.
@@ -24,8 +27,14 @@ import logging
 import os
 from types import SimpleNamespace
 
+import sqlite3
+
+import pytest
+
 from Optimization import run_simulation as rs
-from Optimization.runschema.sim_manifest import _save_resume, _resume_path
+from Optimization.persistence.Picking_Data import create_run, init_run_db
+from Optimization.runschema.sim_manifest import _load_resume, _save_resume, _resume_path
+from Optimization.simdriver.strategy_runner import save_worker_checkpoint
 
 _LOG = logging.getLogger('test_crash_recovery')
 
@@ -199,3 +208,67 @@ def test_batch_resume_is_refused_while_the_carry_is_on(monkeypatch, tmp_path):
     # and a fresh run has no checkpoint to refuse
     ckpt['v'] = 0
     assert plan('batch', None, False, roll_over=True) == (999, 0)
+
+
+# ── the torn-finalize window (ordering inside _finalize_config_run) ─────────────────────
+
+def _one_run_db(path, key):
+    """A real sim_<key>.db holding exactly one run — the state a finished arm leaves."""
+    init_run_db(str(path))
+    return create_run(str(path), 'comparison', {}, identity={'strategy_key': key})
+
+
+def _n_runs(path):
+    con = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+    try:
+        return con.execute('SELECT COUNT(*) FROM simulation_runs').fetchone()[0]
+    finally:
+        con.close()
+
+
+def test_a_kill_inside_finalize_leaves_the_dir_resumable(monkeypatch, tmp_path):
+    """A kill between the marker write and the resume-file removal must leave BOTH files.
+
+    The finalize window is the one place a run dir can end up NEITHER resumable NOR complete:
+    the skip guard reads "complete" as *sim_meta.json present AND resume.pkl absent*, so a dir
+    missing both markers is re-planned as a FRESH run — `create_run` over a populated db, with
+    no `reset_strategy_db`.  `find_run` then resolves `ORDER BY run_id LIMIT 1` and every later
+    query answers from the abandoned run.  No exception, no log line, wrong numbers.
+
+    Writing sim_meta.json FIRST makes the window hold both files instead: not complete, still
+    resumable, and `_plan_strategy_start` takes its documented done-arm branch.  This test is a
+    mutation detector for the ordering — revert it and the removal raises before the marker is
+    ever written, so the `sim_meta.json` assertion below fails.
+    """
+    run_dir = tmp_path / 'store'
+    run_dir.mkdir()
+    db_path = run_dir / 'sim_uni.db'
+    n_batches = 100
+    prev_id = _one_run_db(db_path, 'uni')
+    save_worker_checkpoint(str(run_dir), 'uni', n_batches)      # the arm genuinely finished
+    _save_resume(str(run_dir), {'uni': prev_id}, {'uni': n_batches})
+
+    _real_remove = os.remove
+
+    def _die_on_resume_removal(path, *a, **k):
+        if str(path).endswith('resume.pkl'):
+            raise OSError('killed inside the finalize window')
+        return _real_remove(path, *a, **k)
+    monkeypatch.setattr(os, 'remove', _die_on_resume_removal)
+
+    with pytest.raises(OSError, match='finalize window'):
+        rs._finalize_config_run(_skeleton(run_dir, ['uni']))
+    monkeypatch.undo()
+
+    # BOTH markers present: not complete (so the guard re-plans it), still resumable.
+    assert (run_dir / 'sim_meta.json').exists(), \
+        'the completeness marker was not written before the resume file was removed'
+    assert os.path.exists(_resume_path(str(run_dir))), 'resume.pkl went first after all'
+
+    # ...and the resume over that dir is a no-op that reuses the run, not a second create_run.
+    resume = _load_resume(str(run_dir))
+    s = SimpleNamespace(key='uni', run_type='comparison')
+    assert rs._plan_strategy_start(
+        str(run_dir), s, n_batches, str(db_path), {}, {}, 'strategy',
+        resume['run_ids']['uni'], resume['next_batch']['uni'], True, _LOG) == (prev_id, n_batches)
+    assert _n_runs(db_path) == 1, 'the resume opened a second run in the arm db'
