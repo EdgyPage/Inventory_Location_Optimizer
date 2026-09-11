@@ -167,6 +167,16 @@ threshold does.
 - Both halves of the rule were proven to FAIL by sabotage: removing the truncation breaks two
   tests, removing the reassignment room check breaks two others.
 
+### One listed item read differently: "provenance `declared` on the record"
+
+`staffing_provenance` iterates `STAFFING_KEYS` and stamps `declared`/`assumed`/`derived` per
+input the regime reads. `inbound_door_team` is an INBOUND key, not a staffing one, so it gets no
+entry there and should not -- an inbound knob in the staffing provenance block would claim the
+derivation reads it, which is exactly what this ticket's own constraint forbids (the cap does not
+enter the coverage record). The inbound family's provenance is that the run spec records EVERY
+key of it whole, typed or not, which is stronger than a per-key `declared`/`assumed` flag: a
+phase-2 cell can always say which cap it ran under. Nothing was added for this item.
+
 ### Gates
 
 `Tests/unit` 2002 green (23 new in `Tests/unit/test_door_team_cap.py`);
