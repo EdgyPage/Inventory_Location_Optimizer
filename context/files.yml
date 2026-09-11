@@ -2469,6 +2469,9 @@ files:
       - {name: "test_supervise_quarantines_persistent_failure", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_plan_strategy_start_all_branches", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_batch_resume_is_refused_while_the_carry_is_on", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_a_kill_inside_finalize_leaves_the_dir_resumable", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_fresh_branch_refuses_to_create_a_second_run", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_fresh_branch_is_unchanged_on_an_empty_or_absent_db", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
     notes: ""
   "Tests/integration/test_day_cut_rollover.py":
     purpose: "the cut, end to end, across batches."

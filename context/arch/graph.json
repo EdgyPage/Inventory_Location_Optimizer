@@ -13566,6 +13566,11 @@
       "src": "Optimization/simdriver/workunits.py::_plan_strategy_start"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::find_run",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_plan_strategy_start"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::init_run_db",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_plan_strategy_start"
