@@ -366,13 +366,27 @@ BEFORE anything runs: the inbound-optimization map resumes at
   (recorded against 01's build). **Site crew** added to `CONTEXT.md`; no ADR, the identity rule
   is a consequence of 04's allocation choice.
 
+- [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md): both precursors
+  built (`1b2c572f`, `66515339`). `_finalize_config_run` writes `sim_meta.json` BEFORE it removes
+  `resume.pkl`, so the crash window holds a dir that is still resumable instead of one that is
+  neither resumable nor complete; and the fresh-run branch of `_plan_strategy_start` now REFUSES
+  to `create_run` over a db that already holds a run, the corruption `find_run`'s
+  `ORDER BY run_id LIMIT 1` would otherwise make silent. Both mutation-checked. **The gate line
+  was wrong and the correction generalises:** both files are in `contract.SHAPE_SOURCES`, so every
+  commit this map makes to a simdriver file reddens `preflight --check` and
+  `verify_architecture` — the fix is the full preflight (two canaries, ~83 s) plus the arch chain,
+  and those canaries ARE the byte-identical acceptance (mixed and store-only, tree shape unchanged
+  on `5c9bc35db55b`). `Tests/architecture`'s fifth red is `.claude/worktrees/` only, baselined
+  against a `git archive` copy.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
   they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
-  what remains of it is owner routing, not extraction), and **13's is DONE** (the indirection is
-  seated, so what remains of 05 is the composite that answers through it). Two still open:
-  [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10) and
+  what remains of it is owner routing, not extraction), **13's is DONE** (the indirection is
+  seated, so what remains of 05 is the composite that answers through it), and **16's is DONE**
+  (10's two byte-identical precursors are in, so what remains of 10 is the reconciler alone). One
+  still open:
   [Exempt repack rows and pin the unload constant](issues/17-exempt-repacks-and-pin-the-unload-constant.md)
   (out of 15);
   **12's are DONE**, so what remains of 04 is the pool itself and not its seams, and **14's is
