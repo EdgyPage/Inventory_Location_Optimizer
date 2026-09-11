@@ -198,6 +198,22 @@ BEFORE anything runs: the inbound-optimization map resumes at
   `_step` catches `Exception` and that is not one; and `yard_overage_total` rides in **every** arm's
   series doc, so a headline evaluation carries a site quantity today.
 
+- [Design the site space view](issues/08-design-the-site-space-view.md): the coordinator **composes
+  two frozen views** and `freeze` is not touched — `Inbound/space.py` keeps its defining property
+  (it imports nothing from Warehouse), the purity pin keeps its subject, and site-ness lives in a
+  pure composer over frozen data. **The field census is nearly inverted:** only four of seven
+  fields are read in production, and `versions`, `released_at` and `emptied_at` are read by
+  **nothing** outside tests. The two tiers compose differently — `empties` copies the
+  WHOLE-geometry `_index` and must be regime-filtered, while `predicted` is projected from the
+  leaf's own demand and is already clean, so filtering all three would be three times the surface
+  for one defect. `versions` composes **element-wise**, `((d,d'),(r,r'),(f,f'))`, which keeps 06's
+  sub-vector cache keys positionally addressable by event class; a SUM is illegal and lossy in the
+  exact failing direction. One site `frozen_at`, per-regime `released_at` never averaged, and the
+  `window` rule recorded while the build REFUSES (no lawful arm sets one). Two injections, one per
+  leaf. **The finding:** `BinKey` is a plain tuple, so `regime_of(key)` returns `'store'` for every
+  key, silently — verified both ways; the filter tags by the leaf the coordinator just froze and
+  asserts with `regime_of(bin)` on the value, never on the key.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some have graduated out
@@ -215,7 +231,10 @@ BEFORE anything runs: the inbound-optimization map resumes at
   `yard` family's move to a third scope value (its `schema_id` bump and four test ties), the site
   clause in `equilibrium.py` with the report's two-leaf accumulation, the rollup's `ValueError`
   refusal and its `analyze_run` skip, and the two unlisted leaf surfaces — `series.py`'s
-  `yard_overage_total` and `throughput.audit`'s undeclared door read; out of 04 the
+  `yard_overage_total` and `throughput.audit`'s undeclared door read; out of 08 the site-view
+  composer itself, the `empties` regime filter with its `regime_of(bin)` assertion, element-wise
+  versions, the per-regime `released_at`, the window refusal and the composer's unit test; out of
+  04 the
   `Inbound/putaway_pool.py` module itself, the proportional split with its residue pass,
   the site `put_clock` and its day-start base, and the two coupled refusals; and out of 05 the
   `SiteGainBundle` itself, the second `_gain_bundle_for` call, and the three-part commensurability

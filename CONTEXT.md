@@ -223,7 +223,9 @@ The dock's continuously maintained view of storage space: bins empty now, with t
 they emptied at, plus the bins standing demand will clear. Read only through frozen views.
 
 **Space view**:
-The per-drain frozen snapshot of the space timeline that yard and dock priorities read.
+The per-drain frozen snapshot of the space timeline that yard and dock priorities read. At a site
+dock it is composed from one timeline per channel, and its bins are partitioned by regime — never
+a whole-geometry count of both.
 
 **Standing demand**:
 Released-but-unpicked pick demand — the batch just released plus any carry. The demand slice
