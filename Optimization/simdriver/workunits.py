@@ -18,6 +18,7 @@ from Optimization.config.sim_config import (
     CONFIG, seed_batches, seed_world, shift_seconds, put_crew_spec, put_queues_spec,
     crew_cost_spec,
     channel_pickers, staffing_spec, _PICKERS_KEY, CALIBRATION_KEYS, era_on,
+    couple_channels,
     inbound_spec,
     recv_crew_spec,
     work_day_spec,
@@ -489,6 +490,104 @@ def _prepare_channel_run(
     return strategy_args, [sim_skeleton]
 
 
+# ── the coupled (site) work unit ───────────────────────────────────────────────
+# The site crews a leaf must NOT carry.  Under coupling they are properties of the SITE, and
+# `workunits.py`'s per-leaf payload handed EACH leaf the whole derived total -- two independent
+# processes fielding the site's labour twice (`staffing.py:710-712` says outright that those two
+# crews are site totals).  Site-dock 02 section 6 fixes it by DELETION: the keys leave the leaf
+# payload and sit once at unit scope, where `_check_declared_crew` verifies them once per unit.
+# `k_pickers` is NOT here -- pickers really are per-channel crews (`staffing.py:354-385`).
+_SITE_CREW_KEYS = ('put_crew', 'recv_crew')
+
+
+def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str,
+                      log: logging.Logger, workers: int = 1,
+                      resume_granularity: str = 'strategy') -> tuple[list, list]:
+    """Pre-initialise ONE pair's COUPLED runs: two channel leaves per work unit.
+
+    `_prepare_channel_run` survives unforked and is called once per channel (site-dock 02
+    section 3) -- each leaf genuinely needs its own run dir, batch stream, pick config, wp,
+    yardsticks and DB, and every one of those stays per channel under coupling.  What this
+    adds is only the pairing: the two channels' ordered arm lists zipped into arm PAIRS, the
+    site crews lifted out of both leaf payloads to unit scope, and the two group keys carried
+    on the unit so no parent-side reader has to slice a uid for them.
+
+    Returns (unit_args_list, sim_skeletons) in the same shape `_prepare_channel_run` returns,
+    so `_build_work_units` composes them identically.
+    """
+    # ONE config per channel. Which store config pairs with which fulfillment config is a
+    # question nobody has answered -- 02 settled the arm pairing and said nothing about a
+    # config cross product -- so more than one per channel is refused here rather than paired
+    # by position, which would be a decision made by a `zip`.
+    _by_channel: dict = {}
+    for ch, cfg in channel_runs:
+        _by_channel.setdefault(ch.name, []).append((ch, cfg))
+    if sorted(_by_channel) != ['fulfillment', 'store']:
+        raise ValueError(
+            f'a coupled run needs exactly the store and fulfillment channels; got '
+            f'{sorted(_by_channel)}. Coupling is a SITE model: one dock, one receiving crew '
+            f'and one pool of putters over two channels, so a single-channel catalogue has '
+            f'nothing to couple.')
+    for _name, _runs in _by_channel.items():
+        if len(_runs) != 1:
+            raise ValueError(
+                f'a coupled run needs exactly one config per channel; the {_name} channel '
+                f'sweeps {len(_runs)} ({[_config_name(c) for _, c in _runs]}). Pairing two '
+                f'config SETS is undecided (site-dock 02 settled the arm pairing only), and '
+                f'zipping them here would make that decision silently.')
+
+    # Store first, then fulfillment -- the declared channel order, so a unit's uid slots mean
+    # the same thing on every run (`_channel_runs_for` builds them in this order too).
+    leaves, skeletons = [], []
+    for _name in ('store', 'fulfillment'):
+        (ch, cfg), = _by_channel[_name]
+        _sa, _sk = _prepare_channel_run(ch, cfg, mixed, shared, pair_dir, log,
+                                        workers=workers,
+                                        resume_granularity=resume_granularity)
+        leaves.append((_config_name(cfg), ch, _sa))
+        skeletons.extend(_sk)
+
+    (_cfg_s, _ch_s, _sa_s), (_cfg_f, _ch_f, _sa_f) = leaves
+    # THE DIAGONAL BY RANK. Both channels sweep an ORDERED arm list (`strategies_for`), and a
+    # pair is rank against rank. A ragged hand-off is refused rather than truncated: `zip`
+    # would silently drop the tail of the longer channel, which is the failure site-dock 06
+    # made unrepresentable on the selection side and must not be reintroduced here.
+    if len(_sa_s) != len(_sa_f):
+        raise ValueError(
+            f'a coupled unit pairs the two channels by RANK, so their arm lists must be the '
+            f'same length; store sweeps {len(_sa_s)} arm(s) and fulfillment {len(_sa_f)}. '
+            f'Curate `strategies.CHANNEL_RESTOCKS` so the two agree, or run uncoupled.')
+
+    # The site crews, lifted out of BOTH leaf payloads exactly once. Read off the store leaf
+    # because `_prepare_channel_run` derives them from `shared['staffing']`, which is the
+    # pair's block and therefore identical on both -- asserted, because two different values
+    # here would mean the derivation is not per pair after all and one leaf would run under a
+    # crew the other never saw.
+    site_crews = {k: _sa_s[0].get(k) for k in _SITE_CREW_KEYS}
+    for k in _SITE_CREW_KEYS:
+        if _sa_f[0].get(k) != site_crews[k]:
+            raise ValueError(
+                f'the two channels derived different {k} records ({_sa_s[0].get(k)!r} vs '
+                f'{_sa_f[0].get(k)!r}); a site crew is ONE crew, derived per pair, so this '
+                f'means the derivation is no longer per pair')
+
+    unit_args = []
+    for _ls, _lf in zip(_sa_s, _sa_f):
+        for _l in (_ls, _lf):
+            for k in _SITE_CREW_KEYS:
+                _l.pop(k, None)          # the deletion that ends the double count
+        unit_args.append({
+            # Unit scope: the site crews, the record they are checked against, and the batch
+            # count. Everything else is a leaf's own and lives under `leaves`.
+            **site_crews,
+            'staffing' : _ls.get('staffing'),
+            'n_batches': _ls['n_batches'],
+            'leaves'   : [_ls, _lf],
+            # log_queue is NOT set here -- injected by the flat pool, as for a leaf unit.
+        })
+    return unit_args, skeletons
+
+
 def put_constant(totals, override) -> dict:
     """ONE channel's put-away price, as the recorded constant ("Give put-away a per-channel
     expected travel", 2026-09-08).
@@ -892,6 +991,28 @@ def _stamp_identity(sa: dict, label: str, cfg_name: str) -> tuple:
     return (*gk, sa['arm_key'])
 
 
+def _stamp_site_identity(ua: dict, label: str, cfg_names: dict) -> tuple:
+    """`_stamp_identity` for a COUPLED unit: two group keys, two arms, one uid.
+
+    The uid is `(label, 'coupled', arm_store, arm_ful)` — arity 4, so `_tag_of` and every
+    existing key path read it unchanged, but only the first slot still means what it used to.
+    The literal `'coupled'` in the config slot is deliberate and honest (site-dock 02 section
+    1): the unit is a member of NEITHER config subtree — `config` sits ABOVE `channel` in the
+    tree and the two channels draw from different config sets, so its two leaves share no
+    ancestor below `<pair>/` — and a synthetic config name that looked real would invite a
+    walker to go looking for its directory.
+
+    `arm_key` is None, not one of the two: a unit with two arms has no single arm, and a
+    reader that takes one of them gets the other leaf's number with nothing to say so.
+    `arm_keys` carries both, positionally with `group_keys`.
+    """
+    gks = [(label, cfg_names[_l['channel_key']], _l['channel_key']) for _l in ua['leaves']]
+    ua['group_keys'] = gks
+    ua['arm_keys']   = [_l['strategy'] for _l in ua['leaves']]
+    ua['arm_key']    = None
+    return (label, 'coupled', *ua['arm_keys'])
+
+
 def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
                       skip_completed, resume_granularity):
     """(Re-)prepare all work units from on-disk state.
@@ -924,6 +1045,43 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
         # can never have its warehouse reproduced from its catalogue again.  Under the era the
         # line above already wrote it, and this is a no-op.
         _record_coverage(base_dir, label, shared.get('coverage'), log)
+        # THE COUPLED PAIR.  One work unit finalizes two channel leaves, so the site's dock,
+        # receiving crew and putters are fielded ONCE rather than once per leaf.  Declared per
+        # run (`couple_channels`), never inferred: site-dock 06 couples every cell of the
+        # campaign INCLUDING its inbound-off pole, so "coupling rides the inbound flag" is no
+        # longer a rule a reader could derive from the flag.  A store-only catalogue has
+        # nothing to couple and `_prepare_site_run` refuses one.
+        if couple_channels() and mixed:
+            _cfg_names = {ch.name: _config_name(cfg) for ch, cfg in channel_runs}
+            # BOTH leaves or neither (site-dock 10): a unit writes two leaves, so a pair with
+            # one finalized leaf is a torn pair and must be re-run, not skipped.  `all()` over
+            # the pair rather than a per-leaf `continue` is what makes that true here.
+            _leaf_dirs = [os.path.join(pair_dir, _cfg_names[ch.name], ch.name)
+                          for ch, _ in channel_runs]
+            if skip_completed and all(
+                    os.path.exists(os.path.join(d, 'sim_meta.json'))
+                    and not os.path.exists(_resume_path(d)) for d in _leaf_dirs):
+                log.info(f'  [{label}/coupled] both leaves already complete — skipping (resume)')
+                continue
+            try:
+                unit_args, sim_skeletons = _prepare_site_run(
+                    channel_runs, mixed, shared, pair_dir, log, workers=max_workers,
+                    resume_granularity=resume_granularity)
+            except Exception as exc:
+                log.error(f'  [{label}/coupled] prepare FAILED: {exc}', exc_info=True)
+                continue
+            for ua in unit_args:
+                ua['log_queue'] = log_queue
+                work_units.append((_stamp_site_identity(ua, label, _cfg_names), ua))
+            # Every leaf's group takes EVERY unit as a member: a coupled unit writes both
+            # leaves, so neither leaf may finalize until every unit succeeded.  That is the
+            # same rule a per-channel group already follows, stated over the unit set the
+            # coupled run actually has.
+            _members = frozenset(uid for uid, _ in work_units[-len(unit_args):])
+            for sk in sim_skeletons:
+                gk = (label, _cfg_names[sk.get('channel', '')], sk.get('channel', ''))
+                meta[gk] = {'sim_skeleton': sk, 'members': _members}
+            continue
         for ch, cfg in channel_runs:
             cfg_name = _config_name(cfg)
             # Outputs live at <cfg>/<channel>/ (mixed) or <cfg>/ (store-only); the skip guard

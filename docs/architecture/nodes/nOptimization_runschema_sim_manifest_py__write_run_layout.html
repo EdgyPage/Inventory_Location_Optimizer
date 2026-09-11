@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>write_run_layout</code></h1>
 <p class="meta">layer <span class="chip">opt_runschema</span> · file <a href="../files/nOptimization_runschema_sim_manifest_py.html"><code>Optimization/runschema/sim_manifest.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created) -&gt; None</code></pre>
+<pre class="sig"><code>def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created, coupled=False) -&gt; None</code></pre>
 <section class="doc">Write &lt;base&gt;/run_layout.json — the descriptor of a run&#x27;s unified cell tree
 ``&lt;base&gt;/&lt;cell&gt;/&lt;pair&gt;/&lt;config&gt;[/&lt;channel&gt;]/sim_*.db``.  Lets tools INFER the tree (cells,
 reference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed

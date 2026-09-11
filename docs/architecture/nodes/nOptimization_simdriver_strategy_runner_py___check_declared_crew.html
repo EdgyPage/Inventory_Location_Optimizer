@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_check_declared_crew</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def _check_declared_crew(args: dict, k_pickers: int) -&gt; None</code></pre>
+<pre class="sig"><code>def _check_declared_crew(args: dict, k_pickers: int, *, site_crews: bool=True) -&gt; None</code></pre>
 <section class="doc">Refuse a payload whose sized crews are not its declared (or derived) crews.
 
 `k_pickers` is the count the worker sizes its pick crew from; `args[&#x27;staffing&#x27;]` is the
@@ -25,8 +25,14 @@ these was read or derived in the parent from the same source, so they can only d
 when a caller assembled the payload by hand -- and that caller would otherwise run a
 whole arm under a crew its run spec never declared.  An absent record (a bench harness,
 a test predating it) is nothing to check against.  Module-level so a unit test can hand
-it a payload without running an arm.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__channel_crew.html"><code>channel_crew</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__picker_key.html"><code>picker_key</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+it a payload without running an arm.
+
+`site_crews=False` checks the pick crew ONLY.  A coupled unit&#x27;s put and receiving crews
+are the SITE&#x27;s and live at unit scope, not on either leaf (site-dock 02 section 6), so
+the unit checks them once -- `_check_site_crews` -- and each leaf checks its own pickers,
+which really are per channel.  Checking them per leaf is what guarded the double count
+into place.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__channel_crew.html"><code>channel_crew</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simconfig_staffing_py__picker_key.html"><code>picker_key</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___check_site_crews.html"><code>_check_site_crews</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf.html"><code>_build_leaf</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___check_declared_crew">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_check_declared_crew">Source ↗</a></p>
 </article>
 </main>

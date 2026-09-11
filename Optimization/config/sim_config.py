@@ -195,6 +195,7 @@ CONFIG = {
         'recv_day_seconds': _s.RECV_DAY_SECONDS,
         'recv_day_origin': _s.RECV_DAY_ORIGIN,
         'shift_drain_or_cap': _s.SHIFT_DRAIN_OR_CAP,
+        'couple_channels': _s.COUPLE_CHANNELS,
         'inbound_trailer_type'  : _s.INBOUND_TRAILER_TYPE,
         'inbound_dock_doors'    : _s.INBOUND_DOCK_DOORS,
         'inbound_lead_minutes'  : _s.INBOUND_LEAD_MINUTES,
@@ -572,6 +573,23 @@ def era_on() -> bool:
     about which regime a run is in.
     """
     return bool(CONFIG['global'].get('shift_drain_or_cap'))
+
+
+def couple_channels() -> bool:
+    """Whether this run's two channels share one site: one dock, one receiving crew, one pool
+    of putters — a COUPLED work unit per arm pair instead of one unit per channel leaf.
+
+    A DECLARATION, never an inference. The obvious rule — "coupling rides the inbound flag" —
+    does not hold: site-dock 06 couples every cell of the inbound campaign including its
+    inbound-OFF pole, because the matrix's own deltas are what it publishes and an uncoupled
+    anchor inside a coupled matrix would not be one. So the run says whether it is a site.
+
+    Read from CONFIG at call time, like `era_on()` and for the same reason: a spawned worker
+    re-imports this module and would get the pristine default. The flag reaches the run tree
+    as `run_layout.json`'s `coupled`, which is what a downstream tool reads (a coupled root is
+    refused by `run_restock_selection.select`, whose validity argument IS channel independence).
+    """
+    return bool(CONFIG['global'].get('couple_channels'))
 
 
 def k_pickers() -> int:

@@ -289,7 +289,15 @@ def test_the_worker_checks_its_crew_against_the_record_and_never_the_module():
         return ast.unparse(tree)
 
     body = _code(sr._build_leaf)
-    assert '_check_declared_crew(args, k_pickers)' in body, 'the worker no longer checks'
+    assert '_check_declared_crew(args, k_pickers, site_crews=unit is None)' in body, \
+        'the worker no longer checks'
+    # And the SITE half is checked once per unit, never per leaf. Two leaves each verifying
+    # the site's put and receiving totals against the record is what guarded the double count
+    # into place (site-dock 02 section 6), so the driver owning that call is the fix itself.
+    driver = _code(sr._run_strategy_worker_impl)
+    assert '_check_site_crews(args)' in driver, 'the unit no longer checks the site crews'
+    assert '_check_site_crews' not in body.replace('site_crews=unit is None', ''), \
+        'a leaf checks the site crews again; per-leaf is the double count'
     helper = _code(sr._check_declared_crew)
     assert "args.get('staffing')" in helper, 'the record no longer comes from the payload'
     for src in (body, helper):

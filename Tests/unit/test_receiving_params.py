@@ -196,7 +196,13 @@ def test_the_worker_reads_the_crew_only_from_its_arguments():
                     and isinstance(node.body[0].value.value, str)):
                 node.body.pop(0)
     body = ast.unparse(tree)
-    assert "args.get('recv_crew')" in body, 'the crew no longer comes from the payload'
+    assert "_unit.get('recv_crew')" in body, 'the crew no longer comes from the payload'
+    # `_crews` must resolve to one of the ARGUMENTS and nothing else. A leaf of a coupled
+    # unit takes the receiving crew from its UNIT (it is the site's dock, not the leaf's --
+    # site-dock 02 section 6), and the one-leaf case takes it from its own payload; either
+    # way the value crossed a pickle, which is the property this test exists for.
+    assert '_unit = args if unit is None else unit' in body, (
+        'the crew source is no longer one of the function arguments')
     assert 'recv_crew_spec' not in body, (
         'the worker calls the accessor directly; a spawned worker would get the default')
 

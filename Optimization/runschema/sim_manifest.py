@@ -121,7 +121,7 @@ def _pair_bindings(pairs) -> dict:
 
 
 def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs,
-                     channels, arms, created) -> None:
+                     channels, arms, created, coupled=False) -> None:
     """Write <base>/run_layout.json — the descriptor of a run's unified cell tree
     ``<base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db``.  Lets tools INFER the tree (cells,
     reference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed
@@ -141,9 +141,11 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
     """
     from Optimization.runschema import contract as _contract
     layout = {
-        # version 2: + pair_bindings (additive — `pairs` stays labels, so every pre-v2 reader
-        # including resolver.axes() is untouched; absence of the key on old files is normal).
-        'version'       : 2,
+        # version 3: + coupled (additive, and FALSE on every run that exists — the site-dock
+        # marker below).  version 2: + pair_bindings (additive — `pairs` stays labels, so
+        # every pre-v2 reader including resolver.axes() is untouched; absence of the key on
+        # old files is normal).
+        'version'       : 3,
         'schema_id'     : _contract.head() or _contract.build()['schema_id'],
         'kind'         : 'single' if len(cells) <= 1 else 'sweep',
         'spec'         : spec,
@@ -166,6 +168,15 @@ def write_run_layout(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_
         'configs'      : {'store'      : [c['name'] for c in store_cfgs],
                           'fulfillment': [c['name'] for c in ff_cfgs]},
         'arms'         : list(arms) if arms is not None else None,
+        # THE SITE-DOCK MARKER (site-dock 03).  True when a work unit drove BOTH channel
+        # leaves -- one dock, one receiving crew, one pool of putters -- so the two leaves of
+        # a pair are not independent warehouses and their savings are not additive.  It moves
+        # no path, which is why it is a field here rather than a tree level: the leaves keep
+        # their own `<config>/<channel>/` subtrees and every resolver reads them unchanged.
+        # `run_restock_selection.select` refuses a root where this is true (its validity
+        # argument IS channel independence); `run_channel_rollup` has the same premise.
+        # Absent on every archived run, which reads as False -- correctly, they all are.
+        'coupled'      : bool(coupled),
     }
     path = _run_layout_path(base_dir)
     tmp = f'{path}.tmp.{os.getpid()}'

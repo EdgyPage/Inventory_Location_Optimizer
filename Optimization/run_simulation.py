@@ -42,6 +42,7 @@ from Optimization.config.sim_config import (            # noqa: F401
     CONFIG, INBOUND_KEYS, STAFFING_KEYS, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
     seed_world, seed_batches, n_batches, k_pickers, channel_pickers, staffing_spec,
     staffing_provenance, CALIBRATION_KEYS, ERA_ONLY_KEYS, FLAG_OFF_ONLY_KEYS, era_on,
+    couple_channels,
     store_restocks, store_fill,
     _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
     _STORE_PICKERS, _FF_PICKERS, _CART_TYPES,
@@ -271,6 +272,11 @@ def _apply_run_spec(args, spec, explicit):
               # drain-or-cap shift would finish on a continuous clock with declared crews
               # where it started with a site day and derived ones.
               'shift_drain_or_cap',
+              # ...and the SITE DOCK, for the same reason cubed: a run that resumed without
+              # it would rebuild per-channel units over a tree whose leaves were written by
+              # coupled ones -- two independent arms finishing what one unit started, with
+              # nothing in the tree to say the halves were fielded differently.
+              'couple_channels',
               # ...and the receiving crew, for the same reason: an arm that resumed without
               # its dock would finish having received for free.
               'recv_crew_size', 'recv_day_seconds', 'recv_day_origin',
@@ -571,6 +577,19 @@ def main():
              'the put and receiving crews from the script and the expected-travel closed '
              'form -- so --store-pickers / --ff-pickers / --rho-pick and the legacy crew '
              'flags are an error. A RESULTS ERA: nothing is comparable across it.')
+    # ── the site dock ───────────────────────────────────────────────────────────
+    # One flag makes the two channels one SITE.  Declared rather than derived from the
+    # inbound flag: the campaign couples its inbound-OFF pole too, so there is no flag a
+    # reader could derive this from (.scratch/site-dock, "Re-shape the funnel for arm pairs").
+    parser.add_argument(
+        '--couple-channels', action='store_true',
+        default=CONFIG['global']['couple_channels'],
+        help='THE SITE DOCK. Run the store and fulfillment channels as ONE site: a work '
+             'unit drives both leaves through one batch loop, so the dock, the receiving '
+             'crew and the putters are fielded once rather than once per leaf. Arms pair by '
+             'RANK, the diagonal, so the arm count is unchanged. Needs a mixed catalogue. '
+             'Stamped into run_layout.json as `coupled`, which run_restock_selection '
+             'refuses (phase 1 is uncoupled by definition).')
     # ── the receiving crew ──────────────────────────────────────────────────────
     # Its day is deliberately NOT gated on --cut-at-day-end.  That flag changes which units
     # are PICKED in which batch; coupling would make receiving rollover observable only in a
@@ -980,6 +999,7 @@ def main():
     g['cut_at_day_end']    = bool(args.cut_at_day_end)
     g['roll_over_unpicked'] = bool(args.roll_over_unpicked)
     g['shift_drain_or_cap'] = bool(args.shift_drain_or_cap)
+    g['couple_channels']    = bool(args.couple_channels)
     g['recv_crew_size']    = args.recv_crew_size
     g['recv_day_seconds']  = args.recv_day_seconds
     g['recv_day_origin']   = args.recv_day_origin
@@ -1131,6 +1151,10 @@ def main():
             # The calibrated era.  A RESULTS ERA: two runs on either side of it are not
             # comparable, and a resume must finish under the regime it started in.
             'shift_drain_or_cap': g['shift_drain_or_cap'],
+            # The site dock.  Recorded for the same reason as the era above: it decides how
+            # the site's crews are FIELDED, so a resume must finish under the model it
+            # started in and two runs on either side of it do not compare.
+            'couple_channels' : g['couple_channels'],
             # The receiving crew and its own day. Read from `g` (post-overlay), not from
             # `args`, so a value that came from CONFIG rather than the command line is
             # recorded too -- otherwise two runs with different docks look identical.
@@ -1251,7 +1275,10 @@ def main():
             store_cfgs=STORE_CONFIGS, ff_cfgs=FULFILLMENT_CONFIGS,
             channels=(['store', 'fulfillment'] if FULFILLMENT_CONFIGS else ['store']),
             arms=(None if spec_dict.get('arms') in (None, 'all') else list(spec_dict['arms'])),
-            created=datetime.now().isoformat(timespec='seconds'))
+            created=datetime.now().isoformat(timespec='seconds'),
+            # Read through the ONE predicate the work-unit builder uses, so the descriptor
+            # and the units cannot disagree about whether this run is a site.
+            coupled=couple_channels())
 
     n_store = len(STORE_CONFIGS)
     n_ff    = len(FULFILLMENT_CONFIGS)

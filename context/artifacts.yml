@@ -94,7 +94,7 @@ artifacts:
       - {function: analyze_run, file: Optimization/analyze_run.py}
     match: "run_layout.json"
     fields: [version, schema_id, kind, spec, base, created, reference, tree_template,
-             channels, cells, pairs, pair_bindings, configs, arms]
+             channels, cells, pairs, pair_bindings, configs, arms, coupled]
 
   warehouse_db:
     path_pattern: "comparison_<ts>/<cell>/<pair>/warehouse.db"

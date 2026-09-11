@@ -5,22 +5,62 @@
   "description": "Root descriptor of a simulation run's unified cell tree: <base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db. Written at run start by write_run_layout@Optimization/runschema/sim_manifest.py; read by cells@Optimization/runschema/runlayout.py and analyze_run@Optimization/analyze_run.py so tools INFER the tree instead of directory-guessing.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "schema_id", "kind", "reference", "tree_template", "cells", "pairs"],
+  "required": [
+    "version",
+    "schema_id",
+    "kind",
+    "reference",
+    "tree_template",
+    "cells",
+    "pairs"
+  ],
   "properties": {
-    "version": {"type": "integer", "minimum": 1, "description": "version of THIS descriptor's field set"},
-    "schema_id": {
-      "type": "string", "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "which run-tree contract the run's DIRECTORY LAYOUT follows: the sha256 of that contract's own declared shape, stored at Optimization/schemas/run_tree/<first-12-hex>.json. resolver_for@Optimization/runschema/__init__.py selects the path resolver from this, so an old run stays analyzable after the tree shape changes. A content address, not a sequence number — derived from the declaration, so it is re-derivable and cannot be mis-assigned."
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "version of THIS descriptor's field set"
     },
-    "kind": {"type": "string", "enum": ["single", "sweep"]},
-    "spec": {"type": "string", "description": "whatif_config.SPECS name that produced the run"},
-    "base": {"type": "string", "description": "os.path.basename of the run root (self-check)"},
-    "created": {"type": "string", "description": "run-start timestamp (ISO-8601)"},
-    "reference": {"type": "string", "description": "baseline/round-robin cell for the cross-cell delta"},
-    "tree_template": {"type": "string", "description": "leaf path pattern relative to a cell dir"},
+    "schema_id": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "which run-tree contract the run's DIRECTORY LAYOUT follows: the sha256 of that contract's own declared shape, stored at Optimization/schemas/run_tree/<first-12-hex>.json. resolver_for@Optimization/runschema/__init__.py selects the path resolver from this, so an old run stays analyzable after the tree shape changes. A content address, not a sequence number \u2014 derived from the declaration, so it is re-derivable and cannot be mis-assigned."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "single",
+        "sweep"
+      ]
+    },
+    "spec": {
+      "type": "string",
+      "description": "whatif_config.SPECS name that produced the run"
+    },
+    "base": {
+      "type": "string",
+      "description": "os.path.basename of the run root (self-check)"
+    },
+    "created": {
+      "type": "string",
+      "description": "run-start timestamp (ISO-8601)"
+    },
+    "reference": {
+      "type": "string",
+      "description": "baseline/round-robin cell for the cross-cell delta"
+    },
+    "tree_template": {
+      "type": "string",
+      "description": "leaf path pattern relative to a cell dir"
+    },
     "channels": {
       "type": "array",
-      "items": {"type": "string", "enum": ["store", "fulfillment"]},
+      "items": {
+        "type": "string",
+        "enum": [
+          "store",
+          "fulfillment"
+        ]
+      },
       "minItems": 1
     },
     "cells": {
@@ -29,53 +69,116 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "split", "zoning", "scheduler"],
+        "required": [
+          "name",
+          "split",
+          "zoning",
+          "scheduler"
+        ],
         "properties": {
-          "name": {"type": "string"},
+          "name": {
+            "type": "string"
+          },
           "split": {
             "oneOf": [
-              {"type": "null"},
+              {
+                "type": "null"
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["k", "capacity_loss"],
+                "required": [
+                  "k",
+                  "capacity_loss"
+                ],
                 "properties": {
-                  "k": {"type": "integer", "minimum": 2},
-                  "capacity_loss": {"type": "number", "minimum": 0, "maximum": 1}
+                  "k": {
+                    "type": "integer",
+                    "minimum": 2
+                  },
+                  "capacity_loss": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
                 }
               }
             ]
           },
           "zoning": {
             "type": "object",
-            "required": ["enabled"],
-            "properties": {"enabled": {"type": "boolean"}, "mode": {"type": "string"}}
+            "required": [
+              "enabled"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string"
+              }
+            }
           },
-          "scheduler": {"type": "string", "enum": ["round_robin", "lpt"]}
+          "scheduler": {
+            "type": "string",
+            "enum": [
+              "round_robin",
+              "lpt"
+            ]
+          }
         }
       }
     },
-    "pairs": {"type": "array", "items": {"type": "string"}},
+    "pairs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "pair_bindings": {
       "type": "object",
       "description": "version 2 (additive): {pair label -> WHICH catalogue version it resolved to, or null when discovery used the pre-contract legacy walk}. A regenerated-in-place catalogue mints new params digests, so a recorded binding makes silent re-pointing detectable after the fact. Written by _pair_bindings@Optimization/runschema/sim_manifest.py from the catalogue's own profile_layout.json.",
       "additionalProperties": {
         "oneOf": [
-          {"type": "null"},
+          {
+            "type": "null"
+          },
           {
             "type": "object",
             "additionalProperties": false,
-            "required": ["profile_run", "profile", "profile_schema_id", "params_digest"],
+            "required": [
+              "profile_run",
+              "profile",
+              "profile_schema_id",
+              "params_digest"
+            ],
             "properties": {
-              "profile_run": {"type": "string"},
-              "profile": {"type": "string"},
-              "profile_schema_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+              "profile_run": {
+                "type": "string"
+              },
+              "profile": {
+                "type": "string"
+              },
+              "profile_schema_id": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
               "params_digest": {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "inventory": {"type": ["string", "null"]},
-                  "affinity": {"type": ["string", "null"]}
+                  "inventory": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "affinity": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
                 }
               }
             }
@@ -87,16 +190,50 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "store": {"type": "array", "items": {"type": "string"}},
-        "fulfillment": {"type": "array", "items": {"type": "string"}}
+        "store": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fulfillment": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
-    "arms": {"type": ["array", "null"], "items": {"type": "string"}}
+    "arms": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "coupled": {
+      "type": "boolean",
+      "description": "version 3 (additive): TRUE when a work unit drove BOTH channel leaves -- one dock, one receiving crew, one pool of putters (site-dock 03). The two leaves of a pair are then NOT independent warehouses and their savings are not additive, which is why run_restock_selection.select and run_channel_rollup refuse such a root: their validity argument IS channel independence. It moves no path -- the leaves keep their own <config>/<channel>/ subtrees -- so it is a field rather than a tree level. Absent on every archived run, which reads as false, correctly."
+    }
   },
   "allOf": [
     {
-      "if": {"properties": {"kind": {"const": "single"}}},
-      "then": {"properties": {"cells": {"maxItems": 1}}}
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "single"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "cells": {
+            "maxItems": 1
+          }
+        }
+      }
     }
   ]
 }

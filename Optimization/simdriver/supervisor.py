@@ -101,23 +101,35 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
         futures = {pool.submit(_run_strategy_worker, sa): (uid, sa) for uid, sa in remaining}
         for fut in concurrent.futures.as_completed(futures):
             uid, sa = futures[fut]
-            gk  = uid[:3]
             _tag = _tag_of(cell, uid)
             try:
                 res = fut.result()
+                # ONE RESULT PER LEAF.  A one-leaf unit returns its leaf's dict at top level
+                # (every run today); a coupled unit returns `leaves` and NOTHING at top level,
+                # so a reader that took `res['done']` from it would be quoting one leaf's
+                # number as the unit's.  `group_keys` is positional with `leaves`, so the two
+                # zip and no slot has to be inferred.
+                _results = res.get('leaves') or [res]
+                _gks = sa['group_keys']
+                if len(_results) != len(_gks):
+                    raise ValueError(
+                        f'unit returned {len(_results)} leaf result(s) but states '
+                        f'{len(_gks)} group key(s); the two are positional')
                 # Both ledgers already produce a `log.error` inside the worker, so a
                 # break is not silent -- but the parent's per-arm line is what a reader
                 # scans, and a break belongs on it rather than only in the worker stream a
                 # hundred lines up.  Zero is not printed: a clean line stays clean.
-                _cb = int(res.get('cons_breaks') or 0)
-                _db = int(res.get('demand_breaks') or 0)
-                _ledger = f'  LEDGER cons={_cb} demand={_db}' if (_cb or _db) else ''
-                log.info(f'  [{_tag}] done  batches={res["done"]}  '
-                         f'wall={res["elapsed"]:.1f}s{_ledger}')
-                if _cb or _db:
-                    log.error(f'  [{_tag}] LEDGER BROKE: {_cb} conservation, {_db} demand '
-                              f'-- the numbers for this arm are suspect; see the worker '
-                              f'log for the batch that broke first.')
+                for _gk, _r in zip(_gks, _results):
+                    _lt = _tag if len(_results) == 1 else _tag_of(cell, (*_gk, _r['strategy']))
+                    _cb = int(_r.get('cons_breaks') or 0)
+                    _db = int(_r.get('demand_breaks') or 0)
+                    _ledger = f'  LEDGER cons={_cb} demand={_db}' if (_cb or _db) else ''
+                    log.info(f'  [{_lt}] done  batches={_r["done"]}  '
+                             f'wall={_r["elapsed"]:.1f}s{_ledger}')
+                    if _cb or _db:
+                        log.error(f'  [{_lt}] LEDGER BROKE: {_cb} conservation, {_db} demand '
+                                  f'-- the numbers for this arm are suspect; see the worker '
+                                  f'log for the batch that broke first.')
                 done_uids.add(uid)
                 # The arm's expected day under its own initial placement (strategy_runner
                 # `_arm_expected_pick`): onto the skeleton's strategy entry, so the group's meta
@@ -131,28 +143,30 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
                 # that SUCCEEDED into a logged `strategy FAILED`.  Not silent, but mis-attributed
                 # is its own failure: a reader scanning run.log hunts a simulation bug that is
                 # not there.  One leaf today, so the loop runs once over exactly `[uid[:3]]`.
-                if res.get('expected_pick') is not None:
-                    if len(sa['group_keys']) != 1:
-                        # A unit finalizing several leaves has one expected day PER leaf; a
-                        # single value copied into both would put one leaf's day on the other's
-                        # arm.  Refused rather than fabricated -- the shape is the coupled
-                        # unit's to settle when it lands.
-                        log.warning(f'  [{_tag}] expected_pick is one value but this unit '
-                                    f'finalizes {len(sa["group_keys"])} leaves — not attached')
-                    else:
-                        for _s in meta[sa['group_keys'][0]]['sim_skeleton'].get('strategies', []):
-                            if _s.get('key') == sa['arm_key']:
-                                _s['expected_pick'] = res['expected_pick']
+                #
+                # A leaf's own `expected_pick` reaches its own group. The refusal site-dock 11
+                # recorded -- one value copied onto both arms -- is gone because the value is
+                # no longer one: each leaf returns its own, positionally with `group_keys`.
+                for _gk, _r in zip(_gks, _results):
+                    if _r.get('expected_pick') is None:
+                        continue
+                    for _s in meta[_gk]['sim_skeleton'].get('strategies', []):
+                        if _s.get('key') == _r['strategy']:
+                            _s['expected_pick'] = _r['expected_pick']
                 if run_root:                         # parent-side runtime-metrics DB (best-effort)
-                    try:
-                        # Named, not unpacked: the uid's four slots mean something different
-                        # under a coupled unit, and `record_arm` takes them by keyword so the
-                        # re-mapping has to be written HERE rather than happening silently.
-                        runtime_metrics.record_arm(
-                            run_root, cell, res,
-                            pair=uid[0], config=uid[1], channel=uid[2], arm=uid[3])
-                    except Exception as exc:         # noqa: BLE001 — never let metrics sink a run
-                        log.warning(f'  [{_tag}] runtime-metrics record failed: {exc!r}')
+                    # PER LEAF, from the leaf's OWN group key and arm. Never from the uid:
+                    # its four slots mean `(pair, config, channel, arm)` on a one-leaf unit
+                    # and `(pair, 'coupled', arm_store, arm_ful)` on a coupled one, so a
+                    # positional read would file both leaves' metrics under a config named
+                    # 'coupled' with an arm key that is the other leaf's.
+                    for _gk, _r in zip(_gks, _results):
+                        try:
+                            runtime_metrics.record_arm(
+                                run_root, cell, _r,
+                                pair=_gk[0], config=_gk[1], channel=_gk[2],
+                                arm=_r['strategy'])
+                        except Exception as exc:     # noqa: BLE001 — never let metrics sink a run
+                            log.warning(f'  [{_tag}] runtime-metrics record failed: {exc!r}')
             except BrokenProcessPool:
                 broke = True
                 log.error('  [supervisor] worker pool BROKEN (hard worker death) — abandoning '
@@ -162,14 +176,18 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
                 log.error(f'  [{_tag}] strategy FAILED: {exc}', exc_info=True)
                 failed_uids.add(uid)
                 continue
-            gk_meta = meta.get(gk)
-            if gk_meta and gk not in finalized and gk_meta['members'] <= done_uids:
-                try:
-                    _finalize_config_run(gk_meta['sim_skeleton'])
-                    finalized.add(gk)
-                    log.info(f'  [{_tag_of(cell, gk)}] sim_meta.json written')
-                except Exception as exc:
-                    log.error(f'  [{_tag_of(cell, gk)}] finalize FAILED: {exc}', exc_info=True)
+            # EVERY group this unit finalizes, from `group_keys` rather than `uid[:3]`: a
+            # coupled unit's two leaves live in two different config subtrees (its config slot
+            # is the literal 'coupled', which is no directory), so the uid names neither.
+            for gk in sa['group_keys']:
+                gk_meta = meta.get(gk)
+                if gk_meta and gk not in finalized and gk_meta['members'] <= done_uids:
+                    try:
+                        _finalize_config_run(gk_meta['sim_skeleton'])
+                        finalized.add(gk)
+                        log.info(f'  [{_tag_of(cell, gk)}] sim_meta.json written')
+                    except Exception as exc:
+                        log.error(f'  [{_tag_of(cell, gk)}] finalize FAILED: {exc}', exc_info=True)
     return failed_uids, broke
 
 

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_prepare_site_run · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___prepare_site_run" data-id="Optimization/simdriver/workunits.py::_prepare_site_run">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_prepare_site_run</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_prepare_site_run</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str=&#x27;strategy&#x27;) -&gt; tuple[list, list]</code></pre>
+<section class="doc">Pre-initialise ONE pair&#x27;s COUPLED runs: two channel leaves per work unit.
+
+`_prepare_channel_run` survives unforked and is called once per channel (site-dock 02
+section 3) -- each leaf genuinely needs its own run dir, batch stream, pick config, wp,
+yardsticks and DB, and every one of those stays per channel under coupling.  What this
+adds is only the pairing: the two channels&#x27; ordered arm lists zipped into arm PAIRS, the
+site crews lifted out of both leaf payloads to unit scope, and the two group keys carried
+on the unit so no parent-side reader has to slice a uid for them.
+
+Returns (unit_args_list, sim_skeletons) in the same shape `_prepare_channel_run` returns,
+so `_build_work_units` composes them identically.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_sim_config_py___config_name.html"><code>_config_name</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___build_work_units.html"><code>_build_work_units</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___prepare_site_run">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_prepare_site_run">Source ↗</a></p>
+</article>
+</main>
+</body></html>

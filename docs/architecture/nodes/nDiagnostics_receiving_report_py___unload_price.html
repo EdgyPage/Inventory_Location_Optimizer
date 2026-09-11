@@ -30,9 +30,10 @@ Reads `sku_scores` through the caller&#x27;s IMMUTABLE connection rather than th
 `load_sku_scores`, which opens a plain `mode=ro`: that mints `-wal`/`-shm` beside an
 archived DB and cannot remove them (see `_open_ro`), and archived runs are exactly this
 tool&#x27;s subject. The receive rows come through `load_receive_events`, whose own open is
-immutable -- and whose `receive_event_frame` query serves the four columns this needs,
-already ordered, already filtered to `role=&#x27;receive&#x27;` (so repacks arrive included, which
-is the point). A second inline query here would be a second thing to keep in step with
+immutable -- and whose `receive_event_frame` query serves the columns this needs, already
+filtered to `role=&#x27;receive&#x27;` (so repacks arrive included, which is the point). It and
+`load_receive_events` had ZERO callers since they were written; this is the caller they
+were written for. A second inline query here would be a second thing to keep in step with
 the DDL.</section>
 <section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__load_receive_events.html"><code>load_receive_events</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py___unload_price">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20_unload_price">Source ↗</a></p>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>couple_channels · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_sim_config_py__couple_channels" data-id="Optimization/config/sim_config.py::couple_channels">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a> <span class="sep">›</span> <span class="here"><code>couple_channels</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>couple_channels</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def couple_channels() -&gt; bool</code></pre>
+<section class="doc">Whether this run&#x27;s two channels share one site: one dock, one receiving crew, one pool
+of putters — a COUPLED work unit per arm pair instead of one unit per channel leaf.
+
+A DECLARATION, never an inference. The obvious rule — &quot;coupling rides the inbound flag&quot; —
+does not hold: site-dock 06 couples every cell of the inbound campaign including its
+inbound-OFF pole, because the matrix&#x27;s own deltas are what it publishes and an uncoupled
+anchor inside a coupled matrix would not be one. So the run says whether it is a site.
+
+Read from CONFIG at call time, like `era_on()` and for the same reason: a spawned worker
+re-imports this module and would get the pristine default. The flag reaches the run tree
+as `run_layout.json`&#x27;s `coupled`, which is what a downstream tool reads (a coupled root is
+refused by `run_restock_selection.select`, whose validity argument IS channel independence).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_simdriver_workunits_py___build_work_units.html"><code>_build_work_units</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__couple_channels">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20couple_channels">Source ↗</a></p>
+</article>
+</main>
+</body></html>

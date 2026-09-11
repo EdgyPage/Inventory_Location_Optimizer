@@ -53,8 +53,8 @@ def _run(remaining, meta, monkeypatch, worker):
     return failed, broke, done, finalized
 
 
-def _res(**kw):
-    d = dict(done=3, elapsed=1.0, cons_breaks=0, demand_breaks=0)
+def _res(arm='opt_map', **kw):
+    d = dict(strategy=arm, done=3, elapsed=1.0, cons_breaks=0, demand_breaks=0)
     d.update(kw)
     return d
 
@@ -63,9 +63,14 @@ def _payload(group_keys, arm_key):
     return {'group_keys': list(group_keys), 'arm_key': arm_key, 'strategy': arm_key}
 
 
-def _meta(gk, keys):
+def _meta(gk, keys, members=None):
+    """One group's meta.  `members` defaults to the per-channel unit uids; a COUPLED group
+    takes the unit uids instead, because one coupled unit writes both leaves and neither may
+    finalize until every unit succeeded (`workunits._build_work_units`)."""
     sk = {'run_dir': None, 'strategies': [{'key': k} for k in keys]}
-    return {gk: {'sim_skeleton': sk, 'members': frozenset((*gk, k) for k in keys)}}
+    return {gk: {'sim_skeleton': sk,
+                 'members': frozenset(members if members is not None
+                                      else ((*gk, k) for k in keys))}}
 
 
 def test_expected_pick_lands_on_the_arm_the_payload_names(tmp_path, monkeypatch):
@@ -88,22 +93,48 @@ def test_a_coupled_shaped_uid_succeeds_instead_of_being_logged_as_a_failure(monk
     The unit's uid slots are `(label, 'coupled', arm_store, arm_ful)`; its payload names the two
     leaves it finalizes.  Sliced, `uid[:3]` is `('pairA', 'coupled', 'opt_map')` — a key `meta`
     does not hold, so the success path raised KeyError and the unit was recorded as FAILED.
+
+    A coupled unit returns one result PER LEAF (site-dock 18 built the shape 02 settled), and
+    each leaf's own expected day lands on its own arm.  The single-value refusal site-dock 11
+    recorded was explicitly a placeholder for that shape; it is gone because the value is no
+    longer one.
     """
     gk_s, gk_f = ('pairA', 'store', 'store'), ('pairA', 'ful_calibrated', 'fulfillment')
-    meta = {**_meta(gk_s, ['opt_map']), **_meta(gk_f, ['opt_rank_labor'])}
     uid = ('pairA', 'coupled', 'opt_map', 'opt_rank_labor')
-    remaining = [(uid, _payload([gk_s, gk_f], 'opt_map'))]
+    meta = {**_meta(gk_s, ['opt_map'], members=[uid]),
+            **_meta(gk_f, ['opt_rank_labor'], members=[uid])}
+    remaining = [(uid, _payload([gk_s, gk_f], None))]
     monkeypatch.setattr(sv, '_finalize_config_run', lambda sk: {})
     with caplog.at_level(logging.WARNING):
-        failed, broke, done, _fin = _run(remaining, meta, monkeypatch,
-                                         lambda sa: _res(expected_pick=41.5))
+        failed, broke, done, _fin = _run(
+            remaining, meta, monkeypatch,
+            lambda sa: {'leaves': [_res('opt_map', expected_pick=41.5),
+                                   _res('opt_rank_labor', expected_pick=17.25)]})
     assert failed == set(), 'a SUCCEEDED unit was recorded as failed'
     assert done == {uid}
     assert 'strategy FAILED' not in caplog.text
-    # one value, two leaves — refused rather than copied onto both arms
-    assert 'not attached' in caplog.text
-    assert 'expected_pick' not in meta[gk_s]['sim_skeleton']['strategies'][0]
-    assert 'expected_pick' not in meta[gk_f]['sim_skeleton']['strategies'][0]
+    # EACH leaf's day on its OWN arm. A single value copied onto both would put one leaf's
+    # expected day on the other's arm, which is the failure the refusal used to prevent.
+    assert meta[gk_s]['sim_skeleton']['strategies'][0]['expected_pick'] == 41.5
+    assert meta[gk_f]['sim_skeleton']['strategies'][0]['expected_pick'] == 17.25
+    # and both leaves finalized, because the one unit is every group's only member
+    assert _fin == {gk_s, gk_f}
+
+
+def test_a_unit_whose_results_do_not_match_its_group_keys_is_refused(monkeypatch, caplog):
+    """`group_keys` and the returned `leaves` are POSITIONAL, so a length disagreement means
+    nobody can say which result belongs to which leaf.  Refused loudly rather than zipped to
+    the shorter side, which would attach one leaf's numbers and silently drop the other's."""
+    gk_s, gk_f = ('pairA', 'store', 'store'), ('pairA', 'ful_calibrated', 'fulfillment')
+    meta = {**_meta(gk_s, ['opt_map']), **_meta(gk_f, ['opt_rank_labor'])}
+    uid = ('pairA', 'coupled', 'opt_map', 'opt_rank_labor')
+    remaining = [(uid, _payload([gk_s, gk_f], None))]
+    monkeypatch.setattr(sv, '_finalize_config_run', lambda sk: {})
+    with caplog.at_level(logging.ERROR):
+        failed, _broke, done, _fin = _run(remaining, meta, monkeypatch,
+                                          lambda sa: _res('opt_map', expected_pick=41.5))
+    assert failed == {uid} and done == set()
+    assert 'positional' in caplog.text
 
 
 def test_the_builder_stamps_exactly_the_slices_it_replaced():

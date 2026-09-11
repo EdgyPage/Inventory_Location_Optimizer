@@ -223,7 +223,7 @@
     },
     "Diagnostics/receiving_report.py::_unload_price": {
       "decorators": [],
-      "doc": "Check 6's state: re-price every receive row from the run's OWN per-SKU handle term.\n\n`duration - qty * handle_var` must collapse to `per_item + intercept` -- one constant per\nrun, carrying no SKU and no quantity. See the module docstring for why that identity holds\nand what a spread would mean.\n\nPER RUN, never across runs: `per_item` and `intercept` come from the run's pick config, so\ntwo runs in one file may legitimately price differently. A per-arm DB holds one run anyway\n(and since the fresh-run branch refuses to `create_run` over a db that already holds one,\na second is legacy or additive), but the loop is what makes `run_id=None` honest.\n\nReads `sku_scores` through the caller's IMMUTABLE connection rather than through\n`load_sku_scores`, which opens a plain `mode=ro`: that mints `-wal`/`-shm` beside an\narchived DB and cannot remove them (see `_open_ro`), and archived runs are exactly this\ntool's subject. The receive rows come through `load_receive_events`, whose own open is\nimmutable -- and whose `receive_event_frame` query serves the four columns this needs,\nalready ordered, already filtered to `role='receive'` (so repacks arrive included, which\nis the point). A second inline query here would be a second thing to keep in step with\nthe DDL.",
+      "doc": "Check 6's state: re-price every receive row from the run's OWN per-SKU handle term.\n\n`duration - qty * handle_var` must collapse to `per_item + intercept` -- one constant per\nrun, carrying no SKU and no quantity. See the module docstring for why that identity holds\nand what a spread would mean.\n\nPER RUN, never across runs: `per_item` and `intercept` come from the run's pick config, so\ntwo runs in one file may legitimately price differently. A per-arm DB holds one run anyway\n(and since the fresh-run branch refuses to `create_run` over a db that already holds one,\na second is legacy or additive), but the loop is what makes `run_id=None` honest.\n\nReads `sku_scores` through the caller's IMMUTABLE connection rather than through\n`load_sku_scores`, which opens a plain `mode=ro`: that mints `-wal`/`-shm` beside an\narchived DB and cannot remove them (see `_open_ro`), and archived runs are exactly this\ntool's subject. The receive rows come through `load_receive_events`, whose own open is\nimmutable -- and whose `receive_event_frame` query serves the columns this needs, already\nfiltered to `role='receive'` (so repacks arrive included, which is the point). It and\n`load_receive_events` had ZERO callers since they were written; this is the caller they\nwere written for. A second inline query here would be a second thing to keep in step with\nthe DDL.",
       "is_async": false,
       "kind": "function",
       "signature": "(con, db_path: str, where: str, args: dict) -> dict"
@@ -6445,6 +6445,13 @@
       "signature": null,
       "value_preview": "0.1"
     },
+    "Optimization/config/settings.py::COUPLE_CHANNELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "False"
+    },
     "Optimization/config/settings.py::COVERAGE_DAYS": {
       "decorators": [],
       "doc": null,
@@ -7178,6 +7185,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(name: str) -> int"
+    },
+    "Optimization/config/sim_config.py::couple_channels": {
+      "decorators": [],
+      "doc": "Whether this run's two channels share one site: one dock, one receiving crew, one pool\nof putters \u2014 a COUPLED work unit per arm pair instead of one unit per channel leaf.\n\nA DECLARATION, never an inference. The obvious rule \u2014 \"coupling rides the inbound flag\" \u2014\ndoes not hold: site-dock 06 couples every cell of the inbound campaign including its\ninbound-OFF pole, because the matrix's own deltas are what it publishes and an uncoupled\nanchor inside a coupled matrix would not be one. So the run says whether it is a site.\n\nRead from CONFIG at call time, like `era_on()` and for the same reason: a spawned worker\nre-imports this module and would get the pristine default. The flag reaches the run tree\nas `run_layout.json`'s `coupled`, which is what a downstream tool reads (a coupled root is\nrefused by `run_restock_selection.select`, whose validity argument IS channel independence).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> bool"
     },
     "Optimization/config/sim_config.py::crew_cost_spec": {
       "decorators": [],
@@ -11575,7 +11589,7 @@
       "doc": "Write <base>/run_layout.json \u2014 the descriptor of a run's unified cell tree\n``<base>/<cell>/<pair>/<config>[/<channel>]/sim_*.db``.  Lets tools INFER the tree (cells,\nreference, configs, pairs) instead of directory-guessing, and lets analysis of a partial/crashed\nor OLD run enumerate + label cells without re-importing the (possibly since-changed) whatif spec.\nAtomic (tmp + os.replace), same pattern as _write_run_spec.\n\ncells = the _build_cells() `Cell` records (name, split, zoning, scheduler); split is None or\n{'k','capacity_loss'}.  `created` (ISO-8601) is passed in so the caller owns the clock.\n\n`schema_id` stamps which RUN-TREE CONTRACT this run's directory layout follows \u2014 the sha256 of\nthat contract's own shape, stored at Optimization/schemas/run_tree/<short>.json.  Downstream\ntools select their resolver from it (runschema.resolver_for), so an OLD run keeps analyzing\ncorrectly after the tree shape moves on.  It is a content address, not a sequence number: there\nis nothing to increment, and anyone can re-derive it from the declaration to check it.\n\nDistinct from `version`, which versions THIS descriptor file's own field set.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created) -> None"
+      "signature": "(base_dir, *, spec, reference, cells, pairs, store_cfgs, ff_cfgs, channels, arms, created, coupled=False) -> None"
     },
     "Optimization/runschema/sim_manifest.py::write_run_manifest": {
       "decorators": [],
@@ -13265,6 +13279,14 @@
       "signature": null,
       "value_preview": "gc.get_threshold()"
     },
+    "Optimization/simdriver/strategy_runner.py::_Leaf": {
+      "decorators": [
+        "_dataclass(frozen=True)"
+      ],
+      "doc": "One channel leaf of a work unit: what it is, and its two halves as callables.\n\n`step(i)` runs batch `i`; `finish()` does the run-end flush and returns the leaf's result\ndict. Both close over `_build_leaf`'s setup, so the leaf's manager, crews, clocks and\naccumulators are reachable only through them -- which is the point: a driver sequences\nleaves and does not reach into one. A site-scoped coordinator (site-dock 01/04) is built\nABOVE the leaves and injected through their payloads, never fished out of one here.",
+      "kind": "class",
+      "signature": ""
+    },
     "Optimization/simdriver/strategy_runner.py::_arm_expected_pick": {
       "decorators": [],
       "doc": "The arm's expected day under ITS OWN initial placement, or None flag-off.\n\nThe pair's demand was derived at setup from the class-uniform expectation\n(`workunits._derive_staffing_for_pair`); this is the SAME closed form\n(`simconfig/expected_travel`) over the bins the arm just filled, at the pair's derived\nline count and spread, stamped for the throughput audit's per-arm band\n(`equilibrium.arm_expectations`).  It sizes nothing.  Flag-off (no derived block in\nthe payload) it computes nothing and returns None, so the store-only path is untouched.",
@@ -13272,12 +13294,54 @@
       "kind": "function",
       "signature": "(args: dict, warehouse, orders, pick_cfg, log) -> dict | None"
     },
-    "Optimization/simdriver/strategy_runner.py::_check_declared_crew": {
+    "Optimization/simdriver/strategy_runner.py::_build_leaf": {
       "decorators": [],
-      "doc": "Refuse a payload whose sized crews are not its declared (or derived) crews.\n\n`k_pickers` is the count the worker sizes its pick crew from; `args['staffing']` is the\nstaffing record -- its INPUTS (`sim_config.staffing_spec`), keyed here by the worker's\nchannel, plus under the calibrated era the pair's `derived` block, whose put and\nreceiving crews the payload's `put_crew` / `recv_crew` records must match.  Every one of\nthese was read or derived in the parent from the same source, so they can only disagree\nwhen a caller assembled the payload by hand -- and that caller would otherwise run a\nwhole arm under a crew its run spec never declared.  An absent record (a bench harness,\na test predating it) is nothing to check against.  Module-level so a unit test can hand\nit a payload without running an arm.",
+      "doc": "One channel leaf, built but not yet run \u2014 the setup half of a work unit.\n\nEverything here is per channel and stays so under coupling: one inventory partition, one\nwarehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns\nis the leaf's two halves as closures over that setup \u2014 `step(i)`, one batch, and\n`finish()`, the run-end flush and the result dict \u2014 so a caller can drive ONE leaf (every\nrun today) or step two leaves through one batch loop (the coupled unit, site-dock 02 \u00a72).\n\nThe closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this\nfunction with the loop inline, and the split moved the loop body and the tail VERBATIM.\nThey rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries\n(`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between\ncalls exactly as they survived between iterations.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
       "is_async": false,
       "kind": "function",
-      "signature": "(args: dict, k_pickers: int) -> None"
+      "signature": "(args: dict, unit: dict | None=None) -> '_Leaf'"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state": {
+      "decorators": [],
+      "doc": "Rebuild per-aisle affinity + demand/labor state from the placed bins.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._finish": {
+      "decorators": [],
+      "doc": "The run-end half: flush the unflushed window, close the last day, censor the\nstanding yard, release the graph, and return this leaf's result dict.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._shift_close_out": {
+      "decorators": [],
+      "doc": "Close working day `day`: the ledger row `(day, cap_end, end_s, drained,\nstanding, standing_put, standing_dock, standing_carry, standing_carry_labour,\nstanding_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing\nwas cut in it, no standing LABOUR survives it -- put queues + held + the dock floor\n+ the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap\n(START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is\ncalendar, not labour; and releases are exhausted by construction at a day\nboundary), and never the SUPPLY carry (`unpicked_unavailable` /\n`unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as\nstanding work it made every finite stock level cap every day).\n`equilibrium.is_drained` is the one definition; this closure only gathers its\narguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay\norigin-aligned, so this is a REPORT of when the crews got off the clock, never a\nscheduler.\n\nThe state is PASSED IN, never read live: the close-out fires at the first batch of\nthe NEXT day, after that batch has already been processed, so the manager's live\ndepths and the folded clocks belong to the new day by then.  The caller hands it\nthe snapshot the previous day's last batch left behind (`_shift_standing`) and the\nclocks and cut flag accumulated before this batch was folded in.  The log-only\nledger read them live and mis-attributed every day's first batch to the day before\n-- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which\npersisting the row was what made visible.  Called once per day boundary, and once\nmore after the loop for the final day, which has no next day to close it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(day: int, standing: tuple, last_finish: float, cut: bool) -> tuple"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._step": {
+      "decorators": [],
+      "doc": "Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body\nbelow is that loop's, unchanged, so a carry rebound here is rebound in the\nenclosing setup scope exactly as it was between iterations.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(i: int) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_check_declared_crew": {
+      "decorators": [],
+      "doc": "Refuse a payload whose sized crews are not its declared (or derived) crews.\n\n`k_pickers` is the count the worker sizes its pick crew from; `args['staffing']` is the\nstaffing record -- its INPUTS (`sim_config.staffing_spec`), keyed here by the worker's\nchannel, plus under the calibrated era the pair's `derived` block, whose put and\nreceiving crews the payload's `put_crew` / `recv_crew` records must match.  Every one of\nthese was read or derived in the parent from the same source, so they can only disagree\nwhen a caller assembled the payload by hand -- and that caller would otherwise run a\nwhole arm under a crew its run spec never declared.  An absent record (a bench harness,\na test predating it) is nothing to check against.  Module-level so a unit test can hand\nit a payload without running an arm.\n\n`site_crews=False` checks the pick crew ONLY.  A coupled unit's put and receiving crews\nare the SITE's and live at unit scope, not on either leaf (site-dock 02 section 6), so\nthe unit checks them once -- `_check_site_crews` -- and each leaf checks its own pickers,\nwhich really are per channel.  Checking them per leaf is what guarded the double count\ninto place.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict, k_pickers: int, *, site_crews: bool=True) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_check_site_crews": {
+      "decorators": [],
+      "doc": "The put and receiving half of the crew check, over whatever scope OWNS those crews.\n\nOne leaf today, so `args` is the leaf payload and this runs inside `_check_declared_crew`\nexactly as it always did.  On a coupled unit the site crews sit at UNIT scope and the\ndriver calls this once with the unit payload -- which is the whole point of site-dock 02\nsection 6: two leaves each verifying the site total against the record is what made the\ndouble count look correct.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict) -> None"
     },
     "Optimization/simdriver/strategy_runner.py::_cleanup_checkpoints": {
       "decorators": [],
@@ -13350,24 +13414,10 @@
     },
     "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl": {
       "decorators": [],
-      "doc": "One assignment strategy end-to-end \u2014 the body behind _run_strategy_worker.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
+      "doc": "One work UNIT end-to-end \u2014 the body behind _run_strategy_worker.\n\nA unit is one or more channel leaves driven through ONE batch loop. Every run today\nhands it a single leaf and this is the loop that function always had. A coupled unit\n(site-dock 02) hands it two, and the leaves then step in lockstep: leaf B cannot begin\nbatch i before leaf A has finished it, which is what lets a site-scoped coordinator sit\nbetween them and what makes a torn pair impossible to produce.",
       "is_async": false,
       "kind": "function",
       "signature": "(args: dict) -> dict"
-    },
-    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._arm_aisle_state": {
-      "decorators": [],
-      "doc": "Rebuild per-aisle affinity + demand/labor state from the placed bins.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "() -> None"
-    },
-    "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl._shift_close_out": {
-      "decorators": [],
-      "doc": "Close working day `day`: the ledger row `(day, cap_end, end_s, drained,\nstanding, standing_put, standing_dock, standing_carry, standing_carry_labour,\nstanding_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing\nwas cut in it, no standing LABOUR survives it -- put queues + held + the dock floor\n+ the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap\n(START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is\ncalendar, not labour; and releases are exhausted by construction at a day\nboundary), and never the SUPPLY carry (`unpicked_unavailable` /\n`unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as\nstanding work it made every finite stock level cap every day).\n`equilibrium.is_drained` is the one definition; this closure only gathers its\narguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay\norigin-aligned, so this is a REPORT of when the crews got off the clock, never a\nscheduler.\n\nThe state is PASSED IN, never read live: the close-out fires at the first batch of\nthe NEXT day, after that batch has already been processed, so the manager's live\ndepths and the folded clocks belong to the new day by then.  The caller hands it\nthe snapshot the previous day's last batch left behind (`_shift_standing`) and the\nclocks and cut flag accumulated before this batch was folded in.  The log-only\nledger read them live and mis-attributed every day's first batch to the day before\n-- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which\npersisting the row was what made visible.  Called once per day boundary, and once\nmore after the loop for the final day, which has no next day to close it.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(day: int, standing: tuple, last_finish: float, cut: bool) -> tuple"
     },
     "Optimization/simdriver/strategy_runner.py::_timed_build": {
       "decorators": [],
@@ -13465,6 +13515,13 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/simdriver/workunits.py::_SITE_CREW_KEYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('put_crew', 'recv_crew')"
+    },
     "Optimization/simdriver/workunits.py::_build_work_units": {
       "decorators": [],
       "doc": "(Re-)prepare all work units from on-disk state.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy) and\n               args carries its own `group_keys` + `arm_key` (the parent reads those, not\n               uid slices \u2014 the uid's slots are not stable across unit kinds).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.",
@@ -13521,6 +13578,13 @@
       "kind": "function",
       "signature": "(orders_subset, x_speed, y_speed, wp_)"
     },
+    "Optimization/simdriver/workunits.py::_prepare_site_run": {
+      "decorators": [],
+      "doc": "Pre-initialise ONE pair's COUPLED runs: two channel leaves per work unit.\n\n`_prepare_channel_run` survives unforked and is called once per channel (site-dock 02\nsection 3) -- each leaf genuinely needs its own run dir, batch stream, pick config, wp,\nyardsticks and DB, and every one of those stays per channel under coupling.  What this\nadds is only the pairing: the two channels' ordered arm lists zipped into arm PAIRS, the\nsite crews lifted out of both leaf payloads to unit scope, and the two group keys carried\non the unit so no parent-side reader has to slice a uid for them.\n\nReturns (unit_args_list, sim_skeletons) in the same shape `_prepare_channel_run` returns,\nso `_build_work_units` composes them identically.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(channel_runs, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str='strategy') -> tuple[list, list]"
+    },
     "Optimization/simdriver/workunits.py::_record_coverage": {
       "decorators": [],
       "doc": "Record this pair's COVERAGE block in the run spec, in every mode.\n\nA run declares its own stock levels whether or not the era flag is on (ADR-0002), and the\nonly thing that varies between one run's declaration and another's is the fixed point's\nline count -- so this block is what lets anything reproduce the levels the run FIELDED.\n`run_analysis` and `run_map_precompute` re-plan a finished run's warehouse from its\noriginal catalogue, which holds no level, and re-declare from exactly this record\n(`era_coverage.declare_from_record`).\n\nUnder the era the record rides `_record_derived`'s calibration block and this is a no-op\non it; flag-off there is no derivation to record, and without this a flag-off run would\ndeclare levels nobody could ever reproduce -- its own analysis stage would then refuse to\nrebuild the warehouse and silently emit no graphs, which is how this was found.",
@@ -13548,6 +13612,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(sa: dict, label: str, cfg_name: str) -> tuple"
+    },
+    "Optimization/simdriver/workunits.py::_stamp_site_identity": {
+      "decorators": [],
+      "doc": "`_stamp_identity` for a COUPLED unit: two group keys, two arms, one uid.\n\nThe uid is `(label, 'coupled', arm_store, arm_ful)` \u2014 arity 4, so `_tag_of` and every\nexisting key path read it unchanged, but only the first slot still means what it used to.\nThe literal `'coupled'` in the config slot is deliberate and honest (site-dock 02 section\n1): the unit is a member of NEITHER config subtree \u2014 `config` sits ABOVE `channel` in the\ntree and the two channels draw from different config sets, so its two leaves share no\nancestor below `<pair>/` \u2014 and a synthetic config name that looked real would invite a\nwalker to go looking for its directory.\n\n`arm_key` is None, not one of the two: a unit with two arms has no single arm, and a\nreader that takes one of them gets the other leaf's number with nothing to say so.\n`arm_keys` carries both, positionally with `group_keys`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ua: dict, label: str, cfg_names: dict) -> tuple"
     },
     "Optimization/simdriver/workunits.py::_worker_inventory_args": {
       "decorators": [],

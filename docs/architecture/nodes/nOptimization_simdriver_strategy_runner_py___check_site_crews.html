@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_check_site_crews · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___check_site_crews" data-id="Optimization/simdriver/strategy_runner.py::_check_site_crews">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_check_site_crews</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_check_site_crews</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _check_site_crews(args: dict) -&gt; None</code></pre>
+<section class="doc">The put and receiving half of the crew check, over whatever scope OWNS those crews.
+
+One leaf today, so `args` is the leaf payload and this runs inside `_check_declared_crew`
+exactly as it always did.  On a coupled unit the site crews sit at UNIT scope and the
+driver calls this once with the unit payload -- which is the whole point of site-dock 02
+section 6: two leaves each verifying the site total against the record is what made the
+double count look correct.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___check_declared_crew.html"><code>_check_declared_crew</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___check_site_crews">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_check_site_crews">Source ↗</a></p>
+</article>
+</main>
+</body></html>

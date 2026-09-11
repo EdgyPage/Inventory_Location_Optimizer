@@ -554,11 +554,16 @@ class _Leaf:
     start_i  : int
     n_batches: int
     channel  : str | None
+    # The two halves of the partition check a coupled unit makes: how many SKUs the catalogue
+    # held when this leaf loaded it, and how many survived its regime filter.  Reported rather
+    # than checked here, because the claim is about the leaves TOGETHER.
+    n_catalogue: int
+    n_skus     : int
     step     : object                 # (int) -> None
     finish   : object                 # () -> dict
 
 
-def _check_declared_crew(args: dict, k_pickers: int) -> None:
+def _check_declared_crew(args: dict, k_pickers: int, *, site_crews: bool = True) -> None:
     """Refuse a payload whose sized crews are not its declared (or derived) crews.
 
     `k_pickers` is the count the worker sizes its pick crew from; `args['staffing']` is the
@@ -570,6 +575,12 @@ def _check_declared_crew(args: dict, k_pickers: int) -> None:
     whole arm under a crew its run spec never declared.  An absent record (a bench harness,
     a test predating it) is nothing to check against.  Module-level so a unit test can hand
     it a payload without running an arm.
+
+    `site_crews=False` checks the pick crew ONLY.  A coupled unit's put and receiving crews
+    are the SITE's and live at unit scope, not on either leaf (site-dock 02 section 6), so
+    the unit checks them once -- `_check_site_crews` -- and each leaf checks its own pickers,
+    which really are per channel.  Checking them per leaf is what guarded the double count
+    into place.
     """
     st = args.get('staffing')
     if not st:
@@ -585,7 +596,30 @@ def _check_declared_crew(args: dict, k_pickers: int) -> None:
             f'{"derives" if st.get("derived") else "declares"} '
             f'{picker_key(ch)}={declared}; the two are read from the same record at setup, '
             f'so a disagreement means the payload was assembled by hand')
-    derived = st.get('derived')
+    if not site_crews:
+        # A leaf of a coupled unit must not CARRY them either: the deletion is the fix, so a
+        # leaf that still has one is a payload the parent assembled the old way, and the unit
+        # check above it would then be verifying a value the leaf quietly overrides.
+        _stray = [k for k in ('put_crew', 'recv_crew') if k in args]
+        if _stray:
+            raise ValueError(
+                f'a leaf of a coupled unit carries {_stray}; the site crews live at UNIT '
+                f'scope (site-dock 02 section 6) and a per-leaf copy is the double count')
+        return
+    _check_site_crews(args)
+
+
+def _check_site_crews(args: dict) -> None:
+    """The put and receiving half of the crew check, over whatever scope OWNS those crews.
+
+    One leaf today, so `args` is the leaf payload and this runs inside `_check_declared_crew`
+    exactly as it always did.  On a coupled unit the site crews sit at UNIT scope and the
+    driver calls this once with the unit payload -- which is the whole point of site-dock 02
+    section 6: two leaves each verifying the site total against the record is what made the
+    double count look correct.
+    """
+    st = args.get('staffing')
+    derived = (st or {}).get('derived')
     if not derived:
         return
     put_size = (args.get('put_crew') or {}).get('size')
@@ -601,7 +635,7 @@ def _check_declared_crew(args: dict, k_pickers: int) -> None:
             f"derived, never declared")
 
 
-def _build_leaf(args: dict) -> '_Leaf':
+def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
     """One channel leaf, built but not yet run — the setup half of a work unit.
 
     Everything here is per channel and stays so under coupling: one inventory partition, one
@@ -620,8 +654,15 @@ def _build_leaf(args: dict) -> '_Leaf':
     each batch.  Log records travel through a multiprocessing.Queue to the
     QueueListener in the main process so they appear in real time.
     """
+    # WHERE THE UNIT-SCOPE VALUES COME FROM.  One leaf: its own payload IS the unit, exactly
+    # as always.  A leaf of a coupled unit: the unit's payload, because the put and receiving
+    # crews are the SITE's and a per-leaf copy is the double count (site-dock 02 section 6),
+    # and the log queue is the unit's one channel to the listener.  The leaf payload is
+    # asserted not to carry the crews, so there is one source either way and never two.
+    _unit = args if unit is None else unit
+
     # ── logging ───────────────────────────────────────────────────────────────
-    log_queue = args['log_queue']
+    log_queue = _unit['log_queue']
     root      = logging.getLogger()
     root.handlers = []
     root.addHandler(logging.handlers.QueueHandler(log_queue))
@@ -666,7 +707,7 @@ def _build_leaf(args: dict) -> '_Leaf':
     start_i       = args['start_i']
     n_batches     = args['n_batches']
     k_pickers     = args['k_pickers']
-    _check_declared_crew(args, k_pickers)   # the sized crew must be the declared crew
+    _check_declared_crew(args, k_pickers, site_crews=(unit is None))
     seed_world    = args['seed_world']
     seed_batches  = args['seed_batches']
     checkpoint    = args['checkpoint']
@@ -798,6 +839,10 @@ def _build_leaf(args: dict) -> '_Leaf':
     inventory = load_run_inventory(inv_db, limit=max_skus)
     if sku_allowlist is not None:
         inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]
+    # The catalogue this leaf was handed, BEFORE its regime filter -- the denominator of a
+    # coupled unit's partition check (`_run_strategy_worker_impl`). Taken after the allowlist,
+    # because that is the catalogue both leaves are partitioning.
+    n_catalogue = len(inventory.orders)
     if channel_regime is not None:
         from Warehouse.kernel.regime import regime_of
         inventory.orders = [c for c in inventory.orders if regime_of(c) == channel_regime]
@@ -975,7 +1020,7 @@ def _build_leaf(args: dict) -> '_Leaf':
     # `picker_events.picker_id` for the single-crew case that every existing analysis assumes.
     _pick_crew = _Crew(role=_Role.PICK, mode=_pick_mode, speed=pick_cfg.speed, size=k_pickers)
     _pick_workers = _pick_crew.workers(0)
-    _pc = args.get('put_crew') or {'size': 1, 'mode': 'foot', 'x_speed': 2.0, 'y_speed': 4.0}
+    _pc = _unit.get('put_crew') or {'size': 1, 'mode': 'foot', 'x_speed': 2.0, 'y_speed': 4.0}
     _put_crew = _Crew(role=_Role.PUT, mode=_Mode.of(_pc['mode']),
                       speed=_SpeedProfile(_pc['x_speed'], _pc['y_speed']), size=_pc['size'])
     # ── the SPLIT put-away configuration ──────────────────────────────────────────
@@ -1043,7 +1088,7 @@ def _build_leaf(args: dict) -> '_Leaf':
     # no WorkDay -- and the run is byte-identical.  That is why the payload key is None
     # rather than an empty dict: "nothing was constructed" is checkable, "an empty thing
     # exists" is something a later `max()` or snapshot can still fold in.
-    _recv_spec = args.get('recv_crew')
+    _recv_spec = _unit.get('recv_crew')
     # The dock, kept as a local: the receiving coordinator holds the same object the
     # manager was handed, and `None` here is "no receiving crew ran".
     _dock = None
@@ -2138,7 +2183,8 @@ def _build_leaf(args: dict) -> '_Leaf':
 
 
     return _Leaf(strategy=strategy, start_i=start_i, n_batches=n_batches,
-                 channel=args.get('channel_name'), step=_step, finish=_finish)
+                 channel=args.get('channel_name'), n_catalogue=n_catalogue, n_skus=n_skus,
+                 step=_step, finish=_finish)
 
 
 def _run_strategy_worker_impl(args: dict) -> dict:
@@ -2150,8 +2196,34 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     batch i before leaf A has finished it, which is what lets a site-scoped coordinator sit
     between them and what makes a torn pair impossible to produce.
     """
-    leaf_args = args.get('leaves') or [args]
-    leaves = [_build_leaf(a) for a in leaf_args]
+    _coupled = args.get('leaves') is not None
+    if not _coupled:
+        leaves = [_build_leaf(args)]
+    else:
+        # THE SITE CREWS, verified ONCE and then handed down. `_check_site_crews` against the
+        # unit payload is site-dock 02 section 6's whole content: the put and receiving crews
+        # are site totals, and a per-leaf check of each against the record is what made two
+        # leaves fielding the site's labour twice look correct.
+        _check_site_crews(args)
+        # Handed down as an ARGUMENT, never spliced into the leaf payload: the payload is the
+        # thing the assertion is about, and a leaf dict that acquires the keys on its way into
+        # `_build_leaf` would make "the leaf no longer carries them" untestable.
+        leaves = [_build_leaf(la, unit=args) for la in args['leaves']]
+        # THE PARTITION SUM. Each leaf loads its OWN inventory and filters it to its regime,
+        # so 02 section 4's double-filter (`inventory.orders = [...]` over an already-filtered
+        # list) cannot arise -- there is no shared list. What CAN arise is the failure that
+        # trap was guarding against: a leaf whose regime matches nothing, which is a silently
+        # EMPTY channel rather than an exception. So the assertion 02 asked for is made where
+        # the facts are: every leaf saw the same catalogue, and the partitions sum to it.
+        _whole = {lf.n_catalogue for lf in leaves}
+        _parts = sum(lf.n_skus for lf in leaves)
+        if len(_whole) != 1 or _parts != next(iter(_whole)):
+            raise ValueError(
+                f'the leaves of a coupled unit must PARTITION one catalogue; leaves saw '
+                f'{sorted(_whole)} SKU(s) and their regimes sum to {_parts}. A regime that '
+                f'matches nothing is a silently empty channel, not an error, which is why '
+                f'this is checked rather than assumed '
+                f'({[(lf.channel, lf.n_skus) for lf in leaves]})')
     # One range for the unit. Leaves of a coupled unit share `start_i` by construction --
     # batch-grain resume REFUSES a coupled unit (site-dock 10), so both replay from the same
     # batch -- and `n_batches` is a global. Asserted rather than assumed: a silent mismatch

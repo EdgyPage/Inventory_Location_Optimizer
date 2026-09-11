@@ -713,6 +713,7 @@ files:
       - {name: "INBOUND_UNLOAD_INTERCEPT", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_UNLOAD_WEIGHT_COEF", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_UNLOAD_VOLUME_COEF", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "COUPLE_CHANNELS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "SHIFT_DRAIN_OR_CAP", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "ROLL_OVER_UNPICKED", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "STORE_PICKERS", file: "Optimization/config/settings.py", kind: "const"}
@@ -780,6 +781,7 @@ files:
       - {name: "staffing_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "staffing_provenance", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "era_on", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "couple_channels", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "k_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "store_restocks", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -2244,6 +2246,18 @@ files:
       - {name: "test_independent_sweep_is_union_not_cross_product", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
       - {name: "test_store_only_catalog_skips_fulfillment_sweep", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
     notes: ""
+  "Tests/e2e/test_coupled_unit_e2e.py":
+    purpose: "The coupled (site) work unit end to end: one unit, two channel leaves, one batch loop. Proves both leaves' DBs are written with the right identity, that the site crews sit on the unit and on neither leaf (the double count, fixed by deletion), that the leaves partition the catalogue, and -- the pin that will fail when 04's put pool lands -- that a coupled unit still matches the two independent units it replaces."
+    layer: "tests"
+    key_symbols:
+      - {name: "site", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_a_coupled_unit_runs_and_writes_both_leaves", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_the_site_crews_are_on_the_unit_and_on_neither_leaf", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_a_leaf_that_still_carries_a_site_crew_is_refused", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_the_leaves_partition_the_catalogue", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_a_double_filtered_leaf_is_refused", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_a_coupled_unit_matches_the_two_units_it_replaces", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+    notes: ""
   "Tests/e2e/test_production_hours_e2e.py":
     purpose: "the objective's three legs, against the run that wrote them."
     layer: "tests"
@@ -2828,6 +2842,7 @@ files:
     key_symbols:
       - {name: "test_expected_pick_lands_on_the_arm_the_payload_names", file: "Tests/integration/test_unit_identity_is_carried.py", kind: "function"}
       - {name: "test_a_coupled_shaped_uid_succeeds_instead_of_being_logged_as_a_failure", file: "Tests/integration/test_unit_identity_is_carried.py", kind: "function"}
+      - {name: "test_a_unit_whose_results_do_not_match_its_group_keys_is_refused", file: "Tests/integration/test_unit_identity_is_carried.py", kind: "function"}
       - {name: "test_the_builder_stamps_exactly_the_slices_it_replaced", file: "Tests/integration/test_unit_identity_is_carried.py", kind: "function"}
     notes: ""
   "Tests/integration/test_viewer_errors.py":
@@ -3350,6 +3365,21 @@ files:
       - {name: "test_score_is_the_paced_distance_from_the_partner_centroid", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
       - {name: "test_an_exhausted_pool_reports_nothing", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
       - {name: "test_a_stale_winner_key_would_send_the_next_unit_to_the_wrong_aisle", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_couple_channels_param.py":
+    purpose: "The five seams of `--couple-channels`, the site-dock switch. Pins that the fifth seam is STRUCTURAL -- a worker reads no coupling flag, its payload either carries `leaves` or does not -- that the switch is DECLARED rather than derived from the inbound flag (the campaign couples its inbound-off pole), and that the run-tree marker is declared in both the JSON schema and the artifact catalogue."
+    layer: "tests"
+    key_symbols:
+      - {name: "restore", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_the_default_is_uncoupled", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_settings_names_the_flag_beside_the_knob", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_the_accessor_reads_config_and_not_the_module", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_it_is_not_derived_from_the_inbound_flag", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_the_knob_has_a_flag", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_recorded_in_the_run_spec_and_restored_on_resume", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_the_marker_reaches_the_run_tree", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_the_declared_shape_carries_the_field", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
+      - {name: "test_the_worker_reads_no_coupling_flag", file: "Tests/unit/test_couple_channels_param.py", kind: "function"}
     notes: ""
   "Tests/unit/test_coverage_rescale.py":
     purpose: "stock coverage is a RUNTIME rescaling under declared days."

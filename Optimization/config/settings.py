@@ -207,6 +207,17 @@ INBOUND_UNLOAD_INTERCEPT = None
 INBOUND_UNLOAD_WEIGHT_COEF = None
 INBOUND_UNLOAD_VOLUME_COEF = None
 
+COUPLE_CHANNELS = False    # THE SITE DOCK (--couple-channels).  The two channels stop being
+                           # independent warehouses: one work unit drives a store leaf and a
+                           # fulfillment leaf through ONE batch loop, so the site's dock,
+                           # receiving crew and putters are FIELDED once instead of once per
+                           # leaf.  Off = today's per-channel units, byte for byte.  Requires
+                           # a mixed catalogue -- a store-only run has nothing to couple --
+                           # and is DECLARED rather than derived from the inbound flag,
+                           # because the campaign couples its inbound-off pole too
+                           # (.scratch/site-dock, "Re-shape the funnel for arm pairs").
+                           # Reaches the tree as run_layout.json's `coupled`.
+
 SHIFT_DRAIN_OR_CAP = False # THE CALIBRATED ERA (--shift-drain-or-cap).  One site-wide
                            # working stretch that ends when no
                            # standing work remains and none is still scheduled to release,
