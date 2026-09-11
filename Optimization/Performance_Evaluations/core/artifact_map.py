@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import posixpath
 
+from Optimization.runschema.schema import RESERVED_PREFIX
 from Optimization.Performance_Evaluations.core.registry import EVALUATIONS
 
 _MEMO: dict = {}
@@ -60,12 +61,13 @@ def _rel_dir(template: str) -> str:
     segments; `{initial_group}` is NOT a level (it is a subdir the eval creates), so braced
     segments only strip from the FRONT.
 
-    A leading `_`-prefixed segment is a RESERVED STAGE ROOT, not an output subdir: the
-    contract uses that prefix for exactly these (`_aggregate`, `_dossier`, `_frozen`) and
-    the run tree reserves it, so matching the prefix is the rule rather than listing the
-    names.  This read `parts[0] == '_aggregate'` when `_aggregate` was the only one."""
+    A `RESERVED_PREFIX`-prefixed leading segment is a RESERVED STAGE ROOT, not an output
+    subdir: the contract uses that prefix for exactly these (`_aggregate`, `_dossier`,
+    `_frozen`, `_site`) and the run tree DECLARES it, so matching the declared prefix is the
+    rule rather than listing the names.  This read `parts[0] == '_aggregate'` when
+    `_aggregate` was the only one, then a retyped `'_'` literal."""
     parts = template.split('/')[:-1]                       # drop the basename
-    while parts and (parts[0].startswith('{') or parts[0].startswith('_')):
+    while parts and (parts[0].startswith('{') or parts[0].startswith(RESERVED_PREFIX)):
         parts = parts[1:]
     return '/'.join(parts)
 

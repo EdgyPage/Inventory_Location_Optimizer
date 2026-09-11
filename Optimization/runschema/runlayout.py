@@ -27,6 +27,20 @@ import os
 from dataclasses import dataclass
 from typing import Iterator
 
+from Optimization.runschema.schema import RESERVED_PREFIX
+
+
+def _reserved(name: str) -> bool:
+    """True for a driver bookkeeping subtree (`_aggregate`, `_frozen`, `_site`, `_viz`, ...).
+
+    The run-tree contract DECLARES the prefix (`schema.RESERVED_PREFIX`); every walker below
+    reads it rather than retyping `_`, and applies it at EVERY level.  The skip used to exist
+    at the pair level only, so a reserved subtree the contract owns one level deeper --
+    `<pair>/_site/` -- walked as a phantom CONFIG, and any `sim_*.db` beneath it surfaced as
+    an extra ARM.  A reserved name is never an axis value at any depth.
+    """
+    return name.startswith(RESERVED_PREFIX)
+
 
 # ── profiles tree (generation output) ───────────────────────────────────────────
 
@@ -105,7 +119,7 @@ def cells(base_dir: str) -> Iterator[tuple[str, str]]:
         return
     # ── legacy fallback: no descriptor → infer the cells from the on-disk tree ──
     subs = [d for d in sorted(os.listdir(base_dir))
-            if os.path.isdir(os.path.join(base_dir, d)) and not d.startswith('_')]
+            if os.path.isdir(os.path.join(base_dir, d)) and not _reserved(d)]
     found = False
     for name in subs:
         cell_dir = os.path.join(base_dir, name)
@@ -134,25 +148,25 @@ def iter_channel_runs(base_dir: str, marker: str = 'sim_meta.json') -> Iterator[
     """Yield every channel-run dir under base_dir that contains *marker*.
 
     Store-only runs put the marker directly at <config>/; mixed-catalog runs put one
-    per channel at <config>/<channel>/.  Top-level entries starting with '_'
-    (e.g. _aggregate/) are skipped.  Order: sorted pair, then config, then channel.
+    per channel at <config>/<channel>/.  Reserved entries (`_reserved`) are skipped at
+    EVERY level, not just the top.  Order: sorted pair, then config, then channel.
     """
     if not os.path.isdir(base_dir):
         return
     for pair in sorted(os.listdir(base_dir)):
         pair_dir = os.path.join(base_dir, pair)
-        if not os.path.isdir(pair_dir) or pair.startswith('_'):
+        if not os.path.isdir(pair_dir) or _reserved(pair):
             continue
         for config in sorted(os.listdir(pair_dir)):
             cfg_dir = os.path.join(pair_dir, config)
-            if not os.path.isdir(cfg_dir):
+            if not os.path.isdir(cfg_dir) or _reserved(config):
                 continue
             if os.path.exists(os.path.join(cfg_dir, marker)):
                 yield ChannelRun(pair, config, None, cfg_dir)
                 continue
             for sub in sorted(os.listdir(cfg_dir)):
                 sub_dir = os.path.join(cfg_dir, sub)
-                if os.path.isdir(sub_dir) and os.path.exists(os.path.join(sub_dir, marker)):
+                if os.path.isdir(sub_dir) and not _reserved(sub)                         and os.path.exists(os.path.join(sub_dir, marker)):
                     yield ChannelRun(pair, config, sub, sub_dir)
 
 
@@ -167,17 +181,19 @@ def iter_sim_dbs(base_dir: str) -> Iterator[tuple[ChannelRun, str]]:
 
     Structural walk over <pair>/<config>[/<channel>]/sim_<strategy>.db — keyframe DBs
     excluded.  Channel subdirs are found even when sim_meta.json was never finalized
-    (crashed runs), so blank-arm scans see everything.
+    (crashed runs), so blank-arm scans see everything.  Reserved entries (`_reserved`) are
+    skipped at every level: `<pair>/_site/` holds the coupled unit's site DB, and a walker
+    that descended into it would report that DB as an extra arm of a phantom config.
     """
     if not os.path.isdir(base_dir):
         return
     for pair in sorted(os.listdir(base_dir)):
         pair_dir = os.path.join(base_dir, pair)
-        if not os.path.isdir(pair_dir) or pair.startswith('_'):
+        if not os.path.isdir(pair_dir) or _reserved(pair):
             continue
         for config in sorted(os.listdir(pair_dir)):
             cfg_dir = os.path.join(pair_dir, config)
-            if not os.path.isdir(cfg_dir):
+            if not os.path.isdir(cfg_dir) or _reserved(config):
                 continue
             direct = list(_sim_dbs_in(ChannelRun(pair, config, None, cfg_dir)))
             if direct:
@@ -185,5 +201,5 @@ def iter_sim_dbs(base_dir: str) -> Iterator[tuple[ChannelRun, str]]:
                 continue
             for sub in sorted(os.listdir(cfg_dir)):
                 sub_dir = os.path.join(cfg_dir, sub)
-                if os.path.isdir(sub_dir):
+                if os.path.isdir(sub_dir) and not _reserved(sub):
                     yield from _sim_dbs_in(ChannelRun(pair, config, sub, sub_dir))

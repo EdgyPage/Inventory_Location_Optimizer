@@ -50,6 +50,7 @@ import tempfile
 import time
 
 from Optimization.runschema import contract
+from Optimization.runschema import schema as decl
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = contract._REPO_ROOT
@@ -227,7 +228,7 @@ def _generalize_file(segments: list[str], axes: dict[str, set]) -> str:
             i += 1
         elif axis == 'channel':
             break                                # optional level simply absent
-        elif segments[i].startswith('_'):
+        elif segments[i].startswith(decl.RESERVED_PREFIX):
             break                                # reserved subtree (_frozen, _aggregate, _runtime)
         else:
             break
