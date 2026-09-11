@@ -71,7 +71,7 @@ from Warehouse.kernel.cost_model import (
     DEFAULT_PUT_INTERCEPT_SCALE as _DEF_PUT_SCALE, DEFAULT_PUT_ITEM_RATIO as _DEF_PUT_RATIO,
     DEFAULT_RECV_INTERCEPT_SCALE as _DEF_RECV_SCALE)
 from Warehouse.operations.putaway import PutawayCost as _PutawayCost
-from dataclasses import replace as _dc_replace
+from dataclasses import dataclass as _dataclass, replace as _dc_replace
 from Warehouse.inventory.inventory_common import (
     _wp_for, binkey_of as _binkey_of, tier_ranks_for as _tier_ranks_for)
 from Warehouse.placement import Assignment_Functions as _af
@@ -540,6 +540,24 @@ def _run_strategy_worker(args: dict) -> dict:
             pass
 
 
+@_dataclass(frozen=True)
+class _Leaf:
+    """One channel leaf of a work unit: what it is, and its two halves as callables.
+
+    `step(i)` runs batch `i`; `finish()` does the run-end flush and returns the leaf's result
+    dict. Both close over `_build_leaf`'s setup, so the leaf's manager, crews, clocks and
+    accumulators are reachable only through them -- which is the point: a driver sequences
+    leaves and does not reach into one. A site-scoped coordinator (site-dock 01/04) is built
+    ABOVE the leaves and injected through their payloads, never fished out of one here.
+    """
+    strategy : str
+    start_i  : int
+    n_batches: int
+    channel  : str | None
+    step     : object                 # (int) -> None
+    finish   : object                 # () -> dict
+
+
 def _check_declared_crew(args: dict, k_pickers: int) -> None:
     """Refuse a payload whose sized crews are not its declared (or derived) crews.
 
@@ -583,8 +601,20 @@ def _check_declared_crew(args: dict, k_pickers: int) -> None:
             f"derived, never declared")
 
 
-def _run_strategy_worker_impl(args: dict) -> dict:
-    """One assignment strategy end-to-end — the body behind _run_strategy_worker.
+def _build_leaf(args: dict) -> '_Leaf':
+    """One channel leaf, built but not yet run — the setup half of a work unit.
+
+    Everything here is per channel and stays so under coupling: one inventory partition, one
+    warehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns
+    is the leaf's two halves as closures over that setup — `step(i)`, one batch, and
+    `finish()`, the run-end flush and the result dict — so a caller can drive ONE leaf (every
+    run today) or step two leaves through one batch loop (the coupled unit, site-dock 02 §2).
+
+    The closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this
+    function with the loop inline, and the split moved the loop body and the tail VERBATIM.
+    They rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries
+    (`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between
+    calls exactly as they survived between iterations.
 
     Uses DeferredPickSimulation for parallel Phase-1 picker execution within
     each batch.  Log records travel through a multiprocessing.Queue to the
@@ -1309,7 +1339,18 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     t_loop         = time.perf_counter()
     t_ckpt         = time.perf_counter()
 
-    for i in range(start_i, n_batches):
+    def _step(i: int) -> None:
+        """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
+        below is that loop's, unchanged, so a carry rebound here is rebound in the
+        enclosing setup scope exactly as it was between iterations."""
+        nonlocal _d, _pending, _q, _shift_cut_today, _shift_last_finish, _shift_prev_day
+        nonlocal _shift_standing, arm_clock, cons_breaks, cons_picked, cons_residual
+        nonlocal demand_breaks, dur_count_ckpt, dur_sum_ckpt, last_dur, p1_run, p1_sum_ckpt
+        nonlocal p2_run, p2_sum_ckpt, placed_ckpt, put_clock, recv_clock, reorders_ckpt, skipped
+        nonlocal t_build_ckpt, t_build_run, t_ckpt, t_extract_ckpt, t_extract_run, t_inv_ckpt
+        nonlocal t_inv_run, t_kf_ckpt, t_kf_run, t_pre_ckpt, t_pre_run, t_reord_ckpt
+        nonlocal t_reord_run, t_sample_ckpt, t_sample_run, t_save_run, t_sim_ckpt, t_sim_run
+        nonlocal t_task_ckpt, t_task_run, units_ordered_ckpt
         _t = time.perf_counter()
         bin_rec.begin_batch(i)
         # THE RELEASE INSTANT, COMPUTED BEFORE ANY WORK IS DISPATCHED.  It used to be
@@ -1652,7 +1693,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                     cov.append((i, 'unpicked_unstocked', _sku, _un))
                 if _q - _un:
                     cov.append((i, 'unpicked_notasks', _sku, _q - _un))
-            continue
+            return
 
         # The clock CARRIES.  Every picker starts this batch at the arm's current instant,
         # so the arm's events sit on one absolute axis instead of every batch restarting at
@@ -1920,169 +1961,214 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             t_inv_ckpt     = 0.0
             t_ckpt         = time.perf_counter()
 
-    # fold the final (unflushed) window's section times into the whole-arm totals
-    t_reord_run   += t_reord_ckpt
-    t_build_run   += t_build_ckpt
-    t_pre_run     += t_pre_ckpt
-    t_sim_run     += t_sim_ckpt
-    t_extract_run += t_extract_ckpt
-    t_inv_run     += t_inv_ckpt
-    t_sample_run  += t_sample_ckpt
-    t_task_run    += t_task_ckpt
-    t_kf_run      += t_kf_ckpt
-    p1_run        += p1_sum_ckpt
-    p2_run        += p2_sum_ckpt
-    if pb:
-        log.info(f'  Flushing final {len(pb)} batches to DB...')
-        _ts_final = time.perf_counter()
-        _bp, _be = bin_rec.drain()
-        save_checkpoint_bundle(
-            db_path, run_id,
-            batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
-            bin_placements=_bp, bin_evictions=_be,
-            aisle_metrics=pm, reorder_queue=pq, work_events=we,
-            put_queue_state=pqs, carryover=cov,
-            yard_trailers=yt, yard_drains=yd, shift_days=sd, free_index=fi)
-        t_save_run += time.perf_counter() - _ts_final
 
-    # THE FINAL DAY'S CLOSE-OUT, deliberately OUTSIDE the `if pb:` above (same reasoning as
-    # the censored yard tail below).  The ledger closes a day at the first batch of the NEXT
-    # day, so the last day of a run has no closer inside the loop; without this flush every
-    # era run would report one day fewer than it worked, and the equilibrium check's "every
-    # day drained" would be read over a window missing its last member.
-    if _drain_or_cap and _shift_prev_day is not None:
-        save_shift_days(db_path, run_id, [_shift_close_out(
-            _shift_prev_day, _shift_standing, _shift_last_finish, _shift_cut_today)])
+    def _finish() -> dict:
+        """The run-end half: flush the unflushed window, close the last day, censor the
+        standing yard, release the graph, and return this leaf's result dict."""
+        nonlocal affinity, batches, bin_rec, ctx, freq_by_idx, freq_by_sku, inventory, mgr
+        nonlocal p1_run, p2_run, qty_by_sku, reloader, t_build_run, t_extract_run, t_inv_run
+        nonlocal t_kf_run, t_pre_run, t_reord_run, t_sample_run, t_save_run, t_sim_run
+        nonlocal t_task_run, warehouse
+        # fold the final (unflushed) window's section times into the whole-arm totals
+        t_reord_run   += t_reord_ckpt
+        t_build_run   += t_build_ckpt
+        t_pre_run     += t_pre_ckpt
+        t_sim_run     += t_sim_ckpt
+        t_extract_run += t_extract_ckpt
+        t_inv_run     += t_inv_ckpt
+        t_sample_run  += t_sample_ckpt
+        t_task_run    += t_task_ckpt
+        t_kf_run      += t_kf_ckpt
+        p1_run        += p1_sum_ckpt
+        p2_run        += p2_sum_ckpt
+        if pb:
+            log.info(f'  Flushing final {len(pb)} batches to DB...')
+            _ts_final = time.perf_counter()
+            _bp, _be = bin_rec.drain()
+            save_checkpoint_bundle(
+                db_path, run_id,
+                batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
+                bin_placements=_bp, bin_evictions=_be,
+                aisle_metrics=pm, reorder_queue=pq, work_events=we,
+                put_queue_state=pqs, carryover=cov,
+                yard_trailers=yt, yard_drains=yd, shift_days=sd, free_index=fi)
+            t_save_run += time.perf_counter() - _ts_final
 
-    # THE CENSORED TAIL, and it is deliberately OUTSIDE the `if pb:` above.  That flush is
-    # conditional on there being an unflushed batch window, which there is not when
-    # `n_batches` divides evenly by `checkpoint` -- and the trailers still standing when the
-    # run stops are exactly the rows an adversarial ordering concentrates its overage in.
-    # Losing them on a round batch count would report `lifo`'s fee as CLIPPED rather than
-    # concentrated, which inverts the signal the arm exists to produce.  `[]` on every run
-    # without the standing yard, so the call is free rather than guarded.
-    _yard_standing = mgr.standing_yard_trailers()
-    if _yard_standing:
-        log.info(f'  [yard] {len(_yard_standing)} trailer(s) still on site at run end — '
-                 f'detention censored')
-        save_yard_trailers(db_path, run_id, _yard_standing)
+        # THE FINAL DAY'S CLOSE-OUT, deliberately OUTSIDE the `if pb:` above (same reasoning as
+        # the censored yard tail below).  The ledger closes a day at the first batch of the NEXT
+        # day, so the last day of a run has no closer inside the loop; without this flush every
+        # era run would report one day fewer than it worked, and the equilibrium check's "every
+        # day drained" would be read over a window missing its last member.
+        if _drain_or_cap and _shift_prev_day is not None:
+            save_shift_days(db_path, run_id, [_shift_close_out(
+                _shift_prev_day, _shift_standing, _shift_last_finish, _shift_cut_today)])
 
-    # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
-    # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was
-    # flushed above but the marker didn't advance.  Pin it to n_batches so a later --resume of
-    # a not-yet-finalized group treats this arm as done (empty loop) instead of re-INSERTing
-    # its tail rows.  Idempotent when the marker already reached n_batches.
-    if n_batches > start_i:
-        save_worker_checkpoint(run_dir, strategy, n_batches)
+        # THE CENSORED TAIL, and it is deliberately OUTSIDE the `if pb:` above.  That flush is
+        # conditional on there being an unflushed batch window, which there is not when
+        # `n_batches` divides evenly by `checkpoint` -- and the trailers still standing when the
+        # run stops are exactly the rows an adversarial ordering concentrates its overage in.
+        # Losing them on a round batch count would report `lifo`'s fee as CLIPPED rather than
+        # concentrated, which inverts the signal the arm exists to produce.  `[]` on every run
+        # without the standing yard, so the call is free rather than guarded.
+        _yard_standing = mgr.standing_yard_trailers()
+        if _yard_standing:
+            log.info(f'  [yard] {len(_yard_standing)} trailer(s) still on site at run end — '
+                     f'detention censored')
+            save_yard_trailers(db_path, run_id, _yard_standing)
 
-    elapsed = time.perf_counter() - t_loop
-    done    = n_batches - start_i - skipped
-    n_bins      = len(warehouse.bins)                      # runtime-metrics: warehouse size proxy
-    regime_bins = denom                                    # this channel's regime bin count
-    n_aisles    = len(getattr(warehouse, 'aisles', []) or [])
-    log.info('=' * 60)
-    log.info(f'Strategy {strategy} DONE  batches={done}  skipped={skipped}  '
-             f'wall={elapsed:.1f}s  rate={done/elapsed:.2f}/s  last_dur={last_dur:.0f}')
-    # State the ledger's verdict once per arm, either way: a silent pass is indistinguishable
-    # from a check that never ran, and "the log is complete" is the claim the whole spatial
-    # record rests on.  The failing form repeats at ERROR so it survives a log tail.
-    if demand_breaks:
-        # Conservation got an end-of-arm report and this did not, so an arm with 200 demand
-        # breaks said so exactly once, in a line about batch 3.  The per-batch log is gated
-        # on the FIRST break by design -- to avoid 100 identical lines -- which makes a
-        # total here the only way to learn there were 100.
-        log.error(f'Strategy {strategy} DEMAND: {demand_breaks} batch(es) picked MORE than '
-                  f'was demanded. ONE-SIDED by construction: under-picking is not checked '
-                  f'here and is legitimate whenever stock is short.')
-    if cons_breaks:
-        log.error(f'Strategy {strategy} CONSERVATION: {cons_breaks} batch(es) broke the ledger; '
-                  f'{cons_residual:+,} units unaccounted for at the end. The bin-mutation log '
-                  f'for this arm is INCOMPLETE — spatial reconstruction will not be exact.')
-    else:
-        log.info(f'  conservation OK: placed {bin_rec.units_placed:,} − evicted '
-                 f'{bin_rec.units_evicted:,} − picked {cons_picked:,} balanced against bin '
-                 f'occupancy on every batch')
-    log.info('=' * 60)
+        # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
+        # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was
+        # flushed above but the marker didn't advance.  Pin it to n_batches so a later --resume of
+        # a not-yet-finalized group treats this arm as done (empty loop) instead of re-INSERTing
+        # its tail rows.  Idempotent when the marker already reached n_batches.
+        if n_batches > start_i:
+            save_worker_checkpoint(run_dir, strategy, n_batches)
 
-    # Thaw the startup graph BEFORE the release below: unfreezing returns the permanent
-    # generation to the oldest gen, so the collect() actually reclaims the cyclic
-    # warehouse/manager graph (bins↔aisles; BinRecorder wrappers close over mgr), keeping
-    # the RSS-ratchet guard meaningful for in-process callers and any future recycling —
-    # and keeping the live-object census below comparable across runs.  In production
-    # (recycling pinned at 1) the process exits right after; this is for everyone else.
-    gc.unfreeze()
-    gc.set_threshold(*_gc_thresh)
-    lift_cache.clear()
-    # bin_rec goes with them: its wrappers close over the manager's bound methods, so holding
-    # the recorder holds the whole manager (and through it the warehouse) alive.
-    del (inventory, affinity, warehouse, mgr, ctx, reloader, bin_rec,
-         freq_by_sku, qty_by_sku, freq_by_idx, batches)
-    gc.collect()
+        elapsed = time.perf_counter() - t_loop
+        done    = n_batches - start_i - skipped
+        n_bins      = len(warehouse.bins)                      # runtime-metrics: warehouse size proxy
+        regime_bins = denom                                    # this channel's regime bin count
+        n_aisles    = len(getattr(warehouse, 'aisles', []) or [])
+        log.info('=' * 60)
+        log.info(f'Strategy {strategy} DONE  batches={done}  skipped={skipped}  '
+                 f'wall={elapsed:.1f}s  rate={done/elapsed:.2f}/s  last_dur={last_dur:.0f}')
+        # State the ledger's verdict once per arm, either way: a silent pass is indistinguishable
+        # from a check that never ran, and "the log is complete" is the claim the whole spatial
+        # record rests on.  The failing form repeats at ERROR so it survives a log tail.
+        if demand_breaks:
+            # Conservation got an end-of-arm report and this did not, so an arm with 200 demand
+            # breaks said so exactly once, in a line about batch 3.  The per-batch log is gated
+            # on the FIRST break by design -- to avoid 100 identical lines -- which makes a
+            # total here the only way to learn there were 100.
+            log.error(f'Strategy {strategy} DEMAND: {demand_breaks} batch(es) picked MORE than '
+                      f'was demanded. ONE-SIDED by construction: under-picking is not checked '
+                      f'here and is legitimate whenever stock is short.')
+        if cons_breaks:
+            log.error(f'Strategy {strategy} CONSERVATION: {cons_breaks} batch(es) broke the ledger; '
+                      f'{cons_residual:+,} units unaccounted for at the end. The bin-mutation log '
+                      f'for this arm is INCOMPLETE — spatial reconstruction will not be exact.')
+        else:
+            log.info(f'  conservation OK: placed {bin_rec.units_placed:,} − evicted '
+                     f'{bin_rec.units_evicted:,} − picked {cons_picked:,} balanced against bin '
+                     f'occupancy on every batch')
+        log.info('=' * 60)
 
-    # ── memory observability, end-of-arm only (each a one-shot: ~free) ────────
-    # Peak RSS comes from the OS (the process's high-water mark — the number that decides
-    # whether N workers fit in RAM).  Gen-2 count = get_stats delta (always).  The
-    # live-object census (an O(live) list build) rides the SIM_GC_DETAIL gate with the
-    # pause hook; when off it records NULL, never a fabricated zero.
-    try:
-        gc.callbacks.remove(_gc_cb)
-    except ValueError:
-        pass
-    gc_gen2 = gc.get_stats()[2]['collections'] - _gc_stats0[2]['collections']
-    live_objects = len(gc.get_objects()) if _gc_detail else None
-    peak_rss_mib = _peak_rss_mib()
-    log.info(f'  memory: peak_rss={peak_rss_mib or 0:.0f}M  '
-             f'gc_pause={_GC_STATE["pause_s"]:.2f}s  gen2={gc_gen2}  '
-             f'live={live_objects if live_objects is not None else "-"}  '
-             f'frozen_residual={gc.get_freeze_count()}')
+        # Thaw the startup graph BEFORE the release below: unfreezing returns the permanent
+        # generation to the oldest gen, so the collect() actually reclaims the cyclic
+        # warehouse/manager graph (bins↔aisles; BinRecorder wrappers close over mgr), keeping
+        # the RSS-ratchet guard meaningful for in-process callers and any future recycling —
+        # and keeping the live-object census below comparable across runs.  In production
+        # (recycling pinned at 1) the process exits right after; this is for everyone else.
+        gc.unfreeze()
+        gc.set_threshold(*_gc_thresh)
+        lift_cache.clear()
+        # bin_rec goes with them: its wrappers close over the manager's bound methods, so holding
+        # the recorder holds the whole manager (and through it the warehouse) alive.
+        del (inventory, affinity, warehouse, mgr, ctx, reloader, bin_rec,
+             freq_by_sku, qty_by_sku, freq_by_idx, batches)
+        gc.collect()
 
-    return {
-        'strategy': strategy,
-        'run_id'  : run_id,
-        'elapsed' : elapsed,
-        'done'    : done,
-        'skipped' : skipped,
-        'last_dur': last_dur,
-        # Conservation verdict for this arm — 0 means the bin-mutation log balanced against
-        # real bin occupancy on every batch.  Surfaced to the parent so a sweep can be judged
-        # from the result dicts without grepping 34 worker logs.
-        'cons_breaks'  : cons_breaks,
-        'cons_residual': cons_residual,
-        # Returned so the parent can surface it per arm.  It was counted, logged once, and
-        # then dropped on the floor.
-        'demand_breaks': demand_breaks,
-        # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
-        #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
-        'n_bins'    : n_bins,
-        'regime_bins': regime_bins,
-        'n_aisles'  : n_aisles,
-        # SETUP spans, measured before the batch loop's clock starts — so they are NOT
-        # part of `elapsed` and must never be stacked onto the section totals below.
-        # runtime_metrics.OUTSIDE_TOTAL is the declaration of that separation.
-        't_precompute': t_precompute,   # strat.build(): the map family's offline solve
-        'map_lap_pct' : map_lap_pct,    # None on every non-map arm
-        'expected_pick': expected_pick, # the arm's expected day (era only; None flag-off)
-        't_reord'   : t_reord_run,
-        't_build'   : t_build_run,
-        't_sample'  : t_sample_run,     # build sub-split: batch sampling
-        't_task'    : t_task_run,       # build sub-split: task construction
-        't_kf'      : t_kf_run,         # sub-span of t_pre: the keyframe sqlite write
-        't_pre'     : t_pre_run,
-        't_sim'     : t_sim_run,
-        'p1_s'      : p1_run,           # fast_pick phase 1 (threaded picker compute)
-        'p2_s'      : p2_run,           # fast_pick phase 2 (sequential mutation apply)
-        't_extract' : t_extract_run,
-        # end-of-arm memory observability (see the log line above; pause/census are
-        # SIM_GC_DETAIL-gated — 0.0/None on a default run, by design)
-        'gc_pause_s'  : _GC_STATE['pause_s'],
-        'gc_gen2'     : gc_gen2,
-        'peak_rss_mib': peak_rss_mib,
-        'live_objects': live_objects,
-        # runtime_metrics.inv_s.  Pre-log arms spent this on the bin_inventory snapshot; from
-        # here on it is the conservation ledger, which is ~1000x cheaper.  The column keeps its
-        # name so archived rows stay comparable to themselves — a renamed column would move the
-        # runtime_metrics schema id for a relabelling.
-        't_inv'     : t_inv_run,
-        't_save'    : t_save_run,
-    }
+        # ── memory observability, end-of-arm only (each a one-shot: ~free) ────────
+        # Peak RSS comes from the OS (the process's high-water mark — the number that decides
+        # whether N workers fit in RAM).  Gen-2 count = get_stats delta (always).  The
+        # live-object census (an O(live) list build) rides the SIM_GC_DETAIL gate with the
+        # pause hook; when off it records NULL, never a fabricated zero.
+        try:
+            gc.callbacks.remove(_gc_cb)
+        except ValueError:
+            pass
+        gc_gen2 = gc.get_stats()[2]['collections'] - _gc_stats0[2]['collections']
+        live_objects = len(gc.get_objects()) if _gc_detail else None
+        peak_rss_mib = _peak_rss_mib()
+        log.info(f'  memory: peak_rss={peak_rss_mib or 0:.0f}M  '
+                 f'gc_pause={_GC_STATE["pause_s"]:.2f}s  gen2={gc_gen2}  '
+                 f'live={live_objects if live_objects is not None else "-"}  '
+                 f'frozen_residual={gc.get_freeze_count()}')
 
+        return {
+            'strategy': strategy,
+            'run_id'  : run_id,
+            'elapsed' : elapsed,
+            'done'    : done,
+            'skipped' : skipped,
+            'last_dur': last_dur,
+            # Conservation verdict for this arm — 0 means the bin-mutation log balanced against
+            # real bin occupancy on every batch.  Surfaced to the parent so a sweep can be judged
+            # from the result dicts without grepping 34 worker logs.
+            'cons_breaks'  : cons_breaks,
+            'cons_residual': cons_residual,
+            # Returned so the parent can surface it per arm.  It was counted, logged once, and
+            # then dropped on the floor.
+            'demand_breaks': demand_breaks,
+            # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
+            #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
+            'n_bins'    : n_bins,
+            'regime_bins': regime_bins,
+            'n_aisles'  : n_aisles,
+            # SETUP spans, measured before the batch loop's clock starts — so they are NOT
+            # part of `elapsed` and must never be stacked onto the section totals below.
+            # runtime_metrics.OUTSIDE_TOTAL is the declaration of that separation.
+            't_precompute': t_precompute,   # strat.build(): the map family's offline solve
+            'map_lap_pct' : map_lap_pct,    # None on every non-map arm
+            'expected_pick': expected_pick, # the arm's expected day (era only; None flag-off)
+            't_reord'   : t_reord_run,
+            't_build'   : t_build_run,
+            't_sample'  : t_sample_run,     # build sub-split: batch sampling
+            't_task'    : t_task_run,       # build sub-split: task construction
+            't_kf'      : t_kf_run,         # sub-span of t_pre: the keyframe sqlite write
+            't_pre'     : t_pre_run,
+            't_sim'     : t_sim_run,
+            'p1_s'      : p1_run,           # fast_pick phase 1 (threaded picker compute)
+            'p2_s'      : p2_run,           # fast_pick phase 2 (sequential mutation apply)
+            't_extract' : t_extract_run,
+            # end-of-arm memory observability (see the log line above; pause/census are
+            # SIM_GC_DETAIL-gated — 0.0/None on a default run, by design)
+            'gc_pause_s'  : _GC_STATE['pause_s'],
+            'gc_gen2'     : gc_gen2,
+            'peak_rss_mib': peak_rss_mib,
+            'live_objects': live_objects,
+            # runtime_metrics.inv_s.  Pre-log arms spent this on the bin_inventory snapshot; from
+            # here on it is the conservation ledger, which is ~1000x cheaper.  The column keeps its
+            # name so archived rows stay comparable to themselves — a renamed column would move the
+            # runtime_metrics schema id for a relabelling.
+            't_inv'     : t_inv_run,
+            't_save'    : t_save_run,
+        }
+
+
+
+    return _Leaf(strategy=strategy, start_i=start_i, n_batches=n_batches,
+                 channel=args.get('channel_name'), step=_step, finish=_finish)
+
+
+def _run_strategy_worker_impl(args: dict) -> dict:
+    """One work UNIT end-to-end — the body behind _run_strategy_worker.
+
+    A unit is one or more channel leaves driven through ONE batch loop. Every run today
+    hands it a single leaf and this is the loop that function always had. A coupled unit
+    (site-dock 02) hands it two, and the leaves then step in lockstep: leaf B cannot begin
+    batch i before leaf A has finished it, which is what lets a site-scoped coordinator sit
+    between them and what makes a torn pair impossible to produce.
+    """
+    leaf_args = args.get('leaves') or [args]
+    leaves = [_build_leaf(a) for a in leaf_args]
+    # One range for the unit. Leaves of a coupled unit share `start_i` by construction --
+    # batch-grain resume REFUSES a coupled unit (site-dock 10), so both replay from the same
+    # batch -- and `n_batches` is a global. Asserted rather than assumed: a silent mismatch
+    # would step one leaf through batches the other never saw.
+    _starts = {lf.start_i for lf in leaves}
+    _totals = {lf.n_batches for lf in leaves}
+    if len(_starts) != 1 or len(_totals) != 1:
+        raise ValueError(
+            f'the leaves of a work unit must share one batch range; got '
+            f'starts={sorted(_starts)} totals={sorted(_totals)}')
+    for i in range(leaves[0].start_i, leaves[0].n_batches):
+        for lf in leaves:
+            lf.step(i)
+    results = [lf.finish() for lf in leaves]
+    if len(results) == 1:
+        return results[0]
+    # A multi-leaf unit has no single arm, so it reports `leaves` and nothing at top level
+    # that a one-leaf reader would silently mis-read as the unit's own (site-dock 11's
+    # refusal for `expected_pick` is the same rule).
+    return {'leaves': results}

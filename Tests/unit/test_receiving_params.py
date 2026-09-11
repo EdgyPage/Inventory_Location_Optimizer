@@ -188,7 +188,7 @@ def test_the_worker_reads_the_crew_only_from_its_arguments():
     import ast
 
     from Optimization.simdriver import strategy_runner as sr
-    tree = ast.parse(inspect.getsource(sr._run_strategy_worker_impl))
+    tree = ast.parse(inspect.getsource(sr._build_leaf))
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
             if (node.body and isinstance(node.body[0], ast.Expr)
@@ -210,7 +210,7 @@ def test_the_receive_whistle_is_not_the_put_whistle():
     import ast
 
     from Optimization.simdriver import strategy_runner as sr
-    body = ast.unparse(ast.parse(inspect.getsource(sr._run_strategy_worker_impl)))
+    body = ast.unparse(ast.parse(inspect.getsource(sr._build_leaf)))
     assert 'recv_deadline=_recv_deadline' in body
     assert 'recv_deadline=_put_deadline' not in body, 'the two crews share one whistle'
     assert '_recv_day.end_of' in body, 'the receive whistle is not built from its own day'
@@ -235,7 +235,7 @@ def test_the_day_origin_reaches_the_workday_and_moves_the_whistle():
     from Warehouse.kernel.timeline import WorkDay
     from Optimization.simdriver import strategy_runner as sr
 
-    body = _ast.unparse(_ast.parse(inspect.getsource(sr._run_strategy_worker_impl)))
+    body = _ast.unparse(_ast.parse(inspect.getsource(sr._build_leaf)))
     assert "origin=_recv_spec['day_origin']" in body, (
         'the receiving day is built without its origin, so --recv-day-origin is dead config')
 

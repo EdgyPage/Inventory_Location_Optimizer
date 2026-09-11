@@ -488,7 +488,7 @@ def test_the_runner_snapshots_the_bucket_depth_per_batch_and_flushes_it_with_the
     checkpoint clear."""
     import inspect
     import Optimization.simdriver.strategy_runner as sr
-    src = inspect.getsource(sr._run_strategy_worker_impl)
+    src = inspect.getsource(sr._build_leaf)
     assert 'fi.extend((i, *_k, _n) for _k, _n in mgr.free_bin_depth_by_bucket())' in src
     assert src.index('_free = mgr.free_bin_depth()') < src.index('fi.extend((i, *_k, _n)')
     assert src.count('free_index=fi)') == 2, 'both bundle flushes carry the per-bucket rows'

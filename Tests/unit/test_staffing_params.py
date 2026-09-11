@@ -288,7 +288,7 @@ def test_the_worker_checks_its_crew_against_the_record_and_never_the_module():
                     node.body.pop(0)
         return ast.unparse(tree)
 
-    body = _code(sr._run_strategy_worker_impl)
+    body = _code(sr._build_leaf)
     assert '_check_declared_crew(args, k_pickers)' in body, 'the worker no longer checks'
     helper = _code(sr._check_declared_crew)
     assert "args.get('staffing')" in helper, 'the record no longer comes from the payload'

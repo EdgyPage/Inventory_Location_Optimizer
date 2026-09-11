@@ -428,7 +428,7 @@ def test_the_runner_reads_the_day_only_from_its_arguments():
 
     tree = ast.parse(inspect.getsource(strategy_runner))
     fn = next(n for n in ast.walk(tree)
-              if isinstance(n, ast.FunctionDef) and n.name == '_run_strategy_worker_impl')
+              if isinstance(n, ast.FunctionDef) and n.name == '_build_leaf')
     for node in ast.walk(fn):                      # strip every docstring and comment
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
             if (node.body and isinstance(node.body[0], ast.Expr)

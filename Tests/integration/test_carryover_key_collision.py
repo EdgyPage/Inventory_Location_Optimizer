@@ -70,7 +70,7 @@ def test_the_producers_use_only_their_own_family():
         assert f"'{r}'" not in put_src, f'the put-away side emits {r!r}, a pick reason'
     assert "'unplaced'" in put_src and "'held'" in put_src
 
-    run_src = inspect.getsource(sr._run_strategy_worker_impl)
+    run_src = inspect.getsource(sr._build_leaf)
     # The pick side names all three of its own...
     for r in _PICK_REASONS:
         assert f"'{r}'" in run_src, f'the pick side no longer emits {r!r}'

@@ -57,7 +57,7 @@ class _Mgr:
 
 
 def _loop_source():
-    src = inspect.getsource(sr._run_strategy_worker_impl)
+    src = inspect.getsource(sr._build_leaf)
     tree = ast.parse(src.replace(src[:src.index('def ')], ''))
     return ast.unparse(tree)
 

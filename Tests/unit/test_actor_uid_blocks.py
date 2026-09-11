@@ -94,7 +94,7 @@ def _worker_body() -> str:
     """The batch-loop worker with docstrings stripped, so a comment that NAMES the old
     broken form (there is one, explaining why it is gone) cannot satisfy a text search."""
     from Optimization.simdriver import strategy_runner as sr
-    tree = ast.parse(inspect.getsource(sr._run_strategy_worker_impl))
+    tree = ast.parse(inspect.getsource(sr._build_leaf))
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
             if (node.body and isinstance(node.body[0], ast.Expr)

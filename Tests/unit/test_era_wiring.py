@@ -432,7 +432,7 @@ def test_the_table_is_in_the_declared_shape_and_the_semantics_cover_it():
 
 def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail():
     import Optimization.simdriver.strategy_runner as sr
-    src = inspect.getsource(sr._run_strategy_worker_impl)
+    src = inspect.getsource(sr._build_leaf)
     assert 'sd.append(_shift_close_out(_shift_prev_day, _shift_standing,' in src
     assert src.count('shift_days=sd') == 2, 'both bundle flushes carry the ledger'
     assert 'sd.clear()' in src
@@ -451,12 +451,18 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     fold = src.index('_shift_last_finish = max(_shift_last_finish, arm_clock')
     assert src.index('elif _d != _shift_prev_day:') < fold
     assert src.index('_shift_standing = (mgr.queue_depth, mgr.dock_depth') > fold
-    tail = src[src.index('if pb:'):]
+    _ifpb = src.index('if pb:')
+    _indent = src[:_ifpb].rsplit('\n', 1)[-1]     # the `if pb:` line's OWN indent
+    tail = src[_ifpb:]
     final = tail.index('if _drain_or_cap and _shift_prev_day is not None:')
     assert 'save_shift_days(db_path, run_id, [_shift_close_out(' in tail
-    # the final-day flush is a sibling of `if pb:`, not nested inside it
+    # The final-day flush is a sibling of `if pb:`, not nested inside it.  Compared against
+    # `if pb:`'s own indent rather than a literal four spaces, so the guard survives the
+    # run-end tail moving into a nested function (site-dock 18) while still failing the only
+    # thing it exists to catch: the flush drifting INSIDE the conditional, where a round
+    # batch count makes it silently write nothing.
     line = tail[:final].rsplit('\n', 1)[-1]
-    assert line == '    ', 'the final-day flush must sit at the `if pb:` indentation, outside it'
+    assert line == _indent, 'the final-day flush must sit at the `if pb:` indentation, outside it'
 
 
 def test_a_nonzero_put_swap_coef_is_an_error_under_the_era_at_the_cli_and_at_the_seam():
