@@ -142,6 +142,21 @@ BEFORE anything runs: the inbound-optimization map resumes at
   to the same question). **Amends 02: `put_clock` becomes site-wide**, based at the site day start
   — a shared list cannot carry two epochs. The source stamp and the carryover key both dissolved.
 
+- [Design the composite gain bundle](issues/05-design-the-composite-gain-bundle.md): a
+  `SiteGainBundle` of two whole `GainBundle`s, dispatched by a one-line owner cursor in `_params`
+  — **the seam already exists**: `place_load` groups by BinKey and BinKey DETERMINES regime
+  (`inventory_common.py:42-43`), so the charter's "per-unit, keyed by owning channel" needs no
+  per-unit loop, and `_gain_bundle_for` is called twice UNCHANGED, which makes faithful-to-arm
+  structural rather than argued. Half the bundle was already site-wide (`put_speed` is one site
+  CONFIG; `wp_of` already dispatches per regime). **The prototype killed its own first draft:**
+  wrapping `place_load`'s group loop from outside silently breaks the `avail_cache` continuity that
+  lets spill resume where consumption left off — the cursor goes INSIDE. One path, via a one-owner
+  wrapper, so flag-off is the same instance and no `if coupled:` sits in the pricing hot path.
+  **Commensurability is well-posed because a mixed trailer decomposes EXACTLY by owner** (bins are
+  BinKey-partitioned, so the two owners never contend); the recovered exchange rate is a = b = 1,
+  and the test carries a SABOTAGE part that fails on any per-channel weight. Sub-questions 4 and 5
+  routed to 08 and 06 rather than pre-empted.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some have graduated out
@@ -149,12 +164,15 @@ BEFORE anything runs: the inbound-optimization map resumes at
   [Extract the one-leaf receiving coordinator](issues/09-extract-the-one-leaf-coordinator.md)
   (out of 01),
   [Harden the three positional seams](issues/11-harden-the-positional-seams.md) (out of 03) and
-  [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md) (out of 04). The
-  ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a second leaf: the
-  owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact declarations and
-  their contract bump, the site evaluation context 07 will need, and — out of 04 — the
+  [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md) (out of 04) and
+  [Seat the one-owner bundle indirection](issues/13-seat-the-one-owner-bundle-indirection.md)
+  (out of 05). The ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
+  second leaf: the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact
+  declarations and their contract bump, the site evaluation context 07 will need; out of 04 the
   `Inbound/putaway_pool.py` module itself, the proportional split with its residue pass,
-  the site `put_clock` and its day-start base, and the two coupled refusals.
+  the site `put_clock` and its day-start base, and the two coupled refusals; and out of 05 the
+  `SiteGainBundle` itself, the second `_gain_bundle_for` call, and the three-part commensurability
+  test (its sabotage included), all of which need two owners to exist before they can be written.
 - **Within-day put interleaving.** The charter shares a DAY budget, so a putter cannot take the
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
   coupled run shows a day where one channel's put queue actually starves while the other's crew

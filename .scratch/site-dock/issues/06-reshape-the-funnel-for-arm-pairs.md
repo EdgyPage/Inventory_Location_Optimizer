@@ -46,3 +46,25 @@ which is blocked on this ticket answering what a cell IS.
 
 Starting map of seams: [`../../inbound-optimization/assets/site_dock_sizing.md`](../../inbound-optimization/assets/site_dock_sizing.md)
 §3.
+
+## Comments
+
+**From [Design the composite gain bundle](05-design-the-composite-gain-bundle.md) (resolved):** its
+sub-question 5 (the rider's bundles) is routed here, because what is open about it turned out to be
+pairing arithmetic rather than evaluator design.
+
+* **The composite needs no new faithfulness check.** `_gain_bundle_for` is called twice under the
+  coupled unit — once per leaf, unchanged — so an arm outside `FAITHFUL_GAIN_FAMILIES`
+  (`Inbound/gain.py:126`) refuses at worker startup exactly as it does today, on whichever side it
+  sits. Nothing is added and nothing is weakened.
+* **What is open is the SELECTION side.** `run_restock_selection.py:188` computes
+  `needs_bundle_extension` per rule, and `select()` builds `channels[channel]` **independently per
+  channel** (`:298`). Under diagonal pairing a pair is runnable only if **both** members are
+  faithful, so `needs_bundle_extension` becomes a property of a PAIR, not of a rule in a channel.
+  The extension cap (`:221-229`) is counted per channel today and would need the same re-reading.
+* The extension itself stays where it is: inbound-optimization
+  [Extend the gain bundles](../../inbound-optimization/issues/20-extend-the-gain-bundles.md), gated
+  on phase 1.
+
+This interacts with the map's own fog entry *"Where the campaign's staffing record pins a PAIR"* —
+both are the same re-shaping question seen from two sides.

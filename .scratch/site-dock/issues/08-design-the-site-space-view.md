@@ -52,3 +52,33 @@ lands on, the bundle reads it.
 
 Starting map of seams: [`../../inbound-optimization/assets/site_dock_sizing.md`](../../inbound-optimization/assets/site_dock_sizing.md)
 §1 (the `_SpaceTimeline` row). Re-resolve its line numbers before trusting one.
+
+## Comments
+
+**From [Design the composite gain bundle](05-design-the-composite-gain-bundle.md) (resolved):** its
+sub-question 4 was the space view, and it is routed here whole rather than pre-empted — 05 decided
+only that it does not own this. Its own answer leans on nothing this ticket has not settled.
+
+One fact for sub-question 1 ("check each before choosing"), established while resolving 05 and
+verified against the source:
+
+* **`empties`, `predicted` and `emptied_at` are key-disjoint across regimes.** `SpaceView.empties`
+  and `.predicted` are `dict[BinKey, tuple[Bin, ...]]` (`Inbound/space.py:91`, `:96`), and BinKey
+  **determines** regime — `binkey_of` returns `(handling, category, storage_size, unit_category)`
+  and `regime_of` reads exactly those fields (`inventory_common.py:42-43`: *"regime is itself a
+  BinKey component"*). So the two leaves' tier dicts share **no key at all**, and composing them is
+  a trivial union, not an additive merge with a correctness argument to make. `emptied_at` is
+  `dict[id(bin), float]` — disjoint for the same reason.
+* **The genuinely non-additive four are `released_at`, `versions`, `frozen_at` and `window`.** That
+  is where sub-question 1's real work is: three of them have no meaning under two leaves without a
+  decision (`released_at` is sub-question 4's own question; `versions` is equality-only by contract,
+  so a composed pair is not obviously a version at all).
+
+This narrows the ticket but does not answer it: whether `freeze` grows a signature or the
+coordinator composes two frozen views is still open, and so is what a composed `versions` means to
+the cache layer that keys on it.
+
+Also relevant: memory `free-bins-counts-the-whole-geometry` is confirmed as sub-question 2 suspects
+— **each leaf builds the WHOLE geometry and simulates only its own section.** So two leaves'
+free counts are over the same bins, and summing them double-counts the site. The disjointness above
+is what makes the correct composition cheap anyway: take each leaf's own-regime keys.
