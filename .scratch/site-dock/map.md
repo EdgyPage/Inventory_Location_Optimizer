@@ -275,16 +275,37 @@ BEFORE anything runs: the inbound-optimization map resumes at
   `4066071a`; and `--catalog-merge` seeds a new entry's `purpose` from a docstring FRAGMENT, which
   is not a `purpose: TODO` and so escapes CLAUDE.md §1's fill step entirely.
 
+- [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md): **BUILT and
+  live on `develop`** — `bind_crew` takes a pre-built `clocks` list, held on the MANAGER
+  (`_put_pool_clocks`) because the queue set can be replaced after the bind and a rebind
+  that minted fresh clocks would drop the pool with nothing raising; `drain_putaway_records`
+  can hand the records over without ending the day, with `_put_clock` moving with the flag
+  rather than beside it; and `_stock`'s tail loop becomes a public `count_put_cut(deadline)`.
+  **Two deviations under force:** the ticket as written produces a HALF seam — a public
+  `count_put_cut` with no way to stop `_stock` charging cannot be called *instead* — so
+  `_stock` gains `charge_cut`, and a test asserts the inflation it prevents; and a queue
+  naming its own `spec.crew` REFUSES an injected pool, as does a size contradicting the
+  list, because a half-applied pool is neither model and no row tells them apart. **Three
+  findings:** 04's "hand both managers' queues the same list" is well-posed only while
+  `put_queue_split` is off — and it always is, because `refuse_unpriceable_put` already
+  refuses the split for the era derivation and every coupled run derives, so the new
+  refusal is that same incompatibility stated a third time rather than an open decision;
+  `_put_clocks` was already the name of the defect this file fixed, three lines above the
+  new guard; and `PutQueueSet.snapshot()` is DESTRUCTIVE, draining every counter it reads.
+  Byte-identity measured, not argued — both preflight canaries against a `git archive HEAD`
+  copy, `work_events` (668 put rows) and `put_queue_state` row-for-row to zero; six guard
+  mutations, six caught.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
   they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
   what remains of it is owner routing, not extraction). The other four:
   [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10) and
-  [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md) (out of 04) and
   [Seat the one-owner bundle indirection](issues/13-seat-the-one-owner-bundle-indirection.md)
   (out of 05) and
-  [Re-shape the selection hand-off](issues/14-reshape-the-selection-handoff.md) (out of 06). The
+  [Re-shape the selection hand-off](issues/14-reshape-the-selection-handoff.md) (out of 06);
+  **12's are DONE**, so what remains of 04 is the pool itself and not its seams. The
   ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
   second leaf: the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact
   declarations and their contract bump; out of 07 the site stage and `SiteContext` itself, the
@@ -296,7 +317,9 @@ BEFORE anything runs: the inbound-optimization map resumes at
   versions, the per-regime `released_at`, the window refusal and the composer's unit test; out of
   04 the
   `Inbound/putaway_pool.py` module itself, the proportional split with its residue pass,
-  the site `put_clock` and its day-start base, and the two coupled refusals; and out of 05 the
+  the site `put_clock` and its day-start base, and the two coupled refusals — all of which
+  now bind to seams that EXIST (`bind_crew(clocks=)`, `drain_putaway_records(reset_clocks=)`,
+  `_stock(charge_cut=)`, `count_put_cut`), so what is left is the rule and not the wiring; and out of 05 the
   `SiteGainBundle` itself, the second `_gain_bundle_for` call, and the three-part commensurability
   test (its sabotage included), all of which need two owners to exist before they can be written;
   and out of 10 the reconciler itself — `_reconcile_coupled_unit`, the two-leaf completeness
