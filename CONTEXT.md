@@ -287,8 +287,8 @@ _Avoid_: level (that is a kind), scale
 **Clock**:
 Which axis a time value lives on — sim-modeled, wall-compute, or batch-denominated. Two values
 on different clocks never form a ratio. Two values on the same axis but different origins do not
-compare either: a receiving stamp is taken from the site's clock, a pick or put stamp from its
-own channel's.
+compare either: a receiving or put-away stamp is taken from the site's clock, a pick stamp from
+its own channel's.
 
 **Unit of account**:
 What a count counts — packs or merchandise pieces. Never added across accounts.

@@ -178,6 +178,26 @@ BEFORE anything runs: the inbound-optimization map resumes at
   CELL, which made cell-level coupling free and turned the anchor into a real choice rather than
   a plumbing detail.
 
+- [Re-scope the analysis surfaces to the site](issues/07-rescope-the-analysis-surfaces.md): **two
+  of the ticket's four premises were false, and the false ones were the expensive ones.**
+  `derive_views` never reads scope (`quantities.py:803-824`), so a site quantity cannot render an
+  undeclared view and no new quantity is declared here; and the receiving self-check §2 asks to
+  preserve **was deleted** — `reference.recv_exact_check` is gone, `unload_price_for` has zero hits
+  repo-wide, and its loader survives with zero callers. What is real is the scope machinery: a
+  third flat-pool stage in `run_analysis`, one job per `(pair, arm-pair)`, on a `SiteContext` that
+  **populates the same `_by_key` shape** — brokers key on `db_path`/`run_id` and nothing else, so
+  every existing broker works unchanged and site-ness lives in what the keys point at. Door
+  utilization takes the SITE calendar span, receiver busy both leaves' seconds over distinct
+  `work_day`, per-channel shares printed beside — never instead of — the site number. The
+  equilibrium report assembles the site clause itself (`equilibrium.py` states "no run tree" and
+  means it); **site bands, leaves report**. The rollup refuses with a `ValueError`, not
+  `SystemExit`, and `analyze_run` skips it outright. The `yard` family's scope becomes a third
+  value, which moves `schema_id` and touches four test ties. **Three findings:** a bare
+  `scope='site'` is **silently namespaced as `config`** by `requests.py:601` and prepares no output
+  directory; `SystemExit` from the rollup would have **aborted `analyze_run` mid-run**, because
+  `_step` catches `Exception` and that is not one; and `yard_overage_total` rides in **every** arm's
+  series doc, so a headline evaluation carries a site quantity today.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some have graduated out
@@ -191,7 +211,11 @@ BEFORE anything runs: the inbound-optimization map resumes at
   [Re-shape the selection hand-off](issues/14-reshape-the-selection-handoff.md) (out of 06). The
   ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
   second leaf: the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact
-  declarations and their contract bump, the site evaluation context 07 will need; out of 04 the
+  declarations and their contract bump; out of 07 the site stage and `SiteContext` itself, the
+  `yard` family's move to a third scope value (its `schema_id` bump and four test ties), the site
+  clause in `equilibrium.py` with the report's two-leaf accumulation, the rollup's `ValueError`
+  refusal and its `analyze_run` skip, and the two unlisted leaf surfaces — `series.py`'s
+  `yard_overage_total` and `throughput.audit`'s undeclared door read; out of 04 the
   `Inbound/putaway_pool.py` module itself, the proportional split with its residue pass,
   the site `put_clock` and its day-start base, and the two coupled refusals; and out of 05 the
   `SiteGainBundle` itself, the second `_gain_bundle_for` call, and the three-part commensurability

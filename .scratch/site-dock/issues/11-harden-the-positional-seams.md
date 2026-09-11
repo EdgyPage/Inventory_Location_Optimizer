@@ -56,3 +56,12 @@ a shape it was never written for.
   right four values; an unknown evaluation scope raises at decoration time.
 - The three are separate commits on `develop`, one per seam, since they share a reason but no
   file.
+
+## Amendment — a fourth seam (site-dock 07, 2026-09-11)
+
+`Optimization/Performance_Evaluations/core/requests.py:601` reads
+`scope = ev.scope if ev.scope in ('aggregate', 'run') else 'config'`, so an evaluation scope this
+module does not recognise is **silently namespaced as `config`** rather than refused. Same class as
+the unvalidated `registry.evaluation(scope=...)` string already folded in here, same silence, and
+about to matter: `site` is a fifth scope. Fix the two together — validating the string at
+declaration is worthless while a consumer quietly reinterprets it.

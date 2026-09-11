@@ -25,10 +25,20 @@ is the instrument contradicting itself (`equilibrium.InstrumentError`).
 is over the packs the run actually received. On the smoke run those differed 7x (51.9 vs 7.4
 s/pack) because heavy store packs dominate the script average while only the fulfillment leaf
 received anything — and even within a channel the lot mix moves a per-pack average by a few
-percent. `reference.recv_exact_check` re-prices every receive row from its SKU and quantity
-with the channel's `UnloadCost` rebuilt from the run spec (`unload_price_for`, mirroring the
-runner's chain including the `inbound_unload_*` overlay) and agrees to the second at a float
-tolerance.
+percent. The discipline is to re-price every receive row from its SKU and quantity with the
+channel's own `UnloadCost` and agree to the second at a float tolerance — never to compare a
+charge against a mean over a different mix.
+
+**The check that did this is DELETED (verified 2026-09-11, site-dock 07).** It was
+`reference.recv_exact_check`; `Optimization/simconfig/` has no `reference.py`, `unload_price_for`
+returns zero hits repo-wide, and `Optimization/simconfig/equilibrium.py` records the retirement of
+the driver that used it as a precondition. Its loader survives ORPHANED with zero callers —
+`load_receive_events` and the `receive_event_frame` query in `Optimization/persistence/
+Picking_Data.py`, whose comment still says the rows exist for this check. `staffing.py`'s
+`derived.receiving.s_recv` is reported and read by nothing, and already carries a comment
+correcting an EARLIER stale claim that the throughput audit performs this check — so "it lives in
+the audit" has been believed once before and was not true either. Whether it returns at site scope
+is site-dock 15.
 
 **Why:** both are consequences of the same fact — the ledger and `batch_stats` describe
 different instants (close-out fires at the NEXT day's first batch) — and the decisions were
