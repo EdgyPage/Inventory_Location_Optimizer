@@ -129,6 +129,7 @@ Taking loose items off an arrived trailer. Receiving-crew work; costs time.
 Converting a trailer's unloaded items into packs. Receiving-crew work at the dock; costs time.
 The pack plan is fixed by the trailer's full contents — interruption pauses packing, never
 changes it.
+Packing partitions by channel first: a load is mixed, a pack never is.
 _Avoid_: cartize, palletize (as verbs for this stage)
 
 **Pack**:

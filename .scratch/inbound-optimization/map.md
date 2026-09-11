@@ -510,8 +510,8 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   and [Cap the door team](issues/28-cap-the-door-team.md) (independent, frontier) -> the
   site-dock effort -> 26 on the coupled dock -> 24 -> phase 1 -> selection -> phase 2 -> publish.
   **2026-09-11: 27 and 28 are both RESOLVED, so this map's frontier is EMPTY and the next act is
-  not a ticket on it** -- it is the SITE-DOCK CHARTING SESSION (Out of scope, below, which carries
-  the destination and the seed). The two remaining tickets both wait on that effort:
+  not a ticket on it** -- it was the SITE-DOCK CHARTING SESSION, done the same day and now
+  [`.scratch/site-dock/map.md`](../site-dock/map.md) (Out of scope, below, carries the seed). The two remaining tickets both wait on that effort:
   [Re-verify the gate under the lead-aware record](issues/26-reverify-the-gate-under-the-lead-aware-record.md)
   reads the gate on the coupled dock, and [Re-size the funnel in site days](issues/24-resize-the-funnel-in-site-days.md)
   cannot size a cell until a cell is a PAIR of arms. The declared physics they will run under is
@@ -563,3 +563,10 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   flag-off byte-identical, the funnel's cells paired, so the inbound campaign runs on the
   site's own contention"; the sizing inventory linked from 25's assets is its starting map of
   seams. This campaign holds behind it; 27 and 28 do not.
+  **CHARTED 2026-09-11 as [`.scratch/site-dock/map.md`](../site-dock/map.md)** (7 tickets,
+  4 on the frontier). Its charter settled three things this map's remaining tickets ride on:
+  put-away becomes ONE SITE POOL over segregated volume (a pack has exactly one owning
+  channel), a phase-2 cell pairs arms on the DIAGONAL by rank rather than the cross product,
+  and the coupling rides the inbound flag so phase 1 stays per-channel -- which leaves phase 1
+  ranking under 2x the site put labour that phase 2 will run under, a caveat the campaign
+  publishes rather than discovers.
