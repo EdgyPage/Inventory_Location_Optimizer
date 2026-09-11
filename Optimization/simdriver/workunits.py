@@ -10,7 +10,8 @@ import logging
 import os
 from dataclasses import replace as _dc_replace
 
-from Optimization.persistence.Picking_Data import create_run, init_run_db, sim_schema_id
+from Optimization.persistence.Picking_Data import (
+    create_run, find_run, init_run_db, sim_schema_id)
 from Optimization.metrics.Workload import WorkloadParams
 from Optimization.simdriver.batch_precompute import ensure_batches, load_batches
 from Optimization.config.sim_config import (
@@ -45,7 +46,9 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
                          roll_over: bool = False, receiving: bool = False):
     """Decide (run_id, start_batch) for one strategy, honoring resume granularity.
 
-    - Fresh run / a strategy new on resume → init DB + create_run, start 0.
+    - Fresh run / a strategy new on resume → init DB + create_run, start 0; RAISES if
+      the arm's DB already holds a run (see the branch — a second run in one file is a
+      silent corruption, never a recoverable state).
     - Resumed done arm (checkpoint ≥ n_batches) → reuse run_id, start n_batches (empty loop).
     - Resumed PARTIAL arm (0 < ckpt < n_batches):
         strategy granularity → reset the arm's DB + fresh run_id, start 0 (bit-identical to an
@@ -64,6 +67,26 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
     replays from batch 0, and a carry that never happened cannot be lost.
     """
     if not is_resume or prev_id is None:
+        # A SECOND RUN IN ONE DB CORRUPTS IT SILENTLY, so the fresh branch refuses to open one.
+        # `find_run` (Picking_Data) resolves `ORDER BY run_id LIMIT 1` — the OLDEST run — so a db
+        # that acquired a second one answers every run_id-filtered query from the ABANDONED run
+        # and doubles every unfiltered aggregate over the file.  There is no symptom: the arm
+        # completes, the rows are all there, and every number over them is wrong.
+        #
+        # Nothing reaches this branch over a populated db today — a new run always gets a fresh
+        # timestamped dir, and a `--resume` either skips a finalized channel-run or finds its
+        # resume.pkl — but that is an ARGUMENT, not a check, and the argument is exactly what the
+        # torn-finalize window used to break (`supervisor._finalize_config_run`).  The caller
+        # that means to restart an arm resets its DB first (`reset_strategy_db`, the partial-arm
+        # branch below); anything else arriving here is a bug, and this is the only place it can
+        # be named.
+        if os.path.exists(db_path):
+            existing = find_run(db_path, s.key)
+            if existing is not None:
+                raise RuntimeError(
+                    f'[{s.key}] refusing to create a second run in {db_path}: it already holds '
+                    f'run_id={existing} (run dir {ch_run_dir}). The caller was expected to have '
+                    f"reset this arm's DB (reset_strategy_db) before planning a fresh start.")
         init_run_db(db_path)
         return create_run(db_path, s.run_type, run_params,
                           identity={**identity, 'strategy_key': s.key}), 0

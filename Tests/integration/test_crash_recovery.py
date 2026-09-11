@@ -14,6 +14,9 @@ Locks the automatic crash-recovery of run_simulation.py:
   - TORN FINALIZE: _finalize_config_run writes sim_meta.json BEFORE it removes resume.pkl, so a
     kill inside the finalize window leaves a dir that is still resumable (both files present)
     rather than one that is neither resumable nor complete.
+  - SECOND RUN IN ONE DB: the fresh-run branch of _plan_strategy_start REFUSES to create_run over
+    a db that already holds a run — find_run resolves the OLDEST run, so a second one would
+    silently redirect every later query to the abandoned arm.
 
 The pool/data layer is faked so the control flow is exercised deterministically without a real
 ProcessPool or generated DB pairs.
@@ -272,3 +275,49 @@ def test_a_kill_inside_finalize_leaves_the_dir_resumable(monkeypatch, tmp_path):
         str(run_dir), s, n_batches, str(db_path), {}, {}, 'strategy',
         resume['run_ids']['uni'], resume['next_batch']['uni'], True, _LOG) == (prev_id, n_batches)
     assert _n_runs(db_path) == 1, 'the resume opened a second run in the arm db'
+
+
+# ── a second run in one db is refused, never created ───────────────────────────────────
+
+def test_fresh_branch_refuses_to_create_a_second_run(tmp_path):
+    """The corruption has no symptom, so the refusal is the only place it can be named.
+
+    `find_run` resolves `ORDER BY run_id LIMIT 1` — the OLDEST run — so a db that acquired a
+    second one answers every run_id-filtered query from the ABANDONED one and doubles every
+    unfiltered aggregate over the file.  Nothing reaches the fresh branch in that state today;
+    this makes the invariant a fact rather than an argument.
+    """
+    run_dir = tmp_path / 'store'
+    run_dir.mkdir()
+    db_path = run_dir / 'sim_uni.db'
+    prev_id = _one_run_db(db_path, 'uni')
+    s = SimpleNamespace(key='uni', run_type='comparison')
+
+    with pytest.raises(RuntimeError) as exc:
+        rs._plan_strategy_start(str(run_dir), s, 100, str(db_path), {}, {}, 'strategy',
+                                None, 0, False, _LOG)
+    msg = str(exc.value)
+    assert 'sim_uni.db' in msg and 'uni' in msg and str(run_dir) in msg, \
+        f'refusal names neither the db, the strategy nor the run dir: {msg}'
+    assert f'run_id={prev_id}' in msg, f'refusal does not name the existing run: {msg}'
+    assert _n_runs(db_path) == 1, 'the refusal still left a second run behind'
+
+
+def test_fresh_branch_is_unchanged_on_an_empty_or_absent_db(tmp_path):
+    """The refusal must not cost the ordinary fresh start — neither shape of a virgin arm."""
+    s = SimpleNamespace(key='uni', run_type='comparison')
+
+    absent = tmp_path / 'absent' / 'sim_uni.db'
+    absent.parent.mkdir()
+    rid, start = rs._plan_strategy_start(str(absent.parent), s, 100, str(absent), {}, {},
+                                         'strategy', None, 0, False, _LOG)
+    assert isinstance(rid, int) and start == 0
+
+    empty_dir = tmp_path / 'empty'
+    empty_dir.mkdir()
+    empty = empty_dir / 'sim_uni.db'
+    init_run_db(str(empty))                      # schema present, no runs
+    rid2, start2 = rs._plan_strategy_start(str(empty_dir), s, 100, str(empty), {}, {},
+                                           'strategy', None, 0, False, _LOG)
+    assert isinstance(rid2, int) and start2 == 0
+    assert _n_runs(empty) == 1, 'the fresh branch did not create the run it was asked for'
