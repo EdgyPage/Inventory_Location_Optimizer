@@ -697,6 +697,7 @@ files:
       - {name: "INBOUND_CREW_ALLOCATION", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_YARD_POLICY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_DOCK_POLICY", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_DOOR_TEAM", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_FEE_THRESHOLD_DAYS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_URGENCY_HORIZON_DAYS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_FUTURESIGHT_BATCHES", file: "Optimization/config/settings.py", kind: "const"}
@@ -803,6 +804,7 @@ files:
       - {name: "PHASE2_LEAD_MINUTES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_LEAD_SPREAD", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_DOCK_DOORS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_DOOR_TEAM", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_FINITE_W", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RECV_CREW_SIZE", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RECV_DAY_SECONDS", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -3391,6 +3393,33 @@ files:
       - {name: "test_carry_residue_skips_a_bin_with_no_stock", file: "Tests/unit/test_day_cut.py", kind: "function"}
       - {name: "test_carry_residue_accumulates_into_a_shared_dict", file: "Tests/unit/test_day_cut.py", kind: "function"}
       - {name: "test_a_task_the_picker_never_started_carries_whole", file: "Tests/unit/test_day_cut.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_door_team_cap.py":
+    purpose: "the door-team cap is trailer physics, and off it changes nothing."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_deal_stays_even_when_the_cap_does_not_bind", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_cap_binds_when_the_even_split_would_exceed_it", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_same_crew_and_doors_uncapped_deals_everyone", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_merged_under_a_cap_is_one_team_of_cap", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_merged_uncapped_still_uses_the_whole_crew", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_a_freed_team_idles_rather_than_pushing_a_trailer_past_its_cap", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_same_scenario_uncapped_does_reassign", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_a_freed_team_fills_a_fresh_door_up_to_the_cap", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_uncapped_path_is_byte_identical_to_an_explicit_none", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_a_cap_above_the_crew_is_also_byte_identical", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_a_binding_cap_really_does_move_the_labour", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_v1_transit_never_reads_the_cap", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_a_cap_without_the_standing_yard_fails_loudly", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_a_zero_cap_fails_loudly", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_a_wellformed_cap_rides_the_spec", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_declared_default_is_uncapped", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_dock_ceiling_is_cap_times_doors_over_the_crew", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_an_uncapped_or_unrecorded_run_has_no_ceiling", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_receiving_row_reports_the_ceiling_and_never_bands_it", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_receiver_busy_share_is_denominated_in_work_days", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_the_scorecard_row_still_matches_its_header", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
+      - {name: "test_every_phase2_axis_entry_states_the_cap", file: "Tests/unit/test_door_team_cap.py", kind: "function"}
     notes: ""
   "Tests/unit/test_empty_first_topup.py":
     purpose: "ADR-0003's put-away chain: the own-bin rung fires only after an empty bin fails and before the rescues, fullest-first with ties by location, and the rework it avoids is priced to the receiving crew."

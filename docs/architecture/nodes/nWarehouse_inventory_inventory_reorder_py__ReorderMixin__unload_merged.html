@@ -14,13 +14,16 @@
 <h1><span class="kind kind-function">function</span> <code>_unload_merged</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 
-<pre class="sig"><code>def _unload_merged(self, dock, transit, deadline, epoch, work_order, yard_next)</code></pre>
+<pre class="sig"><code>def _unload_merged(self, dock, transit, deadline, epoch, work_order, yard_next, cap: int | None=None)</code></pre>
 <section class="doc">The &#x27;merged&#x27; pooled gang: v1&#x27;s physics kept as the verification bridge.
 
 One crew works trailers strictly in dock-rank order, completing the top-ranked
 first; a freed door pulls the frozen-ranking-next trailer, which joins the END of
 the work list.  In the degenerate configuration (FIFO, doors &gt;= every trailer, no
 cap) the charge sequence is exactly the v1 drain&#x27;s — the lockstep pin.
+Under a door-team `cap` the gang IS one team of `cap` on one trailer — the cap is
+a property of the trailer, not of the dealing rule — so the rest of the crew
+idles; None keeps the whole crew, byte-identically.
 Returns [(trailer, [(item, t0, dur, worker), ...])] in canonical drain order.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin__receive_standing.html"><code>_receive_standing</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__unload_merged">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_unload_merged">Source ↗</a></p>

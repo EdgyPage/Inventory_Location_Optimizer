@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dock_ceiling · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_context_py__EvalContext_dock_ceiling" data-id="Optimization/Performance_Evaluations/core/context.py::EvalContext.dock_ceiling">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a> <span class="sep">›</span> <a href="nOptimization_Performance_Evaluations_core_context_py__EvalContext.html"><code>EvalContext</code></a> <span class="sep">›</span> <span class="here"><code>dock_ceiling</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>dock_ceiling</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def dock_ceiling(self) -&gt; float | None</code></pre>
+<section class="doc">`cap x doors / crew` — the share of the derived receiving crew the dock could
+have employed AT ONCE, or None when the run declared no door-team cap.
+
+The read-out the door-team cap owes (&quot;Decide the contention regime under the derived
+crew&quot;, 4): receiver utilization stays a REPORTED number and the crew stays as the
+staffing record derives it, so when a capped dock cannot seat the whole crew, the
+receiving row&#x27;s realized share has a ceiling that is PHYSICS rather than a staffing
+error. Below 1.0 the dock is the narrower resource; at or above it the cap never
+binds and the number is inert.
+
+None means uncapped, and that is honest for every run before the cap existed as well
+as for one that chose it — unlike `fee_threshold_days`, whose default is a real
+number and so has to say when it is falling back. Reads the values stamped onto
+`sim_result` (CONFIG is not a channel to a spawned analysis worker) and the crew off
+the staffing record, so it answers None on a flag-off run, which derives no crew.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_context_py__EvalContext_staffing_expectations.html"><code>staffing_expectations</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_context_py__EvalContext_dock_ceiling">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/context.py#:~:text=def%20dock_ceiling">Source ↗</a></p>
+</article>
+</main>
+</body></html>

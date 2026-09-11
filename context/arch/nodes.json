@@ -1516,7 +1516,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=4, yard_policy: str='fifo', dock_policy: str='fifo', local_policy: str='fifo', bound: int | None=None, allocation: str='split')"
+      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=4, yard_policy: str='fifo', dock_policy: str='fifo', local_policy: str='fifo', bound: int | None=None, allocation: str='split', door_team: int | None=None)"
     },
     "Inbound/transit.py::YardTransit.depth": {
       "decorators": [
@@ -3426,6 +3426,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, key)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::EvalContext.dock_ceiling": {
+      "decorators": [],
+      "doc": "`cap x doors / crew` \u2014 the share of the derived receiving crew the dock could\nhave employed AT ONCE, or None when the run declared no door-team cap.\n\nThe read-out the door-team cap owes (\"Decide the contention regime under the derived\ncrew\", 4): receiver utilization stays a REPORTED number and the crew stays as the\nstaffing record derives it, so when a capped dock cannot seat the whole crew, the\nreceiving row's realized share has a ceiling that is PHYSICS rather than a staffing\nerror. Below 1.0 the dock is the narrower resource; at or above it the cap never\nbinds and the number is inert.\n\nNone means uncapped, and that is honest for every run before the cap existed as well\nas for one that chose it \u2014 unlike `fee_threshold_days`, whose default is a real\nnumber and so has to say when it is falling back. Reads the values stamped onto\n`sim_result` (CONFIG is not a channel to a spawned analysis worker) and the crew off\nthe staffing record, so it answers None on a flag-off run, which derives no crew.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float | None"
     },
     "Optimization/Performance_Evaluations/core/context.py::EvalContext.drain_df": {
       "decorators": [],
@@ -6082,7 +6089,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('arm', 'trailers', 'censored', 'doors', 'door util', 'yard depth (mean/max)', 'free doors (mean)', 'drains bound')"
+      "value_preview": "('arm', 'trailers', 'censored', 'doors', 'door util', 'receiver busy', 'dock ceiling', 'yard depth (mean/max)', 'free doors (mean)', 'drains bound')"
     },
     "Optimization/Performance_Evaluations/yard/scorecard.py::_arm_span_days": {
       "decorators": [],
@@ -6090,6 +6097,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key) -> float"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_receiver_busy": {
+      "decorators": [],
+      "doc": "The crew's BUSY SHARE: receiver-seconds charged \u00f7 (crew \u00d7 day_seconds \u00d7 WORK DAYS).\n\nThe door-team cap's own read-out (\"Decide the contention regime under the derived crew\",\n4), and deliberately beside door utilization rather than in place of it: doors can be\nsaturated while the crew idles (a capped dock cannot seat everyone) and the crew can be\nsaturated with doors to spare. Neither direction is better, which is why this lives in\nthe inspection table and is not a Quantity.\n\nTHE DENOMINATOR IS WORK DAYS, not the arm's calendar span, and the distinction is not\npedantic: the sim clock only advances through working hours, so an arm of 40 work days on\nan 8-hour day spans 13.3 CALENDAR days. Dividing a crew's seconds by the calendar span\nover-reads the share by exactly the ratio of the two \u2014 it reported 184% busy on the first\nreal run this was rendered against, which is how it was caught. `_arm_span_days` is the\nright denominator for DOOR utilization (door spans are calendar time) and the wrong one\nhere, which is why the two read-outs beside each other do not share one.\n\nCounted as DISTINCT `work_day` values rather than batches, so it stays right if a day\never releases more than one batch, and it is the same count\n`equilibrium._utilization_clause` grants against \u2014 the two reports cannot mean different\nthings by \"busy\". '-' when the run derived no crew (flag-off) or recorded no receiving\nseconds; never 0%, which is a different and stronger claim.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key) -> str"
     },
     "Optimization/Performance_Evaluations/yard/scorecard.py::_row": {
       "decorators": [],
@@ -6434,6 +6448,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'fifo'"
+    },
+    "Optimization/config/settings.py::INBOUND_DOOR_TEAM": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
     },
     "Optimization/config/settings.py::INBOUND_FEE_THRESHOLD_DAYS": {
       "decorators": [],
@@ -7428,6 +7449,13 @@
       "signature": null,
       "value_preview": "4"
     },
+    "Optimization/config/whatif_config.py::PHASE2_DOOR_TEAM": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "10"
+    },
     "Optimization/config/whatif_config.py::PHASE2_FINITE_W": {
       "decorators": [],
       "doc": null,
@@ -7482,7 +7510,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{**ERA_RUN_DEFAULTS, 'inbound_trailer_type': '53', 'inbound_standing_yard': True, 'inbound_dock_doors': PHASE2_DOCK_DOORS, 'inbound_lead_minutes': PHASE2_LEAD_MINUTES, 'inbound_lead_spread': PHASE2..."
+      "value_preview": "{**ERA_RUN_DEFAULTS, 'inbound_trailer_type': '53', 'inbound_standing_yard': True, 'inbound_dock_doors': PHASE2_DOCK_DOORS, 'inbound_door_team': PHASE2_DOOR_TEAM, 'inbound_lead_minutes': PHASE2_LEAD..."
     },
     "Optimization/config/whatif_config.py::SPECS": {
       "decorators": [],
@@ -7510,7 +7538,7 @@
       "doc": "The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), \u2026].\n\nEvery entry states EVERY key the axis touches, including the ones it is not exercising.\nThat is not verbosity: `_apply_cell` mutates a process-wide CONFIG that is never reset\nbetween cells, so a key one cell writes and the next omits leaves the second running the\nfirst's policy under its own name.  `_inbound_axis` refuses a partial entry for exactly\nthis reason, and stating the full record here is how that refusal is satisfied.\n\nThe arrival regime rides the axis rather than the command line for the same reason: the\ninbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a\nspread without the standing yard \u2014 and it refuses it ABOVE the trailer-type early return,\nso an anchor inheriting a run-level `--inbound-lead-spread` would raise instead of running.\nCarrying the regime here makes the spec the whole experimental condition, reproducible\nwithout a remembered command line.\n\nThe anchor is the validity check that phase 1's ranking transferred \u2014 present as a cell,\nnever the reference.  The reference is `fifo`, so every delta reads \"versus FIFO\", which\nis the campaign's own question.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES)"
+      "signature": "(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES)"
     },
     "Optimization/config/whatif_config.py::phase2_inbound_axis._policy": {
       "decorators": [],
@@ -18588,17 +18616,17 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_merged": {
       "decorators": [],
-      "doc": "The 'merged' pooled gang: v1's physics kept as the verification bridge.\n\nOne crew works trailers strictly in dock-rank order, completing the top-ranked\nfirst; a freed door pulls the frozen-ranking-next trailer, which joins the END of\nthe work list.  In the degenerate configuration (FIFO, doors >= every trailer, no\ncap) the charge sequence is exactly the v1 drain's \u2014 the lockstep pin.\nReturns [(trailer, [(item, t0, dur, worker), ...])] in canonical drain order.",
+      "doc": "The 'merged' pooled gang: v1's physics kept as the verification bridge.\n\nOne crew works trailers strictly in dock-rank order, completing the top-ranked\nfirst; a freed door pulls the frozen-ranking-next trailer, which joins the END of\nthe work list.  In the degenerate configuration (FIFO, doors >= every trailer, no\ncap) the charge sequence is exactly the v1 drain's \u2014 the lockstep pin.\nUnder a door-team `cap` the gang IS one team of `cap` on one trailer \u2014 the cap is\na property of the trailer, not of the dealing rule \u2014 so the rest of the crew\nidles; None keeps the whole crew, byte-identically.\nReturns [(trailer, [(item, t0, dur, worker), ...])] in canonical drain order.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, dock, transit, deadline, epoch, work_order, yard_next)"
+      "signature": "(self, dock, transit, deadline, epoch, work_order, yard_next, cap: int | None=None)"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._unload_split": {
       "decorators": [],
-      "doc": "The 'split' door teams: the standing model's own physics.\n\nAt ctx-freeze the workers are DEALT across staged trailers in dock-priority\norder, cycling, so the top ranks take the extras when the division is uneven\n(`allocation.partition`, round-robin).  Each team charges earliest-free WITHIN\nthe team.  Doors therefore free STAGGERED \u2014 the realistic dynamic the fee and\nspace signals need \u2014 and when one does, the yard-pull stages the frozen-next\ntrailer and the freed team reassigns: (1) to the top-ranked staged trailer with\nNO workers \u2014 the one-worker-many-doors inversion's guard \u2014 (2) else to its own\ndoor's replacement, (3) else to the top-ranked trailer with the fewest workers.\nA worker idles only when nothing staged has units.  Dock priority is thereby a\nworker-ALLOCATION preference: decisive when workers < staged trailers, graded\notherwise.\n\nThe loop advances whichever team can start soonest, so charges interleave in\ntrue clock order and a reassignment always sees every earlier emptying's effect.\nReturns the same shape as `_unload_merged`, in the same canonical order.",
+      "doc": "The 'split' door teams: the standing model's own physics.\n\nAt ctx-freeze the workers are DEALT across staged trailers in dock-priority\norder, cycling, so the top ranks take the extras when the division is uneven\n(`allocation.partition`, round-robin).  Each team charges earliest-free WITHIN\nthe team.  Doors therefore free STAGGERED \u2014 the realistic dynamic the fee and\nspace signals need \u2014 and when one does, the yard-pull stages the frozen-next\ntrailer and the freed team reassigns: (1) to the top-ranked staged trailer with\nNO workers \u2014 the one-worker-many-doors inversion's guard \u2014 (2) else to its own\ndoor's replacement, (3) else to the top-ranked trailer with the fewest workers.\nA worker idles only when nothing staged has units.  Dock priority is thereby a\nworker-ALLOCATION preference: decisive when workers < staged trailers, graded\notherwise.\n\nTHE DOOR-TEAM CAP (`cap`; None = uncapped, the dealing above verbatim).  At most\n`cap` receivers support one trailer's unload and pack at once, every worker\nadditive, the steps inside an unload not modelled.  The deal stays EVEN and each\nteam is then cut to `cap`; the cut-off workers simply are not dealt, and idle for\nthe drain.  Even, not greedy: 22 receivers over three staged trailers deal 8/7/7,\nand the cap binds only when the even division would put more than `cap` on a door\n(22 over two doors is 10/10, with two standing idle until a door frees).  A greedy\ndeal \u2014 10/10/2 \u2014 is the rule 25 rejected: it makes the cap bind at every door\ncount and turns dock priority into a capacity grant.\n\nThe reassignment respects the cap by SPREADING a freed team over the (1)-(2)-(3)\ntargets in order, each taking up to its own room, instead of handing the whole team\nto one.  That matters at step (3), where the target already has a team: the\npre-cap code extended it unconditionally, which under a cap would put `2 x cap`\nreceivers on one trailer.  Uncapped the room is unbounded, so the head of the list\ntakes the whole team and the None path is byte-identical rather than merely\nequivalent.  Nothing is dealt to a cut worker later: whenever a target has room it\nis a FRESH staging with room `cap`, and a freed team that was cut is itself exactly\n`cap`, so it fills the door alone.\n\nThe loop advances whichever team can start soonest, so charges interleave in\ntrue clock order and a reassignment always sees every earlier emptying's effect.\nReturns the same shape as `_unload_merged`, in the same canonical order.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, dock, transit, deadline, epoch, work_order, yard_next)"
+      "signature": "(self, dock, transit, deadline, epoch, work_order, yard_next, cap: int | None=None)"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders": {
       "decorators": [],

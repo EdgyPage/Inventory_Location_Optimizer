@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_unload_split</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _unload_split(self, dock, transit, deadline, epoch, work_order, yard_next)</code></pre>
+<pre class="sig"><code>def _unload_split(self, dock, transit, deadline, epoch, work_order, yard_next, cap: int | None=None)</code></pre>
 <section class="doc">The &#x27;split&#x27; door teams: the standing model&#x27;s own physics.
 
 At ctx-freeze the workers are DEALT across staged trailers in dock-priority
@@ -28,6 +28,26 @@ door&#x27;s replacement, (3) else to the top-ranked trailer with the fewest work
 A worker idles only when nothing staged has units.  Dock priority is thereby a
 worker-ALLOCATION preference: decisive when workers &lt; staged trailers, graded
 otherwise.
+
+THE DOOR-TEAM CAP (`cap`; None = uncapped, the dealing above verbatim).  At most
+`cap` receivers support one trailer&#x27;s unload and pack at once, every worker
+additive, the steps inside an unload not modelled.  The deal stays EVEN and each
+team is then cut to `cap`; the cut-off workers simply are not dealt, and idle for
+the drain.  Even, not greedy: 22 receivers over three staged trailers deal 8/7/7,
+and the cap binds only when the even division would put more than `cap` on a door
+(22 over two doors is 10/10, with two standing idle until a door frees).  A greedy
+deal — 10/10/2 — is the rule 25 rejected: it makes the cap bind at every door
+count and turns dock priority into a capacity grant.
+
+The reassignment respects the cap by SPREADING a freed team over the (1)-(2)-(3)
+targets in order, each taking up to its own room, instead of handing the whole team
+to one.  That matters at step (3), where the target already has a team: the
+pre-cap code extended it unconditionally, which under a cap would put `2 x cap`
+receivers on one trailer.  Uncapped the room is unbounded, so the head of the list
+takes the whole team and the None path is byte-identical rather than merely
+equivalent.  Nothing is dealt to a cut worker later: whenever a target has room it
+is a FRESH staging with room `cap`, and a freed team that was cut is itself exactly
+`cap`, so it fills the door alone.
 
 The loop advances whichever team can start soonest, so charges interleave in
 true clock order and a reassignment always sees every earlier emptying&#x27;s effect.

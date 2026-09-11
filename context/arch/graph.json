@@ -2386,6 +2386,11 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.carry_df"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/context.py::EvalContext.staffing_expectations",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.dock_ceiling"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/requests.py::drain_frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::EvalContext.drain_df"
@@ -6046,6 +6051,11 @@
       "src": "Optimization/Performance_Evaluations/yard/scorecard.py::_row"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/yard/scorecard.py::_receiver_busy",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/yard/scorecard.py::_row"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/chartkit.py::height_for_categories",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/yard/scorecard.py::render"
@@ -6557,6 +6567,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::INBOUND_DOCK_POLICY",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_DOOR_TEAM",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -23651,6 +23666,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.dock_ceiling",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "dock_ceiling",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
       "id": "Optimization/Performance_Evaluations/core/context.py::EvalContext.drain_df",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
@@ -26627,6 +26650,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/yard/scorecard.py",
+      "id": "Optimization/Performance_Evaluations/yard/scorecard.py::_receiver_busy",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/yard/scorecard.py",
+      "name": "_receiver_busy",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/yard/scorecard.py",
       "id": "Optimization/Performance_Evaluations/yard/scorecard.py::_row",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/yard/scorecard.py",
@@ -27015,6 +27046,14 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "INBOUND_DOCK_POLICY",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_DOOR_TEAM",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_DOOR_TEAM",
       "public": true
     },
     {
@@ -28151,6 +28190,14 @@
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
       "name": "PHASE2_DOCK_DOORS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_DOOR_TEAM",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_DOOR_TEAM",
       "public": true
     },
     {
