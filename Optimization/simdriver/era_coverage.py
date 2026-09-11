@@ -790,39 +790,6 @@ def transit_of(lead: dict | None, scale: float = 1.0) -> dict | None:
                                 float(lead['lead_sigma']), float(lead['day_seconds']))
 
 
-def refuse_discarded_lead(orders_all: list, lead: dict, inputs: dict) -> None:
-    """Refuse, at setup, a supplier lead the trailer pipeline would silently discard
-    ("Declare the coverage against the inbound lead", decision 8).
-
-    Under the era with a trailer type declared, `TrailerTransit.dispatch` loads every fired
-    reorder the instant it fires and ignores the SKU's `lead_time_mean` -- so a catalogue
-    whose SKUs carry one would be declared AT that lead (levels, pipeline, fill) and then
-    run without it: the silent no-op the config doctrine refuses.  The refusal stands until
-    inbound-optimization's "Chain the supplier lead before the trailer" (27) queues the
-    order at the ordering site for its supplier lead before the trailer loads it; that
-    ticket lifts this guard.  Counted as the ledger counts it (`round(lead_time_mean) > 0`,
-    the batch transit's own quantization -- the same census `positive_lead_skus` reports):
-    a lead that rounds to no batch was never honoured by either transit and loses nothing.
-
-    Not refused: a non-era run (it keeps reading the attribute as batches, byte-identically,
-    and the pipeline's discard there predates this record) and an era run with no trailer
-    type (the batch transit honours the attribute; nothing is discarded).
-    """
-    if _guarantee_inputs(inputs) is None or not lead or lead.get('trailer_type') is None:
-        return
-    n = sum(1 for c in orders_all
-            if round(float(getattr(c, 'lead_time_mean', 0.0) or 0.0)) > 0)
-    if n:
-        raise ValueError(
-            f'{n:,} SKU(s) carry a supplier lead (lead_time_mean rounding to >= 1 batch) under '
-            f'the calibrated era with trailer type {lead["trailer_type"]!r} declared, and the '
-            f'trailer pipeline loads every reorder the instant it fires -- the lead would be '
-            f'declared on the record and then discarded by the run. Refused until '
-            f'inbound-optimization 27 ("Chain the supplier lead before the trailer") queues '
-            f'the order at the ordering site for its supplier lead; until then run this '
-            f'catalogue without a trailer type, or a lead-free catalogue with one.')
-
-
 def fill_curve(section: list, lines_per_day: float, lead: dict,
                scales: tuple = FILL_CURVE_SCALES) -> list | None:
     """The section's expected first-pass fill as a function of the pair's TRANSIT, at the
@@ -964,8 +931,6 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
                          f'max_rounds={max_rounds!r}')
     if lead is None:
         lead = lead_block(None, {'seconds': day_seconds, 'releases_per_day': None})
-    # A supplier lead the pipeline would discard is refused before anything is declared at it.
-    refuse_discarded_lead(orders_all, lead, inputs)
     transit = transit_of(lead)
     transit_days = float(lead['transit_days'])
     unit = float(lead.get('lead_unit_days') or 1.0)

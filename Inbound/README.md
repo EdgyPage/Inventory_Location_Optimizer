@@ -10,7 +10,8 @@ seam.
   cost model, the packer and its `LoadPlan` record.
 - **The trailer model**: `trailer.py` (`Trailer53`/`Trailer28` config types, stateful
   `Trailer` instances, load pallets) and `transit.py` (`TrailerTransit` on the order-port
-  seam; `YardTransit`, the standing yard where doors become real).
+  seam, serving each order's supplier lead at the ordering site before it loads; `YardTransit`,
+  the standing yard where doors become real).
 - **The dock's decision surfaces**: `priorities.py` (the global/local + yard/dock policy
   registries mirroring `put_policy`, the frozen `DockContext`) and `space.py` (the space
   timeline: the per-drain frozen `SpaceView` — current empties plus untimed predicted

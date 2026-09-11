@@ -338,8 +338,10 @@ SIM_DB_SEMANTICS: dict = {
                               note='a LISTING re-emitted per batch — the contents of the '
                                    'queues, never summed across batches'),
         'remaining_lead': Col(SPAN, 'batches', 'batch', clock=BATCHES,
-                              note="the legacy countdown ('lead' rows only); the trailer "
-                                   "feature replaces it flag-on with absolute-clock leads"),
+                              note="batches until LOADING ('lead' rows only): flag-off the "
+                                   "whole countdown; flag-on the SUPPLIER lead an order waits "
+                                   "at the ordering site before the trailer loads it, then 1 "
+                                   "while riding the trailer's absolute-clock lead, 0 standing"),
         'unit_type':      Col(LABEL, 'enum', 'row',
                               null_means="a 'lead' row — still in transit, not yet packed"),
         'storage_size':   Col(LABEL, 'enum', 'row',

@@ -531,7 +531,9 @@ class ReorderMixin:
     #:     a scheduled instant — and that feature has now PICKED, with the trailer model
     #:     in hand: flag-off keeps this batch countdown (`BatchTransit`, byte-identical);
     #:     flag-on binds a trailer transit whose leads are absolute-clock seconds
-    #:     (minutes-authored, default zero) on the same `transit` seam.
+    #:     (minutes-authored, default zero) on the same `transit` seam -- and still
+    #:     serves the SKU's batch lead in FRONT of the trailer, as its SUPPLIER lead at
+    #:     the ordering site (`TrailerTransit.dispatch`), so the two stages add.
     #:
     #: Until then: a `work_events` row for an inbound arrival would sit at a batch
     #: boundary, and anything reasoning about arrival TIMES must know that.

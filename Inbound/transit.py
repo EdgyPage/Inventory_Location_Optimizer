@@ -24,6 +24,22 @@ the same lead in every arm of a run — common random numbers across arms.  Hete
 is the standing yard's alone (`inbound_spec` refuses a spread without it): v1 ranks by
 dispatch seq, so a spread there would shift arrival batches without scrambling any order.
 
+# ── the supplier lead, and where it waits ───────────────────────────────────────
+
+The SKU's `lead_time_mean` (batches, the catalogue's attribute) is its SUPPLIER lead —
+order to ready-to-ship at the ordering site — and it is served BEFORE the trailer, never
+instead of it ("Declare the coverage against the inbound lead", decision 2).  A reorder
+fired with a nonzero supplier lead waits that many batches in `_at_site`, the same
+batch-denominated countdown the flag-off `BatchTransit` runs (advance one per
+`check_reorders`, release at zero), and loads onto the open trailer only when it
+releases; lead 0 loads the instant it fires, as it always did.  The two stages are
+additive, which is exactly what the coverage record prices (`attr_s + transit_days`).
+Released orders load in FIRE order, ahead of anything fired in the same batch: the
+queue is flushed before every load, so an order two batches old never queues behind
+this batch's lead-0 newcomer — the tiebreak `BatchTransit.release` has by construction
+(queue order).  On a lead-free catalogue the queue is never entered, and every trailer,
+stamp and drain is byte-identical to the pipeline before the queue existed.
+
 # ── what the doors do in v1, and deliberately do not ──────────────────────────────
 
 Doors are BOOKKEEPING in v1: every arrival lands at the batch epoch and every policy is
@@ -74,7 +90,8 @@ class TrailerTransit:
     SOURCE = 'trailer'
 
     __slots__ = ('trailer_type', 'lead_s', 'lead_sigma', 'lead_seed', 'doors',
-                 '_global', '_local', 'bound', '_open', '_in_transit', '_yard', '_seq')
+                 '_global', '_local', 'bound', '_open', '_in_transit', '_yard', '_seq',
+                 '_at_site')
 
     def __init__(self, trailer_type: type = None, *, lead_s: float = 0.0,
                  lead_sigma: float = 0.0, lead_seed: int = 0,
@@ -93,6 +110,10 @@ class TrailerTransit:
         self._open: Trailer | None = None       # loading at the ordering site
         self._in_transit: list = []             # dispatched, lead not yet elapsed
         self._yard: list = []                   # arrived, awaiting a door
+        # Fired orders waiting their SUPPLIER lead at the ordering site, in fire order:
+        # [sku, qty, remaining_batches, unit_volume].  Empty forever on a lead-free
+        # catalogue — the byte-identity of every archived run is that emptiness.
+        self._at_site: list = []
         self._seq = 0                           # dispatch counter — FIFO's tiebreak
 
     # ── the lead draw (seq-keyed, stateless, and ABSENT at spread zero) ──────────
@@ -124,17 +145,60 @@ class TrailerTransit:
     # ── the order port (called from _fire_reorders) ──────────────────────────────
     def dispatch(self, sku: int, qty: int, lead: int,
                  unit_volume: int | None = None, now_s: float | None = None) -> None:
-        """Load one fired reorder, item-by-item, FIFO next-fit across trailers.
+        """Accept one fired reorder: queue it for its supplier lead, or load it now.
 
-        `lead` (batches) is the LEGACY denomination and is deliberately ignored here: a
-        trailer's lead is seconds on the absolute clock, drawn per trailer by `lead_for`
-        (ticket: "Choose the lead-time denomination").  `unit_volume` None falls back to
-        one item per position-volume share of nothing — callers on this seam pass
-        `order.volume()`.
+        `lead` (batches) is the SKU's SUPPLIER lead — the catalogue's `lead_time_mean` as
+        `_fire_reorders` rounds it — and it is served HERE, in front of the trailer: a
+        positive lead joins `_at_site` and loads `lead` drains later (`advance` ticks it,
+        `_release_site` loads it at zero); lead 0 loads this instant.  The trailer's own
+        lead is a different stage — seconds on the absolute clock, drawn per trailer by
+        `lead_for` — and the two ADD, which is what the coverage record prices.
 
-        The draw happens HERE, at creation, and never again: the lead is a property of the
-        trailer from the instant it exists, so `dispatched_s + lead_s` is a fixed arrival
-        the yard can be sorted by however many drains later it is observed.
+        Anything already due at the ordering site loads FIRST, so a released order never
+        queues behind this batch's lead-0 newcomers: loading order is fire order, the
+        tiebreak `BatchTransit.release` has by construction.  `unit_volume` None falls
+        back to one item per position-volume share of nothing — callers on this seam
+        pass `order.volume()`.
+        """
+        self._release_site(now_s)
+        if lead > 0:
+            self._at_site.append([sku, int(qty), int(lead), unit_volume])
+            return
+        self._load(sku, qty, unit_volume, now_s)
+
+    def _release_site(self, now_s: float | None) -> None:
+        """Load every order whose supplier lead has elapsed (remaining <= 0), in queue —
+        i.e. fire — order.  Called at the top of every `dispatch` and every `release`,
+        so a due order rides the same drain whether or not anything fired that batch.
+        A negative remainder is never clamped, exactly as `BatchTransit` leaves it."""
+        if not self._at_site:
+            return
+        still: list = []
+        for entry in self._at_site:
+            if entry[2] <= 0:
+                self._load(entry[0], entry[1], entry[3], now_s)
+            else:
+                still.append(entry)
+        self._at_site = still
+
+    def _site_qty(self) -> int:
+        """Pieces waiting at the ordering site — one definition for both censuses."""
+        return sum(e[1] for e in self._at_site)
+
+    def _site_rows(self) -> list:
+        """(sku, qty, remaining_batches) per site entry, in fire order — the snapshot's
+        leading rows in both classes."""
+        return [(sku, qty, rem) for sku, qty, rem, _v in self._at_site]
+
+    def _load(self, sku: int, qty: int, unit_volume: int | None,
+              now_s: float | None) -> None:
+        """Load one order, item-by-item, FIFO next-fit across trailers.
+
+        The trailer's lead is drawn HERE, at creation, and never again: it is a property
+        of the trailer from the instant it exists, so `dispatched_s + lead_s` is a fixed
+        arrival the yard can be sorted by however many drains later it is observed.
+        `dispatched_s` is the epoch of the drain the order LOADED in — after its supplier
+        lead, not the drain it fired in.
         """
         vol = int(unit_volume) if unit_volume else 1
         left = int(qty)
@@ -161,19 +225,27 @@ class TrailerTransit:
 
     # ── the calendar (phase wrappers delegate here) ──────────────────────────────
     def advance(self) -> None:
-        """Leads are absolute-clock seconds; a batch tick moves nothing by itself."""
+        """One batch elapsed: orders waiting their supplier lead move one tick closer.
+
+        The trailer stage is untouched — its leads are absolute-clock seconds, and a batch
+        tick moves nothing there.  The tick is one BATCH, the manager's `LEAD_TIME_UNIT`,
+        counted exactly as `BatchTransit.advance` counts it.
+        """
+        for entry in self._at_site:
+            entry[2] -= 1
 
     def release(self, now_s: float | None = None) -> list:
         """Everything the dock can start on this batch, as [sku, qty, 0] deliveries.
 
-        Order of operations IS the model: (1) anything still loading departs — a trailer
-        waits for nothing in v1; (2) arrivals (lead elapsed against `now_s`) join the
-        yard; (3) the yard stages to doors and staged trailers are worked in
-        GLOBAL-priority order, each trailer's pallets in LOCAL-priority order, emitting one
-        delivery per contiguous SKU lot — so a split shipment packs as the pieces it
-        arrived in.  Worked trailers free their doors within the drain (v1: doors are
-        bookkeeping; see the module note).
+        Order of operations IS the model: (0) orders whose supplier lead has elapsed load,
+        in fire order; (1) anything still loading departs — a trailer waits for nothing
+        in v1; (2) arrivals (lead elapsed against `now_s`) join the yard; (3) the yard
+        stages to doors and staged trailers are worked in GLOBAL-priority order, each
+        trailer's pallets in LOCAL-priority order, emitting one delivery per contiguous
+        SKU lot — so a split shipment packs as the pieces it arrived in.  Worked trailers
+        free their doors within the drain (v1: doors are bookkeeping; see the module note).
         """
+        self._release_site(now_s)
         if self._open is not None:
             self._depart(self._open)
             self._open = None
@@ -207,21 +279,24 @@ class TrailerTransit:
     # ── the census (levels the ledger and replay read) ───────────────────────────
     @property
     def depth(self) -> int:
-        """In-flight ENTRIES: trailers loading, in transit, or standing in the yard."""
-        n = len(self._in_transit) + len(self._yard)
+        """In-flight ENTRIES: orders waiting at the ordering site, trailers loading, in
+        transit, or standing in the yard."""
+        n = len(self._at_site) + len(self._in_transit) + len(self._yard)
         return n + (1 if self._open is not None else 0)
 
     def merchandise(self) -> int:
-        """Pieces not yet released to the dock — the in_transit_qty level."""
-        total = 0
+        """Pieces not yet released to the dock — the in_transit_qty level.  An order
+        waiting at the ordering site counts: the ledger credited it when it fired."""
+        total = self._site_qty()
         for t in ([self._open] if self._open else []) + self._in_transit + self._yard:
             total += sum(qty for _s, qty, _v in t.lots())
         return total
 
     def snapshot(self) -> list:
-        """(sku, qty, remaining_lead) tuples for the replay rows; remaining is 1 for
-        anything still riding a lead, 0 for standing — batches were never its unit."""
-        out = []
+        """(sku, qty, remaining_lead) tuples for the replay rows: the batches left for an
+        order waiting at the ordering site, then 1 for anything riding a trailer's lead
+        and 0 for standing — batches were never the trailer stage's unit."""
+        out = self._site_rows()
         for t in ([self._open] if self._open else []) + self._in_transit:
             out.extend((sku, qty, 1) for sku, qty in sorted(t.sku_totals().items()))
         for t in self._yard:
@@ -299,13 +374,15 @@ class YardTransit(TrailerTransit):
 
     # ── the calendar (all that release() does here) ───────────────────────────────
     def release(self, now_s: float | None = None) -> list:
-        """Pure calendar: departs loaders, lands arrivals in the yard, delivers NOTHING.
+        """Pure calendar: loads what the supplier lead released, departs loaders, lands
+        arrivals in the yard, delivers NOTHING.
 
         The unload pull lives in `_receive` because it is LABOUR — a lead elapses whether
         or not anyone is at work, but nothing comes off a trailer without a crew.  An
         empty return keeps `_release_arrivals` a structural no-op: no ledger debit, no
         packing, no admission — the deferred-until-unload contract.
         """
+        self._release_site(now_s)
         if self._open is not None:
             self._depart(self._open)
             self._open = None
@@ -452,8 +529,9 @@ class YardTransit(TrailerTransit):
     def merchandise(self) -> int:
         """Pieces not yet handed to the put queue — mirrors the deferred ledger: full
         loads before arrival, PLANNED quantities once a plan exists (a packing shortfall
-        was already debited at arrival), remainders only on staged trailers."""
-        total = 0
+        was already debited at arrival), remainders only on staged trailers — and, in
+        front of all of it, what still waits at the ordering site."""
+        total = self._site_qty()
         for t in ([self._open] if self._open else []) + self._in_transit:
             total += sum(qty for _s, qty, _v in t.lots())
         for t in self._yard + self._staged:
@@ -461,9 +539,10 @@ class YardTransit(TrailerTransit):
         return total
 
     def snapshot(self) -> list:
-        """(sku, qty, remaining_lead) rows: 1 riding a lead, 0 standing — yard trailers
-        whole, staged trailers by their remainders."""
-        out = []
+        """(sku, qty, remaining_lead) rows: the batches left at the ordering site, 1
+        riding a lead, 0 standing — yard trailers whole, staged trailers by their
+        remainders."""
+        out = self._site_rows()
         for t in ([self._open] if self._open else []) + self._in_transit:
             out.extend((sku, qty, 1) for sku, qty in sorted(t.sku_totals().items()))
         for t in self._yard + self._staged:

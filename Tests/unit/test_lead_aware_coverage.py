@@ -28,7 +28,8 @@ What this file pins, each against a hand computation or a seeded Monte-Carlo:
     the explained level, `expectations_for` reading the stamp or None, the batch frame
     carrying `units_ordered`;
   * the real tiny pair through `build_shared_assets`: inbound-on stamps the pilot transit and
-    solves a higher floor, inbound-off stamps none, and an `lt1` sibling refuses.
+    solves a higher floor, inbound-off stamps none, and an `lt1` sibling declares at
+    its supplier lead plus the transit.
 
 Run:  python -m pytest Tests/unit/test_lead_aware_coverage.py -q
 """
@@ -384,30 +385,6 @@ def test_fixed_point_stamps_the_lead_and_the_curve_and_the_rebuild_reproduces_it
     assert rec0['final']['store']['fill']['pipeline_units'] == 0
 
 
-def test_a_supplier_lead_the_pipeline_would_discard_is_refused_under_the_era_only():
-    Order.next_sku = 1
-    with_lead = [_order(1, freq=0.5, qty=4.0, declare=False),
-                 _order(2, freq=0.5, qty=4.0, lead=1.0, declare=False)]
-    era = {'first_time_confidence': C}
-    on = ec.lead_block(PILOT, DAY)
-    off = ec.lead_block(None, DAY)
-    with pytest.raises(ValueError, match='Chain the supplier lead before the trailer'):
-        ec.refuse_discarded_lead(with_lead, on, era)
-    ec.refuse_discarded_lead(with_lead, off, era)                  # no trailer: honoured
-    ec.refuse_discarded_lead(with_lead, on, {'first_time_confidence': None})   # flag-off
-    # A lead that rounds to no batch was never honoured by either transit.
-    Order.next_sku = 1
-    tiny = [_order(1, freq=0.5, qty=4.0, lead=0.3, declare=False)]
-    ec.refuse_discarded_lead(tiny, on, era)
-    # ...and the loop refuses before it declares anything.
-    specs = [ec.ChannelSpec('store', None, None, 'store')]
-    with pytest.raises(ValueError, match='inbound-optimization 27'):
-        ec.fixed_point(with_lead, lambda: (_Plan(with_lead), _Meta()), specs,
-                       coverage_days=10.0, safety_days=2.0, floor_lines=None, inputs=era,
-                       day_seconds=D, log=_LOG, lead=on)
-    assert not any(c.stock_declared() for c in with_lead)
-
-
 # ═════════════════════════════════════════════════════════════════════════════════════════
 # The audit
 # ═════════════════════════════════════════════════════════════════════════════════════════
@@ -561,14 +538,23 @@ def test_the_era_declares_at_the_pilot_transit_and_solves_a_higher_floor(tmp_pat
     json.dumps(on)
 
 
-def test_an_lt1_sibling_refuses_under_the_era_with_a_trailer_and_builds_without_one(tmp_path,
-                                                                                    restore):
+def test_an_lt1_sibling_declares_at_its_supplier_lead_plus_the_transit(tmp_path, restore):
+    """The supplier lead is served at the ordering site before the trailer loads ("Chain
+    the supplier lead before the trailer"), so a catalogue whose SKUs carry one BUILDS under
+    the era with a trailer type -- the interim refusal is gone -- and its record reads
+    `attr_s + transit_days`: one batch is one site day, plus the pilot's 1.766.  Without the
+    trailer the batch transit honours the attribute alone."""
     restore.update(shift_drain_or_cap=True, coverage_days=10.0, safety_days=2.0,
                    floor_lines=None, store_demand=0.05, releases_per_day=1,
                    inbound_trailer_type='53', inbound_lead_minutes=480, inbound_lead_spread=0.7)
     inv_db, aff_db = _tiny_pair(tmp_path, lead_batches=1.0)
-    with pytest.raises(ValueError, match='Chain the supplier lead before the trailer'):
-        _build(inv_db, aff_db, tmp_path, 'refused')
+    on = _build(inv_db, aff_db, tmp_path, 'chained')['coverage']
+    assert on['lead']['trailer_type'] == '53'
+    st_on = on['final']['store']
+    attr_days = 1.0 * on['lead']['lead_unit_days']            # one batch, as days
+    assert math.isclose(st_on['lead_days'], attr_days + on['lead']['transit_days'])
+    assert math.isclose(st_on['fill']['lead_days'], attr_days + on['lead']['transit_days'])
+    assert st_on['fill']['pipeline_units'] > 0 and st_on['fill']['fill_rate'] >= SIDE
     # Without the trailer the batch transit honours the attribute: one batch is one day, the
     # fill is priced at it, and the floor solves above the lead-free sibling's.
     restore.update(inbound_trailer_type=None, inbound_lead_minutes=None, inbound_lead_spread=None)
@@ -582,6 +568,8 @@ def test_an_lt1_sibling_refuses_under_the_era_with_a_trailer_and_builds_without_
     lt0 = _build(lt0_db, lt0_aff, tmp_path, 'lt0')['coverage']
     assert not rec['floor']['store']['solved']['at_lower_bound']
     assert rec['floor']['store']['floor_lines'] > lt0['floor']['store']['floor_lines']
+    # ...and the chained lead (attr + transit) solves above the attribute alone.
+    assert on['floor']['store']['floor_lines'] > rec['floor']['store']['floor_lines']
 
 
 def test_a_mixed_catalogue_shares_one_transit_and_solves_each_section_at_it(monkeypatch):
