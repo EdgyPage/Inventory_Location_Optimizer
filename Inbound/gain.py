@@ -51,6 +51,12 @@ forbidden, so the broker holds what it is handed):
     Price = the tier's mean; consumption = a SEAT COUNT, since which bin a uniform
     draw got is worth nothing to the next unit.  See `_place_uniform` (ticket 21).
 
+The bundle reaches the evaluator through an OWNER INDIRECTION — `for_key(BinKey)`, never
+the bundle itself.  A single-channel run hands over a `OneOwnerBundle`, whose `for_key`
+ignores the key and returns the one bundle it holds, so there is exactly one resolution
+rule and no `if coupled:` in the pricing path; the site dock's composite (two arms over
+one mixed trailer) is the same protocol answering two ways.  See `_Evaluator.b`.
+
 Exhaustion resolves tiers over the `SpaceView` keys the way `_candidates_raw` does:
 smallest non-empty fitting tier first, spilling UP (the injected `tier_ranks_for`
 carries the tier tables).  Only past total exhaustion does a unit price at the worst
@@ -184,21 +190,102 @@ class GainBundle:
         self.urgency_horizon_days = float(urgency_horizon_days)
 
 
+class OneOwnerBundle:
+    """The single-channel bundle provider: `for_key` ignores the key and hands back
+    the ONE `GainBundle` it holds — that same instance, never a copy.
+
+    The evaluator always resolves its arm machinery through `for_key`, so a run with
+    one channel needs something to resolve THROUGH.  This is it, and it is why there is
+    no second path: a bare bundle is refused at `_Evaluator.__init__` rather than
+    sniffed for, so the pricing hot path has one shape whether or not the site dock's
+    composite is what answers.  Byte-identity is structural — the object the evaluator
+    reads is the object the driver built.
+
+    `key` is unused BY CONSTRUCTION, not by accident: one owner has one answer.  The
+    cursor hands it `None` before the first group is keyed (`_Evaluator.b`), which this
+    adapter answers like any other key.
+    """
+
+    __slots__ = ('bundle',)
+
+    def __init__(self, bundle: GainBundle):
+        if not isinstance(bundle, GainBundle):
+            raise TypeError(
+                f'OneOwnerBundle wraps exactly one GainBundle — got '
+                f'{type(bundle).__name__}.  A provider handed in here (a second wrap, '
+                f'or the site composite) would resolve to itself and silently price '
+                f'every owner with whatever the outer lookup returned')
+        self.bundle = bundle
+
+    def for_key(self, key):
+        return self.bundle
+
+    # ── the site-wide half, read off the provider ─────────────────────────────────
+    # The urgency gate reads its two days-denominated knobs from `ctx.gain` itself —
+    # it composes hours and days ABOVE any one owner's placement machinery, so it has
+    # no BinKey to resolve with and must not pick an arbitrary owner's copy.  They are
+    # site CONFIG (`inbound_spec()` -> driver -> bundle), so forwarding is exact here;
+    # a provider with two owners owes a REFUSAL when their copies disagree, which is
+    # the composite's to state and not this adapter's.
+    @property
+    def fee_threshold_days(self) -> float:
+        return self.bundle.fee_threshold_days
+
+    @property
+    def urgency_horizon_days(self) -> float:
+        return self.bundle.urgency_horizon_days
+
+
 class _Evaluator:
     """One plan's virtual placement state — built per entry call, dies with it.
 
     Owns the sort-once structures (per-key bins in arm-D order, computed lazily the
     first time a key is touched and NEVER rebuilt — the structure the Tier-1 sabotage
     test perturbs), the consumed-bin set the greedy advances, and the pricing.  Reads
-    the frozen `SpaceView` and the bundle; its only writes are its own bookkeeping.
+    the frozen `SpaceView` and the bundle provider; its only writes are its own
+    bookkeeping.
+
+    # ── the owner cursor, and why ONE evaluator can serve two leaves ──────────────
+
+    `b` is not a field: it resolves `provider.for_key(self._key)`, and `_key` is set in
+    `_params` — which `place_load` calls exactly once per BinKey group, before it
+    branches on the adapter, so every read that follows a group's `_params` sees that
+    group's arm.  Under `OneOwnerBundle` that is one instance for every key and the
+    indirection is inert; under the site dock's composite it is the WHOLE dispatch, at
+    the granularity the loop already has.
+
+    The property this rests on: **a spill chain never crosses regimes.**  `_chain`
+    varies only `size`, holding `handling` / `category` / `unit_category` fixed, and
+    regime is read off exactly those three (`inventory_common`: regime is itself a
+    BinKey component).  Every other cache here — `_sorted_now`, `_sorted_pred`, `_wp`,
+    `_chain_cache`, `_worst`, `_mom`, `taken` — is BinKey- or bin-id-keyed.  So two
+    owners share this object with zero cross-talk, and nothing here needs to know which
+    of them it is serving.  Take that property away and the caches, not the cursor, are
+    what goes wrong.
+
+    One read precedes any cursor: `place_load` calls `self.b.binkey_of(u)` to key the
+    groups in the first place, with `_key` still None.  That is lawful because the
+    three site-wide fields (`binkey_of`, `tier_ranks_for`, `put_speed`) are the same
+    object for every owner — a provider that made THEM vary per key would be answering
+    a different question than this evaluator asks.
     """
 
-    __slots__ = ('b', 'space', 'taken', 'unseated',
+    __slots__ = ('_site', '_key', 'space', 'taken', 'unseated',
                  '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
                  '_wr', '_mom')
 
-    def __init__(self, bundle: GainBundle, space, window_rates=None):
-        self.b = bundle
+    def __init__(self, bundle, space, window_rates=None):
+        if not hasattr(bundle, 'for_key'):
+            raise TypeError(
+                f'the evaluator resolves its arm machinery per BinKey owner and always '
+                f'goes through for_key() — {type(bundle).__name__} has none.  A '
+                f'single-channel run wraps its one GainBundle in OneOwnerBundle (the '
+                f'driver does that at injection); there is deliberately no second path '
+                f'that reads a bundle directly')
+        self._site = bundle
+        #: The owner of the group being priced — the cursor `_params` advances.  None
+        #: until the first group is keyed; see the class docstring.
+        self._key = None
         self.space = space
         #: {sku: (window total, window events)} for the futuresight entry, None for
         #: every lawful arm — swaps the static rates out of `_pair_cost` only.
@@ -214,8 +301,19 @@ class _Evaluator:
         self._worst: dict = {}          # chain head -> worst bin over the whole chain
         self._mom: dict = {}            # (key, predicted, brackets) -> tier means
 
+    # ── the owner cursor ──────────────────────────────────────────────────────────
+    @property
+    def b(self) -> GainBundle:
+        """The arm machinery owning the group being priced (class docstring)."""
+        return self._site.for_key(self._key)
+
     # ── per-key parameters ────────────────────────────────────────────────────────
     def _params(self, unit, own_key):
+        # THE CURSOR, unconditionally and ahead of the memo: `b` is a per-owner
+        # resolution from here to the end of this group, and the memo below must not
+        # be able to skip it (a second group with the same wp would then price
+        # against the PREVIOUS group's arm).
+        self._key = own_key
         got = self._wp.get(own_key)
         if got is None:
             wp = self.b.wp_of(unit)
@@ -633,8 +731,10 @@ def _window_rates(window) -> dict:
 def plan_order(candidates, bundle, space, *, predicted: bool,
                forced_prefix=(), window_rates=None,
                _ev: _Evaluator | None = None) -> list:
-    """10's greedy over the frozen view.  `forced_prefix` is the urgency gate's FIFO
-    head — consumed first, unscored.  `window_rates` is the futuresight entry's
+    """10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
+    resolves through (`OneOwnerBundle` on a single-channel run), never a bare
+    `GainBundle`.  `forced_prefix` is the urgency gate's FIFO head — consumed first,
+    unscored.  `window_rates` is the futuresight entry's
     aggregated window (see `_window_rates`), None for every lawful arm.  `_ev` exists
     ONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure
     the test perturbs); production callers never pass it."""
@@ -704,8 +804,9 @@ def _require(ctx, name: str):
                            f'delivers one')
     if bundle is None:
         raise RuntimeError(f'{name} needs a driver-injected GainBundle on ctx.gain '
-                           f'(YardTransit.gain_bundle) — the arm bundle carries the '
-                           f'faithful-to-arm placement machinery')
+                           f'(YardTransit.gain_bundle, wrapped in a OneOwnerBundle) — '
+                           f'the arm bundle carries the faithful-to-arm placement '
+                           f'machinery')
     return bundle, space
 
 

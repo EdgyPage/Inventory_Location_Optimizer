@@ -67,10 +67,11 @@ class DockContext:
         # the standing yard runs; None everywhere else — the v1 path and every fifo key
         # never read it.
         self.space = None
-        # The gain arms' machinery: the driver-injected `Inbound.gain.GainBundle`,
-        # assigned at ctx-freeze by `YardTransit.freeze_ctx` when a gain policy was
-        # named; None everywhere else — the seeded keys never read it, and a gain
-        # entry finding None raises rather than quietly ranking as fifo.
+        # The gain arms' machinery: the driver-injected bundle PROVIDER
+        # (`Inbound.gain.OneOwnerBundle` over one `GainBundle`), assigned at
+        # ctx-freeze by `YardTransit.freeze_ctx` when a gain policy was named; None
+        # everywhere else — the seeded keys never read it, and a gain entry finding
+        # None raises rather than quietly ranking as fifo.
         self.gain = None
 
 

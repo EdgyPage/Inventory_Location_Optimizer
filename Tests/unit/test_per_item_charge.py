@@ -188,7 +188,7 @@ def test_receiving_charges_per_pack_not_per_item():
 def test_the_gain_evaluator_carries_the_charge():
     """Zero the charge in the WorkloadParams the evaluator prices with and the priced
     seconds must move — by exactly visits × M(y) × q × per_item."""
-    from Inbound.gain import GainBundle, _Evaluator
+    from Inbound.gain import GainBundle, OneOwnerBundle, _Evaluator
     from Inbound.space import SpaceView
     from Warehouse.catalog.Demand import Demand
     from Warehouse.catalog.Order import StorageHandleConfig
@@ -225,7 +225,8 @@ def test_the_gain_evaluator_carries_the_charge():
     def _price(wp):
         bundle = GainBundle(put_speed=SpeedProfile(2.0, 4.0), wp_of=lambda u: wp,
                             binkey_of=binkey_of, tier_ranks_for=tier_ranks_for)
-        cost, takes = _Evaluator(bundle, view).place_load([_Unit(_Order(), 30)], set(), False)
+        cost, takes = _Evaluator(OneOwnerBundle(bundle), view).place_load(
+            [_Unit(_Order(), 30)], set(), False)
         assert takes == [b]
         return cost
 

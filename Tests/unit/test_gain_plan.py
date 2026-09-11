@@ -33,6 +33,14 @@ arms", 14) and the cache boundary's Tier-1 contract (06):
      capped at the event count), and rates that MATCH the static ones reproduce
      `gain_forecast` exactly — knowledge changed, machinery not; the driver's
      startup gate refuses the arm with the knob unset or the script missing.
+  9. THE OWNER INDIRECTION ("Seat the one-owner bundle indirection", site-dock 13):
+     the evaluator resolves its arm machinery through `for_key` and NEVER reads a
+     bundle directly (a bare one is refused, not sniffed for); `OneOwnerBundle` hands
+     back the wrapped INSTANCE for every key, which is what makes this byte-identical;
+     and the cursor `_params` advances visits each BinKey group once, in group order,
+     on a warm evaluator as well as a cold one — the seam the site dock's composite
+     dispatches on.  The sabotage: answering one key with a different arm must move
+     the priced hours, and move them by exactly that group's own delta.
 
 Run:  python -m pytest Tests/unit/test_gain_plan.py -q
 """
@@ -44,7 +52,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from Inbound.gain import GainBundle, _Evaluator, _load_units, plan_order
+from Inbound.gain import (
+    GainBundle, OneOwnerBundle, _Evaluator, _load_units, plan_order)
 from Inbound.priorities import DockContext, bounded_order, dock_key, yard_key
 from Inbound.space import SpaceView
 from Inbound.trailer import Trailer, Trailer53
@@ -110,12 +119,19 @@ def _view(empties, predicted=None, frozen_at=0.0, window=None):
         released_at=None, versions=(0, 0, 0), frozen_at=frozen_at, window=window)
 
 
-def _bundle(**kw):
+def _arm(**kw):
+    """One leaf's raw `GainBundle` — what `_gain_bundle_for` returns."""
     kw.setdefault('put_speed', _PUT)
     kw.setdefault('wp_of', lambda u: _WP)
     kw.setdefault('binkey_of', binkey_of)
     kw.setdefault('tier_ranks_for', tier_ranks_for)
     return GainBundle(**kw)
+
+
+def _bundle(**kw):
+    """What the DRIVER injects and the evaluator resolves through: the one-owner
+    provider over one arm's bundle (`strategy_runner` wraps at injection)."""
+    return OneOwnerBundle(_arm(**kw))
 
 
 def _ctx(view, bundle, depth=4):
@@ -697,10 +713,13 @@ def test_the_rider_plans_a_real_drain_through_the_driver_bundle(monkeypatch):
                      yard_policy='gain_myopic', dock_policy='gain_myopic')
     mgr = _manager(tr, crew=2)
     SpaceTimeline(drain_sku).attach(mgr)
-    tr.gain_bundle = _gain_bundle_for(
+    _arm_bundle = _gain_bundle_for(
         STRATEGY_BY_KEY['uni_fifo_norsl'], mgr, None, _WP, _PUT,
         {'fee_threshold_days': 2.0, 'urgency_horizon_days': 0.0})
-    assert tr.gain_bundle.uniform, 'the rider must arrive on the uniform adapter'
+    assert _arm_bundle.uniform, 'the rider must arrive on the uniform adapter'
+    # Wrapped exactly as the driver wraps it at injection (`strategy_runner`): the
+    # evaluator resolves per owner, and this leaf has one.
+    tr.gain_bundle = OneOwnerBundle(_arm_bundle)
 
     # One door and three reorders' worth of freight, so the yard is genuinely deep and
     # the plan is a choice rather than a formality.  The counter is the guard: a drain
@@ -950,3 +969,142 @@ def test_bound_composes_bound_first_with_a_gain_entry():
     assert _seqs(out) == [0, 1], (
         'bound=1 windows the plan to the single longest-waiting trailer: strict '
         'arrival order, however the gains point')
+
+
+# ── 9. the owner indirection: one path, and the cursor it will dispatch on ────────
+
+class _SpyProvider:
+    """A provider that RECORDS every key the evaluator resolves with, and can answer
+    one chosen key with a different arm (the sabotage below)."""
+
+    def __init__(self, bundle, swap_key=None, swap_bundle=None):
+        self.bundle, self.keys = bundle, []
+        self.swap_key, self.swap_bundle = swap_key, swap_bundle
+
+    def for_key(self, key):
+        self.keys.append(key)
+        if self.swap_key is not None and key == self.swap_key:
+            return self.swap_bundle
+        return self.bundle
+
+    @property
+    def fee_threshold_days(self):
+        return self.bundle.fee_threshold_days
+
+    @property
+    def urgency_horizon_days(self):
+        return self.bundle.urgency_horizon_days
+
+
+def _mixed_load():
+    """One load whose units span three BinKeys — so the groups are several and the
+    cursor has somewhere to move.  Two of them share a spill chain (medium spills up
+    to large within conveyable/food/pallet), which is the case the class docstring's
+    safety argument is about."""
+    m1 = _Unit(_Order(1, freq=2.0, qty_rate=2.0), 3)                     # _KEY_M
+    m2 = _Unit(_Order(2, freq=1.0, qty_rate=1.0), 4)                     # _KEY_M
+    lg = _Unit(_Order(3, freq=1.5, qty_rate=2.0), 5, size='large')       # _KEY_L
+    sg = _Unit(_Order(4, freq=0.5, qty_rate=1.0), 2, category='singleton')
+    view = _view({_KEY_M: [_Bin(0, 20.0), _Bin(1, 60.0)],
+                  _KEY_L: [_Bin(2, 40.0, 48.0), _Bin(3, 300.0)],
+                  ('conveyable', 'food', 'medium', 'singleton'): [_Bin(4, 15.0)]})
+    return [m1, lg, m2, sg], view
+
+
+def test_one_owner_hands_back_the_same_instance_for_every_key():
+    """The whole byte-identity argument: the evaluator reads the object the driver
+    built, not a copy or a rebuild.  Identity, never equality."""
+    arm = _arm()
+    prov = OneOwnerBundle(arm)
+    for key in (None, _KEY_M, _KEY_L, ('non_conveyable', 'bulk', 'large', 'pallet'),
+                'not even a key'):
+        assert prov.for_key(key) is arm, (
+            f'for_key({key!r}) must return the wrapped instance itself — a copy would '
+            f'break byte-identity silently, and an equal-but-other object would break '
+            f'the `taken` bookkeeping that is keyed on bin identity')
+    assert prov.fee_threshold_days == arm.fee_threshold_days
+    assert prov.urgency_horizon_days == arm.urgency_horizon_days, (
+        'the gate reads its two days-denominated knobs off the PROVIDER: it composes '
+        'hours and days above any one owner and has no BinKey to resolve with')
+
+
+def test_a_bare_bundle_is_refused_rather_than_sniffed_for():
+    """One path (05 decision 3): there is no branch that reads a bundle directly, so a
+    mis-wired driver fails at the seam instead of deep in pricing."""
+    _u, view = _mixed_load()
+    with pytest.raises(TypeError, match='for_key'):
+        _Evaluator(_arm(), view)
+    # A second wrap would resolve to itself and price every owner with whatever the
+    # outer lookup returned — refused at construction, not discovered in a price.
+    with pytest.raises(TypeError, match='OneOwnerBundle'):
+        OneOwnerBundle(OneOwnerBundle(_arm()))
+
+
+def test_the_cursor_tracks_the_group_being_priced():
+    """`_params` advances the cursor once per BinKey group, before the adapter branch —
+    so a per-owner provider is asked about exactly the keys `place_load` grouped by,
+    in group order.  This is the seam the site composite dispatches on; without it
+    wired, the composite would price both leaves with one arm."""
+    units, view = _mixed_load()
+    prov = _SpyProvider(_arm())
+    ev = _Evaluator(prov, view)
+    assert ev._key is None, 'no group keyed yet'
+    ev.place_load(units, set(), False)
+
+    groups = []
+    for u in units:                      # place_load's own grouping, in load order
+        k = binkey_of(u)
+        if k not in groups:
+            groups.append(k)
+    assert len(groups) == 3, 'the fixture must actually span three BinKeys'
+    # Every key the evaluator resolved with, after the pre-cursor grouping reads.
+    resolved = [k for k in prov.keys if k is not None]
+    assert [k for i, k in enumerate(resolved) if i == 0 or k != resolved[i - 1]] \
+        == groups, (
+        'the cursor must visit each group exactly once, in group order — a cursor set '
+        'inside the wp memo would stick on the first key, and one set after the '
+        'adapter branch would price a group with its predecessor\'s arm')
+    assert ev._key == groups[-1], 'the cursor is left on the last group priced'
+    assert prov.keys[0] is None, (
+        'the grouping itself reads binkey_of before any group is keyed — the three '
+        'site-wide fields must be answerable at a None cursor')
+
+    # AGAIN on the same evaluator, which is what `plan_order` does: one evaluator
+    # prices every candidate every round.  By now `_wp` is warm for all three keys, so
+    # a cursor that rode inside that memo would advance on NONE of them and the whole
+    # load would price against whichever group was keyed last.  (Mutation-checked: it
+    # is the one mutant a single-call version of this test let through.)
+    prov.keys.clear()
+    ev.place_load(units, set(), False)
+    again = [k for i, k in enumerate(prov.keys) if i == 0 or k != prov.keys[i - 1]]
+    assert again[0] == groups[-1], (
+        'this call\'s grouping reads binkey_of with the PREVIOUS call\'s cursor still '
+        'standing — harmless (binkey_of is site-wide) and stated here so the tail '
+        'assertion below is not read as sloppiness')
+    assert again[-len(groups):] == groups, (
+        'the cursor must advance on a warm evaluator too — it is set ahead of the wp '
+        'memo, unconditionally, precisely so a memo hit cannot skip it')
+
+
+def test_a_provider_that_answers_one_key_differently_moves_the_price():
+    """The sabotage (memory `real-test-coverage-is-317`): the assertions above are
+    worth nothing unless a wrong resolution can be seen.  Swap ONE key's arm and the
+    priced hours must move — which is also the positive statement that the composite
+    has a real lever here."""
+    units, view = _mixed_load()
+    base, _tk = _Evaluator(OneOwnerBundle(_arm()), view).place_load(units, set(), False)
+    swapped, _tk2 = _Evaluator(
+        _SpyProvider(_arm(), swap_key=_KEY_L, swap_bundle=_arm(minimize=False)),
+        view).place_load(units, set(), False)
+    assert abs(swapped - base) > 1e-9, (
+        'answering _KEY_L with a tmax arm must reprice that group (its two bins sit '
+        '40 vs 300 ft out, so the extremal direction is visible); if this ties, the '
+        'cursor is not reaching the adapter and the two tests above are vacuous')
+    # ...and the OTHER groups are untouched: no cross-talk between owners.
+    only_l = [u for u in units if binkey_of(u) == _KEY_L]
+    l_base, _ = _Evaluator(OneOwnerBundle(_arm()), view).place_load(only_l, set(), False)
+    l_swap, _ = _Evaluator(OneOwnerBundle(_arm(minimize=False)), view).place_load(
+        only_l, set(), False)
+    assert abs((swapped - base) - (l_swap - l_base)) < 1e-9, (
+        'the whole move must come from the swapped group alone — the caches are '
+        'BinKey-keyed, so one owner\'s arm cannot leak into another\'s pricing')

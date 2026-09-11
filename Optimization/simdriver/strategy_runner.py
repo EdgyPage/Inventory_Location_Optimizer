@@ -59,7 +59,8 @@ from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
 from Inbound.gain import (
-    FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle)
+    FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle,
+    OneOwnerBundle as _OneOwnerBundle)
 from Inbound.pack import packer as _inbound_packer
 from Inbound.receiving import SiteReceiving as _SiteReceiving
 from Inbound.space import SpaceTimeline as _SpaceTimeline
@@ -1110,9 +1111,14 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # THE GAIN BUNDLE rides only when a gain policy is named (unlike the
             # timeline, which is always on): the seeded fifo/lifo keys never read it,
             # so building arm machinery nothing consumes would be unconsumed infra.
+            # It is WRAPPED at injection: the evaluator resolves arm machinery per
+            # BinKey owner through `for_key`, and this leaf has exactly one owner, so
+            # the wrapper answers every key with this same instance.  The wrap lives
+            # here rather than inside `_gain_bundle_for`, which stays one leaf's
+            # builder and is called once per leaf.
             if {_inb_spec['yard_policy'], _inb_spec['dock_policy']} & _GAIN_POLICIES:
-                mgr.transit.gain_bundle = _gain_bundle_for(
-                    strat, mgr, ctx, wp, _put_crew.speed, _inb_spec)
+                mgr.transit.gain_bundle = _OneOwnerBundle(_gain_bundle_for(
+                    strat, mgr, ctx, wp, _put_crew.speed, _inb_spec))
             # THE FUTURESIGHT GATE, at startup: raises when the arm is named with the
             # knob unset or the script unavailable; None for every lawful arm, which
             # keeps the injection below from ever building a window nothing reads.

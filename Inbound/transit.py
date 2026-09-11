@@ -376,9 +376,11 @@ class YardTransit(TrailerTransit):
         self.door_team = None if door_team is None else int(door_team)
         self._staged: list = []       # holding a door, in staging order
         self.stamps: list = []        # (seq, arrived, staged, emptied, status) per finished
-        # The gain arms' machinery (`Inbound.gain.GainBundle`), assigned by the DRIVER
-        # after construction when a gain policy is named — injected, never imported
-        # (the broker rule); None otherwise, and the seeded keys never read it.
+        # The gain arms' machinery, assigned by the DRIVER after construction when a
+        # gain policy is named — injected, never imported (the broker rule); None
+        # otherwise, and the seeded keys never read it.  What rides here is the
+        # owner PROVIDER the evaluator resolves through (`Inbound.gain.OneOwnerBundle`
+        # over this leaf's one `GainBundle`), not the bundle itself.
         self.gain_bundle = None
 
     # ── the calendar (all that release() does here) ───────────────────────────────
