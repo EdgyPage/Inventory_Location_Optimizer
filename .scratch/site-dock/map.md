@@ -379,16 +379,38 @@ BEFORE anything runs: the inbound-optimization map resumes at
   on `5c9bc35db55b`). `Tests/architecture`'s fifth red is `.claude/worktrees/` only, baselined
   against a `git archive` copy.
 
+- [Exempt repack rows and pin the unload constant](issues/17-exempt-repacks-and-pin-the-unload-constant.md):
+  **BUILT and live on `develop`** (`fe80ed92`, `3c54866b`). Check 5's `repack` exemption is by
+  (role, event_type) **PAIR** — a PUT row typed `repack` still FAILs and `repack` joins
+  put/receive as a word no foreign row may claim, so the exemption widens the vocabulary rather
+  than weakening the clause; a **third** spelling of the wrong rule was found in
+  `sim_semantics.py`'s `event_type` note and amended (a `Col` note moves no `schema_id`). Check
+  6 **holds, and it is measured, not argued**: 505,177-row arms at spread 4.4e-15, and C = 7.6 s
+  matches an INDEPENDENT derivation from the run's own pick config — without that second
+  derivation the check would pass a dock built entirely from class defaults. **The finding is a
+  detector, not a defect**: every run before the per-item charge break (`fc7a46a5`, 2026-09-05)
+  fails by ~4,600 s, because that era priced the dock from `UnloadCost`'s CLASS defaults — so
+  `per-item-charge-hard-break` is now answerable in one command, and it stays RED because the
+  two states separate by eighteen orders of magnitude (the sin the retired contiguity check is a
+  monument to is an *inability to tell them apart*, which does not apply). The explanation prints
+  ONCE in the summary; sixteen copies read as a broken tool in their own right. **Three more
+  findings:** the e2e fixture made check 6 **vacuous** — 7 packs of ONE sku at qty 1, where the
+  residual cancels however the price was computed, so zeroing that sku's handle term left the
+  check GREEN (the sabotage is what caught it; the fixture is now 25 batches and non-vacuity is
+  asserted FIRST); **`C_store != C_ful` today by construction** (store intercept 15, fulfillment
+  10 -> 7.6 s and 5.1 s), so 15's cross-leaf clause is a claim about a SITE dock having one
+  price list rather than something a coupled run satisfies for free; and check 1's `_TOL` is
+  ABSOLUTE, so it fails four archived arms on 1.3e-6 s of float re-association over 4.18M s.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
   they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
   what remains of it is owner routing, not extraction), **13's is DONE** (the indirection is
   seated, so what remains of 05 is the composite that answers through it), and **16's is DONE**
-  (10's two byte-identical precursors are in, so what remains of 10 is the reconciler alone). One
-  still open:
-  [Exempt repack rows and pin the unload constant](issues/17-exempt-repacks-and-pin-the-unload-constant.md)
-  (out of 15);
+  (10's two byte-identical precursors are in, so what remains of 10 is the reconciler alone), and
+  **17's is DONE** (out of 15's within-leaf half — so what remains of 15 is the site-scope work
+  alone), leaving **no open build ticket on this map**;
   **12's are DONE**, so what remains of 04 is the pool itself and not its seams, and **14's is
   DONE**, so what remains of 06 is the SPEC side alone. The
   ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
@@ -430,6 +452,19 @@ BEFORE anything runs: the inbound-optimization map resumes at
   coupled run shows a day where one channel's put queue actually starves while the other's crew
   sits. The faithful version — both leaves on one time-ordered loop — is a cadence change of the
   same family the inbound map ruled out, so it graduates only with evidence.
+- **One unload price for the site dock.** 15's cross-leaf clause (`C_store == C_ful`) cannot be
+  written yet, and 17 is why: the two channels run DIFFERENT pick configs, so today's per-leaf
+  docks price at C = 7.6 s and C = 5.1 s. Equality is a claim about the SITE dock owning one
+  price list — which is a question for 01's coordinator (whose `UnloadCost` does it hold?), not
+  a test. Dim until the coupled coordinator exists to have a price list at all, and the answer
+  decides whether the sharpest falsifier the map has is even well-posed.
+- **`receiving_report`'s absolute tolerance.** `_TOL` is 1e-6 SECONDS, compared against sums
+  that grow with the row count: on a 505,177-row arm checks 1's two surfaces accumulate 1.3e-6 s
+  apart over 4,177,040.9 s — a relative error of 3e-13 reported as a FAIL, on four archived arms
+  today. Absolute-versus-relative is a decision (a relative tolerance hides a small real
+  discrepancy on a large arm, which is the failure check 1 exists for), and it grows sharper
+  under coupling, where a site total is the sum of two leaves'. Not ticketed because the right
+  form is not yet clear.
 
 ## Out of scope
 
