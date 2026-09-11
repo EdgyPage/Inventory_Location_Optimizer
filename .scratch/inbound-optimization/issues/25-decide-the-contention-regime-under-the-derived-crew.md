@@ -35,3 +35,31 @@ moves must move on `PILOT_RUN_DEFAULTS` and `phase2_inbound_axis` together, neve
 line. The answer records the regime and the expected contention it is chosen for; the run that
 checks it is
 [Re-verify the gate under the lead-aware record](26-reverify-the-gate-under-the-lead-aware-record.md).
+
+## Comments
+
+2026-09-10, from department-calibration
+[Declare the coverage against the inbound lead](../../department-calibration/issues/36-declare-the-coverage-against-the-inbound-lead.md):
+the record now derives the pipeline's expected order-to-shelf lead from the regime this ticket
+picks, `E[ceil(L/D)] = 1 + sum_k (1 - Phi(ln(kD/m)/sigma))`, and solves the fulfillment floor at
+it -- so the regime has a STOCK cost readable without a run, and it must be chosen before the
+funnel's phase 1 (which now runs with the yard on, 36 decision 11).
+
+| median (min) | spread | expected lead (site days) |
+|---|---|---|
+| 480 | 0.0 | 1.000 |
+| 480 | 0.3 | 1.511 |
+| 480 | 0.5 | 1.600 |
+| 480 | 0.7 | 1.766 (pilot; the run read 1.78 / 1.75) |
+| 480 | 1.0 | 2.170 |
+| 240 | 0.7 | 1.192 |
+| 360 | 0.7 | 1.460 |
+| 600 | 0.7 | 2.084 |
+| 960 | 0.7 | 3.050 |
+
+Doors do NOT enter the form (36 decision 3: the record stamps the unconstrained lead, the
+yard's excess is the campaign's effect), so doors are the record-neutral contention knob; a
+larger spread buys burstiness at the price of more fulfillment stock and a larger warehouse.
+The re-check (26) will print the realized lead and `1 - fill(realized)` as the explained
+supply level, so a regime that binds is expected to read above the supply band by what the
+detention explains.

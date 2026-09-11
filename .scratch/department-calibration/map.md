@@ -592,6 +592,21 @@ regime someone chose rather than one the defaults inherited.
   floor; crews and floors unchanged. The fourth comparability break (memory
   `derived-fill-is-the-fourth-comparability-break`). Found on the way: a multi-cell era run lost its
   coverage record to the first cell's derived block and its analysis rebuilt nothing -- fixed.
+- [Declare the coverage against the inbound lead](issues/36-declare-the-coverage-against-the-inbound-lead.md):
+  **the lead is a SKU attribute (supplier lead) plus the trailer's transit, and the record
+  derives it.** Order-to-shelf under the pipeline is the lognormal transit rounded UP to the
+  day grid: `E[ceil(L/D)] = 1 + sum_k (1 - Phi(ln(kD/m)/sigma))` reads 1.766 site days at the
+  pilot regime against the run's 1.78 / 1.75 -- transit and grid only, the yard's excess is the
+  campaign's effect. Per SKU `lead_days_s = attr_s / releases_per_day + transit_days` (the
+  batches-as-days bug at `coverage.py:171` ends); the fill closed form takes the lead and the
+  floor solve absorbs it, so the first-time promise holds AT the lead (more fulfillment stock;
+  a new era for inbound-on numbers); the line share stays the per-SKU rate until 26's residual
+  says otherwise; `safety_days` unchanged; a catalogue lead the pipeline would discard refuses.
+  The audit reports the realized Little lead beside the stamp and `1 - fill(realized)` as the
+  explained level. A site-level lead law on the era was rejected (user); phase 1 runs with the
+  yard on so the funnel shares one record (comment on inbound 24). Graduated:
+  [Build the lead-aware coverage record](issues/37-build-the-lead-aware-coverage-record.md)
+  (here) and inbound 27 (the dispatch chaining), both blocking inbound 26.
 
 ## Not yet specified
 
@@ -633,6 +648,10 @@ regime someone chose rather than one the defaults inherited.
   until a closed form needs the per-SKU count rather than the section sum -- the trajectory
   band is the first that will, and `fragmentation.section_fragmentation` already takes the
   rate through `lines_per_day_by_sku`.
+  **36 (2026-09-10) made the lead-aware fill the FIRST closed form that needs it**: the
+  loss under a lead is the chance of a second line inside the first's lead window, a
+  per-SKU line COUNT; by 36 decision 6 it uses the line share, and 26's residual under the
+  lead-aware record is what graduates this patch.
 - **A derived band for the supply level.** 30 gave the labour clause a band the declared law
   implies (`staffing.cut_share_sd` over the window) but left the supply level's at a typed 0.02:
   the fill closed form stamps a point, and the spread of a finite window's first-attempt share
@@ -674,3 +693,11 @@ regime someone chose rather than one the defaults inherited.
   closed: every constant is a closed-form expectation over the known inventory distribution and
   the runtime geometry (13). The six passes 09 left on disk are a one-time correctness check
   for the formula, never a pipeline step.
+- **Sampling and inventory generation as an effort of its own** (user, 2026-09-10, while
+  resolving [Declare the coverage against the inbound lead](issues/36-declare-the-coverage-against-the-inbound-lead.md)).
+  The hypothesis: there may be an implicit bias toward SKUs whose generated attributes let
+  them edge out better pick times through an equilibrium of emergent properties of the SKU in
+  the catalogue -- the lead attribute now being one more such attribute. A future charting
+  session's seed, not this map's route; it would also own re-denominating the catalogue's lead
+  attribute in days (today batches, converted at the record by 36 decision 4), which the
+  "lead-time denomination" entry above already keeps off this map.

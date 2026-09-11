@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 25, ../../department-calibration/issues/36-declare-the-coverage-against-the-inbound-lead.md
+Blocked by: 25, 27, ../../department-calibration/issues/37-build-the-lead-aware-coverage-record.md
 
 Graduated 2026-09-10 from
 [Verify the derived receiving crew under arrivals](23-verify-the-derived-receiving-crew.md).
@@ -25,3 +25,18 @@ In band on both -> phase 1 is launchable and
 [Resize the funnel in site days](24-resize-the-funnel-in-site-days.md) sizes it. Out of band ->
 the answer names the clause and the leaf, and the campaign holds again; a scalar change is the
 owning map's decision, never this ticket's.
+
+## Comments
+
+2026-09-10: department-calibration
+[Declare the coverage against the inbound lead](../../department-calibration/issues/36-declare-the-coverage-against-the-inbound-lead.md)
+is RESOLVED and this ticket's blocking edge moved to its two builds:
+[Build the lead-aware coverage record](../../department-calibration/issues/37-build-the-lead-aware-coverage-record.md)
+(the record) and [Chain the supplier lead before the trailer](27-chain-the-supplier-lead-before-the-trailer.md)
+(the dispatch). What the re-run reads changes in three ways: the stamped fulfillment supply
+expectation is now `1 - fill(lead)` at a transit of 1.766 site days (the reference pair's
+attributes are 0, so that is the whole lead); the report prints the realized order-to-shelf
+lead per leaf beside the stamp and `1 - fill(realized lead)` as the EXPLAINED level, so a
+binding yard (25) is expected to lift the supply level ABOVE the band by exactly what the
+realized lead explains -- read the explained level before calling the clause failed; and since
+phase 1 will run with the yard on (36 decision 11), this gate's record IS the funnel's record.

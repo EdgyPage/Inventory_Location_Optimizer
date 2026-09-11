@@ -29,3 +29,19 @@ Two build items ride here, both in the selection writer / phase-2 launcher this 
 - **The window is declared once.** Both specs (`inbound_select`, `inbound_policies`) take the
   40-day depth and the 20–39 measurement range from one place, so no campaign run reports
   utilization against a warm-up the constants never saw.
+
+## Comments
+
+2026-09-10, from department-calibration
+[Declare the coverage against the inbound lead](../../department-calibration/issues/36-declare-the-coverage-against-the-inbound-lead.md),
+decision 11: **phase 1 runs with the standing yard on under `fifo`.** The record now derives
+each SKU's lead as its supplier lead plus the trailer's day-quantized transit (1.766 site days
+at the pilot regime), and the floor is solved AT that lead -- so an inbound-off phase 1 and an
+inbound-on phase 2 would field different floors, levels and warehouses, and the calibration pin
+this ticket builds would refuse phase 2 as designed. The yard is slack under the derived crew
+(23), so phase 1 with it on costs little, and both phases then share one record and one
+warehouse. Two things for this ticket's build: `inbound_select` takes the same
+`PILOT_RUN_DEFAULTS` arrival regime as `inbound_policies`; and the `inb_off` anchor's role needs
+restating, since phase 1 is no longer an inbound-off run -- what its byte-identity check is
+against is this ticket's to record. The regime itself (doors, median, spread) is 25's and must
+be fixed before phase 1 launches, because median and spread now move the record.

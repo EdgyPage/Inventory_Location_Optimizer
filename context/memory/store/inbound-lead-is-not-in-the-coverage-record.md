@@ -19,6 +19,15 @@ realizes an order-to-shelf lead of ~1.8 days (Little's law: ~48,600 units in tra
 ~27,300 ordered/day on fulfillment; the inbound-off reference has 0 in transit). Fulfillment's
 line-sized levels cannot absorb it; the store's ~1,785-day implied coverage does not notice.
 
+**Decided 2026-09-10 (department-calibration 36, user):** the lead is a SKU attribute (its
+SUPPLIER lead, `lead_time_mean`, batches converted to days at the record) PLUS the trailer's
+transit rounded UP to the day grid, `E[ceil(L/D)] = 1 + sum_k (1 - Phi(ln(kD/m)/sigma))` --
+1.766 site days at the pilot regime, matching the run to 1%; the continuous mean (1.28) is the
+wrong number. The floor is solved AT the lead, so inbound-on stock and warehouse move (a new
+era); doors never enter the form (the yard's excess is the campaign's effect); a site-level lead
+law on the era was REJECTED. Builds: dept-cal 37 (record) and inbound 27 (chain the supplier
+lead before the trailer, which today discards it). Phase 1 of the funnel runs with the yard on.
+
 **How to apply:** an inbound-on era run is NOT comparable to the inbound-off reference on any
 supply or missed-share number until the record declares the lead (department-calibration
 ticket 36 decides how). Read the yard first: under the derived receiving crew (22 receivers on

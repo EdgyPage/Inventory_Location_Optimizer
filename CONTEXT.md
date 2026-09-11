@@ -47,13 +47,20 @@ A trailer leaving the ordering site. v1 dispatches in strict FIFO reorder priori
 does not fit the open trailer, a new trailer is started (next-fit) so FIFO order is preserved.
 
 **Lead**:
-The delay, possibly zero, between a trailer's dispatch and its arrival in the yard.
-_Avoid_: lead time (for anything but this), transit time
+The delay, possibly zero, between a trailer's dispatch and its arrival in the yard. The
+transport stage only: what a SKU waits at its supplier is its supplier lead, and the two add.
+_Avoid_: lead time (for anything but this), transit time, supplier lead (that is the SKU's)
 
 **Lead distribution**:
 The seeded per-trailer draw every lead comes from: lognormal, authored as a median with a
 dimensionless spread. Zero spread is the constant-lead degenerate case; same seeds, same
 lead schedule. Heterogeneous leads are what make arrival order differ from dispatch order.
+
+**Supplier lead**:
+A SKU's own delay from a reorder firing to its goods being ready to load at the ordering site --
+a fact of the SKU, carried on the catalogue, zero on the reference pair. Served before the
+trailer's lead, never instead of it.
+_Avoid_: lead (that is the trailer's), lead time
 
 **Yard**:
 Where arrived trailers stand waiting for a dock door. Unbounded in capacity; standing too long
@@ -336,7 +343,17 @@ derived from it at setup, the warehouse sized from them through a pair-level fix
 The catalogue carries no stock levels: a level is a run's declaration, never a SKU's fact.
 It means "hold this many days of demand, never less than one pick's worth": a SKU whose
 coverage is shorter than the interval between its lines sits on the line floor and runs
-base stock, and the record states how much of a section, and of its demand, does.
+base stock, and the record states how much of a section, and of its demand, does. The reorder
+point, the stamped pipeline and the first-pass fill are all priced at each SKU's expected
+order-to-shelf lead, never at zero.
+
+**Order-to-shelf lead**:
+The days a reorder takes from firing to being on a shelf, as the site observes it: the supplier
+lead plus the trailer's lead rounded up to the next day's drain, with nothing added for loading,
+the door, unloading or put-away while the yard is slack. The record stamps its expectation over
+the declared lead law; the realized value is read by Little's law and reported beside it, and
+the excess when doors bind is a campaign effect, never a model error.
+_Avoid_: replenishment lead, transit, lead (that is the trailer's stage alone)
 _Avoid_: coverage batches, equilibrium coverage, authored levels, initial stock, unit floor
 
 **Stock declaration**:
