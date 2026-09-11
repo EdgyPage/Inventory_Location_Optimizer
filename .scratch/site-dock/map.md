@@ -335,13 +335,46 @@ BEFORE anything runs: the inbound-optimization map resumes at
   gate passed green with this one stale by seven keys. Gates: 2037 unit, all nine verifiers,
   both canaries `tree shape UNCHANGED`; nine guard mutations, nine caught.
 
+- [Reconcile the site crews' work stream](issues/15-reconcile-the-site-crews-work-stream.md):
+  **a uid is not an identity — `(role, uid)` is**, because 04 preserves `actor_uid == picker_id`
+  (so the two channels' picker 3 are different people) while the putter's uid is deliberately
+  the same person in both DBs. Check 3 is therefore untouched per-leaf and gains a pair-scope
+  companion in two clauses: no uid carries a site role in one leaf and a per-channel role in the
+  other (04's defect, invisible today), and every site-role uid sits above both leaves' pick
+  blocks — a FLOOR, never set equality, because an idle putter writes no rows. **No roster
+  artifact and no magic uid range**: which roles are site roles is a constant in the scope the
+  check runs in. Checks 1 and 2 stay per-leaf, but **confirming that found the tautology**: both
+  surfaces delegate to `self._dock` (`:1199`, `:1208`), so under one coordinator-held dock a leaf
+  handed the whole drain would agree with itself and PASS while owning the other channel's entire
+  receiving labour — so the build owes the precondition that each leaf's `batch_stats` scalars
+  come from its own `_recv_seconds`, plus a site-total closure check against the coordinator's
+  independently-accrued total. **The exact re-pricing check returns for far less than the memory
+  implies:** the price collapses to `duration - qty × sku_scores.handle_var == C`, one constant
+  from the sim DB alone, so `load_receive_events` and `receive_event_frame` get the caller they
+  were written for instead of the deletion `hand-run-test-tiers-rot-silently` would have earned
+  them; repack rows are INCLUDED (same `unload_cost`), and `C_store == C_ful` becomes the site
+  dock's sharpest falsifier. `s_recv` stays reported-only and explicitly UNWIRED — a script
+  average against a crew constant is `a-right-site-total-hides-two-wrong-shares` rebuilt. The
+  pair-scope entry is a sibling `reconcile_pair`, an uncoupled run gets `0 coupled pair(s)`
+  rather than a verdict, an absent site DB on a coupled pair is FAIL, the site total is written
+  PER BATCH (a run total localises nothing, and the drain is the boundary), and the tool's second
+  `SEMANTIC_USES` family is **ordered behind 03's family registration** — `semantics_for` raises
+  on an unregistered one. **Two findings:** check 5 carries a dormant false-FAIL on every repack
+  row (`role='receive'`, `event_type='repack'` trips `event_type <> role`), silent only because
+  `f_repack` is assumed 0.0; and `_charge_repack` early-returns on `self._dock is None`, which
+  under coupling is BOTH leaves — the repack counters keep climbing while the seconds vanish
+  (recorded against 01's build). **Site crew** added to `CONTEXT.md`; no ADR, the identity rule
+  is a consequence of 04's allocation choice.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
   they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
   what remains of it is owner routing, not extraction), and **13's is DONE** (the indirection is
-  seated, so what remains of 05 is the composite that answers through it). One still open:
-  [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10);
+  seated, so what remains of 05 is the composite that answers through it). Two still open:
+  [Close the torn-finalize window](issues/16-close-the-torn-finalize-window.md) (out of 10) and
+  [Exempt repack rows and pin the unload constant](issues/17-exempt-repacks-and-pin-the-unload-constant.md)
+  (out of 15);
   **12's are DONE**, so what remains of 04 is the pool itself and not its seams, and **14's is
   DONE**, so what remains of 06 is the SPEC side alone. The
   ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
@@ -367,6 +400,12 @@ BEFORE anything runs: the inbound-optimization map resumes at
   that reset, the `coupled` refusal reason, and the planted four-state matrix with its mutation
   sabotages and its one fault-injected torn tree (its two byte-identical precursors already
   graduated to 16);
+  and out of 15 the WRITE-SIDE reconciliation that needs a pair to exist: the sibling
+  `reconcile_pair` entry with its `coupled`-marker grouping and its FAIL on an absent site DB,
+  the two site-scope uid clauses, constant-C's `C_store == C_ful` clause, the site-total closure
+  against the coordinator's own accumulator, the per-batch site-total table in the site DB, and
+  the second `SEMANTIC_USES` family — which is ORDERED BEHIND 03's site-DB family registration,
+  because `semantics_for` raises on an unregistered family (the within-leaf half graduated to 17);
   and out of 06 the SPEC side — `PHASE2_ARMS` becoming `PHASE2_PAIRS`, `CHANNEL_RESTOCKS` derived
   from the rule-pair list, the pair-shaped shape refusal in `_run_whatif_matrix`, and the rewrite
   of `whatif_config.py:166-170` (whose cross-phase claim this map's own answer makes false), none

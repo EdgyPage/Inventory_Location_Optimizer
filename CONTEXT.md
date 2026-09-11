@@ -28,6 +28,12 @@ section of the warehouse and its own picking crew. A channel is a stream, never 
 site's dock, yard and receiving crew serve both, and so does its put-away pool.
 _Avoid_: operation, stream, leg
 
+**Site crew**:
+A crew the whole site shares rather than one a channel owns. Receiving and put-away are site
+crews; picking is not. A site crew's worker is one person doing one site's work, whichever
+channel's merchandise is in front of them.
+_Avoid_: shared crew, pooled crew
+
 **Ordering site**:
 The unmodeled origin that loads and dispatches trailers. A reorder is a notification sent to it
 automatically; optimizing its behaviour is out of scope.
