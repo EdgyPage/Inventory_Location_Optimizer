@@ -138,9 +138,10 @@ def _metrics(db: str):
 
 
 def _channel_of(cr) -> str:
-    """The channel a run belongs to.  ChannelRun.channel is None on a store-only layout (no channel
-    subdir) — that IS the store channel, so name it rather than emitting a blank column."""
-    return cr.channel or 'store'
+    """The channel a run belongs to — `ChannelRun.channel_key`, kept as a name here because
+    three what-if writers import it.  The rule itself now lives on the dataclass that owns the
+    ambiguity, so there is one answer rather than one per reader."""
+    return cr.channel_key
 
 
 def _scan(rt, cell: str) -> dict:

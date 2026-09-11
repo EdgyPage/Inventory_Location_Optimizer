@@ -80,9 +80,9 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
     failed_uids, broke = set(), False
     with concurrent.futures.ProcessPoolExecutor(
             max_workers=max_workers, max_tasks_per_child=recycle) as pool:
-        futures = {pool.submit(_run_strategy_worker, sa): uid for uid, sa in remaining}
+        futures = {pool.submit(_run_strategy_worker, sa): (uid, sa) for uid, sa in remaining}
         for fut in concurrent.futures.as_completed(futures):
-            uid = futures[fut]
+            uid, sa = futures[fut]
             gk  = uid[:3]
             _tag = _tag_of(cell, uid)
             try:
@@ -105,13 +105,34 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
                 # `_arm_expected_pick`): onto the skeleton's strategy entry, so the group's meta
                 # document and hence sim_result['strategies'] carry it to the throughput audit.  Absent
                 # on a flag-off arm, and then nothing is written -- byte-identical.
+                #
+                # `sa['group_keys']` / `sa['arm_key']`, never `uid[:3]` / `uid[3]`: this block
+                # sliced the uid INDEPENDENTLY of the finalize gate below, so a coupled unit's
+                # carried group keys would not have reached it and `meta[(label, 'coupled',
+                # arm_store)]` raises KeyError -- inside the success `try`, which turns a unit
+                # that SUCCEEDED into a logged `strategy FAILED`.  Not silent, but mis-attributed
+                # is its own failure: a reader scanning run.log hunts a simulation bug that is
+                # not there.  One leaf today, so the loop runs once over exactly `[uid[:3]]`.
                 if res.get('expected_pick') is not None:
-                    for _s in meta[gk]['sim_skeleton'].get('strategies', []):
-                        if _s.get('key') == uid[3]:
-                            _s['expected_pick'] = res['expected_pick']
+                    if len(sa['group_keys']) != 1:
+                        # A unit finalizing several leaves has one expected day PER leaf; a
+                        # single value copied into both would put one leaf's day on the other's
+                        # arm.  Refused rather than fabricated -- the shape is the coupled
+                        # unit's to settle when it lands.
+                        log.warning(f'  [{_tag}] expected_pick is one value but this unit '
+                                    f'finalizes {len(sa["group_keys"])} leaves — not attached')
+                    else:
+                        for _s in meta[sa['group_keys'][0]]['sim_skeleton'].get('strategies', []):
+                            if _s.get('key') == sa['arm_key']:
+                                _s['expected_pick'] = res['expected_pick']
                 if run_root:                         # parent-side runtime-metrics DB (best-effort)
                     try:
-                        runtime_metrics.record_arm(run_root, cell, uid, res)
+                        # Named, not unpacked: the uid's four slots mean something different
+                        # under a coupled unit, and `record_arm` takes them by keyword so the
+                        # re-mapping has to be written HERE rather than happening silently.
+                        runtime_metrics.record_arm(
+                            run_root, cell, res,
+                            pair=uid[0], config=uid[1], channel=uid[2], arm=uid[3])
                     except Exception as exc:         # noqa: BLE001 — never let metrics sink a run
                         log.warning(f'  [{_tag}] runtime-metrics record failed: {exc!r}')
             except BrokenProcessPool:

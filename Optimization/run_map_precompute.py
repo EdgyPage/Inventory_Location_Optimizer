@@ -176,7 +176,7 @@ def measure_pair(base_dir, rt, pair, metas, rows, log, max_skus=None) -> list:
         for rule in MAP_RULES:
             for initial in ('uni', 'opt'):
                 arm = f'{initial}_{rule}_norsl'
-                rec = _recorded(rows, cell, pair, run.config, run.channel or '', arm)
+                rec = _recorded(rows, cell, pair, run.config, run.channel_key, arm)
                 if rec is None:
                     continue
                 if not _identity_matches(log, rec, shared):
@@ -198,15 +198,19 @@ def measure_pair(base_dir, rt, pair, metas, rows, log, max_skus=None) -> list:
                 stats = getattr(mgr, '_map_lap_stats', {}) or {}
                 pct = ((stats.get('lap_units', 0) / stats['units'])
                        if stats.get('units') else None)
+                # `channel_key`, not `run.channel or ''`: the runtime row this UPDATE keys on
+                # was written with the channel the arm SIMULATED ('store' on a store-only
+                # layout, where the tree carries no channel level), so a blank matched nothing
+                # and every store backfill logged '(no row to update)' and wrote no seconds.
                 ok = rm.record_precompute(base_dir, cell,
-                                          (pair, run.config, run.channel or '', arm),
+                                          (pair, run.config, run.channel_key, arm),
                                           elapsed, 'backfill', map_lap_pct=pct)
                 log.info(f'    {cell}/{run.config}/{arm}: {elapsed:.1f}s  '
                          f'exact-solved {0.0 if pct is None else pct * 100:.2f}% of units'
                          + ('' if ok else '   (no row to update)'))
                 for c in classes:
                     out.append({'cell': cell, 'pair': pair, 'config': run.config,
-                                'channel': run.channel or '', 'arm': arm, 'rule': rule,
+                                'channel': run.channel_key, 'arm': arm, 'rule': rule,
                                 'binkey': '|'.join(str(x) for x in c['key']),
                                 **{k: c[k] for k in ('n', 'm_cnt', 'gate_n_ok',
                                                      'gate_prod_ok', 'branch', 'solve_s',

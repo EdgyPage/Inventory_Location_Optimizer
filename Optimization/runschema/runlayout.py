@@ -143,6 +143,18 @@ class ChannelRun:
         """Aggregate grouping key: config, or config/channel on mixed runs."""
         return self.config if self.channel is None else f'{self.config}/{self.channel}'
 
+    @property
+    def channel_key(self) -> str:
+        """The channel this run SIMULATED, spelled as every writer's `channel` column spells it.
+
+        `channel` is the run-tree LEVEL, and it is None on a store-only layout because there is
+        no `<channel>/` directory to name.  The channel itself is not absent: a non-mixed
+        catalogue yields store runs only (`workunits._channel_runs_for`), and those arms wrote
+        `channel = 'store'`.  So the missing level means STORE, never 'no channel', and a reader
+        that spells it `''` silently matches no row — which is what
+        `run_map_precompute`'s runtime lookup and its `WHERE channel=?` backfill did."""
+        return self.channel or 'store'
+
 
 def iter_channel_runs(base_dir: str, marker: str = 'sim_meta.json') -> Iterator[ChannelRun]:
     """Yield every channel-run dir under base_dir that contains *marker*.

@@ -852,12 +852,31 @@ def _channel_runs_for(inventory) -> tuple[bool, list[tuple]]:
     return mixed, runs
 
 
+def _stamp_identity(sa: dict, label: str, cfg_name: str) -> tuple:
+    """Carry the unit's IDENTITY on its payload; return the unit's uid.
+
+    A uid is positional, and its four slots mean `(pair, config, channel, arm)` only because
+    every unit today is one channel leaf.  The coupled unit (site-dock 02) is
+    `(label, 'coupled', arm_store, arm_ful)` — same arity, different meanings — so a parent-side
+    reader asking "which group(s) does this finalize" or "which arm is this" must not answer by
+    slicing.  It reads `group_keys` / `arm_key`, which the unit states about itself.
+
+    A one-leaf unit states exactly `[uid[:3]]` and `uid[3]`, so nothing moves today.
+    """
+    gk = (label, cfg_name, sa.get('channel_key', ''))
+    sa['group_keys'] = [gk]
+    sa['arm_key']    = sa['strategy']
+    return (*gk, sa['arm_key'])
+
+
 def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
                       skip_completed, resume_granularity):
     """(Re-)prepare all work units from on-disk state.
 
     Returns (work_units, meta):
-      work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy).
+      work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy) and
+                   args carries its own `group_keys` + `arm_key` (the parent reads those, not
+                   uid slices — the uid's slots are not stable across unit kinds).
       meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is
                    finalized only when EVERY member uid succeeds (see _run_pool) — so a crashed
                    arm never finalizes its group, keeping resume.pkl and staying resumable.
@@ -899,8 +918,7 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
                     resume_granularity=resume_granularity)
                 for sa in strategy_args:
                     sa['log_queue'] = log_queue
-                    uid = (label, cfg_name, sa.get('channel_key', ''), sa['strategy'])
-                    work_units.append((uid, sa))
+                    work_units.append((_stamp_identity(sa, label, cfg_name), sa))
                 for sk in sim_skeletons:
                     gk = (label, cfg_name, sk.get('channel', ''))
                     members = frozenset((*gk, s['key']) for s in sk['strategies'])

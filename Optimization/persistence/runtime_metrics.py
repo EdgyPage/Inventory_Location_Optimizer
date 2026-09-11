@@ -147,11 +147,21 @@ def _parse_arm(arm: str):
     return initial, assignment
 
 
-def record_arm(run_root: str, cell: str, uid, res: dict) -> None:
+def record_arm(run_root: str, cell: str, res: dict, *,
+               pair: str, config: str, channel: str, arm: str) -> None:
     """Insert one arm's runtime row (idempotent by (cell,pair,config,channel,arm) — a re-run/resume
-    of the arm overwrites its row).  uid = (pair, config, channel, arm); res = the worker return dict.
+    of the arm overwrites its row).  `res` = the worker return dict.
+
+    The four key fields are KEYWORD-ONLY, and deliberately.  This took a work-unit uid and
+    unpacked it positionally, which was safe only while every uid meant
+    `(pair, config, channel, arm)`.  The coupled unit's uid is `(label, 'coupled', arm_store,
+    arm_ful)` — same arity, different meanings — so the positional read would have written
+    `channel = <arm_store>` into a TEXT NOT NULL column whose IntegrityError the supervisor
+    swallows with a warning: neither the wrong value nor a rejected row would announce itself.
+    A caller now has to say which is which, and a caller holding a differently-shaped uid gets
+    a TypeError at the call site instead of a wrong row.
+
     Best-effort: callers wrap this so a runtime-DB hiccup never sinks a real run."""
-    pair, config, channel, arm = uid
     initial, assignment = _parse_arm(arm)
     total   = float(res.get('elapsed', 0.0) or 0.0)
     batches = int(res.get('done', 0) or 0)

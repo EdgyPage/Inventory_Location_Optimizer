@@ -14,6 +14,16 @@ from __future__ import annotations
 import os
 
 from Optimization.persistence import runtime_metrics as rm
+from Optimization.runschema.runlayout import ChannelRun
+
+
+def _arm(root, cell, uid, res):
+    """`record_arm` takes `pair`/`config`/`channel`/`arm` by KEYWORD — a positional uid unpack
+    is the seam a coupled work unit breaks; see its docstring.  These tests still hold a uid
+    TUPLE because `record_precompute`'s lookup key is one, so the mapping is spelled once,
+    here, and `test_key_fields_are_keyword_only` pins the contract."""
+    pair, config, channel, arm = uid
+    rm.record_arm(root, cell, res, pair=pair, config=config, channel=channel, arm=arm)
 
 
 def _res(elapsed=10.0, done=100, **kw):
@@ -29,7 +39,7 @@ def _res(elapsed=10.0, done=100, **kw):
 
 def test_record_and_load_roundtrip(tmp_path):
     root = str(tmp_path)
-    rm.record_arm(root, 'k1_off_lpt', ('pairA', 'store', 'store', 'opt_rank_cartlabor_norsl'), _res())
+    _arm(root, 'k1_off_lpt', ('pairA', 'store', 'store', 'opt_rank_cartlabor_norsl'), _res())
     rows = rm.load_rows(root)
     assert len(rows) == 1
     r = rows[0]
@@ -56,7 +66,7 @@ def test_missing_observability_keys_write_nulls_not_raises(tmp_path):
     legacy = dict(elapsed=5.0, done=10, n_bins=1, regime_bins=1, n_aisles=1,
                   t_reord=1.0, t_build=1.0, t_pre=1.0, t_sim=1.0,
                   t_extract=0.5, t_inv=0.25, t_save=0.25)
-    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), legacy)
+    _arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), legacy)
     r = rm.load_rows(root)[0]
     assert r['smpl_s'] == 0.0 and r['kf_s'] == 0.0 and r['gc_gen2'] == 0
     assert r['peak_rss_mib'] is None and r['live_objects'] is None
@@ -71,9 +81,9 @@ def test_setup_spans_are_nullable_and_stamped_with_their_provenance(tmp_path):
     family's offline solve as free.
     """
     root = str(tmp_path)
-    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), _res())
-    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'opt_map_norsl'),
-                  _res(t_precompute=41.5, map_lap_pct=0.031))
+    _arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), _res())
+    _arm(root, 'k1_off', ('p', 'store', 'store', 'opt_map_norsl'),
+         _res(t_precompute=41.5, map_lap_pct=0.031))
     by_arm = {r['arm']: r for r in rm.load_rows(root)}
     assert by_arm['uni_fifo_norsl']['precomp_s'] is None
     assert by_arm['uni_fifo_norsl']['precomp_src'] is None
@@ -85,8 +95,8 @@ def test_setup_spans_are_nullable_and_stamped_with_their_provenance(tmp_path):
 def test_a_measured_zero_survives_as_a_zero(tmp_path):
     """A rule with no build step measures ~0 s; that is data, not a missing value."""
     root = str(tmp_path)
-    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'),
-                  _res(t_precompute=0.0))
+    _arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'),
+         _res(t_precompute=0.0))
     r = rm.load_rows(root)[0]
     assert r['precomp_s'] == 0.0 and r['precomp_src'] == 'inline'
 
@@ -94,7 +104,7 @@ def test_a_measured_zero_survives_as_a_zero(tmp_path):
 def test_backfill_updates_an_existing_arm_and_says_it_was_a_backfill(tmp_path):
     root = str(tmp_path)
     uid = ('p', 'store', 'store', 'opt_map_norsl')
-    rm.record_arm(root, 'k1_off', uid, _res())
+    _arm(root, 'k1_off', uid, _res())
     assert rm.load_rows(root)[0]['precomp_s'] is None
     assert rm.record_precompute(root, 'k1_off', uid, 38.25, 'backfill', map_lap_pct=0.02)
     r = rm.load_rows(root)[0]
@@ -116,7 +126,7 @@ def test_backfill_migrates_a_db_written_before_the_columns_existed(tmp_path):
     import warnings
     root = str(tmp_path)
     uid = ('p', 'store', 'store', 'opt_map_norsl')
-    rm.record_arm(root, 'k1_off', uid, _res())
+    _arm(root, 'k1_off', uid, _res())
     # Reproduce the older vintage faithfully: drop the columns AND restore the stamp that
     # vintage carried, so this exercises a genuine old file rather than a corrupted new one.
     con = sqlite3.connect(rm.runtime_db_path(root))
@@ -144,7 +154,7 @@ def test_backfill_migrates_a_db_written_before_the_columns_existed(tmp_path):
 def test_backfill_refuses_to_invent_a_row_or_an_unknown_source(tmp_path):
     import pytest
     root = str(tmp_path)
-    rm.record_arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), _res())
+    _arm(root, 'k1_off', ('p', 'store', 'store', 'uni_fifo_norsl'), _res())
     # no such arm: a measurement with no simulation behind it must not appear in the table
     assert not rm.record_precompute(root, 'k1_off', ('p', 'store', 'store', 'ghost'),
                                     1.0, 'backfill')
@@ -164,10 +174,59 @@ def test_the_setup_span_is_not_a_section(tmp_path):
 def test_key_is_unique_and_overwrites(tmp_path):
     root = str(tmp_path)
     uid = ('pairA', 'store', 'store', 'uni_fifo_norsl')
-    rm.record_arm(root, 'k1_off', uid, _res(elapsed=10))
-    rm.record_arm(root, 'k1_off', uid, _res(elapsed=20))     # same key → resume/re-run overwrites
+    _arm(root, 'k1_off', uid, _res(elapsed=10))
+    _arm(root, 'k1_off', uid, _res(elapsed=20))     # same key → resume/re-run overwrites
     rows = rm.load_rows(root)
     assert len(rows) == 1 and abs(rows[0]['total_s'] - 20.0) < 1e-9
+
+
+def test_a_store_only_backfill_finds_the_row_the_arm_wrote(tmp_path):
+    """`ChannelRun.channel_key`, not `channel or ''` — the fourth spelling of 'no channel'.
+
+    A store-only layout has no `<channel>/` directory, so `ChannelRun.channel` is None; the arm
+    that ran there still wrote `channel = 'store'`, because that is the channel it simulated.
+    `run_map_precompute` keyed its runtime lookup and its `WHERE channel=?` UPDATE with `''`,
+    so every store backfill matched no row, wrote no seconds, and said so only as an
+    '(no row to update)' log line.  The second half of this test is the old spelling.
+    """
+    root = str(tmp_path)
+    cr = ChannelRun('pairA', 'store', None, os.path.join(root, 'pairA', 'store'))
+    assert cr.channel_key == 'store'
+    _arm(root, 'k1_off', ('pairA', cr.config, 'store', 'opt_map_norsl'), _res())
+    assert rm.record_precompute(root, 'k1_off',
+                                ('pairA', cr.config, cr.channel_key, 'opt_map_norsl'),
+                                12.0, 'backfill')
+    assert abs(rm.load_rows(root)[0]['precomp_s'] - 12.0) < 1e-9
+    assert not rm.record_precompute(root, 'k1_off',
+                                    ('pairA', cr.config, cr.channel or '', 'opt_map_norsl'),
+                                    99.0, 'backfill'), 'the blank spelling must match nothing'
+    assert abs(rm.load_rows(root)[0]['precomp_s'] - 12.0) < 1e-9
+
+
+def test_key_fields_are_keyword_only(tmp_path):
+    """The four key fields cannot be passed positionally.
+
+    They used to arrive as one work-unit uid, unpacked `pair, config, channel, arm = uid`.
+    A coupled unit's uid is `(label, 'coupled', arm_store, arm_ful)` — same arity, different
+    meanings — so that read would have written the store ARM into the `channel` column, and
+    `channel` is TEXT NOT NULL with the supervisor swallowing IntegrityError: the wrong value
+    and the rejected row are equally silent.  A TypeError at the call site is the whole fix.
+    """
+    root = str(tmp_path)
+    coupled_uid = ('pairA', 'coupled', 'opt_rank_labor_norsl', 'opt_map_norsl')
+    try:
+        rm.record_arm(root, 'k1_off', coupled_uid, _res())
+    except TypeError:
+        pass
+    else:
+        raise AssertionError('record_arm accepted a positional uid')
+    assert rm.load_rows(root) == []
+
+    # and the keyword form still writes exactly what it is told
+    rm.record_arm(root, 'k1_off', _res(), pair='pairA', config='store',
+                  channel='fulfillment', arm='opt_map_norsl')
+    r = rm.load_rows(root)[0]
+    assert (r['config'], r['channel'], r['arm']) == ('store', 'fulfillment', 'opt_map_norsl')
 
 
 def test_load_absent_is_empty(tmp_path):
