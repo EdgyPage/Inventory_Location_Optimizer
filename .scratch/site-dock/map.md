@@ -17,8 +17,14 @@ BEFORE anything runs: the inbound-optimization map resumes at
   carry it). Once a ticket's governing decisions close, implementation graduates from fog into
   `task` tickets on this map.
 - **Charter — settled during charting (2026-09-11), binding on every ticket:**
-  - **The coupling rides the inbound flag.** Flag-off is byte-identical with today's leaf model,
-    including its per-leaf put crew. Coupling is what inbound-on turns on.
+  - ~~**The coupling rides the inbound flag.**~~ **SUPERSEDED — coupling is DECLARED.** The
+    byte-identical half stands: flag-off is today's leaf model, including its per-leaf put crew.
+    But the trigger cannot be the inbound flag, because
+    [Re-shape the funnel for arm pairs](issues/06-reshape-the-funnel-for-arm-pairs.md) couples
+    every cell **including its inbound-OFF pole** — so a coupled run with no trailers at all is
+    exactly what the campaign runs, and no flag implies coupling. Built as `--couple-channels`
+    with `run_layout.json`'s `coupled` as the run-tree marker
+    ([Build the coupled work unit](issues/18-build-the-coupled-work-unit.md)).
   - **Put-away is one site pool over segregated volume** (user, 2026-09-11). A putter takes work
     from either channel's queue; a cart or pallet carries one channel's packs only. The crew is
     shared, the volume is not.
@@ -57,7 +63,12 @@ BEFORE anything runs: the inbound-optimization map resumes at
   totals. Coupling fixes it by construction, and `expected_utilization`'s "single-channel leaves
   undercut ρ" caveat (`staffing.py:663-667`, `equilibrium.py:37-38`) stops being needed for put and
   receiving. **This moves absolute put and travel numbers on every coupled run** — a comparability
-  break of the same class as the four already on the record. **And it leaves phase 1 asymmetric:**
+  break of the same class as the four already on the record. **It does not move them YET:**
+  [Build the coupled work unit](issues/18-build-the-coupled-work-unit.md) deleted the per-leaf
+  crew from the payload, which is byte-identical, and the crews are still FIELDED per leaf until
+  04's pool lands. The break therefore has a date and a test — it arrives with
+  `Inbound/putaway_pool.py`, and `test_a_coupled_unit_matches_the_two_units_it_replaces` fails on
+  the commit that causes it, naming the leaf whose labour moved. **And it leaves phase 1 asymmetric:**
   phase 1 is inbound-off, so it ranks placement arms under 2× the site put labour while phase 2
   runs under 1×. That caveat is PUBLISHED with the campaign, not discovered by it.
 - **The threshold compromise dissolves, and this map does not own it.**
@@ -402,6 +413,39 @@ BEFORE anything runs: the inbound-optimization map resumes at
   price list rather than something a coupled run satisfies for free; and check 1's `_TOL` is
   ABSOLUTE, so it fails four archived arms on 1.3e-6 s of float re-association over 4.18M s.
 
+- [Build the coupled work unit and its two-leaf worker](issues/18-build-the-coupled-work-unit.md):
+  **BUILT and live on `develop`** (`b8e6c770`, `beda6b77`) — a second leaf now EXISTS. A unit is
+  `(label, 'coupled', arm_store, arm_ful)`, two leaves from `_prepare_site_run` (which calls
+  `_prepare_channel_run` twice, unforked) driven through ONE batch loop, finalizing two groups
+  from the `group_keys` they carry. **The ordering question resolved against the ticket's own
+  guess:** section 6 IS separable (moving the site crews to unit scope changes where a value is
+  stated, not what is built), but **section 5 is not, and the reason is sharper than the double
+  count** — `put_clock` is the absolute carry a BATCH-LOCAL clock list is based from, so one
+  site-wide carry over two independent lists starts leaf B's putters where leaf A's finished:
+  two full crews serialized as if they were one, a third model and neither on offer. So the two
+  site-wide carries move with the RESOURCES (`put_clock` with 04's shared list, `recv_clock`
+  with 01's coupled coordinator) and this ticket landed before 04. **That corrects the
+  acceptance: absolute numbers do NOT move here**, and what replaces it is stronger — coupled is
+  pinned row-for-row identical to the two units it replaces, so 04's break arrives as a failing
+  test that names the leaf rather than a measurement after the fact. Coupling is **declared**
+  (`--couple-channels`, five seams, `run_layout.json`'s `coupled` v3 — 03's marker, which 14's
+  `select()` refusal had no way to observe until now), because 06 couples the inbound-OFF pole
+  and so no flag implies it. **Two deviations under force:** `_Leaf` holds CLOSURES, not fields
+  — 104 names cross from setup into the loop or tail and 45 are rebound, so a state object meant
+  hand-rewriting 775 lines where any miss is silent, while `nonlocal` moves both verbatim; and
+  02's "build both partitions first" could not be built and did not need to be, because each
+  leaf loads its own inventory, so the assertion it asked for is made on the SUM instead — the
+  failure guarded is a silently empty leaf, not an exception. 11's `expected_pick` refusal is
+  retired: a unit returns one result per leaf, each stating its own arm. **Five findings:** the
+  nine source-inspecting guards would have gone on passing while guarding nothing (two had to
+  become structural rather than literal); a backbone edge had to be re-anchored on the NESTED
+  closure `_step`, because the extractor attributes a call to the function it is written in; the
+  descriptor's field set IS verified against its writer while `context/artifacts.yml`'s is not,
+  so the schema alone would have left the catalogue stale and green; `--catalog-merge` seeded
+  both new files' `purpose` from a docstring FRAGMENT again, escaping the fill step; and a
+  result dict had to start stating its own arm — 11's "state, don't slice" rule, unfixed on the
+  result side and invisible while every unit had one arm.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
@@ -410,15 +454,21 @@ BEFORE anything runs: the inbound-optimization map resumes at
   seated, so what remains of 05 is the composite that answers through it), and **16's is DONE**
   (10's two byte-identical precursors are in, so what remains of 10 is the reconciler alone), and
   **17's is DONE** (out of 15's within-leaf half — so what remains of 15 is the site-scope work
-  alone). The KEYSTONE has now graduated out of this lump as
-  [Build the coupled work unit and its two-leaf worker](issues/18-build-the-coupled-work-unit.md),
-  because almost every patch below says in so many words that it needs a second leaf to exist and
-  that ticket is what makes one exist; everything else here stays fog until it lands.
+  alone). **THE KEYSTONE IS DONE** —
+  [Build the coupled work unit and its two-leaf worker](issues/18-build-the-coupled-work-unit.md)
+  is built, so a second leaf now EXISTS and every patch below that said it needed one is
+  buildable. Three things that lump no longer holds: 02's sections 1–4 and 6, and section 5's
+  two site-wide carries, which 18 proved belong to the resources rather than to the unit —
+  **`put_clock` moves with 04's shared clock list and `recv_clock` with 01's coupled
+  coordinator**, and each is named in that ticket's scope below rather than floating here.
   **12's are DONE**, so what remains of 04 is the pool itself and not its seams, and **14's is
   DONE**, so what remains of 06 is the SPEC side alone. The
-  ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
-  second leaf: the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact
-  declarations and their contract bump; out of 07 the site stage and `SiteContext` itself, the
+  ADR and the `CONTEXT.md` amendments are **done** (03), and so is 03's **`coupled` marker** in
+  `run_layout.json` (18 wrote it; 14's `select()` refusal was inert until then). What remains,
+  all of it now buildable against a real second leaf: out of 01 the owner dict and — new from
+  18 — the coupled coordinator that owns **one** dock, which is what makes a site-wide
+  `recv_clock` well-posed at all; the leaf-accessor refusals, `SITE_PHASES`, the `_site/`
+  artifact declarations and their contract bump; out of 07 the site stage and `SiteContext` itself, the
   `yard` family's move to a third scope value (its `schema_id` bump and four test ties), the site
   clause in `equilibrium.py` with the report's two-leaf accumulation, the rollup's `ValueError`
   refusal and its `analyze_run` skip, and the two unlisted leaf surfaces — `series.py`'s
@@ -429,7 +479,14 @@ BEFORE anything runs: the inbound-optimization map resumes at
   `Inbound/putaway_pool.py` module itself, the proportional split with its residue pass,
   the site `put_clock` and its day-start base, and the two coupled refusals — all of which
   now bind to seams that EXIST (`bind_crew(clocks=)`, `drain_putaway_records(reset_clocks=)`,
-  `_stock(charge_cut=)`, `count_put_cut`), so what is left is the rule and not the wiring; and out of 05 the
+  `_stock(charge_cut=)`, `count_put_cut`, and since 18 a coupled unit to bind them in), so what
+  is left is the rule and not the wiring. **18 moved the site `put_clock` here and said why:**
+  a site-wide carry over two per-leaf clock lists is not "the double count persists", it
+  serializes two full crews as if they were one, so the carry and the shared list must land
+  together. 04 is also where this map's first real comparability break lands, and it arrives
+  as a **failing test rather than a measurement** —
+  `test_a_coupled_unit_matches_the_two_units_it_replaces` pins coupled == uncoupled today and
+  fails by construction when the pool ships, naming the leaf whose labour moved; and out of 05 the
   `SiteGainBundle` itself, the second `_gain_bundle_for` call, its refusal when two owners'
   gate knobs disagree (13), and the three-part commensurability test (its sabotage included),
   all of which need two owners to exist before they can be written — the cursor and the
