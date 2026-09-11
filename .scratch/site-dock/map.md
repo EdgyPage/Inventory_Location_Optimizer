@@ -157,31 +157,54 @@ BEFORE anything runs: the inbound-optimization map resumes at
   and the test carries a SABOTAGE part that fails on any per-channel weight. Sub-questions 4 and 5
   routed to 08 and 06 rather than pre-empted.
 
+- [Re-shape the funnel for arm pairs](issues/06-reshape-the-funnel-for-arm-pairs.md): a phase-2
+  cell is an ordered list of RULE pairs (`PHASE2_PAIRS`), rank-aligned and store-first, with
+  `CHANNEL_RESTOCKS` **derived** from it rather than authored beside it — a pair list makes a
+  ragged hand-off unrepresentable, where two zipped lists carry the silent-truncation failure all
+  the way to the launcher. The diagonal extends to `Strategy.stock_mode` (`uniform`/`policy`, a
+  clean 17/17 partition of every rule), so a rule pair is **two** arm pairs and never four, and
+  phase 2's arm count is unchanged. **Every cell couples, `inb_off` included:** the trade is
+  cross-phase comparability for within-matrix validity, and the matrix's own deltas are what the
+  campaign publishes — the anchor is restated as the inbound-OFF pole INSIDE the coupled model,
+  which keeps 03's run-root marker honest because no cell opts out. The extension cap counts the
+  **union** of unfaithful families (extension work is per family, so a per-channel cap of 3 can
+  commit six), at the cost of a declared alphabetical channel order. The staffing pin is per
+  **site** — `_derive_staffing_for_pair` was always per-pair, so there is no per-channel
+  derivation to pin, and coupling changes only how the crews are FIELDED, which is what makes the
+  pin work unchanged across the boundary. **Three findings:** `sorted(set(arms))` destroys the
+  rank order a diagonal reads, so the artifact could not carry a pairing at all; **nothing in the
+  codebase reads two run roots**, so the cross-phase caveat is a stamp with no join to gate and
+  the one reachable guard is `select()` refusing a coupled root; and work units are built PER
+  CELL, which made cell-level coupling free and turned the anchor into a real choice rather than
+  a plumbing detail.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some have graduated out
-  because they are byte-identical and need no second leaf (three of them):
+  because they are byte-identical and need no second leaf (five of them):
   [Extract the one-leaf receiving coordinator](issues/09-extract-the-one-leaf-coordinator.md)
   (out of 01),
   [Harden the three positional seams](issues/11-harden-the-positional-seams.md) (out of 03) and
   [Seat the put-pool injection seams](issues/12-seat-the-put-pool-seams.md) (out of 04) and
   [Seat the one-owner bundle indirection](issues/13-seat-the-one-owner-bundle-indirection.md)
-  (out of 05). The ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
+  (out of 05) and
+  [Re-shape the selection hand-off](issues/14-reshape-the-selection-handoff.md) (out of 06). The
+  ADR and the `CONTEXT.md` amendments are **done** (03). What still waits on a
   second leaf: the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the `_site/` artifact
   declarations and their contract bump, the site evaluation context 07 will need; out of 04 the
   `Inbound/putaway_pool.py` module itself, the proportional split with its residue pass,
   the site `put_clock` and its day-start base, and the two coupled refusals; and out of 05 the
   `SiteGainBundle` itself, the second `_gain_bundle_for` call, and the three-part commensurability
-  test (its sabotage included), all of which need two owners to exist before they can be written.
+  test (its sabotage included), all of which need two owners to exist before they can be written;
+  and out of 06 the SPEC side — `PHASE2_ARMS` becoming `PHASE2_PAIRS`, `CHANNEL_RESTOCKS` derived
+  from the pair list, the pair-shaped shape refusal in `_run_whatif_matrix`, and the rewrite of
+  `whatif_config.py:166-170` (whose cross-phase claim this map's own answer makes false), none of
+  which mean anything until the coupled unit builder exists to consume a pair.
 - **Within-day put interleaving.** The charter shares a DAY budget, so a putter cannot take the
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
   coupled run shows a day where one channel's put queue actually starves while the other's crew
   sits. The faithful version — both leaves on one time-ordered loop — is a cadence change of the
   same family the inbound map ruled out, so it graduates only with evidence.
-- **Where the campaign's staffing record pins a PAIR.** `restock_selection.json` was to pin the
-  staffing record and `inbound_policies` refuse under a different one; with diagonal pairing the
-  hand-off carries pairs, and whether the pin is per channel or per site is dim until the funnel
-  re-shaping closes.
 
 ## Out of scope
 
