@@ -19,6 +19,18 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 
+#: Every legal evaluation scope, in tree order.  This lived in a COMMENT on `Evaluation.scope`
+#: and was checked by nothing, so a typo — or a fifth value nobody told the consumers about —
+#: rendered a family into the wrong tree with no error at all: `requests.resolve_needs` folded
+#: any unrecognised string into the `config` namespace and the driver simply never scheduled it.
+#: `site` is the fifth (site-dock 03: one coupled unit, two channel leaves, trailer- and
+#: door-denominated rows that belong to neither).
+#:
+#: NOT the same axis as `families.FAMILIES[*]['scope']`, which takes `leaf | run` and says where
+#: a chart READS from; this one says which tree its output lands in.
+SCOPES = ('per_strategy', 'config', 'aggregate', 'run', 'site')
+
+
 @dataclass(frozen=True)
 class Evaluation:
     key:        str                          # 'headline.top_vs_baseline'
@@ -145,6 +157,11 @@ def evaluation(*, key, label, scope, needs=(), defaults=None, out_subdir=None,
     Returns the plain function unchanged so it stays directly unit-testable.
     """
     def _wrap(fn):
+        if scope not in SCOPES:
+            raise ValueError(f'{key}: unknown scope {scope!r}; one of {SCOPES}. A scope the '
+                             f'consumers do not know is not refused downstream — it is '
+                             f'silently reinterpreted, and the evaluation renders into the '
+                             f'wrong tree or into none.')
         sub = out_subdir
         derived = tuple(views)
         marks = (shape,) if isinstance(shape, str) else tuple(shape or ())

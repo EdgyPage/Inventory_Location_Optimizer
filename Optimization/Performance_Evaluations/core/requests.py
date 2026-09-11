@@ -46,6 +46,7 @@ from Optimization.Performance_Evaluations.common.frames import (_bdf, _cdf, _crd
                                                                 _fidf, _sdf, _tdf, _wdf,
                                                                 _ydf)
 from Optimization.Performance_Evaluations.common.series import _build_series
+from Optimization.Performance_Evaluations.core.registry import SCOPES
 
 
 # ── the denial sentinel ──────────────────────────────────────────────────────────
@@ -100,6 +101,19 @@ class Request:
 
 #: (scope, name) -> Request
 REQUESTS: dict = {}
+
+#: Evaluation scope -> the REQUEST namespace that serves it.  `per_strategy` and `config` are
+#: two evaluation scopes over the SAME context kind (one channel-run leaf), so they share a
+#: namespace; every other scope has its own.  This was written
+#: `ev.scope if ev.scope in ('aggregate', 'run') else 'config'`, a fallback rather than a map —
+#: so an evaluation whose scope this module did not recognise was silently namespaced as
+#: `config`, resolved against the wrong requests and prepared no output directory of its own.
+#: Total over `registry.SCOPES` by construction; the assertion below is what keeps it total.
+REQUEST_SCOPE = {'per_strategy': 'config', 'config': 'config', 'aggregate': 'aggregate',
+                 'run': 'run', 'site': 'site'}
+assert set(REQUEST_SCOPE) == set(SCOPES), (
+    f'REQUEST_SCOPE does not cover {sorted(set(SCOPES) - set(REQUEST_SCOPE))} — a scope with '
+    f'no namespace is the silent-fallback bug this map replaced')
 
 
 def request(name: str, scope: str):
@@ -598,7 +612,10 @@ def resolve_needs(ctx, ev) -> dict:
     if era is not None:
         _TALLY['era'][ev.key] = _TALLY['era'].get(ev.key, 0) + 1
         return {'era': era}
-    scope = ev.scope if ev.scope in ('aggregate', 'run') else 'config'
+    scope = REQUEST_SCOPE.get(ev.scope)
+    if scope is None:                        # unreachable via @evaluation, which validates first
+        raise ValueError(f'{ev.key}: scope {ev.scope!r} has no request namespace; '
+                         f'REQUEST_SCOPE covers {sorted(REQUEST_SCOPE)}')
     denials = {}
     for need in ev.needs:
         req = REQUESTS.get((scope, need))
