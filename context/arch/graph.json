@@ -17076,6 +17076,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.count_put_cut",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_pick",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
@@ -17807,6 +17812,11 @@
     },
     {
       "dst": "Warehouse/kernel/crew_clock.py::new_clocks",
+      "kind": "calls",
+      "src": "Warehouse/inventory/put_queue.py::PutQueue.bind_crew"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::size_of",
       "kind": "calls",
       "src": "Warehouse/inventory/put_queue.py::PutQueue.bind_crew"
     },
@@ -39922,6 +39932,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "configure_zoning",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.count_put_cut",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "count_put_cut",
       "public": true
     },
     {

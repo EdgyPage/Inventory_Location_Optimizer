@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>count_put_cut · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_count_put_cut" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager.count_put_cut">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>count_put_cut</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>count_put_cut</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+
+<pre class="sig"><code>def count_put_cut(self, deadline: float | None) -&gt; None</code></pre>
+<section class="doc">Charge every queue the whistle stopped: `cut += len(queue.items)`.
+
+COUNTED ONCE, AND OUTSIDE THE DRAIN LOOP.  The three gates in `_stock` each defer
+work without counting it, deliberately: any of them can fire on several refill
+passes, and a counter incremented inside the loop would report how many passes the
+drain happened to need rather than how much work the day boundary left standing --
+the exact defect `blocked` was fixed for.
+
+Safe to compute afterwards because a clock only ever advances: a queue that could
+not start during the drain still cannot start now, so what remains on it is
+precisely what the whistle stopped.
+
+`_held` is NOT counted.  A held item was refused FLOOR SPACE and never reached a
+queue; that is `blocked`, a different problem with a different fix, and the two
+counters are worth having only while they stay disjoint.
+
+PUBLIC, AND ONCE PER DAY RATHER THAN ONCE PER DRAIN.  A caller that drains twice
+in one day -- a site put pool giving each channel a sub-deadline and then
+re-draining both against the whole day -- must call `_stock` with `deadline=None`
+and charge the cut itself, once, against the full-day deadline.  `cut` is a LEVEL:
+it re-counts the standing queue every time it is charged, so a second charge
+inside one batch inflates it where no downstream &quot;count the non-zero batches&quot; rule
+can undo it.  `_stock` calls this inline, so the single-drain path is unchanged.
+
+`deadline is None` charges nothing: no whistle blew, so nothing was stopped.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock.html"><code>_stock</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_count_put_cut">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20count_put_cut">Source ↗</a></p>
+</article>
+</main>
+</body></html>

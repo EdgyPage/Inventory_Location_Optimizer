@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_stock</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
 
-<pre class="sig"><code>def _stock(self, budget: int | None=None, deadline: float | None=None) -&gt; None</code></pre>
+<pre class="sig"><code>def _stock(self, budget: int | None=None, deadline: float | None=None, charge_cut: bool=True) -&gt; None</code></pre>
 <section class="doc">Dispatch the queued wave to the placement policy: a ranked wave if the
 policy carries a ``place_wave``, otherwise the per-unit path.  Single entry
 used by enqueue/enqueue_all (initial stock) and check_reorders (reorders).
@@ -34,12 +34,16 @@ two constraints are independent and both are checked -- a budget is people, a
 deadline is the clock, and a warehouse can run out of either first.  ``None`` is
 every run that does not ask for a day cut.
 
+``charge_cut=False`` drains against the deadline but leaves the cut UNCHARGED, for
+a caller that drains twice in one day and charges once at the end -- see
+`count_put_cut`.  True is the default and every caller today.
+
 Runs the coupling guard first — even on an empty queue — so an armed/fn
 mismatch fails loudly before any placement: when travel costs are armed,
 candidates is passed as None and place_one MUST read mgr._aisle_index instead;
 a mismatch (index armed but fn scans, or vice-versa) silently returns None for
 every placement.</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__admit_held.html"><code>_admit_held</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_per_unit.html"><code>_stock_per_unit</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_ranked.html"><code>_stock_ranked</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enqueue.html"><code>enqueue</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enqueue_all.html"><code>enqueue_all</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__admit_held.html"><code>_admit_held</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_per_unit.html"><code>_stock_per_unit</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_ranked.html"><code>_stock_ranked</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_count_put_cut.html"><code>count_put_cut</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enqueue.html"><code>enqueue</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_enqueue_all.html"><code>enqueue_all</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20_stock">Source ↗</a></p>
 </article>
 </main>

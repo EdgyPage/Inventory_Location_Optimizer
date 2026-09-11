@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>drain_putaway_records</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def drain_putaway_records(self) -&gt; list</code></pre>
+<pre class="sig"><code>def drain_putaway_records(self, reset_clocks: bool=True) -&gt; list</code></pre>
 <section class="doc">Hand over this batch&#x27;s put-away records, and start the crew&#x27;s clock over.
 
 A DRAIN IS A BATCH BOUNDARY.  The records carry `t_start` on the crew&#x27;s own clock
@@ -33,7 +33,15 @@ batch, and batch 6&#x27;s puts overran batch 7&#x27;s picks so the merged view i
 batches.
 
 Drained rather than read so the caller takes ownership once per batch and the
-manager never holds a run&#x27;s worth of rows.</section>
+manager never holds a run&#x27;s worth of rows.
+
+`reset_clocks=False` hands the records over and LEAVES THE CREW WHERE IT IS, for a
+caller that owns the reset because it owns the clocks -- a site put pool whose one
+list is bound to both channels&#x27; queues, where a leaf resetting at its own drain
+would zero the other leaf&#x27;s half-spent day with nothing raising and every
+subsequent row plausible.  Such a caller must still reset once per batch, or the
+paragraph above describes exactly what happens to it.  The default is every caller
+today.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py__close_skipped_batch.html"><code>close_skipped_batch</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_drain_putaway_records">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20drain_putaway_records">Source ↗</a></p>
 </article>

@@ -17575,10 +17575,10 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock": {
       "decorators": [],
-      "doc": "Dispatch the queued wave to the placement policy: a ranked wave if the\npolicy carries a ``place_wave``, otherwise the per-unit path.  Single entry\nused by enqueue/enqueue_all (initial stock) and check_reorders (reorders).\n\n``budget`` caps how many units may be PLACED in this call; whatever is left stays\nqueued for the next one, which is the deferral the queue already does for a unit\nno bin can hold.  ``None`` (the default, and every caller today) means place\neverything, exactly as before.\n\nA budget is what a finite crew and a finite number of dock doors impose: the\nparameter exists so that constraint has somewhere to go without the drain being\nrewritten around it.\n\n``deadline`` is the WHISTLE, in seconds on the crews' batch-local clocks: a putter\nalready past it starts nothing new, and what is left rolls into the next call.  The\ntwo constraints are independent and both are checked -- a budget is people, a\ndeadline is the clock, and a warehouse can run out of either first.  ``None`` is\nevery run that does not ask for a day cut.\n\nRuns the coupling guard first \u2014 even on an empty queue \u2014 so an armed/fn\nmismatch fails loudly before any placement: when travel costs are armed,\ncandidates is passed as None and place_one MUST read mgr._aisle_index instead;\na mismatch (index armed but fn scans, or vice-versa) silently returns None for\nevery placement.",
+      "doc": "Dispatch the queued wave to the placement policy: a ranked wave if the\npolicy carries a ``place_wave``, otherwise the per-unit path.  Single entry\nused by enqueue/enqueue_all (initial stock) and check_reorders (reorders).\n\n``budget`` caps how many units may be PLACED in this call; whatever is left stays\nqueued for the next one, which is the deferral the queue already does for a unit\nno bin can hold.  ``None`` (the default, and every caller today) means place\neverything, exactly as before.\n\nA budget is what a finite crew and a finite number of dock doors impose: the\nparameter exists so that constraint has somewhere to go without the drain being\nrewritten around it.\n\n``deadline`` is the WHISTLE, in seconds on the crews' batch-local clocks: a putter\nalready past it starts nothing new, and what is left rolls into the next call.  The\ntwo constraints are independent and both are checked -- a budget is people, a\ndeadline is the clock, and a warehouse can run out of either first.  ``None`` is\nevery run that does not ask for a day cut.\n\n``charge_cut=False`` drains against the deadline but leaves the cut UNCHARGED, for\na caller that drains twice in one day and charges once at the end -- see\n`count_put_cut`.  True is the default and every caller today.\n\nRuns the coupling guard first \u2014 even on an empty queue \u2014 so an armed/fn\nmismatch fails loudly before any placement: when travel costs are armed,\ncandidates is passed as None and place_one MUST read mgr._aisle_index instead;\na mismatch (index armed but fn scans, or vice-versa) silently returns None for\nevery placement.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, budget: int | None=None, deadline: float | None=None) -> None"
+      "signature": "(self, budget: int | None=None, deadline: float | None=None, charge_cut: bool=True) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit": {
       "decorators": [],
@@ -17656,6 +17656,13 @@
       "kind": "function",
       "signature": "(self, enabled: bool, n_bands: int=3, orders: Any=None, *, mode: str='equal', abc: dict | None=None) -> None"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.count_put_cut": {
+      "decorators": [],
+      "doc": "Charge every queue the whistle stopped: `cut += len(queue.items)`.\n\nCOUNTED ONCE, AND OUTSIDE THE DRAIN LOOP.  The three gates in `_stock` each defer\nwork without counting it, deliberately: any of them can fire on several refill\npasses, and a counter incremented inside the loop would report how many passes the\ndrain happened to need rather than how much work the day boundary left standing --\nthe exact defect `blocked` was fixed for.\n\nSafe to compute afterwards because a clock only ever advances: a queue that could\nnot start during the drain still cannot start now, so what remains on it is\nprecisely what the whistle stopped.\n\n`_held` is NOT counted.  A held item was refused FLOOR SPACE and never reached a\nqueue; that is `blocked`, a different problem with a different fix, and the two\ncounters are worth having only while they stay disjoint.\n\nPUBLIC, AND ONCE PER DAY RATHER THAN ONCE PER DRAIN.  A caller that drains twice\nin one day -- a site put pool giving each channel a sub-deadline and then\nre-draining both against the whole day -- must call `_stock` with `deadline=None`\nand charge the cut itself, once, against the full-day deadline.  `cut` is a LEVEL:\nit re-counts the standing queue every time it is charged, so a second charge\ninside one batch inflates it where no downstream \"count the non-zero batches\" rule\ncan undo it.  `_stock` calls this inline, so the single-drain path is unchanged.\n\n`deadline is None` charges nothing: no whistle blew, so nothing was stopped.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, deadline: float | None) -> None"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.dock_depth": {
       "decorators": [
         "property"
@@ -17667,10 +17674,10 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_putaway_records": {
       "decorators": [],
-      "doc": "Hand over this batch's put-away records, and start the crew's clock over.\n\nA DRAIN IS A BATCH BOUNDARY.  The records carry `t_start` on the crew's own clock\nmeasured from the start of the batch, because the consumer\n(`Optimization.metrics.work_events.put_rows`) offsets them onto the arm's absolute\naxis by adding the batch epoch -- and the batch epoch is not known until after the\nbatch's picks have been simulated, so the manager cannot stamp absolute times\nitself.\n\nResetting here is therefore load-bearing, not tidiness.  Without it `_put_clock`\naccumulates across the whole arm while `put_rows` still adds the epoch, so every\nput row after batch 0 is stamped too late by the total put-away seconds of every\npreceding batch, and the error grows without bound: measured on an eight-batch\nstore arm, batch 7's puts landed at `t_local` 53,769-64,152 s against a 17,906 s\nbatch, and batch 6's puts overran batch 7's picks so the merged view interleaved\nbatches.\n\nDrained rather than read so the caller takes ownership once per batch and the\nmanager never holds a run's worth of rows.",
+      "doc": "Hand over this batch's put-away records, and start the crew's clock over.\n\nA DRAIN IS A BATCH BOUNDARY.  The records carry `t_start` on the crew's own clock\nmeasured from the start of the batch, because the consumer\n(`Optimization.metrics.work_events.put_rows`) offsets them onto the arm's absolute\naxis by adding the batch epoch -- and the batch epoch is not known until after the\nbatch's picks have been simulated, so the manager cannot stamp absolute times\nitself.\n\nResetting here is therefore load-bearing, not tidiness.  Without it `_put_clock`\naccumulates across the whole arm while `put_rows` still adds the epoch, so every\nput row after batch 0 is stamped too late by the total put-away seconds of every\npreceding batch, and the error grows without bound: measured on an eight-batch\nstore arm, batch 7's puts landed at `t_local` 53,769-64,152 s against a 17,906 s\nbatch, and batch 6's puts overran batch 7's picks so the merged view interleaved\nbatches.\n\nDrained rather than read so the caller takes ownership once per batch and the\nmanager never holds a run's worth of rows.\n\n`reset_clocks=False` hands the records over and LEAVES THE CREW WHERE IT IS, for a\ncaller that owns the reset because it owns the clocks -- a site put pool whose one\nlist is bound to both channels' queues, where a leaf resetting at its own drain\nwould zero the other leaf's half-spent day with nothing raising and every\nsubsequent row plausible.  Such a caller must still reset once per batch, or the\nparagraph above describes exactly what happens to it.  The default is every caller\ntoday.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self) -> list"
+      "signature": "(self, reset_clocks: bool=True) -> list"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_receiving_records": {
       "decorators": [],
@@ -17711,10 +17718,10 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing": {
       "decorators": [],
-      "doc": "Bind a put crew's travel speed + cost model, so every placement costs seconds.\n\nFollows `enable_sigma_fd`'s precedent: a binder the harness calls, so the domain\nnever reaches into CONFIG for it.  `speed` is a `cost_model.SpeedProfile` (a put\ncrew's own, which is why a Mode exists); `cost` defaults to `PutawayCost()`.\n\nADDITIVE BY CONSTRUCTION.  Put-away time does not move the pick clock, does not\ncontend for an aisle, and does not change which unit lands in which bin -- the same\nitems are picked, in the same order, at the same instants.  It records a duration\nand a row.  Contention is the inbound feature, not this seam.",
+      "doc": "Bind a put crew's travel speed + cost model, so every placement costs seconds.\n\nFollows `enable_sigma_fd`'s precedent: a binder the harness calls, so the domain\nnever reaches into CONFIG for it.  `speed` is a `cost_model.SpeedProfile` (a put\ncrew's own, which is why a Mode exists); `cost` defaults to `PutawayCost()`.\n\nADDITIVE BY CONSTRUCTION.  Put-away time does not move the pick clock, does not\ncontend for an aisle, and does not change which unit lands in which bin -- the same\nitems are picked, in the same order, at the same instants.  It records a duration\nand a row.  Contention is the inbound feature, not this seam.\n\n`clocks` gives the DEFAULT crew a pre-built worker list rather than minting one --\nthe seam a site-wide put pool binds to, so one list of putters serves two managers\nover segregated volume.  Held on the MANAGER because the queue set can be replaced\nafter this call (`put_queues` setter -> `_bind_put_crews`), and a rebind that minted\nfresh clocks would drop the pool on the floor with nothing raising.  A caller that\npasses it owns the reset; see `drain_putaway_records`.  None is every caller today.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, speed, cost=None, size: int=1) -> None"
+      "signature": "(self, speed, cost=None, size: int=1, clocks: list | None=None) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_receiving": {
       "decorators": [],
@@ -18933,10 +18940,10 @@
     },
     "Warehouse/inventory/put_queue.py::PutQueue.bind_crew": {
       "decorators": [],
-      "doc": "Give this queue its own crew. Idempotent per (speed, cost, size).",
+      "doc": "Give this queue its own crew. Idempotent per (speed, cost, size).\n\n`clocks` INJECTS a pre-built worker list instead of minting one, so two queues --\nin one manager or in two -- can be worked by the same people.  `crew_clock` is\nfunctions over a bare `list[float]` and `reset` mutates IN PLACE, which is what\nmakes sharing free: every `charge` on either queue books against the same list, so\na worker busy on one stream is busy on the other.  Whoever passes it OWNS THE\nRESET -- see `Inventory_Manager.drain_putaway_records`.\n\nNone -- every caller today -- mints this queue's own crew, which is the whole\nhistory of this method.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, speed, cost, size: int) -> None"
+      "signature": "(self, speed, cost, size: int, clocks: list | None=None) -> None"
     },
     "Warehouse/inventory/put_queue.py::PutQueue.can_start": {
       "decorators": [],

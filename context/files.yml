@@ -2631,6 +2631,9 @@ files:
       - {name: "test_depth_and_cut_are_different_questions", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
       - {name: "test_a_budget_and_a_deadline_bind_separately", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
       - {name: "test_the_deadline_does_not_leak_into_the_budgets_accounting", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_two_passes_in_one_day_charge_the_cut_once", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_charging_at_both_passes_would_inflate_the_level", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
+      - {name: "test_count_put_cut_charges_nothing_without_a_deadline", file: "Tests/integration/test_putaway_day_cut.py", kind: "function"}
     notes: ""
   "Tests/integration/test_queue_state_and_carryover.py":
     purpose: "the queue's own state, and what it failed to place."
@@ -4356,6 +4359,14 @@ files:
       - {name: "test_a_bigger_crew_on_one_stream_does_not_speed_up_the_other", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
       - {name: "test_the_put_clock_is_the_slowest_stream_not_the_sum", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
       - {name: "test_swapping_the_queue_set_keeps_timing_bound", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_an_injected_crew_is_the_same_list_and_not_a_copy", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_two_managers_on_one_crew_queue_behind_each_other", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_every_default_queue_in_one_manager_shares_the_one_crew", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_an_injected_crew_survives_a_queue_set_swap", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_an_injected_crew_that_contradicts_its_declared_size_is_refused", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_queue_naming_its_own_crew_refuses_an_injected_pool", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_a_drain_can_hand_the_records_over_and_leave_the_crew_standing", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
+      - {name: "test_the_default_drain_still_ends_the_day", file: "Tests/unit/test_putaway_timing.py", kind: "function"}
     notes: ""
   "Tests/unit/test_putaway_window.py":
     purpose: "FIFO with exactly K units of tolerance."
