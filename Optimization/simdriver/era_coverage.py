@@ -390,16 +390,24 @@ def declare_from_record(orders_all: list, specs: list, record: dict | None, *,
             f'rebuild needs {missing} -- the run and the rebuild disagree about which channels '
             f'the catalogue has, so re-declaring would field a section the run never did.')
     floors = floors_at(record)
+    # The lead the run declared at ("Declare the coverage against the inbound lead"): the
+    # pair's day-grid transit and the batch-to-day unit, read off the record's `lead` block.
+    # A record written before the block (every run through 2026-09-10) declared at transit
+    # 0 with a batch read as a day, which is exactly what the defaults reproduce.
+    lead = record.get('lead') or {}
+    transit_days = float(lead.get('transit_days') or 0.0)
+    unit = float(lead.get('lead_unit_days') if lead.get('lead_unit_days') is not None else 1.0)
     stats = {s.name: _cov.rescale_section(
         _staffing.regime_orders(orders_all, s.regime), float(n[s.name]),
         coverage_days=float(record['coverage_days']),
         safety_days=float(record['safety_days']),
-        floor_lines=float(floors[s.name])) for s in specs}
+        floor_lines=float(floors[s.name]),
+        transit_days=transit_days, lead_unit_days=unit) for s in specs}
     for name, st in stats.items():
         log.info(f"  [coverage] re-declared {name} from the run's record: "
                  f"{n[name]:,.0f} lines/day -> sum Q {st['sum_q']:,} over {st['n_skus']:,} SKUs "
                  f"({record['coverage_days']:g}/{record['safety_days']:g}/"
-                 f"{floors[name]:g} days/days/lines)")
+                 f"{floors[name]:g} days/days/lines; transit {transit_days:.3f} d)")
     return stats
 
 
@@ -732,9 +740,121 @@ def stamp_fragmentation(fielded: dict, section: list, log: logging.Logger, *,
     return frag
 
 
+#: The median scales the record's fill-versus-transit curve is priced at (`fill_curve`):
+#: enough points below and above the stamp for the audit to read an explained level off a
+#: realized lead, few enough that the curve costs seconds.  Scale 1 IS the stamp.
+FILL_CURVE_SCALES: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0,
+                                        4.0, 6.0, 8.0)
+
+
+def lead_block(lead_law: dict | None, day: dict) -> dict:
+    """The record's `lead` block: the pair's expected order-to-shelf TRANSIT on the day
+    grid and the unit a SKU's supplier lead is read in ("Declare the coverage against the
+    inbound lead", decisions 2-4).  JSON-shaped, stamped on the coverage record, and the
+    only thing a rebuild needs to re-declare the same levels (`declare_from_record`):
+
+        {'transit_days',                       # E[ceil(L / D)]  (`coverage.transit_day_law`)
+         'provenance': 'derived',
+         'trailer_type', 'lead_s', 'lead_sigma',   # the law it was read from (None/0/0 off)
+         'day_seconds',                        # the site day D it was gridded against
+         'releases_per_day', 'lead_unit_days'}  # a supplier lead's batch, in days
+
+    `lead_law` is `sim_config.inbound_lead_law()` (None = no pipeline: transit 0) and `day`
+    is `work_day_spec()`.  `lead_unit_days` is `1 / releases_per_day` -- one batch is one day
+    under the era, which completes `releases_per_day` to 1 -- and 1.0 when no release
+    schedule is declared, the flag-off reading of a batch as a day (byte-identical to every
+    record before this block existed).  DERIVED, never a CONFIG key: the regime's median and
+    spread move the record through the closed form, and nothing else does.
+    """
+    D = float(day['seconds'])
+    rpd = day.get('releases_per_day')
+    unit = (1.0 / float(rpd)) if rpd else 1.0
+    if lead_law is None:
+        return {'transit_days': 0.0, 'provenance': 'derived', 'trailer_type': None,
+                'lead_s': 0.0, 'lead_sigma': 0.0, 'day_seconds': D,
+                'releases_per_day': rpd, 'lead_unit_days': unit}
+    law = _cov.transit_day_law(float(lead_law['lead_s']), float(lead_law['lead_sigma']), D)
+    return {'transit_days': float(law['transit_days']), 'provenance': 'derived',
+            'trailer_type': str(lead_law['trailer_type']),
+            'lead_s': float(law['lead_s']), 'lead_sigma': float(law['lead_sigma']),
+            'day_seconds': D, 'releases_per_day': rpd, 'lead_unit_days': unit}
+
+
+def transit_of(lead: dict | None, scale: float = 1.0) -> dict | None:
+    """The `transit_day_law` a lead block was derived from -- None when the block names no
+    pipeline -- so the fill can be priced at the same law the levels were declared at.
+    `scale` multiplies the median (the fill curve's axis); 1.0 is the block itself."""
+    if not lead or lead.get('trailer_type') is None:
+        return None
+    return _cov.transit_day_law(float(lead['lead_s']) * float(scale),
+                                float(lead['lead_sigma']), float(lead['day_seconds']))
+
+
+def refuse_discarded_lead(orders_all: list, lead: dict, inputs: dict) -> None:
+    """Refuse, at setup, a supplier lead the trailer pipeline would silently discard
+    ("Declare the coverage against the inbound lead", decision 8).
+
+    Under the era with a trailer type declared, `TrailerTransit.dispatch` loads every fired
+    reorder the instant it fires and ignores the SKU's `lead_time_mean` -- so a catalogue
+    whose SKUs carry one would be declared AT that lead (levels, pipeline, fill) and then
+    run without it: the silent no-op the config doctrine refuses.  The refusal stands until
+    inbound-optimization's "Chain the supplier lead before the trailer" (27) queues the
+    order at the ordering site for its supplier lead before the trailer loads it; that
+    ticket lifts this guard.  Counted as the ledger counts it (`round(lead_time_mean) > 0`,
+    the batch transit's own quantization -- the same census `positive_lead_skus` reports):
+    a lead that rounds to no batch was never honoured by either transit and loses nothing.
+
+    Not refused: a non-era run (it keeps reading the attribute as batches, byte-identically,
+    and the pipeline's discard there predates this record) and an era run with no trailer
+    type (the batch transit honours the attribute; nothing is discarded).
+    """
+    if _guarantee_inputs(inputs) is None or not lead or lead.get('trailer_type') is None:
+        return
+    n = sum(1 for c in orders_all
+            if round(float(getattr(c, 'lead_time_mean', 0.0) or 0.0)) > 0)
+    if n:
+        raise ValueError(
+            f'{n:,} SKU(s) carry a supplier lead (lead_time_mean rounding to >= 1 batch) under '
+            f'the calibrated era with trailer type {lead["trailer_type"]!r} declared, and the '
+            f'trailer pipeline loads every reorder the instant it fires -- the lead would be '
+            f'declared on the record and then discarded by the run. Refused until '
+            f'inbound-optimization 27 ("Chain the supplier lead before the trailer") queues '
+            f'the order at the ordering site for its supplier lead; until then run this '
+            f'catalogue without a trailer type, or a lead-free catalogue with one.')
+
+
+def fill_curve(section: list, lines_per_day: float, lead: dict,
+               scales: tuple = FILL_CURVE_SCALES) -> list | None:
+    """The section's expected first-pass fill as a function of the pair's TRANSIT, at the
+    levels the orders carry now: `[{'transit_days', 'fill_rate'}, ...]` sorted by transit,
+    one point per distinct day-grid expectation the median scaled by `scales` produces
+    (the stamp itself, scale 1, always among them); None when the block names no pipeline.
+
+    Stamped so the audit can price `1 - fill(realized lead)` -- the EXPLAINED supply level
+    of "Declare the coverage against the inbound lead", decision 10 -- without the
+    catalogue: an analysis worker holds the record, never the orders.  The levels are held
+    FIXED (they were declared at the stamp); only the in-transit law moves, which is what a
+    yard that binds does to the shelf.  The law's SHAPE is kept (same spread, the median
+    scaled), so the point at scale 1 is the stamped fill exactly and the curve reads as
+    "the same regime, slower or faster".  Linear between points (`equilibrium.fill_at`).
+    """
+    if not lead or lead.get('trailer_type') is None:
+        return None
+    unit = float(lead.get('lead_unit_days') or 1.0)
+    points: dict = {}
+    for sc in sorted(set(float(s) for s in scales) | {1.0}):
+        law = transit_of(lead, sc)
+        t = float(law['transit_days'])
+        if t in points:
+            continue
+        points[t] = float(_cov.fill_rate(section, lines_per_day, transit=law,
+                                         lead_unit_days=unit)['fill_rate'])
+    return [{'transit_days': t, 'fill_rate': f} for t, f in sorted(points.items())]
+
+
 def resolve_floors(orders_all: list, specs: list, n: dict, *, coverage_days: float,
                    safety_days: float, floor_lines: float | None, inputs: dict,
-                   log: logging.Logger) -> tuple[dict, dict]:
+                   log: logging.Logger, lead: dict | None = None) -> tuple[dict, dict]:
     """The line floor each channel declares at, and the record's `floor` block.
 
     FLAG-OFF (no first-time confidence in `inputs`): the typed `floor_lines`, else the
@@ -744,12 +864,15 @@ def resolve_floors(orders_all: list, specs: list, n: dict, *, coverage_days: flo
     accepted at or above every channel's solved value (stamped `declared`, the solved one
     recorded beside it) and REFUSED below it -- a floor under the solved one is a smaller
     promise than the confidence makes, and raising it silently would be the second authored
-    knob that moves the crew, the pattern that hid the fill-rate defect.
+    knob that moves the crew, the pattern that hid the fill-rate defect.  The solve runs AT
+    the pair's lead (`lead`, a `lead_block`; None = no pipeline, a batch read as a day).
 
     Returns `({channel: floor}, {channel: {'floor_lines', 'provenance', 'solved': {...}}})`.
     """
     guarantee = _guarantee_inputs(inputs)
     typed = None if floor_lines is None else float(floor_lines)
+    transit = transit_of(lead)
+    unit = float((lead or {}).get('lead_unit_days') or 1.0)
     floors: dict = {}
     block: dict = {}
     for s in specs:
@@ -765,11 +888,13 @@ def resolve_floors(orders_all: list, specs: list, n: dict, *, coverage_days: flo
         t0 = time.perf_counter()
         solved = _cov.solve_floor_lines(section, float(n.get(name) or 0.0),
                                         coverage_days=coverage_days, safety_days=safety_days,
-                                        fill_min=guarantee[0])
+                                        fill_min=guarantee[0], transit=transit,
+                                        lead_unit_days=unit)
         log.info(f"  [coverage] {name}: line floor SOLVED at {solved['floor_lines']:.4f} "
                  f"lines for a first-pass fill >= {solved['fill_min']:.4f} (stamped "
                  f"{solved['fill_rate']:.4f}; {solved['evaluations']} evaluations"
                  f"{', the one-line floor already clears it' if solved['at_lower_bound'] else ''}"
+                 f"; at a transit of {(transit or {}).get('transit_days', 0.0):.3f} d"
                  f")  [{time.perf_counter()-t0:.0f}s]")
         if typed is not None and typed < solved['floor_lines'] - 1e-12:
             raise ValueError(
@@ -791,7 +916,7 @@ def resolve_floors(orders_all: list, specs: list, n: dict, *, coverage_days: flo
 def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
                 safety_days: float, floor_lines: float | None, inputs: dict,
                 day_seconds: float, log: logging.Logger, tol: float = _cov.DEFAULT_TOL,
-                max_rounds: int = _cov.DEFAULT_MAX_ROUNDS) -> tuple:
+                max_rounds: int = _cov.DEFAULT_MAX_ROUNDS, lead: dict | None = None) -> tuple:
     """Iterate Q(n) -> plan -> geometry -> n at pair level.  Returns
     `(plan, warehouse_meta, stage_a_result, record)` for the LAST round.
 
@@ -804,10 +929,15 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     stage A prices.  `floor_lines` is the INPUT as declared: None means the one-line default
     flag-off and "solve it" under the era (`resolve_floors`).  The derived fill is on when
     `inputs['min_headroom']` is not None (`staffing_spec()` records it so under the era and
-    None flag-off).  The record is JSON-shaped and
+    None flag-off).  `lead` is the pair's `lead_block` -- the day-grid transit every level,
+    pipeline stamp and fill is priced at ("Declare the coverage against the inbound lead");
+    None is no pipeline and a batch read as a day, byte-identically the record every run
+    before the block declared.  The record is JSON-shaped and
     rides `staffing.calibration[<pair>]['coverage']`:
 
         {'coverage_days', 'safety_days', 'floor_lines',   # the INPUT (None = solved)
+         'lead': {'transit_days', 'provenance', 'trailer_type', 'lead_s', 'lead_sigma',
+                  'day_seconds', 'releases_per_day', 'lead_unit_days'},   # `lead_block`
          'floor': {channel: {'floor_lines', 'provenance', 'solved'}},   # what each declares at
          'tol', 'max_rounds', 'rounds': [...],
          'seed': {'method': 'analytic_pick' | 'declared', 'lines_per_day': {channel: n}},
@@ -821,7 +951,10 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
 
     `final[<channel>]['fill']` is `coverage.fill_rate` over the orders the last plan fields:
     the expected first-pass fill rate the audit reads `missed_share` against, and the
-    base-stock share after planning.  Priced post-plan for a reason that no longer bites --
+    base-stock share after planning -- priced at the pair's lead, with `lead_days` (the
+    section's units-weighted lead) beside `pipeline_units`, and under a pipeline
+    `vs_transit`, the fill as a curve over the transit (`fill_curve`) for the audit's
+    explained level.  Priced post-plan for a reason that no longer bites --
     the planner used to grow a level into leftover capacity, so the shelf that served a line
     was not the one declared -- and it now equals the pre-plan price by construction, which
     is what `final[<channel>]['fielded']` (`fielded_block`) states and this loop RAISES on.
@@ -829,8 +962,16 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     if int(max_rounds) < 1:
         raise ValueError(f'the coverage loop needs at least one rescaling round; got '
                          f'max_rounds={max_rounds!r}')
+    if lead is None:
+        lead = lead_block(None, {'seconds': day_seconds, 'releases_per_day': None})
+    # A supplier lead the pipeline would discard is refused before anything is declared at it.
+    refuse_discarded_lead(orders_all, lead, inputs)
+    transit = transit_of(lead)
+    transit_days = float(lead['transit_days'])
+    unit = float(lead.get('lead_unit_days') or 1.0)
     record: dict = {'coverage_days': float(coverage_days), 'safety_days': float(safety_days),
                     'floor_lines': (None if floor_lines is None else float(floor_lines)),
+                    'lead': dict(lead),
                     'tol': float(tol), 'max_rounds': int(max_rounds), 'rounds': []}
     t_all = time.perf_counter()
     era = _guarantee_inputs(inputs) is not None
@@ -841,6 +982,15 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
                 f"line(s) of the SKU's own mean line")
              + (' (the line count is DECLARED: one round)' if era else
                 ' (round 0 is the analytic seed -- the catalogue carries no level to plan)'))
+    if lead.get('trailer_type') is not None:
+        log.info(f"  [coverage] order-to-shelf lead DERIVED: transit {transit_days:.3f} site "
+                 f"day(s) = E[ceil(L / D)] over the trailer's lead law (median "
+                 f"{lead['lead_s'] / 60.0:g} min, spread {lead['lead_sigma']:g}, day "
+                 f"{lead['day_seconds'] / 3600.0:g} h); a supplier lead's batch reads as "
+                 f"{unit:g} day(s)")
+    else:
+        log.info(f'  [coverage] no trailer pipeline: transit 0, a supplier lead\'s batch reads '
+                 f'as {unit:g} day(s)')
     # Round 0 does NOT plan: there is nothing to plan (ADR-0002).  The seed is the catalogue's
     # own analytic price -- or, under the era, the declaration -- and the FIRST declaration
     # follows from it.
@@ -855,7 +1005,7 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     # value flag-off).
     floors, record['floor'] = resolve_floors(orders_all, specs, n, coverage_days=coverage_days,
                                              safety_days=safety_days, floor_lines=floor_lines,
-                                             inputs=inputs, log=log)
+                                             inputs=inputs, log=log, lead=lead)
     stats: dict = {}
     converged = False
     history: dict = {s.name: [] for s in specs}      # per channel: [(n_in, n_out), ...]
@@ -875,7 +1025,8 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
         stats = {s.name: _cov.rescale_section(_staffing.regime_orders(orders_all, s.regime),
                                               prev[s.name], coverage_days=coverage_days,
                                               safety_days=safety_days,
-                                              floor_lines=floors[s.name])
+                                              floor_lines=floors[s.name],
+                                              transit_days=transit_days, lead_unit_days=unit)
                  for s in specs}
         if min_headroom is not None:
             holds, fills, frags = derived_holds(orders_all, specs,
@@ -912,14 +1063,21 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     # after planning.
     for s in specs:
         section = _staffing.regime_orders(sampled, s.regime)
-        fill = _cov.fill_rate(section, n[s.name])
+        fill = _cov.fill_rate(section, n[s.name], transit=transit, lead_unit_days=unit)
+        # The fill against the transit, for the audit's explained level (decision 10 of
+        # "Declare the coverage against the inbound lead"); None with no pipeline.
+        t0 = time.perf_counter()
+        fill['vs_transit'] = fill_curve(section, n[s.name], lead)
         stats[s.name]['fill'] = fill
         fielded = fielded_block(section, plan, s.regime, floors[s.name])
         stats[s.name]['fielded'] = fielded
         log.info(f"  [coverage] {s.name}: expected first-pass fill rate {fill['fill_rate']:.3f} "
                  f"(expected missed share {fill['expected_missed_share']:.3f}) over the planned "
-                 f"levels; {fill['base_stock_share']:.1%} of {fill['n_skus']:,} planned SKUs run "
-                 f"base stock")
+                 f"levels at a lead of {fill['lead_days']:.3f} day(s) ({fill['pipeline_units']:,} "
+                 f"units stamped in the pipeline); {fill['base_stock_share']:.1%} of "
+                 f"{fill['n_skus']:,} planned SKUs run base stock"
+                 + (f"; fill-vs-transit curve of {len(fill['vs_transit'])} point(s) "
+                    f"[{time.perf_counter() - t0:.0f}s]" if fill['vs_transit'] else ''))
         log.info(f"  [coverage] {s.name}: fielded {fielded['fielded_sum_q']:,} units against a "
                  f"declared {fielded['declared_sum_q']:,} -- {fielded['below_floor_skus']:,} SKUs "
                  f"below their line floor, {fielded['above_declaration_skus']:,} above their "

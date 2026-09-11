@@ -607,6 +607,13 @@ regime someone chose rather than one the defaults inherited.
   yard on so the funnel shares one record (comment on inbound 24). Graduated:
   [Build the lead-aware coverage record](issues/37-build-the-lead-aware-coverage-record.md)
   (here) and inbound 27 (the dispatch chaining), both blocking inbound 26.
+- [Build the lead-aware coverage record](issues/37-build-the-lead-aware-coverage-record.md):
+  BUILT 2026-09-10 -- `coverage.transit_day_law` stamps the pair's day-grid transit
+  (`coverage.lead`, 1.7656 at the pilot), every level, pipeline and fill is priced at the
+  SKU's supplier lead plus it, the floor is solved there, the audit reports the realized
+  lead (Little's law) beside the stamp with the level it explains; a discarded supplier
+  lead refuses until inbound 27. Reference pair: fulfillment floor 1.2668 -> 1.4994, warehouse
+  2,536 -> 2,774 aisles; inbound-off byte-identical (the fifth comparability break).
 
 ## Not yet specified
 

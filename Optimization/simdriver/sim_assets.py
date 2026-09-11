@@ -24,7 +24,7 @@ from Warehouse.picking.Workload_Builder import BatchConfig
 
 from Optimization.config.sim_config import (
     CONFIG, seed_world, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, store_fill,
-    staffing_spec, work_day_spec,
+    staffing_spec, work_day_spec, inbound_lead_law,
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))   # recovered_params.json lives here
@@ -180,6 +180,13 @@ def build_shared_assets(
         from Optimization.simdriver import era_coverage as _era_cov          # noqa: E402
         _inputs = staffing_spec()
         _mixed, _specs = _era_cov.channel_specs(inventory)
+        # THE LEAD the levels are declared at ("Declare the coverage against the inbound
+        # lead"): the trailer pipeline's transit on the day grid, derived from the lead law
+        # and the site day -- `inbound_lead_law()`, not `inbound_spec()`, whose crew guard
+        # cannot be answered before the fixed point has declared.  Transit 0 with no
+        # trailer type, byte-identically the record every run before it declared.
+        _day = work_day_spec()
+        _lead = _era_cov.lead_block(inbound_lead_law(), _day)
         plan, warehouse_meta, _sa, coverage = _era_cov.fixed_point(
             inventory.orders,
             lambda **kw: (lambda p: (p, _build(p.warehouse_cfg)))(_plan(**kw)),
@@ -187,7 +194,7 @@ def build_shared_assets(
             safety_days=float(_inputs['safety_days']),
             # None = solve it under the era, one line flag-off (`era_coverage.resolve_floors`).
             floor_lines=_inputs['floor_lines'], inputs=_inputs,
-            day_seconds=float(work_day_spec()['seconds']), log=log)
+            day_seconds=float(_day['seconds']), log=log, lead=_lead)
         era_stage_a = {'channels': _sa, 'n_orders': len(plan.sampled or inventory.orders),
                        'aisles': len(warehouse_meta.aisles)}
     else:

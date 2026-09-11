@@ -31,6 +31,9 @@ SEMANTIC_USES = {'sim_db': {
     'free_index.category': 'read', 'free_index.size': 'read', 'free_index.unit': 'read',
     'free_index.free': 'read',
     'batch_stats.lead_queue_depth': 'read', 'batch_stats.in_transit_qty': 'read',
+    # The realized order-to-shelf lead (`equilibrium.realized_lead`): the in-transit LEVEL
+    # over the ordered FLOW, both read per batch and averaged over a window, never summed.
+    'batch_stats.units_ordered': 'read',
     'batch_stats.is_outlier': 'read', 'batch_stats.batch_start_time': 'read',
     # Demand service.  `carryover.qty` is declared READ, not SUM, and that is the honest
     # verb: its kind depends on `reason` in the same row, so a row-free total over the
@@ -135,6 +138,9 @@ def _bdf(stats):
         'released_late'         : getattr(s, 'released_late', 0.0),
         'lead_queue_depth'      : getattr(s, 'lead_queue_depth', 0),
         'in_transit_qty'        : getattr(s, 'in_transit_qty', 0),
+        # The units that ENTERED transit this batch (Σ reorder qty): with `in_transit_qty`
+        # the two Little's-law terms the audit reads the realized lead from.
+        'units_ordered'         : getattr(s, 'units_ordered', 0),
         # upstream Tukey outlier flag, carried through so downstream tables can filter
         # or report it (0 for legacy rows that predate the flag).
         'is_outlier'            : getattr(s, 'is_outlier', 0),

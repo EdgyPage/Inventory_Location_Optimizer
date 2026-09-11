@@ -1,6 +1,6 @@
 ---
 name: inbound-lead-is-not-in-the-coverage-record
-description: the era's reorder point stamps lead 0 from the catalogue, so every inbound-on era run under-covers fulfillment by the trailer pipeline's ~1.8-day realized lead; the first yard-on era run read supply 0.148 with every crew in band, and the yard never binds under the derived crew
+description: the era's reorder point stamped lead 0 from the catalogue until 2026-09-10, so every inbound-on era run before department-calibration 37 under-covers fulfillment by the pipeline's ~1.8-day realized lead (the first yard-on run read supply 0.148 with every crew in band); the yard never binds under the derived crew
 metadata:
   type: project
 ---
@@ -28,9 +28,17 @@ era); doors never enter the form (the yard's excess is the campaign's effect); a
 law on the era was REJECTED. Builds: dept-cal 37 (record) and inbound 27 (chain the supplier
 lead before the trailer, which today discards it). Phase 1 of the funnel runs with the yard on.
 
-**How to apply:** an inbound-on era run is NOT comparable to the inbound-off reference on any
-supply or missed-share number until the record declares the lead (department-calibration
-ticket 36 decides how). Read the yard first: under the derived receiving crew (22 receivers on
+**BUILT 2026-09-10 (department-calibration 37):** the record now declares AT the lead --
+`coverage.transit_day_law` stamps `lead.transit_days` (1.766 at the pilot), every level and
+pipeline is priced at `sku_lead_days`, the fill prices the position less the SKU's own lines
+still in transit, and the floor is solved there (reference pair: fulfillment 1.2668 -> 1.4994
+lines, store 1.2728 -> 1.3078). The audit reports the realized lead by Little's law beside the
+stamp and the level it explains. Runs before that commit read under the lead-zero era: see
+[[lead-aware-record-is-the-fifth-comparability-break]].
+
+**How to apply:** an inbound-on era run recorded BEFORE 2026-09-10's build is NOT comparable
+to the inbound-off reference on any supply or missed-share number (its record stamped lead 0);
+one recorded after it carries `coverage.lead` and is judged at the lead. Read the yard first: under the derived receiving crew (22 receivers on
 the site day) the yard does not bind at 4 doors -- strict contention 0/40, door utilization
 15% / 59% -- so `PHASE2_DOCK_DOORS = 4` and the pilot's lead regime are numbers nothing binds
 on (inbound 25 decides the regime). Do not read a receiving-side failure into a supply

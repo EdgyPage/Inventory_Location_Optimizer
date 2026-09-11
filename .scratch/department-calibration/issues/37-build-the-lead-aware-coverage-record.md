@@ -1,7 +1,7 @@
 # Build the lead-aware coverage record
 
 Type: task
-Status: open
+Status: resolved
 
 Graduated 2026-09-10 from
 [Declare the coverage against the inbound lead](36-declare-the-coverage-against-the-inbound-lead.md),
@@ -67,3 +67,104 @@ The number the whole build is judged by is 26's residual: the fulfillment supply
 Consequence to record with the build (`memory-maintainer`): solving the floor at the lead moves
 fulfillment's stock and warehouse above the lead-zero reference, so every inbound-on number
 before this build reads under a different era -- the map's fifth comparability break.
+
+## Answer
+
+Resolved 2026-09-10 (AFK build). Landed on `develop` as one commit; the architecture and
+context layers regenerate in a separate chore commit, as usual.
+
+### What landed
+
+- **The transit on the day grid.** `Optimization/simconfig/coverage.py:transit_day_law`
+  (`E[ceil(L / D)] = 1 + sum_k (1 - Phi(ln(kD/m)/sigma))` with the per-day pmf) reads the
+  ticket's table to four decimals: 1.7656 at the pilot, exactly 1 at spread 0 over a one-day
+  median, 0 with no trailer. Per SKU `sku_lead_days = lead_time_mean x lead_unit_days +
+  transit_days` (`lead_unit_days = 1 / releases_per_day`, 1.0 when none is declared -- the
+  flag-off reading of a batch as a day, so the `coverage.py:171` bug ends without moving any
+  non-era record). `rescale_section` takes `transit_days` / `lead_unit_days` and stamps
+  `transit_days`, `lead_unit_days` and the units-weighted `lead_days`.
+- **The lead-aware fill** (decision 5). `fill_rate(orders, n, transit=, lead_unit_days=)`
+  prices the shelf a line meets as the order-up-to POSITION `S = Q + pipeline_qty` less the
+  SKU's own prior lines still in transit: the observed lead is `K = a + k` grid days (`a` the
+  supplier lead rounded, `k` under the transit pmf), the prior lines inside them
+  `Poisson(K . n pi_s)` of the stamped line law, so `D_K` is compound Poisson and its mass on
+  `0..S-1` is Panjer's recursion, vectorised over SKUs in shelf-size groups
+  (`_served_under_lead`; a transit tail under 1e-9 is left unpriced, the recursion is rescaled
+  past 1e150 so a seed that underflows never zeroes a shelf). `E[min(q, (S - D)^+)] =
+  sum_{u<S} P(q > u) . P(D <= S-1-u)`. A SKU with no lead and no pipeline stamp takes the OLD
+  `expected_min` path -- the same floats, not a tolerance -- so a record with no pipeline is
+  byte-identical. `solve_floor_lines` takes the same two arguments and the floor is solved at
+  the lead; the fill stays a non-decreasing step function of the floor. `LineDistribution.pmf`
+  is the law's row-by-row form (the founding family has the vectorised fast path).
+- **The record.** `era_coverage.lead_block(inbound_lead_law(), work_day_spec())` is the
+  pair's `lead` block (`transit_days`, `provenance: derived`, the trailer type / median /
+  spread / day it was read from, `releases_per_day`, `lead_unit_days`); `fixed_point(...,
+  lead=)` stamps it, declares every round at it, and per section stamps `fill.lead_days`,
+  `fill.transit_days` and `fill.vs_transit` -- the fill as a 12-point curve over the transit
+  (the same law, the median scaled; scale 1 IS the stamp) for the audit's explained level.
+  `declare_from_record` reads the block back (a record without it declares at transit 0, a
+  batch read as a day -- every record through today reproduces). `sim_config.inbound_lead_law()`
+  is the guard-free read of the three lead keys: `inbound_spec()`'s crew guard cannot be
+  answered before the fixed point has declared, which is why the lead law is factored out;
+  the five seams are untouched (`transit_days` is DERIVED, never a CONFIG key).
+- **The refusal** (decision 8). `era_coverage.refuse_discarded_lead`: under the era with a
+  trailer type, a catalogue with `round(lead_time_mean) >= 1` on any SKU refuses at setup
+  naming inbound 27. Not refused: non-era (keeps reading batches, byte-identically) and an
+  era run with no trailer type (the batch transit honours the attribute; the tiny `lt1` pair
+  declares at `lead_days` 1.0 and solves its floor above the `lt0` sibling's).
+- **The audit** (decision 10). `equilibrium.realized_lead` (Little's law: mean
+  `in_transit_qty` over mean `units_ordered` per batch, one batch a day under the era;
+  `units_ordered` added to the batch frame and `SEMANTIC_USES`) and `fill_at` (linear on the
+  stamped curve, held at the ends). `expectations_for` returns `lead_days`, `transit_days`,
+  `fill_vs_transit` (None pre-lead); the `supply` clause's reading gains a `lead` block
+  (stamped, realized, in-transit mean, ordered mean, explained `1 - fill(realized - attr)`)
+  with the band and the verdict UNCHANGED; `summarize` prints
+  `lead stamped X d / realized Y d, explained level Z`; the audit's inspection table gains
+  an "order-to-shelf lead" row under the supply share (stamped / realized / no band /
+  "reported, not judged . explains supply Z") only where a lead was stamped or measured, so a
+  pre-lead archive's table keeps its rows.
+
+### Acceptance on the reference pair (`catalogue_reference_lt0`, setup through `build_shared_assets`)
+
+| | inbound off | pilot inbound on (53, 480 min, 0.7, 4 doors) |
+|---|---|---|
+| `lead.transit_days` | 0 | **1.7656** |
+| store floor / sum Q / fill | 1.2728 / 3,015,242 / 0.975185 | 1.3078 / 3,086,462 / 0.975192 |
+| fulfillment floor / sum Q / fill | 1.2668 / 2,220,097 / 0.974701 | **1.4994** / 2,595,593 / **0.974879** (>= sqrt(0.95)) |
+| fulfillment pipeline stamped | 0 | 34,026 units |
+| warehouse | 2,536 aisles / 2,311,000 bins | 2,774 aisles / 2,505,050 bins |
+| wall | 188 s | 2,136 s (before the transit-tail truncation) |
+
+The inbound-off record equals `comparison_20260910_173151`'s coverage record in every
+level, floor, fill, round and fielded bucket (the only difference is the fragmentation's
+timing stamp); it gains only the `lead` block and the three new keys. The fulfillment
+curve reads 0.99384 at transit 0 down to 0.88014 at 10.7 days -- so 23's 0.148 supply level
+was never a fill the lead-zero record could explain, and 26's residual has a number to be
+judged against. The `lt1` refusal was exercised on a generated 90-SKU sibling (no `lt1`
+catalogue exists on disk beside the reference pair); it fires with the trailer type under the
+era and not without.
+
+### Tests
+
+`Tests/unit/test_lead_aware_coverage.py` (21 tests: the law by hand and at the table, the
+per-SKU lead, byte-identity at lead 0 as the same floats, Poisson-by-hand under a one-day
+transit, a two-point mixture, a seeded Monte-Carlo of the compound-Poisson form to 0.25%, the
+fast path against `pmf`, the floor higher at the lead, the block / curve / rebuild / old
+record, the refusal in every direction, `fill_at`, `realized_lead`, the supply reading, the
+audit row, the batch frame, a mixed catalogue sharing one transit, and the tiny pair through
+the setup path inbound off / on / `lt1`). Two existing tests adjusted for the record's new key
+and the longer loop body. Reviewed by the project code reviewer and the test reviewer; their
+findings (an unconditional audit row, the untruncated transit tail, the Panjer underflow, the
+`>=` where `>` was claimed, no mixed catalogue) are all folded in.
+
+### Consequences
+
+- **The fifth comparability break** -- memory
+  `lead-aware-record-is-the-fifth-comparability-break`: every inbound-on era run before this
+  build stamped lead 0 and read under a smaller stock and warehouse; inbound-off is unchanged.
+  The regime's median and spread now move the record, so inbound 25 chooses before phase 1.
+- The `lead_unit_days != 1` case is a stated limitation: the fill's grid rounding
+  (`round(attr x unit)`) and the ledger's batch rounding agree only at one release a day,
+  which the era pins; nothing declares another schedule.
+- `Tests/architecture` reports drift until the regeneration chain runs (nine new public
+  functions and the new test file to catalogue) -- the architecture-maintainer's chore commit.

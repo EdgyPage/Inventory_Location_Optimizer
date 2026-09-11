@@ -180,6 +180,22 @@ class LineDistribution:
                 total += max(0.0, 1.0 - cum)
         return total
 
+    def pmf(self, upto: int) -> np.ndarray:
+        """P(q = i) for i = 0..upto-1: zero at i = 0, `P(X <= 1)` at i = 1 (the floor folds
+        the Poisson's zero into one unit), the Poisson mass above.  The lead-aware fill
+        (`simconfig/coverage._served_under_lead`) convolves it; the founding family has a
+        vectorised fast path there and this is the row-by-row form any family answers."""
+        upto = int(upto)
+        out = np.zeros(max(upto, 0))
+        if upto <= 1:
+            return out
+        for i, p in enumerate(self._pmf_x(upto)):
+            if i == 0:
+                out[1] += p
+            else:
+                out[i] += p
+        return out
+
     def sample(self, rng: random.Random | None = None) -> int:
         """One line's quantity: Knuth's Poisson draw, floored at one."""
         return max(1, poisson_sample(self.params['lam'], rng))

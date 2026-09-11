@@ -709,6 +709,29 @@ INBOUND_KEYS: tuple[str, ...] = (
 )
 
 
+def inbound_lead_law() -> dict | None:
+    """The trailer pipeline's LEAD LAW alone -- `{'trailer_type', 'lead_s', 'lead_sigma'}`,
+    or **None** when no trailer type is named (the pipeline is off, structurally).
+
+    The three keys `inbound_spec()` reads for the lead, factored out because the coverage
+    record needs them BEFORE the receiving crew exists: `era_coverage.lead_block` derives
+    the day-grid transit at setup (`coverage.transit_day_law`), and `inbound_spec()`'s
+    "a yard nobody can unload" guard would refuse that read under the era, where the crew
+    is derived only after the fixed point has declared the levels.  No guard here: this
+    accessor answers what the lead IS; `inbound_spec()` still refuses every contradiction
+    the moment the worker payload is built.  Reads CONFIG at call time; the median is
+    converted from minutes to seconds here and nowhere else (the same conversion
+    `inbound_spec()` records as `lead_s`).
+    """
+    g = CONFIG['global']
+    ttype = g.get('inbound_trailer_type')
+    if not ttype:
+        return None
+    return {'trailer_type': str(ttype),
+            'lead_s': float(g.get('inbound_lead_minutes') or 0.0) * 60.0,
+            'lead_sigma': float(g.get('inbound_lead_spread') or 0.0)}
+
+
 def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
     """The trailer pipeline's configuration as a picklable record, or **None** for off.
 

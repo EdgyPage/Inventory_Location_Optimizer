@@ -43,3 +43,17 @@ Acceptance: a two-SKU scenario with supplier leads 0 and 2 batches dispatches th
 time and the second two drains later on a trailer of its own or the open one; the lockstep proof
 above; and the reference pair's gate run (26) is unchanged by this ticket, since every attribute
 there is 0.
+
+## Comments
+
+2026-09-10, from department-calibration
+[Build the lead-aware coverage record](../../department-calibration/issues/37-build-the-lead-aware-coverage-record.md):
+the record side is built. The guard this ticket lifts is `era_coverage.refuse_discarded_lead`
+(`Optimization/simdriver/era_coverage.py`), which refuses `round(lead_time_mean) >= 1` under the
+era with a trailer type and names this ticket; delete it (and its tests in
+`Tests/unit/test_lead_aware_coverage.py`: `test_a_supplier_lead_the_pipeline_would_discard_is_refused_under_the_era_only`
+and the `lt1` build test's first half) when the supplier lead queues before the trailer. The
+record already prices `attr_s + transit_days` per SKU (`coverage.sku_lead_days`) and the fill's
+grid day is `round(attr x lead_unit_days) + k` (`coverage._served_under_lead`) -- one batch a day
+under the era -- so the chained pipeline must realize exactly that: `round(lead_time_mean)`
+batches at the ordering site, then the trailer's own draw. No record change is owed here.

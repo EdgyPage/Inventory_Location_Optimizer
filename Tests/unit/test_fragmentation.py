@@ -410,5 +410,6 @@ def test_fixed_point_stamps_the_fragmentation_on_the_record(monkeypatch):
         pytest.approx(fielded['fragmentation']['expected_extra'], abs=1e-9)
     json.dumps(record)
     src = inspect.getsource(ec.fixed_point)
-    loop = src[src.index('for s in specs:', src.index('record[\'final\']') - 4000):]
+    # The post-loop stamping pass: the last `for s in specs:` before `record['final']`.
+    loop = src[src.rindex('for s in specs:', 0, src.index('record[\'final\']')):]
     assert 'stamp_fragmentation(fielded, section, log' in loop

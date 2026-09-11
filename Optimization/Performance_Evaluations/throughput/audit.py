@@ -165,7 +165,37 @@ def _share_rows(head, verdict):
                     (f'±{tol:.{nd}f}' if tol is not None else '-'),
                     _read_share(r)]
         out.append(row)
+        ld = r.get('lead') or {}
+        if clause == 'supply' and (ld.get('stamped_days') is not None
+                                   or ld.get('realized_days') is not None):
+            # Only where there is a lead to report: a pre-lead archive's table is unchanged.
+            out.append(_lead_row(head, r))
     return out
+
+
+def _lead_row(head, reading):
+    """The order-to-shelf lead row under the supply share: the STAMPED lead as the expected
+    cell, the REALIZED lead (Little's law over the window, `equilibrium.realized_lead`) as
+    the realized cell, no band, and the read naming the EXPLAINED supply level
+    `1 - fill(realized)` off the record's curve ("Declare the coverage against the inbound
+    lead", decision 10) -- reported, never judged."""
+    ld = (reading or {}).get('lead') or {}
+    row = [''] * len(head)
+    st, rz, ex = ld.get('stamped_days'), ld.get('realized_days'), ld.get('explained')
+    if st is None and rz is None:
+        row += ['order-to-shelf lead', '-', '-', '-', '-', 'n/a (unstamped, unmeasured)']
+        return row
+    read = 'reported, not judged'
+    if ex is not None:
+        read += f' · explains supply {ex:.3f}'
+    elif st is None:
+        read += ' · lead unstamped on this record'
+    elif rz is None:
+        read += ' · no orders in the window'
+    row += ['order-to-shelf lead', '-',
+            (f'{st:.3f} d' if st is not None else '-'),
+            (f'{rz:.3f} d' if rz is not None else '-'), '-', read]
+    return row
 
 
 def _rework_rows(head, verdict):

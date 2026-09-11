@@ -345,6 +345,7 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
          'departments': {dept: {'crew': int, 'expected': float}},   # only those that apply
          'absent': {dept: why},
          'fill_rate', 'expected_missed_share',      # the supply clause's level (None pre-floor)
+         'lead_days', 'transit_days', 'fill_vs_transit',   # the lead it was priced at (None pre-lead)
          'expected_cut_share', 'expected_cut_share_sd', 'guarantee',   # the labour clause's
          'expected_repacked_packs',
          'flags': {'overridden', 'saturated'}}
@@ -402,6 +403,14 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
     final_ch = ((cal.get('coverage') or {}).get('final') or {}).get(ch) or {}
     fill = final_ch.get('fill') or {}
     fill_rate = fill.get('fill_rate')
+    # The LEAD the fill was priced at ("Declare the coverage against the inbound lead",
+    # decision 10): the section's stamped order-to-shelf lead in days, the pair's transit
+    # inside it, and the fill-versus-transit curve the `supply` clause reads the EXPLAINED
+    # level off (`fill_at`).  All None on a record that predates the lead block, which the
+    # clause reports as unstamped rather than as zero.
+    lead_days = fill.get('lead_days')
+    transit_days = fill.get('transit_days')
+    vs_transit = fill.get('vs_transit')
     # The setup free index PER BUCKET the planner stamped for this channel's section
     # ("Field the requirement": `fielded.buckets[]` carries requirement / capacity / free per
     # BinKey).  The rework clause reads the run's `free_index` rows against it; keyed by the
@@ -417,6 +426,9 @@ def expectations_for(staffing: dict, *, pair: str, channel: str | None) -> dict:
         'departments': departments, 'absent': absent,
         'fill_rate': (float(fill_rate) if fill_rate is not None else None),
         'expected_missed_share': (1.0 - float(fill_rate) if fill_rate is not None else None),
+        'lead_days': (float(lead_days) if lead_days is not None else None),
+        'transit_days': (float(transit_days) if transit_days is not None else None),
+        'fill_vs_transit': (list(vs_transit) if vs_transit else None),
         'expected_cut_share': (guarantee['cut_share'] if guarantee else None),
         'expected_cut_share_sd': (guarantee['cut_share_sd'] if guarantee else None),
         'guarantee': guarantee,
@@ -885,15 +897,67 @@ def _utilization_clause(batch_rows, work_rows, days: list[int], expectations: di
     return Clause('utilization', not out_of_band, reading, reason)
 
 
-def _supply_clause(flows: dict, days: list[int], expected: float | None) -> Clause:
+def fill_at(curve: list | None, transit_days: float) -> float | None:
+    """The record's fill-versus-transit curve (`era_coverage.fill_curve`, `[{'transit_days',
+    'fill_rate'}, ...]` sorted by transit) read at `transit_days`, linearly between points
+    and held at the ends; None without a curve.  The one interpolation the audit does: the
+    curve is the closed form evaluated at the stamp's own law with the median scaled, so
+    between two points it is the same section under a slightly faster or slower road."""
+    if not curve:
+        return None
+    pts = sorted((float(p['transit_days']), float(p['fill_rate'])) for p in curve)
+    t = float(transit_days)
+    if t <= pts[0][0]:
+        return pts[0][1]
+    if t >= pts[-1][0]:
+        return pts[-1][1]
+    for (t0, f0), (t1, f1) in zip(pts, pts[1:]):
+        if t0 <= t <= t1:
+            return f0 if t1 == t0 else f0 + (f1 - f0) * (t - t0) / (t1 - t0)
+    return pts[-1][1]
+
+
+def realized_lead(batch_rows, days: list[int]) -> dict:
+    """The realized ORDER-TO-SHELF lead of one leaf over a window, by Little's law:
+    mean pieces in transit over mean units ordered per day, both read per batch off
+    `batch_stats` (`in_transit_qty`, a LEVEL at batch close; `units_ordered`, the FLOW that
+    entered transit that batch) -- the flows inbound-optimization 23 summed by hand.  One
+    batch is one day under the era, so the per-batch mean is the per-day rate.  Returns
+    `{'days': lead | None, 'in_transit_mean', 'ordered_mean', 'n'}`; `days` is None when
+    the window ordered nothing (no flow to divide by) or holds no batch."""
+    in_window = set(days)
+    rows = [r for r in batch_rows if int(_get(r, 'work_day', 0) or 0) in in_window]
+    n = len(rows)
+    if n == 0:
+        return {'days': None, 'in_transit_mean': None, 'ordered_mean': None, 'n': 0}
+    it = sum(float(_get(r, 'in_transit_qty', 0) or 0) for r in rows) / n
+    od = sum(float(_get(r, 'units_ordered', 0) or 0) for r in rows) / n
+    return {'days': (it / od) if od > 0.0 else None, 'in_transit_mean': it,
+            'ordered_mean': od, 'n': n}
+
+
+def _supply_clause(flows: dict, days: list[int], expected: float | None, *,
+                   batch_rows=(), lead: dict | None = None) -> Clause:
     """The shelf's first-pass service: the supply share at its stamped level, not trending.
 
     LEVEL.  `Σ supply_new ÷ Σ fresh` over the window -- each unit counted once, on the first
     batch its SKU's shortfall rose (`demand_flows`) -- judged within `SUPPLY_LEVEL_TOL` of
     `expected`, the record's `1 - fill_rate` (the solved floor's expected first-pass missed
-    share under base stock, "Choose the coverage floor", decision 5).  A ratio of sums,
-    because the fill rate is one (`Σ served ÷ Σ units`, units-weighted).  REPORTED, not
-    judged, on a record with no stamped fill.
+    share under base stock, "Choose the coverage floor", decision 5, priced AT the stamped
+    lead since "Declare the coverage against the inbound lead").  A ratio of sums, because
+    the fill rate is one (`Σ served ÷ Σ units`, units-weighted).  REPORTED, not judged, on a
+    record with no stamped fill.
+
+    THE LEAD, reported and never banded (decision 10 of the lead ticket): the stamped
+    order-to-shelf lead (`lead['lead_days']`), the REALIZED one off the batch rows
+    (`realized_lead`), and the EXPLAINED level `1 - fill(realized)` read off the record's
+    fill-versus-transit curve at the realized transit (the realized lead less the section's
+    supplier-lead days) -- so a binding yard reads as supply moved by the yard's detention
+    (the level sits near the explained value, above the band) and a model error as a gap the
+    realized lead cannot explain.  The band itself is unchanged: `SUPPLY_LEVEL_TOL` around the
+    stamped expectation.  `reading['lead']` is `{'stamped_days', 'realized_days',
+    'explained', 'in_transit_mean', 'ordered_mean', 'transit_days'}`, Nones where the record
+    or the rows carry nothing.
 
     TREND.  Half-window means of the per-batch share within `TREND_TOL`, as decision 4 had it.
     `units.supply` is the raw flow with re-attempts; `units.reattempts` is what the old
@@ -907,13 +971,28 @@ def _supply_clause(flows: dict, days: list[int], expected: float | None) -> Clau
     raw = sum(f['supply'] for f in rows)
     shares = [f['supply_new'] / f['fresh'] for f in rows if f['fresh'] > 0]
     level = (new / fresh) if fresh > 0 else None
+    lead = lead or {}
+    stamped = lead.get('lead_days')
+    transit = lead.get('transit_days')
+    rl = realized_lead(batch_rows, days)
+    explained = None
+    if rl['days'] is not None and stamped is not None and lead.get('fill_vs_transit'):
+        # The realized TRANSIT: the realized lead less the supplier-lead days the stamp
+        # carries beside the transit (0 on a lead-free catalogue).
+        attr = float(stamped) - float(transit or 0.0)
+        f = fill_at(lead['fill_vs_transit'], rl['days'] - attr)
+        explained = (1.0 - f) if f is not None else None
     reading = {'n': len(shares), 'level': level,
                'expected': (float(expected) if expected is not None else None),
                'delta': (level - float(expected)
                          if expected is not None and level is not None else None),
                'tol': SUPPLY_LEVEL_TOL,
                'units': {'fresh': fresh, 'demanded': sum(f['demanded'] for f in rows),
-                         'supply': raw, 'supply_new': new, 'reattempts': raw - new}}
+                         'supply': raw, 'supply_new': new, 'reattempts': raw - new},
+               'lead': {'stamped_days': (float(stamped) if stamped is not None else None),
+                        'transit_days': (float(transit) if transit is not None else None),
+                        'realized_days': rl['days'], 'in_transit_mean': rl['in_transit_mean'],
+                        'ordered_mean': rl['ordered_mean'], 'explained': explained}}
     reasons: list[str] = []
     unrec = _unrecorded(rows)
     if unrec:
@@ -1134,7 +1213,8 @@ def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, da
         'labour': _labour_clause(shift_rows, flows, days, expectations),
         'released_late': _released_late_clause(shift_rows, batch_rows, days),
         'utilization': _utilization_clause(batch_rows, work_rows, days, expectations),
-        'supply': _supply_clause(flows, days, (expectations or {}).get('expected_missed_share')),
+        'supply': _supply_clause(flows, days, (expectations or {}).get('expected_missed_share'),
+                                 batch_rows=batch_rows, lead=expectations),
         'rework': _rework_clause(
             batch_rows, days, (expectations or {}).get('expected_repacked_packs'),
             free_rows, (expectations or {}).get('setup_free')),
@@ -1200,9 +1280,21 @@ def summarize(verdict: Verdict) -> str:
             if _num(lvl):
                 against = (f', expected {exp:.3f} off the stamped fill rate ({r["delta"]:+.3f}, '
                            f'band ±{r["tol"]:.2f})' if _num(exp) else '')
+                ld = r.get('lead') or {}
+                lead_txt = ''
+                if _num(ld.get('stamped_days')) or _num(ld.get('realized_days')):
+                    lead_txt = (
+                        f'; lead stamped '
+                        f'{ld["stamped_days"]:.3f} d' if _num(ld.get('stamped_days'))
+                        else '; lead unstamped')
+                    lead_txt += (f' / realized {ld["realized_days"]:.3f} d'
+                                 if _num(ld.get('realized_days')) else ' / realized n/a')
+                    lead_txt += (f', explained level {ld["explained"]:.3f}'
+                                 if _num(ld.get('explained')) else '')
                 parts.append(f'{name}={tag} (level {lvl:.3f}, trend '
                              f'{r.get("trend", float("nan")):+.3f}{against}; '
-                             f'{r["units"]["reattempts"]:,} re-attempt unit(s) counted once)')
+                             f'{r["units"]["reattempts"]:,} re-attempt unit(s) counted once'
+                             f'{lead_txt})')
             else:
                 parts.append(f'{name}={tag} (n={r.get("n")})')
         elif name == 'rework':

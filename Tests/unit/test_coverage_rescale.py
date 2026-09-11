@@ -370,7 +370,11 @@ def test_fixed_point_rescales_at_the_seed_then_at_the_previous_round(monkeypatch
     # The fill rate rides `final`, priced ONCE on the planned orders at the fixed point's n
     # (the fake planner plans the section itself, so "planned" = the last rescaling).
     fill = rec['final']['store']['fill']
-    assert fill == cov.fill_rate(section, rec['lines_per_day']['store'])
+    # ...plus the record-side fill-versus-transit curve, None with no pipeline ("Declare
+    # the coverage against the inbound lead"); every priced number is `fill_rate`'s own.
+    assert fill['vs_transit'] is None
+    assert {k: v for k, v in fill.items() if k != 'vs_transit'} \
+        == cov.fill_rate(section, rec['lines_per_day']['store'])
     assert 0.0 < fill['fill_rate'] <= 1.0 and fill['n_skus'] == 3
     assert 'fill' not in rec['rounds'][1]['stats']['store'] or len(rec['rounds']) == 2
 
@@ -720,15 +724,18 @@ def test_the_asset_builder_enters_the_loop_wherever_it_samples_in_every_mode():
     assert 'if warehouse_meta is None:' in src, 'the non-sampling build happens where it did'
 
 
-def _tiny_pair(tmp_path):
-    """A 90-SKU store-only inventory DB + an empty affinity DB, the production way."""
+def _tiny_pair(tmp_path, *, lead_batches=0.0):
+    """A 90-SKU store-only inventory DB + an empty affinity DB, the production way.  A
+    positive `lead_batches` authors that supplier lead on every SKU (the `lt1` sibling of
+    "Build the lead-aware coverage record"); 0 draws nothing and is the catalogue as before."""
     from Warehouse.generation.generate_inventory import (
         build_inventory_with_profile, save_inventory_to_db, DEFAULT_DIM_SPEC,
         DEFAULT_WEIGHT_SPEC)
     Order.next_sku = 1
     inv = build_inventory_with_profile(
         num_skus=90, seed=11, handling_splits=[0.5, 0.5], category_splits=[1 / 6] * 6,
-        singleton_fraction=0.3, dim_spec=DEFAULT_DIM_SPEC, weight_spec=DEFAULT_WEIGHT_SPEC)
+        singleton_fraction=0.3, dim_spec=DEFAULT_DIM_SPEC, weight_spec=DEFAULT_WEIGHT_SPEC,
+        lead_time_mean_batches=lead_batches, lead_time_cv=0.0)
     inv_db = str(tmp_path / 'inventory.db')
     save_inventory_to_db(inv, inv_db, {'name': 'coverage_test', 'num_skus': 90})
     aff_db = str(tmp_path / 'affinity.db')
