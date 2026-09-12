@@ -98,14 +98,15 @@ BEFORE anything runs: the inbound-optimization map resumes at
 
   ```
   20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis stage ──▶ 25 site crew checks
-                                                           └─▶ 26 composite gain bundle
-  22 coupled resume reconciler        (independent)
-  23 funnel spec for arm pairs        (independent)
+      [DONE]                                               └─▶ 26 composite gain bundle
+  22 coupled resume reconciler  [DONE]   (independent)
+  23 funnel spec for arm pairs  [DONE]   (independent)
   ```
 
-  So **20, 22 and 23 are takeable at the same time**, and the critical path is
-  20 -> 21 -> 24 -> 25. The map closes when 26 and 25 are in; the inbound-optimization map then
-  resumes at
+  **20, 22 and 23 landed together on 2026-09-11**, run in parallel — which is also how the three
+  independent tickets were meant to be used. What is left is the critical path alone:
+  21 -> 24 -> 25, plus 26 off 21. The map closes when 25 and 26 are in; the inbound-optimization
+  map then resumes at
   [Re-verify the gate under the lead-aware record](../inbound-optimization/issues/26-reverify-the-gate-under-the-lead-aware-record.md).
 - Memories every session should load: `site-dock-is-shared-across-channels`,
   `channel-experiment-independent-warehouses`, `receiving-is-its-own-crew`,
@@ -486,6 +487,73 @@ BEFORE anything runs: the inbound-optimization map resumes at
   the `purpose` from a docstring fragment for the THIRD time, and a multi-line fill additionally
   breaks `test_merge_is_idempotent`; and `render_html --build` needed a second pass for an
   `OSError`, the "run it twice" shape from a different cause.
+
+- [Build the site space view](issues/20-build-the-site-space-view.md): **BUILT** —
+  `Inbound/site_space.compose_site_view`, one pure function over already-frozen views, and
+  `SpaceTimeline.freeze` is untouched (single-manager signature, purity pin intact). A leaf's
+  `empties` is the WHOLE geometry's free index, so every leaf lists the other channel's bins as
+  permanently, falsely free; the composer FILTERS `empties` per contributing leaf and unions
+  `predicted` and `emptied_at`, which are already leaf-own — so the composed key set is
+  **partitioned by regime** and a mixed trailer's store units rank against store bins. `versions`
+  compose element-wise (a sum is lossy in exactly the failing direction), `frozen_at` is one site
+  epoch and a disagreement is refused, `released_at` is carried per regime and never averaged, and
+  the futuresight window is REFUSED with its zip rule written on the refusal rather than shipped
+  unexercised. **Wired live at the coordinator's one leaf**, where a composition of one returns its
+  view BY IDENTITY — the seam goes in ahead of what it serves, as 09/11/12/13/16 did, so the guards
+  are mutation-checkable now instead of in two tickets' time. **Three findings:** the leaves hold
+  TWO warehouses and `emptied_at` is keyed by `id(bin)`, so a union could hand one leaf's lookup
+  the other's stamp for a different bin (refused); `tuple(x)` on a tuple returns the same object,
+  so the first "the tuples are rebuilt" mutation was a no-op that read as a passing test; and one
+  claim — that the drain still routes through the composer — is unobservable at one leaf by
+  construction, so it is asserted on the SEAM rather than on the data or the source. Standing-yard
+  byte-identity measured at **98,676 rows across 9 tables**, wall clock aside; 20 new tests; 13
+  mutations, 13 caught.
+
+- [Build the coupled resume reconciler](issues/22-build-the-coupled-resume-reconciler.md):
+  **BUILT** — `_reconcile_coupled_unit` in `workunits.py`, with `_leaf_is_complete`,
+  `_arm_db_path`, `_meta_path`, `_site_db_path` and `_forget_arms`; `coupled` threaded down to
+  `_plan_strategy_start` so the batch-grain refusal reaches the planner; `_supervise` declares
+  `mid_flight` on any retry. **10's repair surface was THREE things and is actually FOUR:**
+  `reset_strategy_db` cannot touch `resume.pkl`, and the record is the planner's fallback — so a
+  reset arm that keeps its record runs an empty loop over a deleted DB, in silence. **And 10
+  missed a torn state:** per-leaf CHECKPOINT SKEW, which wedges a coupled run permanently because
+  every later `--resume` reproduces the same refusal. It is a repair rather than a second refusal
+  because the two leaves are checkpointed in ONE loop by ONE process microseconds apart, so the
+  reachable hazard is the gap, never a divergence of grain. **Two more findings:** the run-tree
+  ratchet counts PROSE, so heavy docstrings tripped it with no new hand-joined path — invisible
+  in the totals (the gate is red on HEAD) and visible only by diffing the per-file list against a
+  `git archive` copy, after which the file sits BELOW its baseline; and `_prepare_channel_run`
+  carried two spellings of an arm's db path, where the second would have removed nothing and left
+  the rows to be appended to. Resumed-uncoupled byte-identity measured at **410,338 rows across 4
+  arm DBs**, against a HEAD copy overlaid with only this ticket's two source files — the working
+  tree carried two other sessions' edits, so a plain HEAD-vs-worktree diff would have been
+  contaminated. 15 new tests; 9 mutations, 9 caught.
+
+- [Re-shape the funnel spec for arm pairs](issues/23-reshape-the-funnel-spec.md): **BUILT** —
+  `PHASE2_ARMS` becomes `PHASE2_PAIRS`, an ordered list of `(store_rule, fulfillment_rule)`;
+  `CHANNEL_RESTOCKS` is DERIVED from it by `channel_restocks_for` rather than authored beside it;
+  `strategies_for` now preserves the caller's rule order (it re-imposed the grid's, which throws
+  away the only thing a diagonal reads) and REFUSES a `set`; and `get_spec` shape-checks every
+  spec through `validate_spec`, so a malformed campaign stops before a run directory exists.
+  **06 section 0's own derivation was written as `{p[0] for p in pairs}` and a SET destroys the
+  rank** the zip in `_prepare_site_run` IS the pairing on — the columns are ordered tuples.
+  `whatif_config.py:166-170`'s false cross-phase claim is rewritten. **The driver-side install
+  was wired by the parent session** (the path was fenced for parallelism, not by the ticket):
+  `_run_whatif_matrix` now installs what the derivation says and never authors an arm set, and
+  **two branches came out because no input could reach them** — the cells-based arm-set refusal,
+  which `validate_spec` subsumes strictly (a cell's `inbound` is built from the spec's own axis,
+  so they cannot disagree, and the cell form additionally let a single-cell inbound spec through),
+  and the guard that skipped the flat `fifo` check for pair specs, which a pair spec satisfies by
+  construction because the rider is required as a PAIR. Both were found by mutation: disabling
+  each changed nothing. **One sub-item is deliberately NOT spec-side** — "more than one config per
+  channel" cannot be checked from a spec, because configs come from `sim_config` and the command
+  line and no spec can produce the shape `_prepare_site_run` refuses; the earlier gate belongs
+  beside `_check_era_flags`, and needs to know whether the catalogue is mixed or it would refuse
+  runs that work today. **A finding for every later neutrality check:** figures are NOT
+  byte-reproducible run to run — a HEAD-vs-HEAD control produced 51/51 pixel-differing PNGs
+  (compared on IDAT, not metadata), so a check that diffs figure bytes reports a break that is not
+  there. Neutrality measured at **762,769 DB rows across 28 tables, zero differences**; 68 tests;
+  21 mutations, 21 caught.
 
 ## Not yet specified
 
