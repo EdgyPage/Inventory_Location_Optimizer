@@ -22,7 +22,8 @@
 - [Fingerprint chain verified end to end](fingerprint-chain-verified-end-to-end.md) — proven working 2026-08-16; always check ingest's BY-NAME resolve lines, a silent fallback hid a dead feature for months
 - [Stakeholder site pilot frame](stakeholder-site-pilot-frame.md) — the pitch frame that converged with non-technical readers; Exp 8 (2026-08-21) codified the publish loop as a skill + 4 persona readers + no-ad-hoc-graphs guard
 - [Calltree framework + first findings](calltree-framework-first-findings.md) — brokers are NOT on the hot path; _aisle_best k=1.66 is the top refactor candidate; traced seconds are never baselines; SECTION_MAP updates ride hot-path renames
-- [v2 sampler era](v2-sampler-era.md) — since 2026-08-20 (21f3b3c) new runs default to the v2 Fenwick sampler; v2 runs are not row-comparable with the pre-flip archive, --sampler v1 is the escape hatch
+- [v2 sampler era](v2-sampler-era.md) — CLOSED 2026-09-12 (superseded by v3); still the guide to reading an archived v2 run, and its baselines are v2-only
+- [v3 sampler era](v3-sampler-era.md) — the declared sampler since 2026-09-12 and the widest comparability break yet; a collapsed batch now refuses under v1/v3
 - [FIFO restock ignores initial placement](fifo-restock-ignores-initial-placement.md) — opt_fifo and uni_fifo are byte-identical runs, not a near-tie; FIFO's uniform-random aisle pick has no ranking for an optimal initial placement to exploit
 - [Per-batch series are autocorrelated](per-batch-series-are-autocorrelated.md) — lag-1..3 all outside the white-noise band, so an iid bootstrap under-reports every CI; use stats_core._boot_ci's moving-block form
 - [Put-away break-even is ~9 min per trip](putaway-break-even-is-nine-minutes-per-trip.md) — ~14 s/unit, NOT the old 0.5 s: that figure was the 1000x unit bug and its "margin is razor thin" conclusion inverted
@@ -94,4 +95,4 @@
 - [Fill gap is not the line rate](fill-gap-is-not-the-line-rate.md) — substituting realized per-SKU rates moves it the WRONG way (it zeroes every SKU the window never touched); two confounds make the naive test look conclusive
 - [Fill gap is the line-count shape](fill-gap-is-the-line-count-shape.md) — not time-clustering (structurally impossible, and negative) and not the lead (0.9%): the record under-prices its own prior-line event 3.74x, and one multiplier recovers 71%/52%
 - [Draw probability replaces line share](draw-probability-replaces-line-share.md) — the line share is the sampler's WEIGHT, not its inclusion probability; the 0.20-vs-1.45 cluster-mate density derives the channel asymmetry a fitted multiplier only fits (dept-cal 38, not yet measured)
-- [v2 sampler re-draws selected SKUs](v2-sampler-redraws-selected-skus.md) — a dict hides the repeats, so fulfillment batches deliver 8.64% fewer distinct lines than declared (v1 is clean on the same seeds); the era's n is sized high on that leaf
+- [v2 sampler re-draws selected SKUs](v2-sampler-redraws-selected-skus.md) — FIXED 2026-09-12 as v3; the cause is catastrophic cancellation under a ~1e26 weight range, NOT the float drift first inferred
