@@ -8,6 +8,10 @@ from __future__ import annotations
 import os
 
 from Optimization.config import strategies
+# The spec's OWN accessors, as a module: `_run_whatif_matrix` installs an arm set, it
+# never authors one, and every shape question (flat / 'all' / rule pairs) is answered
+# beside the specs rather than re-derived here.
+from Optimization.config import whatif_config as _wc
 from Optimization.simdriver.sim_assets import build_shared_assets
 from Optimization.config.sim_config import (
     CONFIG, FULFILLMENT_CONFIGS, STORE_CONFIGS, regime_sizing_from_config,
@@ -95,38 +99,59 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     {'cells': [names], 'reference': name}."""
     cells = _build_cells(spec)
     reference = reference_cell(cells, spec.get('reference'))
-    # An inbound matrix must STATE its arm set.  `arms=None` means "leave CHANNEL_RESTOCKS as
-    # committed", which is the full 34-arm suite — 1,360 work units where the funnel budgeted
-    # 480 for twelve arms, and not the experiment phase 2 is.  The arm set is phase 1's output,
-    # so a matrix that never received one has skipped the selection rather than chosen it.
-    if len(cells) > 1 and any(c.inbound for c in cells) and spec.get('arms') is None:
-        raise ValueError(
-            'an inbound cell matrix has no `arms`: the phase-2 arm set is phase 1\'s output '
-            '(see run_restock_selection), not the committed default. Set whatif_config.'
-            'PHASE2_ARMS from the selection artifact, including its mandatory `fifo` rider')
-    # Arm override: 'all' ⇒ full suite (CHANNEL_RESTOCKS=None); list ⇒ subset; None ⇒
-    # leave strategies.CHANNEL_RESTOCKS exactly as committed.  CONFIG['restocks'] was
-    # snapshotted at import, so refresh it too.
-    if spec.get('arms') is not None:
-        arms = None if str(spec['arms']).lower() == 'all' else tuple(spec['arms'])
-        # `fifo` is not optional in an explicit subset.  `run_channel_rollup._baseline_entry`
-        # prefers `uni_fifo`, falls back to any key containing `fifo`, and then falls back to
-        # `strategies[0]` — so a fifo-less arm set silently baselines every row against an
-        # arbitrary arm and renders plausible, meaningless savings.  It is also the
-        # order-blind negative control: `uni_fifo` and `opt_fifo` are byte-identical runs, so
-        # a gradient on that row indicts the machinery.  Refused HERE, at minute zero, rather
-        # than discovered at analysis after the simulation has been paid for.
-        if arms is not None and 'fifo' not in arms:
-            raise ValueError(
-                f'the arm subset {arms!r} has no `fifo` rule: it is both the analysis baseline '
-                f'(run_channel_rollup falls back to an ARBITRARY arm without it) and the '
-                f'order-blind negative control. Add it to the spec\'s `arms`')
-        for ch in CONFIG['channels']:
-            strategies.CHANNEL_RESTOCKS[ch] = arms
-            CONFIG['channels'][ch]['restocks'] = strategies.restocks_for(ch)
+    # THE SHAPE GATE, restated at the driver.  `get_spec` is the single door every run comes
+    # through and validates there, but `_run_whatif_matrix` is also reachable with a
+    # hand-built spec (a test, a bench harness), and a malformed one would otherwise reach
+    # the channel install below and half-apply.  Cheap, total and pure.
+    _wc.validate_spec(spec)
+    _pairs = _wc.rule_pairs_of(spec)
+    # THE "AN INBOUND MATRIX MUST STATE ITS ARM SET" REFUSAL USED TO LIVE HERE, over the built
+    # CELLS — neither `arms` nor `rule_pairs` means "leave CHANNEL_RESTOCKS as committed",
+    # which is the full 34-arm suite, 1,360 work units where the funnel budgeted 480, and not
+    # the experiment phase 2 is.  It moved into `validate_spec` above, which reads the spec's
+    # own `inbound` AXIS — and that is STRICTLY STRONGER, not merely equivalent: a cell's
+    # `inbound` is built FROM that axis (`cells._inbound_axis`), so the two can never disagree,
+    # and the cell form additionally let a SINGLE-cell inbound spec through by also requiring
+    # `len(cells) > 1`.  Recorded as a comment rather than kept as a second copy: two refusals
+    # for one rule is how one of them ends up saying something slightly different.
+    # THE CHANNEL INSTALL.  One accessor answers all four spec shapes — absent ⇒ None (leave
+    # it as committed, which is what makes `--spec single` the old flat run), 'all' ⇒ the full
+    # suite everywhere, a flat tuple ⇒ the same subset everywhere, and rule PAIRS ⇒ each
+    # channel's own COLUMN in rank order.  The derivation lives beside the pairs
+    # (`whatif_config.channel_restocks_for`) rather than here, so the driver never authors an
+    # arm set — it installs one.  CONFIG['restocks'] was snapshotted at import, so refresh it.
+    _installed = _wc.channel_restocks_for(spec, CONFIG['channels'])
+    if _installed is not None:
+        # `fifo` is not optional in an explicit FLAT subset.  `run_channel_rollup.
+        # _baseline_entry` prefers `uni_fifo`, falls back to any key containing `fifo`, and
+        # then falls back to `strategies[0]` — so a fifo-less arm set silently baselines every
+        # row against an arbitrary arm and renders plausible, meaningless savings.  It is also
+        # the order-blind negative control: `uni_fifo` and `opt_fifo` are byte-identical runs,
+        # so a gradient on that row indicts the machinery.  Refused HERE, at minute zero,
+        # rather than discovered at analysis after the simulation has been paid for.
+        #
+        # UNCONDITIONAL, AND VACUOUS FOR A PAIR SPEC BY CONSTRUCTION.  `validate_spec` wants
+        # the rider as a PAIR — `('fifo', 'fifo')` — which puts `fifo` in BOTH derived columns,
+        # so a pair spec that reaches here has already satisfied this.  It was written guarded
+        # by `if _pairs is None`, and no input could reach the other side of that branch: a
+        # guard nothing can exercise is a guard nobody finds out is wrong.
+        for _ch, _rules in _installed.items():
+            if _rules is not None and 'fifo' not in _rules:
+                raise ValueError(
+                    f'the {_ch} arm subset {_rules!r} has no `fifo` rule: it is both the '
+                    f'analysis baseline (run_channel_rollup falls back to an ARBITRARY arm '
+                    f'without it) and the order-blind negative control. Add it to the '
+                    f'spec\'s `arms`')
+        for _ch, _rules in _installed.items():
+            strategies.CHANNEL_RESTOCKS[_ch] = _rules
+            CONFIG['channels'][_ch]['restocks'] = strategies.restocks_for(_ch)
 
+    # PAIR-AWARE, because `spec.get('arms')` is None on a coupled campaign and a log line that
+    # said `arms=None` there would read as "the committed default" — the one thing the refusal
+    # above exists to prevent.
+    _swept = _wc.swept_rules_of(spec)
     log.info(f'Cell matrix → {base_dir}  ({len(cells)} cell(s), reference={reference}, '
-             f'arms={spec.get("arms")!r}, resume={resume})')
+             f'{"pairs" if _pairs is not None else "arms"}={_swept!r}, resume={resume})')
     log.info('  cells: ' + ', '.join(c[0] for c in cells))
 
     # ── 1. FREEZE the sampled inventory once (from the tightest cell) per pair — MULTI-cell only ──

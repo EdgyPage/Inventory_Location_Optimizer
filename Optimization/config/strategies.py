@@ -347,6 +347,23 @@ _RESLOTS = [
     #('rboth', 'RSLboth', _RESLOT_FRAC, 'rebalance'),         # both ends
 ]
 
+#: EVERY restock-rule key, in grid order.  The universe a campaign spec's arm set or rule-pair
+#: list is checked against (`whatif_config.validate_spec`), derived from the grid rather than
+#: typed beside it: a hand-kept copy drifts silently the moment a rule is added or renamed, and
+#: a mistyped rule in a ten-cell campaign spec is a run that sweeps a suite nobody chose.
+RESTOCK_KEYS: tuple[str, ...] = tuple(_r[0] for _r in _RESTOCKS)
+
+#: Each INITIAL's position in the grid, keyed by its `stock_mode` — the outer loop of the
+#: strategy grid, and therefore the outer key `strategies_for` orders by.  Keyed on stock_mode
+#: because that is the only handle a `Strategy` carries back to its initial (site-dock 06
+#: section 0: the uni/opt axis partitions cleanly on `stock_mode`, which is why no key-prefix
+#: parse is needed).  That handle is only sound while the modes are DISTINCT, so it is asserted
+#: rather than assumed — two initials sharing a mode would silently collapse the ordering.
+_INITIAL_RANK: dict[str, int] = {_sm: _i for _i, (_ik, _il, _sm) in enumerate(_INITIALS)}
+assert len(_INITIAL_RANK) == len(_INITIALS), (
+    '_INITIALS must have one distinct stock_mode each; strategies_for orders the arm list by '
+    'stock_mode and a shared mode would merge two initials into one rank')
+
 _N_STRATEGIES = len(_INITIALS) * len(_RESTOCKS) * len(_RESLOTS)
 
 STRATEGIES: list[Strategy] = []
@@ -366,12 +383,45 @@ STRATEGY_BY_KEY: dict[str, Strategy] = {s.key: s for s in STRATEGIES}
 
 
 def strategies_for(restocks) -> list[Strategy]:
-    """Subset of STRATEGIES whose restock rule is in `restocks` (None ⇒ all).
+    """Subset of STRATEGIES whose restock rule is in `restocks` (None ⇒ all), IN THE ORDER
+    `restocks` states it — initial (uni/opt) outer, the caller's rule order inner.
 
     Lets one channel run only a subset of restock rules (e.g. store: fifo + rank_labor)
     while another runs the full suite, without perturbing the global grid used elsewhere.
+
+    THE ORDER IS LOAD-BEARING UNDER COUPLING, and it was not before.  `_prepare_site_run`
+    (`Optimization/simdriver/workunits.py`) builds the site's arm PAIRS by zipping the two
+    channels' lists as this function returns them, so position i of the store list is run
+    against position i of the fulfillment list.  A filter that re-imposed the GRID's order —
+    which the old `[s for s in STRATEGIES if s.restock in restocks]` did — would throw away
+    the rank order `run_restock_selection` spent a whole phase-1 run computing and pair rank 1
+    against whichever of the other channel's rules happens to sit earliest in `_RESTOCKS`.
+    Same shape as site-dock 06 section 0's `sorted(set(arms))` finding, one level down: a sort
+    that destroys the only thing the diagonal reads, with nothing raising.
+
+    BYTE-IDENTICAL when the caller's order IS the grid order, which every committed
+    `CHANNEL_RESTOCKS` value and every registered spec's arm set is (asserted in
+    Tests/unit/test_funnel_spec_pairs.py) — so this re-ordering moves no run that exists today.
+
+    The inner order comes from ITERATION, so an unordered container has no defined arm order
+    and is refused: a `set` would pair the two channels by whatever its hash order happened to
+    be, which is a different campaign on a different Python build.
     """
-    return list(STRATEGIES) if restocks is None else [s for s in STRATEGIES if s.restock in restocks]
+    if restocks is None:
+        return list(STRATEGIES)
+    if isinstance(restocks, (set, frozenset)):
+        raise TypeError(
+            'strategies_for needs an ORDERED restock list: under coupling the arm order IS '
+            'the rank pairing (see _prepare_site_run), and a set has no order. Pass a tuple '
+            'or list in rank order, or None for the full suite.')
+    # First occurrence wins, so a repeated rule cannot open a second rank slot.
+    rank: dict[str, int] = {}
+    for _r in restocks:
+        rank.setdefault(_r, len(rank))
+    # `sorted` is stable and STRATEGIES is already in (initial, restock, reslot) grid order, so
+    # arms sharing an (initial, rule) — the re-slot axis — keep their committed relative order.
+    return sorted((s for s in STRATEGIES if s.restock in rank),
+                  key=lambda s: (_INITIAL_RANK[s.stock_mode], rank[s.restock]))
 
 
 # ── per-channel strategy selection ──────────────────────────────────────────────
@@ -382,6 +432,12 @@ def strategies_for(restocks) -> list[Strategy]:
 #   fulfillment : full sweep — every assignment function is compared on the small-cart channel.
 # To re-restrict a channel to a curated subset, set its value to a tuple of restock keys,
 # e.g. store: ('fifo', 'rank_labor', 'rank_cartlabor').
+#
+# THE TUPLE IS ORDERED, and under a COUPLED run the order is the rank pairing: `strategies_for`
+# hands each channel its arms in this order and `_prepare_site_run` zips the two lists.  A
+# campaign therefore never authors these two tuples by hand — `whatif_config.channel_restocks_for`
+# DERIVES them from the spec's rule-pair list (site-dock 06 section 2), so the per-channel arm
+# sets cannot drift from the pairing they are supposed to express.
 CHANNEL_RESTOCKS: dict[str, tuple[str, ...] | None] = {
     'store'      : None,   # full assignment-function suite
     'fulfillment': None,   # full assignment-function suite

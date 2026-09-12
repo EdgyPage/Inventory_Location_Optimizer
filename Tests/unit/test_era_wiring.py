@@ -136,8 +136,11 @@ def test_a_utilization_target_must_lie_in_the_unit_interval():
 def test_the_campaign_specs_default_to_the_era_and_the_reference_run_is_gone():
     assert ERA_RUN_DEFAULTS == {'shift_drain_or_cap': True, 'releases_per_day': 1,
                                 'roll_over_unpicked': True, 'cut_at_day_end': True}
-    for name in ('inbound_select', 'inbound_policies'):
-        assert SPECS[name]['run_defaults'] is ERA_RUN_DEFAULTS, name
+    assert SPECS['inbound_select']['run_defaults'] is ERA_RUN_DEFAULTS
+    # Phase 2 carries the era PLUS coupling (site-dock 23: PHASE2_RUN_DEFAULTS), so it is a
+    # SUPERSET rather than the same object — the era keys are what this asserts, and
+    # Tests/unit/test_funnel_spec_pairs.py owns the coupling key.
+    assert ERA_RUN_DEFAULTS.items() <= SPECS['inbound_policies']['run_defaults'].items()
     # The pilot gate carries the era PLUS its arrival regime, and no crew key: the crew is
     # derived under the era ("Verify the derived receiving crew").
     pilot = SPECS['inbound_pilot']['run_defaults']

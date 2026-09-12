@@ -937,7 +937,7 @@ def main():
     # Resolve base_dir FIRST, then on --resume load + apply the saved run_spec BEFORE the
     # CONFIG-override block, so a bare `--resume DIR` reconstructs the run with zero retyped
     # flags (and no find_latest_db_pairs drift — see the pairs block below).
-    from Optimization.config.whatif_config import get_spec, SPECS
+    from Optimization.config.whatif_config import get_spec, swept_rules_of, SPECS
 
     def _resolve_spec():
         """Selected cell-matrix (name, dict).  --whatif is the deprecated alias for scheduler_ab."""
@@ -1274,7 +1274,11 @@ def main():
             base_dir, spec=spec_name, reference=reference, cells=cell_tuples, pairs=pairs,
             store_cfgs=STORE_CONFIGS, ff_cfgs=FULFILLMENT_CONFIGS,
             channels=(['store', 'fulfillment'] if FULFILLMENT_CONFIGS else ['store']),
-            arms=(None if spec_dict.get('arms') in (None, 'all') else list(spec_dict['arms'])),
+            # Through the spec module's own accessor, so a rule-pair campaign records the rules
+            # it actually swept: read straight off `arms`, a pair spec has none and the
+            # descriptor would claim the committed full suite (site-dock 23).  Identical to the
+            # old expression for every arm-shaped spec.
+            arms=swept_rules_of(spec_dict),
             created=datetime.now().isoformat(timespec='seconds'),
             # Read through the ONE predicate the work-unit builder uses, so the descriptor
             # and the units cannot disagree about whether this run is a site.

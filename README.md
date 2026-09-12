@@ -217,7 +217,10 @@ registry. Edit the lists near the bottom:
 
 Run-id keys are `{initial}_{restock}_{reslot}`, e.g. `opt_rank_labor_norsl`. The `STRATEGIES`
 grid is the cartesian product of the three lists — **2 × 17 × 1 = 34 arms** by default.
-`CHANNEL_RESTOCKS` narrows the suite per channel.
+`CHANNEL_RESTOCKS` narrows the suite per channel, and its tuples are **ordered**: on a coupled
+run (`--couple-channels`) the two channels' arm lists are zipped position by position, so the
+order IS the arm pairing. A campaign never writes those two tuples by hand — `whatif_config`
+derives them from the spec's rule pairs.
 
 **Cells — `Optimization/config/whatif_config.py`.** A **cell** is a frozen structural variant:
 one choice of aisle-split × velocity-zoning × picker-scheduler × inbound policy, replayed over the
@@ -235,6 +238,14 @@ is a cell matrix; a plain run is the single cell `k1_off`. Select one with `--sp
     'reference':  'k1_off_rr',                   # the cell every other cell is diffed against
 }
 ```
+
+Phase 2 of the inbound funnel states `rule_pairs` instead of `arms`: an ordered list of
+`(store_rule, fulfillment_rule)` pairs, rank-aligned, copied out of `restock_selection.json`.
+A cell is then a list of **rule pairs** run as one coupled site, and the per-channel arm sets are
+derived from the pairing rather than authored beside it. `get_spec` shape-checks every spec — a
+flat arm tuple left under the new name, a pair list without its `('fifo', 'fifo')` rider, a rule
+ranked twice on one side, or pairs without `couple_channels` are all refused before the run
+directory exists.
 
 Registered specs: `single` (1 cell), `scheduler_ab` (the committed 2-cell A/B), and the inbound
 funnel's pair — `inbound_select` (phase 1) and `inbound_policies` (phase 2, 10 cells). Cells are
