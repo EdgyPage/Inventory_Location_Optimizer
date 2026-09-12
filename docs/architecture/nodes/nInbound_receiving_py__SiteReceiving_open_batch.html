@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>open_batch · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_receiving_py__SiteReceiving_open_batch" data-id="Inbound/receiving.py::SiteReceiving.open_batch">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a> <span class="sep">›</span> <a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="sep">›</span> <span class="here"><code>open_batch</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>open_batch</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def open_batch(self, index: int) -&gt; tuple</code></pre>
+<section class="doc">`(base, deadline)` for site day `index`: the receiving crew&#x27;s absolute epoch and
+the whistle as a REMAINDER on the dock&#x27;s batch-local clocks.
+
+IDEMPOTENT PER INDEX, and that is the contract — one base, asked for twice.  Both
+leaves of one batch stamp their unload rows from the same epoch because there is
+one crew on one dock, so the first call computes and the rest read.  The identical
+rule, for the identical reason, as `PutawayPool.open_batch`.
+
+`base` is `max(day.start_of(index), recv_clock)`: the receivers start at shift start
+and work what is standing, or they carry on from where yesterday overrun left them.
+Never either leaf&#x27;s `arm_clock` -- that is a PICK crew&#x27;s release instant, and basing
+the dock on it would idle the site receivers whenever a pick crew overran its day
+and would misattribute a picking overrun to the dock&#x27;s cut.  `deadline` is the rest
+of the day CONTAINING that base, so `base + deadline` is the day&#x27;s end however far
+the carry has run.
+
+THIS IS NOT WHAT AN UNCOUPLED RUN DOES, and the divergence is deliberate rather
+than a restatement: the shipped runner bases its receive rows at
+`max(arm_clock, recv_clock)` — this leaf&#x27;s pick-crew release instant. Under one
+crew on one dock that instant is a property of one channel, so the site base moves
+to the shift start. Any run that adopts this is therefore not row-comparable with
+one that did not, which is why the coordinator does not quietly apply it to the
+one-leaf path (`open_batch` has no caller until a coupled run has one).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving_open_batch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20open_batch">Source ↗</a></p>
+</article>
+</main>
+</body></html>

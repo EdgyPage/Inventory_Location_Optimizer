@@ -15,12 +15,26 @@
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>class SiteReceiving</code></pre>
-<section class="doc">The site&#x27;s dock, yard and drain record, driving N leaves through two ports.
+<section class="doc">The site&#x27;s dock, yard and drain record, driving N leaves through three ports.
 
 Constructed by the driver where the `Dock` and the `YardTransit` are built, and bound
 onto each leaf it serves (`mgr.receiving`) — the same injection precedent as
 `enable_receiving` and `mgr.packer`: the broker holds what it is handed, and nothing
-under `Warehouse/` imports this package.</section>
+under `Warehouse/` imports this package.
+
+A COUPLED RUN REQUIRES THE STANDING YARD, and this refuses a transit without it at
+CONSTRUCTION.  Of the three transits only `YardTransit` carries a yard, doors and a
+dock ranking; the v1 `TrailerTransit` and the flag-off `BatchTransit` drain through the
+manager&#x27;s own dock-deque branch, which is a separate ~20-line path with its own owner
+problem.  Building owner routing twice, in two unrelated drains, for a mode no
+experiment runs is work with no reader — and the alternative to refusing is a SILENT
+fallback to per-leaf receiving, which is a run that looks healthy and answers a
+different question (memory `pool-run-swallows-dead-arms`).
+
+`day` is the SITE working day, and it is what the site receiving clock is based on.
+None is every run without a whistle grid, and then `open_batch` refuses rather than
+inventing one — the same precondition `Inbound/putaway_pool.py` states for the put
+crew, for the same reason: coupling is an era feature and the era completes the grid.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf.html"><code>_build_leaf</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=class%20SiteReceiving">Source ↗</a></p>
 </article>

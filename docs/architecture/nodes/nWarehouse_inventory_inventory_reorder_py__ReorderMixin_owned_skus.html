@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>owned_skus · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_owned_skus" data-id="Warehouse/inventory/inventory_reorder.py::ReorderMixin.owned_skus">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin.html"><code>ReorderMixin</code></a> <span class="sep">›</span> <span class="here"><code>owned_skus</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>owned_skus</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_reorder_py.html"><code>Warehouse/inventory/inventory_reorder.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def owned_skus(self)</code></pre>
+<section class="doc">The catalogue partition THIS leaf is responsible for, as a view of its keys.
+
+The third port, and the only one the coordinator reads outside a drain: it builds
+its `{sku: leaf}` owner dict from every bound leaf&#x27;s set ONCE, at bind time, and
+refuses an overlap there (`Inbound/receiving.py`).  Public rather than reaching
+`_originals` across the package boundary — a cross-package caller that touched a
+private would be a boundary violation dressed as an underscore.
+
+`_originals` is the templates the manager was loaded with, which IS the partition:
+a channel leaf loads its own regime-filtered inventory, so this set is that filter&#x27;s
+result and the two leaves&#x27; sets are disjoint by construction.
+
+IT IS FILLED BY INTAKE (`enqueue` / `enqueue_all` / `place_optimal`), which the
+driver runs to completion BEFORE the batch loop — not by anything a drain does. So
+the set is stable for the life of a coupled run, and the bind-time read is a read
+of the whole partition rather than of however much of it had arrived. A caller that
+broke that would break loudly rather than quietly: a sku the dict never learned
+about refuses at `_owner_of` instead of being delivered somewhere plausible.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin_owned_skus">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20owned_skus">Source ↗</a></p>
+</article>
+</main>
+</body></html>

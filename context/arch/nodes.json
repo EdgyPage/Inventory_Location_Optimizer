@@ -1305,13 +1305,13 @@
     },
     "Inbound/receiving.py": {
       "decorators": [],
-      "doc": "receiving \u2014 the site's receiving coordinator: one dock, one yard, N leaves.\n\n`SiteReceiving` owns every DECISION of a standing drain and holds no merchandise.  It\nsits ABOVE the inventory managers rather than inside one, which is what lets one dock\nserve two channels without either manager knowing the other exists.\n\n# \u2500\u2500 why it lives here, and cannot live anywhere else \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`wh_operations -> wh_inventory` is forbidden (`context/architecture.yml:88`), so the\npackage where crews live cannot drive a manager's drain; `warehouse_core -> inbound` and\n`wh_inventory -> inbound` are forbidden in BOTH directions (`:102-103`).  `Inbound/` is\ntherefore the only package that may sit above two managers, which is why the put pool\nlands here too.\n\nThe consequence is that this module can never import a manager.  It DUCK-TYPES its\nleaves and reaches each one through exactly two public ports:\n\n    leaf.plan_lot(sku, qty, source) -> (plans, items)\n        Step 1's per-lot body: resolve `_originals`, apply `inbound_split`, pack, stamp,\n        and debit the pack shortfall against the remainder ledger.\n    leaf.accept(item, dur) -> None\n        Step 4's per-unit body: the deferred->queued flip, `_recv_seconds`, `_queue`.\n\nEverything else a drain touches is the coordinator's own: the `Dock`, the `YardTransit`,\nthe ctx freeze, the door fill, the unload and the handoff ORDER.  `regime_of` (wh_kernel,\ndependency-free) is what will route a unit to its owning leaf once there are two; with\none leaf every unit routes to it trivially, and this module is deliberately written so\nthat adding the second leaf changes the ROUTING and nothing else.\n\n# \u2500\u2500 what is NOT here yet \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe `{sku: leaf}` owner dict, the refusal on a non-standing transit, and the `SITE_PHASES`\ninterleave for two leaves all wait for a second leaf to exist (\"Design the site receiving\ncoordinator\", the site-dock map).  `drain` below is the one-leaf composition and states\nits own limit.\n\nThe SPACE VIEW is already site-shaped: `_freeze_views` collects one frozen view per leaf\nand `Inbound/site_space.compose_site_view` turns them into the one view a drain reads.\nWith one leaf it composes one and returns it by identity; the second leaf changes what\n`_freeze_views` returns and nothing else.",
+      "doc": "receiving \u2014 the site's receiving coordinator: one dock, one yard, N leaves.\n\n`SiteReceiving` owns every DECISION of a standing drain and holds no merchandise.  It\nsits ABOVE the inventory managers rather than inside one, which is what lets one dock\nserve two channels without either manager knowing the other exists.\n\n# \u2500\u2500 why it lives here, and cannot live anywhere else \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`wh_operations -> wh_inventory` is forbidden (`context/architecture.yml:88`), so the\npackage where crews live cannot drive a manager's drain; `warehouse_core -> inbound` and\n`wh_inventory -> inbound` are forbidden in BOTH directions (`:102-103`).  `Inbound/` is\ntherefore the only package that may sit above two managers, which is why the put pool\nlands here too.\n\nThe consequence is that this module can never import a manager.  It DUCK-TYPES its\nleaves and reaches each one through exactly three public ports:\n\n    leaf.plan_lot(sku, qty, source) -> (plans, items)\n        Step 1's per-lot body: resolve `_originals`, apply `inbound_split`, pack, stamp,\n        and debit the pack shortfall against the remainder ledger.\n    leaf.accept(item, dur) -> None\n        Step 4's per-unit body: the deferred->queued flip, `_recv_seconds`, `_queue`.\n    leaf.owned_skus() -> iterable[int]\n        The catalogue partition this leaf is responsible for.  Read ONCE, at bind time,\n        to build the `{sku: leaf}` owner dict \u2014 never during a drain.\n\nEverything else a drain touches is the coordinator's own: the `Dock`, the `YardTransit`,\nthe ctx freeze, the door fill, the unload and the handoff ORDER.\n\nHOW A MIXED TRAILER FINDS ITS WAY HOME \u2014 two routes, because they answer two different\nquestions:\n\n  * STEP 1 holds a bare `(sku, qty)` lot; no unit exists yet, so it resolves the owner\n    from the `{sku: leaf}` dict built at bind time.  An overlapping sku is REFUSED there:\n    it would mean the channel filter let one order into both leaves, and the symptom\n    would be merchandise silently delivered to the wrong warehouse.\n  * STEP 4 holds a `PutawayItem`, so it asks `regime_of(item.unit)` (wh_kernel,\n    dependency-free, single-valued per entity).  No owner field is carried, stamped or\n    mapped at the unit level \u2014 `regime_of` already answers it.\n\nThe two are CROSS-CHECKED at the handoff.  A unit whose regime names one leaf while the\nowner dict names another is the only way the catalogue partition and the regime tagging\ncan disagree, and a run that routes by one while the other is true is a run whose ledgers\nbalance in the wrong warehouse.\n\n# \u2500\u2500 what is NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe DRIVER wiring of a two-leaf standing run.  Three things a live coupled run needs are\nnamed out of scope by this build's ticket, and each is somebody else's decision: the\nsite-scoped yard rows (`yard_trailers`, `yard_drains`) have no declared artifact until\n`<pair>/_site/` lands with its contract bump (\"Design the site scope in the run tree\",\nADR-0005); the shared transit carries ONE `gain_bundle` slot for two owners (\"Design the\ncomposite gain bundle\"); and one dock has one `UnloadCost` while the two channels price at\ntwo (\"One unload price for the site dock\", the site-dock map's open question).  So the\ncoordinator is complete and the run that fields it is the next ticket's \u2014 the same\nseam-before-consumer order this map has used throughout.  `site_rows` below is where a\ncoupled drain's yard rows wait for that artifact, and `drain_site_rows` is its accessor.\n\nWithin-day interleaving.  One batch is one site day and the drain stays drain-quantized;\nan event-driven cadence is out of scope, inherited.",
       "kind": "module",
       "signature": null
     },
     "Inbound/receiving.py::SiteReceiving": {
       "decorators": [],
-      "doc": "The site's dock, yard and drain record, driving N leaves through two ports.\n\nConstructed by the driver where the `Dock` and the `YardTransit` are built, and bound\nonto each leaf it serves (`mgr.receiving`) \u2014 the same injection precedent as\n`enable_receiving` and `mgr.packer`: the broker holds what it is handed, and nothing\nunder `Warehouse/` imports this package.",
+      "doc": "The site's dock, yard and drain record, driving N leaves through three ports.\n\nConstructed by the driver where the `Dock` and the `YardTransit` are built, and bound\nonto each leaf it serves (`mgr.receiving`) \u2014 the same injection precedent as\n`enable_receiving` and `mgr.packer`: the broker holds what it is handed, and nothing\nunder `Warehouse/` imports this package.\n\nA COUPLED RUN REQUIRES THE STANDING YARD, and this refuses a transit without it at\nCONSTRUCTION.  Of the three transits only `YardTransit` carries a yard, doors and a\ndock ranking; the v1 `TrailerTransit` and the flag-off `BatchTransit` drain through the\nmanager's own dock-deque branch, which is a separate ~20-line path with its own owner\nproblem.  Building owner routing twice, in two unrelated drains, for a mode no\nexperiment runs is work with no reader \u2014 and the alternative to refusing is a SILENT\nfallback to per-leaf receiving, which is a run that looks healthy and answers a\ndifferent question (memory `pool-run-swallows-dead-arms`).\n\n`day` is the SITE working day, and it is what the site receiving clock is based on.\nNone is every run without a whistle grid, and then `open_batch` refuses rather than\ninventing one \u2014 the same precondition `Inbound/putaway_pool.py` states for the put\ncrew, for the same reason: coupling is an era feature and the era completes the grid.",
       "kind": "class",
       "signature": ""
     },
@@ -1320,14 +1320,42 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, dock, transit)"
+      "signature": "(self, dock, transit, *, day=None)"
+    },
+    "Inbound/receiving.py::SiteReceiving.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/receiving.py::SiteReceiving._channel_of": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf) -> str"
     },
     "Inbound/receiving.py::SiteReceiving._freeze_views": {
       "decorators": [],
-      "doc": "`[(regime, view)]` \u2014 one frozen space view per leaf that runs a timeline.\n\nONE LEAF TODAY, and it is contributed UNTAGGED: a composition of one partitions\nnothing, so there is no decision for a regime tag to make and inventing one here\nwould be a value nothing checks.  The tag arrives with the owner routing \u2014 the\ncoordinator is the thing that holds both managers and calls `freeze` on each,\nwhich is the same knowledge the `{sku: leaf}` dict is built from (\"Design the site\nspace view\", section 5) \u2014 and `compose_site_view` REFUSES an untagged contribution\nthe moment there are two, so the absent tag cannot survive into the coupled case.\n\nA method rather than an inline expression so the second leaf changes THIS and\nnothing in `receive`.",
+      "doc": "`[(regime, view)]` \u2014 one frozen space view per leaf that runs a timeline.\n\nONE LEAF IS CONTRIBUTED UNTAGGED and more than one is TAGGED, and the asymmetry is\nthe design rather than a shortcut.  A composition of one partitions nothing, so a\ntag there would decide nothing \u2014 and `compose_site_view` returns a lone\ncontribution BY IDENTITY, which is what keeps every standing-yard run already on\ndisk byte-identical (filtering one leaf's `empties` would remove a phantom that\nbelongs to the UNCOUPLED model).  With two, the tag is what partitions `empties` so\na mixed trailer's store units rank against store bins, and the composer REFUSES an\nuntagged contribution the moment there are two (\"Design the site space view\").\n\nThe tag is the channel the leaf BOUND under, which is the same knowledge the\n`{sku: leaf}` owner dict is built from \u2014 not `regime_of` on anything, because the\ncoordinator is the one object that holds both managers and knows which is which.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, leaf, epoch: float) -> list"
+      "signature": "(self, leaves, epoch: float) -> list"
+    },
+    "Inbound/receiving.py::SiteReceiving._leaf_for": {
+      "decorators": [],
+      "doc": "Step 4's route: which leaf takes a unit of `regime`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, regime: str)"
+    },
+    "Inbound/receiving.py::SiteReceiving._owner_of": {
+      "decorators": [],
+      "doc": "Step 1's route: which leaf packs a bare `(sku, qty)` lot.\n\nUnbound coordinators (every one-leaf run built before a `bind` existed) keep the\nhistorical behaviour -- the single leaf the drain was handed owns everything -- and\nthat fallback lives at the ONE call site rather than here, so this method always\nmeans \"the dict says\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sku: int)"
     },
     "Inbound/receiving.py::SiteReceiving._unload_merged": {
       "decorators": [],
@@ -1343,19 +1371,56 @@
       "kind": "function",
       "signature": "(self, dock, transit, deadline, epoch, work_order, yard_next, cap: int | None=None)"
     },
+    "Inbound/receiving.py::SiteReceiving.bind": {
+      "decorators": [],
+      "doc": "Serve `channel`'s leaf.  Call once per leaf, before the batch loop.\n\nBuilds this leaf's half of the `{sku: leaf}` owner dict from its own catalogue\npartition, and REFUSES an overlap.  An sku owned by two leaves means the channel\nfilter (`_channel_runs_for`) let one order into both, and the only symptom\ndownstream would be merchandise delivered to the wrong warehouse and a ledger that\nbalances there \u2014 so it is checked at the one moment both partitions are in hand.\n\nThe leaf's transit must BE this coordinator's.  That is what makes `SITE_PHASES`'\nsite-scoped `_advance_lead_queue` honest: the phase is driven on one leaf and\nreaches `transit.advance()`, so \"which leaf\" is not a choice as long as the\nidentity holds, and this is where it is established rather than assumed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf, channel: str) -> None"
+    },
     "Inbound/receiving.py::SiteReceiving.drain": {
       "decorators": [],
-      "doc": "Drive N leaves' phases with ONE shared receive, and return {leaf: triggered}.\n\nThe site composition of the same seven phases `check_reorders` composes for one\nchannel.  THE ORDER IS THE BEHAVIOUR, exactly as it is there: phases 0-3 are the\nCALENDAR and run per leaf (a lead time elapses whether or not anyone is at work);\nthe receive is ONE shared drain because there is one dock; the put drain is\nlabour and runs per leaf.\n\nPhase 3 (`_release_arrivals`) runs per leaf even though it is a structural no-op\nin standing mode \u2014 it is the phase that lands trailers in the yard, so it must\nrun for every leaf BEFORE the shared receive.  Dropping it because its return is\nempty would strand every arrival.\n\nONE LEAF TODAY.  With a single leaf this is `check_reorders` phase for phase, and\n`Tests/unit/test_site_receiving.py` pins that equality.  The put pool that makes\nphase 5 a shared budget is a separate object (\"Design the site put-away pool\");\nuntil it exists, each leaf drains its own put queue against its own deadline.",
+      "doc": "Drive N leaves' phases with ONE shared receive, and return the SKUs each\ntriggered, keyed by `id(leaf)`.\n\nKeyed by identity rather than by the leaf itself because a manager is unhashable\nby value here and the caller already holds the leaves it passed in; a caller doing\n`triggered[leaf]` gets a `KeyError`, so the key is spelled out.\n\n`SITE_PHASES` IS THIS BODY, and the module constant is where the two facts it\nencodes are argued: which phases are the SITE's, and why the loop is phase-major.\nThe composition is the same seven phases `check_reorders` composes for one channel,\nin the same order, because THE ORDER IS THE BEHAVIOUR \u2014 firing before the lead tick\nwould decrement an order in the batch it was placed, and releasing before firing\nwould delay every lead-0 arrival by a batch.\n\nPhase 3 (`_release_arrivals`) runs per leaf even though it is a structural no-op\nin standing mode \u2014 it is the phase that lands trailers in the yard, so it must\nrun for every leaf BEFORE the shared receive.  Dropping it because its return is\nempty would strand every arrival.\n\nPhase 5 is routed exactly as `check_reorders` routes it: to the SITE PUT POOL when\none is bound, which divides the day between the channels and re-drains both against\nthe whole of it, and to the leaf otherwise.  Reached from HERE rather than from each\nleaf's own composition, it lands after the shared receive for every leaf \u2014 so a unit\nunloaded this morning gets a bin today, in both channels, which is the whole reason\nthe receive sits where it does.\n\nWith a single leaf this is `check_reorders` phase for phase, and\n`Tests/unit/test_site_receiving.py` pins that equality.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, leaves, put_deadline: float | None=None, recv_deadline: float | None=None, now_s: float | None=None) -> dict"
     },
-    "Inbound/receiving.py::SiteReceiving.receive": {
+    "Inbound/receiving.py::SiteReceiving.drain_site_rows": {
       "decorators": [],
-      "doc": "One drain of the standing dock: plan arrivals, fill doors, unload, hand off.\n\nReturns the drain's yard row `(yard_start, free_doors_start, yard_end, remainder)`\nrather than recording it, so the caller decides where a row belongs \u2014 one leaf's\n`_yard_drains` today, a site-scoped artifact once there are two (\"Design the site\nscope in the run tree\").\n\nFour steps, and their order is the design:\n\n1. PLANS-AT-ARRIVAL.  Every trailer that joined the yard gets its pack plan NOW,\n   per contiguous lot \u2014 the same portions the v1 drain packs \u2014 and its units are\n   stamped immediately, so a pallet that stands three batches in the yard is three\n   batches old when it finally reaches floor space.  The merchandise stays in\n   `_deferred_qty`: nothing is queued until a crew actually pulls it.\n2. THE DOOR FILL, NOT budget-gated.  Staging is yard-jockey work, not receiving\n   labour, so even a zero-budget drain fills every free door from the drain-frozen\n   yard ranking.\n3. THE UNLOAD, budget-gated, per the crew-allocation mode ('split' door teams or\n   the 'merged' pooled gang).  The whistle is a START gate, one unload of overtime\n   per worker, exactly as the v1 path's.  Same-drain refills consume the frozen\n   rankings; no mid-drain re-scoring.\n4. THE CANONICAL HANDOFF.  Whatever the allocation, unloaded units reach `_queue`\n   in merged order \u2014 trailers by dock rank, units by local rank, filtered to what\n   actually unloaded \u2014 never in labor-completion order.  That is the containment\n   property: crew allocation moves labor stamps and makespans ONLY, never\n   placement physics.  The deferred->queued flip rides the handoff, per unit, so\n   `position = on_hand + queued + deferred` never wobbles.",
+      "doc": "This drain window's SITE-scoped yard rows, and start the list over.\n\nA coupled drain's `(yard_start, free_doors_start, yard_end, remainder)` belongs to\nneither leaf -- it is a statement about the site's trailers and the site's doors --\nso `receive` parks it here instead of handing an arbitrary leaf a number that reads\nas its channel's.  Nothing consumes this yet; `<pair>/_site/inbound_<pair>.db` is\nthe declared home and its contract bump is the next ticket's.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, leaf, deadline: float | None) -> tuple"
+      "signature": "(self) -> list"
+    },
+    "Inbound/receiving.py::SiteReceiving.leaves": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The bound leaves in BIND ORDER, which is the declared channel order.\n\nThe order is the model: `SITE_PHASES` is phase-major over exactly this sequence,\nand `_fire_reorders` loads the shared open trailer in it, so store-first means a\nmixed trailer's store lots load first.  A tuple, not the dict, because callers\nsequence leaves and never index one by name.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Inbound/receiving.py::SiteReceiving.note_records": {
+      "decorators": [],
+      "doc": "`leaf` has stamped its unload rows; `finish` is the absolute instant its last\none ended, or None when it recorded nothing.\n\nCalled once per leaf per site day, on BOTH the picked and the skipped path \u2014 a\nbatch that picked nothing still drained the dock.  When the last leaf reports, the\nsite carry is committed.  THE RESET HAS ONE OWNER for exactly the reason the put\npool says so: one leaf restarting a shared crew's clocks before the other has\nrecorded is a silent, plausible-looking zeroing of a half-spent day.\n\nThe carry moves only when somebody actually worked: no records anywhere means the\ncrew is where it was, exactly as an unpooled leaf leaves `recv_clock` alone.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf, finish) -> None"
+    },
+    "Inbound/receiving.py::SiteReceiving.open_batch": {
+      "decorators": [],
+      "doc": "`(base, deadline)` for site day `index`: the receiving crew's absolute epoch and\nthe whistle as a REMAINDER on the dock's batch-local clocks.\n\nIDEMPOTENT PER INDEX, and that is the contract \u2014 one base, asked for twice.  Both\nleaves of one batch stamp their unload rows from the same epoch because there is\none crew on one dock, so the first call computes and the rest read.  The identical\nrule, for the identical reason, as `PutawayPool.open_batch`.\n\n`base` is `max(day.start_of(index), recv_clock)`: the receivers start at shift start\nand work what is standing, or they carry on from where yesterday overrun left them.\nNever either leaf's `arm_clock` -- that is a PICK crew's release instant, and basing\nthe dock on it would idle the site receivers whenever a pick crew overran its day\nand would misattribute a picking overrun to the dock's cut.  `deadline` is the rest\nof the day CONTAINING that base, so `base + deadline` is the day's end however far\nthe carry has run.\n\nTHIS IS NOT WHAT AN UNCOUPLED RUN DOES, and the divergence is deliberate rather\nthan a restatement: the shipped runner bases its receive rows at\n`max(arm_clock, recv_clock)` \u2014 this leaf's pick-crew release instant. Under one\ncrew on one dock that instant is a property of one channel, so the site base moves\nto the shift start. Any run that adopts this is therefore not row-comparable with\none that did not, which is why the coordinator does not quietly apply it to the\none-leaf path (`open_batch` has no caller until a coupled run has one).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, index: int) -> tuple"
+    },
+    "Inbound/receiving.py::SiteReceiving.receive": {
+      "decorators": [],
+      "doc": "One drain of the standing dock: plan arrivals, fill doors, unload, hand off.\n\n`leaves` is a SEQUENCE, and there is one drain for the whole site however many it\nholds.  With one leaf the row is RETURNED and the caller decides where it belongs\n(`_receive` appends it to that leaf's `_yard_drains`, which is what it always did);\nwith two it is site-scoped and belongs in neither leaf's table, so it is parked on\n`site_rows` and None comes back \u2014 a leaf cannot record a number that is not its\nchannel's if it is never handed one (\"Design the site scope in the run tree\").\n\nA coordinator serving several leaves REFUSES a drain that does not name all of\nthem.  The only way to reach that is a coupled leaf's own `check_reorders`, and\nwhat it would do is drain the site's dock for one channel while the other's\narrivals are still on the yard: half a site day's receiving, attributed whole.\n\nFour steps, and their order is the design:\n\n1. PLANS-AT-ARRIVAL.  Every trailer that joined the yard gets its pack plan NOW,\n   per contiguous lot \u2014 the same portions the v1 drain packs \u2014 and its units are\n   stamped immediately, so a pallet that stands three batches in the yard is three\n   batches old when it finally reaches floor space.  The merchandise stays in\n   `_deferred_qty`: nothing is queued until a crew actually pulls it.\n2. THE DOOR FILL, NOT budget-gated.  Staging is yard-jockey work, not receiving\n   labour, so even a zero-budget drain fills every free door from the drain-frozen\n   yard ranking.\n3. THE UNLOAD, budget-gated, per the crew-allocation mode ('split' door teams or\n   the 'merged' pooled gang).  The whistle is a START gate, one unload of overtime\n   per worker, exactly as the v1 path's.  Same-drain refills consume the frozen\n   rankings; no mid-drain re-scoring.\n4. THE CANONICAL HANDOFF.  Whatever the allocation, unloaded units reach `_queue`\n   in merged order \u2014 trailers by dock rank, units by local rank, filtered to what\n   actually unloaded \u2014 never in labor-completion order.  That is the containment\n   property: crew allocation moves labor stamps and makespans ONLY, never\n   placement physics.  The deferred->queued flip rides the handoff, per unit, so\n   `position = on_hand + queued + deferred` never wobbles.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaves, deadline: float | None) -> tuple | None"
     },
     "Inbound/site_space.py": {
       "decorators": [],
@@ -17926,6 +17991,13 @@
       "kind": "function",
       "signature": "(self, item: 'PutawayItem') -> 'PutawayItem'"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._refuse_site_scope": {
+      "decorators": [],
+      "doc": "Raise when a LEAF is asked a question only the SITE can answer.\n\nOne place, six callers, one message shape: `name` is what was asked and `instead`\nis what a caller at the right scope asks instead.  A method rather than six copies\nof the raise, because six spellings of one rule is six things to keep in step \u2014\nand because the refusal is what the site-scope flag exists for, so it should be\none readable thing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, name: str, instead: str) -> None"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order": {
       "decorators": [],
       "doc": "WHO is served first, out of one BinKey group.  The drain's decision.\n\n`putaway_window` is the tolerance, in units:\n\n  None  the policy's whole request is granted -- pre-Phase-2 behaviour, and still\n        the default, so nothing moves until a caller asks for a window.\n  1     strict FIFO.  The policy chooses the BIN and has no say in the order.\n  K     the policy may pick its favourite from the K OLDEST units still waiting.\n        Serve it, slide the window forward by one, repeat.\n\nA window of K >= len(units) is exactly `pool.order(units)`, including the\ntie-breaking: `order` is a stable sort so equal keys keep queue order, and the heap\nbelow breaks ties on arrival index for the same reason.  That equivalence is\nasserted in Tests/unit/test_putaway_window.py rather than assumed, because it is\nwhat makes \"K = infinity reproduces today\" a fact instead of a hope.\n\nThis method is the whole point of Phase 1.  Until the pool inversion, an assignment\nfunction returned `[(unit, bin)] in priority order` and the drain iterated it, so\nevery ranked policy was choosing the ORDER as well as the bin -- 14 of the 17\nrestock rules, none of them asked to.  Put-away is supposed to be FIFO with a little\ntolerance; instead the queue was freely re-sorted by whatever score maximised the\nassignment function.\n\nThe pool split that in two.  `pool.order(units)` is now a REQUEST: the policy states\nthe precedence it would like and this method decides what to grant.  Today it grants\nall of it, which is why everything is still byte-identical -- the seam is real but\nnot yet load-bearing.  A finite K-oldest window lands here, and only here.\n\n`put_key` is the QUEUE's own precedence, from `put_policy`.  When present it\nreplaces the pool's `sort_key` entirely -- the pool still chooses every bin, it just\nstops choosing who goes first.  `k` then bounds the result exactly as it bounds the\npool's own order, so the two knobs compose rather than override each other.\n\n`units` arrives in queue order (the group's insertion order into `_stock_queue`), so\nthe FIFO answer is already in hand and needs no extra bookkeeping to recover.",
@@ -18048,7 +18120,7 @@
       "decorators": [
         "property"
       ],
-      "doc": "Storage units standing on the dock. 0 when there is no receiving crew.\n\nDISJOINT from `queue_depth`, which counts the put queues and `_held`: an item is in\none place or the other, never both. A reader wanting the whole unbinned backlog sums\nthem, which is why both are reported rather than one merged number.",
+      "doc": "Storage units standing on the dock. 0 when there is no receiving crew.\n\nDISJOINT from `queue_depth`, which counts the put queues and `_held`: an item is in\none place or the other, never both. A reader wanting the whole unbinned backlog sums\nthem, which is why both are reported rather than one merged number.\n\nREFUSES on a coupled leaf: the dock is the site's, and \"how deep is MY dock\" has no\nanswer when one dock holds both channels' merchandise.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
@@ -18062,14 +18134,14 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_receiving_records": {
       "decorators": [],
-      "doc": "This batch's unload records, and restart the crew's clock. `[]` when no crew.\n\nA drain is a batch boundary -- see `Dock.drain_records` and, for what happens when\nthe reset is missed, `drain_putaway_records`.",
+      "doc": "This batch's unload records, and restart the crew's clock. `[]` when no crew.\n\nA drain is a batch boundary -- see `Dock.drain_records` and, for what happens when\nthe reset is missed, `drain_putaway_records`.\n\nREFUSES on a coupled leaf, and this one is worse than reporting a wrong level: the\nfirst leaf to call it would take the OTHER channel's unload records into its own DB\nand restart the shared crew's clocks half-way through the site's batch, leaving the\nsecond leaf with an empty drain and every later row rebased.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_repack_records": {
       "decorators": [],
-      "doc": "This batch's repack records, and start the list over. `[]` when no crew.\n\nA SEPARATE STREAM from `drain_receiving_records`, not a widened one: `put_rows`\nrefuses to mix event types in one call (the `role`/`event_type` split it exists to\nkeep honest), so `repack` rows have to arrive as their own list or the writer would\nhave to re-derive the type per row from a discriminator nothing declares.",
+      "doc": "This batch's repack records, and start the list over. `[]` when no crew.\n\nA SEPARATE STREAM from `drain_receiving_records`, not a widened one: `put_rows`\nrefuses to mix event types in one call (the `role`/`event_type` split it exists to\nkeep honest), so `repack` rows have to arrive as their own list or the writer would\nhave to re-derive the type per row from a discriminator nothing declares.\n\nREFUSES on a coupled leaf, for `drain_receiving_records`' reason: the list is the\nsite dock's and the first drain empties it for both channels.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -18152,7 +18224,7 @@
       "decorators": [
         "property"
       ],
-      "doc": "Total pieces on order and not yet released \u2014 the transit census's level.\nFor `BatchTransit` this is the historical sum of entry quantities, unchanged.",
+      "doc": "Total pieces on order and not yet released \u2014 the transit census's level.\nFor `BatchTransit` this is the historical sum of entry quantities, unchanged.\n\nREFUSES on a coupled leaf: the transit is the SITE's one yard, so this level is\nboth channels' merchandise and reporting it per leaf would double the site's\nin-flight pieces across the pair's two DBs.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
@@ -18239,7 +18311,7 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.receiving_snapshot": {
       "decorators": [],
-      "doc": "`(depth, unloaded, cut, seconds)` for this batch, resetting the three flows.\n\n`(0, 0, 0, 0.0)` when there is no receiving crew, so the caller writes the same row\nshape either way and a no-dock run records four honest zeros rather than a NULL that\nevery consumer then has to special-case.",
+      "doc": "`(depth, unloaded, cut, seconds)` for this batch, resetting the three flows.\n\n`(0, 0, 0, 0.0)` when there is no receiving crew, so the caller writes the same row\nshape either way and a no-dock run records four honest zeros rather than a NULL that\nevery consumer then has to special-case.\n\nREFUSES on a coupled leaf: all four counters are the site dock's, and the flows\nRESET, so the first caller would take the site's whole batch and leave the second\nchannel reporting an idle dock.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> tuple"
@@ -18267,7 +18339,7 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.transit_snapshot": {
       "decorators": [],
-      "doc": "(sku, qty, remaining_lead) tuples \u2014 the public read the replay viewer uses\ninstead of reaching for a private attribute.",
+      "doc": "(sku, qty, remaining_lead) tuples \u2014 the public read the replay viewer uses\ninstead of reaching for a private attribute.\n\nREFUSES on a coupled leaf, for `in_transit_qty`'s reason: the rows are the site\nyard's and every one of them would be written into BOTH leaves' replay tables.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -19092,6 +19164,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, deadline: float | None=None, charge_cut: bool=True) -> None"
+    },
+    "Warehouse/inventory/inventory_reorder.py::ReorderMixin.owned_skus": {
+      "decorators": [],
+      "doc": "The catalogue partition THIS leaf is responsible for, as a view of its keys.\n\nThe third port, and the only one the coordinator reads outside a drain: it builds\nits `{sku: leaf}` owner dict from every bound leaf's set ONCE, at bind time, and\nrefuses an overlap there (`Inbound/receiving.py`).  Public rather than reaching\n`_originals` across the package boundary \u2014 a cross-package caller that touched a\nprivate would be a boundary violation dressed as an underscore.\n\n`_originals` is the templates the manager was loaded with, which IS the partition:\na channel leaf loads its own regime-filtered inventory, so this set is that filter's\nresult and the two leaves' sets are disjoint by construction.\n\nIT IS FILLED BY INTAKE (`enqueue` / `enqueue_all` / `place_optimal`), which the\ndriver runs to completion BEFORE the batch loop \u2014 not by anything a drain does. So\nthe set is stable for the life of a coupled run, and the bind-time read is a read\nof the whole partition rather than of however much of it had arrived. A caller that\nbroke that would break loudly rather than quietly: a sku the dict never learned\nabout refuses at `_owner_of` instead of being delivered somewhere plausible.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin.plan_lot": {
       "decorators": [],

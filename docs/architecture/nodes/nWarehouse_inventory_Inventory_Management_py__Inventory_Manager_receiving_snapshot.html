@@ -19,8 +19,12 @@
 
 `(0, 0, 0, 0.0)` when there is no receiving crew, so the caller writes the same row
 shape either way and a no-dock run records four honest zeros rather than a NULL that
-every consumer then has to special-case.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf__step.html"><code>_step</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+every consumer then has to special-case.
+
+REFUSES on a coupled leaf: all four counters are the site dock&#x27;s, and the flows
+RESET, so the first caller would take the site&#x27;s whole batch and leave the second
+channel reporting an idle dock.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__refuse_site_scope.html"><code>_refuse_site_scope</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf__step.html"><code>_step</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_receiving_snapshot">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20receiving_snapshot">Source ↗</a></p>
 </article>
 </main>

@@ -20,8 +20,11 @@ def dock_depth(self) -&gt; int</code></pre>
 
 DISJOINT from `queue_depth`, which counts the put queues and `_held`: an item is in
 one place or the other, never both. A reader wanting the whole unbinned backlog sums
-them, which is why both are reported rather than one merged number.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+them, which is why both are reported rather than one merged number.
+
+REFUSES on a coupled leaf: the dock is the site&#x27;s, and &quot;how deep is MY dock&quot; has no
+answer when one dock holds both channels&#x27; merchandise.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__refuse_site_scope.html"><code>_refuse_site_scope</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_dock_depth">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20dock_depth">Source ↗</a></p>
 </article>
 </main>

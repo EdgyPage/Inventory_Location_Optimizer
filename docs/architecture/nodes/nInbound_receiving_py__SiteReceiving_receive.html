@@ -13,14 +13,21 @@
 <nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a> <span class="sep">›</span> <a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="sep">›</span> <span class="here"><code>receive</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>receive</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
-
-<pre class="sig"><code>def receive(self, leaf, deadline: float | None) -&gt; tuple</code></pre>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def receive(self, leaves, deadline: float | None) -&gt; tuple | None</code></pre>
 <section class="doc">One drain of the standing dock: plan arrivals, fill doors, unload, hand off.
 
-Returns the drain&#x27;s yard row `(yard_start, free_doors_start, yard_end, remainder)`
-rather than recording it, so the caller decides where a row belongs — one leaf&#x27;s
-`_yard_drains` today, a site-scoped artifact once there are two (&quot;Design the site
-scope in the run tree&quot;).
+`leaves` is a SEQUENCE, and there is one drain for the whole site however many it
+holds.  With one leaf the row is RETURNED and the caller decides where it belongs
+(`_receive` appends it to that leaf&#x27;s `_yard_drains`, which is what it always did);
+with two it is site-scoped and belongs in neither leaf&#x27;s table, so it is parked on
+`site_rows` and None comes back — a leaf cannot record a number that is not its
+channel&#x27;s if it is never handed one (&quot;Design the site scope in the run tree&quot;).
+
+A coordinator serving several leaves REFUSES a drain that does not name all of
+them.  The only way to reach that is a coupled leaf&#x27;s own `check_reorders`, and
+what it would do is drain the site&#x27;s dock for one channel while the other&#x27;s
+arrivals are still on the yard: half a site day&#x27;s receiving, attributed whole.
 
 Four steps, and their order is the design:
 
@@ -42,7 +49,7 @@ Four steps, and their order is the design:
    property: crew allocation moves labor stamps and makespans ONLY, never
    placement physics.  The deferred-&gt;queued flip rides the handoff, per unit, so
    `position = on_hand + queued + deferred` never wobbles.</section>
-<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving__freeze_views.html"><code>_freeze_views</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__unload_merged.html"><code>_unload_merged</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__unload_split.html"><code>_unload_split</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_site_space_py__compose_site_view.html"><code>compose_site_view</code></a> <span class="dim">Inbound/site_space.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving_drain.html"><code>drain</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(7)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving__freeze_views.html"><code>_freeze_views</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__leaf_for.html"><code>_leaf_for</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__owner_of.html"><code>_owner_of</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__unload_merged.html"><code>_unload_merged</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__unload_split.html"><code>_unload_split</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_site_space_py__compose_site_view.html"><code>compose_site_view</code></a> <span class="dim">Inbound/site_space.py</span></li><li><a href="nWarehouse_kernel_regime_py__regime_of.html"><code>regime_of</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving_drain.html"><code>drain</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving_receive">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20receive">Source ↗</a></p>
 </article>
 </main>

@@ -15,23 +15,34 @@
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def drain(self, leaves, put_deadline: float | None=None, recv_deadline: float | None=None, now_s: float | None=None) -&gt; dict</code></pre>
-<section class="doc">Drive N leaves&#x27; phases with ONE shared receive, and return {leaf: triggered}.
+<section class="doc">Drive N leaves&#x27; phases with ONE shared receive, and return the SKUs each
+triggered, keyed by `id(leaf)`.
 
-The site composition of the same seven phases `check_reorders` composes for one
-channel.  THE ORDER IS THE BEHAVIOUR, exactly as it is there: phases 0-3 are the
-CALENDAR and run per leaf (a lead time elapses whether or not anyone is at work);
-the receive is ONE shared drain because there is one dock; the put drain is
-labour and runs per leaf.
+Keyed by identity rather than by the leaf itself because a manager is unhashable
+by value here and the caller already holds the leaves it passed in; a caller doing
+`triggered[leaf]` gets a `KeyError`, so the key is spelled out.
+
+`SITE_PHASES` IS THIS BODY, and the module constant is where the two facts it
+encodes are argued: which phases are the SITE&#x27;s, and why the loop is phase-major.
+The composition is the same seven phases `check_reorders` composes for one channel,
+in the same order, because THE ORDER IS THE BEHAVIOUR — firing before the lead tick
+would decrement an order in the batch it was placed, and releasing before firing
+would delay every lead-0 arrival by a batch.
 
 Phase 3 (`_release_arrivals`) runs per leaf even though it is a structural no-op
 in standing mode — it is the phase that lands trailers in the yard, so it must
 run for every leaf BEFORE the shared receive.  Dropping it because its return is
 empty would strand every arrival.
 
-ONE LEAF TODAY.  With a single leaf this is `check_reorders` phase for phase, and
-`Tests/unit/test_site_receiving.py` pins that equality.  The put pool that makes
-phase 5 a shared budget is a separate object (&quot;Design the site put-away pool&quot;);
-until it exists, each leaf drains its own put queue against its own deadline.</section>
+Phase 5 is routed exactly as `check_reorders` routes it: to the SITE PUT POOL when
+one is bound, which divides the day between the channels and re-drains both against
+the whole of it, and to the leaf otherwise.  Reached from HERE rather than from each
+leaf&#x27;s own composition, it lands after the shared receive for every leaf — so a unit
+unloaded this morning gets a bin today, in both channels, which is the whole reason
+the receive sits where it does.
+
+With a single leaf this is `check_reorders` phase for phase, and
+`Tests/unit/test_site_receiving.py` pins that equality.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving_drain">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20drain">Source ↗</a></p>
 </article>

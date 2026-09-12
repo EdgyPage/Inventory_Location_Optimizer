@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>drain_site_rows · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_receiving_py__SiteReceiving_drain_site_rows" data-id="Inbound/receiving.py::SiteReceiving.drain_site_rows">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a> <span class="sep">›</span> <a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="sep">›</span> <span class="here"><code>drain_site_rows</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>drain_site_rows</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def drain_site_rows(self) -&gt; list</code></pre>
+<section class="doc">This drain window&#x27;s SITE-scoped yard rows, and start the list over.
+
+A coupled drain&#x27;s `(yard_start, free_doors_start, yard_end, remainder)` belongs to
+neither leaf -- it is a statement about the site&#x27;s trailers and the site&#x27;s doors --
+so `receive` parks it here instead of handing an arbitrary leaf a number that reads
+as its channel&#x27;s.  Nothing consumes this yet; `&lt;pair&gt;/_site/inbound_&lt;pair&gt;.db` is
+the declared home and its contract bump is the next ticket&#x27;s.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving_drain_site_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20drain_site_rows">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -30,32 +30,52 @@ therefore the only package that may sit above two managers, which is why the put
 lands here too.
 
 The consequence is that this module can never import a manager.  It DUCK-TYPES its
-leaves and reaches each one through exactly two public ports:
+leaves and reaches each one through exactly three public ports:
 
     leaf.plan_lot(sku, qty, source) -&gt; (plans, items)
         Step 1&#x27;s per-lot body: resolve `_originals`, apply `inbound_split`, pack, stamp,
         and debit the pack shortfall against the remainder ledger.
     leaf.accept(item, dur) -&gt; None
         Step 4&#x27;s per-unit body: the deferred-&gt;queued flip, `_recv_seconds`, `_queue`.
+    leaf.owned_skus() -&gt; iterable[int]
+        The catalogue partition this leaf is responsible for.  Read ONCE, at bind time,
+        to build the `{sku: leaf}` owner dict — never during a drain.
 
 Everything else a drain touches is the coordinator&#x27;s own: the `Dock`, the `YardTransit`,
-the ctx freeze, the door fill, the unload and the handoff ORDER.  `regime_of` (wh_kernel,
-dependency-free) is what will route a unit to its owning leaf once there are two; with
-one leaf every unit routes to it trivially, and this module is deliberately written so
-that adding the second leaf changes the ROUTING and nothing else.
+the ctx freeze, the door fill, the unload and the handoff ORDER.
 
-# ── what is NOT here yet ──────────────────────────────────────────────────────────
+HOW A MIXED TRAILER FINDS ITS WAY HOME — two routes, because they answer two different
+questions:
 
-The `{sku: leaf}` owner dict, the refusal on a non-standing transit, and the `SITE_PHASES`
-interleave for two leaves all wait for a second leaf to exist (&quot;Design the site receiving
-coordinator&quot;, the site-dock map).  `drain` below is the one-leaf composition and states
-its own limit.
+  * STEP 1 holds a bare `(sku, qty)` lot; no unit exists yet, so it resolves the owner
+    from the `{sku: leaf}` dict built at bind time.  An overlapping sku is REFUSED there:
+    it would mean the channel filter let one order into both leaves, and the symptom
+    would be merchandise silently delivered to the wrong warehouse.
+  * STEP 4 holds a `PutawayItem`, so it asks `regime_of(item.unit)` (wh_kernel,
+    dependency-free, single-valued per entity).  No owner field is carried, stamped or
+    mapped at the unit level — `regime_of` already answers it.
 
-The SPACE VIEW is already site-shaped: `_freeze_views` collects one frozen view per leaf
-and `Inbound/site_space.compose_site_view` turns them into the one view a drain reads.
-With one leaf it composes one and returns it by identity; the second leaf changes what
-`_freeze_views` returns and nothing else.</section>
-<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nInbound_site_space_py.html"><code>Inbound.site_space</code></a> <span class="dim">Inbound/site_space.py</span></li><li><a href="nWarehouse_kernel_allocation_py.html"><code>Warehouse.kernel.allocation</code></a> <span class="dim">Warehouse/kernel/allocation.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving___init__.html"><code>__init__</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__freeze_views.html"><code>_freeze_views</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__unload_merged.html"><code>_unload_merged</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__unload_split.html"><code>_unload_split</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_drain.html"><code>drain</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section>
+The two are CROSS-CHECKED at the handoff.  A unit whose regime names one leaf while the
+owner dict names another is the only way the catalogue partition and the regime tagging
+can disagree, and a run that routes by one while the other is true is a run whose ledgers
+balance in the wrong warehouse.
+
+# ── what is NOT here ──────────────────────────────────────────────────────────────
+
+The DRIVER wiring of a two-leaf standing run.  Three things a live coupled run needs are
+named out of scope by this build&#x27;s ticket, and each is somebody else&#x27;s decision: the
+site-scoped yard rows (`yard_trailers`, `yard_drains`) have no declared artifact until
+`&lt;pair&gt;/_site/` lands with its contract bump (&quot;Design the site scope in the run tree&quot;,
+ADR-0005); the shared transit carries ONE `gain_bundle` slot for two owners (&quot;Design the
+composite gain bundle&quot;); and one dock has one `UnloadCost` while the two channels price at
+two (&quot;One unload price for the site dock&quot;, the site-dock map&#x27;s open question).  So the
+coordinator is complete and the run that fields it is the next ticket&#x27;s — the same
+seam-before-consumer order this map has used throughout.  `site_rows` below is where a
+coupled drain&#x27;s yard rows wait for that artifact, and `drain_site_rows` is its accessor.
+
+Within-day interleaving.  One batch is one site day and the drain stays drain-quantized;
+an event-driven cadence is out of scope, inherited.</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nInbound_site_space_py.html"><code>Inbound.site_space</code></a> <span class="dim">Inbound/site_space.py</span></li><li><a href="nWarehouse_kernel_allocation_py.html"><code>Warehouse.kernel.allocation</code></a> <span class="dim">Warehouse/kernel/allocation.py</span></li><li><a href="nWarehouse_kernel_regime_py.html"><code>Warehouse.kernel.regime</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(16)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving___init__.html"><code>__init__</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving___repr__.html"><code>__repr__</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__channel_of.html"><code>_channel_of</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__freeze_views.html"><code>_freeze_views</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__leaf_for.html"><code>_leaf_for</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__owner_of.html"><code>_owner_of</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__unload_merged.html"><code>_unload_merged</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__unload_split.html"><code>_unload_split</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_bind.html"><code>bind</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_drain.html"><code>drain</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_drain_site_rows.html"><code>drain_site_rows</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_leaves.html"><code>leaves</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_note_records.html"><code>note_records</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_open_batch.html"><code>open_batch</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py">Source ↗</a></p>
 </article>
 </main>
