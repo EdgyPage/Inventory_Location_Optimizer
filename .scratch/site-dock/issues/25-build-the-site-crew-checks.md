@@ -45,6 +45,38 @@ or may not carry it. If it does not, that is a COLUMN, and a column is a schema 
 the pipeline (`--sync` before the DDL edit, `--accept` after), never a consumer edit. Establish it
 first — a check that silently cannot resolve the regime falls back to one constant and passes.
 
+## Amendment (2026-09-12, from ticket 24)
+
+**THE PRECONDITION IS ESTABLISHED — no schema change is needed, and the reason matters.** A
+receive row's regime IS resolvable from the sim DB alone, but not the way this ticket assumed.
+Under coupling the coordinator partitions the dock's records **by SKU before the driver stamps
+anything**, so every `receive` and `repack` row lands in its OWNING channel's `work_events`, and
+`simulation_runs.channel` names that channel.
+
+**So do NOT write check 6 as "read the regime off the row".** The two-constant form is `C_store`
+over the STORE LEAF's rows and `C_ful` over the FULFILLMENT LEAF's, each re-priced against its own
+regime's entry in the dock's price list. **One DB does not hold both regimes' rows** — it cannot,
+by construction — and a check written on that assumption finds one constant, re-prices every row
+against it, and passes.
+
+**15's other precondition is built too:** each leaf's `batch_stats` receiving scalars are now its
+own share (the dock is partitioned back by SKU and the shares are CLOSED against its own totals),
+so the site-total closure check has both sides to compare.
+
+**One gap 24 names rather than leaves silent:** `equilibrium_report`'s accumulation loop is not
+unit-tested — `_site_verdicts` is, but the loop that feeds it needs a run tree with a staffing
+record and a closed ledger. If this ticket's site-total closure runs through that loop, it is
+testing two things at once and only one of them is pinned.
+
+**And the trap 24 fell into, which this ticket sits one layer above.** `SiteContext` left `_caps`
+uninitialised; because it SUBCLASSES `EvalContext` the era gate found the inherited
+`capabilities()` and called it, three of four evaluations raised inside the driver's swallow, and
+the tally reported a GRANT while nothing rendered. Memory `a-grant-is-not-an-output` is about
+exactly this and it still caught nobody out until the stage was driven end to end on a real
+coupled tree. **A subclass is not exempt from a duck-typed gate**, and the `[access]` summary
+reports INPUTS — only the `[render]` run summary says whether anything was written. Drive whatever
+you build on a real coupled tree before believing a tally.
+
 ## What proves it
 
 - **The site-total closure FAILS on a planted leak**, not merely passes on a clean run — memory

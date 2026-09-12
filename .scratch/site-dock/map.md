@@ -98,7 +98,7 @@ BEFORE anything runs: the inbound-optimization map resumes at
   decision on this map is closed**; what remains is the execution the override carries:
 
   ```
-  20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis stage ──▶ 25 site crew checks
+  20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis  [DONE]  ──▶ 25 site crew checks  (LAST)
       [DONE]                    [DONE]                     └─▶ 26 composite gain bundle  [DONE]
   22 coupled resume reconciler  [DONE]   (independent)
   23 funnel spec for arm pairs  [DONE]   (independent)
@@ -107,7 +107,7 @@ BEFORE anything runs: the inbound-optimization map resumes at
 
   **20, 22 and 23 landed together on 2026-09-11**, run in parallel — which is also how the three
   independent tickets were meant to be used, and **21 followed the same day**. What is left is
-  **24 -> 25, and nothing else**: 26 landed beside them and is done. **27 closed the same day it was graduated**, and it was
+  **25, and nothing else** — 24 and 26 are both in, so the map is one ticket from its destination. **27 closed the same day it was graduated**, and it was
   the map's last open decision — so every decision here is closed and what remains is execution
   alone. **24 carries the SECOND COMPARABILITY BREAK**, which 21 correctly declined: what breaks
   comparability is a run FIELDING one dock, and all three things such a run needs sat on 21's own
@@ -636,6 +636,32 @@ BEFORE anything runs: the inbound-optimization map resumes at
   15 mutations, 15 caught. **27 turns out to be orthogonal** — no unload charge enters the gain
   score at all (it is put travel + E[visits] x pick), and a per-regime unload price would be a
   per-regime COST like `wp.by_regime`'s pick costs, never a per-channel WEIGHT.
+
+- [Build the site analysis stage](issues/24-build-the-site-analysis-stage.md): **BUILT** — and
+  this is where the site dock is finally FIELDED. `_build_site_dock` at unit scope holds one
+  `Dock` (carrying 27's per-regime price list), one `YardTransit`, one `SiteReceiving` and one
+  receiving roster chained off the put pool's block end; `<pair>/_site/inbound_<arm-pair>.db` is
+  declared (ADR-0005) as a sim DB carrying only the yard tables, so every broker binds it with no
+  new loader (`schema_id` 5c9bc35db55b -> 49274a556866, no DB shape moved). Ten leaf accessors now
+  refuse under a site scope. **THE SECOND COMPARABILITY BREAK, measured per leaf** (12 batches,
+  crews 2/2, uncoupled = 2 PER LEAF): receiving SECONDS do not move at all — +0.00% on both
+  leaves, because the list's two entries are the constants each leaf already charged — so **27's
+  pricing decision cost exactly nothing and the break is wholly from fielding one dock**. What
+  moves is the axis and the uids: fulfillment's receive rows shift a mean 2,675.8 s with 0 of 47
+  unmoved and its actors go [22,23] -> [27,28], and the yard leaves the leaves (22+5 trailers
+  across two yards -> 22 across one, 24 drains -> 12). Uncoupled byte-identity **149,713 rows
+  across 19 tables**, evidence counted first and proven an oracle (a 1.000001x factor on
+  `unload_cost` moves 147 rows). ~130 new tests; **46 mutations, 46 caught** — two SURVIVED the
+  first pass, and the fix was two new tests that break the decomposition rather than a change to
+  the guard. **The worst defect was found by neither the build nor its review, but by driving the
+  stage end to end on a real coupled tree:** `SiteContext` left `_caps` uninitialised, and because
+  it SUBCLASSES `EvalContext` the era gate found the inherited `capabilities()` and called it —
+  three of four yard evaluations raised inside the driver's swallow, rendered nothing, and the
+  tally reported a GRANT. Memory `a-grant-is-not-an-output`, reproduced exactly, one layer up: **a
+  subclass is not exempt from a duck-typed gate.** **Deviation:** 07 section 6's family MOVE could
+  not be built — taking `yard` out of `_LEAF_FIGURE_FAMILIES` deletes the yard report from every
+  archived run and collides two uncoupled leaves in one pair-level directory — so the site tree is
+  an ADDITION (`SITE_SCOPE_FAMILIES` beside `LEAF_FAMILIES`) rather than a move.
 
 ## Not yet specified
 
