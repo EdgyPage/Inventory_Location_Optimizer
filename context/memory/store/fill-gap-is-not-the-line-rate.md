@@ -1,11 +1,11 @@
 ---
 name: fill-gap-is-not-the-line-rate
-description: "the fulfillment fill-law gap (0.0251 stamped vs 0.1044 realized) is NOT the per-SKU line rate -- substituting realized rates moves it the WRONG way, and against a share-law-true synthetic control sampler concentration explains only 14%; any rate-substitution test here is confounded by finite-window granularity and by rollover re-offer endogeneity"
+description: "the fulfillment fill-law gap is NOT the per-SKU line RATE -- substituting realized rates moves it the WRONG way, because it zeroes every SKU a finite window never touched; any rate-substitution test here is confounded by finite-window granularity and by rollover re-offer endogeneity"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 9a6d85ac-5da3-451b-b75b-6bbafc85ba51
-  modified: 2026-09-12T13:50:19.181Z
+  modified: 2026-09-12T14:17:18.100Z
 ---
 
 Measured 2026-09-12 on `comparison_20260912_055947` (coupled era, reference `lt0` pair, days
@@ -28,24 +28,23 @@ not:
 2. **Rollover re-offer endogeneity.** A missed unit is re-offered and picked on a later batch,
    adding a distinct `(batch_id, sku)`, so a realized line count is endogenous to the miss rate it
    is meant to predict. Fulfillment's 6+ line bucket: 11,946 of 12,875 line-batches coincide with
-   an `unpicked_unstocked` carryover row.
+   an `unpicked_unstocked` carryover row. (Both confounds vanish if you read the sampler's own
+   `_batches_*.pkl` instead of `picks` -- see [[fill-gap-is-the-line-count-shape]].)
 
-Difference-in-differences against the control: fulfillment +0.0109 of a +0.0793 gap (**14%**),
-store +0.0019 of +0.0054. About 86% is something else.
-
-**Why:** sampler concentration is real (fulfillment touched 34,993 SKUs against 46,325 predicted,
--24.5%, while total lines moved -1.8%; 1,467 SKUs at 6+ lines against 4 predicted) but the
-section rate is RIGHT (realized/predicted 0.9819). What the sampler does is cluster a SKU's lines
-in TIME -- a dependence a per-SKU rate cannot express, and one a 20-day mean rate smooths away
-entirely, so the substitution test is structurally blind to it.
+**Why the substitution inverts, established 2026-09-12 by dept-cal 39:** it sets `rate = 0` for
+the 78% of fulfillment SKUs a 20-day window never touched, and removing their loss outweighs what
+the busy SKUs add under stamped `d_s` weighting. The concentration is a SHAPE on the declared
+section, not a per-SKU rate. **An earlier version of this memory blamed temporal clustering
+("the sampler clusters a SKU's lines in TIME"); 39 measured that and it is FALSE** -- each batch
+draws from its own `random.Random(seed_batches + i)` with no cross-batch state, so day-to-day
+dependence is structurally impossible, and where the gap is it measures NEGATIVE.
 
 **How to apply:** never score a per-SKU hypothesis on this simulation without a synthetic control
 in which the null law is exactly true, pushed through the identical machinery, and report the
-INCREMENT over that control rather than the raw number. Exclude re-offered picks from any
-conditioning event. A line is a distinct `(batch_id, sku)`, never a `picks` row. Also: the
-frequency law in `_served_under_lead` is `Poisson(K * rate)` but the sampler draws DISTINCT SKUs
-per batch at one release a day, so a SKU takes at most one line a day -- `Binomial(K, p_s)` is the
-right (a,b,0) member and Panjer already covers it. Related:
-[[sampler-affinity-flattens-the-fulfillment-line-rate]],
+INCREMENT over that control rather than the raw number. A line is a distinct `(batch_id, sku)`,
+never a `picks` row. Also: the frequency law in `_served_under_lead` is `Poisson(K * rate)` but
+the sampler draws DISTINCT SKUs per batch at one release a day, so a SKU takes at most one line a
+day -- `Binomial(K, p_s)` is the right (a,b,0) member and Panjer already covers it. Related:
+[[fill-gap-is-the-line-count-shape]], [[sampler-affinity-flattens-the-fulfillment-line-rate]],
 [[coverage-in-days-floors-the-store-section]], [[window-mix-before-model-error]],
 [[a-count-is-not-a-claim]], [[nothing-is-lost-under-the-era]].
