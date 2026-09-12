@@ -1,38 +1,44 @@
 ---
 name: coupled-runs-are-byte-identical-until-the-pool
-description: "--couple-channels exists and works but changes no number yet; a coupled-vs-uncoupled comparison showing zero difference is the feature working, not a dead flag"
+description: "the window is CLOSED — since 2026-09-11 a coupled run fields ONE site put crew instead of one per leaf, so coupled and uncoupled put/travel numbers are no longer comparable; a zero difference is now the bug, not the feature"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 68469de0-3988-452f-9eb3-bc8fb5e0c145
-  modified: 2026-09-11T23:59:04.454Z
+  modified: 2026-09-12T00:56:56.426Z
 ---
 
-Since 2026-09-11 (`beda6b77`, site-dock 18) a run can be COUPLED: `--couple-channels` makes one
-work unit drive a store leaf and a fulfillment leaf through one batch loop, stamped into the run
-tree as `run_layout.json`'s `coupled`. **It is deliberately byte-identical to two uncoupled runs
-at that commit, and a test pins it that way** (`Tests/e2e/test_coupled_unit_e2e.py::
-test_a_coupled_unit_matches_the_two_units_it_replaces`, row-for-row over batch stats).
+**THE WINDOW IS CLOSED.** For a few hours on 2026-09-11 (`beda6b77`, site-dock 18) a coupled run
+— `--couple-channels`, one work unit driving a store leaf and a fulfillment leaf through one
+batch loop, stamped as `run_layout.json`'s `coupled` — was deliberately byte-identical to the two
+uncoupled runs it replaced, and a test pinned it that way. **Site-dock 19 (`9b0e21e8`) ended
+that**, and the pinning test was amended rather than deleted: it now asserts the relationship
+(one crew, one uid block, the same people in both channels' DBs) and reports the size of the move.
 
-So a coupled run that measures identically to an uncoupled one is the feature **working**, not a
-flag that silently did nothing. What 18 landed is the unit SHAPE and the deletion of the site
-crews from the per-leaf payload; the crews are still FIELDED per leaf, so the labour is unchanged.
+**What changed.** The site's putters are now fielded ONCE across both leaves (one shared
+`list[float]` of worker clocks) instead of once per leaf. Before 19 the two leaves each fielded
+the whole derived site crew, so the site's put labour was double counted. So on a coupled run:
 
-**Why the split:** a site-wide `put_clock` over two per-leaf clock lists is not "the double count
-persists" — `put_clock` is the absolute carry a batch-local clock list is based from, so one carry
-over two lists starts leaf B's putters where leaf A's finished: two full crews serialized as if
-they were one. The carry only becomes well-posed with the shared list, so it moved to the pool
-ticket. Same argument moves `recv_clock` to the coupled coordinator.
+- absolute put and travel numbers are **not comparable** across that commit — the same site now
+  has half the putters it used to appear to have;
+- put rows are stamped from a SITE day start rather than either leaf's batch start, so their
+  absolute instants move even where the work does not;
+- put uids move: the block now starts above BOTH channels' picker counts, so a putter is the same
+  person in both DBs (measured on a 12-batch pair: fulfillment's putters went from `[20, 21]` to
+  `[25, 26]`);
+- put SECONDS move a little too (measured ±0.7–4.6% per leaf), because the day is now divided
+  between the channels and re-drained, which changes which unit reaches which bin.
 
-**Why:** someone measuring a coupled run in this window and finding no difference would conclude
-the flag is inert and go looking for a wiring bug that is not there — the failure mode
-[[fingerprint-chain-verified-end-to-end]] warns about from the other direction.
+**Uncoupled and flag-off are unaffected and were proven so** — row-for-row zero against a HEAD
+copy, plus both preflight canaries.
 
-**How to apply:** before comparing coupled numbers to anything, check whether the
-put-away pool module (a `putaway_pool` module under `Inbound/`, site-dock ticket 19)
-exists yet. Absent, coupled == uncoupled by construction and the only
-differences to look for are structural (one unit instead of two, both leaves finalizing together).
-Present, the comparability break has happened — the pinning test fails on the commit that causes
-it and names the leaf whose labour moved, so the size of the move is recorded there rather than
-re-derived. Related: [[a-grant-is-not-an-output]], [[per-item-charge-hard-break]],
-[[derived-fill-is-the-fourth-comparability-break]], [[site-dock-is-shared-across-channels]].
+**Why:** the old note told a reader that a coupled-vs-uncoupled tie is the feature working. That
+is now exactly backwards: a tie means the pool did not engage, which is worth investigating.
+
+**How to apply:** date the run. A coupled run from before 19 carries the double count and its put
+numbers read as if the site had two crews; one after it does not. Never compare absolute put or
+travel across that boundary, and never quote a pre-19 coupled put utilization. Note also that
+coupling now REFUSES a run with no derived staffing block or without the working-day grid, so a
+coupled run necessarily has both. Related: [[a-grant-is-not-an-output]],
+[[per-item-charge-hard-break]], [[derived-fill-is-the-fourth-comparability-break]],
+[[lead-aware-record-is-the-fifth-comparability-break]], [[site-dock-is-shared-across-channels]].
