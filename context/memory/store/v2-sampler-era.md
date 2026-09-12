@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-20T18:55:11.996Z
+  modified: 2026-09-12T15:21:09.622Z
 ---
 
 As of 2026-08-20 (commit 21f3b3c), `CONFIG['global']['sampler'] = 'v2'`: all new runs draw
@@ -44,6 +44,12 @@ defaulted from CONFIG, the CONFIG override block, `run_spec.json` + `--resume` r
 Channel/`make_channel`/`batch_config`, `build_shared_assets`, and `config.json` provenance) so a
 result set's era is always recoverable from its own run_spec — never assume the checkout default
 when reading an archived run.
+
+**DEFECT, found 2026-09-12:** v2 re-selects SKUs it has already drawn, so a batch delivers fewer
+distinct lines than its declared `k` (fulfillment -8.64% on 40/40 batches). v1 is clean on the
+same seeds. This is not a comparability footnote but a correctness bug in the era's own declared
+throughput — see [[v2-sampler-redraws-selected-skus]]; the fix lands as a v3 sampler
+(dept-cal 44), which will move every batch sequence again.
 
 **How to apply:** before treating two runs as comparable (digest gate, throughput comparison,
 labour-cost comparison), check which sampler produced each — mixing v1 and v2 rows silently

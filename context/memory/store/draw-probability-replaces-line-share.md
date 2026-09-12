@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: ac77a40b-9c76-4130-99f0-75e52da2dda8
-  modified: 2026-09-12T14:34:30.980Z
+  modified: 2026-09-12T14:37:37.528Z
 ---
 
 Decided 2026-09-12, dept-cal 38, after [[fill-gap-is-the-line-count-shape]] left 29%/48%
@@ -28,9 +28,11 @@ per candidate is `cluster_size * k/N`:
 | 39's FITTED multiplier | 1.739 | 3.968 |
 
 The reinforcement engages ~7.4x more often per fulfillment draw and each hit multiplies by ~4-5
-(stored lifts are the top-20 tail of `U(1,5)`). `relative_frequency` DISPERSION is near-identical
-across the two sections (CV 0.577 vs 0.580 under the uniform profile), so the concentration is not
-a frequency story at all -- one mechanism at two sampling densities. Fulfillment also collapses to
+(stored lifts are the top-20 tail of `U(1,5)`). `relative_frequency` DISPERSION across the two
+sections is close, and tilted the WRONG WAY -- measured on the reference
+catalogue, which is the BELL profile: fulfillment CV 0.5813 against the store's 0.6389, so the MORE
+dispersed section is the LESS concentrated one and a frequency story predicts the opposite
+ordering. One mechanism at two sampling densities. Fulfillment also collapses to
 ONE `(handling, category)` group against the store's twelve.
 
 **Why the fix is affordable.** Under the era the two `units_per_line` cancel exactly, so
