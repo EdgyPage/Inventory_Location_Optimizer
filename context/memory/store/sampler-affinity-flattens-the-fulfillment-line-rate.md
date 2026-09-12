@@ -1,6 +1,6 @@
 ---
 name: sampler-affinity-flattens-the-fulfillment-line-rate
-description: "The batch sampler's affinity lift spreads a fulfillment section's lines over SKUs almost flat across frequency deciles, so any per-SKU transient priced at the line share freq/sum(freq) over-reads the SKUs touched by ~25% on fulfillment; the store is insensitive"
+description: "The batch sampler's affinity lift really does spread a fulfillment section's lines almost flat across frequency deciles (7.1x predicted spread delivered as 1.6x), so a per-SKU transient priced at the line share is wrong -- but the ~25% touched-SKU over-read was the v2 defect and the sign is now REVERSED"
 metadata: 
   node_type: memory
   type: project
@@ -22,6 +22,23 @@ touched vs 14,102) because nearly every touched SKU sees exactly one line in 40 
 .accumulate`, the fragmentation transient) weights SKUs by the line share; section SUMS are
 right, per-SKU line COUNTS on fulfillment are not. The stationary fragmentation reads no
 line rate and is unaffected; only a transient or a trajectory band is.
+
+**AMENDED 2026-09-12 (dept-cal 45): the flatness survives, the touched-SKU number does not.**
+Re-measured on the reference pair's whole 40-batch script, v2 against v3 on identical seeds:
+
+| fulfillment | v2 | v3 |
+|---|---|---|
+| SKUs touched vs a share thinning | 59,534 vs 73,088 (**-18.5%**) | 83,294 vs 77,435 (**+7.6%**) |
+| corr(freq, realized lines) | 0.046 | 0.136 |
+| realized lines/SKU, lowest -> highest freq decile | 0.59 -> 0.83 | 0.61 -> 0.98 |
+| the share law predicts | 0.20 -> 1.43 | 0.22 -> 1.57 |
+
+So the **flattening is real and large**: the share predicts a 7.1x spread across deciles and
+the sampler delivers 1.6x, at a correlation of 0.14. But the **touched-SKU shortfall was the
+v2 duplicate-draw defect** ([[v2-defect-manufactured-the-fill-law-evidence]]) and its sign has
+REVERSED -- a share thinning now UNDER-predicts the touched count by 7.6%, because flattening
+moves lines off the busy SKUs and onto more distinct ones. The store is insensitive either way
+(-4.1% -> -2.1%). Quote the 2026-09-10 "~25% over-read" nowhere.
 
 **How to apply:** never validate a per-SKU transient on fulfillment against the line share
 alone -- score it at the realized line counts (the picks table) first, as

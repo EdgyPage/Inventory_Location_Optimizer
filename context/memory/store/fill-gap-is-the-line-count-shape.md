@@ -1,12 +1,28 @@
 ---
 name: fill-gap-is-the-line-count-shape
-description: "the fulfillment fill-law gap is the per-SKU line-COUNT shape, not time-clustering and not the lead: the record under-prices its own prior-line event 3.74x, and one multiplier fitted to that probability alone recovers 71% of the gap and 52% of the store's"
+description: "REFUTED 2026-09-12 -- the 3.74x under-pricing and the 71%/52% multiplier were the v2 sampler's duplicate draws, not line-count shape; under v3 the record OVER-prices fulfillment by 16%. What survives is the method, not the finding"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 9b9bcde1-2707-4994-94b2-198c1d3cef05
   modified: 2026-09-12T14:17:24.563Z
 ---
+
+**REFUTED 2026-09-12 (dept-cal 45), the same day it was written.** Everything below was
+measured on a **v2** run, and the v2 sampler re-drew SKUs it had already taken
+([[v2-sampler-redraws-selected-skus]]). 335 fulfillment SKUs were drawn on at least half the
+20 measured days and carried the entire repeat statistic. Re-drawn under v3 the prior-line
+probability falls 0.14938 -> **0.03485**, i.e. from 3.74x the record's own Poisson to
+**0.87x**, and the fitted multiplier collapses from 3.968 to 1.000 (71% of the gap -> 0%).
+The store goes 1.59x -> 1.19x, `m` 1.739 -> 1.189. **Do not carry the numbers below forward.**
+See [[v2-defect-manufactured-the-fill-law-evidence]].
+
+Two things here DO survive and are why this memory is amended rather than deleted: the
+structural argument that temporal dependence is impossible across batches (each draws from
+its own `random.Random(seed_batches + i)` with no cross-batch state), and the METHOD -- score
+at realized lines, keep the store as a live control, and read demand off the sampler's own
+`_batches_*.pkl` rather than `picks`. The lead result (worth 0.9%) also stands for the DRAWN
+law; its realized leg is a run outcome and moves under v3.
 
 Measured 2026-09-12 (dept-cal 39) on `comparison_20260912_055947`, days 20-39, all four arms,
 rebuild gate at delta 0.000e+00 on both leaves. Reproduce with

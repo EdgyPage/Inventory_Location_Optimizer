@@ -53,3 +53,12 @@ comparability break, era-only, flag-off byte-identical (cf.
 
 Related: [[sampler-affinity-flattens-the-fulfillment-line-rate]],
 [[fulfillment-fill-law-overpredicts]], [[a-count-is-not-a-claim]].
+
+**CAUTION, 2026-09-12 (dept-cal 45).** The core distinction here -- the line share is the
+sampler's WEIGHT, not its inclusion probability -- is REINFORCED: under v3 the share still
+predicts a 7.1x spread of lines across fulfillment frequency deciles where the sampler
+delivers 1.6x. But every NUMBER this memory derives the channel asymmetry from was measured
+under v2, whose duplicate draws manufactured the concentration
+([[v2-defect-manufactured-the-fill-law-evidence]]), and the asymmetry it was built to explain
+has itself reversed: the record now over-prices fulfillment by 16% and under-prices the store
+by 19%. Re-measure before reusing the cluster-mate densities.
