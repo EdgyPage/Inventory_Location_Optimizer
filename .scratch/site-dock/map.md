@@ -98,14 +98,16 @@ BEFORE anything runs: the inbound-optimization map resumes at
 
   ```
   20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis stage ──▶ 25 site crew checks
-      [DONE]                                               └─▶ 26 composite gain bundle
+      [DONE]                    [DONE]                     └─▶ 26 composite gain bundle
   22 coupled resume reconciler  [DONE]   (independent)
   23 funnel spec for arm pairs  [DONE]   (independent)
+  27 the site dock's unload price  (grilling, OPEN -- graduated by 21; 24 needs it)
   ```
 
   **20, 22 and 23 landed together on 2026-09-11**, run in parallel — which is also how the three
-  independent tickets were meant to be used. What is left is the critical path alone:
-  21 -> 24 -> 25, plus 26 off 21. The map closes when 25 and 26 are in; the inbound-optimization
+  independent tickets were meant to be used, and **21 followed the same day**. What is left is
+  24 -> 25, plus 26 off 21, and the one DECISION 21 graduated (27, which 24 needs before it can
+  build the site dock). The map closes when 25 and 26 are in; the inbound-optimization
   map then resumes at
   [Re-verify the gate under the lead-aware record](../inbound-optimization/issues/26-reverify-the-gate-under-the-lead-aware-record.md).
 - Memories every session should load: `site-dock-is-shared-across-channels`,
@@ -555,6 +557,42 @@ BEFORE anything runs: the inbound-optimization map resumes at
   there. Neutrality measured at **762,769 DB rows across 28 tables, zero differences**; 68 tests;
   21 mutations, 21 caught.
 
+- [Build the coupled receiving coordinator and the site recv clock](issues/21-build-the-coupled-receiving-coordinator.md):
+  **BUILT** — `SiteReceiving` now serves N leaves over one dock and one yard: a `{sku: leaf}`
+  owner dict routes a bare lot at step 1, `regime_of(item.unit)` routes the unit at step 4,
+  and the two are CROSS-CHECKED (the only shape in which the catalogue partition and the
+  regime tagging can disagree is a ledger balancing in the wrong warehouse). The site
+  `recv_clock` is based the way 19 based `put_clock`, `open_batch` is idempotent per day and
+  the carry commits on the LAST leaf's report; six leaf accessors REFUSE once the scope is
+  the site's — 01 named four, and the two added are worse than a wrong level (the first leaf
+  to drain the shared dock takes the other channel's rows and restarts the crew's clocks
+  mid-batch). **01's interleave was wrong for phase 1:** `_advance_lead_queue` delegates to
+  the ONE transit, so two leaves ticking it land every supplier lead a batch early, silently
+  — `SITE_PHASES` makes it site-scoped, and `bind` asserts every leaf holds the coordinator's
+  transit so "driven on the first leaf" is the same call either way. **And the interleave is
+  PHASE-MAJOR because that is what makes a trailer MIXED:** leaf-major loading departs the
+  open trailer between the two channels' loads, so every trailer would carry one channel's
+  merchandise and the site dock would be two docks wearing one name. **The acceptance is
+  corrected the way 18's was: NO comparability break lands here** — the break is a coupled
+  run FIELDING one dock, and that needs the `_site/` artifact, `SiteGainBundle` and the
+  unload price, all three on this ticket's own exclusion list; the coordinator is complete
+  and 24 wires it. **The unload price is GRADUATED, not taken**
+  ([27](issues/27-decide-the-site-docks-unload-price.md)): it got sharper rather than
+  obvious, and acquired a third candidate — a price LIST keyed by the unloaded unit's regime,
+  which this build makes natural and which would retire 15's `C_store == C_ful` by
+  construction. The coordinator is HANDED a priced dock and never builds one, so all three
+  answers stay reachable. Uncoupled byte-identity measured at **149,277 rows across 19
+  tables**, receiving evidence counted first (76 receive rows, 20 yard drains, 22 trailers)
+  and measured twice, before and after a review round; 36 new tests; 29 mutations, 29
+  caught. **The review round found the defect the build made and the docstring denied:** the
+  six refusals took the dock's clock RESET away from `Dock.drain_records` and appointed no
+  successor, while `note_records` claimed in writing that the reset had one owner — silent,
+  cumulative, and exactly the failure `drain_records`' own docstring records. A refusal that
+  takes a capability away owes the same commit a replacement. **And a finding for every
+  helper-copying session:** four test helpers each carried a copied comment saying a
+  coordinator over a v1 transit was "harmless", and none of the four was true once the
+  refusal existed.
+
 ## Not yet specified
 
 - **Nothing here needs a DECISION any more.** Every design ticket on this map is resolved, and
@@ -576,12 +614,14 @@ BEFORE anything runs: the inbound-optimization map resumes at
   of it**: the batch is now two halves (`replenish` then `step`) across every leaf, so a third
   interleave point exists that did not before. The residue pass is the cheap approximation and it
   is now built; what is still dim is whether the expensive one buys anything.
-- **One unload price for the site dock.** 15's cross-leaf clause (`C_store == C_ful`) cannot be
-  written yet, and 17 is why: the two channels run DIFFERENT pick configs, so today's per-leaf
-  docks price at C = 7.6 s and C = 5.1 s. Equality is a claim about the SITE dock owning one
-  price list — which is a question for 01's coordinator (whose `UnloadCost` does it hold?), not
-  a test. Dim until the coupled coordinator exists to have a price list at all, and the answer
-  decides whether the sharpest falsifier the map has is even well-posed.
+- ~~**One unload price for the site dock.**~~ **TICKETED — no longer fog.** The coupled
+  coordinator now exists, and 21 found the question is not merely well-posed but has a THIRD
+  answer nobody had named: a price LIST keyed by the unloaded unit's own regime, which the
+  `regime_of` route at the handoff makes natural and which would retire 15's `C_store == C_ful`
+  by construction rather than satisfy or falsify it. That is a decision, so it graduated as
+  [Decide the site dock's unload price](issues/27-decide-the-site-docks-unload-price.md)
+  (`grilling`, open). 21 left the coordinator HANDED a priced dock and building none, so all
+  three answers stay reachable; **24 cannot build the site dock until this closes.**
 - **`receiving_report`'s absolute tolerance.** `_TOL` is 1e-6 SECONDS, compared against sums
   that grow with the row count: on a 505,177-row arm checks 1's two surfaces accumulate 1.3e-6 s
   apart over 4,177,040.9 s — a relative error of 3e-13 reported as a FAIL, on four archived arms
