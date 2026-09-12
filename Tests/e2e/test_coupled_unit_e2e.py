@@ -340,3 +340,89 @@ def test_a_coupled_unit_matches_the_two_units_it_replaces(site):
     # THE MEASUREMENT, reported rather than pinned: what the break cost, per leaf.
     print(f'\n  coupled vs uncoupled -- batches differing/total, put rows coupled/solo: '
           f'{moved}\n  put actors coupled={coupled_actors} solo={solo_actors}')
+
+
+# ── the site gain bundle: one provider, two owners, both transits ────────────────
+
+def test_a_coupled_unit_binds_both_arms_into_one_site_gain_bundle(site, monkeypatch):
+    """Site-dock 26.  One shared yard will carry MIXED trailers, and a mixed trailer's
+    store units must be priced by the store arm's pool and its fulfillment units by the
+    fulfillment arm's — so the two leaves' transits hold ONE provider with two owners in
+    it, not a bundle each.
+
+    Driven through the whole production seam — `_run_strategy_worker` on the real payload,
+    not a hand-assembled leaf — because every link in the chain is a place the composite
+    can go missing: the unit may not build one, the builder may not be handed it, the leaf
+    may hang its own bundle instead.  Asserted on the production objects, which the unit
+    tier cannot reach at all: a `_Leaf` deliberately hands nothing back, so the transits
+    are captured at construction (a `YardTransit` carries `__slots__`, so the spy is on
+    the CLASS — site-dock 20's finding, the same one that made an instance spy raise).
+
+    What is claimed here is the WIRING — two calls, two owners, one provider on both
+    transits.  A three-batch fixture cannot honestly claim more (site-dock 19's finding:
+    it produces one store put row and no fulfillment ones, so a pricing claim made on it
+    would be vacuous).  The PRICING — a mixed load, two adapters, and the commensurability
+    of the two channels' hours — is `Tests/unit/test_gain_plan.py` section 10.
+    """
+    g = rs.CONFIG['global']
+    monkeypatch.setitem(g, 'inbound_trailer_type', '28')
+    monkeypatch.setitem(g, 'inbound_standing_yard', True)
+    monkeypatch.setitem(g, 'inbound_dock_doors', 2)
+    monkeypatch.setitem(g, 'inbound_yard_policy', 'gain_myopic')
+    monkeypatch.setitem(g, 'inbound_dock_policy', 'gain_myopic')
+    # A RECEIVING CREW, because the gain arms only ever run under the standing yard and
+    # the standing drain needs a dock.  Derived, like every site crew under the era.
+    site['shared']['staffing']['derived']['receiving']['crew'] = 2
+
+    units, _ = _prepare(site, name='run_yard')
+    ua = units[0]
+    ua['log_queue'] = queue.Queue()
+    assert [lf['inbound']['yard_policy'] for lf in ua['leaves']] == \
+        ['gain_myopic', 'gain_myopic'], 'both leaves must name the gain arm'
+
+    built, made_site = [], []
+    real_bundle_for, real_site_gain = sr._gain_bundle_for, sr._build_site_gain
+
+    def _spy_bundle_for(*a, **kw):
+        got = real_bundle_for(*a, **kw)
+        built.append(got)
+        return got
+    monkeypatch.setattr(sr, '_gain_bundle_for', _spy_bundle_for)
+
+    def _spy_site_gain(*a, **kw):
+        got = real_site_gain(*a, **kw)
+        made_site.append(got)
+        return got
+    monkeypatch.setattr(sr, '_build_site_gain', _spy_site_gain)
+
+    transits = []
+
+    class _SpyYard(sr._YardTransit):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            transits.append(self)
+    monkeypatch.setattr(sr, '_YardTransit', _SpyYard)
+
+    res = sr._run_strategy_worker(ua)
+    assert len(res['leaves']) == 2, 'the coupled unit did not run both leaves'
+
+    assert len(made_site) == 1 and made_site[0] is not None, (
+        f'the unit built {len(made_site)} site gain bundle(s); it is built ONCE at unit '
+        f'scope, because the first leaf\'s transit needs the object the second leaf '
+        f'binds into')
+    site_gain = made_site[0]
+    # THE SECOND `_gain_bundle_for` CALL, which is the whole ticket at this seam: the
+    # builder is unchanged and called once per leaf, with that leaf's own machinery.
+    assert len(built) == 2, f'{len(built)} bundle(s) built for two leaves'
+    assert site_gain.owners == ('store', 'fulfillment'), site_gain.owners
+    for regime, made in zip(site_gain.owners, built):
+        assert site_gain._owners[regime] is made, (
+            f'the {regime} owner is not the object `_gain_bundle_for` returned for that '
+            f'leaf — faithful-to-arm is structural here, so a copy or a rebuild is the '
+            f'defect itself')
+    # ONE PROVIDER, ON BOTH TRANSITS.  A bundle each is the shape that cannot survive the
+    # one shared yard (site-dock 24), and it would look identical until a trailer mixed.
+    assert len(transits) == 2, f'{len(transits)} standing yard(s) for two leaves'
+    for tr in transits:
+        assert tr.gain_bundle is site_gain, (
+            'a leaf hung its own bundle on its transit; one site is one gain provider')

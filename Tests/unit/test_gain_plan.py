@@ -41,6 +41,16 @@ arms", 14) and the cache boundary's Tier-1 contract (06):
      on a warm evaluator as well as a cold one — the seam the site dock's composite
      dispatches on.  The sabotage: answering one key with a different arm must move
      the priced hours, and move them by exactly that group's own delta.
+ 10. THE COMPOSITE AND ITS CLAIM ("Build the composite gain bundle", site-dock 26):
+     `SiteGainBundle` resolves each group to its OWNING channel's whole arm bundle by
+     the key's own regime (never `regime_of`, which answers 'store' for a fulfillment
+     key and never raises), refuses a regime it holds no owner for, and refuses two
+     owners who disagree on any SITE-wide field — the gate's two knobs, the one put
+     crew's paces, the two pure lookups read before any group is keyed.  Then the
+     charter's COMMENSURABILITY CLAIM in three parts: a mixed trailer decomposes
+     exactly by owner; the exchange rate between a store hour and a fulfillment hour,
+     RECOVERED from priced loads rather than assumed, is 1:1; and a planted per-channel
+     weight makes that very check fail, at the planted rate.
 
 Run:  python -m pytest Tests/unit/test_gain_plan.py -q
 """
@@ -53,7 +63,7 @@ from types import SimpleNamespace
 import pytest
 
 from Inbound.gain import (
-    GainBundle, OneOwnerBundle, _Evaluator, _load_units, plan_order)
+    GainBundle, OneOwnerBundle, SiteGainBundle, _Evaluator, _load_units, plan_order)
 from Inbound.priorities import DockContext, bounded_order, dock_key, yard_key
 from Inbound.space import SpaceView
 from Inbound.trailer import Trailer, Trailer53
@@ -63,6 +73,7 @@ from Warehouse.catalog.Demand import Demand
 from Warehouse.catalog.Order import StorageHandleConfig
 from Warehouse.inventory.inventory_common import binkey_of, tier_ranks_for
 from Warehouse.kernel.cost_model import SpeedProfile
+from Warehouse.kernel.regime import regime_of
 from Warehouse.placement import Assignment_Functions as af
 
 _DAY = 86400.0
@@ -86,9 +97,9 @@ class _Order:
                  'expected_popularity')
 
     def __init__(self, sku, freq=1.0, qty_rate=1.0, labor=1.0, hvar=0.5,
-                 category='food'):
+                 category='food', handling='conveyable'):
         self.sku = sku
-        self.storage_handle_config = StorageHandleConfig('conveyable', category)
+        self.storage_handle_config = StorageHandleConfig(handling, category)
         self.demand = Demand.from_rates(freq, qty_rate)
         self.labor_cost = labor
         self.handle_var = hvar
@@ -1108,3 +1119,333 @@ def test_a_provider_that_answers_one_key_differently_moves_the_price():
     assert abs((swapped - base) - (l_swap - l_base)) < 1e-9, (
         'the whole move must come from the swapped group alone — the caches are '
         'BinKey-keyed, so one owner\'s arm cannot leak into another\'s pricing')
+
+
+# ── 10. the site composite, and the commensurability claim (site-dock 05/26) ──────
+#
+# `SiteGainBundle` is the second owner the indirection above was seated for: a mixed
+# trailer's store units priced by the store arm's pool and its fulfillment units by the
+# fulfillment arm's, summed to ONE trailer score in hours.  Two things are pinned here and
+# they are different in kind:
+#
+#   * the DISPATCH — the key decides, the owners are whole bundles, and every site-wide
+#     field is refused rather than resolved when two owners disagree (site-dock 13's
+#     stated obligation);
+#   * the COMMENSURABILITY CLAIM — "a fulfillment hour and a store hour are worth the same
+#     to the site".  It is the charter's, and it is stated so it can be falsified: the
+#     exchange rate is RECOVERED from priced loads rather than asserted, and a planted
+#     per-channel weight must make the recovery fail.  Memory `a-count-is-not-a-claim` is
+#     why it is a rate and not a sum, and `real-test-coverage-is-317` is why part 3 exists.
+
+#: One fulfillment tier and the tier it spills up into (`tier_ranks_for('fulfillment')`).
+#: A real fulfillment order carries handling AND category 'fulfillment', which is what
+#: makes the key's regime readable from any of its three regime-bearing slots.
+_KEY_F = ('fulfillment', 'fulfillment', 'ff_medium', 'fulfillment')
+_KEY_FL = ('fulfillment', 'fulfillment', 'ff_large', 'fulfillment')
+
+#: The fulfillment channel's own workload params — a DIFFERENT pick cost and different
+#: travel speeds, deliberately.  The two regimes really do price picks differently
+#: (`wp.by_regime`), and commensurability does not claim otherwise: it claims both are
+#: seconds of the SHARED model, scalarized with one divisor rather than two.  A fixture
+#: where the two channels priced identically could not tell those two claims apart.
+_WP_F = WorkloadParams(x_speed=3.0, y_speed=1.5, pick_intercept=9.0)
+
+
+def _store_unit(sku, qty=3, freq=1.0, rate=1.0):
+    return _Unit(_Order(sku, freq=freq, qty_rate=rate), qty)
+
+
+def _ful_unit(sku, qty=3, freq=1.0, rate=1.0):
+    return _Unit(_Order(sku, freq=freq, qty_rate=rate,
+                        category='fulfillment', handling='fulfillment'),
+                 qty, size='ff_medium', category='fulfillment')
+
+
+def _site_view():
+    """One site space view: store bins under the store keys, fulfillment bins under the
+    fulfillment keys.  The key set is PARTITIONED BY REGIME, which is exactly what
+    `Inbound.site_space.compose_site_view` produces for a coupled drain — so the geometry
+    here is the geometry the composite will really read."""
+    return _view({_KEY_M: [_Bin(0, 20.0), _Bin(1, 60.0), _Bin(2, 90.0)],
+                  _KEY_L: [_Bin(3, 40.0, 48.0), _Bin(4, 300.0)],
+                  _KEY_F: [_Bin(5, 30.0), _Bin(6, 75.0, 24.0), _Bin(7, 120.0)],
+                  _KEY_FL: [_Bin(8, 50.0, 12.0)]})
+
+
+def _store_arm():
+    """The store leaf's arm: `tmin`, the k-cheapest MERGE adapter."""
+    return _arm()
+
+
+def _ful_arm():
+    """The fulfillment leaf's arm: `fifo`, the UNIFORM adapter — a different code path,
+    not merely different data.  05's prototype ran store on a merge adapter and
+    fulfillment on a uniform one for this reason: the composite must swap the CODE PATH
+    mid-trailer, which is what a per-unit owner lookup is FOR."""
+    return _arm(uniform=True, wp_of=lambda u: _WP_F)
+
+
+def _site_bundle(store=None, ful=None):
+    b = SiteGainBundle()
+    b.bind('store', store if store is not None else _store_arm())
+    b.bind('fulfillment', ful if ful is not None else _ful_arm())
+    return b
+
+
+def _priced(units, provider, view, evaluator=_Evaluator):
+    """The hours one placement of `units` costs, through `provider`."""
+    cost, _takes = evaluator(provider, view).place_load(units, set(), False)
+    return cost
+
+
+# ── the dispatch ──────────────────────────────────────────────────────────────────
+
+def test_the_site_bundle_hands_each_key_its_own_channels_arm():
+    """Identity, never equality — the same rule `OneOwnerBundle` is held to, for the same
+    reason: the evaluator must read the object `_gain_bundle_for` built for that leaf."""
+    store, ful = _store_arm(), _ful_arm()
+    site = _site_bundle(store, ful)
+    assert site.owners == ('store', 'fulfillment'), 'bind order is the declared order'
+    for key in (_KEY_M, _KEY_L, ('conveyable', 'food', 'medium', 'singleton')):
+        assert site.for_key(key) is store, f'{key!r} is store merchandise'
+    for key in (_KEY_F, _KEY_FL):
+        assert site.for_key(key) is ful, f'{key!r} is fulfillment merchandise'
+    assert site.for_key(None) is store, (
+        'the pre-cursor read (`place_load` keys its groups before resolving any owner) '
+        'is answered with the FIRST-BOUND owner — lawful only because bind refuses '
+        'owners whose site-wide fields differ')
+
+
+def test_the_key_decides_and_regime_of_would_get_it_wrong():
+    """The trap under the whole dispatch, pinned in both directions.
+
+    A `BinKey` is a plain tuple, so `regime_of` falls through every getattr and answers
+    'store' for a fulfillment key — silently, and always in the same direction.  `for_key`
+    must use `regime_of_key`; if it ever reverts, every fulfillment unit on a mixed
+    trailer is priced by the store arm and nothing raises."""
+    from Warehouse.kernel.regime import regime_of, regime_of_key
+    assert regime_of(_KEY_F) == 'store', (
+        'the trap itself: if this ever starts answering "fulfillment", the refusal '
+        'below has stopped being about anything')
+    assert regime_of_key(_KEY_F) == 'fulfillment'
+    assert regime_of_key(_KEY_M) == 'store'
+    ful = _ful_arm()
+    assert _site_bundle(ful=ful).for_key(_KEY_F) is ful, (
+        'the fulfillment key must reach the fulfillment arm — via the KEY, because the '
+        'object form cannot read a key and does not refuse one')
+
+
+def test_a_regime_with_no_owner_refuses_rather_than_borrowing_the_other_arm():
+    site = SiteGainBundle()
+    site.bind('store', _store_arm())
+    with pytest.raises(ValueError, match='fulfillment'):
+        site.for_key(_KEY_F)
+    empty = SiteGainBundle()
+    with pytest.raises(ValueError, match='no owner bound'):
+        empty.for_key(None)
+
+
+def test_the_site_bundle_refuses_a_provider_a_non_regime_and_a_second_claim():
+    site = SiteGainBundle()
+    with pytest.raises(TypeError, match='GainBundle'):
+        site.bind('store', OneOwnerBundle(_store_arm()))   # a provider, not a bundle
+    with pytest.raises(ValueError, match='storage regime'):
+        site.bind('warehouse', _store_arm())
+    site.bind('store', _store_arm())
+    with pytest.raises(ValueError, match='already bound'):
+        site.bind('store', _store_arm())
+
+
+def test_the_owners_must_agree_on_every_site_wide_field():
+    """Site-dock 13's stated obligation, discharged.  These five fields are the SITE's:
+    the gate's two knobs (it composes hours and days above any owner and has no BinKey to
+    resolve with), the one put crew's paces, and the two pure lookups the evaluator reads
+    before any group is keyed.  All come from one `inbound_spec()` and one `put_crew`
+    record, so they cannot differ on a lawful run — which is exactly why a silent
+    first-wins would never be noticed."""
+    for kw in ({'fee_threshold_days': 3.0}, {'urgency_horizon_days': 1.0},
+               {'put_speed': SpeedProfile(2.0, 9.0)},
+               {'binkey_of': lambda o: binkey_of(o)},
+               {'tier_ranks_for': lambda c: tier_ranks_for(c)}):
+        site = SiteGainBundle()
+        site.bind('store', _store_arm())
+        with pytest.raises(ValueError, match='disagree on'):
+            site.bind('fulfillment', _arm(uniform=True, wp_of=lambda u: _WP_F, **kw))
+    # ...and the lawful case is ACCEPTED: the driver builds a SpeedProfile per leaf from
+    # one payload record, so two equal-valued instances are what a coupled run really
+    # produces.  An identity test on `put_speed` would refuse every one of them.
+    site = SiteGainBundle()
+    site.bind('store', _arm(put_speed=SpeedProfile(2.0, 4.0)))
+    site.bind('fulfillment', _arm(uniform=True, wp_of=lambda u: _WP_F,
+                                  put_speed=SpeedProfile(2.0, 4.0)))
+    assert site.fee_threshold_days == _store_arm().fee_threshold_days
+    assert site.urgency_horizon_days == _store_arm().urgency_horizon_days, (
+        'the gate reads its knobs off the PROVIDER, which forwards the value bind has '
+        'proven every owner shares')
+
+
+def test_the_composite_swaps_the_code_path_mid_trailer():
+    """Not merely different data: the store group runs the merge adapter and the
+    fulfillment group the uniform one, inside ONE `place_load`.  The non-vacuity guard is
+    the comparison against pricing the whole mixed load with either arm alone — if the
+    composite tied with those, the dispatch would be doing nothing."""
+    store, ful = _store_arm(), _ful_arm()
+    assert store.uniform is False and ful.uniform is True, (
+        'the fixture must span two adapters, or "the composite swaps the code path" is '
+        'untested here')
+    view = _site_view()
+    units = [_store_unit(1, 4), _ful_unit(201, 3), _store_unit(2, 2), _ful_unit(202, 5)]
+    mixed = _priced(units, _site_bundle(store, ful), view)
+    assert abs(mixed - _priced(units, OneOwnerBundle(store), view)) > 1e-9, (
+        'pricing the whole mixed load with the store arm alone must differ — otherwise '
+        'the fulfillment half is not reaching its own arm')
+    assert abs(mixed - _priced(units, OneOwnerBundle(ful), view)) > 1e-9
+
+
+# ── commensurability: the rate is RECOVERED, and a weight must break the recovery ──
+
+#: The two mixes the exchange rate is solved from.  Deliberately LOPSIDED in opposite
+#: directions, because a 2x2 solve needs two linearly independent rows: two mixes with the
+#: same store/fulfillment ratio would leave the system singular and `a = b = 1` would be
+#: one of infinitely many answers.  The units also INTERLEAVE, so `place_load`'s groups
+#: alternate owners and the cursor really does move back and forth mid-load.
+def _mixes():
+    return ([_store_unit(1, 5, freq=2.0), _ful_unit(201, 2),
+             _store_unit(2, 4, rate=2.0), _store_unit(3, 3)],
+            [_ful_unit(202, 5, freq=2.0), _store_unit(4, 2),
+             _ful_unit(203, 4, rate=2.0), _ful_unit(205, 3)])
+
+
+def _rows(evaluator, store, ful, view):
+    """Per mix: `(store hours alone, fulfillment hours alone, the site's trailer score)`.
+
+    The two reference hours are priced through each arm's OWN `OneOwnerBundle` over that
+    channel's units — the unweighted, faithful-to-arm truth, which is the whole point: if
+    the references came through the composite too, any coefficient inside it would cancel
+    and the recovery below would report 1.0 whatever the code did (memory
+    `a-count-is-not-a-claim`, the same shape one level up)."""
+    out = []
+    for units in _mixes():
+        s = [u for u in units if regime_of(u) == 'store']
+        f = [u for u in units if regime_of(u) == 'fulfillment']
+        assert s and f, 'every mix must be genuinely mixed'
+        out.append((_priced(s, OneOwnerBundle(store), view),
+                    _priced(f, OneOwnerBundle(ful), view),
+                    _priced(units, _site_bundle(store, ful), view, evaluator)))
+    return out
+
+
+def _recover(evaluator=_Evaluator):
+    """`(a, b)` solving `site score = a x store hours + b x fulfillment hours` over the
+    two mixes, with the system's own well-posedness asserted first."""
+    store, ful, view = _store_arm(), _ful_arm(), _site_view()
+    (s1, f1, m1), (s2, f2, m2) = _rows(evaluator, store, ful, view)
+    det = s1 * f2 - f1 * s2
+    assert abs(det) > 1e-6 * max(s1 * f2, f1 * s2), (
+        f'the two mixes are collinear (det={det}) — the exchange rate would be '
+        f'unidentifiable and `a = b = 1` would be one answer among infinitely many')
+    return ((m1 * f2 - f1 * m2) / det, (s1 * m2 - m1 * s2) / det)
+
+
+def _assert_commensurable(evaluator=_Evaluator):
+    """Parts 1 and 2 of the three-part test, as ONE callable — so part 3 can assert that a
+    planted per-channel weight makes this very check fail, rather than asserting something
+    adjacent to it."""
+    store, ful, view = _store_arm(), _ful_arm(), _site_view()
+    for s, f, m in _rows(evaluator, store, ful, view):
+        # PART 1, the precondition: a mixed trailer decomposes EXACTLY by owner.  BinKeys
+        # partition bins by regime, so the two owners never contend — there is no bin both
+        # halves could want — and without that exactness the exchange rate below is not a
+        # well-defined quantity at all.  A tolerance, never `==`: the groups sum in a
+        # different order in the mixed load than they do apart.
+        assert abs(m - (s + f)) <= 1e-9 * max(1.0, abs(m)), (
+            f'the mixed score {m!r} is not its two halves {s!r} + {f!r}: the owners are '
+            f'contending for bins, so "hours per channel" is not even separable')
+    # PART 2: the rate the site actually applies, recovered rather than assumed.
+    a, b = _recover(evaluator)
+    assert abs(a - 1.0) <= 1e-9 and abs(b - 1.0) <= 1e-9, (
+        f'the site weights a store hour {a!r} and a fulfillment hour {b!r}; the objective '
+        f'is put + pick hours from the SHARED cost model with no per-channel weighting, '
+        f'so both must be 1 — the charter\'s commensurability claim, falsified here')
+
+
+def test_a_mixed_trailer_decomposes_exactly_by_owner_and_prices_hours_one_to_one():
+    """Parts 1 and 2 (05 decision 4).  On their own these pass trivially; part 3 below is
+    what makes them worth having."""
+    _assert_commensurable()
+    a, b = _recover()
+    assert abs(a - b) <= 1e-12, 'a fulfillment hour and a store hour are the same hour'
+
+
+class _WeightedSiteEvaluator(_Evaluator):
+    """THE SABOTAGE: an evaluator that weights a channel's hours on their way into the
+    trailer score.
+
+    The plant sits where a per-channel coefficient could actually live — the SUM over
+    owner groups — because everything below it is an hour at a bin, priced by that
+    channel's own arm.  It is deliberately a pure re-weighting: with `FUL_WEIGHT = 1.0`
+    it must reproduce the real evaluator exactly, so the check that fails at 1.3 fails
+    because of the WEIGHT and not because the load was re-partitioned to apply it."""
+
+    FUL_WEIGHT = 1.3
+
+    def place_load(self, units, excluded, predicted, *, alloc=None):
+        cost, takes = 0.0, []
+        for regime, weight in (('store', 1.0), ('fulfillment', self.FUL_WEIGHT)):
+            part = [u for u in units if regime_of(u) == regime]
+            if not part:
+                continue
+            c, tk = super().place_load(part, excluded, predicted, alloc=alloc)
+            cost += weight * c
+            takes.extend(tk)
+        return cost, takes
+
+
+class _UnweightedSiteEvaluator(_WeightedSiteEvaluator):
+    """The control: the same re-partitioning, no weight."""
+
+    FUL_WEIGHT = 1.0
+
+
+def test_a_planted_per_channel_weight_makes_the_commensurability_test_fail():
+    """PART 3, and it is not optional (memory `real-test-coverage-is-317`).  Parts 1 and 2
+    pass trivially today, so the standing question is whether they COULD fail — the answer
+    has to be demonstrated, not argued."""
+    # The control first: re-partitioning alone moves nothing, so the failure below is
+    # attributable to the weight.
+    _assert_commensurable(_UnweightedSiteEvaluator)
+    # PART 1 IS THE FIRST LINE TO BREAK, which is itself the finding: a per-channel
+    # coefficient stops the trailer score being the sum of its owners' honest hours, so
+    # the decomposition fails before the rate is even solved for.
+    with pytest.raises(AssertionError, match='not its two halves'):
+        _assert_commensurable(_WeightedSiteEvaluator)
+    # ...and it fails by naming the planted rate, which is what makes the recovery an
+    # instrument rather than an alarm: a test that only knows "something moved" cannot
+    # tell a per-channel weight from a pricing bug.
+    a, b = _recover(_WeightedSiteEvaluator)
+    assert abs(a - 1.0) <= 1e-9, 'the unweighted channel must still recover at 1'
+    assert abs(b - _WeightedSiteEvaluator.FUL_WEIGHT) <= 1e-9, (
+        f'the recovery must return the planted weight itself, not merely a number '
+        f'different from 1 (got {b!r})')
+
+
+# ── the driver builds the composite only when something will read it ──────────────
+
+def test_the_driver_builds_a_site_bundle_only_for_a_named_gain_policy():
+    from Optimization.simdriver.strategy_runner import _build_site_gain
+    def _unit(store_policy, ful_policy, standing=True):
+        return {'leaves': [
+            {'channel_name': ch,
+             'inbound': {'standing': standing, 'yard_policy': p, 'dock_policy': 'fifo'}}
+            for ch, p in (('store', store_policy), ('fulfillment', ful_policy))]}
+    assert _build_site_gain(_unit('fifo', 'fifo')) is None, (
+        'the seeded keys never read a bundle — a composite over arm machinery nothing '
+        'consumes is unconsumed infra')
+    assert _build_site_gain(_unit('gain_myopic', 'fifo', standing=False)) is None, (
+        'the standing knobs are UNREAD without the standing yard')
+    assert _build_site_gain({'leaves': [{'channel_name': 'store', 'inbound': None}]}) \
+        is None, 'no inbound spec at all: nothing to compose'
+    made = _build_site_gain(_unit('gain_gated', 'fifo'))
+    assert isinstance(made, SiteGainBundle) and made.owners == (), (
+        'built empty at unit scope and bound per leaf — the first leaf\'s transit needs '
+        'the object the second leaf will bind into')

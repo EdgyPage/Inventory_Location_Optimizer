@@ -61,7 +61,7 @@ from collections import namedtuple as _namedtuple
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
 from Inbound.gain import (
     FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle,
-    OneOwnerBundle as _OneOwnerBundle)
+    OneOwnerBundle as _OneOwnerBundle, SiteGainBundle as _SiteGainBundle)
 from Inbound.pack import packer as _inbound_packer
 from Inbound.putaway_pool import PutawayPool as _PutawayPool
 from Inbound.receiving import SiteReceiving as _SiteReceiving
@@ -714,7 +714,33 @@ def _build_put_pool(args: dict):
         cut_at_day_end=bool(_wd.get('cut_at_day_end')))
 
 
-def _build_leaf(args: dict, unit: dict | None = None, pool=None) -> '_Leaf':
+def _build_site_gain(args: dict):
+    """The SITE's gain bundle, for a coupled unit — or None when nothing would read one.
+
+    One `SiteGainBundle` above both leaves, into which each leaf binds the bundle
+    `_gain_bundle_for` built for IT (site-dock 05 decision 1).  It has to be created here,
+    at unit scope, for the same reason the put pool does: the leaves are built one at a
+    time and the first leaf's transit needs the object the second leaf will bind into.  The
+    owners themselves cannot be built here — a bundle is made out of one leaf's manager,
+    strategy and workload params, which do not exist until `_build_leaf` runs.
+
+    NONE UNLESS A GAIN POLICY IS NAMED, exactly as the per-leaf injection is gated: the
+    seeded fifo/lifo keys never read a bundle, so a composite over arm machinery nothing
+    consumes would be unconsumed infra (memory `gpu-broker-dormant-not-for-placement`).
+    A leaf that names no gain policy binds no owner, and a mixed load whose regime has no
+    owner then REFUSES at `for_key` rather than being priced under the other channel's arm.
+    """
+    _named = False
+    for la in args['leaves']:
+        _sp = la.get('inbound') or {}
+        if _sp.get('standing') and (
+                {_sp['yard_policy'], _sp['dock_policy']} & _GAIN_POLICIES):
+            _named = True
+    return _SiteGainBundle() if _named else None
+
+
+def _build_leaf(args: dict, unit: dict | None = None, pool=None,
+                site_gain=None) -> '_Leaf':
     """One channel leaf, built but not yet run — the setup half of a work unit.
 
     Everything here is per channel and stays so under coupling: one inventory partition, one
@@ -730,6 +756,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None) -> '_Leaf':
     None is every uncoupled run and every flag-off leaf, which then fields its own put crew
     exactly as it always did — double count and all, structurally, because the pool is not
     CONSTRUCTED rather than constructed and bypassed.
+
+    `site_gain` is the SITE GAIN BUNDLE (`Inbound.gain.SiteGainBundle`), built above the
+    leaves the same way and for the same reason: one mixed trailer is priced per unit by
+    the OWNING channel's arm, and only a scope that sees both leaves can hold both arms.
+    This leaf binds its own bundle into it and hands the composite to its transit. None is
+    every uncoupled run, which wraps its one bundle in a `OneOwnerBundle` exactly as it
+    always did — so a single-owner run reads the very object `_gain_bundle_for` returned.
 
     The closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this
     function with the loop inline, and the split moved the loop body and the tail VERBATIM.
@@ -1302,9 +1335,22 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None) -> '_Leaf':
             # the wrapper answers every key with this same instance.  The wrap lives
             # here rather than inside `_gain_bundle_for`, which stays one leaf's
             # builder and is called once per leaf.
+            #
+            # COUPLED, THE PROVIDER IS THE SITE'S AND THIS LEAF IS ONE OWNER IN IT.
+            # `_gain_bundle_for` is the same call with the same arguments -- this leaf's
+            # own manager, strategy, workload params and put speeds -- which is what
+            # keeps each half faithful to ITS arm structurally (site-dock 05 decision
+            # 1): the composite never rebuilds, reinterprets or averages either one, it
+            # only chooses between them by the BinKey's regime.  Both leaves' transits
+            # end up holding the SAME provider, so the one shared transit a coupled
+            # standing run will field (site-dock 24) has exactly one slot to fill.
             if {_inb_spec['yard_policy'], _inb_spec['dock_policy']} & _GAIN_POLICIES:
-                mgr.transit.gain_bundle = _OneOwnerBundle(_gain_bundle_for(
-                    strat, mgr, ctx, wp, _put_crew.speed, _inb_spec))
+                _gb = _gain_bundle_for(strat, mgr, ctx, wp, _put_crew.speed, _inb_spec)
+                if site_gain is None:
+                    mgr.transit.gain_bundle = _OneOwnerBundle(_gb)
+                else:
+                    site_gain.bind(args['channel_name'], _gb)
+                    mgr.transit.gain_bundle = site_gain
             # THE FUTURESIGHT GATE, at startup: raises when the arm is named with the
             # knob unset or the script unavailable; None for every lawful arm, which
             # keeps the injection below from ever building a window nothing reads.
@@ -2386,7 +2432,12 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # thing the assertion is about, and a leaf dict that acquires the keys on its way into
         # `_build_leaf` would make "the leaf no longer carries them" untestable.
         _pool = _build_put_pool(args)
-        leaves = [_build_leaf(la, unit=args, pool=_pool) for la in args['leaves']]
+        # THE SITE GAIN BUNDLE, built above the leaves for the same reason and handed down
+        # the same way: one mixed trailer, one score, each unit priced by its OWNING
+        # channel's arm (site-dock 05/26).  None unless a gain policy is named.
+        _site_gain = _build_site_gain(args)
+        leaves = [_build_leaf(la, unit=args, pool=_pool, site_gain=_site_gain)
+                  for la in args['leaves']]
         # THE PARTITION SUM. Each leaf loads its OWN inventory and filters it to its regime,
         # so 02 section 4's double-filter (`inventory.orders = [...]` over an already-filtered
         # list) cannot arise -- there is no shared list. What CAN arise is the failure that

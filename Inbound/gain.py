@@ -54,8 +54,17 @@ forbidden, so the broker holds what it is handed):
 The bundle reaches the evaluator through an OWNER INDIRECTION — `for_key(BinKey)`, never
 the bundle itself.  A single-channel run hands over a `OneOwnerBundle`, whose `for_key`
 ignores the key and returns the one bundle it holds, so there is exactly one resolution
-rule and no `if coupled:` in the pricing path; the site dock's composite (two arms over
-one mixed trailer) is the same protocol answering two ways.  See `_Evaluator.b`.
+rule and no `if coupled:` in the pricing path; the site dock's `SiteGainBundle` (two arms
+over one mixed trailer, resolved by the key's own regime) is the same protocol answering
+two ways.  See `_Evaluator.b`.
+
+A mixed trailer's score is one SUM in hours, with no per-channel coefficient anywhere:
+the objective is put + pick hours from the shared cost model, so a fulfillment hour and a
+store hour are worth the same to the site.  That is a CLAIM, not a convention, and
+`Tests/unit/test_gain_plan.py` recovers the exchange rate from priced loads and asserts
+it is 1 — with a planted per-channel weight to prove the recovery can fail.  The two
+regimes' genuinely different pick costs (`wp.by_regime`) are not a counter-example: both
+are seconds of the same model, scalarized with one divisor rather than two.
 
 Exhaustion resolves tiers over the `SpaceView` keys the way `_candidates_raw` does:
 smallest non-empty fitting tier first, spilling UP (the injected `tier_ranks_for`
@@ -104,10 +113,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from heapq import merge as _hmerge
+from math import isclose
 
 from Inbound.priorities import DOCK_POLICIES, YARD_POLICIES, ordering
 
 from Warehouse.kernel.cost_model import height_multiplier, per_pick
+from Warehouse.kernel.regime import REGIMES, regime_of_key
 
 #: The entry names that need a driver-injected `GainBundle` on the transit.
 #: `futuresight` ADDITIONALLY needs the window feed — the driver refuses at startup
@@ -225,8 +236,8 @@ class OneOwnerBundle:
     # it composes hours and days ABOVE any one owner's placement machinery, so it has
     # no BinKey to resolve with and must not pick an arbitrary owner's copy.  They are
     # site CONFIG (`inbound_spec()` -> driver -> bundle), so forwarding is exact here;
-    # a provider with two owners owes a REFUSAL when their copies disagree, which is
-    # the composite's to state and not this adapter's.
+    # a provider with two owners owes a REFUSAL when their copies disagree, and that is
+    # `SiteGainBundle.bind`'s — not this adapter's, which has nothing to disagree with.
     @property
     def fee_threshold_days(self) -> float:
         return self.bundle.fee_threshold_days
@@ -234,6 +245,185 @@ class OneOwnerBundle:
     @property
     def urgency_horizon_days(self) -> float:
         return self.bundle.urgency_horizon_days
+
+
+#: The bundle fields that belong to the SITE rather than to one owner, and how a
+#: disagreement is detected.  Two groups, because they fail two different ways:
+#:
+#:   * `_SITE_PURE` are read at a **None cursor** — `place_load` calls `binkey_of` to key
+#:     the groups before any owner is resolved, and `_chain` reads `tier_ranks_for` for a
+#:     group whose cursor names the owner but whose spill chain must be the same walk for
+#:     everyone.  They are pure functions handed down by the driver from ONE module-level
+#:     definition, so IDENTITY is the honest test: two equivalent functions would still be
+#:     two answers to a question the evaluator asks once.
+#:   * `_SITE_PACED` are the FLOAT knobs read off the bundle itself — the gate's two
+#:     days-denominated ones, which it reads above any owner's placement machinery.
+#:     Compared with a TOLERANCE, never `==`, as is the one put crew's pair of paces;
+#:     those are checked in the function below rather than named here, because they sit
+#:     one level down, on `put_speed`.
+_SITE_PURE: tuple[str, ...] = ('binkey_of', 'tier_ranks_for')
+_SITE_PACED: tuple[str, ...] = ('fee_threshold_days', 'urgency_horizon_days')
+
+
+def _site_wide_disagreement(ref: GainBundle, other: GainBundle):
+    """`(field, ref value, other value)` for the first SITE-WIDE field two owners answer
+    differently, or None when they agree on all of them.
+
+    `put_speed` is checked on the two paces the evaluator actually READS (`x_pace` /
+    `y_pace`), not on the profile object: the driver builds a `SpeedProfile` per leaf from
+    one payload record, so two equal-valued instances are the lawful case and an identity
+    test here would refuse every coupled run.
+    """
+    for name in _SITE_PURE:
+        a, b = getattr(ref, name), getattr(other, name)
+        if a is not b:
+            return (name, a, b)
+    for axis in ('x_pace', 'y_pace'):
+        a = getattr(ref.put_speed, axis)
+        b = getattr(other.put_speed, axis)
+        if not isclose(a, b, rel_tol=1e-12, abs_tol=1e-12):
+            return (f'put_speed.{axis}', a, b)
+    for name in _SITE_PACED:
+        a, b = getattr(ref, name), getattr(other, name)
+        if not isclose(a, b, rel_tol=1e-12, abs_tol=1e-12):
+            return (name, a, b)
+    return None
+
+
+class SiteGainBundle:
+    """The site dock's bundle provider: ONE `GainBundle` per channel, dispatched by the
+    BinKey's OWN regime — the composite of 05 decision 1.
+
+    A mixed trailer's store units must be priced by the store arm's pool and its
+    fulfillment units by the fulfillment arm's.  `place_load` already groups a load by
+    BinKey and `regime_of_key` reads the regime straight off that key (regime is itself a
+    BinKey component), so the charter's "per-unit, keyed by owning channel" needs no
+    per-unit loop: the seam is one level coarser and free.  This is the SAME owner
+    resolution the site receiving coordinator makes at its step-4 handoff
+    (`regime_of(item.unit)`) — one fact, read through the key the loop already holds.
+
+    # ── two whole bundles, not one bundle with keyed fields ───────────────────────
+
+    Each owner is the WHOLE `GainBundle` `_gain_bundle_for` built for that leaf, from that
+    leaf's own `mgr` / `strat` / `sctx`.  `_gain_bundle_for` is called twice and is
+    otherwise untouched, which is what keeps each half FAITHFUL TO ITS ARM structurally
+    rather than by argument: neither is rebuilt, reinterpreted or averaged, so the
+    composite adds nothing neither arm would do.  Owner-keyed FIELDS on one bundle were
+    the rejected alternative — `GainBundle.__init__`'s cross-field refusals (an
+    `expect_heads` with no pool; a `uniform` carrying one) would silently stop applying,
+    because the five arm fields would no longer sit on one object to be checked against
+    each other.
+
+    # ── what is NOT keyed, and the refusal that makes that safe ───────────────────
+
+    Half the bundle is already site-wide: `binkey_of` and `tier_ranks_for` are pure,
+    `put_speed` is the one put crew's (`put_crew_spec()` — one site CONFIG), and the
+    gate's `fee_threshold_days` / `urgency_horizon_days` are site CONFIG too.  `wp_of`
+    needs no keying for the opposite reason: it is `_wp_for(wp, unit)`, which ALREADY
+    dispatches per regime.
+
+    So those five are REFUSED at `bind` when two owners disagree, rather than resolved.
+    They cannot differ on a lawful run — both come from one `inbound_spec()` and one
+    `put_crew` record — which is exactly why a silent first-wins would never be noticed.
+    Two of them are also what makes `for_key(None)` honest: the evaluator resolves with a
+    None cursor to key its groups in the first place, and answering that with the
+    first-bound owner is only lawful because every owner answers it the same.
+    """
+
+    __slots__ = ('_owners',)
+
+    def __init__(self):
+        #: regime -> that channel's GainBundle, in BIND order.  The first entry is the
+        #: site-wide reference every later bind is checked against, and the one a None
+        #: cursor is answered with.
+        self._owners: dict = {}
+
+    def __repr__(self):
+        return f'SiteGainBundle(owners={tuple(self._owners)!r})'
+
+    @property
+    def owners(self) -> tuple:
+        """The bound regimes, in bind order — observability for the driver and the tests."""
+        return tuple(self._owners)
+
+    def bind(self, regime: str, bundle: GainBundle) -> None:
+        """Serve `regime`'s units with `bundle`.  Called once per leaf, at leaf build, by
+        the driver that owns both leaves — the same shape `SiteReceiving.bind` and
+        `PutawayPool.bind` have, and for the same reason: a leaf cannot see the site.
+        """
+        if not isinstance(bundle, GainBundle):
+            raise TypeError(
+                f'a SiteGainBundle owner is exactly one GainBundle — got '
+                f'{type(bundle).__name__} for {regime!r}.  A provider bound here (a '
+                f'OneOwnerBundle, or this composite itself) would resolve through a '
+                f'SECOND lookup and price every key with whatever that one returned')
+        if regime not in REGIMES:
+            raise ValueError(
+                f'{regime!r} is not a storage regime {REGIMES!r}; the regime a bundle '
+                f'binds under is what a BinKey resolves TO, so a name outside the set '
+                f'would never be reached and its channel would silently price against '
+                f'the other one, or refuse on the first mixed group')
+        if regime in self._owners:
+            raise ValueError(
+                f'the {regime} arm is already bound to this site bundle; two owners of '
+                f'one channel means one of the two leaves would price every one of its '
+                f'own units with the other leaf\'s placement machinery')
+        if self._owners:
+            ref = next(iter(self._owners.values()))
+            bad = _site_wide_disagreement(ref, bundle)
+            if bad is not None:
+                name, a, b = bad
+                raise ValueError(
+                    f'the site bundle\'s owners disagree on {name}: '
+                    f'{tuple(self._owners)[0]} says {a!r} and {regime} says {b!r}.  That '
+                    f'field is the SITE\'s, not a channel\'s — the gate composes hours and '
+                    f'days above any one owner and has no BinKey to resolve with, and the '
+                    f'pure lookups are read before any group is keyed at all.  Both come '
+                    f'from one spec, so a disagreement means the payload was assembled by '
+                    f'hand; picking one would be a first-wins nobody would ever see')
+        self._owners[regime] = bundle
+
+    def for_key(self, key) -> GainBundle:
+        """The arm machinery owning `key`'s group — `regime_of_key`, never `regime_of`.
+
+        A BinKey is a plain tuple, so `regime_of` would fall through every getattr and
+        answer 'store' for a fulfillment key, silently and always in the same direction
+        (`Inbound/site_space.py` hit the same trap on the bin side).
+
+        `None` is the evaluator's pre-cursor read — `place_load` calls `binkey_of` to form
+        the groups before any of them is keyed — and it is answered with the FIRST-BOUND
+        owner.  That is exact rather than arbitrary: `bind` refuses owners whose site-wide
+        fields differ, so every owner answers those reads identically.
+        """
+        if key is None:
+            if not self._owners:
+                raise ValueError(
+                    'this site bundle has no owner bound yet; the driver binds one per '
+                    'leaf at leaf build, before the batch loop, so an empty lookup means '
+                    'the composite reached a drain without its leaves')
+            return next(iter(self._owners.values()))
+        regime = regime_of_key(key)
+        got = self._owners.get(regime)
+        if got is None:
+            raise ValueError(
+                f'a {regime!r} unit was priced at a site dock whose gain bundle serves '
+                f'{tuple(self._owners)!r}; a load reaching the evaluator with no owner '
+                f'for its regime would otherwise be priced under another channel\'s arm '
+                f'and ranked on a pool that cannot grant it a single bin (key {key!r})')
+        return got
+
+    # ── the site-wide half, read off the provider ─────────────────────────────────
+    # The urgency gate reads these two off `ctx.gain` itself: it composes hours and days
+    # ABOVE any one owner's placement machinery, so it has no BinKey to resolve with.  It
+    # gets the reference owner's copy, which `bind` has proven is every owner's copy —
+    # the obligation `OneOwnerBundle` states and this class discharges.
+    @property
+    def fee_threshold_days(self) -> float:
+        return self.for_key(None).fee_threshold_days
+
+    @property
+    def urgency_horizon_days(self) -> float:
+        return self.for_key(None).urgency_horizon_days
 
 
 class _Evaluator:
@@ -251,8 +441,8 @@ class _Evaluator:
     `_params` — which `place_load` calls exactly once per BinKey group, before it
     branches on the adapter, so every read that follows a group's `_params` sees that
     group's arm.  Under `OneOwnerBundle` that is one instance for every key and the
-    indirection is inert; under the site dock's composite it is the WHOLE dispatch, at
-    the granularity the loop already has.
+    indirection is inert; under `SiteGainBundle` it is the WHOLE dispatch, at the
+    granularity the loop already has.
 
     The property this rests on: **a spill chain never crosses regimes.**  `_chain`
     varies only `size`, holding `handling` / `category` / `unit_category` fixed, and

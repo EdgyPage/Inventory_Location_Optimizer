@@ -30,7 +30,10 @@ seam.
   the smallest: one pure function composing the leaves' frozen space views into the one a
   drain reads, with its key set partitioned by regime. It is separate from `space.py`
   because that module's defining property is that it imports nothing from `Warehouse/`,
-  and the composer needs `regime_of`.
+  and the composer needs `regime_of`. `gain.py`'s `SiteGainBundle` is site-scoped in the
+  same sense and in no other: it holds no manager and decides no labour, only WHICH
+  CHANNEL'S ARM prices each group of a mixed trailer's load — so it lives beside the
+  evaluator that resolves through it rather than with the coordinators.
 
 ## What does NOT belong here
 
