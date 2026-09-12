@@ -811,6 +811,31 @@
       "src": "Inbound/gain.py"
     },
     {
+      "dst": "Warehouse/kernel/regime.py",
+      "kind": "imports",
+      "src": "Inbound/gain.py"
+    },
+    {
+      "dst": "Inbound/gain.py::_site_wide_disagreement",
+      "kind": "calls",
+      "src": "Inbound/gain.py::SiteGainBundle.bind"
+    },
+    {
+      "dst": "Inbound/gain.py::SiteGainBundle.for_key",
+      "kind": "calls",
+      "src": "Inbound/gain.py::SiteGainBundle.fee_threshold_days"
+    },
+    {
+      "dst": "Warehouse/kernel/regime.py::regime_of_key",
+      "kind": "calls",
+      "src": "Inbound/gain.py::SiteGainBundle.for_key"
+    },
+    {
+      "dst": "Inbound/gain.py::SiteGainBundle.for_key",
+      "kind": "calls",
+      "src": "Inbound/gain.py::SiteGainBundle.urgency_horizon_days"
+    },
+    {
       "dst": "Inbound/gain.py::_Evaluator._tier_sorted",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator._avail"
@@ -13401,6 +13426,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_put_pool"
     },
     {
+      "dst": "Inbound/gain.py::SiteGainBundle",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_site_gain"
+    },
+    {
       "dst": "Optimization/simconfig/staffing.py::channel_crew",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_check_declared_crew"
@@ -13462,6 +13492,11 @@
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::_build_put_pool",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_build_site_gain",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -21174,6 +21209,70 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::SiteGainBundle",
+      "kind": "class",
+      "module": "Inbound/gain.py",
+      "name": "SiteGainBundle",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::SiteGainBundle.__init__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::SiteGainBundle.__repr__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::SiteGainBundle.bind",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "bind",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::SiteGainBundle.fee_threshold_days",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "fee_threshold_days",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::SiteGainBundle.for_key",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "for_key",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::SiteGainBundle.owners",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "owners",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::SiteGainBundle.urgency_horizon_days",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "urgency_horizon_days",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_Evaluator",
       "kind": "class",
       "module": "Inbound/gain.py",
@@ -21338,6 +21437,14 @@
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "_require",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_site_wide_disagreement",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_site_wide_disagreement",
       "public": false
     },
     {
@@ -35670,6 +35777,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_site_gain",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_build_site_gain",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_check_declared_crew",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -42802,6 +42917,14 @@
       "kind": "function",
       "module": "Warehouse/kernel/regime.py",
       "name": "regime_of",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/regime.py",
+      "id": "Warehouse/kernel/regime.py::regime_of_key",
+      "kind": "function",
+      "module": "Warehouse/kernel/regime.py",
+      "name": "regime_of_key",
       "public": true
     },
     {

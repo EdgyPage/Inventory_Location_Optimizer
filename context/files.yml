@@ -64,6 +64,7 @@ files:
     key_symbols:
       - {name: "GainBundle", file: "Inbound/gain.py", kind: "class"}
       - {name: "OneOwnerBundle", file: "Inbound/gain.py", kind: "class"}
+      - {name: "SiteGainBundle", file: "Inbound/gain.py", kind: "class"}
       - {name: "plan_order", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_myopic", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_forecast", file: "Inbound/gain.py", kind: "function"}
@@ -2283,6 +2284,7 @@ files:
       - {name: "test_the_leaves_partition_the_catalogue", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_double_filtered_leaf_is_refused", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_coupled_unit_matches_the_two_units_it_replaces", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_a_coupled_unit_binds_both_arms_into_one_site_gain_bundle", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
     notes: ""
   "Tests/e2e/test_production_hours_e2e.py":
     purpose: "the objective's three legs, against the run that wrote them."
@@ -3963,6 +3965,15 @@ files:
       - {name: "test_a_bare_bundle_is_refused_rather_than_sniffed_for", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_the_cursor_tracks_the_group_being_priced", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_a_provider_that_answers_one_key_differently_moves_the_price", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_site_bundle_hands_each_key_its_own_channels_arm", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_key_decides_and_regime_of_would_get_it_wrong", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_regime_with_no_owner_refuses_rather_than_borrowing_the_other_arm", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_site_bundle_refuses_a_provider_a_non_regime_and_a_second_claim", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_owners_must_agree_on_every_site_wide_field", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_composite_swaps_the_code_path_mid_trailer", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_mixed_trailer_decomposes_exactly_by_owner_and_prices_hours_one_to_one", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_planted_per_channel_weight_makes_the_commensurability_test_fail", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_driver_builds_a_site_bundle_only_for_a_named_gain_policy", file: "Tests/unit/test_gain_plan.py", kind: "function"}
     notes: ""
   "Tests/unit/test_inbound_load_plan.py":
     purpose: "packing is a property of the ARRIVAL, not of the order."
@@ -5730,6 +5741,7 @@ files:
     layer: "wh_kernel"
     key_symbols:
       - {name: "regime_of", file: "Warehouse/kernel/regime.py", kind: "function"}
+      - {name: "regime_of_key", file: "Warehouse/kernel/regime.py", kind: "function"}
     notes: ""
   "Warehouse/kernel/timeline.py":
     purpose: "what the simulation's clock is made of, and how batches sit on one axis."

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_build_leaf</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span><span class="badge fanout">high fan-out</span><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def _build_leaf(args: dict, unit: dict | None=None, pool=None) -&gt; &#x27;_Leaf&#x27;</code></pre>
+<pre class="sig"><code>def _build_leaf(args: dict, unit: dict | None=None, pool=None, site_gain=None) -&gt; &#x27;_Leaf&#x27;</code></pre>
 <section class="doc">One channel leaf, built but not yet run — the setup half of a work unit.
 
 Everything here is per channel and stays so under coupling: one inventory partition, one
@@ -30,6 +30,13 @@ workers and the pool&#x27;s site-wide epoch, and phase 5 of every batch belongs 
 None is every uncoupled run and every flag-off leaf, which then fields its own put crew
 exactly as it always did — double count and all, structurally, because the pool is not
 CONSTRUCTED rather than constructed and bypassed.
+
+`site_gain` is the SITE GAIN BUNDLE (`Inbound.gain.SiteGainBundle`), built above the
+leaves the same way and for the same reason: one mixed trailer is priced per unit by
+the OWNING channel&#x27;s arm, and only a scope that sees both leaves can hold both arms.
+This leaf binds its own bundle into it and hands the composite to its transit. None is
+every uncoupled run, which wraps its one bundle in a `OneOwnerBundle` exactly as it
+always did — so a single-owner run reads the very object `_gain_bundle_for` returned.
 
 The closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this
 function with the loop inline, and the split moved the loop body and the tail VERBATIM.

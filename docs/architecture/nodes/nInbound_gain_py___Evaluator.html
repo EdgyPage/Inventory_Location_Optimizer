@@ -29,8 +29,8 @@ bookkeeping.
 `_params` — which `place_load` calls exactly once per BinKey group, before it
 branches on the adapter, so every read that follows a group&#x27;s `_params` sees that
 group&#x27;s arm.  Under `OneOwnerBundle` that is one instance for every key and the
-indirection is inert; under the site dock&#x27;s composite it is the WHOLE dispatch, at
-the granularity the loop already has.
+indirection is inert; under `SiteGainBundle` it is the WHOLE dispatch, at the
+granularity the loop already has.
 
 The property this rests on: **a spill chain never crosses regimes.**  `_chain`
 varies only `size`, holding `handling` / `category` / `unit_category` fixed, and
