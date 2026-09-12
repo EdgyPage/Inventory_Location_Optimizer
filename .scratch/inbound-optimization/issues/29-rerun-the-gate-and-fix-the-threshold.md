@@ -1,7 +1,7 @@
 # Re-run the gate and fix the fee threshold
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: ../../department-calibration/issues/43-rerun-and-record-the-form.md
 
 Graduated 2026-09-12 from
@@ -118,3 +118,52 @@ Method notes, all verified this session:
 
 **No run was launched and nothing is in flight.** 26's run (`comparison_20260912_055947`) is
 still on disk beside this one for the before/after comparison.
+
+## PROGRESS 2, 2026-09-12 -- the reading tool is built and tested
+
+The drive was detached again before the yard reading and the sweep could be taken, so this
+session built the tool that takes both:
+[assets/sweep_fee_threshold.py](../assets/sweep_fee_threshold.py).
+
+    python .scratch/inbound-optimization/assets/sweep_fee_threshold.py comparison_20260912_134002
+
+One command, no arguments beyond the run: `--window 20-39` and 26's grid
+(0.75 / 1.00 / 1.10 / 1.20 / 1.25 / 1.30 / 1.50 / 1.75 / 2.00 d) are the defaults, so the two
+runs' tables are read side by side. It prints BOTH remaining sections -- the yard reading in
+26's shape (strict contention, binding cuts, depth, free doors at freeze, detention p50/max,
+standing/done, `recv_depth` max) and the overage sweep over the window population.
+
+**It reuses the production derivations rather than restating them.** `frames._ydf` and
+`frames._ddf` are the same functions the yard renderers call, so `detention_days`,
+`overage_days` and `binding_cut` cannot drift from what the campaign will report. Three
+decisions ride along with that reuse and would each have been easy to get wrong by hand:
+
+- a right-CENSORED trailer is kept at its lower bound, not dropped -- dropping it removes
+  exactly the longest-held trailers, which is the population the fee is about;
+- the censoring bound is the SITE's, `max(batch_start_time + duration)` over BOTH leaves, the
+  way `requests._arm_end_s` closes it at site scope;
+- the per-drain levels are never summed -- `binding_cut` is a boolean per drain and its
+  statistic is a COUNT of drains (the `recv_cut` scar).
+
+**Tested end to end on a synthetic run tree**, built through the repo's own `init_run_db` so
+the derived `sim_schema_id` is HEAD's and `dataset.bind` serves it. Two arms, four days,
+window 2-3, a hand-computed expectation for every cell -- population membership, detention
+p50/max, contention, binding cuts, depth, doors, `recv_depth`, and the overage share and total
+at five thresholds. Every number matched, including the two cases most likely to be wrong: the
+censored trailer reads 1.00 d against the site bound rather than vanishing, and a detention
+exactly EQUAL to the threshold is not counted as over (`over_threshold` is `overage_days > 0`).
+
+Two details worth keeping:
+
+- **The reads are `immutable=True`**, through `Schema.connect.read_only`, for the reason
+  `_query_rows` uses it: a plain `mode=ro` open creates `-wal`/`-shm` beside an archived DB and
+  cannot remove them (memory `wal-sidecars-come-from-readers`), and the preflight canaries read
+  that litter as an undeclared tree path. Confirmed on the fixture: no sidecars after a full run.
+- **Every printed line is ASCII.** A box-drawing character in an output line kills the run
+  half-way through the table on a cp1252 console (memory `windows-console-is-cp1252`).
+
+**Still to do, and it is now one command plus one edit:** run the tool on
+`comparison_20260912_134002`, read the knee off the table, and commit `PHASE2_THRESHOLD_DAYS`
+in `Optimization/config/whatif_config.py` -- updating the comment block, which currently
+records 26's sweep and instructs the reader to re-take it on the passing run. Then the yard
+reading goes in the answer beside the supply verdict already recorded above.
