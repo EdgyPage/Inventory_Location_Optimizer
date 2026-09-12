@@ -7528,7 +7528,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'v2'"
+      "value_preview": "'v3'"
     },
     "Optimization/config/settings.py::SEED_BATCHES": {
       "decorators": [],
@@ -21666,7 +21666,41 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'v1': _lift_weighted_sample, 'v2': _lift_weighted_sample_v2}"
+      "value_preview": "{'v1': _lift_weighted_sample, 'v2': _lift_weighted_sample_v2, 'v3': _lift_weighted_sample_v3}"
+    },
+    "Warehouse/picking/Workload_Builder.py::_SegTree": {
+      "decorators": [],
+      "doc": "Sum tree over non-negative weights in which every internal node is RECOMPUTED from\nits two children \u2014 never adjusted by a delta.  O(log n) point-set and prefix-search.\n\nBacks the v3 sampler.  The difference from `_Fenwick` is the entire reason v3 exists.\nA Fenwick node is maintained as `t[j] += (new - old)`, so removing a weight that is\norders of magnitude larger than the other weights aggregated into that node ANNIHILATES\nthem (``1e19 + 1e4 == 1e19`` in float64) and the node keeps the difference as phantom\nmass.  Measured on the reference pair's fulfillment section, where the conditional-demand\nmodel's multiplicative lift (values 2.8\u20135.0 over a median 35 partners) drives `lift_mult`\nto ~1e20 against base frequencies of ~1e-6: the Fenwick's total ran **14.6% above** the\ntrue sum of its own leaves, and 8.64% of draws landed on SKUs already selected.\n\nRecomputing a node from its children instead makes each node exactly `fl(left + right)`\nof the weights that are live NOW, so no residue can survive a removal \u2014 the same property\nv1 gets by rebuilding its cumsum every draw, at O(log n) per update instead of O(n).\n\n`find` descends only into subtrees carrying strictly positive mass, so the leaf it\nreturns ALWAYS has a positive weight.  That is a structural guarantee, not a tolerance:\nan already-drawn SKU (set to 0.0) is unreachable however large the float error grows.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/picking/Workload_Builder.py::_SegTree.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, weights: list) -> None"
+    },
+    "Warehouse/picking/Workload_Builder.py::_SegTree.find": {
+      "decorators": [],
+      "doc": "0-based index of the leaf the weighted draw `u` lands on.\n\nBranches right only when the right subtree actually holds mass, so every step stays\ninside a positively-weighted subtree and the returned leaf is guaranteed live.  This\nalso makes the call TOTAL: a `u` at or above the root total (`random.uniform` can\nreturn its upper bound) walks to the last live leaf instead of off the end.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, u: float) -> int"
+    },
+    "Warehouse/picking/Workload_Builder.py::_SegTree.set": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int, value: float) -> None"
+    },
+    "Warehouse/picking/Workload_Builder.py::_SegTree.total": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
     },
     "Warehouse/picking/Workload_Builder.py::_bin_qty_location": {
       "decorators": [],
@@ -21692,6 +21726,13 @@
     "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v2": {
       "decorators": [],
       "doc": "Fenwick-tree form of `_lift_weighted_sample`: same conditional-demand weight model\n(weight(B) = freq(B) \u00b7 \u03a0 lift(A,B) over selected partners A), O((k\u00b7(1+P))\u00b7log n)\ninstead of v1's O(k\u00b7n) full-array passes per draw.\n\nNOT byte-compatible with v1 \u2014 the tree groups float additions differently than v1's\nsequential cumsum, so draws eventually land on different SKUs and the batch sequence\nis a new version (BatchConfig.sampler='v2'; batch_precompute fingerprints it apart).\nDeterministic for a given rng seed, one rng.uniform consumed per draw like v1.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates: list, k: int, affinity: 'AffMatrix | AffinityStore | None', rng: random.Random | None=None) -> list"
+    },
+    "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v3": {
+      "decorators": [],
+      "doc": "Segment-tree form of `_lift_weighted_sample`: the same conditional-demand weight model\n(weight(B) = freq(B) \u00b7 \u03a0 lift(A,B) over selected partners A) and the same O((k\u00b7(1+P))\u00b7log n)\ncost as v2, but drawing k DISTINCT candidates \u2014 which v2 does not.\n\nv2 returns `k` entries of which a measured 8.64% (fulfillment) / 1.02% (store) are repeats\nof a SKU it has already drawn; `Batch.items` is keyed by sku, so the repeats collapse and\nthe batch silently delivers fewer lines than the era declared.  The cause is `_Fenwick`'s\nsubtractive update under this model's enormous weight dynamic range; `_SegTree` removes it.\n\nNOT byte-compatible with v1 or v2 \u2014 a different draw sequence is the whole point, so this\nis a new results era (BatchConfig.sampler='v3'; batch_precompute fingerprints it apart).\nDeterministic for a given rng seed, one rng.uniform consumed per draw like v1 and v2.",
       "is_async": false,
       "kind": "function",
       "signature": "(candidates: list, k: int, affinity: 'AffMatrix | AffinityStore | None', rng: random.Random | None=None) -> list"

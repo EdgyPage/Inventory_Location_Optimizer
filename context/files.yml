@@ -3234,6 +3234,20 @@ files:
       - {name: "test_config_sampler_reaches_both_production_construction_sites", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
       - {name: "test_fingerprint_v1_unchanged_and_v2_distinct", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_batch_sampler_v3.py":
+    purpose: "gates the segment-tree sampler v3 — it draws k DISTINCT SKUs where v2 repeats itself under a ~1e26 weight range; pins the tree's recompute-from-children and live-leaf-only invariants against an exact-rational reference, and the collapse refusal"
+    layer: "tests"
+    key_symbols:
+      - {name: "test_v3_draws_k_distinct_on_the_fixture_that_breaks_v2", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+      - {name: "test_batch_delivers_every_requested_line_under_v3", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+      - {name: "test_batch_refuses_a_collapsed_batch_under_v1_and_v3_but_not_v2", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+      - {name: "test_segtree_total_is_exactly_a_rebuild_where_fenwick_drifts", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+      - {name: "test_segtree_never_returns_a_zero_weight_leaf", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+      - {name: "test_segtree_find_matches_exact_arithmetic", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+      - {name: "test_v3_deterministic_and_without_replacement", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+      - {name: "test_v3_weight_model_favors_heavy_candidates", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+      - {name: "test_fingerprint_v3_distinct_from_v1_and_v2", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_batch_shortfall.py":
     purpose: "demand that could not be reached is now sayable."
     layer: "tests"

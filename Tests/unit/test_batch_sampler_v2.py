@@ -66,8 +66,10 @@ def test_default_config_dispatches_to_v1(monkeypatch):
 
 
 def test_unknown_sampler_raises():
+    # 'v3' stood here until the segment-tree sampler claimed it; the name has to be one
+    # that is genuinely not a version, or this stops testing the refusal.
     try:
-        Batch(BatchConfig(inventory_size=10, sampler='v3'),
+        Batch(BatchConfig(inventory_size=10, sampler='v99'),
               _Inventory(_world(10)), affinity=None, rng=random.Random(1))
     except ValueError as e:
         assert 'sampler' in str(e)
@@ -135,7 +137,7 @@ def test_config_sampler_reaches_both_production_construction_sites():
     assert 'sampler=self.sampler' in inspect.getsource(channels.Channel.batch_config), \
         'Channel.batch_config must pass its sampler into BatchConfig'
     from Optimization.config.sim_config import CONFIG
-    assert CONFIG['global']['sampler'] == 'v2', 'the 2026-08-20 era default'
+    assert CONFIG['global']['sampler'] == 'v3', 'the 2026-09-12 era default'
 
 
 # ── fingerprint separation ─────────────────────────────────────────────────────────────

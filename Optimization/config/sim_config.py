@@ -168,14 +168,18 @@ CONFIG = {
         # at a fifth of the cost.  0 still disables the sidecar entirely.
         'keyframe_interval': _s.KEYFRAME_INTERVAL,
         'max_skus'        : _s.MAX_SKUS,   # input-catalog cap (preserves the store/ff mix)
-        # Batch-sampler VERSION — a results ERA, not a tuning knob.  'v2' (the Fenwick
-        # sampler, introduced e7c9ed9, adopted as default 2026-08-20) draws the same
-        # weight model as 'v1' in O((k·(1+partners))·log N) instead of O(k·N) — measured
-        # 0.83s -> 0.05s per batch at 40k SKUs, 21.6s -> 0.48s at 160k — but its float
-        # grouping differs, so its batch SEQUENCE differs: v2 runs are not row-comparable
-        # with the pre-2026-08-20 archive.  `--sampler v1` reproduces that archive
-        # exactly (byte-identical, digest-proven).  Batch caches are fingerprinted apart
-        # per sampler, so the two eras can never contaminate each other.
+        # Batch-sampler VERSION — a results ERA, not a tuning knob.  Each version draws the
+        # same weight model but a different SEQUENCE, so runs across a flip are not
+        # row-comparable; batch caches are fingerprinted apart per sampler, so the eras can
+        # never contaminate each other, and `--sampler v1`/`v2` reproduce their archives.
+        #   v1  the original O(k·N) cumsum sampler — every pre-2026-08-20 run.
+        #   v2  the Fenwick sampler (e7c9ed9, default 2026-08-20): O((k·(1+partners))·log N),
+        #       measured 21.6s -> 0.48s per batch at 160k SKUs.  DEFECTIVE — its subtractive
+        #       tree update loses small weights under this model's ~1e26 weight dynamic
+        #       range and re-draws SKUs already taken, so its batches are short.
+        #   v3  the segment-tree sampler (default 2026-09-12): recomputes each node from its
+        #       children instead of adjusting it by a delta, and so is the first version that
+        #       delivers exactly k distinct SKUs.  ~1.5x v2, ~1/35th of v1.
         'sampler'         : _s.SAMPLER,
         # Shift length in SECONDS (the sim's own unit), 8 hours by default.  A REPORTING
         # FRAME over a continuous clock: it labels work_events.shift_index and nothing

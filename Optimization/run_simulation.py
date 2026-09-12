@@ -889,13 +889,15 @@ def main():
                             help=f'Unload cost: {_what}. Omit to take the put-away value BY '
                                  f'REFERENCE, which is what every existing run did — so the '
                                  f'default splits no results era.')
-    parser.add_argument('--sampler', choices=('v1', 'v2'),
+    parser.add_argument('--sampler', choices=('v1', 'v2', 'v3'),
                         default=CONFIG['global']['sampler'],
                         help='Batch-sampler VERSION — a results era, not a tuning knob. '
-                             f'Default {CONFIG["global"]["sampler"]!r} (the Fenwick sampler, '
-                             'adopted 2026-08-20). v1 reproduces the pre-2026-08-20 archive '
-                             'byte-identically; the two eras\' batch caches never mix '
-                             '(fingerprinted apart).')
+                             f'Default {CONFIG["global"]["sampler"]!r}. v1 reproduces the '
+                             'pre-2026-08-20 archive byte-identically; v2 (the Fenwick '
+                             'sampler) is faster but delivers FEWER distinct lines than it '
+                             'is asked for; v3 (the segment-tree sampler) is the first that '
+                             'delivers exactly k. Each era\'s batch caches are fingerprinted '
+                             'apart, so they never mix.')
     parser.add_argument('--spec', default='single',
                         help='Cell-matrix spec to run (see whatif_config.SPECS). EVERY run is a cell '
                              "matrix: 'single' (default) = one cell k1_off (a plain run, nested under "

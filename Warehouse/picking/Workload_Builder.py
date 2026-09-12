@@ -66,6 +66,11 @@ class BatchConfig:
     # new results era and gets a distinct batch-cache fingerprint (batch_precompute tags
     # non-v1 samplers into the hash).  Trigger for v2: catalogue growth making the v1
     # precompute wall bind (measured 2026-08-20: 21.6s vs 0.48s per batch at 160k SKUs).
+    # 'v3' = the segment-tree sampler, and the first of the three that actually delivers
+    # `k` DISTINCT SKUs: v2's subtractive tree update loses small weights under this
+    # model's ~1e26 weight dynamic range and re-draws SKUs it has already taken, so its
+    # batches are short (measured -8.64% fulfillment, -1.02% store).  v3 costs ~1.5x v2
+    # and ~1/35th of v1.  Also a distinct era — it moves every batch sequence.
     sampler: str = 'v1'
 
 
@@ -214,7 +219,127 @@ def _lift_weighted_sample_v2(
     return selected
 
 
-_SAMPLERS = {'v1': _lift_weighted_sample, 'v2': _lift_weighted_sample_v2}
+class _SegTree:
+    """Sum tree over non-negative weights in which every internal node is RECOMPUTED from
+    its two children — never adjusted by a delta.  O(log n) point-set and prefix-search.
+
+    Backs the v3 sampler.  The difference from `_Fenwick` is the entire reason v3 exists.
+    A Fenwick node is maintained as `t[j] += (new - old)`, so removing a weight that is
+    orders of magnitude larger than the other weights aggregated into that node ANNIHILATES
+    them (``1e19 + 1e4 == 1e19`` in float64) and the node keeps the difference as phantom
+    mass.  Measured on the reference pair's fulfillment section, where the conditional-demand
+    model's multiplicative lift (values 2.8–5.0 over a median 35 partners) drives `lift_mult`
+    to ~1e20 against base frequencies of ~1e-6: the Fenwick's total ran **14.6% above** the
+    true sum of its own leaves, and 8.64% of draws landed on SKUs already selected.
+
+    Recomputing a node from its children instead makes each node exactly `fl(left + right)`
+    of the weights that are live NOW, so no residue can survive a removal — the same property
+    v1 gets by rebuilding its cumsum every draw, at O(log n) per update instead of O(n).
+
+    `find` descends only into subtrees carrying strictly positive mass, so the leaf it
+    returns ALWAYS has a positive weight.  That is a structural guarantee, not a tolerance:
+    an already-drawn SKU (set to 0.0) is unreachable however large the float error grows.
+    """
+    __slots__ = ('n', 'size', 't', 'w')
+
+    def __init__(self, weights: list) -> None:
+        self.n = len(weights)
+        self.w = list(weights)
+        size = 1
+        while size < self.n:                     # pad to a power of two: the descent is
+            size <<= 1                           # then a plain left/right walk, no bounds test
+        self.size = size
+        t = [0.0] * (2 * size)
+        t[size:size + self.n] = self.w           # padding leaves stay 0.0 and carry no mass
+        for i in range(size - 1, 0, -1):         # O(n) build
+            t[i] = t[2 * i] + t[2 * i + 1]
+        self.t = t
+
+    def total(self) -> float:
+        return self.t[1]
+
+    def set(self, i: int, value: float) -> None:
+        if self.w[i] == value:
+            return
+        self.w[i] = value
+        t = self.t
+        j = self.size + i
+        t[j] = value
+        j >>= 1
+        while j:
+            t[j] = t[2 * j] + t[2 * j + 1]       # recomputed, never `+= delta`
+            j >>= 1
+
+    def find(self, u: float) -> int:
+        """0-based index of the leaf the weighted draw `u` lands on.
+
+        Branches right only when the right subtree actually holds mass, so every step stays
+        inside a positively-weighted subtree and the returned leaf is guaranteed live.  This
+        also makes the call TOTAL: a `u` at or above the root total (`random.uniform` can
+        return its upper bound) walks to the last live leaf instead of off the end.
+        """
+        t, size = self.t, self.size
+        j = 1
+        while j < size:
+            j <<= 1
+            left = t[j]
+            if u >= left and t[j + 1] > 0.0:
+                u -= left
+                j += 1
+        return j - size
+
+
+def _lift_weighted_sample_v3(
+    candidates: list,
+    k: int,
+    affinity: 'AffMatrix | AffinityStore | None',
+    rng: random.Random | None = None,
+) -> list:
+    """Segment-tree form of `_lift_weighted_sample`: the same conditional-demand weight model
+    (weight(B) = freq(B) · Π lift(A,B) over selected partners A) and the same O((k·(1+P))·log n)
+    cost as v2, but drawing k DISTINCT candidates — which v2 does not.
+
+    v2 returns `k` entries of which a measured 8.64% (fulfillment) / 1.02% (store) are repeats
+    of a SKU it has already drawn; `Batch.items` is keyed by sku, so the repeats collapse and
+    the batch silently delivers fewer lines than the era declared.  The cause is `_Fenwick`'s
+    subtractive update under this model's enormous weight dynamic range; `_SegTree` removes it.
+
+    NOT byte-compatible with v1 or v2 — a different draw sequence is the whole point, so this
+    is a new results era (BatchConfig.sampler='v3'; batch_precompute fingerprints it apart).
+    Deterministic for a given rng seed, one rng.uniform consumed per draw like v1 and v2.
+    """
+    r = rng or random
+    partner_map = _get_partner_map(affinity)
+
+    n = len(candidates)
+    sku_to_idx: dict[int, int] = {c.sku: i for i, c in enumerate(candidates)}
+    base = [c.demand.relative_frequency for c in candidates]
+    lift_mult = [1.0] * n
+    active = [True] * n
+    tree = _SegTree(base)
+    selected: list = []
+
+    for _ in range(k):
+        total = tree.total()
+        if total <= 0.0:
+            break
+        idx = tree.find(r.uniform(0.0, total))
+        chosen = candidates[idx]
+        selected.append(chosen)
+        active[idx] = False
+        tree.set(idx, 0.0)
+        for partner_sku, lv in partner_map.get(chosen.sku, []):
+            j = sku_to_idx.get(partner_sku)
+            if j is not None and active[j]:
+                lift_mult[j] *= lv
+                tree.set(j, base[j] * lift_mult[j])
+
+    return selected
+
+
+_SAMPLERS = {'v1': _lift_weighted_sample,
+             'v2': _lift_weighted_sample_v2,
+             'v3': _lift_weighted_sample_v3}
 
 
 class Batch:
@@ -266,6 +391,21 @@ class Batch:
         # (`Demand.line`, .scratch/department-calibration "Stamp the line distribution on
         # the SKU"): the floor at one is the law's own, so no hand-coded `max(1, ...)` here.
         self.items: dict[int, int] = {c.sku: c.demand.sample(rng=r) for c in selected}
+
+        # `items` is keyed by sku, so a sampler that re-draws a SKU it has already taken
+        # has its repeat COLLAPSE here — the batch quietly delivers fewer lines than it was
+        # asked for and nothing says so.  That silence is exactly how v2's duplicate draws
+        # survived three weeks and ~8.6% of the fulfillment script.  v1 and v3 both promise
+        # distinct draws, so a collapse under them is a defect and refuses; v2 is a
+        # known-defective legacy era, left runnable so its archive stays reproducible.
+        # (Against `selected`, never against `k`: a short draw is LEGITIMATE when the live
+        # weight runs out, and only the collapse is the bug.)
+        if getattr(config, 'sampler', 'v1') != 'v2' and len(self.items) != len(selected):
+            raise RuntimeError(
+                f'Batch collapsed {len(selected)} sampled SKUs into {len(self.items)} '
+                f'lines under sampler {getattr(config, "sampler", "v1")!r}: the sampler '
+                f'returned a SKU it had already drawn. Refusing to deliver a batch '
+                f'shorter than the one that was requested.')
 
         # For a plain dict, store it directly for use in analytics.
         # For AffinityStore, lift_sum is computed on-demand per task in

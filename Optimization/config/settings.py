@@ -63,10 +63,15 @@ MAX_SKUS = None            # global input-catalog cap; None = no cap.  Preserves
 CHECKPOINT_FRAC = 0.1      # flush every ceil(N_BATCHES * this) batches
 KEYFRAME_INTERVAL = 25     # batches between viewer keyframes.  Audit points, not accuracy
 
-# Batch-sampler VERSION, and therefore a RESULTS ERA rather than a tuning knob: v2 runs are
-# not row-comparable with the pre-flip archive.  Batch caches are fingerprinted per sampler
-# so the two eras cannot contaminate each other.  `--sampler v1` is the escape hatch.
-SAMPLER = 'v2'
+# Batch-sampler VERSION, and therefore a RESULTS ERA rather than a tuning knob: a run is not
+# row-comparable with the archive drawn under a different one.  Batch caches are fingerprinted
+# per sampler so the eras cannot contaminate each other.  `--sampler v1`/`v2` are the escapes.
+# 'v3' since 2026-09-12: v2 re-drew SKUs it had already taken, and because a batch is keyed by
+# sku the repeats collapsed, so every v2 batch delivered fewer lines than the era declared
+# (measured -8.64% fulfillment / -1.02% store on the reference pair, 40/40 and 29/40 batches
+# short).  v3 delivers exactly k.  The flip moves EVERY batch sequence, so it moves the
+# coverage fixed point, the solved line floor and the derived picking crew with it.
+SAMPLER = 'v3'
 
 # ── the clock ────────────────────────────────────────────────────────────────────
 # A REPORTING FRAME over a continuous clock, not a scheduler.  It labels

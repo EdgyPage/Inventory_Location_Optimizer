@@ -19456,6 +19456,11 @@
       "src": "Warehouse/picking/Workload_Builder.py::_SAMPLERS"
     },
     {
+      "dst": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v3",
+      "kind": "ref",
+      "src": "Warehouse/picking/Workload_Builder.py::_SAMPLERS"
+    },
+    {
       "dst": "Warehouse/picking/Workload_Builder.py::_get_partner_map",
       "kind": "calls",
       "src": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample"
@@ -19469,6 +19474,16 @@
       "dst": "Warehouse/picking/Workload_Builder.py::_get_partner_map",
       "kind": "calls",
       "src": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v2"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::_SegTree",
+      "kind": "calls",
+      "src": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v3"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::_get_partner_map",
+      "kind": "calls",
+      "src": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v3"
     },
     {
       "dst": "Warehouse/picking/Workload_Builder.py::_bin_qty_location",
@@ -45554,6 +45569,46 @@
     },
     {
       "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_SegTree",
+      "kind": "class",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "_SegTree",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_SegTree.__init__",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_SegTree.find",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "find",
+      "public": true
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_SegTree.set",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "set",
+      "public": true
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_SegTree.total",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "total",
+      "public": true
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
       "id": "Warehouse/picking/Workload_Builder.py::_bin_qty_location",
       "kind": "function",
       "module": "Warehouse/picking/Workload_Builder.py",
@@ -45582,6 +45637,14 @@
       "kind": "function",
       "module": "Warehouse/picking/Workload_Builder.py",
       "name": "_lift_weighted_sample_v2",
+      "public": false
+    },
+    {
+      "file": "Warehouse/picking/Workload_Builder.py",
+      "id": "Warehouse/picking/Workload_Builder.py::_lift_weighted_sample_v3",
+      "kind": "function",
+      "module": "Warehouse/picking/Workload_Builder.py",
+      "name": "_lift_weighted_sample_v3",
       "public": false
     },
     {
