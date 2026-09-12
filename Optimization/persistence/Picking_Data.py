@@ -2840,6 +2840,38 @@ def save_yard_trailers(path: str, run_id: int, records: list) -> None:
         con.close()
 
 
+def save_site_inbound(path: str, run_id: int, *, yard_trailers: list,
+                      yard_drains: list) -> None:
+    """Write a COUPLED unit's site-scoped inbound rows on one connection, one commit.
+
+    The third output of a coupled work unit (the run tree's `site_inbound_db`,
+    ADR-0005): trailer- and door-denominated rows belong to neither channel, because a
+    trailer's load is mixed by construction and a door is occupied by the trailer rather
+    than by either channel's share of it.
+
+    A SITE DB IS A SIM DB carrying only these two tables, which is why this takes the same
+    `(path, run_id)` every other writer here takes and inserts through the same two
+    helpers.  That is what lets the analysis brokers bind it with no new loader: they key
+    on `db_path` and `run_id` and nothing else, so a site scope is a different thing for
+    those keys to point AT rather than a second implementation of every frame.
+
+    Separate from `save_checkpoint_bundle` rather than a call to it with eleven empty
+    lists: a bundle argument that is accepted and never inserted is that function's
+    characteristic failure, and eleven of them would be eleven chances at it.
+    """
+    if not yard_trailers and not yard_drains:
+        return
+    con = _open_db(path)
+    try:
+        if yard_trailers:
+            _insert_yard_trailers(con, run_id, yard_trailers)
+        if yard_drains:
+            _insert_yard_drains(con, run_id, yard_drains)
+        con.commit()
+    finally:
+        con.close()
+
+
 def save_checkpoint_bundle(
     path           : str,
     run_id         : int,

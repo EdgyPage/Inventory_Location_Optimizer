@@ -1,16 +1,23 @@
 """run_channel_rollup.py — combine per-channel best plans into a whole-warehouse saving.
 
-The simulation treats store and fulfillment as two INDEPENDENT sections of the warehouse, each
-sweeping its OWN set of pick-time regression configs and analyzed on its own by run_analysis.py
-(its own `fifo` baseline, its own winner).  This post-analysis step is the ONE place that
-combines them: for each inventory it reads every channel's series JSON, computes each plan's
-absolute production-time saving vs that channel's `fifo` baseline, picks the best (config, plan)
-per channel across ALL that channel's configs, and SUMS the per-channel best savings into a
-cumulative whole-warehouse saving.
+UNDER THE INBOUND-OFF MODEL the simulation treats store and fulfillment as two INDEPENDENT
+sections of the warehouse, each sweeping its OWN set of pick-time regression configs and
+analyzed on its own by run_analysis.py (its own `fifo` baseline, its own winner).  This
+post-analysis step is the ONE place that combines them: for each inventory it reads every
+channel's series JSON, computes each plan's absolute production-time saving vs that channel's
+`fifo` baseline, picks the best (config, plan) per channel across ALL that channel's configs,
+and SUMS the per-channel best savings into a cumulative whole-warehouse saving.
 
-Because the channels are independent, absolute savings (sim-unit `ss_prod_hours` deltas) are
-ADDITIVE — any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the
-per-plan CSV this writes doubles as a mix-and-match table: no cross-product simulation needed.
+**That summing is only valid while the channels are independent, and this script REFUSES a run
+where they are not.**  Under the inbound-off model each channel fields its own dock, its own
+receiving crew and its own pool of putters, so absolute savings (sim-unit `ss_prod_hours`
+deltas) are ADDITIVE — any (store-plan, fulfillment-plan) pairing is just the sum of the two
+rows, and the per-plan CSV doubles as a mix-and-match table with no cross-product simulation
+needed.  Under a COUPLED run (`--couple-channels`) one dock and one pool of putters serve both
+channels, so a store plan changes what the fulfillment crew can do and back: the premise is
+void, not merely the plumbing.  `rollup()` raises `ValueError` on such a run and
+`analyze_run` skips the step outright.  The whole published archive is inbound-off, so
+refusing costs no history.
 
 Run AFTER run_analysis.py (which writes the series JSONs).  The analysis default preset is
 BY_INITIAL (focus='all'), so BOTH uni_* and opt_* arms land in the series and the rollup sees
@@ -157,8 +164,34 @@ def rollup(base_dir: str, log=print) -> dict:
 
     `base_dir` is a cell dir; both output CSVs render through the run-tree contract
     (`rt.path('channel_rollup_csv' / 'channel_rollup_summary_csv', cell=...)`).
+
+    REFUSES A COUPLED RUN with a `ValueError`, and the TYPE is the decision (site-dock 07
+    section 4).  `SystemExit` is the house style for a CLI shape refusal and is what
+    `run_restock_selection` uses -- but `analyze_run._step` catches `Exception`, and
+    `SystemExit` is not one, so a `SystemExit` here would abort `analyze_run` MID-RUN from
+    inside its cell loop, killing every remaining cell's analysis and the cross-cell what-if
+    stage.  `run_restock_selection` gets away with it because nothing calls it from the hub.
+    A `ValueError` matches this file's own in-library precedent (`_baseline_entry`) and is
+    caught and logged per cell.  `analyze_run` additionally SKIPS the step on a coupled run,
+    so the log reads `skipped: coupled run` rather than `analysis step failed` once per cell
+    -- a failure line on every cell of a healthy run is how a reader learns to ignore
+    failure lines.
     """
     rt, cell = _tree_for(base_dir)
+    # The marker is in hand: `_tree_for` roots the resolver at the RUN ROOT (one level above
+    # the cell it was handed), and `resolver_for` keeps the parsed layout on it -- so this is
+    # zero new I/O and, because it never spells a filename, zero new run-tree-consumption
+    # budget.  Checked FIRST, before a single series doc is read: refusing after the ranking
+    # would have ranked a coupled cell before saying it could not.
+    if (rt.layout or {}).get('coupled'):
+        raise ValueError(
+            f'{base_dir} is a COUPLED run and this rollup cannot be computed for one. Its '
+            f'validity argument IS channel independence: it takes the best plan per channel '
+            f'and SUMS the savings, which is only a whole-warehouse number while the two '
+            f'channels field separate docks, separate receiving crews and separate pools of '
+            f'putters. Under one site dock a store plan changes what the fulfillment crew '
+            f'can do and back, so the savings are not additive and the sum is not any '
+            f'warehouse number at all. Run the rollup on an inbound-off, uncoupled run.')
     pairs = _find_series(rt, base_dir)
     if not pairs:
         log(f'No analyzed channel runs (sim_meta + series JSONs) found under {base_dir}.')
@@ -246,8 +279,10 @@ def rollup(base_dir: str, log=print) -> dict:
 
     log(f'\nWrote {plan_csv}')
     log(f'Wrote {summary_csv}')
-    log('\nMix-and-match: channels are independent, so any (store-plan, fulfillment-plan)')
-    log('combined saving is just the sum of their saving_abs rows in the per-plan rollup CSV.')
+    log('\nMix-and-match: this run is UNCOUPLED, so the channels are independent and any')
+    log('(store-plan, fulfillment-plan) combined saving is just the sum of their saving_abs')
+    log('rows in the per-plan rollup CSV. A coupled run is refused above, because one site')
+    log('dock and one pool of putters make those savings non-additive.')
     return dict(plan_csv=plan_csv, summary_csv=summary_csv,
                 n_channels=len(all_rows and pairs), n_groups=len(by_pair))
 

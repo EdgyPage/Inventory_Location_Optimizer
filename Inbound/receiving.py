@@ -96,6 +96,12 @@ from Inbound.site_space import compose_site_view
 #: seconds.  Absolute, and deliberately far below anything a dock decision can see.
 _EPOCH_TOL: float = 1e-6
 
+#: How far the leaves' own accrued receiving seconds may sit from the dock's, and still be
+#: the same labour.  The two sums are the same `dur` values added in different orders, so
+#: the gap is float re-association over one batch and nothing else; a real leak is a whole
+#: unload (seconds, not nanoseconds).  Floats compare with a tolerance (CLAUDE.md section 2).
+_SECONDS_TOL: float = 1e-6
+
 SITE_PHASES: tuple = (
     ('leaf', '_tick_batch'),
     ('leaf', 'reclaim_emptied_bins'),
@@ -165,6 +171,22 @@ class SiteReceiving:
         self._deadline = None
         self._owed_records: set = set()
         self._finish = None
+        #: THE DECOMPOSABLE HALF of the dock's per-batch flows, accrued per channel at the
+        #: handoff — where the owner is already resolved — because the dock counts one
+        #: site total and ADR-0005 puts pack-denominated receiving back on the owning
+        #: channel.  Reset with the site totals in `_partition`.
+        self._unloaded: dict = {}
+        self._cut: dict = {}
+        #: Each leaf's own `receiving_seconds` when it was last snapshotted.  The per-leaf
+        #: SECONDS are read as this delta rather than accrued here, and that is deliberate:
+        #: a repack is charged on the leaf (`_charge_repack`) and never passes through
+        #: `receive`, so a coordinator-side sum would silently omit exactly the rows
+        #: `receiving_report` check 5 exists for.  "Each leaf's `batch_stats` scalars come
+        #: from its own `_recv_seconds`" is the precondition site-dock 15 named.
+        self._recv_seen: dict = {}
+        #: The site day's partition of the dock: computed ONCE and served to each leaf
+        #: ONCE.  `None` until the first `snapshot_for`/`drain_*_for` of the day.
+        self._share = None
 
     def __repr__(self):
         return (f'SiteReceiving(crew={self.dock.crew_size}, '
@@ -312,7 +334,182 @@ class SiteReceiving:
         self._deadline = self.day.remaining(self._base)
         self._owed_records = set(self._leaves)
         self._finish = None
+        self._share = None
         return self._base, self._deadline
+
+    # ── the site dock, partitioned: one drain, two channels' rows ──────────────────
+
+    def _partition(self) -> dict:
+        """Split THIS site day's dock into per-channel shares.  Runs once per day.
+
+        One dock is one drain, so the rows, the flows and the labour all arrive as site
+        totals — and ADR-0005 says the pack-denominated half of them decomposes and belongs
+        back on the owning channel's own record.  This is where that happens, once, so the
+        two leaves cannot each take the whole (`a-right-site-total-hides-two-wrong-shares`
+        is that failure, and `receiving_report` checks 1 and 2 would PASS through it because
+        both surfaces delegate to the same dock).
+
+        Every row is routed by its SKU through the same `{sku: leaf}` dict step 1 packs by,
+        so an unload row, a repack row and the lot that produced them cannot land in
+        different channels.
+
+        THE CLOSURE IS ASSERTED, not assumed: the shares are accrued independently of the
+        dock's own counters (the leaves' `receiving_seconds` especially, which is the only
+        surface that sees a repack), so summing them back to the dock's totals is a real
+        check that the decomposition is complete rather than a restatement.
+        """
+        depth, unloaded, cut, seconds = self.dock.snapshot()
+        shares = {ch: {'depth': 0, 'unloaded': int(self._unloaded.get(ch, 0)),
+                       'cut': int(self._cut.get(ch, 0)), 'seconds': 0.0,
+                       'records': [], 'repacks': []}
+                  for ch in self._leaves}
+        # The dock FLOOR, by regime.  Empty on every standing-yard run — merchandise waits
+        # on a trailer, not on the floor — so this walk is free there; it is written out
+        # anyway because `depth` is a LEVEL and a level nobody decomposed would be the site's
+        # backlog reported twice, once under each channel's name.
+        for item in self.dock.items:
+            shares[self._channel_of(self._leaf_for(regime_of(item.unit)))]['depth'] += 1
+        for key, rows in (('records', self.dock.take_records()),
+                          ('repacks', self.dock.drain_repacks())):
+            for row in rows:
+                shares[self._channel_of(self._owner_of(row[2]))][key].append(row)
+        for ch, leaf in self._leaves.items():
+            now = float(leaf.receiving_seconds)
+            shares[ch]['seconds'] = now - self._recv_seen.get(ch, 0.0)
+            self._recv_seen[ch] = now
+        self._unloaded, self._cut = {}, {}
+        for name, total in (('depth', depth), ('unloaded', unloaded), ('cut', cut)):
+            got = sum(s[name] for s in shares.values())
+            if got != total:
+                raise RuntimeError(
+                    f'the site dock reported {name}={total} for site day {self._open} and '
+                    f'its channels account for {got} ({ {c: s[name] for c, s in shares.items()} }); '
+                    f'a decomposition that does not close means one channel is carrying '
+                    f'part of the other receiving, which is the site total wearing one '
+                    f'channel name')
+        got_s = sum(s['seconds'] for s in shares.values())
+        if abs(got_s - seconds) > _SECONDS_TOL:
+            raise RuntimeError(
+                f'the site dock charged {seconds!r} s in site day {self._open} and its '
+                f'leaves accrued {got_s!r} s; the per-leaf seconds come from each leaf own '
+                f'`receiving_seconds` and the site total from the dock, so a gap is labour '
+                f'one of the two never saw — an unload handed to a leaf that did not book '
+                f'it, or a repack charged to a dock no leaf owns')
+        self._share = shares
+        return shares
+
+    def _take(self, leaf, what: str):
+        """`leaf`'s share of `what` for this site day, served exactly once.
+
+        The same "compute once, serve each caller once" contract `open_batch` keeps, and
+        for a sharper reason: these are DRAINS.  A leaf that asked twice would take the
+        other channel's rows the second time only if the first call had left them —
+        popping is what makes the second call raise instead.
+        """
+        if self._open is None:
+            raise RuntimeError(
+                f'the site dock was asked for {what!r} before the site day was opened; '
+                f'`open_batch` is what decides which day these rows belong to')
+        shares = self._share if self._share is not None else self._partition()
+        ch = self._channel_of(leaf)
+        share = shares.get(ch)
+        if share is None or what not in share:
+            raise RuntimeError(
+                f'the {ch} leaf asked the site dock for {what!r} twice in site day '
+                f'{self._open}; one dock is one drain and the second call would hand it '
+                f'rows that are no longer anybody')
+        return share.pop(what)
+
+    def snapshot_for(self, leaf) -> tuple:
+        """`(depth, unloaded, cut, seconds)` — THIS leaf's share of the site dock.
+
+        The site-scoped replacement for `Inventory_Manager.receiving_snapshot`, which
+        refuses on a coupled leaf because all four counters are the site's and three of them
+        RESET: the first caller would take the site's whole batch and leave the other
+        channel reporting an idle dock.  Here the reset happens once, in `_partition`, and
+        each leaf is served its own share.
+        """
+        return tuple(self._take(leaf, k)
+                     for k in ('depth', 'unloaded', 'cut', 'seconds'))
+
+    def drain_records_for(self, leaf) -> list:
+        """THIS leaf's unload rows for the site day — the replacement for
+        `drain_receiving_records`.  Does NOT restart the crew's clocks: that reset has one
+        owner and it is `note_records`."""
+        return self._take(leaf, 'records')
+
+    def drain_repacks_for(self, leaf) -> list:
+        """THIS leaf's repack rows for the site day — the replacement for
+        `drain_repack_records`.  Routed by sku like every other row, so a rescue is
+        recorded in the warehouse whose merchandise was rescued."""
+        return self._take(leaf, 'repacks')
+
+    # ── the site's census, per leaf ───────────────────────────────────────────────
+
+    def dock_depth_for(self, leaf) -> int:
+        """Storage units of THIS leaf's merchandise standing on the site dock floor.
+
+        The site-scoped replacement for `Inventory_Manager.dock_depth`.  A LEVEL, so it
+        neither drains nor resets and may be read at any instant -- unlike `snapshot_for`,
+        which is a per-site-day drain and can be taken once.
+
+        Zero on every standing-yard run by construction: merchandise waits on a trailer
+        until a receiver pulls it, and `accept` hands it straight to the put queue.  Written
+        out anyway, because "the floor is empty" is a fact about the standing model and not
+        a licence for the caller to assume it.
+        """
+        self._channel_of(leaf)          # refuses an unbound leaf, as every accessor here does
+        return sum(1 for item in self.dock.items
+                   if self._leaf_for(regime_of(item.unit)) is leaf)
+
+    def transit_census_for(self, leaf) -> tuple:
+        """`(rows, qty, depth)` — THIS leaf's share of the site's in-flight merchandise.
+
+        The site-scoped replacement for the three transit reads a leaf refuses:
+        `transit_snapshot` (the replay rows), `in_transit_qty` (the units level) and the
+        `lead_queue_depth` a leaf would take from `transit.depth`.  All three come off ONE
+        census pass so they cannot disagree with each other, which is the failure two
+        separate walks of a live yard invite.
+
+        THE SPLIT IS BY SKU, which is the pack rule ADR-0005 settles: a lot has exactly one
+        owning channel however mixed the trailer carrying it.  `rows` and `qty` therefore
+        SUM across the leaves to the site's own census exactly.
+
+        `depth` is the one that needs saying out loud.  Uncoupled it counts in-flight
+        ENTRIES, which under a trailer pipeline are TRAILERS — and a trailer is mixed by
+        construction, so it decomposes to nothing.  Here it counts this leaf's in-flight
+        LOTS instead, which is what `BatchTransit.depth` counted before the trailer pipeline
+        existed and is the only reading that both decomposes and sums.  A mixed trailer
+        therefore contributes one lot to each channel rather than one trailer to both: the
+        "two copies of one yard sum to twice the trailers" outcome ADR-0005 rejected is what
+        counting trailers here would produce.
+        """
+        self._channel_of(leaf)
+        rows = [r for r in self.transit.snapshot() if self._owner_of(r[0]) is leaf]
+        return rows, sum(int(r[1]) for r in rows), len(rows)
+
+    # ── the site's trailer stamps ─────────────────────────────────────────────────
+
+    def drain_trailer_stamps(self) -> list:
+        """The site's FINISHED trailer stamps for this batch, and start the list over.
+
+        Trailer-denominated, so the site's and not a channel's (ADR-0005).  Both leaves
+        hold this one transit, so a leaf draining it would take every trailer on the site
+        into its own table and leave the other channel's yard looking empty — which is why
+        `Inventory_Manager.drain_yard_trailers` refuses once the scope is the site's.
+        """
+        drain = getattr(self.transit, 'drain_stamps', None)
+        return drain() if drain is not None else []
+
+    def standing_trailer_stamps(self) -> list:
+        """Stamps for trailers STILL ON SITE at run end — read, never drained.
+
+        Worse than the drain above if a leaf were left to do it: this one does NOT empty
+        anything, so BOTH leaves would report the same censored trailers and every detention
+        day at run end would be counted twice.
+        """
+        standing = getattr(self.transit, 'standing_stamps', None)
+        return standing() if standing is not None else []
 
     def note_records(self, leaf, finish) -> None:
         """`leaf` has stamped its unload rows; `finish` is the absolute instant its last
@@ -602,10 +799,10 @@ class SiteReceiving:
             for item, t0, dur, w in recs:
                 unit = item.unit
                 if _solo is not None:
-                    taker = _solo
+                    taker, _ch = _solo, None
                 else:
                     sku = unit.order.sku
-                    taker = _takers.get(sku)
+                    taker, _ch = _takers.get(sku, (None, None))
                     if taker is None:
                         taker = self._leaf_for(regime_of(unit))
                         if self._owner_of(sku) is not taker:
@@ -615,19 +812,38 @@ class SiteReceiving:
                                 f'another; the catalogue partition and the regime tagging '
                                 f'disagree, so one of the two ledgers this unit touches is '
                                 f'the wrong warehouse')
-                        _takers[sku] = taker
+                        _ch = self._channel_of(taker)
+                        _takers[sku] = (taker, _ch)
                 taker.accept(item, dur)
                 dock.records.append((t0, dur, unit.order.sku, unit.quantity, w))
                 dock.unloaded += 1
                 dock.seconds += dur
+                # THE DECOMPOSABLE HALF, accrued where the owner is already resolved.  The
+                # dock counts one site total; ADR-0005 puts the pack-denominated count back
+                # on the owning channel, and `_partition` closes the two against each other.
+                if _ch is not None:
+                    self._unloaded[_ch] = self._unloaded.get(_ch, 0) + 1
 
         # What the whistle cost: the remainders standing on STAGED trailers, in storage
         # units, counted once.  The yard is never cut — waiting there is calendar, the
         # fee proxy's domain, not a labour boundary's.
-        left = sum(len(t.pending) - t.taken for t in transit.staged()
-                   if t.pending is not None)
+        left = 0
+        by_owner: dict = {}
+        for t in transit.staged():
+            if t.pending is None:
+                continue
+            left += len(t.pending) - t.taken
+            if _solo is None:
+                # A remainder is merchandise, so it has an owner exactly as an unloaded
+                # unit does.  Counted here rather than derived later: `pending` is consumed
+                # by the next drain, so this is the last instant the split is knowable.
+                for it in t.pending[t.taken:]:
+                    _c = self._channel_of(self._leaf_for(regime_of(it.unit)))
+                    by_owner[_c] = by_owner.get(_c, 0) + 1
         if deadline is not None and left:
             dock.cut += left
+            for _c, _n in by_owner.items():
+                self._cut[_c] = self._cut.get(_c, 0) + _n
 
         # THE DRAIN'S ROW.  Two pairs, and they answer two different questions.  The START
         # pair is CONTENTION — standing trailers against free doors at freeze, which is
@@ -745,8 +961,10 @@ class SiteReceiving:
                     break
                 item = pend[trailer.taken]
                 order = item.unit.order
+                # `unit=` is read only by a SITE dock, whose price list is keyed by the
+                # merchandise's own regime (site-dock 27); an uncoupled dock ignores it.
                 dur = dock.unload_seconds(order.weight, order.volume(),
-                                          item.unit.quantity)
+                                          item.unit.quantity, unit=item.unit)
                 t0, w = dock.charge_team(gang, dur)
                 recs.append((item, t0, dur, w))
                 trailer.taken += 1
@@ -826,7 +1044,8 @@ class SiteReceiving:
                                                    # the min over teams, so nobody can
             item = best.pending[best.taken]
             order = item.unit.order
-            dur = dock.unload_seconds(order.weight, order.volume(), item.unit.quantity)
+            dur = dock.unload_seconds(order.weight, order.volume(),
+                                       item.unit.quantity, unit=item.unit)
             t0, w = dock.charge_team(teams[id(best)], dur)
             recs_of[id(best)].append((item, t0, dur, w))
             best.taken += 1

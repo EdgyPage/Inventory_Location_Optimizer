@@ -50,7 +50,9 @@ from Optimization.runschema.runlayout import iter_channel_runs
 # so the registry is populated before any job runs.
 from Optimization import Performance_Evaluations  # noqa: F401  (side effect: populate registry + set Agg backend)
 from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
-from Optimization.Performance_Evaluations.core.context import EvalContext, AggregateContext
+from Optimization.Performance_Evaluations.core.context import (
+    AggregateContext, EvalContext, SiteContext)
+from Optimization.persistence.Picking_Data import find_run
 from Optimization.Performance_Evaluations.core import requests
 from Optimization.Performance_Evaluations import driver
 from Optimization.Performance_Evaluations.presets import PRESETS
@@ -91,6 +93,7 @@ def _staffing_record() -> dict:
 # Per-process context caches (graph granularity: co-scheduled graphs of one config/group
 # that land on the same worker reuse a single loaded context).
 _CFG_CTX: dict = {}
+_SITE_CTX: dict = {}
 _AGG_CTX: dict = {}
 
 
@@ -153,6 +156,15 @@ def _run_job(job: dict):
     overrides, cli_set = preset['overrides'], job['set']
     requests.tally_snapshot(reset=True)                 # this job's counts only
     try:
+        if job['stage'] == 'site':
+            # ONE CONTEXT PER PAIR, cached like the other two: a pair's site is read by
+            # four evaluations and building it re-verifies both leaves' schema identity.
+            ctx = _SITE_CTX.get(job['out_dir'])
+            if ctx is None:
+                ctx = SiteContext.from_job(job, preset['focus'])
+                _SITE_CTX[job['out_dir']] = ctx
+            driver.run_site(ctx, job['eval_keys'], overrides, cli_set)
+            return (job['out_dir'], None, requests.tally_snapshot())
         if job['stage'] == 'config':
             ctx = _CFG_CTX.get(job['run_dir'])
             if ctx is None:
@@ -294,6 +306,117 @@ def _config_jobs(base_dir, rt, preset_name, granularity, cli_set, log, max_skus=
             else:
                 jobs.append({**common, 'eval_keys': cfg_keys})
     return jobs
+
+
+def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=()):
+    """Parent pre-pass for the SITE stage: one job per `(cell, pair)` on a COUPLED run.
+
+    `[]` on every uncoupled run, and that is a structural return rather than a guard: the
+    site DBs simply do not exist, `site_inbound_dbs` finds none, and no job is emitted.  A
+    site stage reading an empty scope reports zeros rather than refusing — but it is worth
+    saying which zero this is, because `a-grant-is-not-an-output` is exactly the trap here:
+    the `[access]` summary counts INPUTS, so only the `[render]` run summary says whether
+    anything was written.  Hence the log line below naming the pair count either way.
+
+    ONE JOB PER PAIR, not per arm pair, and `SiteContext` says why: the yard family's marks
+    are `ranked` and `serial`, so every arm pair has to be in one context to be ranked
+    against the others, and the declared output tree is one directory per pair.
+
+    EVERY PATH IS RESOLVED THROUGH THE CONTRACT.  The site DBs come from
+    `rt.site_inbound_dbs`, the arm pair from `rt.arm_pair_of`, and each leaf's sim DB from
+    `rt.leaf_path(run, 'sim_db', strategy=)` — never a joined string, and never a tree level
+    consumed by NAME (`<pair>/store/store/` is a real path).
+    """
+    preset = PRESETS[preset_name]
+    keys = [k for k in driver.site_keys(preset) if not only or k in only]
+    if not keys:
+        return []
+    # The leaves of each pair, by pair — one walk, and the channel comes off the ChannelRun
+    # positionally rather than from a directory name.
+    runs_by_pair: dict = {}
+    for _cell, run in rt.channel_runs(cell):
+        runs_by_pair.setdefault(run.pair, []).append(run)
+    jobs = []
+    for pair_name, runs in sorted(runs_by_pair.items()):
+        site_dbs = rt.site_inbound_dbs(cell, pair_name)
+        if not site_dbs:
+            continue
+        out_dir = rt.site_dir(cell, pair_name)
+        pairs, sim_result = [], None
+        for db in site_dbs:
+            arm_pair = rt.arm_pair_of(db)
+            run_id = find_run(db)
+            if run_id is None:
+                log.warning(f'  [site] {pair_name}/{arm_pair}: the site DB holds no run; '
+                            f'skipped')
+                continue
+            leaves, missing = [], []
+            for run in runs:
+                meta_path = rt.leaf_path(run, 'sim_meta')
+                if not os.path.exists(meta_path):
+                    continue
+                with open(meta_path) as f:
+                    meta = json.load(f)
+                if sim_result is None:
+                    sim_result = _sim_result_from_meta(meta)
+                # WHICH ARM OF THIS LEAF BELONGS TO THIS PAIR is decided by membership in
+                # the leaf's own recorded arm list, never by position in the stem: the two
+                # halves are rank-paired (site-dock 06) and a positional read would pair
+                # the store's third arm with the fulfillment's third DIRECTORY.
+                #
+                # `sim_meta['strategies']` is a list of DICTS, not of keys -- the same shape
+                # `EvalContext` indexes by `s['key']` and `equilibrium_report` reads. Testing
+                # membership on the dict silently matches NOTHING, and the whole stage then
+                # emits zero jobs while logging the line an uncoupled run logs.
+                halves = arm_pair.split('__')
+                arms = [a for a in (meta.get('strategies') or [])
+                        if (a.get('key') if isinstance(a, dict) else a) in halves]
+                if len(arms) != 1:
+                    missing.append(f'{run.channel}:{len(arms)}')
+                    continue
+                arm = arms[0]
+                arm_key = arm.get('key') if isinstance(arm, dict) else arm
+                leaf_db = rt.leaf_path(run, 'sim_db', strategy=arm_key)
+                leaves.append({'key': arm_key, 'db_path': leaf_db,
+                               'run_id': find_run(leaf_db, arm_key),
+                               'channel': run.channel})
+            if missing or len(leaves) < 2:
+                log.warning(f'  [site] {pair_name}/{arm_pair}: resolved {len(leaves)} '
+                            f'leaf/leaves ({missing or "none missing"}); skipped — a site '
+                            f'denominator is both leaves or neither')
+                continue
+            store_arm = arm_pair.split('__')[0]
+            pairs.append({'key': arm_pair, 'label': arm_pair,
+                          # The pair is named by its STORE half for baseline selection:
+                          # the diagonal is by rank and the reference pair is fifo/fifo.
+                          'assignment': _assignment_of(store_arm),
+                          'db_path': db, 'run_id': run_id, 'leaves': leaves})
+        if not pairs or sim_result is None:
+            continue
+        if not only:
+            driver.prepare_site_dir(out_dir)
+        common = dict(stage='site', preset=preset_name, set=cli_set,
+                      pairs=pairs, out_dir=out_dir, sim_result=sim_result)
+        if granularity == 'graph':
+            for k in keys:
+                jobs.append({**common, 'eval_keys': [k]})
+        else:
+            jobs.append({**common, 'eval_keys': keys})
+    return jobs
+
+
+def _assignment_of(arm_key: str) -> str:
+    """The assignment rule inside an arm key — what `core.baseline` matches the baseline on.
+
+    An arm key is `<initial>_<assignment>[_<reslot>]`, and the baseline declaration selects
+    on `assignment == 'fifo'`.  A site's members are arm PAIRS, which carry no such field of
+    their own, so the store half's rule is lifted onto the pair: the diagonal is rank against
+    rank and the reference pair is `fifo`/`fifo` (site-dock 06), so the half naming `fifo`
+    names the reference pair.  Falls back to the whole key, which makes the baseline
+    resolution fall back POSITIONALLY and say so — never silently onto another pair.
+    """
+    parts = arm_key.split('_')
+    return parts[1] if len(parts) > 1 else arm_key
 
 
 def _aggregate_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=()):
@@ -480,6 +603,16 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
         agg_jobs = _aggregate_jobs(base_dir, rt, cell, preset, granularity, cli_set, log,
                                    only=only)
         _merge_tally(tally, _drain(pool, agg_jobs, log))
+
+        # THE SITE STAGE, a third flat pool over the same workers: one job per (pair) on a
+        # COUPLED run, reading the contract's `site_inbound_db` beside both leaves' own
+        # DBs.  Zero jobs on every uncoupled run, which is the whole archive — stated in the
+        # log either way, because "no jobs" and "jobs that produced nothing" are different
+        # claims and only the `[render]` summary separates them.
+        site_jobs = _site_jobs(base_dir, rt, cell, preset, granularity, cli_set, log,
+                               only=only)
+        log.info(f'  Site stage: {len(site_jobs)} job(s)  (coupled pairs only)')
+        _merge_tally(tally, _drain(pool, site_jobs, log))
     finally:
         if pool is not None:
             pool.shutdown()

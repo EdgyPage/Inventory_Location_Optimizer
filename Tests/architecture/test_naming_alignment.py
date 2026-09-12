@@ -47,6 +47,15 @@ _KEY_EXCEPTIONS = {
                     'module is named for the artifact class it writes, not for either key',
     'tables.by_initial': 'same module as tables.stats — the shared statistics computation '
                          'feeds both forks and the significance panels',
+    # The four yard twins, and they are the `sig.by_initial` shape exactly: a yard is a
+    # LEAF's on an uncoupled run and the SITE's on a coupled one, so the same render body is
+    # registered at both scopes over one module. Splitting the file would duplicate every
+    # panel helper to change nothing but a scope string, and the tail has to say which of
+    # the two a key is or the CLI could not name one.
+    'yard.site_binding': 'the site-scope twin of yard.binding, co-registered in its module',
+    'yard.site_detention': 'the site-scope twin of yard.detention, same module',
+    'yard.site_fee': 'the site-scope twin of yard.fee, same module',
+    'yard.site_scorecard': 'the site-scope twin of yard.scorecard, same module',
 }
 
 #: R3 — source tokens -> the broker resource they consume.  ctx.maxb/ss_lo are derived

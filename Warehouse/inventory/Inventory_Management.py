@@ -651,7 +651,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         exposes `BatchTransit`'s entry list and a trailer transit has no such list — the
         first e2e run with the trailer flag on found exactly that AttributeError here.
         For `BatchTransit`, `depth` IS `len(entries)`, so flag-off reads are unchanged.
+
+        REFUSES on a coupled leaf, for `in_transit_qty`'s reason and with a sharper edge:
+        under a trailer pipeline an in-flight ENTRY is a TRAILER, and a trailer's load is
+        mixed by construction — so this level is the whole site's and reporting it per leaf
+        would double the site's in-flight count across the pair's two DBs (the shape
+        ADR-0005 rejected in as many words). The site-scoped replacement counts this leaf's
+        own in-flight LOTS instead, which is what `BatchTransit.depth` counted before the
+        trailer pipeline existed and the only reading that both decomposes and sums.
         """
+        self._refuse_site_scope('lead_queue_depth',
+                                '`mgr.receiving.transit_census_for(mgr)`')
         return self.transit.depth
 
     @property
@@ -1213,9 +1223,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
     def _refuse_site_scope(self, name: str, instead: str) -> None:
         """Raise when a LEAF is asked a question only the SITE can answer.
 
-        One place, six callers, one message shape: `name` is what was asked and `instead`
-        is what a caller at the right scope asks instead.  A method rather than six copies
-        of the raise, because six spellings of one rule is six things to keep in step —
+        One place, TEN callers, one message shape: `name` is what was asked and `instead`
+        is what a caller at the right scope asks instead.  A method rather than ten copies
+        of the raise, because ten spellings of one rule is ten things to keep in step —
         and because the refusal is what the site-scope flag exists for, so it should be
         one readable thing.
         """
@@ -1257,8 +1267,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         second leaf with an empty drain and every later row rebased.
         """
         self._refuse_site_scope('drain_receiving_records',
-                                'the site-scoped accessor the coupled driver uses '
-                                '(none exists yet -- see `<pair>/_site/`)')
+                                '`mgr.receiving.drain_records_for(mgr)`, which partitions '
+                                'the one drain between the channels that own its rows')
         return self._dock.drain_records() if self._dock is not None else []
 
     def receiving_snapshot(self) -> tuple:
@@ -1273,8 +1283,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         channel reporting an idle dock.
         """
         self._refuse_site_scope('receiving_snapshot',
-                                'the site-scoped accessor the coupled driver uses '
-                                '(none exists yet -- see `<pair>/_site/`)')
+                                '`mgr.receiving.snapshot_for(mgr)`, which decomposes the '
+                                'dock four numbers and closes them against the site total')
         return self._dock.snapshot() if self._dock is not None else (0, 0, 0, 0.0)
 
     # ── put-away rework (ADR-0003) ────────────────────────────────────────────────────
@@ -1297,7 +1307,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         if dock is None:
             return
         for u in new_units:
-            dur = dock.unload_seconds(order.weight, order.volume(), u.quantity)
+            # `unit=` is read only by a SITE dock: a repacked fulfillment tote is a
+            # fulfillment tote, so the rescue is priced at its OWN regime's constant
+            # (site-dock 27, "the repack takes the same answer").
+            dur = dock.unload_seconds(order.weight, order.volume(), u.quantity, unit=u)
             t0, w = dock.charge(dur)
             dock.repacks.append((t0, dur, order.sku, u.quantity, w))
             self._recv_seconds += dur
@@ -1314,8 +1327,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         site dock's and the first drain empties it for both channels.
         """
         self._refuse_site_scope('drain_repack_records',
-                                'the site-scoped accessor the coupled driver uses '
-                                '(none exists yet -- see `<pair>/_site/`)')
+                                '`mgr.receiving.drain_repacks_for(mgr)`')
         return self._dock.drain_repacks() if self._dock is not None else []
 
     def snapshot_putaway_rework(self) -> tuple:
@@ -1372,7 +1384,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
         `[]` when the standing yard is not bound, which is not the same as a row of zeros —
         see the field's own note.  Drained per batch for `drain_putaway_records`' reason.
+
+        REFUSES on a coupled leaf.  The row is `(yard_start, free_doors_start, yard_end,
+        remainder)` — trailer- and door-denominated, so the SITE's and not a channel's
+        (ADR-0005), which is why the coordinator parks it on `site_rows` rather than handing
+        it down.  A leaf that drained this anyway would report an empty yard while the
+        site's was full, because nothing was ever appended to its own list.
         """
+        self._refuse_site_scope('drain_yard_drains', '`mgr.receiving.drain_site_rows()`')
         out, self._yard_drains = self._yard_drains, []
         return out
 
@@ -1382,7 +1401,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         `[]` on any transit without the standing surfaces (`BatchTransit`, `TrailerTransit`)
         — probed the way `_receive` probes for `STANDING`, so neither is edited to satisfy
         a reader neither has anything to say to.
+
+        REFUSES on a coupled leaf: both leaves hold ONE transit, so the first to drain takes
+        every trailer on the site into its own table and the second finds none — one
+        channel's yard scorecard rendered over the whole site's trailers, and the other's
+        rendered empty. The mixed trailer is exactly what makes this undecomposable.
         """
+        self._refuse_site_scope('drain_yard_trailers',
+                                '`mgr.receiving.drain_trailer_stamps()`')
         drain = getattr(self.transit, 'drain_stamps', None)
         return drain() if drain is not None else []
 
@@ -1392,7 +1418,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         The censored tail.  A run that stops with trailers standing has held them for at
         least as long as it ran, and dropping those rows would report the adversarial arm's
         fee as clipped rather than concentrated.
+
+        REFUSES on a coupled leaf, and this one is worse than its two neighbours: it drains
+        NOTHING, so both leaves would report the SAME censored trailers and every detention
+        day still standing at run end would be billed twice.
         """
+        self._refuse_site_scope('standing_yard_trailers',
+                                '`mgr.receiving.standing_trailer_stamps()`')
         standing = getattr(self.transit, 'standing_stamps', None)
         return standing() if standing is not None else []
 

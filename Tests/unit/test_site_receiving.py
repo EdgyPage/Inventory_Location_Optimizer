@@ -539,8 +539,13 @@ def test_a_coupled_drain_parks_its_yard_row_and_hands_no_leaf_a_number():
     row = crd.receive([store, ful], None)
 
     assert row is None, 'a coupled drain handed its caller a site-scoped row'
-    assert store.drain_yard_drains() == [] and ful.drain_yard_drains() == [], (
-        'a leaf recorded the site yard row')
+    # STRONGER THAN "the leaf recorded nothing": the accessor itself refuses once the
+    # scope is the site's, so a driver that kept draining per leaf finds out loudly rather
+    # than writing an empty yard into both channels' tables (site-dock 24).
+    for lf in (store, ful):
+        with pytest.raises(RuntimeError, match='drain_yard_drains'):
+            lf.drain_yard_drains()
+        assert lf._yard_drains == [], 'a leaf recorded the site yard row'
     parked = crd.drain_site_rows()
     assert len(parked) == 1 and len(parked[0]) == 4, parked
     assert crd.drain_site_rows() == [], 'the accessor did not start the list over'
@@ -573,12 +578,17 @@ def test_two_leaves_contribute_tagged_views_and_one_does_not():
 
 # ── 9. the leaf accessors refuse once the scope is the site's ─────────────────────
 
-#: The six reads a leaf must not answer for a site. The first four are the ones the design
-#: named; the last two are worse than a wrong level -- they would hand one leaf the OTHER
-#: channel's rows and restart a shared crew's clocks half-way through the site's batch.
+#: The TEN reads a leaf must not answer for a site. The first four are the ones the design
+#: named; the next two are worse than a wrong level -- they would hand one leaf the OTHER
+#: channel's rows and restart a shared crew's clocks half-way through the site's batch; the
+#: last three are the yard's own rows (site-dock 24), and `standing_yard_trailers` is the
+#: worst of the nine because it does not DRAIN: two leaves reading it would bill every
+#: trailer still on site at run end twice.
 _SITE_SCOPED_READS = ('dock_depth', 'in_transit_qty', 'transit_snapshot',
                       'receiving_snapshot', 'drain_receiving_records',
-                      'drain_repack_records')
+                      'drain_repack_records', 'drain_yard_drains',
+                      'drain_yard_trailers', 'standing_yard_trailers',
+                      'lead_queue_depth')
 
 
 def _read(mgr, name):
@@ -588,7 +598,7 @@ def _read(mgr, name):
 
 def test_the_leaf_scoped_reads_answer_before_the_second_leaf_binds():
     """Non-vacuity for the refusals below, and the byte-identity half: an UNCOUPLED leaf
-    answers all six exactly as it always did."""
+    answers all ten exactly as it always did."""
     solo = _manager(_yard(), crew=2)
     assert solo.site_scoped is False
     for name in _SITE_SCOPED_READS:
@@ -796,3 +806,168 @@ def test_an_unbound_leaf_cannot_report_records():
     stray = _leaf(crd.transit, (301,), ful=False)
     with pytest.raises(ValueError, match='without being bound'):
         crd.note_records(stray, 1.0)
+
+
+# ── 11. the site dock, partitioned: one drain, two channels' rows ─────────────────
+
+def _open_and_drain(crd, store, ful, *, day_index: int = 0, deadline=None):
+    """Open the site day, land one MIXED trailer and drain the dock once.
+
+    The shape the driver runs: `open_batch` first (it is what decides which day the rows
+    belong to), then the site's one `receive` over both leaves.
+    """
+    _base, day_deadline = crd.open_batch(day_index)
+    _mixed_trailer(crd, store, ful)
+    # The whistle MUST be the day the clocks are running on -- `receive` refuses any other,
+    # which is the guard that stops a crew doing work nobody has the hours for.
+    crd.receive([store, ful], day_deadline if deadline is None else deadline)
+
+
+def test_the_partition_hands_each_leaf_its_own_unload_rows():
+    """One dock is one drain, and ADR-0005 puts the pack-denominated half of it back on the
+    owning channel.  Routed by SKU through the same `{sku: leaf}` dict step 1 packs by, so
+    an unload row and the lot that produced it cannot land in different channels."""
+    crd, store, ful = _site(day=_day())
+    _open_and_drain(crd, store, ful)
+    s_rows = crd.drain_records_for(store)
+    f_rows = crd.drain_records_for(ful)
+    assert s_rows and f_rows, (
+        f'the mixed trailer produced {len(s_rows)} store and {len(f_rows)} fulfillment '
+        f'row(s); a partition test over an empty side proves nothing')
+    assert {r[2] for r in s_rows} <= set(_STORE_SKUS)
+    assert {r[2] for r in f_rows} <= set(_FUL_SKUS)
+
+
+def test_the_dock_is_partitioned_once_and_served_to_each_leaf_once():
+    """A DRAIN, so a second call must raise rather than hand over rows that are no longer
+    anybody's.  The same "compute once, serve each caller once" contract `open_batch` keeps,
+    with a sharper reason."""
+    crd, store, ful = _site(day=_day())
+    _open_and_drain(crd, store, ful)
+    crd.drain_records_for(store)
+    with pytest.raises(RuntimeError, match='twice in site day'):
+        crd.drain_records_for(store)
+    # the OTHER leaf is untouched by the first leaf's second attempt
+    assert crd.drain_records_for(ful) is not None
+
+
+def test_the_snapshot_shares_close_against_the_docks_own_totals():
+    """THE CLOSURE, which is the whole reason the decomposition is trustworthy: the shares
+    are accrued independently of the dock's own counters -- the seconds especially, which
+    come from each leaf's own `receiving_seconds` and are the only surface that sees a
+    repack -- so summing them back is a real check rather than a restatement."""
+    crd, store, ful = _site(day=_day())
+    dock = crd.dock
+    _open_and_drain(crd, store, ful)
+    site_unloaded, site_seconds = dock.unloaded, dock.seconds
+    assert site_unloaded > 0 and site_seconds > 0.0, 'the drain unloaded nothing'
+    s_snap = crd.snapshot_for(store)
+    f_snap = crd.snapshot_for(ful)
+    assert s_snap[1] + f_snap[1] == site_unloaded
+    assert s_snap[3] + f_snap[3] == pytest.approx(site_seconds, abs=1e-6)
+    assert s_snap[1] > 0 and f_snap[1] > 0, (
+        f'one channel took the whole drain: {s_snap} / {f_snap}')
+
+
+def test_a_count_the_channels_cannot_account_for_is_refused():
+    """The closure has to FAIL on a broken decomposition, not merely hold on a correct one.
+
+    A dock counter the channels cannot account for is one channel carrying part of the
+    other's receiving — the site total wearing one channel's name, which is the whole class
+    of defect (`a-right-site-total-hides-two-wrong-shares`) this decomposition exists to
+    make impossible rather than merely unlikely.
+    """
+    crd, store, ful = _site(day=_day())
+    _open_and_drain(crd, store, ful)
+    crd.dock.unloaded += 1
+    with pytest.raises(RuntimeError, match='channels account for'):
+        crd.snapshot_for(store)
+
+
+def test_labour_the_leaves_never_booked_is_refused():
+    """The seconds half, and it is the sharper one: the per-leaf seconds come from each
+    leaf's OWN `receiving_seconds` and the site total from the dock, so a gap is labour one
+    of the two never saw — an unload handed to a leaf that did not book it, or a repack
+    charged to a dock no leaf owns."""
+    crd, store, ful = _site(day=_day())
+    _open_and_drain(crd, store, ful)
+    crd.dock.seconds += 1.0
+    with pytest.raises(RuntimeError, match='leaves accrued'):
+        crd.snapshot_for(store)
+
+
+def test_a_snapshot_asked_for_twice_in_one_site_day_is_refused():
+    crd, store, ful = _site(day=_day())
+    _open_and_drain(crd, store, ful)
+    crd.snapshot_for(store)
+    with pytest.raises(RuntimeError, match='twice in site day'):
+        crd.snapshot_for(store)
+
+
+def test_the_partition_is_refused_before_the_site_day_is_opened():
+    """`open_batch` is what decides which day these rows belong to, so a partition without
+    one would stamp a batch nobody scheduled."""
+    crd, store, _ful = _site(day=_day())
+    with pytest.raises(RuntimeError, match='before the site day was opened'):
+        crd.snapshot_for(store)
+
+
+def test_the_transit_census_splits_by_sku_and_sums_to_the_sites_own():
+    """All three transit reads come off ONE pass so they cannot disagree, and the split is
+    by SKU -- the pack rule -- so rows and units SUM back to the site's census exactly."""
+    crd, store, ful = _site(day=_day())
+    crd.open_batch(0)
+    for leaf, skus in ((store, _STORE_SKUS), (ful, _FUL_SKUS)):
+        for sku in skus:
+            _dispatch(leaf, sku, 6, POSITION_VOLUME // 2, 10_000.0)
+    s_rows, s_qty, s_depth = crd.transit_census_for(store)
+    f_rows, f_qty, f_depth = crd.transit_census_for(ful)
+    assert s_rows and f_rows, 'one channel has nothing in flight; the split proves nothing'
+    assert {r[0] for r in s_rows} <= set(_STORE_SKUS)
+    assert {r[0] for r in f_rows} <= set(_FUL_SKUS)
+    whole = crd.transit.snapshot()
+    assert len(s_rows) + len(f_rows) == len(whole) == s_depth + f_depth
+    assert s_qty + f_qty == sum(int(r[1]) for r in whole)
+
+
+def test_the_dock_floor_is_decomposed_by_regime():
+    """A LEVEL, so it neither drains nor resets -- and zero on every standing-yard run by
+    construction, which is a fact about the standing model rather than a licence to assume
+    it.  Asserted BOTH ways: empty here, and decomposed the moment anything stands."""
+    crd, store, ful = _site(day=_day())
+    _open_and_drain(crd, store, ful)
+    assert crd.dock_depth_for(store) == 0 and crd.dock_depth_for(ful) == 0
+    # PLANT one unit of each channel on the floor, so the zero above is a fact about the
+    # standing model rather than a test that can only ever read zero.
+    planted = {}
+    for leaf, skus, ful_flag in ((store, _STORE_SKUS, False), (ful, _FUL_SKUS, True)):
+        _plans, items = leaf.plan_lot(skus[0], 6, 'reorder')
+        crd.dock.items.append(items[0])
+        planted[regime_of(items[0].unit)] = leaf
+    assert set(planted) == {_STORE, _FUL}, f'the plant produced {sorted(planted)}'
+    assert crd.dock_depth_for(store) == 1 and crd.dock_depth_for(ful) == 1
+    assert crd.dock_depth_for(store) + crd.dock_depth_for(ful) == len(crd.dock.items)
+
+
+def test_the_trailer_stamps_are_the_sites_and_the_leaves_refuse_them():
+    """Both leaves hold ONE transit, so a leaf draining it would take every trailer on the
+    site into its own table and leave the other channel's yard looking empty."""
+    # A ONE-SECOND DAY, so the whistle stops the crew before the trailer empties and a
+    # stamp is left STANDING: the censored tail is the row two leaves would bill twice, and
+    # a test over an empty tail would prove nothing about it.
+    crd, store, ful = _site(day=_day(length=1.0))
+    _open_and_drain(crd, store, ful)
+    for leaf in (store, ful):
+        with pytest.raises(RuntimeError, match='coupled site'):
+            leaf.drain_yard_trailers()
+        with pytest.raises(RuntimeError, match='coupled site'):
+            leaf.standing_yard_trailers()
+        with pytest.raises(RuntimeError, match='coupled site'):
+            leaf.drain_yard_drains()
+    standing = crd.standing_trailer_stamps()
+    assert standing, 'the mixed trailer left no standing stamp to be counted twice'
+    # READ, never drained: a second read returns the same rows, which is exactly why two
+    # leaves reading it would bill every censored trailer twice.
+    assert crd.standing_trailer_stamps() == standing
+    # the DRAIN-shaped sibling empties, and the SITE row is parked rather than handed down
+    assert crd.drain_site_rows() and crd.drain_site_rows() == []

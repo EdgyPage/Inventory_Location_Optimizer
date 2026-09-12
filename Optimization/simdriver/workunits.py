@@ -642,6 +642,12 @@ def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str,
             **site_crews,
             'staffing' : _ls.get('staffing'),
             'n_batches': _ls['n_batches'],
+            # THE UNIT'S THIRD OUTPUT (site-dock 24, ADR-0005): where a coupled standing
+            # run's trailer- and door-denominated rows go, since they belong to neither
+            # leaf. Named HERE rather than rebuilt in the worker, from the same helper the
+            # torn-pair reconciler removes it with -- one spelling, so a repair and a write
+            # cannot disagree about which file they mean.
+            'site_db'  : _site_db_path(pair_dir, _ls['strategy'], _lf['strategy']),
             'leaves'   : [_ls, _lf],
             # log_queue is NOT set here -- injected by the flat pool, as for a leaf unit.
         })
@@ -764,10 +770,12 @@ def _reconcile_coupled_unit(pair_dir, leaves, n_batches, log, tag='', mid_flight
     at `n_batches` is planned as a done arm and never reset, while its sibling resets to 0, so
     every later `--resume` reproduces the same disagreement and the pair is wedged for good.
 
-    THE SITE DB IS THE UNIT'S THIRD OUTPUT and joins the reset.  `reset_strategy_db` knows an
-    arm's `sim_<arm>.db`, its keyframe sibling and its checkpoint; it does not know
-    `<pair>/_site/inbound_<a>__<b>.db`, so a replayed unit would append a SECOND run's
-    trailer, drain and door rows to it.  It is the only such artifact -- every pack-denominated
+    THE SITE DB IS THE UNIT'S THIRD OUTPUT and joins the reset -- for every rank that
+    REPLAYS, not only for the ranks that disagree.  `reset_strategy_db` knows an arm's
+    `sim_<arm>.db`, its keyframe sibling and its checkpoint; it does not know the site DB, so
+    a replayed unit would append a SECOND run's trailer and drain rows to it, and `find_run`
+    resolves the OLDEST run -- so every site yard figure would render over the abandoned one.
+    A pair in step but PARTIAL is not torn and not stale, and it replays all the same.  It is the only such artifact -- every pack-denominated
     receiving quantity lives in its own channel's sim DB (ADR-0005), and the run layout's
     `coupled` marker is written once per run by the parent, not per unit -- so the reset surface
     is exactly three things per leaf plus one per rank.
@@ -797,22 +805,46 @@ def _reconcile_coupled_unit(pair_dir, leaves, n_batches, log, tag='', mid_flight
         # a hundred times on a full arm suite.
         torn = False
         prev = [(_load_resume(d) or {}).get('next_batch') or {} for d, _ in leaves]
-        stale = [r for r in ranks
-                 if len({_arm_position(d, a, int(p.get(a, 0) or 0))
-                         for ((d, _), p, a) in zip(leaves, prev, r)}) > 1]
+        at = {r: {_arm_position(d, a, int(p.get(a, 0) or 0))
+                  for ((d, _), p, a) in zip(leaves, prev, r)} for r in ranks}
+        stale = [r for r in ranks if len(at[r]) > 1]
+    if mid_flight:
+        # A LIVE RETRY IS NOT A RESUME, and NOTHING below may run here -- not the reset, not
+        # the un-finalize, and not the site-DB discard.  Every unit that wrote these leaves
+        # is already in `done_uids` and will not be resubmitted, so any repair would delete
+        # output nothing rebuilds.  The tear is reported and left for the next `--resume`.
+        if stale:
+            _why = ('one leaf is finalized and the other is not' if torn else
+                    f'{len(stale)} arm pair(s) disagree about where they are')
+            log.error(
+                f'  [{tag}] TORN coupled pair during a live retry ({_why}) -- NOT '
+                f'repairing: the units that wrote these leaves are already done and would '
+                f'not be resubmitted, so the repair would delete output nothing rebuilds. A '
+                f'finalize must have failed above; resume this run to repair it.')
+        return False
+    # THE SITE DB GOES WITH THE REPLAY, and the set is every rank that WILL replay -- not
+    # only the ranks that disagree.  A pair killed mid-flight with both leaves at the same
+    # batch is IN STEP and therefore not stale, but strategy-granularity resume still resets
+    # both arms and replays them from batch 0 (`_plan_strategy_start`), so its site DB would
+    # survive and take a SECOND run's trailer and drain rows.  `find_run` then answers every
+    # filtered query from the abandoned run (`ORDER BY run_id LIMIT 1`, the oldest) and every
+    # site yard figure renders over a truncated one, with no symptom.  A finished rank is
+    # planned as done and writes nothing more, so it is the one shape that keeps its file.
+    _replaying = (list(ranks) if torn
+                  else [r for r in ranks if any(q != int(n_batches) for q in at[r])])
+    for r in _replaying:
+        _site_db = _site_db_path(pair_dir, *r)
+        if os.path.exists(_site_db):
+            os.remove(_site_db)
+            log.warning(f'  [{tag}] discarded the site DB for arm pair {r}: the pair replays '
+                        f'from batch 0, and a surviving file would take a SECOND run of '
+                        f'trailer and drain rows that `find_run` would then read AROUND')
     if not stale:
         return False
 
     _what = ('one leaf is finalized and the other is not'
              if torn else
              f'{len(stale)} arm pair(s) disagree about where they are')
-    if mid_flight:
-        log.error(f'  [{tag}] TORN coupled pair during a live retry ({_what}) -- NOT repairing: '
-                  f'the units that wrote these leaves are already done and would not be '
-                  f'resubmitted, so the repair would delete output nothing rebuilds. A '
-                  f'finalize must have failed above; resume this run to repair it.')
-        return False
-
     log.warning(f'  [{tag}] TORN coupled pair: {_what}. A coupled unit writes BOTH leaves from '
                 f'one batch loop over a shared dock and put pool, so neither leaf can be '
                 f'replayed alone -- discarding {len(stale)} arm pair(s) in both leaves and '
@@ -830,12 +862,6 @@ def _reconcile_coupled_unit(pair_dir, leaves, n_batches, log, tag='', mid_flight
                 os.remove(_meta)
                 log.warning(f'  [{tag}] un-finalized {run_dir} '
                             f'(removed {os.path.basename(_meta)})')
-    for r in stale:
-        _site_db = _site_db_path(pair_dir, *r)
-        if os.path.exists(_site_db):
-            os.remove(_site_db)
-            log.warning(f'  [{tag}] discarded the site DB for arm pair {r}: a replay would '
-                        f'have appended a second run of trailer, drain and door rows to it')
     return False
 
 

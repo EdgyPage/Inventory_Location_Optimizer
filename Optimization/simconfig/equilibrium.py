@@ -857,26 +857,29 @@ def _released_late_clause(shift_rows, batch_rows, days: list[int]) -> Clause:
     return Clause('released_late', True, reading)
 
 
-def _utilization_clause(batch_rows, work_rows, days: list[int], expectations: dict) -> Clause:
+def _utilization_clause(batch_rows, work_rows, days: list[int], expectations: dict,
+                        departments: tuple = DEPARTMENTS) -> Clause:
+    """Realized-vs-expected utilization per department over one LEAF's window.
+
+    `departments` is what a coupled leaf narrows.  Under one site dock and one site pool of
+    putters, put and receiving are not this channel's crews at all: a leaf's seconds over a
+    SITE crew is a share of a whole the channel does not own (ADR-0005 says exactly that),
+    and banding it per leaf would publish two verdicts on one crew that can disagree with
+    each other -- the double count reappearing as a reporting artefact after being fixed by
+    construction.  SITE BANDS, LEAVES REPORT: the leaf keeps `pick`, and
+    `site_utilization_clause` carries put and recv once against the SUMMED expectation.
+    """
     S = float(expectations['day_seconds'])
     tol = float(expectations['band_tol'])
     n_days = len(days)
-    in_window = set(days)
-    day_of = {int(_get(b, 'batch_id')): int(_get(b, 'work_day')) for b in batch_rows}
-    worked = {'pick': 0.0, 'put': 0.0, 'recv': 0.0}
-    for b in batch_rows:
-        if int(_get(b, 'work_day')) in in_window:
-            worked['pick'] += float(_get(b, 'task_makespan', 0.0) or 0.0)
-    for r in work_rows:
-        d = day_of.get(int(_get(r, 'batch_id')))
-        if d is None or d not in in_window:
-            continue
-        for dept, role in _WORK_ROLE.items():
-            if _get(r, 'role') == role:
-                worked[dept] += float(_get(r, 'seconds', 0.0) or 0.0)
+    # ONE implementation of "worked seconds for a department", shared with the SITE clause.
+    # It used to be inline here and again there, agreeing today and guaranteed by nothing --
+    # which is the drift `equilibrium_report` exists to prevent ("the two cannot disagree").
+    worked = {dept: _dept_seconds(batch_rows, work_rows, days, dept)
+              for dept in DEPARTMENTS}
     reading: dict = {}
     out_of_band: list[str] = []
-    for dept in DEPARTMENTS:
+    for dept in departments:
         spec = expectations['departments'].get(dept)
         if spec is None:
             reading[dept] = {'absent': expectations['absent'].get(dept, 'not expected')}
@@ -895,6 +898,118 @@ def _utilization_clause(batch_rows, work_rows, days: list[int], expectations: di
                                f'({delta:+.3f}, band ±{tol:.2f})')
     reason = ('utilization out of band: ' + '; '.join(out_of_band)) if out_of_band else ''
     return Clause('utilization', not out_of_band, reading, reason)
+
+
+#: The departments a SITE crew serves, in `DEPARTMENTS` order.  Picking stays per channel
+#: -- pickers genuinely are per-channel crews (the site-dock charter, and `staffing` says so)
+#: -- so coupling the pick floor is a different model and is out of scope. These two are the
+#: site's, which is what makes a single band over their SUMMED load well-posed.
+SITE_DEPARTMENTS: tuple[str, ...] = ('put', 'recv')
+
+#: The departments a COUPLED LEAF still bands on its own: everything the site does not own.
+LEAF_DEPARTMENTS: tuple[str, ...] = tuple(d for d in DEPARTMENTS
+                                          if d not in SITE_DEPARTMENTS)
+
+
+def site_utilization_clause(rows_by_channel: dict, days: list[int],
+                            expectations_by_channel: dict) -> Clause:
+    """ONE band over the SITE's put and receiving crews, and the leaves' shares beside it.
+
+    THE WHOLE ARGUMENT FOR ONE SITE CLAUSE IS THAT `expected_utilization` IS LINEAR IN LOAD.
+    A department's expectation is `load / (crew x S)` by construction, and crew and day are
+    the SITE's -- one crew, one day -- so the two channels' expectations SUM to the site's,
+    exactly, with no reweighting.  The realized side sums the same way because the loads do.
+    That identity is asserted by `Tests/unit/test_site_equilibrium.py`, not assumed, because
+    everything this clause claims rests on it.
+
+    AND IT SITS AT rho RATHER THAN BELOW IT, for put, on a coupled run.  `expected_utilization`
+    carries a standing caveat -- "integer crews and single-channel leaves undercut rho by
+    construction" -- whose SECOND half is what the site put pool removed: a leaf undercut rho
+    because it fielded the whole site crew against one channel's load.  Under one pooled crew
+    over both channels' volume that cause is gone, and the caveat is retired FOR PUT ON A
+    COUPLED RUN.  It is kept verbatim flag-off and kept whole for the integer-crew half, which
+    the pool does not touch.
+
+    `rows_by_channel` is `{channel: (batch_rows, work_rows)}`; `expectations_by_channel` is
+    `{channel: expectations_for(...)}`.  Two channels' rows in, one banded reading out, with
+    each channel's realized share carried INSIDE it as an unbanded number -- printed beside
+    the site figure and never instead of it, because a right site total hides two wrong
+    shares (put-away's site load was 0.9% exact while both per-channel bands failed in
+    opposite directions).
+
+    A pure rows-in function, like every other clause here: no CONFIG, no settings, no run
+    tree.  The REPORT walks the tree and accumulates; this only bands.
+    """
+    channels = list(rows_by_channel)
+    if not channels:
+        raise ValueError('a site utilization clause with no channel has no crew to band: '
+                         'the report accumulates both leaves before calling this')
+    first = expectations_by_channel[channels[0]]
+    S = float(first['day_seconds'])
+    tol = float(first['band_tol'])
+    n_days = len(days)
+    reading: dict = {}
+    out_of_band: list[str] = []
+    for dept in SITE_DEPARTMENTS:
+        specs = {ch: (expectations_by_channel[ch]['departments'] or {}).get(dept)
+                 for ch in channels}
+        if any(sp is None for sp in specs.values()):
+            reading[dept] = {'absent': '; '.join(
+                f'{ch}: {expectations_by_channel[ch]["absent"].get(dept, "not expected")}'
+                for ch in channels if specs[ch] is None)}
+            continue
+        crews = {int(sp['crew']) for sp in specs.values()}
+        if len(crews) != 1:
+            raise ValueError(
+                f'the channels of one site derived different {dept} crews ({sorted(crews)}); '
+                f'a site crew is ONE crew, derived per pair, so this means the derivation is '
+                f'no longer per pair and the summed expectation below is not a site number')
+        crew = crews.pop()
+        granted = crew * S * n_days
+        per_channel: dict = {}
+        worked_total = 0.0
+        for ch in channels:
+            batch_rows, work_rows = rows_by_channel[ch]
+            worked = _dept_seconds(batch_rows, work_rows, days, dept)
+            worked_total += worked
+            per_channel[ch] = {
+                'worked_s': worked, 'expected': float(specs[ch]['expected']),
+                # A SHARE of the site grant, never a utilization of its own: the denominator
+                # is the whole site crew, which this channel does not own.
+                'share_of_site_grant': (worked / granted) if granted > 0 else 0.0}
+        realized = (worked_total / granted) if granted > 0 else 0.0
+        expected = sum(float(sp['expected']) for sp in specs.values())
+        delta = realized - expected
+        ok = abs(delta) <= tol
+        reading[dept] = {'crew': crew, 'expected': expected, 'realized': realized,
+                         'delta': delta, 'worked_s': worked_total, 'granted_s': granted,
+                         'in_band': ok, 'per_channel': per_channel}
+        if not ok:
+            out_of_band.append(f'{dept} {realized:.3f} vs expected {expected:.3f} '
+                               f'({delta:+.3f}, band ±{tol:.2f})')
+    reason = ('site utilization out of band: ' + '; '.join(out_of_band)) if out_of_band else ''
+    return Clause('site_utilization', not out_of_band, reading, reason)
+
+
+def _dept_seconds(batch_rows, work_rows, days: list[int], dept: str) -> float:
+    """One department's seconds inside the window, for one leaf.
+
+    The SAME arithmetic `_utilization_clause` does inline, factored out so the leaf clause
+    and the site clause cannot mean different things by "worked" -- which is the drift the
+    equilibrium report exists to prevent ("the two cannot disagree").
+    """
+    in_window = set(days)
+    if dept == 'pick':
+        return sum(float(_get(b, 'task_makespan', 0.0) or 0.0) for b in batch_rows
+                   if int(_get(b, 'work_day')) in in_window)
+    role = _WORK_ROLE[dept]
+    day_of = {int(_get(b, 'batch_id')): int(_get(b, 'work_day')) for b in batch_rows}
+    total = 0.0
+    for r in work_rows:
+        d = day_of.get(int(_get(r, 'batch_id')))
+        if d is not None and d in in_window and _get(r, 'role') == role:
+            total += float(_get(r, 'seconds', 0.0) or 0.0)
+    return total
 
 
 def fill_at(curve: list | None, transit_days: float) -> float | None:
@@ -1192,7 +1307,8 @@ def _rework_clause(batch_rows, days: list[int], expected_repack_packs: float | N
 
 
 def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, day_hi: int,
-               expectations: dict, free_rows=None) -> Verdict:
+               expectations: dict, free_rows=None,
+               departments: tuple = DEPARTMENTS) -> Verdict:
     """The five clauses over already-loaded rows.  See the module docstring for each.
 
     `shift_rows` are `load_shift_days` dicts; `batch_rows` are `BatchStats` (or dicts with
@@ -1204,6 +1320,12 @@ def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, da
     recorded per bucket", which the rework clause reports as exactly that -- the reading is
     never judged, so a missing list cannot manufacture a pass.  Raises `InstrumentError`
     from the released-late clause and from `demand_flows`; every other outcome is a `Verdict`.
+
+    `departments` narrows the UTILIZATION clause alone, and a COUPLED leaf is the one
+    caller that narrows it: put and receiving are the SITE's crews there, banded once
+    by `site_utilization_clause` against the SUMMED expectation. Site bands, leaves
+    report -- two verdicts on one crew can disagree with each other, and that is the
+    double count reappearing as a reporting artefact after being fixed by construction.
     """
     if day_hi < day_lo:
         raise ValueError(f'empty window: day_lo={day_lo} > day_hi={day_hi}')
@@ -1212,7 +1334,8 @@ def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, da
     clauses = {
         'labour': _labour_clause(shift_rows, flows, days, expectations),
         'released_late': _released_late_clause(shift_rows, batch_rows, days),
-        'utilization': _utilization_clause(batch_rows, work_rows, days, expectations),
+        'utilization': _utilization_clause(batch_rows, work_rows, days, expectations,
+                                           departments=departments),
         'supply': _supply_clause(flows, days, (expectations or {}).get('expected_missed_share'),
                                  batch_rows=batch_rows, lead=expectations),
         'rework': _rework_clause(
@@ -1223,7 +1346,7 @@ def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, da
 
 
 def check(db_path: str, run_id: int, day_lo: int, day_hi: int, *,
-          expectations: dict) -> Verdict:
+          expectations: dict, departments: tuple = DEPARTMENTS) -> Verdict:
     """The check over one arm's sim DB: load the five sources, judge the window.
 
     `expectations` is `expectations_for(...)` for this leaf.  The loaders are the
@@ -1239,7 +1362,8 @@ def check(db_path: str, run_id: int, day_lo: int, day_hi: int, *,
                       work_rows=load_work_hours(db_path, run_id),
                       carry_rows=load_carryover(db_path, run_id),
                       day_lo=day_lo, day_hi=day_hi, expectations=expectations,
-                      free_rows=load_free_index(db_path, run_id))
+                      free_rows=load_free_index(db_path, run_id),
+                      departments=departments)
 
 
 def _num(v) -> bool:

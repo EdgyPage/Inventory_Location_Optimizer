@@ -137,13 +137,15 @@ def test_the_tuples_pass_through_by_identity():
 
 
 def test_regime_of_a_BINKEY_is_the_trap_this_filter_avoids():
-    """`BinKey` is a PLAIN TUPLE, so every `getattr` in `regime_of` falls through and a
-    FULFILLMENT key answers 'store' — silently, and always in the same direction. This is
-    why the filter asks the bin and never the key; if `BinKey` ever becomes a NamedTuple
-    this test fails and the comment on the filter can be retired."""
+    """`BinKey` is a PLAIN TUPLE, so every `getattr` in `regime_of` falls through it.  It
+    used to answer 'store' for a FULFILLMENT key — silently, and always in the same
+    direction; since site-dock 24 it RAISES, which is why the filter asking the bin and
+    never the key is now enforced rather than merely documented."""
+    import pytest
     from Warehouse.kernel.regime import regime_of
-    assert regime_of(_K_FUL) == _STORE
-    assert regime_of(_K_STORE) == _STORE
+    for key in (_K_FUL, _K_STORE):
+        with pytest.raises(TypeError, match='regime_of_key'):
+            regime_of(key)
     # and the value answers correctly, which is what the filter actually uses
     assert regime_of(_Bin(_K_FUL)) == _FUL
     assert regime_of(_Bin(_K_STORE)) == _STORE

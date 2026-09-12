@@ -158,6 +158,24 @@ def config_dirs() -> tuple:
     return _MEMO['config_dirs']
 
 
+def site_dirs() -> tuple:
+    """Every out_subdir a SITE-scope evaluation writes into, under `<pair>/_site/`.
+
+    Flat, like `run_dirs()` and for the same reason rather than by copying it: the site
+    stage's jobs are one per PAIR, so no two workers share an output root and there is no
+    wipe race for the shared-top ownership rule to arbitrate.  `prepare_site_dir` wipes the
+    root once and creates these under it.
+    """
+    from Optimization.Performance_Evaluations.core.registry import EVALUATIONS
+    subs: set = set()
+    for ev in EVALUATIONS:
+        if ev.scope != 'site' or not ev.out_subdir:
+            continue
+        subs.update((ev.out_subdir,) if isinstance(ev.out_subdir, str)
+                    else tuple(ev.out_subdir))
+    return tuple(sorted(subs))
+
+
 def run_dirs() -> tuple:
     """Every declared out_subdir of a RUN-scope evaluation, deepest-safe creation order.
 

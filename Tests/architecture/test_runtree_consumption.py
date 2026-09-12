@@ -93,7 +93,19 @@ def _contract_tokens() -> tuple:
 
 def _count(path: str, tokens) -> dict:
     """{token: occurrences} in one source file (raw text — a literal in a comment still teaches
-    the next reader to hand-join, so comments count too)."""
+    the next reader to hand-join, so comments count too).
+
+    A RESERVED-DIRECTORY token (`_site`, `_frozen`, `_dossier`, …) matches only where it is
+    not part of a longer identifier.  Without that rule `_site` — the segment a coupled
+    unit writes its third output under (site-dock 24) — counts inside `_prepare_site_run`,
+    `put_site_pricer` and `test_bin_mutation_sites` — in files that hold no path knowledge
+    at all and that nobody touched.  That is not the debt this ratchet exists to hold.
+
+    Bounded on BOTH sides, because the collisions come in both shapes: a trailing one
+    (`_site_db_path`) and a leading one (`put_site`).  The FILENAME tokens keep their raw
+    `count`: a `.json` or `.db` literal IS the contract's file however it is spelled, and
+    only the bare directory names are ambiguous enough to collide with an identifier.
+    """
     try:
         with open(path, encoding='utf-8') as fh:
             text = fh.read()
@@ -101,7 +113,11 @@ def _count(path: str, tokens) -> dict:
         return {}
     out = {}
     for t in tokens:
-        n = text.count(t)
+        if t.startswith('_') and '.' not in t:
+            n = len(re.findall(r'(?<![A-Za-z0-9])' + re.escape(t) + r'(?![A-Za-z0-9_])',
+                               text))
+        else:
+            n = text.count(t)
         if n:
             out[t] = n
     return out
@@ -159,6 +175,15 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  ('Optimization/Performance_Evaluations/tables/census.py', 'comparison_census.json'): 1,
  # The CLI bootstrap every analysis entry point shares (see analyze_run / run_analysis).
  ('Optimization/run_map_precompute.py', 'analysis.log'): 1,
+ # ── the coupled unit's third output (site-dock 24) ──────────────────────────────────
+ # The `_site` token is NEW: declaring `site_dir` put the reserved segment into the contract,
+ # which is what starts policing it.  These three are the WRITER-side join and its docstring
+ # — the parent builds the path under a directory it owns, before any descriptor exists to
+ # resolve against, exactly as `reset_strategy_db` builds `_ckpt_<arm>.pkl`.  The sanctioned
+ # class this file already records for `_aggregate`.  Every CONSUMER of the tree resolves it
+ # through `rt.site_dir` / `rt.site_inbound_dbs` / `rt.arm_pair_of` instead, which is why no
+ # analysis module appears here.  Shrink-only.
+ ('Optimization/simdriver/workunits.py', '_site'): 3,
  # ── the funnel's phase-1 -> phase-2 hand-off (2026-08-31) ───────────────────────────
  # The same sanctioned class as the dossier writers above, held to the same discipline: the
  # writer names the ONE document it writes, ONCE, in the module docstring. The path itself is

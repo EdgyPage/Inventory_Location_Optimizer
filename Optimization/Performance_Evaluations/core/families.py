@@ -87,6 +87,21 @@ RUN_SCOPE_FAMILIES = tuple(f for f, d in FAMILIES.items() if d['scope'] == 'run'
 #: `figures_<family>_pngs` glob for.
 LEAF_FAMILIES = tuple(f for f, d in FAMILIES.items() if d['scope'] == 'leaf')
 
+#: Families that ALSO render into a SITE tree (the contract's `site_dir`), for a
+#: coupled run where one dock, one yard and one receiving crew serve both channels.
+#:
+#: DECLARED BESIDE `scope`, NOT AS A THIRD VALUE OF IT, and that is a deviation from what
+#: "Re-scope the analysis surfaces to the site" section 6 specified — with a reason.  A
+#: yard is genuinely a LEAF's on an uncoupled run: each channel leaf fields its own
+#: transit, its own dock and its own crew (memory
+#: `channel-experiment-independent-warehouses`), so the per-leaf yard report is correct
+#: there and is what the whole archive carries.  Moving the family would delete it from
+#: every one of those runs, and would put two uncoupled channel leaves' figures in ONE
+#: pair-level directory, where they would overwrite each other.  So the site tree is an
+#: ADDITION conditioned on coupling, not a relocation — which is what 07 was actually
+#: after: the site's yard rows get a declared home and a report that reads them.
+SITE_SCOPE_FAMILIES = ('yard',)
+
 #: eval key -> why it still hand-writes `views=` instead of declaring a shape and the
 #: quantities it draws.  A debt with a name and a ceiling, not a permission.
 LEGACY_VIEWS: dict = {}

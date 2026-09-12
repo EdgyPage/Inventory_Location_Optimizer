@@ -163,8 +163,18 @@ def test_neither_leaf_started_is_incomplete_and_unrepaired(tmp_path):
 
 def test_both_leaves_partial_and_in_step_are_left_alone(tmp_path):
     """The ordinary resume.  Both leaves mid-flight at the same batch in every arm: the
-    per-arm strategy-granularity reset inside `_plan_strategy_start` owns this, and a repair
-    here would be a second reset of the same arms for no reason."""
+    per-arm strategy-granularity reset inside `_plan_strategy_start` owns the LEAVES, and a
+    repair here would be a second reset of the same arms for no reason.
+
+    THE SITE DB IS THE EXCEPTION, and it was wrong here until site-dock 24 (found in review).
+    `_plan_strategy_start` resets an arm's `sim_<arm>.db`, its keyframe sibling and its
+    checkpoint; it does not know the pair's site DB.  So an in-step PARTIAL pair -- not torn,
+    not stale, and therefore "left alone" -- would replay from batch 0 with its site DB
+    intact and append a SECOND run of trailer and drain rows to it.  `find_run` resolves
+    `ORDER BY run_id LIMIT 1`, the OLDEST run, so every site yard figure would then render
+    over the abandoned partial one with no symptom at all.  The discard set is every rank
+    that REPLAYS, which is what this pair is.
+    """
     pair_dir, leaves, site = _plant_pair(
         tmp_path, store=(_at(30), False), fulfillment=(_at(30), False))
     before = _survivors(leaves)
@@ -172,7 +182,30 @@ def test_both_leaves_partial_and_in_step_are_left_alone(tmp_path):
     assert _reconcile(pair_dir, leaves) is False
 
     assert _survivors(leaves) == before, 'an in-step partial pair was repaired'
-    assert all(os.path.exists(p) for p in site)
+    assert not any(os.path.exists(p) for p in site), (
+        'a replaying pair kept its site DB; the replay would append a second run to it and '
+        '`find_run` would go on answering from the first')
+
+
+def test_a_finished_rank_keeps_its_site_db_while_a_partial_one_loses_it(tmp_path):
+    """NON-VACUITY for the discard rule: the set is every rank that REPLAYS, not every rank.
+
+    A rank already at `n_batches` in BOTH leaves is planned as a done arm and writes nothing
+    more, so its site DB is the finished file the analysis will read.  Discarding it would
+    delete a complete result to protect against a replay that is not going to happen — which
+    is the opposite error from the one the rule exists for, and just as silent.
+    """
+    store = {'fifo': _N_BATCHES, 'rank_labor': 40}     # rank 0 finished, rank 1 partial
+    ful = {'ful_fifo': _N_BATCHES, 'ful_rank': 40}
+    pair_dir, leaves, site = _plant_pair(
+        tmp_path, store=(store, False), fulfillment=(ful, False))
+
+    assert _reconcile(pair_dir, leaves) is False
+
+    assert os.path.exists(site[0]), (
+        'the FINISHED rank lost its site DB; it replays nothing, so the file it keeps is '
+        'the complete result the analysis reads')
+    assert not os.path.exists(site[1]), 'the partial rank kept its site DB'
 
 
 def test_a_torn_pair_is_un_finalized_and_both_leaves_replay(tmp_path):
@@ -239,7 +272,12 @@ def test_a_skewed_arm_pair_replays_in_both_leaves(tmp_path):
         f'fulfillment leaf: the skewed rank was not the one discarded ({fl})'
     assert st['resume'] and fl['resume'], 'the in-step rank lost its resume record'
     assert not os.path.exists(site[0]), 'the skewed rank kept its site DB'
-    assert os.path.exists(site[1]), 'the in-step rank lost its site DB'
+    # THE IN-STEP RANK LOSES ITS SITE DB TOO, and that is not the same claim as the leaf
+    # assertions above: the leaves' in-step rank is left to `_plan_strategy_start`, which
+    # replays it from batch 0 and knows nothing about the site DB. Only a rank that is
+    # FINISHED keeps its file (site-dock 24, found in review).
+    assert not os.path.exists(site[1]), (
+        'the in-step rank kept its site DB while replaying from batch 0')
     # ...and neither leaf is finalized, so nothing was un-finalized that was not finalized.
     assert not st['meta'] and not fl['meta']
 

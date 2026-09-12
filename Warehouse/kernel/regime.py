@@ -28,7 +28,19 @@ def regime_of(x) -> str:
 
     Duck-typed and single-valued.  Unknown / legacy objects fall back to 'store', so any
     inventory or warehouse built before this feature behaves exactly as before.
+
+    A TUPLE IS REFUSED, LOUDLY.  The fallback above is what makes a BinKey dangerous here:
+    a key is a plain tuple, every `getattr` below falls through it, and the answer comes
+    back 'store' for a fulfillment key with nothing raising.  `regime_of_key` is the
+    spelling for that input and the two names are three characters apart, so the mistake is
+    a typo away.  An identity check on `type` rather than `isinstance`: this is duck-typed
+    and hot-ish, no entity is a tuple subclass, and the check must cost nothing.
     """
+    if type(x) is tuple:
+        raise TypeError(
+            f'regime_of was handed a tuple {x!r}; a BinKey has no attributes, so every '
+            f'duck-typed read below falls through it and this would answer {STORE!r} for a '
+            f'fulfillment key with nothing raising. Use regime_of_key for a key.')
     # StorageUnit (Pallet/Singleton/FulfillmentBin): unit_category is the strongest signal.
     if getattr(x, 'unit_category', None) == FULFILLMENT:
         return FULFILLMENT

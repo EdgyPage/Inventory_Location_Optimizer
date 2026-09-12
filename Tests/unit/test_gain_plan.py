@@ -1219,14 +1219,17 @@ def test_the_site_bundle_hands_each_key_its_own_channels_arm():
 def test_the_key_decides_and_regime_of_would_get_it_wrong():
     """The trap under the whole dispatch, pinned in both directions.
 
-    A `BinKey` is a plain tuple, so `regime_of` falls through every getattr and answers
-    'store' for a fulfillment key — silently, and always in the same direction.  `for_key`
-    must use `regime_of_key`; if it ever reverts, every fulfillment unit on a mixed
-    trailer is priced by the store arm and nothing raises."""
+    A `BinKey` is a plain tuple, so every getattr in `regime_of` falls through it.  It used
+    to answer 'store' for a fulfillment key SILENTLY, always in the same direction; since
+    site-dock 24 it RAISES instead, which is the same claim made loud.  `for_key` must use
+    `regime_of_key`; if it ever reverts, every fulfillment unit on a mixed trailer would
+    now take the arm down rather than being priced by the store arm in silence."""
     from Warehouse.kernel.regime import regime_of, regime_of_key
-    assert regime_of(_KEY_F) == 'store', (
-        'the trap itself: if this ever starts answering "fulfillment", the refusal '
-        'below has stopped being about anything')
+    with pytest.raises(TypeError, match='regime_of_key'):
+        regime_of(_KEY_F)
+    assert regime_of(_ful_unit(sku=9001)) == 'fulfillment', (
+        'the entity form still answers — the refusal is about TUPLES, not about '
+        'fulfillment')
     assert regime_of_key(_KEY_F) == 'fulfillment'
     assert regime_of_key(_KEY_M) == 'store'
     ful = _ful_arm()
@@ -1441,11 +1444,18 @@ def test_the_driver_builds_a_site_bundle_only_for_a_named_gain_policy():
     assert _build_site_gain(_unit('fifo', 'fifo')) is None, (
         'the seeded keys never read a bundle — a composite over arm machinery nothing '
         'consumes is unconsumed infra')
-    assert _build_site_gain(_unit('gain_myopic', 'fifo', standing=False)) is None, (
+    assert _build_site_gain(_unit('gain_myopic', 'gain_myopic', standing=False)) is None, (
         'the standing knobs are UNREAD without the standing yard')
     assert _build_site_gain({'leaves': [{'channel_name': 'store', 'inbound': None}]}) \
         is None, 'no inbound spec at all: nothing to compose'
-    made = _build_site_gain(_unit('gain_gated', 'fifo'))
+    # ALL OR NONE. An asymmetric pair would build a composite holding ONE owner, which
+    # is inert on a leaf with its own transit and a mid-batch `for_key` ValueError on the
+    # first mixed trailer once the site fields ONE transit (site-dock 24). Unreachable
+    # either way -- `inbound_spec()` is site-wide, so both leaves carry identical policies
+    # -- so the refusal is what makes the difference between those two outcomes moot.
+    with pytest.raises(ValueError, match='some leaves of a coupled unit name a gain'):
+        _build_site_gain(_unit('gain_gated', 'fifo'))
+    made = _build_site_gain(_unit('gain_gated', 'gain_gated'))
     assert isinstance(made, SiteGainBundle) and made.owners == (), (
         'built empty at unit scope and bound per leaf — the first leaf\'s transit needs '
         'the object the second leaf will bind into')

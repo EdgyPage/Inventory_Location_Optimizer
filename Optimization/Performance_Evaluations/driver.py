@@ -60,6 +60,19 @@ def prepare_run_dir(out_dir):
         os.makedirs(os.path.join(out_dir, *sub.split('/')), exist_ok=True)
 
 
+def prepare_site_dir(out_dir):
+    """Wipe + recreate one pair's `site_dir` analysis root, then its declared subdirs.
+
+    The site DB lives in this same directory and is the SIMULATION's output, not the
+    analysis's — so this wipes the analysis SUBDIRS and never the root, unlike
+    `prepare_run_dir`.  Wiping the root here would delete `inbound_<arm-pair>.db` and every
+    later re-analysis of the same run would find no yard at all, which reads exactly like
+    an inbound-off run.
+    """
+    for sub in artifact_map.site_dirs():
+        _fresh_dir(os.path.join(out_dir, *sub.split('/')))
+
+
 def resolve_params(ev, overrides, cli_set):
     p = dict(ev.defaults)
     p.update(overrides.get(ev.key, {}))
@@ -132,6 +145,15 @@ def run_at_root(ctx, keys, overrides, cli_set):
         _run_one(ctx, ev, overrides, cli_set)
 
 
+def run_site(ctx, keys, overrides, cli_set):
+    """Run all site-scope evaluations named in `keys` (config granularity)."""
+    for k in keys:
+        ev = EVAL_BY_KEY.get(k)
+        if ev is None or ev.scope != 'site':
+            continue
+        _run_one(ctx, ev, overrides, cli_set)
+
+
 def run_one(ctx, key, overrides, cli_set):
     """Run a single evaluation by key (graph granularity)."""
     ev = EVAL_BY_KEY.get(key)
@@ -147,6 +169,11 @@ def config_keys(preset):
 def aggregate_keys(preset):
     return [k for k in preset['keys']
             if (EVAL_BY_KEY.get(k) and EVAL_BY_KEY[k].scope == 'aggregate')]
+
+
+def site_keys(preset):
+    return [k for k in preset['keys']
+            if (EVAL_BY_KEY.get(k) and EVAL_BY_KEY[k].scope == 'site')]
 
 
 def run_root_keys(preset):

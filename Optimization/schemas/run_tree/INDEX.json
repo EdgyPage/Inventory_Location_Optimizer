@@ -1,6 +1,6 @@
 {
-  "head": "sha256:5c9bc35db55b795e1470bd114fdfc6c29cb49f12437d1346d203352674d4fd67",
-  "source_fingerprint": "sha256:777591a03087eac1de7ef7d1f80e58baaf7aeaa990a150a286028e8c5bb3ffbe",
+  "head": "sha256:49274a556866882ed9b8acf1a708604e4f30e046e032d508e454f8ca19a45814",
+  "source_fingerprint": "sha256:06666b57b9ba46ce1f91ca7bff8e2961dee3d450653e693ab6db53b4b092fa14",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -172,6 +172,18 @@
       "label": "",
       "changes": [
         "artifact ADDED: restock_selection_json -> restock_selection.json"
+      ]
+    },
+    "sha256:49274a556866882ed9b8acf1a708604e4f30e046e032d508e454f8ca19a45814": {
+      "short": "49274a556866",
+      "parent": "sha256:5c9bc35db55b795e1470bd114fdfc6c29cb49f12437d1346d203352674d4fd67",
+      "created": "2026-09-12T00:18:46",
+      "commit": "a81081af",
+      "label": "site scope: the yard family renders into <pair>/_site, and a coupled unit declares its third output",
+      "changes": [
+        "artifact ADDED: figures_site_yard_pngs -> {cell}/{pair}/_site/figures/yard/*.png",
+        "artifact ADDED: site_dir -> {cell}/{pair}/_site",
+        "artifact ADDED: site_inbound_db -> {cell}/{pair}/_site/inbound_{strategy}.db"
       ]
     }
   }

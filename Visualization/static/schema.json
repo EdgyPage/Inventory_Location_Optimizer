@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:5c9bc35db55b795e1470bd114fdfc6c29cb49f12437d1346d203352674d4fd67",
-  "schema_short": "5c9bc35db55b",
+  "schema_id": "sha256:49274a556866882ed9b8acf1a708604e4f30e046e032d508e454f8ca19a45814",
+  "schema_short": "49274a556866",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -194,6 +194,12 @@
       "scope": "channel_run",
       "optional": true
     },
+    "figures_site_yard_pngs": {
+      "path": "{cell}/{pair}/_site/figures/yard/*.png",
+      "format": "png",
+      "scope": "pair",
+      "optional": true
+    },
     "figures_task_time_pngs": {
       "path": "{cell}/{pair}/{config}/{channel?}/figures/task_time/*.png",
       "format": "png",
@@ -331,6 +337,18 @@
       "format": "json",
       "scope": "channel_run",
       "optional": false
+    },
+    "site_dir": {
+      "path": "{cell}/{pair}/_site",
+      "format": "dir",
+      "scope": "pair",
+      "optional": true
+    },
+    "site_inbound_db": {
+      "path": "{cell}/{pair}/_site/inbound_{strategy}.db",
+      "format": "sqlite",
+      "scope": "pair",
+      "optional": true
     },
     "stats_summary_csv": {
       "path": "{cell}/{pair}/{config}/{channel?}/tables/stats_summary.csv",

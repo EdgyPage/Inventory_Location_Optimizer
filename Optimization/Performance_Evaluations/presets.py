@@ -46,6 +46,13 @@ _DETAIL   = ['task_time.duration', 'task_time.breakdown',
              'yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard',
              'diagnostics.metric_grids', 'diagnostics.scorecards']
 _AGG      = ['agg.traj', 'agg.tables', 'agg.sig']
+# Site scope: one PAIR's site under a coupled run — both channel leaves and the one yard,
+# dock and receiving crew they share.  The same four yard figures as `_DETAIL`, read from
+# the contract's `site_inbound_db` instead of from a leaf: a coupled run has no leaf
+# yard to report on, and an uncoupled one has no site.  Both registrations exist because
+# both run shapes are real, and each one's request is DENIED on the other's runs.
+_SITE     = ['yard.site_binding', 'yard.site_detention', 'yard.site_fee',
+             'yard.site_scorecard']
 # Run scope: the whole run root, across cells.  These answer the questions the pages keep
 # ASSERTING rather than showing — how broadly a comparison holds, what a rule costs to
 # run, what the rules and the inventory model actually were, and what was held fixed.
@@ -57,7 +64,7 @@ _RUN      = ['cost.compute', 'cost.rollup', 'dossier.index', 'tables.census',
 _STATS = {'assignment': ['tables.stats', 'sig.suite'],
           'initial': ['tables.by_initial', 'sig.by_initial']}
 
-_GROUPS = (_TABLES, _HEADLINE, _TRENDS, _DETAIL, _AGG, _RUN)
+_GROUPS = (_TABLES, _HEADLINE, _TRENDS, _DETAIL, _AGG, _SITE, _RUN)
 
 
 def check_groups() -> None:
@@ -92,7 +99,7 @@ def check_groups() -> None:
             f'{missing} are registered and named by no preset group, so they would render '
             f'nothing and say nothing about it. Add each to whichever group fits: _TABLES '
             f'(the tidy CSV surface), _HEADLINE, _TRENDS, _DETAIL, _AGG (cross-profile), '
-            f'or _RUN (the whole run root).')
+            f'_SITE (one pair site, coupled runs) or _RUN (the whole run root).')
 
 
 def _keys(stats):

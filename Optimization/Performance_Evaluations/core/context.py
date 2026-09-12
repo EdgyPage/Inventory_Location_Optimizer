@@ -443,6 +443,136 @@ class AggregateContext:
         return self._agg
 
 
+class SiteContext(EvalContext):
+    """One PAIR's site, under a coupled run: both channel leaves and the yard they share.
+
+    THE FOURTH EVALUATION SCOPE that reads simulation output, and it is a subclass rather
+    than a second implementation because that IS the design ("Re-scope the analysis
+    surfaces to the site", section 1): every frame broker keys on `s['db_path']` and
+    `s['run_id']` and nothing else, so site-ness lives in what the keys POINT AT.  A site
+    "strategy" is an ARM PAIR whose `db_path` is the contract's `site_inbound_db`, and
+    which additionally carries its two leaves so the denominators can be the site's.
+
+    Inheriting is what keeps `staffing_expectations`, `fee_threshold_days`, `dock_ceiling`
+    and `footer` single implementations.  All four read `sim_result`, and the values they
+    read are genuinely site-wide already: the door count, the door-team cap, the fee
+    threshold and the derived receiving crew are one site's, stamped per leaf only because
+    a leaf is where `_sim_result_from_meta` runs.
+
+    ONE JOB PER `(cell, pair)`, NOT PER ARM PAIR, and that deviates from 07 section 1 with
+    a reason: the yard family's marks are `ranked` and `serial`, which compare arms, so
+    every arm pair has to be in ONE context or there is nothing to rank against; and the
+    declared output tree is `figures_site_yard_pngs`, one directory per pair, which two
+    concurrent per-arm-pair jobs would race to wipe.
+
+    THE ERA GATE PROBES THE SITE DB, and this class has to say so rather than assume it is
+    exempt.  An earlier draft of this docstring claimed there was no `capabilities()` here
+    and that the gate was therefore a no-op — which is FALSE for a SUBCLASS: `era_shortfall`
+    hasattr-checks the method, finds the inherited one, and calls it.  Three of the four
+    yard evaluations declare quantities and every one of them raised `AttributeError` on the
+    first real coupled run, rendering nothing while the `[access]` summary reported a grant
+    (`a-grant-is-not-an-output`, exactly).  So the cache is initialised like every other and
+    the probe reads the SITE DB, which is the right file to ask: a site capability is what
+    the site's own record carries, not what one channel's does.
+    """
+
+    def __init__(self, pairs: list, out_dir: str, sim_result: dict,
+                 log: logging.Logger) -> None:
+        #: The site's own output root, the contract's `site_dir`.  `io.out_dir` reads
+        #: `run_dir` first and `out_dir` second, and this class deliberately sets only the
+        #: latter, exactly as `RunContext` does for the dossier tree — a `run_dir` here
+        #: would put the yard figures back inside one channel's leaf.
+        self.out_dir    = out_dir
+        #: A LEAF's sim_result, carried whole.  Every field this context reads off it is a
+        #: site-wide run-shape or staffing value; the per-channel fields (`channel`,
+        #: `strategies`) are deliberately not consulted, and `channel` is blanked so a
+        #: reader that does consult one gets nothing rather than one channel's name.
+        self.sim_result = {**sim_result, 'channel': None, 'strategies': []}
+        self.name       = sim_result.get('inventory') or sim_result.get('name') or 'site'
+        self.inv        = self.name
+        self.log        = log
+        #: The arm pairs, each `{key, label, assignment, db_path, run_id, leaves}`.
+        self.strategies = list(pairs)
+        # THE SITE DB IS VERIFIED LIKE ANY OTHER SIM DB.  It carries the `sim_db` family's
+        # shape (it IS a sim DB holding only the yard tables), so the identity gate is the
+        # same one, run before a single row is read.
+        _verify_sim_dbs(self.strategies, log)
+        # The baseline pair is SELECTED the same way a baseline arm is, on the store arm's
+        # rule: a pair is the diagonal by rank, and the reference pair is `fifo`/`fifo`
+        # (site-dock 06), so the store half naming `fifo` names the reference pair.
+        self.base       = _baseline.resolve(self.strategies, log,
+                                            where=f'{self.name}/site')
+        self._by_key    = {s['key']: s for s in self.strategies}
+
+        self._bcache: dict = {}
+        self._ycache: dict = {}
+        self._dcache: dict = {}
+        self._expect = None
+        self._fee_days = None
+        self._caps = None
+
+    @classmethod
+    def from_job(cls, job: dict, focus: str) -> 'SiteContext':
+        """`focus` is accepted and IGNORED, and that is stated rather than silent.
+
+        A focus filter selects `uni_*` or `opt_*` ARMS; a site's members are arm PAIRS, and
+        the pairing is the diagonal by rank (site-dock 06) — dropping half a diagonal would
+        leave pairs whose two halves came from different ranks, which is a different
+        experiment rather than a subset of this one.
+        """
+        log = logging.getLogger('analysis')
+        return cls(job['pairs'], job['out_dir'], job['sim_result'], log)
+
+    @property
+    def title(self) -> str:
+        return f'{self.inv} / site'
+
+    def footer(self) -> str:
+        return _provenance_parts(self.out_dir)
+
+    # ── the frames ────────────────────────────────────────────────────────────
+    def batch_df(self, key):
+        """The SITE's batch record: every leaf's frame, concatenated.
+
+        This is the one override that matters.  `_arm_end_s` and both of
+        `yard.scorecard`'s denominators read through it, so the censoring bound becomes the
+        union of the two leaves' clocks and the receiver's busy share is both leaves'
+        seconds over the days they share.
+        """
+        return _requests.site_batch_frame(self, key)
+
+    def yard_df(self, key):
+        return _requests.yard_frame(self, key)
+
+    def drain_df(self, key):
+        return _requests.drain_frame(self, key)
+
+    def leaf_batch_df(self, key, channel):
+        """ONE leaf's batch frame inside a site — the per-channel SHARE, never the site's.
+
+        Printed BESIDE the site number and never instead of it (memory
+        `a-right-site-total-hides-two-wrong-shares`: put-away's site load was 0.9% exact
+        while both per-channel bands failed in opposite directions).  Not memoised: it is
+        read once per arm pair per render, and a second cache keyed by `(key, channel)`
+        beside `_bcache` is a second thing to invalidate.
+        """
+        for lf in self._by_key[key]['leaves']:
+            if lf.get('channel') == channel:
+                return _requests._bdf(_requests.load_batch_stats(lf['db_path'],
+                                                                 lf['run_id']))
+        raise KeyError(f'{key} has no {channel!r} leaf '
+                       f'({[lf.get("channel") for lf in self._by_key[key]["leaves"]]})')
+
+    @property
+    def channels(self) -> tuple:
+        """The channels this site serves, in declared order — the order the per-channel
+        shares are printed in, taken off the first arm pair because every pair of one site
+        has the same two leaves."""
+        if not self.strategies:
+            return ()
+        return tuple(lf.get('channel') for lf in self.strategies[0]['leaves'])
+
+
 class RunContext:
     """Whole-run context: the run ROOT and everything under it, across cells.
 

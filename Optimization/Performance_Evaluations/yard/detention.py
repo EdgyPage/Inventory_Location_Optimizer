@@ -133,3 +133,25 @@ def render(ctx, params):
         n += bool(ch.save(os.path.join(out, f'{view}_detention_mean.png'), view=view))
     n += _distribution(ctx, frames, ctx.fee_threshold_days(), out)
     ctx.log.info(f'  yard detention: {n} figures over {len(entries)} arms -> {out}')
+
+
+#: THE SAME FIGURE AT SITE SCOPE.  A yard is a LEAF's on an uncoupled run — each channel
+#: fields its own transit, dock and crew — and the SITE's on a coupled one, where one dock
+#: and one door set serve both channels and the trailer rows live in
+#: the contract's `site_inbound_db` (ADR-0005).  Both run shapes are real, so the
+#: evaluation is registered at both scopes over ONE render body; each registration's `yard`
+#: request is DENIED on the other's runs, which is how a reader learns which model produced
+#: the figure rather than having to infer it from a directory.
+@evaluation(key='yard.site_detention', label='Site trailer detention (coupled)',
+            scope='site', needs=('yard', 'batch'),
+            family='yard', shape='ranked',
+            quantities=('yard_detention_days',))
+def render_site(ctx, params):
+    """Trailer detention — the SITE's yard, for a coupled run.
+
+    The render body is `render`, unchanged: a `SiteContext` populates the same
+    `_by_key` shape an `EvalContext` does, so every frame broker works over it
+    untouched and site-ness lives in what the keys point AT ("Re-scope the analysis
+    surfaces to the site", section 1).
+    """
+    return render(ctx, params)

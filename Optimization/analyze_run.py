@@ -65,14 +65,33 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
         return
     log.info(f'\n{"="*64}\n  ANALYSIS — {len(cell_items)} cell(s) under {base_dir}\n{"="*64}')
 
+    # THE COUPLED MARKER, read ONCE for the whole run: it lives in the run descriptor,
+    # which `resolver_for` parses onto the resolver, so this is zero new I/O and never spells
+    # a filename.  A run whose descriptor is unreadable (the pre-v1 fallback above) predates
+    # coupling entirely, so False is the right answer rather than a guess.
+    try:
+        from Optimization.runschema import resolver_for as _resolver_for
+        coupled = bool((_resolver_for(base_dir).layout or {}).get('coupled'))
+    except Exception:                                              # noqa: BLE001
+        coupled = False
+
     for name, cell_dir in cell_items:
-        log.info(f'  cell {name}: graphs + rollup')
+        log.info(f'  cell {name}: graphs' + ('' if coupled else ' + rollup'))
         _step(log, f'{name}/graphs',
               lambda cd=cell_dir: run_analysis.run_analysis(cd, log, workers=workers,
                                                             preset=preset,
                                                             granularity=granularity))
-        _step(log, f'{name}/rollup',
-              lambda cd=cell_dir: run_channel_rollup.rollup(cd, log=log.info))
+        # THE ROLLUP IS SKIPPED OUTRIGHT on a coupled run rather than left to fail: it
+        # REFUSES one (its validity argument is channel independence, which a site dock
+        # voids), and a `ValueError` caught by `_step` would print `analysis step failed`
+        # once per cell on a perfectly healthy run -- which is how a reader learns to
+        # ignore failure lines.
+        if coupled:
+            log.info(f'  cell {name}: rollup skipped: coupled run (savings are not '
+                     f'additive under one site dock)')
+        else:
+            _step(log, f'{name}/rollup',
+                  lambda cd=cell_dir: run_channel_rollup.rollup(cd, log=log.info))
 
     # Cross-cell what-if summaries only make sense with more than one cell to compare.
     if cross_cell and len(cell_items) > 1:

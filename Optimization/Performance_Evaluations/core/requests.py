@@ -157,8 +157,14 @@ def _arm_end_s(ctx, key) -> float:
     guaranteed sorted (the same reason `_elapsed` argsorts).  0.0 on an empty frame, which
     makes every censored detention 0 — honest for a run with no batches at all, and the
     only case where it can happen.
+
+    THROUGH `ctx.batch_df`, NOT `batch_frame`, and the indirection is the whole of what
+    makes the yard family honest at site scope.  A site's batch record is BOTH leaves'
+    frames concatenated, so this bound becomes the SITE end — the union across two clocks
+    — which is what a censoring bound over one shared yard has to be.  `EvalContext.batch_df`
+    delegates straight back here, so a leaf reads exactly what it always read.
     """
-    df = batch_frame(ctx, key)
+    df = ctx.batch_df(key)
     if df.empty:
         return 0.0
     return float((df['batch_start_time'] + df['duration']).max())
@@ -383,6 +389,86 @@ def _yard(ctx):
         # that is working correctly.
         return EraUnmet('no yard rows on any arm (the run predates the yard tables, or '
                         'ran with INBOUND_STANDING_YARD off)', missing=('yard',))
+    return got
+
+
+def site_batch_frame(ctx, key):
+    """A SITE's batch frame: every leaf's, concatenated.  Memoised in `ctx._bcache`.
+
+    ONE CONCAT, AND IT ANSWERS BOTH OF THE DENOMINATOR QUESTIONS 07 asked, with no new
+    arithmetic anywhere:
+
+      * DOOR UTILIZATION takes the SITE CALENDAR SPAN — `min(batch_start_time)` to
+        `max(start + duration)` — and over the concatenated frame that is exactly the union
+        of the two leaves' clocks.  A door is occupied on the site's calendar whatever
+        channel's packs sit behind it.
+      * RECEIVER BUSY takes both leaves' `recv_seconds` over DISTINCT `work_day`, and over
+        the concatenated frame that is exactly what `nansum` and `nunique` return.  Still
+        WORK days and never the calendar span (memory `calendar-span-is-not-work-days`,
+        which printed 184% once); the leaves share days by construction, because
+        `staffing` refuses to sum channels that ran different batch counts.
+
+    The per-leaf `recv_seconds` are each leaf's OWN share of the site dock — the coupled
+    driver writes them from the coordinator's decomposition — so the sum is the site total
+    rather than either channel's number counted twice.
+    """
+    df = ctx._bcache.get(key)
+    if df is None:
+        import pandas as pd
+        parts = [_bdf(load_batch_stats(lf['db_path'], lf['run_id']))
+                 for lf in ctx._by_key[key]['leaves']]
+        parts = [p for p in parts if not p.empty]
+        df = pd.concat(parts, ignore_index=True) if parts else _bdf([])
+        ctx._bcache[key] = df
+    return df
+
+
+def _deny_absent_site(ctx):
+    """Every file a SITE request reads has to be on disk: the site DB AND both leaves'.
+
+    Two separate absences with one message shape.  A missing site DB is a coupled run that
+    received nothing (or was never coupled at all); a missing leaf DB is the same condition
+    `_deny_absent` reports one scope down — and the site's denominators come from the
+    leaves, so half a site is not a smaller site, it is a wrong one.
+    """
+    gone = []
+    for s in ctx.strategies:
+        if not (s.get('db_path') and os.path.exists(s['db_path'])):
+            gone.append(s['key'])
+            continue
+        gone.extend(f"{s['key']}/{lf.get('channel')}" for lf in s['leaves']
+                    if not (lf.get('db_path') and os.path.exists(lf['db_path'])))
+    if gone:
+        return Denied(f"site or leaf db absent for arm pair(s): {', '.join(gone)}")
+    return None
+
+
+@request('batch', 'site')
+def _site_batch(ctx):
+    """Every arm pair's SITE batch frame — both leaves', concatenated."""
+    denied = _deny_absent_site(ctx)
+    if denied is not None:       # Denied is deliberately FALSY - never truth-test it
+        return denied
+    return {s['key']: site_batch_frame(ctx, s['key']) for s in ctx.strategies}
+
+
+@request('yard', 'site')
+def _site_yard(ctx):
+    """Both yard frames for every arm pair, read from `<pair>/_site/inbound_*.db`.
+
+    The SAME composes as the config namespace — `yard_frame` and `drain_frame` key on
+    `db_path` and `run_id` and nothing else, so site-ness lives in what those keys point
+    AT rather than in a second implementation (07 section 1).  The denial and the
+    era-unmet halves say the same thing they say one scope down, for the same reasons.
+    """
+    denied = _deny_absent_site(ctx)
+    if denied is not None:       # Denied is deliberately FALSY - never truth-test it
+        return denied
+    got = {s['key']: (yard_frame(ctx, s['key']), drain_frame(ctx, s['key']))
+           for s in ctx.strategies}
+    if not any(not t.empty or not d.empty for t, d in got.values()):
+        return EraUnmet('no yard rows on any arm pair (the coupled run fielded no site '
+                        'dock, or received nothing)', missing=('yard',))
     return got
 
 

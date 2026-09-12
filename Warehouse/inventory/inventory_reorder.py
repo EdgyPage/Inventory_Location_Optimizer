@@ -699,7 +699,14 @@ class ReorderMixin:
             item = dock.items.popleft()
             unit = item.unit
             order = unit.order
-            dur = dock.unload_seconds(order.weight, order.volume(), unit.quantity)
+            # `unit=` is read only by a SITE dock, whose price list is keyed by the
+            # merchandise's regime (site-dock 27).  Unreachable from here today -- a
+            # coupled run takes the STANDING branch above and never reaches this deque
+            # drain -- but it is the one charge site that would REFUSE rather than
+            # price if a site dock were ever bound to a non-standing transit, and the
+            # unit is already in hand one line up.
+            dur = dock.unload_seconds(order.weight, order.volume(), unit.quantity,
+                                      unit=unit)
             t0, w = dock.charge(dur)
             dock.records.append((t0, dur, order.sku, unit.quantity, w))
             dock.unloaded += 1

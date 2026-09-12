@@ -65,6 +65,15 @@ _LITERALS = {
     'yard.detention':                 ('figures', 'yard'),
     'yard.binding':                   ('figures', 'yard'),
     'yard.scorecard':                 ('figures', 'yard'),
+    # The SAME four at SITE scope (site-dock 24): one dock and one yard serve both channels
+    # on a coupled run, so the trailer rows live in `<pair>/_site/` and belong to neither
+    # leaf. Same family, same folder NAME, different tree root -- the root is the context's
+    # (`SiteContext.out_dir`), never the subdir's, exactly as the run-scope `cost` family's
+    # dossier root is.
+    'yard.site_fee':                  ('figures', 'yard'),
+    'yard.site_detention':            ('figures', 'yard'),
+    'yard.site_binding':              ('figures', 'yard'),
+    'yard.site_scorecard':            ('figures', 'yard'),
     'task_time.duration':             ('figures', 'task_time'),
     'task_time.breakdown':            ('figures', 'task_time'),
     'layout.churn':                   ('figures', 'layout'),

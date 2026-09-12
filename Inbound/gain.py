@@ -319,8 +319,14 @@ class SiteGainBundle:
     Half the bundle is already site-wide: `binkey_of` and `tier_ranks_for` are pure,
     `put_speed` is the one put crew's (`put_crew_spec()` — one site CONFIG), and the
     gate's `fee_threshold_days` / `urgency_horizon_days` are site CONFIG too.  `wp_of`
-    needs no keying for the opposite reason: it is `_wp_for(wp, unit)`, which ALREADY
-    dispatches per regime.
+    needs no keying because on the payload this code actually receives the two owners'
+    copies are IDENTICAL FUNCTIONS OF DIFFERENT DATA and the refusal below covers them:
+    `workunits` sets `ch_wp.by_regime = None` on every mixed-catalogue channel leaf, so
+    `_wp_for(wp, unit)` returns that leaf's own `wp` unchanged and dispatches nothing.
+    (An earlier draft of this paragraph said `_wp_for` "ALREADY dispatches per regime".
+    It does not, here — the per-regime table is nulled one layer up, and it is the leaf's
+    own regime-pure `wp` that makes the answer right.  A false justification is how the
+    next change goes wrong.)
 
     So those five are REFUSED at `bind` when two owners disagree, rather than resolved.
     They cannot differ on a lawful run — both come from one `inbound_spec()` and one

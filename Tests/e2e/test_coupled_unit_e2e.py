@@ -276,6 +276,15 @@ def test_a_coupled_unit_matches_the_two_units_it_replaces(site):
 
     The size of the move is REPORTED per leaf (see the assertion messages), which is what
     the ticket asked the failure to produce.
+
+    THIS IS THE FIRST OF TWO HALVES.  It measures the PUT pool's break (site-dock 19) under
+    the fixture's default shape, which fields no dock at all: `receiving.crew` is 0, so
+    `recv_crew_spec` returns None and no dock, yard or receiving crew is constructed.  The
+    second half is `test_a_coupled_site_dock_matches_the_two_docks_it_replaces` below, which
+    turns the standing yard on and measures the RECEIVING break (site-dock 24).  They are
+    separate runs rather than one, deliberately: folding the dock into this fixture would
+    change the put numbers too, and a single test reporting one move for two causes is a
+    measurement nobody can attribute.
     """
     coupled_units, _ = _prepare(site, name='run_coupled')
     ua = coupled_units[0]
@@ -340,6 +349,162 @@ def test_a_coupled_unit_matches_the_two_units_it_replaces(site):
     # THE MEASUREMENT, reported rather than pinned: what the break cost, per leaf.
     print(f'\n  coupled vs uncoupled -- batches differing/total, put rows coupled/solo: '
           f'{moved}\n  put actors coupled={coupled_actors} solo={solo_actors}')
+
+
+# ── the site dock: one dock, one crew, one yard, where two of each stood ─────────
+
+def _recv_rows(db_path, run_id, role='receive'):
+    """`(actor_uid, t_abs, duration)` for every receive row of one run, in row order."""
+    con = sqlite3.connect(db_path)
+    try:
+        return con.execute(
+            'SELECT actor_uid, t_abs, duration FROM work_events WHERE run_id=? AND role=? '
+            'ORDER BY rowid', (run_id, role)).fetchall()
+    finally:
+        con.close()
+
+
+def _table_rows(db_path, table, run_id):
+    con = sqlite3.connect(db_path)
+    try:
+        return con.execute(f'SELECT COUNT(*) FROM {table} WHERE run_id=?',
+                           (run_id,)).fetchone()[0]
+    finally:
+        con.close()
+
+
+def _standing_yard(monkeypatch, site, crew=2):
+    """The standing-yard shape both halves of the dock measurement run under."""
+    g = rs.CONFIG['global']
+    monkeypatch.setitem(g, 'inbound_trailer_type', '28')
+    monkeypatch.setitem(g, 'inbound_standing_yard', True)
+    monkeypatch.setitem(g, 'inbound_dock_doors', 2)
+    site['shared']['staffing']['derived']['receiving']['crew'] = crew
+    return crew
+
+
+def test_a_coupled_site_dock_matches_the_two_docks_it_replaces(site, monkeypatch):
+    """THE SECOND COMPARABILITY BREAK, measured rather than argued — site-dock 24.
+
+    The first half above measured the PUT pool's move.  This is the receiving half, and the
+    cause is the same deletion seen from the other side: `workunits.py` handed EACH leaf the
+    whole derived RECEIVING crew, so two independent processes fielded the site's dock twice
+    — two docks, two yards, two crews of `crew` under one site that derives one crew of
+    `crew`.  A coupled unit now fields ONE of each, and every absolute receiving number on a
+    coupled run moves as a result.
+
+    What is asserted is again the relationship that makes the move a FIX:
+
+      * ONE dock, ONE yard and ONE receiving crew for the site, where uncoupled there were
+        two of each — so the site's receivers are `crew` people rather than `2 x crew`;
+      * a receiver's uid means the same person in BOTH channels' DBs and sits above the PUT
+        POOL's block, which itself sits above both channels' dense picker uids — so no
+        rollup joining on `actor_uid` can merge a receiver with a putter or a picker;
+      * the trailer- and door-denominated rows go to the SITE's own DB and to NEITHER leaf,
+        which is the artifact ADR-0005 declares and what stops one channel's yard scorecard
+        being rendered over the whole site's trailers while the other renders empty;
+      * THE PRICE LIST IS THE TWO CONSTANTS THAT ALREADY EXISTED (site-dock 27): the site
+        dock's per-regime entries are each channel's own `UnloadCost`, equal field for field
+        to the one an uncoupled leaf builds for itself — which is why the pricing decision
+        costs no comparability break of its own and this one comes wholly from FIELDING one
+        dock where two stood.
+
+    The size of the move is REPORTED per leaf.  A three-batch fixture cannot honestly PIN a
+    receiving number (site-dock 19's finding about this same fixture), so the numeric claim
+    lives outside the suite and what runs here is the structure.
+    """
+    crew = _standing_yard(monkeypatch, site)
+    coupled_units, _ = _prepare(site, name='run_dock_coupled')
+    ua = coupled_units[0]
+    ua['log_queue'] = queue.Queue()
+    sr._run_strategy_worker(ua)
+
+    # the same two arms, prepared and run the way an uncoupled run does: two docks, two
+    # yards, two crews of `crew` for the one site crew the record derives.
+    solo_dir = str(site['tmp'] / 'run_dock_solo' / 'mixed'); os.makedirs(solo_dir, exist_ok=True)
+    solo = []
+    for ch, cfg in site['channel_runs']:
+        sa, _ = wu._prepare_channel_run(ch, cfg, True, site['shared'], solo_dir,
+                                        site['log'], workers=1)
+        a = sa[0]
+        a['log_queue'] = queue.Queue()
+        sr._run_strategy_worker(a)
+        solo.append(a)
+
+    # ── one dock, one crew, one price list ───────────────────────────────────
+    pool = sr._build_put_pool(ua)
+    dock = sr._build_site_dock(ua, pool, site['log'])
+    assert dock is not None, 'the coupled unit fielded no site dock under a standing yard'
+    assert dock.dock.crew_size == crew, (
+        f'the site dock crew is {dock.dock.crew_size}, not the derived {crew}; uncoupled '
+        f'this site fields {2 * crew} receivers for a record that derives {crew}')
+    assert sorted(dock.dock.costs) == ['fulfillment', 'store'], dock.dock.costs
+    assert dock.dock.cost is None, (
+        'a site dock holds a price LIST and no single price; one of the two would silently '
+        'win and which one decides every receiving second on the run')
+    # THE TWO ENTRIES ARE THE TWO CONSTANTS AN UNCOUPLED LEAF ALREADY CHARGES, field for
+    # field — the pricing decision costs no break, and this is the assertion that says so.
+    for alone in solo:
+        want = sr._site_unload_cost(alone)
+        assert dock.dock.cost_for(alone['channel_regime']) == want, (
+            f"the site dock prices {alone['channel_regime']} differently from the dock "
+            f"that channel builds for itself")
+    # THE UID BLOCK chains off the POOL's end, which is above BOTH channels' pickers.
+    first_uid = dock.workers[0].uid
+    assert first_uid == pool.workers[-1].uid + 1, (
+        f'the receiving block starts at {first_uid}, not at the put pool block end '
+        f'{pool.workers[-1].uid + 1}; the smaller leaf receivers would land inside the '
+        f'putters block')
+
+    # ── the rows: the site DB carries the yard, and neither leaf does ────────
+    site_db = ua['site_db']
+    assert os.path.exists(site_db), (
+        f'a coupled standing run wrote no site DB at {site_db}; the trailer and drain rows '
+        f'belong to neither leaf (ADR-0005) and would otherwise be lost')
+    con = sqlite3.connect(site_db)
+    try:
+        site_run = con.execute('SELECT run_id FROM simulation_runs').fetchone()[0]
+        n_trailers = con.execute('SELECT COUNT(*) FROM yard_trailers').fetchone()[0]
+        n_drains = con.execute('SELECT COUNT(*) FROM yard_drains').fetchone()[0]
+    finally:
+        con.close()
+    assert n_trailers or n_drains, (
+        'the site DB holds no yard rows at all, so every assertion below about WHERE they '
+        'went would pass over an empty table')
+
+    moved, coupled_actors, solo_actors = {}, {}, {}
+    for leaf, alone in zip(ua['leaves'], solo):
+        ch = leaf['channel_key']
+        assert ch == alone['channel_key']
+        # NEITHER LEAF CARRIES A YARD ROW.  Uncoupled each leaf has its own; coupled they
+        # are the site's, and a leaf holding one would be a site number wearing one
+        # channel's name.
+        assert _table_rows(leaf['db_path'], 'yard_trailers', leaf['run_id']) == 0, (
+            f'{ch}: a coupled leaf recorded trailer rows; a trailer load is MIXED, so a '
+            f'per-leaf trailer table double-counts the site yard across the pair')
+        assert _table_rows(leaf['db_path'], 'yard_drains', leaf['run_id']) == 0, \
+            f'{ch}: a coupled leaf recorded yard drain rows'
+        assert _table_rows(alone['db_path'], 'yard_trailers', alone['run_id']) >= 0
+        cr = _recv_rows(leaf['db_path'], leaf['run_id'])
+        sr_ = _recv_rows(alone['db_path'], alone['run_id'])
+        coupled_actors[ch] = {u for u, _t, _d in cr}
+        solo_actors[ch] = {u for u, _t, _d in sr_}
+        moved[ch] = (len(cr), len(sr_),
+                     round(sum(d for _u, _t, d in cr), 1),
+                     round(sum(d for _u, _t, d in sr_), 1))
+    block = set(range(first_uid, first_uid + crew))
+    for ch, actors in coupled_actors.items():
+        assert actors <= block, (
+            f'{ch}: coupled receive rows name actors outside the site block '
+            f'{sorted(block)}: {sorted(actors - block)}')
+    _named = [a for a in coupled_actors.values() if a]
+    assert _named, f'neither leaf received anything: {moved}'
+    assert all(a == _named[0] for a in _named), (
+        f'the two leaves named different receivers: {coupled_actors}. One dock is ONE crew, '
+        f'so both channels must stamp the same uids')
+    print(f'\n  [site dock] coupled vs uncoupled -- receive rows c/u, seconds c/u: {moved}'
+          f'\n  receive actors coupled={coupled_actors} solo={solo_actors}'
+          f'\n  site DB run {site_run}: {n_trailers} trailer row(s), {n_drains} drain row(s)')
 
 
 # ── the site gain bundle: one provider, two owners, both transits ────────────────
@@ -422,7 +587,10 @@ def test_a_coupled_unit_binds_both_arms_into_one_site_gain_bundle(site, monkeypa
             f'defect itself')
     # ONE PROVIDER, ON BOTH TRANSITS.  A bundle each is the shape that cannot survive the
     # one shared yard (site-dock 24), and it would look identical until a trailer mixed.
-    assert len(transits) == 2, f'{len(transits)} standing yard(s) for two leaves'
+    # ONE standing yard for the whole site (site-dock 24).  This asserted TWO until the
+    # site dock landed, and the comment beside it already said why two could not survive:
+    # a mixed trailer needs one yard, and two would tick the SUPPLIER lead queue twice.
+    assert len(transits) == 1, f'{len(transits)} standing yard(s) for one site'
     for tr in transits:
         assert tr.gain_bundle is site_gain, (
             'a leaf hung its own bundle on its transit; one site is one gain provider')

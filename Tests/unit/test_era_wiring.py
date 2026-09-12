@@ -447,13 +447,19 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     assert '_overtime = float(last_finish) > _cap_end' in src, \
         'overtime is the last finish past the cap, computed before the verdict'
     assert '_drained = (not cut)' not in src, 'the verdict must not be re-derived inline'
-    assert '_shift_standing = (mgr.queue_depth, mgr.dock_depth, *_pending_split)' in src
+    # The standing tuple carries the DOCK FLOOR beside the put queues, and under a site
+    # dock it carries this leaf's SHARE of it -- `mgr.dock_depth` refuses on a coupled leaf
+    # because one floor holding both channels' merchandise has no per-channel answer.
+    assert '_shift_standing = (mgr.queue_depth,' in src
+    assert 'mgr.dock_depth if site is None' in src
+    assert 'else site.coord.dock_depth_for(mgr),' in src
+    assert '*_pending_split)' in src
     assert "if _reason == 'unpicked_daycut':" in src, 'the carry is split by cause family'
     # The boundary test precedes the fold of this batch's clocks/cut/depths, so a day closes
     # on ITS last batch's state (the log-only ledger mis-attributed every first batch).
     fold = src.index('_shift_last_finish = max(_shift_last_finish, arm_clock')
     assert src.index('elif _d != _shift_prev_day:') < fold
-    assert src.index('_shift_standing = (mgr.queue_depth, mgr.dock_depth') > fold
+    assert src.index('_shift_standing = (mgr.queue_depth,') > fold
     _ifpb = src.index('if pb:')
     _indent = src[:_ifpb].rsplit('\n', 1)[-1]     # the `if pb:` line's OWN indent
     tail = src[_ifpb:]

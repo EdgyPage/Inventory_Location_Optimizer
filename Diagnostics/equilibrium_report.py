@@ -70,6 +70,19 @@ def report(root: str, *, window: tuple[int, int] | None = None, arm: str | None 
     with open(rt.run_spec_json(), encoding='utf-8') as f:
         spec = json.load(f)
     staffing = spec.get('staffing') or {}
+    # THE COUPLED MARKER COSTS NOTHING HERE: `resolver_for` keeps the parsed layout on the
+    # resolver, so this is zero new I/O and -- because it never spells a filename -- zero
+    # new budget in the run-tree consumption ratchet.
+    coupled = bool((rt.layout or {}).get('coupled'))
+    #: On a coupled run the leaf verdict keeps `pick` and DROPS put and recv: those two are
+    #: the SITE's crews, and a leaf's seconds over a site crew is a share of a whole the
+    #: channel does not own. They are banded once, below, over both leaves' rows.
+    leaf_depts = eq.LEAF_DEPARTMENTS if coupled else eq.DEPARTMENTS
+    #: `(cell, pair, arm-pair)` -> `{channel: (rows, expectations, days)}`, accumulated as
+    #: the leaves are walked and banded once each pair is complete.  The REPORT assembles it
+    #: because the report is the half that walks the tree -- `equilibrium.py` states "no
+    #: CONFIG, no settings, no run tree" and means it.
+    site_rows: dict = {}
     results: dict = {}
     for cell, cr in rt.channel_runs():
         with open(rt.sim_meta(cr), encoding='utf-8') as f:
@@ -82,7 +95,7 @@ def report(root: str, *, window: tuple[int, int] | None = None, arm: str | None 
         except eq.RecordError as exc:
             out(f'{label}: no staffing expectations ({exc}); skipped')
             continue
-        for s in meta.get('strategies') or []:
+        for rank, s in enumerate(meta.get('strategies') or []):
             if arm and s['key'] != arm:
                 continue
             db = _db_path(rt, cr, s)
@@ -97,8 +110,18 @@ def report(root: str, *, window: tuple[int, int] | None = None, arm: str | None 
                     f'days {ledger[0]}-{ledger[1]}; refused')
                 continue
             arm_exp = eq.arm_expectations(expectations, s.get('expected_pick'))
+            if coupled:
+                # The rows this leaf contributes to its site's one banded clause.  Loaded
+                # here, where the db and the window are already resolved, rather than in a
+                # second walk that could disagree about either.
+                from Optimization.persistence.Picking_Data import (
+                    load_batch_stats, load_work_hours)
+                site_rows.setdefault((cell, cr.pair, rank), {})[channel] = (
+                    (load_batch_stats(db, run_id), load_work_hours(db, run_id)),
+                    arm_exp, list(range(lo, hi + 1)), s['key'])
             try:
-                v = eq.check(db, run_id, lo, hi, expectations=arm_exp)
+                v = eq.check(db, run_id, lo, hi, expectations=arm_exp,
+                             departments=leaf_depts)
             except eq.InstrumentError as exc:
                 out(f'{label} {s["key"]}: INSTRUMENT ERROR: {exc}')
                 results[f'{label}/{s["key"]}'] = {'instrument_error': str(exc)}
@@ -108,7 +131,74 @@ def report(root: str, *, window: tuple[int, int] | None = None, arm: str | None 
                 for line in bucket_table(v):
                     out('    ' + line)
             results[f'{label}/{s["key"]}'] = v.as_dict()
+    results.update(_site_verdicts(site_rows, out))
     return results
+
+
+def _site_verdicts(site_rows: dict, out) -> dict:
+    """One SITE verdict per `(cell, pair, arm-pair)`: put and recv banded ONCE.
+
+    Keyed by `(cell, pair, RANK)`, never by an arm key, and that is the whole of it: the
+    diagonal is rank against rank (site-dock 06), so the two halves of one pair are named
+    differently on any run whose channels sweep different rule subsets -- and keying on the
+    key would then put each leaf in its own bucket, leave every bucket one channel short,
+    and turn the site clause off for the entire run while reporting it as skipped.  The rank
+    is the leaf's position in its OWN ordered `sim_meta['strategies']`, which is the same
+    ordering `_prepare_site_run` zips the pair out of.
+
+    A pair with one channel is not banded: a site clause over half a site is a smaller
+    denominator, not a smaller site, and it would pass or fail for the wrong reason.
+    """
+    from Optimization.simconfig import equilibrium as eq
+    out_results: dict = {}
+    for (cell, pair, rank), by_channel in sorted(site_rows.items()):
+        label = '/'.join(p for p in (cell, pair, 'site') if p)
+        # The ARM PAIR, spelled the way the site DB's own filename stem spells it: the two
+        # halves in declared channel order, store first.  A rank is what IDENTIFIES the pair;
+        # this is what a reader recognises it by.
+        arm = '__'.join(by_channel[ch][3] for ch in ('store', 'fulfillment')
+                        if ch in by_channel)
+        if len(by_channel) < 2:
+            out(f'{label} {arm}: only {sorted(by_channel)} reached the site clause; '
+                f'skipped -- put and recv are the SITE crews and half a site is a wrong '
+                f'denominator, not a small one')
+            continue
+        windows = {ch: (d[0], d[-1]) for ch, (_r, _e, d, _k) in by_channel.items()}
+        if len(set(windows.values())) != 1:
+            # A leaf that closed fewer days would be banded over days it never ran in:
+            # `granted = crew x S x n_days` is then wrong for one channel while the realized
+            # sum mixes two windows, and the clause still returns a pass/FAIL. Refused for
+            # the same reason half a site is.
+            out(f'{label} {arm}: the channels closed different windows ({windows}); '
+                f'skipped -- one site crew works one day, and banding two windows as one '
+                f'grants hours nobody worked')
+            continue
+        days = next(iter(by_channel.values()))[2]
+        clause = eq.site_utilization_clause(
+            {ch: rows for ch, (rows, _e, _d, _k) in by_channel.items()}, days,
+            {ch: exp for ch, (_r, exp, _d, _k) in by_channel.items()})
+        out(f'{label} {arm}: site_utilization='
+            f'{"ok" if clause.passed else "FAIL"} '
+            f'({_site_reading(clause)})')
+        out_results[f'{label}/{arm}'] = clause.as_dict()
+    return out_results
+
+
+def _site_reading(clause) -> str:
+    """The site clause as one line: each department's banded site number, then the
+    per-channel SHARES beside it -- never instead of it (memory
+    `a-right-site-total-hides-two-wrong-shares`: a right site total hid two bands failing in
+    opposite directions)."""
+    parts = []
+    for dept, r in clause.reading.items():
+        if 'absent' in r:
+            parts.append(f'{dept} absent ({r["absent"]})')
+            continue
+        shares = ' '.join(f'{ch[:1]}={v["share_of_site_grant"]:.3f}'
+                          for ch, v in r['per_channel'].items())
+        parts.append(f'{dept} {r["realized"]:.3f} vs {r["expected"]:.3f} '
+                     f'[{shares}]')
+    return '; '.join(parts)
 
 
 def bucket_table(verdict) -> list[str]:

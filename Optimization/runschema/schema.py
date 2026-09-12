@@ -154,6 +154,49 @@ _FIGURE_FAMILY_EXTRAS: dict = {
 }
 
 
+#: Families that ALSO render into a SITE tree, `<pair>/_site/figures/<family>/`.  Tied by
+#: test to `core.families.SITE_SCOPE_FAMILIES`, exactly as the leaf tuple is tied to
+#: `LEAF_FAMILIES` and for the same reason (this module imports nothing).
+#:
+#: `yard` is in BOTH tuples, and the overlap is the declaration rather than an oversight: a
+#: yard is a LEAF's on an uncoupled run — each channel fields its own transit, dock and crew
+#: — and the SITE's on a coupled one, where one dock serves both channels and the trailer-
+#: and door-denominated rows belong to neither leaf (ADR-0005).  Two run shapes, two homes,
+#: one family; dropping the leaf glob would undeclare the yard tree of every run in the
+#: archive, and two uncoupled channel leaves would collide in one pair-level directory.
+_SITE_FIGURE_FAMILIES = ('yard',)
+
+#: family -> every SITE-SCOPE evaluation that writes into it.  Unhashed attribution, like
+#: its per-leaf twin, so it cannot move `schema_id`.
+_SITE_FAMILY_EVALUATIONS: dict = {
+    'yard': ['yard.site_binding', 'yard.site_detention', 'yard.site_fee',
+             'yard.site_scorecard'],
+}
+
+
+def _site_figure_globs() -> dict:
+    """`figures_site_<family>_pngs` for every family that renders into a site tree.
+
+    OPTIONAL and conditioned on coupling, the same shape the per-leaf `yard` glob already
+    carries for the standing yard: a run that is not coupled has no site tree at all, which
+    is an absence of a model rather than an empty folder.
+    """
+    out: dict = {}
+    for family in _SITE_FIGURE_FAMILIES:
+        out[f'figures_site_{family}_pngs'] = {
+            'evaluation': list(_SITE_FAMILY_EVALUATIONS[family]),
+            'path': '{cell}/{pair}/_site/figures/' + family + '/*.png',
+            'format': 'png', 'scope': 'pair', 'group': 'figures',
+            'optional': True,
+            'condition': 'COUPLED runs only (`--couple-channels`), where one dock and one '
+                         'yard serve both channels and the trailer rows belong to neither '
+                         'leaf. Absent from every uncoupled run, whose yard figures live '
+                         'in each leaf own figures/yard/ instead.',
+            'writer': 'prepare_site_dir@Optimization/Performance_Evaluations/driver.py',
+        }
+    return out
+
+
 def _figure_globs() -> dict:
     """`figures_<family>_pngs` for every family whose figures land in a per-leaf tree.
 
@@ -384,6 +427,31 @@ ARTIFACTS = {
         'condition': 'flat aggregate stats suite only (not BY_INITIAL).',
         'writer': 'render@Optimization/Performance_Evaluations/aggregate/tables.py'},
 
+    # ── per pair: the SITE, one coupled unit's third output ─────────────────────
+    # ADR-0005.  A trailer's load is mixed by construction and a door is occupied by the
+    # trailer rather than by either channel's share of it, so trailer- and door-denominated
+    # rows belong to neither channel leaf.  `<pair>/` is the only directory that dominates
+    # both of them (their configs are siblings), and `_site` is the RESERVED-prefix pattern
+    # `_dossier` established: a literal segment on ordinary artifacts, never a new LEVEL.
+    'site_dir': {
+        'path': '{cell}/{pair}/_site', 'format': 'dir', 'scope': 'pair', 'optional': True,
+        'condition': 'COUPLED runs only; created by the worker that writes the site DB '
+                     'into it, and the analysis wipes only its own subdirs under it.',
+        'writer': 'finish@Optimization/simdriver/strategy_runner.py',
+        'note': 'the site stage root — the pair-scope twin of `_dossier`.'},
+    'site_inbound_db': {
+        'family': 'sim_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
+        'path': '{cell}/{pair}/_site/inbound_{strategy}.db', 'format': 'sqlite',
+        'scope': 'pair', 'optional': True,
+        'tables': ['yard_trailers', 'yard_drains'],
+        'condition': 'COUPLED runs that actually received something. `{strategy}` is the '
+                     'ARM PAIR, `<store_arm>__<fulfillment_arm>` — one file per arm pair, '
+                     'on the sim_db precedent of putting the arm in the filename stem '
+                     'rather than in a directory.',
+        'writer': 'finish@Optimization/simdriver/strategy_runner.py',
+        'note': 'a sim DB carrying only the two yard tables, so every analysis broker '
+                'binds it with no new loader: they key on db_path and run_id alone.'},
+
     # ── per pair (inside a cell) ────────────────────────────────────────────────
     'warehouse_db': {
         'family': 'warehouse_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
@@ -454,6 +522,7 @@ ARTIFACTS = {
     # GENERATED from `_LEAF_FIGURE_FAMILIES` above, byte-for-byte as they were typed out
     # here before.  Filenames carry a `<view>_` prefix validated at save time.
     **_figure_globs(),
+    **_site_figure_globs(),
     'batches_long_csv': {
         'evaluation': 'tables.per_run',   # unhashed attribution -> @evaluation key (see contract._shape_only)
         'path': '{cell}/{pair}/{config}/{channel?}/batches_long.csv',

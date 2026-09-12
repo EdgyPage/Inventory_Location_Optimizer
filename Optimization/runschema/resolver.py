@@ -257,6 +257,43 @@ class RunTree:
         """<run>/_dossier — the run-scope stage root, the twin of `aggregate_dir`."""
         return self.path('dossier_dir')
 
+    # ── the site (a coupled run's third output) ────────────────────────────────
+    def site_dir(self, cell: str, pair: str) -> str:
+        """<cell>/<pair>/_site — the site stage root, the pair-scope twin of `dossier_dir`.
+
+        Present on COUPLED runs only.  A consumer asks whether it exists rather than
+        assuming: `exists('site_dir', cell=, pair=)`.
+        """
+        return self.path('site_dir', cell=cell, pair=pair)
+
+    def site_inbound_dbs(self, cell: str, pair: str) -> list[str]:
+        """Every arm pair's site inbound DB under one pair — `[]` on an uncoupled run.
+
+        Through `glob`, so the arm-pair part is wildcarded by the CONTRACT rather than by a
+        joined `_site/inbound_*.db` literal: the segment, the prefix and the extension all
+        live in one template and a consumer that spelled them again would be a second
+        declaration to keep in step.
+        """
+        return self.glob('site_inbound_db', cell=cell, pair=pair)
+
+    def arm_pair_of(self, site_db: str) -> str:
+        """'…/_site/inbound_uni_fifo__opt_lpt.db' -> 'uni_fifo__opt_lpt'.
+
+        Inverts the declared template the way `strategy_of` inverts `sim_db`'s, and for the
+        same reason: renaming the site DB pattern in `schema.py` must not leave a consumer
+        slicing fixed prefix and suffix lengths behind.  The arm pair is ONE capture, not
+        two — the store and fulfillment halves are joined by `__` inside the stem, and the
+        pair, not either half, is what a site evaluation is keyed by.
+        """
+        rel = os.path.relpath(os.path.abspath(site_db), self.base).replace('\\', '/')
+        m = _capture_regex(self.artifacts['site_inbound_db']['path'], 'strategy').match(rel)
+        if m:
+            return m.group('capture')
+        stem = os.path.basename(site_db)
+        tail = self.artifacts['site_inbound_db']['path'].rsplit('/', 1)[-1]
+        m = _capture_regex(tail, 'strategy').match(stem)
+        return m.group('capture') if m else os.path.splitext(stem)[0]
+
     # ── channel runs (the analysis leaf) ───────────────────────────────────────
     def channel_runs(self, cell: str | None = None) -> Iterator[tuple[str, runlayout.ChannelRun]]:
         """Yield (cell_name, ChannelRun) for every analyzed leaf.  `cell=None` spans the whole run.

@@ -63,6 +63,23 @@ the model `work_events` already declares. The overlap is bounded by one batch's 
 makespan. Widening `_put_base` to include the dock's finish would over-correct — it would
 make the first pallet off the truck wait for the last — and the honest fix needs a dock
 coordinate and a per-unit handoff instant, neither of which exists.
+
+# ── one dock, one price, or one dock and a price LIST ─────────────────────────────
+
+A per-leaf dock holds ONE `UnloadCost`, derived from that channel's own pick config, and
+that is every run on disk.  A SITE dock serves two channels whose pick configs differ, and
+"Decide the site dock's unload price" (site-dock 27, user, 2026-09-11) settled whose price
+it charges: **the unload price is a statement about the MERCHANDISE, not about the crew**,
+so the site dock holds a price LIST keyed by the unloaded unit's own regime.  A fulfillment
+tote genuinely is quicker to move than a store pallet, and one crew can work at two rates
+without incoherence — which is exactly what `Inbound/putaway_pool.py` already established
+one crew over, where `s_put` is keyed by channel while the putters are one pool.
+
+The list is not a mode the single-channel path runs with a one-entry map: `costs` is None
+on every uncoupled dock and `cost` is None on every site dock, so a dock holds exactly one
+of the two and the other is structurally absent.  That is what keeps every archived run
+byte-identical — an uncoupled leaf builds its own dock from its own pick config exactly as
+it always did, and `unload_seconds` never so much as resolves a regime.
 """
 from __future__ import annotations
 
@@ -70,6 +87,7 @@ from collections import deque
 from dataclasses import dataclass
 
 from Warehouse.kernel import crew_clock
+from Warehouse.kernel.regime import regime_of
 from Inbound.unload import UnloadCost, unload_cost
 
 
@@ -101,14 +119,37 @@ class DockSpec:
 class Dock:
     """One spec, one crew clock, and the merchandise standing on the floor."""
 
-    __slots__ = ('spec', 'items', 'clocks', 'cost', 'records', 'repacks',
+    __slots__ = ('spec', 'items', 'clocks', 'cost', 'costs', 'records', 'repacks',
                  'unloaded', 'cut', 'seconds', 'deliveries')
 
-    def __init__(self, spec: DockSpec, cost=None):
+    def __init__(self, spec: DockSpec, cost=None, costs: dict | None = None):
         self.spec = spec
+        #: THE SITE'S PRICE LIST, or None.  `{regime: UnloadCost}` — the per-regime form
+        #: site-dock 27 decided, held here because the dock is the object 21 leaves the
+        #: coordinator already priced.  A dock holds `cost` OR `costs`, never both and
+        #: never neither: an uncoupled dock keeps the single price it has always had and
+        #: `costs` is None, so `unload_seconds` below never resolves a regime and the
+        #: uncoupled path is byte-identical rather than merely equivalent.
+        if cost is not None and costs is not None:
+            raise ValueError(
+                f'{spec.name}: a dock was handed both one price and a per-regime price '
+                f'list. One of the two would silently win, and which one decides every '
+                f'receiving second on the run — an uncoupled dock takes `cost`, a site '
+                f'dock takes `costs` (site-dock 27)')
+        if costs is not None:
+            if not costs:
+                raise ValueError(
+                    f'{spec.name}: an empty price list prices nothing, so the first unit '
+                    f'off the first trailer would refuse — after the doors were filled '
+                    f'and the crew charged')
+            costs = dict(costs)
+        self.costs = costs
         # The default is HERE rather than at the binder: the manager may not import this
         # package (the broker seam is injection), so the dock must arrive fully priced.
-        cost = cost if cost is not None else UnloadCost()
+        # NOT applied under a price list: "no price for this regime" must stay reachable
+        # as a refusal, and a class default here would answer it with the kernel's 0.5 s.
+        if costs is None:
+            cost = cost if cost is not None else UnloadCost()
         self.items: deque = deque()
         # BOUND AT CONSTRUCTION, unlike PutQueue's clocks, which are None until
         # `_bind_put_crews` reaches them. A dock is not a member of `PutQueueSet`, so nothing
@@ -213,11 +254,51 @@ class Dock:
         """
         return crew_clock.charge_subset(self.clocks, idxs, dur)
 
-    def unload_seconds(self, weight: float, volume: float, quantity: int) -> float:
+    def cost_for(self, regime: str) -> UnloadCost:
+        """This dock's price for merchandise of `regime` — a SITE dock only.
+
+        Refuses on an uncoupled dock rather than answering with its one price: "which
+        regime's price" is a question that dock has no opinion about, and an answer would
+        make the caller's regime resolution look consulted when it was ignored.
+        """
+        if self.costs is None:
+            raise ValueError(
+                f'{self.spec.name}: this dock holds ONE unload price, not a per-regime '
+                f'list, so it cannot price {regime!r} separately from anything else. Only '
+                f'a SITE dock carries a list (site-dock 27)')
+        try:
+            return self.costs[regime]
+        except KeyError:
+            raise ValueError(
+                f'{self.spec.name}: no unload price for the {regime!r} regime; this dock '
+                f'prices {sorted(self.costs)!r}. A regime with no entry is merchandise the '
+                f'site never declared a channel for, and pricing it at another regime rate '
+                f'would charge a store pallet at a tote price with nothing saying so'
+            ) from None
+
+    def unload_seconds(self, weight: float, volume: float, quantity: int,
+                       unit=None) -> float:
         """Seconds to take ONE storage unit off a trailer, priced by this dock's own cost
         model — here so the manager needs no import of `unload`; the dock owns its price
-        list."""
-        return unload_cost(weight, volume, quantity, self.cost)
+        list.
+
+        `unit` is the `StorageUnit` being taken off, and it is read ONLY by a site dock:
+        the price list is keyed by the unit's own regime (site-dock 27), so the resolution
+        happens here, at the charge site, where every caller already holds the unit.  An
+        uncoupled dock has `costs is None` and returns before ever looking at it — which is
+        what keeps the archived path byte-identical AND keeps `regime_of`'s six `getattr`s
+        out of a hot loop that has no use for them.
+        """
+        cost = self.cost
+        if cost is None:
+            if unit is None:
+                raise ValueError(
+                    f'{self.spec.name}: a site dock was asked for an unload price with no '
+                    f'unit to resolve the regime from. The price list is keyed by the '
+                    f'merchandise, so "how long does an unload take" has no site-wide '
+                    f'answer — the caller has the unit in hand at every charge site')
+            cost = self.cost_for(regime_of(unit))
+        return unload_cost(weight, volume, quantity, cost)
 
     @property
     def finish(self) -> float:
@@ -228,6 +309,19 @@ class Dock:
         crew_clock.reset(self.clocks)
 
     # ── handing the batch over ────────────────────────────────────────────────────
+    def take_records(self) -> list:
+        """This batch's unload records, WITHOUT restarting the crew's clock.
+
+        `drain_records` is this plus the reset, and the reset is the half that has exactly
+        ONE owner.  Uncoupled that owner is `drain_records` itself and nothing calls this;
+        on a coupled run the site's receiving coordinator partitions these rows between two
+        leaves and the reset belongs to `SiteReceiving.note_records`, which fires once both
+        leaves have stamped — so the coordinator needs the rows without the reset rather
+        than a second reset it would have to undo.
+        """
+        recs, self.records = self.records, []
+        return recs
+
     def drain_records(self) -> list:
         """This batch's unload records, and start the crew's clock over.
 
@@ -239,7 +333,7 @@ class Dock:
         the whole arm while the runner still adds the epoch, and every row after batch 0 is
         stamped too late by the total receiving seconds of every preceding batch.
         """
-        recs, self.records = self.records, []
+        recs = self.take_records()
         self.reset_clocks()
         return recs
 
