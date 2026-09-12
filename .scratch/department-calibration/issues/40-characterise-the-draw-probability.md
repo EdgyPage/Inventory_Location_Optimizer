@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 45
+Blocked by: 46
 
 Graduated 2026-09-12 from
 [Close the fulfillment fill-law gap](38-close-the-fulfillment-fill-law-gap.md), decisions 2, 3, 6
@@ -139,3 +139,12 @@ for THIS ticket when it resumes:
   and it is an artifact: that SKU sits at index 131,071 = 2^17 - 1, a Fenwick boundary. The
   argument for `Binomial(K, p_s)` stands on the sampler drawing DISTINCT SKUs once a day, which is
   structural; do not re-use this number to support it.
+
+2026-09-12, a wayfinder session (resolving 45). **Re-blocked on
+[Re-take the reference run under v3 and re-establish the gap](46-retake-the-reference-run-under-v3.md)
+instead of 45, by user decision to hoist the run in front of the form work.** 45 found that
+v2's defect manufactured the evidence this chain exists to explain, so whether `p_s` is worth
+characterising at all now depends on whether a gap survives a v3 run. Two facts carry forward
+regardless: the two `_drawp_*.npz` artifacts in the reference pair are v2 characterisations and
+must be re-drawn, and `max p` = 0.8044 is confirmed an artifact -- under v3 no fulfillment SKU
+is drawn on even half the days, against 335 that were under v2.

@@ -80,19 +80,19 @@ def lead_for(seq: int, seed: int, tag: int, lead_s: float, sigma: float) -> floa
     return lead_s * float(np.exp(sigma * rng.standard_normal()))
 
 
-def batch_days(pair_dir: str, leaf_skus: set, lo: int, hi: int) -> list:
-    """The sampler's line sets for days `lo..hi`, from the pair's own batch cache.
+def batch_days(batch_dir: str, leaf_skus: set, lo: int, hi: int) -> list:
+    """The sampler's line sets for days `lo..hi`, from a batch cache directory.
 
     A mixed catalogue writes one file per channel; the one whose SKUs are a subset of this
     leaf's is this leaf's.  Membership, not the filename -- the fingerprint in the name
     carries no channel.
     """
-    for p in sorted(glob.glob(os.path.join(pair_dir, '_batches_*.pkl'))):
+    for p in sorted(glob.glob(os.path.join(batch_dir, '_batches_*.pkl'))):
         with open(p, 'rb') as f:
             batches = pickle.load(f)['batches']
         if set().union(*[set(b.items) for b in batches]) <= leaf_skus:
             return [set(batches[d].items) for d in range(lo, hi + 1)]
-    raise SystemExit('no batch cache under this pair belongs to the leaf')
+    raise SystemExit('no batch cache in %s belongs to the leaf' % batch_dir)
 
 
 def matrix(days: list, index: dict) -> np.ndarray:
@@ -153,6 +153,11 @@ def main() -> int:
     ap.add_argument('--pair', required=True)
     ap.add_argument('--cell', default='k1_off')
     ap.add_argument('--inventory', required=True, help="the pair's inventory.db")
+    ap.add_argument('--batch-dir', default=None,
+                    help='directory holding the `_batches_*.pkl` to measure. Defaults\n'
+                         'to the pair directory (the run\'s own script). Point it at a\n'
+                         'script drawn under a DIFFERENT sampler to re-measure the\n'
+                         'repeat structure without touching the archived run.')
     ap.add_argument('--realized-missed', nargs=2, type=float, metavar=('STORE', 'FUL'),
                     default=(0.0302, 0.1044),
                     help="the run's own realized missed share per leaf, for the score")
@@ -163,6 +168,7 @@ def main() -> int:
         raise SystemExit('COMPARISON_OUTPUT_DIR is not set -- see the README (.env)')
     run = os.path.join(out, args.run)
     pair_dir = os.path.join(run, args.cell, args.pair)
+    batch_dir = args.batch_dir or pair_dir
     lo, hi = WINDOW
     D = hi - lo + 1
 
@@ -240,7 +246,7 @@ def main() -> int:
 
         # ── 1 + 3: the sampler's own draws ──────────────────────────────────────
         leaf = {int(c.sku) for c in orders}
-        days = batch_days(pair_dir, leaf, lo, hi)
+        days = batch_days(batch_dir, leaf, lo, hi)
         touched = sorted(set().union(*days))
         M = matrix(days, {sk: i for i, sk in enumerate(touched)})
         counts = M.sum(axis=1)
@@ -261,8 +267,17 @@ def main() -> int:
         emp_pp = prior_prob(m_all, ks, pv)
         perm = [prior_prob(permute(M, counts, rng), ks, pv) for _ in range(REPS)]
         p1 = 1.0 - np.exp(-rate_all)
-        shr = [prior_prob(np.random.default_rng(4200 + sd).random((len(orders), D))
-                          < p1[:, None], ks, pv) for sd in range(3)]
+        shr_M = [np.random.default_rng(4200 + sd).random((len(orders), D)) < p1[:, None]
+                 for sd in range(3)]
+        shr = [prior_prob(m, ks, pv) for m in shr_M]
+        # The CONCENTRATION signature: how many distinct SKUs the window touches,
+        # empirically vs under the share law being exactly true.  38 read the
+        # shortfall here as affinity clustering; measuring both counts in one place
+        # is what lets a later sampler version tell clustering from a draw defect.
+        shr_touched = float(np.mean([int((m.sum(axis=1) > 0).sum()) for m in shr_M]))
+        print('    SKUs touched: empirical %d   share-law-true control %.0f   (%+.1f%%)'
+              % (len(touched), shr_touched,
+                 100.0 * (len(touched) - shr_touched) / shr_touched))
         print('    P(prior line within K | a line):')
         print('      permutation control (counts kept)  %.5f  -> temporal alone %+.5f'
               % (float(np.mean(perm)), emp_pp - float(np.mean(perm))))

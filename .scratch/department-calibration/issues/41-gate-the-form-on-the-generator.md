@@ -26,7 +26,23 @@ distribution](39-measure-the-repeat-structure-and-lead-distribution.md) measured
 |---|---|---|
 | the record's Poisson at the declared line share | 0.00607 | 0.04140 |
 | share-law-true control | 0.00661 | 0.03991 |
-| **EMPIRICAL** | **0.01052** | **0.14938** |
+| **EMPIRICAL (v3, the declared sampler)** | **0.00721** | **0.03485** |
+
+**RE-TARGETED 2026-09-12** by
+[Re-measure the fill-law targets under v3](45-remeasure-the-fill-targets-under-v3.md). The v2
+targets this ticket was written against were **0.01052 / 0.14938** and they were an artifact:
+the v2 sampler drew 335 fulfillment SKUs on at least half the measured days, and those carried
+the repeat statistic (lag-1 co-occurring pairs 4,815 -> 1,037 under v3, on 9% MORE lines).
+
+**The question is now INVERTED on fulfillment.** The record no longer under-prices its event
+3.74x; it **over**-prices it by 16% (0.04140 against an empirical 0.03485), while still
+under-pricing the store by 19% (0.00607 against 0.00721). The two channels err in OPPOSITE
+directions, so no single multiplicative correction can close both -- the pre-registered fatal
+signature below, arriving before the form was built. Note also that `Binomial(K, p_s)` gives a
+strictly LOWER `P(N >= 1)` than a Poisson of the same mean, so at equal mean it moves
+fulfillment toward its target and the store away from it; whether the measured `p_s` differs
+enough from the declared rate to change that is precisely this ticket's question, and it must
+be answered rather than assumed in either direction.
 
 **PASS: within 10% RELATIVE on BOTH channels.** Relative rather than absolute because the two
 targets are 14x apart, so an absolute band would be vacuous on one and brutal on the other.

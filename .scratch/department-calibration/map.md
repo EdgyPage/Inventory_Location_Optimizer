@@ -682,6 +682,12 @@ regime someone chose rather than one the defaults inherited.
   `_MAX_FLOOR_LINES` refuses. **The mechanism is argued from the sampler's structure, NOT yet
   measured** -- the gate exists to falsify it in minutes. Four `task` tickets carry the build.
 
+  **INVALIDATED ON ITS CENTRAL CLAIM, 2026-09-12** by
+  [Re-measure the fill-law targets under v3](issues/45-remeasure-the-fill-targets-under-v3.md):
+  the concentration this rests on was the v2 sampler's duplicate draws, not affinity. The
+  ticket stays closed -- the route did walk through it, and its rejected alternatives (the
+  per-SKU rate substitution, the re-weighted lift) are still rejected for their own reasons --
+  but do not carry its numbers forward.
 - [Fix the sampler's duplicate draws as v3](issues/44-fix-the-sampler-duplicate-draws.md):
   BUILT and declared. The inherited mechanism is REFUTED (0/73 duplicates in batch 2 had
   `u > true_total`; drift alone produces none at all) -- it is catastrophic cancellation under a
@@ -693,6 +699,20 @@ regime someone chose rather than one the defaults inherited.
   sampler promising distinct draws (v2 exempt). 9 gates in `Tests/unit/test_batch_sampler_v3.py`,
   proven non-vacuous against v2. v2's second failure mode -- an early break returning fewer than
   `k` with no repeats -- is recorded so a short batch is never read as a collapse.
+
+- [Re-measure the fill-law targets under v3](issues/45-remeasure-the-fill-targets-under-v3.md):
+  the targets are REVERSED, not restated. v2's defect manufactured the evidence -- 335
+  fulfillment SKUs were drawn on at least half the measured days (one on 17 of 20) and carried
+  the repeat statistic; under v3 the maximum is 5 and none reaches half. Every symptom is gone:
+  touched-SKU shortfall -25.2% -> **+3.3%** (38's concentration premise is DEAD), lag-1
+  suppression 0.838x -> 1.014x (GONE, so the Out-of-scope entry below is amended), and the
+  prior-line probability 3.74x the record's Poisson -> **0.87x**. New targets **0.00721 store /
+  0.03485 fulfillment**: the record now UNDER-prices the store 19% and OVER-prices fulfillment
+  16%, in OPPOSITE directions, so 39's single multiplier cannot be the shape. The realized
+  missed shares are v2 outcomes and could not be re-measured here. USER DECISION: hoist the run
+  in front of the form work -- 40 now waits on
+  [Re-take the reference run under v3](issues/46-retake-the-reference-run-under-v3.md).
+  The v2 baseline was reproduced first, exactly, so every difference is the sampler.
 
 ## Not yet specified
 
@@ -800,8 +820,15 @@ regime someone chose rather than one the defaults inherited.
   everything else: re-weighting the lift, the frequency profiles, and characterising the sampler's
   intended behaviour all stay out. **The lag-1 suppression above is now a suspect rather than a
   mystery** -- a duplicate draw consumes a slot another SKU would have taken -- and
-  [Re-measure the fill-law targets under v3](issues/45-remeasure-the-fill-targets-under-v3.md)
-  re-measures it; if it vanishes under v3 this entry comes out.
+  **RESOLVED 2026-09-12: it was the defect.** Under v3 fulfillment's lag-1 lift is 1.0138x,
+  inside the permutation control's own spread, against 0.8383x under v2 -- a duplicate draw was
+  consuming a slot another SKU would have taken, exactly as 44 suspected. What is left here for
+  the sampler effort is smaller and DIFFERENT: the STORE's lag structure did not settle, going
+  0.846 / 1.808 / 1.657 to 0.848 / 0.842 / 3.022, lag 3 rising as lags 1-2 fall. The counts are
+  small (121 co-occurring pairs against a permutation expectation near 40) but the excess is
+  many sd. It moves the store's aggregate barely -- 1.09x its share-law-true control against
+  1.59x under v2 -- so it is too small to carry a fill-law argument either way, and consecutive
+  per-batch seeds remain the untested suspect.
   **SEED MATERIAL, 2026-09-12** (measured while resolving 44, and left here rather than
   ticketed, because it is about the sampler's DESIGN and not a defect): the lift model
   compounds without bound. Affinity lift is **2.8-5.0, median 4.5**, over a **median 35
