@@ -121,7 +121,7 @@ def test_the_coordinator_returns_the_yard_row_rather_than_recording_it():
     mgr._now_s = 10_000.0
     mgr._release_arrivals()
 
-    row = mgr.receiving.receive(mgr, None)
+    row = mgr.receiving.receive((mgr,), None)
 
     assert isinstance(row, tuple) and len(row) == 4, row
     assert mgr.drain_yard_drains() == [], (
@@ -270,3 +270,529 @@ def test_the_site_composition_substitutes_only_the_receive_phase():
     assert (len(seen_viacrd) == len(seen_direct)
             and sum(a != b for a, b in zip(seen_direct, seen_viacrd)) == 1), (
         'the site composition differs from check_reorders by more than the receive phase')
+
+
+# ══════════════════════════════════════════════════════════════════════════════════
+# THE COUPLED HALF: one dock, one yard, TWO leaves
+# ══════════════════════════════════════════════════════════════════════════════════
+#
+# Everything above is the one-leaf coordinator, and it stays true.  What follows is the
+# thing that coordinator existed to make possible: a mixed trailer arriving at a site
+# whose two channels are two separate managers, two separate warehouses and two separate
+# ledgers.  Four claims, and each fails for its own reason:
+#
+#   1. THE TWO ROUTES.  A bare lot resolves its packer from the `{sku: leaf}` owner dict;
+#      an unloaded unit resolves its taker from `regime_of`.  They are cross-checked,
+#      because a disagreement is a ledger balancing in the wrong warehouse.
+#   2. THE REFUSALS, and every one of them guards a SILENT wrong answer: an overlapping
+#      partition, a second yard behind one dock, a partial site drain, two epochs over one
+#      set of doors, a leaf reading the site's dock as its own.
+#   3. THE SPACE VIEW is contributed TAGGED once there are two, which is what partitions
+#      `empties` so a mixed trailer's store units rank against store bins.
+#   4. THE SITE RECEIVING CLOCK: one base, asked for twice, committed once.
+
+from Warehouse.kernel.timeline import WorkDay
+
+from Tests.unit.test_standing_yard import _order, _warehouse
+
+from Inbound.dock import Dock, DockSpec
+from Inbound.pack import packer as _packer
+from Warehouse.catalog.Order import StorageHandleConfig
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.kernel.regime import regime_of
+
+
+#: The two channels, in the declared order the driver binds them in.  Store first, which
+#: is also the order a mixed trailer's lots load in.
+_STORE, _FUL = 'store', 'fulfillment'
+
+#: Disjoint sku blocks, one per channel -- the catalogue partition a coupled unit asserts
+#: at the driver and this coordinator asserts again at bind.
+_STORE_SKUS = (101, 102)
+_FUL_SKUS = (201, 202)
+
+
+def _ful_order(sku: int):
+    """A fulfillment-regime order: same shape as `_order`, fulfillment storage type.
+
+    That one field is the whole difference `regime_of` reads -- the packer then produces
+    `FulfillmentBin` units whose `unit_category` says so, which is how step 4 routes
+    without anything being stamped at the unit level.
+    """
+    c = _order(sku)
+    c.storage_type = (_FUL, _FUL)
+    c.storage_handle_config = StorageHandleConfig(_FUL, _FUL)
+    c.lift_group = (_FUL, _FUL)
+    return c
+
+
+def _leaf(transit, skus, ful: bool):
+    """One channel's manager, sharing `transit` with its sibling.
+
+    No dock and no coordinator of its own: under coupling BOTH are the site's, and this is
+    the shape the driver will build -- the coordinator is constructed once, above, and
+    bound onto each leaf.
+    """
+    mgr = Inventory_Manager(_warehouse())
+    for sku in skus:
+        mgr._originals[sku] = _ful_order(sku) if ful else _order(sku)
+    mgr.transit = transit
+    mgr.packer = _packer
+    return mgr
+
+
+def _site(crew: int = 2, day=None, **yard_kw):
+    """`(coordinator, store_leaf, ful_leaf)` — one dock, one yard, two bound leaves."""
+    transit = _yard(**yard_kw)
+    dock = Dock(DockSpec(size=crew, sources=('reorder', 'trailer')))
+    crd = SiteReceiving(dock, transit, day=day)
+    store = _leaf(transit, _STORE_SKUS, ful=False)
+    ful = _leaf(transit, _FUL_SKUS, ful=True)
+    for leaf, ch in ((store, _STORE), (ful, _FUL)):
+        leaf.enable_receiving(dock)
+        leaf.receiving = crd
+        crd.bind(leaf, ch)
+    return crd, store, ful
+
+
+def _mixed_trailer(crd, store, ful, epoch: float = 10_000.0):
+    """Fire one reorder from each channel into the ONE yard and land the trailer.
+
+    Both leaves dispatch into the same transit, so the open trailer carries store lots and
+    fulfillment lots — the charter's mixed LOAD, which is the thing the owner routing
+    exists for.  `_release_arrivals` is driven per leaf (the site composition's phase 3)
+    and is a structural no-op in standing mode: it lands the trailer in the yard.
+    """
+    for leaf, skus in ((store, _STORE_SKUS), (ful, _FUL_SKUS)):
+        for sku in skus:
+            _dispatch(leaf, sku, 6, POSITION_VOLUME // 2, epoch)
+    for leaf in (store, ful):
+        leaf._now_s = epoch
+        leaf._release_arrivals()
+
+
+# ── 5. the two routes, and the cross-check ────────────────────────────────────────
+
+def test_a_mixed_trailer_is_packed_lot_by_lot_by_its_owner():
+    """STEP 1's route. A lot is a bare `(sku, qty)` — no unit exists yet — so the owner
+    comes from the dict built at bind time, and `_originals`, the packer, `inbound_split`
+    and `_putaway_seq` are all the owning leaf's.
+
+    Asserted on the STAMPS, not on a call count: each leaf's `_putaway_seq` advances by
+    exactly the units it packed, so a lot packed by the wrong leaf shows up as a sequence
+    that ran on the wrong side."""
+    crd, store, ful = _site()
+    _mixed_trailer(crd, store, ful)
+    crd.receive([store, ful], None)
+
+    assert store._putaway_seq > 0 and ful._putaway_seq > 0, (
+        'one leaf packed nothing — the trailer was not mixed, or one route took both')
+    # Every queued unit is its own leaf's regime, in BOTH leaves. The store leaf holding a
+    # fulfillment unit is merchandise delivered to the wrong warehouse.
+    for leaf, regime in ((store, _STORE), (ful, _FUL)):
+        got = {regime_of(it.unit) for it in leaf._stock_queue}
+        assert got == {regime}, f'the {regime} leaf queued {got}'
+
+
+def test_the_handoff_routes_by_regime_and_the_two_leaves_sum_to_the_dock():
+    """STEP 4's route, and the property that makes it checkable: `accept` credits the
+    OWNING leaf's `_recv_seconds`, so the two leaves sum EXACTLY to the site total the
+    dock accrued. Reporting one leaf's figure as the site's is
+    `a-right-site-total-hides-two-wrong-shares`; this is the arithmetic that keeps both
+    readings available and honest."""
+    crd, store, ful = _site()
+    _mixed_trailer(crd, store, ful)
+    crd.receive([store, ful], None)
+
+    assert store.receiving_seconds > 0.0 and ful.receiving_seconds > 0.0, (
+        'one leaf was charged no receiving labour at all')
+    assert (store.receiving_seconds + ful.receiving_seconds
+            == pytest.approx(crd.dock.seconds)), (
+        'the leaves do not sum to the site dock — a unit was charged to nobody or twice')
+
+
+def test_a_unit_whose_regime_disagrees_with_the_owner_dict_is_refused():
+    """The CROSS-CHECK, which is the only thing that can see the catalogue partition and
+    the regime tagging disagree. Planted the way it would really happen: a store-owned sku
+    whose order is fulfillment-shaped, which is what a mis-filtered channel produces."""
+    crd, store, ful = _site()
+    # The store leaf owns 101, but its template is re-shaped to the other regime — so the
+    # dict says store and the unloaded unit says fulfillment.
+    store._originals[101] = _ful_order(101)
+    _mixed_trailer(crd, store, ful)
+
+    with pytest.raises(ValueError, match='wrong warehouse'):
+        crd.receive([store, ful], None)
+
+
+def test_an_unowned_sku_on_a_site_trailer_is_refused():
+    """The yard is the site's, so a lot nobody owns is merchandise this site never
+    ordered — and the alternative to raising is packing it onto whichever leaf bound
+    first."""
+    crd, store, ful = _site()
+    _mixed_trailer(crd, store, ful)
+    crd._owner.pop(101)
+
+    with pytest.raises(ValueError, match='no bound leaf owns it'):
+        crd.receive([store, ful], None)
+
+
+# ── 6. the refusals that guard a silent wrong answer ──────────────────────────────
+
+def _half_site():
+    """A coordinator with only the STORE leaf bound — the shape the bind refusals need,
+    because a fully bound one refuses every second bind on the duplicate-channel rule
+    before it can reach the rule under test."""
+    transit = _yard()
+    dock = Dock(DockSpec(size=2, sources=('reorder', 'trailer')))
+    crd = SiteReceiving(dock, transit)
+    store = _leaf(transit, _STORE_SKUS, ful=False)
+    store.enable_receiving(dock)
+    store.receiving = crd
+    crd.bind(store, _STORE)
+    return crd, store
+
+
+def test_binding_two_leaves_that_own_one_sku_is_refused():
+    """An overlap means the channel filter let one order into both leaves. Nothing
+    downstream would notice: the lot would be packed by whichever bound first, delivered
+    to that warehouse, and its ledger would balance there."""
+    crd, _store = _half_site()
+    overlapping = _leaf(crd.transit, (_STORE_SKUS[0],), ful=True)
+    with pytest.raises(ValueError, match='owned by'):
+        crd.bind(overlapping, _FUL)
+
+
+def test_binding_a_leaf_with_a_different_transit_is_refused():
+    """One site is one yard. Two yards behind one dock gives each leaf its own trailers
+    while the drain ranks only the coordinator's — and it is also what makes the
+    site-scoped `_advance_lead_queue` honest, because the phase is driven on one leaf and
+    must reach the same object either way."""
+    crd, _store = _half_site()
+    stray = _leaf(_yard(), _FUL_SKUS, ful=True)
+    with pytest.raises(ValueError, match='different transit'):
+        crd.bind(stray, _FUL)
+
+
+def test_binding_a_channel_that_is_not_a_regime_is_refused():
+    """`_leaf_for` routes the handoff by `regime_of(unit)`, so the channel a leaf binds
+    under IS its regime. Unchecked, a misspelling binds happily and fails on the first
+    unloaded unit — after the trailer was planned, the doors filled and the crew charged."""
+    crd, _store = _half_site()
+    other = _leaf(crd.transit, _FUL_SKUS, ful=True)
+    with pytest.raises(ValueError, match='not a storage regime'):
+        crd.bind(other, 'fulfilment')          # one 'l': the spelling that would bind
+
+
+def test_binding_one_channel_twice_is_refused():
+    crd, _store, _ful = _site()
+    again = _leaf(crd.transit, (301,), ful=False)
+    with pytest.raises(ValueError, match='already bound'):
+        crd.bind(again, _STORE)
+
+
+def test_a_partial_site_drain_is_refused():
+    """The only way to reach this is a coupled leaf's own `check_reorders`, and what it
+    would do is unload the site's day for one channel while the other's arrivals stand on
+    the yard: half a site day's receiving, attributed whole."""
+    crd, store, ful = _site()
+    _mixed_trailer(crd, store, ful)
+    with pytest.raises(RuntimeError, match='one dock is one drain'):
+        crd.receive([store], None)
+    # And the same refusal through the phase the manager itself would drive.
+    with pytest.raises(RuntimeError, match='one dock is one drain'):
+        store._receive((), None)
+
+
+def test_two_epochs_over_one_set_of_doors_are_refused():
+    """The two leaves' PICK crews genuinely release at different instants inside one site
+    day, so the driver has to hand the site epoch down. Taking leaf[0]'s silently would
+    rank one yard against two different 'now's and nothing would say which one ran."""
+    crd, store, ful = _site()
+    _mixed_trailer(crd, store, ful)
+    ful._now_s = store._now_s + 1.0
+    with pytest.raises(ValueError, match='different epochs'):
+        crd.receive([store, ful], None)
+
+
+def test_a_non_standing_transit_is_refused_at_construction():
+    """A coupled run REQUIRES the standing yard. The v1 and flag-off transits drain through
+    the manager's own dock deque, a separate path with its own owner problem — and the
+    alternative to refusing is a silent fallback to per-leaf receiving with a coupled label
+    on it (memory `pool-run-swallows-dead-arms`)."""
+    from Inbound.transit import TrailerTransit
+    from Inbound.trailer import Trailer28
+    dock = Dock(DockSpec(size=1, sources=('reorder',)))
+    with pytest.raises(ValueError, match='STANDING yard'):
+        SiteReceiving(dock, TrailerTransit(Trailer28, lead_s=0.0))
+
+
+# ── 7. the yard row is the SITE's ─────────────────────────────────────────────────
+
+def test_a_coupled_drain_parks_its_yard_row_and_hands_no_leaf_a_number():
+    """The row is trailer- and door-denominated, so it belongs to neither channel. Handing
+    it to leaf[0] would publish a site total under one channel's name, which is exactly
+    the failure `a-right-site-total-hides-two-wrong-shares` records."""
+    crd, store, ful = _site()
+    _mixed_trailer(crd, store, ful)
+
+    row = crd.receive([store, ful], None)
+
+    assert row is None, 'a coupled drain handed its caller a site-scoped row'
+    assert store.drain_yard_drains() == [] and ful.drain_yard_drains() == [], (
+        'a leaf recorded the site yard row')
+    parked = crd.drain_site_rows()
+    assert len(parked) == 1 and len(parked[0]) == 4, parked
+    assert crd.drain_site_rows() == [], 'the accessor did not start the list over'
+
+
+# ── 8. the space view is TAGGED once there are two ────────────────────────────────
+
+def test_two_leaves_contribute_tagged_views_and_one_does_not():
+    """The tag is what partitions `empties`, and `compose_site_view` refuses an untagged
+    contribution the moment there are two — so the absence at one leaf cannot survive into
+    the coupled case. The tag is the channel the leaf BOUND under, never `regime_of` on a
+    key: `BinKey` is a plain tuple and `regime_of` answers 'store' for every one of them."""
+    from Inbound.space import SpaceTimeline
+    from Warehouse.picking.Workload_Builder import drain_sku
+
+    crd, store, ful = _site()
+    for leaf in (store, ful):
+        SpaceTimeline(drain_sku).attach(leaf)
+    got = crd._freeze_views([store, ful], 7.0)
+    assert [r for r, _v in got] == [_STORE, _FUL], got
+    assert all(v.frozen_at == 7.0 for _r, v in got)
+
+    solo = _manager(_yard(), crew=2)
+    SpaceTimeline(drain_sku).attach(solo)
+    lone = solo.receiving._freeze_views([solo], 7.0)
+    assert [r for r, _v in lone] == [None], (
+        'a composition of one was tagged; it partitions nothing, and the composer returns '
+        'it by identity, which is what keeps every standing-yard run on disk identical')
+
+
+# ── 9. the leaf accessors refuse once the scope is the site's ─────────────────────
+
+#: The six reads a leaf must not answer for a site. The first four are the ones the design
+#: named; the last two are worse than a wrong level -- they would hand one leaf the OTHER
+#: channel's rows and restart a shared crew's clocks half-way through the site's batch.
+_SITE_SCOPED_READS = ('dock_depth', 'in_transit_qty', 'transit_snapshot',
+                      'receiving_snapshot', 'drain_receiving_records',
+                      'drain_repack_records')
+
+
+def _read(mgr, name):
+    got = getattr(mgr, name)
+    return got() if callable(got) else got
+
+
+def test_the_leaf_scoped_reads_answer_before_the_second_leaf_binds():
+    """Non-vacuity for the refusals below, and the byte-identity half: an UNCOUPLED leaf
+    answers all six exactly as it always did."""
+    solo = _manager(_yard(), crew=2)
+    assert solo.site_scoped is False
+    for name in _SITE_SCOPED_READS:
+        _read(solo, name)
+
+
+def test_every_site_scoped_read_refuses_on_a_coupled_leaf():
+    """A leaf reporting `dock_depth == 0` while the site dock is backed up is the
+    silent-wrong-number class this repo keeps getting bitten by. The flag is stamped on
+    EVERY bound leaf when the second binds -- the first one retroactively -- because scope
+    is a property of the site, not of bind order."""
+    _crd, store, ful = _site()
+    for leaf in (store, ful):
+        assert leaf.site_scoped is True
+        for name in _SITE_SCOPED_READS:
+            with pytest.raises(RuntimeError, match='coupled site'):
+                _read(leaf, name)
+
+
+# ── 10. the site receiving clock ──────────────────────────────────────────────────
+
+def _day(length: float = 1000.0):
+    return WorkDay(length=length)
+
+
+def test_the_site_day_is_based_at_the_shift_start_or_the_carry():
+    """`max(day.start_of(i), recv_clock)` — the receivers start at shift start and work
+    what is standing, or carry on from where yesterday's overrun left them. Never either
+    leaf's `arm_clock`: that is a PICK crew's release instant, and basing the dock on it
+    would idle the site's receivers whenever a pick crew overran its day."""
+    crd, _store, _ful = _site(day=_day())
+    base, deadline = crd.open_batch(2)
+    assert base == 2000.0 and deadline == pytest.approx(1000.0)
+
+    crd.recv_clock = 2400.0
+    crd._open = None                      # a fresh day, without replaying a whole batch
+    crd._owed_records = set()
+    base, deadline = crd.open_batch(2)
+    assert base == 2400.0, 'the carry did not win over the shift start'
+    assert deadline == pytest.approx(600.0), 'the whistle is not the rest of THAT day'
+
+
+def test_open_batch_is_idempotent_per_day_so_both_leaves_read_one_base():
+    """ONE BASE, ASKED FOR TWICE. Both leaves stamp their unload rows from the same epoch
+    because there is one crew on one dock; the first call computes and the rest read. A
+    recompute between the two would hand the second leaf a base the first never used."""
+    crd, _store, _ful = _site(day=_day())
+    first = crd.open_batch(3)
+    crd.recv_clock = 99_999.0             # a carry that would move a recomputed base
+    assert crd.open_batch(3) == first, 'the second caller recomputed the day'
+
+
+def test_the_carry_is_committed_when_the_last_leaf_reports():
+    """The reset has ONE owner. A leaf committing the carry before the other has recorded
+    would rebase the second leaf's rows against an epoch it never ran in."""
+    crd, store, ful = _site(day=_day())
+    crd.open_batch(0)
+    crd.note_records(store, 120.0)
+    assert crd.recv_clock == 0.0, 'the carry moved before every leaf reported'
+    crd.note_records(ful, 80.0)
+    assert crd.recv_clock == 120.0, 'the carry is not the LAST finish across the site'
+
+
+def test_a_day_with_no_records_anywhere_leaves_the_carry_alone():
+    """The crew is where it was — exactly as an unpooled leaf leaves `recv_clock` alone."""
+    crd, store, ful = _site(day=_day())
+    crd.recv_clock = 55.0
+    crd.open_batch(0)
+    crd.note_records(store, None)
+    crd.note_records(ful, None)
+    assert crd.recv_clock == 55.0
+
+
+def test_a_second_report_from_one_leaf_is_refused():
+    crd, store, ful = _site(day=_day())
+    crd.open_batch(0)
+    crd.note_records(store, 10.0)
+    with pytest.raises(RuntimeError, match='twice'):
+        crd.note_records(store, 10.0)
+
+
+def test_a_day_that_opens_while_a_leaf_still_owes_records_is_refused():
+    """The silent version of this is a day opened under a leaf that has not stamped its
+    rows yet, which rebases them against the next day's epoch."""
+    crd, store, _ful = _site(day=_day())
+    crd.open_batch(0)
+    crd.note_records(store, 10.0)
+    with pytest.raises(RuntimeError, match='still owes records'):
+        crd.open_batch(1)
+
+
+def test_a_site_clock_without_a_working_day_refuses():
+    """Coupling is an era feature and the era completes the grid, so this is unreachable by
+    design rather than by luck — which is a reason to state it, not to omit it."""
+    crd, _store, _ful = _site()
+    with pytest.raises(RuntimeError, match='working day'):
+        crd.open_batch(0)
+
+
+def test_the_last_report_restarts_the_site_docks_crew_clocks():
+    """THE RESET HAS ONE OWNER, and on a coupled run it is this method.
+
+    Uncoupled the owner is `Dock.drain_records`, reached through the leaf accessor
+    `drain_receiving_records` — which REFUSES on a coupled leaf. Removing the old owner
+    without appointing a new one is silent and cumulative: the dock's batch-local clocks
+    would carry across days while the runner kept adding an epoch, so every row after day 0
+    would be stamped late by every preceding day's receiving seconds, and eventually
+    `can_start` would be false from the first unload while `cut` reported a full backlog.
+    """
+    crd, store, ful = _site(day=_day())
+    crd.open_batch(0)
+    crd.dock.charge(120.0)                     # a day's work on the shared crew
+    assert crd.dock.finish > 0.0, 'the fixture charged nothing, so the reset is vacuous'
+    crd.note_records(store, 120.0)
+    assert crd.dock.finish > 0.0, (
+        'the clocks restarted before every leaf reported — the other leaf is about to '
+        'stamp its rows against a clock that has already gone back to zero')
+    crd.note_records(ful, None)
+    assert crd.dock.finish == 0.0, (
+        'the site dock crew clocks were never restarted; the next day rows are stamped '
+        'late by today receiving seconds, and nothing raises')
+
+
+def test_a_drain_against_a_different_day_than_the_clocks_is_refused():
+    """The put pool states the reason and it is the same one here: a crew gated on a
+    different day than the epoch its rows are stamped from does work nobody has the hours
+    for, and every row of it looks ordinary."""
+    crd, store, ful = _site(day=_day())
+    _base, deadline = crd.open_batch(0)
+    _mixed_trailer(crd, store, ful)
+    with pytest.raises(RuntimeError, match='drained against a deadline'):
+        crd.receive([store, ful], deadline + 1.0)
+    crd.receive([store, ful], deadline)        # the matching one is accepted
+
+
+def test_one_bound_leaf_still_takes_the_single_leaf_route():
+    """ONE threshold for "is the site real yet", and it is the SECOND leaf — the same one
+    `bind` stamps `site_scoped` on and `_freeze_views` tags on. Binding one leaf to get the
+    site clock must not switch the drain to a routing model there is nothing to route."""
+    crd, store = _half_site()
+    _dispatch(store, _STORE_SKUS[0], 6, POSITION_VOLUME // 2, 10_000.0)
+    store._now_s = 10_000.0
+    store._release_arrivals()
+
+    row = crd.receive([store], None)
+
+    assert row is not None, 'a single bound leaf was treated as a site and lost its row'
+    assert store._putaway_seq > 0
+    assert crd.drain_site_rows() == [], 'the row was parked AND returned'
+
+
+def test_an_unbound_coordinator_refuses_two_leaves():
+    """The return shape and the partial-drain refusal key on the SAME fact. Keyed
+    differently, an unbound coordinator handed two leaves passes the refusal, parks its row
+    at site scope and returns None — and `drain` drops it, so the row is written nowhere."""
+    transit = _yard()
+    crd = SiteReceiving(Dock(DockSpec(size=2, sources=('reorder', 'trailer'))), transit)
+    a = _leaf(transit, _STORE_SKUS, ful=False)
+    b = _leaf(transit, _FUL_SKUS, ful=True)
+    with pytest.raises(RuntimeError, match='no way to say whose merchandise'):
+        crd.receive([a, b], None)
+
+
+def test_a_leaf_with_no_epoch_beside_one_with_an_epoch_is_refused():
+    """An unstamped leaf is not "the same instant as the others" — it is a leaf the driver
+    forgot to hand the site epoch to, and taking the other's silently would rank one yard
+    against a "now" that leaf never ran in."""
+    crd, store, ful = _site()
+    _mixed_trailer(crd, store, ful)
+    ful._now_s = None
+    with pytest.raises(ValueError, match='some leaves .* carry an epoch'):
+        crd.receive([store, ful], None)
+
+
+def test_an_ulp_of_epoch_difference_is_within_tolerance():
+    """Floats compare with a tolerance, never `==` (CLAUDE.md section 2). The driver hands
+    both leaves the same value, so any real gap is a defect — but a value that has been
+    through an addition and back may differ by an ulp on a clock measured in millions of
+    seconds, and refusing that would be a refusal nobody could act on."""
+    crd, store, ful = _site()
+    _mixed_trailer(crd, store, ful)
+    ful._now_s = store._now_s + 1e-9
+    crd.receive([store, ful], None)            # does not raise
+
+
+def test_a_drain_with_no_leaf_refuses_from_both_entry_points():
+    crd, _store, _ful = _site()
+    with pytest.raises(ValueError, match='no leaf'):
+        crd.receive([], None)
+    with pytest.raises(ValueError, match='no leaf'):
+        crd.drain([])
+
+
+def test_records_reported_before_the_day_opens_say_so():
+    """Without this the first report raises "reported twice in site day None", which names
+    the wrong cause."""
+    crd, store, _ful = _site(day=_day())
+    with pytest.raises(RuntimeError, match='before the site day was opened'):
+        crd.note_records(store, 1.0)
+
+
+def test_an_unbound_leaf_cannot_report_records():
+    crd, _store, _ful = _site(day=_day())
+    crd.open_batch(0)
+    stray = _leaf(crd.transit, (301,), ful=False)
+    with pytest.raises(ValueError, match='without being bound'):
+        crd.note_records(stray, 1.0)

@@ -35,6 +35,23 @@ from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, W
 PHASES = ('_tick_batch', 'reclaim_emptied_bins', '_advance_lead_queue',
           '_fire_reorders', '_release_arrivals', '_receive', 'drain_putaway')
 
+#: THE SECOND CANONICAL SEQUENCE: which of those seven phases a SITE drives once for the
+#: whole site rather than once per leaf (`Inbound.receiving.SITE_PHASES` is the constant;
+#: this is the claim written down again, here, where the per-channel one lives).  Two
+#: entries and no third:
+#:
+#:   * `_advance_lead_queue` delegates to `transit.advance()`, and a coupled site has ONE
+#:     yard — two leaves ticking it decrement every supplier lead twice, so an order placed
+#:     with a 3-batch lead arrives in 2 and nothing raises.
+#:   * `_receive` is the drain of the ONE dock.
+#:
+#: Everything else is genuinely a leaf's: the batch calendar is the per-leaf reorder RNG
+#: key, the reclaim is that leaf's own emptied bins, firing is that channel's reorders,
+#: the release is that leaf's ledger, and the put drain is that leaf's queue (shared crew
+#: or not).  This file is where a drift in EITHER composition fails, which is the whole
+#: reason both sequences are written down in one place.
+SITE_SCOPED = ('_advance_lead_queue', '_receive')
+
 
 def _manager(seed: int = 0) -> Inventory_Manager:
     """A tiny two-aisle warehouse — enough for a manager, no SKUs needed."""
@@ -234,3 +251,210 @@ def test_receiving_is_handed_this_batch_arrivals():
     mgr._receive = lambda arrivals=(), deadline=None: got.append(list(arrivals))
     mgr.check_reorders()
     assert got == [['plan-a', 'plan-b']]
+
+
+# ── the SITE composition: the same seven phases, two of them the site's ───────────
+#
+# `Inbound.receiving.SITE_PHASES` is the second lawful order of these phases, and it lives
+# beside the first one for the reason this file exists at all: a caller that drives the
+# phases itself needs the canonical order written down somewhere that FAILS when it
+# changes, and a second caller needs its own order written down in the same place, or the
+# two drift apart with nothing comparing them.
+#
+# Driven over SPY LEAVES rather than real managers.  What is under test is a call sequence,
+# and a real two-channel site needs two warehouses, two inventories and a shared yard to
+# say the same thing — which `Tests/unit/test_site_receiving.py` does stand up, for the
+# claims that are about merchandise.  Here the leaves only have to be counted and ordered.
+
+class _FakeCtx:
+    """The three fields a drain reads off a frozen `DockContext`."""
+
+    def __init__(self):
+        self.space = None
+        self.yard_depth = 0
+        self.free_doors = 0
+
+
+class _EmptyYard:
+    """A standing transit with nothing in it — the smallest object `receive` will drain.
+
+    `STANDING` is what the coordinator refuses a transit for not having, and the rest is
+    the surface an EMPTY drain touches: no trailer to plan, no door to fill, no work order
+    to unload, nothing staged to cut.
+    """
+
+    STANDING = True
+    SOURCE = 'trailer'
+    allocation = 'merged'
+    door_team = None
+    free_doors = 0
+    yard_depth = 0
+
+    def freeze_ctx(self):
+        return _FakeCtx()
+
+    def unplanned(self):
+        return []
+
+    def yard_order(self, ctx):
+        return []
+
+    def dock_order(self, ctx):
+        return []
+
+    def staged(self):
+        return []
+
+    def advance(self):
+        pass
+
+
+class _FakeDock:
+    """`note_arrivals` and `crew_size` — all an empty drain asks of a dock."""
+
+    crew_size = 1
+
+    def note_arrivals(self, plans):
+        pass
+
+
+class _SpyLeaf:
+    """A leaf that records which phase was driven on it, and does nothing else.
+
+    Every phase is a no-op: this test is about the ORDER and the SCOPE, and a leaf that
+    also moved merchandise would make a failure here ambiguous between the two.
+    """
+
+    def __init__(self, name: str, trace: list, transit):
+        self.name = name
+        self._trace = trace
+        self.transit = transit
+        self.putaway_pool = None
+        self.space_timeline = None
+        self.site_scoped = False
+        self._now_s = None
+        self._yard_drains: list = []
+
+    def owned_skus(self):
+        return ()
+
+    def _log(self, phase):
+        self._trace.append((phase, self.name))
+
+    def _tick_batch(self):
+        self._log('_tick_batch')
+
+    def reclaim_emptied_bins(self):
+        self._log('reclaim_emptied_bins')
+
+    def _advance_lead_queue(self):
+        self._log('_advance_lead_queue')
+        self.transit.advance()
+
+    def _fire_reorders(self):
+        self._log('_fire_reorders')
+        return []
+
+    def _release_arrivals(self):
+        self._log('_release_arrivals')
+        return []
+
+    def drain_putaway(self, deadline=None):
+        self._log('drain_putaway')
+
+
+def _site(n_leaves: int):
+    """A coordinator with `n_leaves` spy leaves bound, and the trace they write into."""
+    from Inbound.receiving import SiteReceiving
+    trace: list = []
+    yard = _EmptyYard()
+    crd = SiteReceiving(_FakeDock(), yard)
+    names = ('store', 'fulfillment')[:n_leaves]
+    leaves = [_SpyLeaf(n, trace, yard) for n in names]
+    for leaf, name in zip(leaves, names):
+        crd.bind(leaf, name)
+    # The site receive is the coordinator's own method, so it is spied THERE and labelled
+    # with the phase name it stands in for.
+    real = crd.receive
+
+    def _spy(lvs, deadline):
+        trace.append(('_receive', '<site>'))
+        return real(lvs, deadline)
+
+    crd.receive = _spy
+    return crd, leaves, trace
+
+
+def _expected(names) -> list:
+    """`SITE_PHASES` expanded PHASE-MAJOR over `names` — the trace a correct drive writes."""
+    from Inbound.receiving import SITE_PHASES
+    out = []
+    for scope, phase in SITE_PHASES:
+        if scope == 'site':
+            out.append((phase, '<site>' if phase == '_receive' else names[0]))
+        else:
+            out.extend((phase, n) for n in names)
+    return out
+
+
+def test_the_site_sequence_is_the_per_channel_sequence_unchanged():
+    """The site interleave is a claim about the SAME seven phases, so the names must be
+    `PHASES` exactly — order included.  A phase added to `check_reorders` and not to the
+    site composition (or the reverse) is a site run and a channel run doing different
+    things, and only this assertion would notice."""
+    from Inbound.receiving import SITE_PHASES
+    assert tuple(p for _s, p in SITE_PHASES) == PHASES, (
+        'the site composition no longer drives the canonical phase list')
+
+
+def test_exactly_the_declared_phases_are_site_scoped():
+    """Which phases the site drives ONCE is the whole content of the interleave, so it is
+    declared here and compared — not read out of the constant and asserted against itself.
+
+    A scope flip is silent in both directions: making `_advance_lead_queue` per-leaf
+    double-ticks every supplier lead, and making `_fire_reorders` site-scoped would fire
+    one channel's reorders and skip the other's.
+    """
+    from Inbound.receiving import SITE_PHASES
+    got = tuple(p for s, p in SITE_PHASES if s == 'site')
+    assert got == SITE_SCOPED, f'site-scoped phases moved: {got} vs {SITE_SCOPED}'
+    assert set(s for s, _p in SITE_PHASES) == {'leaf', 'site'}, 'a third scope appeared'
+
+
+def test_one_leaf_through_the_site_composition_is_the_per_channel_order():
+    """The degenerate case, and it is what makes the constant landable before a coupled run
+    exists: with one leaf every phase runs once, in `PHASES` order."""
+    crd, leaves, trace = _site(1)
+    crd.drain(leaves)
+    assert [p for p, _n in trace] == list(PHASES), trace
+
+
+def test_two_leaves_run_phase_major_with_one_advance_and_one_receive():
+    """THE INTERLEAVE. Every leaf runs a phase before any leaf runs the next, the lead
+    queue ticks ONCE and the dock drains ONCE.
+
+    Phase-major is load-bearing, not cosmetic: `_fire_reorders` loads the site's one open
+    trailer and `_release_arrivals` departs it, so a leaf-major drive (store fires AND
+    releases, then fulfillment) gives every trailer one channel's merchandise and the
+    charter's mixed load never happens.
+    """
+    crd, leaves, trace = _site(2)
+    crd.drain(leaves)
+    assert trace == _expected(['store', 'fulfillment']), trace
+    assert sum(1 for p, _n in trace if p == '_advance_lead_queue') == 1, (
+        'the supplier-lead calendar ticked once per LEAF; a 3-batch lead now arrives in 2')
+    assert sum(1 for p, _n in trace if p == '_receive') == 1, (
+        'the site dock drained once per leaf')
+
+
+def test_the_phase_major_expansion_is_not_vacuous():
+    """Non-vacuity for the test above: the expected trace must actually DIFFER from the
+    leaf-major one, or `test_two_leaves...` would pass on either drive."""
+    from Inbound.receiving import SITE_PHASES
+    names = ['store', 'fulfillment']
+    phase_major = _expected(names)
+    leaf_major = []
+    for n in names:
+        for _scope, phase in SITE_PHASES:
+            leaf_major.append((phase, '<site>' if phase == '_receive' else n))
+    assert phase_major != leaf_major

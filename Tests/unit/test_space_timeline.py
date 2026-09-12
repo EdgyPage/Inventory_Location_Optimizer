@@ -101,9 +101,12 @@ def _manager(transit, crew: int = 2, skus=(101, 102, 103)):
     dock = Dock(DockSpec(size=crew, sources=('reorder', 'trailer')))
     mgr.enable_receiving(dock)
     # The standing drain lives on the coordinator, so a manager that will be driven
-    # through it needs one bound -- the same injection the driver does. Harmless on a
-    # v1/BatchTransit manager, which never reaches the standing branch.
-    mgr.receiving = SiteReceiving(dock, transit)
+    # through it needs one bound -- the same injection the driver does. A v1/BatchTransit
+    # manager gets NONE: the coordinator refuses a non-standing transit at construction
+    # (a coupled run requires the standing yard), and that manager never reaches the
+    # standing branch anyway.
+    mgr.receiving = (SiteReceiving(dock, transit)
+                     if getattr(transit, 'STANDING', False) else None)
     return mgr
 
 

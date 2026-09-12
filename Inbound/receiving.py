@@ -13,87 +13,423 @@ therefore the only package that may sit above two managers, which is why the put
 lands here too.
 
 The consequence is that this module can never import a manager.  It DUCK-TYPES its
-leaves and reaches each one through exactly two public ports:
+leaves and reaches each one through exactly three public ports:
 
     leaf.plan_lot(sku, qty, source) -> (plans, items)
         Step 1's per-lot body: resolve `_originals`, apply `inbound_split`, pack, stamp,
         and debit the pack shortfall against the remainder ledger.
     leaf.accept(item, dur) -> None
         Step 4's per-unit body: the deferred->queued flip, `_recv_seconds`, `_queue`.
+    leaf.owned_skus() -> iterable[int]
+        The catalogue partition this leaf is responsible for.  Read ONCE, at bind time,
+        to build the `{sku: leaf}` owner dict — never during a drain.
 
 Everything else a drain touches is the coordinator's own: the `Dock`, the `YardTransit`,
-the ctx freeze, the door fill, the unload and the handoff ORDER.  `regime_of` (wh_kernel,
-dependency-free) is what will route a unit to its owning leaf once there are two; with
-one leaf every unit routes to it trivially, and this module is deliberately written so
-that adding the second leaf changes the ROUTING and nothing else.
+the ctx freeze, the door fill, the unload and the handoff ORDER.
 
-# ── what is NOT here yet ──────────────────────────────────────────────────────────
+HOW A MIXED TRAILER FINDS ITS WAY HOME — two routes, because they answer two different
+questions:
 
-The `{sku: leaf}` owner dict, the refusal on a non-standing transit, and the `SITE_PHASES`
-interleave for two leaves all wait for a second leaf to exist ("Design the site receiving
-coordinator", the site-dock map).  `drain` below is the one-leaf composition and states
-its own limit.
+  * STEP 1 holds a bare `(sku, qty)` lot; no unit exists yet, so it resolves the owner
+    from the `{sku: leaf}` dict built at bind time.  An overlapping sku is REFUSED there:
+    it would mean the channel filter let one order into both leaves, and the symptom
+    would be merchandise silently delivered to the wrong warehouse.
+  * STEP 4 holds a `PutawayItem`, so it asks `regime_of(item.unit)` (wh_kernel,
+    dependency-free, single-valued per entity).  No owner field is carried, stamped or
+    mapped at the unit level — `regime_of` already answers it.
 
-The SPACE VIEW is already site-shaped: `_freeze_views` collects one frozen view per leaf
-and `Inbound/site_space.compose_site_view` turns them into the one view a drain reads.
-With one leaf it composes one and returns it by identity; the second leaf changes what
-`_freeze_views` returns and nothing else.
+The two are CROSS-CHECKED at the handoff.  A unit whose regime names one leaf while the
+owner dict names another is the only way the catalogue partition and the regime tagging
+can disagree, and a run that routes by one while the other is true is a run whose ledgers
+balance in the wrong warehouse.
+
+# ── what is NOT here ──────────────────────────────────────────────────────────────
+
+The DRIVER wiring of a two-leaf standing run.  Three things a live coupled run needs are
+named out of scope by this build's ticket, and each is somebody else's decision: the
+site-scoped yard rows (`yard_trailers`, `yard_drains`) have no declared artifact until
+`<pair>/_site/` lands with its contract bump ("Design the site scope in the run tree",
+ADR-0005); the shared transit carries ONE `gain_bundle` slot for two owners ("Design the
+composite gain bundle"); and one dock has one `UnloadCost` while the two channels price at
+two ("One unload price for the site dock", the site-dock map's open question).  So the
+coordinator is complete and the run that fields it is the next ticket's — the same
+seam-before-consumer order this map has used throughout.  `site_rows` below is where a
+coupled drain's yard rows wait for that artifact, and `drain_site_rows` is its accessor.
+
+Within-day interleaving.  One batch is one site day and the drain stays drain-quantized;
+an event-driven cadence is out of scope, inherited.
 """
 from __future__ import annotations
 
 from collections import deque
 
 from Warehouse.kernel.allocation import partition
+from Warehouse.kernel.regime import REGIMES, regime_of
 
 from Inbound.site_space import compose_site_view
 
 
+#: THE SITE COMPOSITION, as `(scope, phase)` pairs — the second canonical sequence beside
+#: `check_reorders`' own.  `Tests/unit/test_reorder_phases.py` pins both, and pins that the
+#: phase NAMES here are that list unchanged: the site interleave is a claim about the SAME
+#: seven phases, so a phase added to one composition and not the other fails there.
+#:
+#: WHICH PHASES ARE THE SITE'S.  `_advance_lead_queue` delegates to `transit.advance()` and
+#: the transit is the SITE's one yard, so two leaves ticking it would decrement every
+#: supplier lead TWICE — an order placed with a 3-batch lead would arrive in 2, and nothing
+#: would raise.  ("Design the site receiving coordinator" section 4 put phases 0-3 on every
+#: leaf; phase 1 is the exception, and it is the code rather than the design that found it.)
+#: The receive is the site's because there is one dock.  WHICH leaf a site phase is driven
+#: on is not a choice: `bind` asserts every leaf holds the coordinator's own transit, so it
+#: is the same call either way.
+#:
+#: PHASE-MAJOR — every leaf runs a phase before any leaf runs the next — and that is
+#: load-bearing rather than cosmetic.  `_fire_reorders` loads fired orders onto the ONE open
+#: trailer and `_release_arrivals` departs it; run leaf-major (leaf A fires AND releases,
+#: then leaf B) and every trailer carries one channel's merchandise.  The charter's mixed
+#: load would never happen, the site dock would be two docks wearing one name, and no table
+#: would say so.
+#: How far two leaves' drain epochs may differ and still be "one instant".  Floats
+#: compare with a tolerance and never with `==` (CLAUDE.md section 2): the driver hands both
+#: leaves the SAME site epoch, so any gap at all is a defect, but a value that has been
+#: through an addition and back can differ by an ulp on a clock measured in millions of
+#: seconds.  Absolute, and deliberately far below anything a dock decision can see.
+_EPOCH_TOL: float = 1e-6
+
+SITE_PHASES: tuple = (
+    ('leaf', '_tick_batch'),
+    ('leaf', 'reclaim_emptied_bins'),
+    ('site', '_advance_lead_queue'),
+    ('leaf', '_fire_reorders'),
+    ('leaf', '_release_arrivals'),
+    ('site', '_receive'),
+    ('leaf', 'drain_putaway'),
+)
+
+
 class SiteReceiving:
-    """The site's dock, yard and drain record, driving N leaves through two ports.
+    """The site's dock, yard and drain record, driving N leaves through three ports.
 
     Constructed by the driver where the `Dock` and the `YardTransit` are built, and bound
     onto each leaf it serves (`mgr.receiving`) — the same injection precedent as
     `enable_receiving` and `mgr.packer`: the broker holds what it is handed, and nothing
     under `Warehouse/` imports this package.
+
+    A COUPLED RUN REQUIRES THE STANDING YARD, and this refuses a transit without it at
+    CONSTRUCTION.  Of the three transits only `YardTransit` carries a yard, doors and a
+    dock ranking; the v1 `TrailerTransit` and the flag-off `BatchTransit` drain through the
+    manager's own dock-deque branch, which is a separate ~20-line path with its own owner
+    problem.  Building owner routing twice, in two unrelated drains, for a mode no
+    experiment runs is work with no reader — and the alternative to refusing is a SILENT
+    fallback to per-leaf receiving, which is a run that looks healthy and answers a
+    different question (memory `pool-run-swallows-dead-arms`).
+
+    `day` is the SITE working day, and it is what the site receiving clock is based on.
+    None is every run without a whistle grid, and then `open_batch` refuses rather than
+    inventing one — the same precondition `Inbound/putaway_pool.py` states for the put
+    crew, for the same reason: coupling is an era feature and the era completes the grid.
     """
 
-    def __init__(self, dock, transit):
+    def __init__(self, dock, transit, *, day=None):
+        if not getattr(transit, 'STANDING', False):
+            raise ValueError(
+                f'a site receiving coordinator drains a STANDING yard, and {transit!r} '
+                f'carries none. The v1 and flag-off transits drain through the manager own '
+                f'dock deque, which is a different path with its own owner routing; a '
+                f'coordinator over one of them would either build that routing twice or '
+                f'fall back to per-leaf receiving with a coupled label on it')
         #: The one dock: crew clocks, the unload cost model, and the `records` /
         #: `unloaded` / `seconds` / `cut` counters the run reports from.
         self.dock = dock
         #: The one yard: trailer, yard and door STATE.  This object owns the decisions
         #: that state is consulted for.
         self.transit = transit
+        #: The site working day — `start_of(i)` / `remaining(base)`.  See `open_batch`.
+        self.day = day
+        #: THE SITE RECEIVING CARRY, on the absolute axis: where the one receiving crew
+        #: finished.  Committed once per site day, after every leaf has reported, so both
+        #: leaves of one batch read the same base ("one base, asked for twice").
+        self.recv_clock: float = 0.0
+        #: A coupled drain's yard rows, held at SITE scope because that is what they are.
+        #: Nothing writes them yet — see the module note on `<pair>/_site/`.  THE DRIVER
+        #: THAT FIELDS A COUPLED RUN MUST DRAIN THIS EVERY BATCH (`drain_site_rows`), the
+        #: way it drains every other per-batch row source: a list that only grows is the
+        #: only evidence a coupled drain happened, and compounding it would hand whatever
+        #: finally reads it every batch's rows at once.
+        self.site_rows: list = []
+        self._leaves: dict = {}          # channel -> leaf, in bind order
+        self._owner: dict = {}           # sku -> leaf  (step 1's route)
+        # The site day's state.  `_open` is None until the first `open_batch`.
+        self._open = None
+        self._base = 0.0
+        self._deadline = None
+        self._owed_records: set = set()
+        self._finish = None
+
+    def __repr__(self):
+        return (f'SiteReceiving(crew={self.dock.crew_size}, '
+                f'channels={tuple(self._leaves)!r}, skus={len(self._owner)})')
+
+    # ── binding, and the owner dict ───────────────────────────────────────────────
+
+    @property
+    def leaves(self) -> tuple:
+        """The bound leaves in BIND ORDER, which is the declared channel order.
+
+        The order is the model: `SITE_PHASES` is phase-major over exactly this sequence,
+        and `_fire_reorders` loads the shared open trailer in it, so store-first means a
+        mixed trailer's store lots load first.  A tuple, not the dict, because callers
+        sequence leaves and never index one by name.
+        """
+        return tuple(self._leaves.values())
+
+    def bind(self, leaf, channel: str) -> None:
+        """Serve `channel`'s leaf.  Call once per leaf, before the batch loop.
+
+        Builds this leaf's half of the `{sku: leaf}` owner dict from its own catalogue
+        partition, and REFUSES an overlap.  An sku owned by two leaves means the channel
+        filter (`_channel_runs_for`) let one order into both, and the only symptom
+        downstream would be merchandise delivered to the wrong warehouse and a ledger that
+        balances there — so it is checked at the one moment both partitions are in hand.
+
+        The leaf's transit must BE this coordinator's.  That is what makes `SITE_PHASES`'
+        site-scoped `_advance_lead_queue` honest: the phase is driven on one leaf and
+        reaches `transit.advance()`, so "which leaf" is not a choice as long as the
+        identity holds, and this is where it is established rather than assumed.
+        """
+        if channel not in REGIMES:
+            raise ValueError(
+                f'{channel!r} is not a storage regime {REGIMES!r}; the channel a leaf binds '
+                f'under IS the regime its units carry, because that is what routes the '
+                f'handoff -- and a name outside the set would not fail until the first unit '
+                f'came off a trailer, with the doors filled and the crew already charged')
+        if channel in self._leaves:
+            raise ValueError(
+                f'the {channel} leaf is already bound to this coordinator; two leaves of '
+                f'one channel would both claim that channel merchandise at the handoff')
+        if getattr(leaf, 'transit', None) is not self.transit:
+            raise ValueError(
+                f'the {channel} leaf holds a different transit than this coordinator; one '
+                f'site is one yard, and two yards behind one dock would give each leaf its '
+                f'own trailers while the drain ranked only the coordinator ones')
+        own = tuple(leaf.owned_skus())
+        clash = sorted(s for s in own if s in self._owner)
+        if clash:
+            raise ValueError(
+                f'sku(s) {clash[:8]}{"..." if len(clash) > 8 else ""} are owned by the '
+                f'{channel} leaf and by another; the leaves of a site PARTITION one '
+                f'catalogue, so an overlap means the channel filter let one order into '
+                f'both and a lot of it would be delivered to whichever leaf bound first')
+        self._leaves[channel] = leaf
+        for sku in own:
+            self._owner[sku] = leaf
+        # SITE SCOPE BECOMES REAL AT THE SECOND LEAF, and it is stamped on EVERY bound leaf
+        # (the first one included, retroactively): from here on a leaf holds the site's dock
+        # and the site's yard, so its own per-leaf receiving and transit accessors would
+        # answer a site question with one channel name on it.  They refuse instead --
+        # `Inventory_Manager.site_scoped`.  A leaf reporting `dock_depth == 0` while the
+        # site dock is backed up is exactly the silent-wrong-number class this repo keeps
+        # getting bitten by (memories `a-right-site-total-hides-two-wrong-shares`,
+        # `free-bins-counts-the-whole-geometry`).
+        if len(self._leaves) > 1:
+            for lf in self._leaves.values():
+                lf.site_scoped = True
+
+    def _owner_of(self, sku: int):
+        """Step 1's route: which leaf packs a bare `(sku, qty)` lot.
+
+        Unbound coordinators (every one-leaf run built before a `bind` existed) keep the
+        historical behaviour -- the single leaf the drain was handed owns everything -- and
+        that fallback lives at the ONE call site rather than here, so this method always
+        means "the dict says".
+        """
+        leaf = self._owner.get(sku)
+        if leaf is None:
+            raise ValueError(
+                f'sku {sku} arrived on a site trailer and no bound leaf owns it; the owner '
+                f'dict is built from the leaves own catalogue partitions at bind time, so '
+                f'an unowned sku means the yard is carrying merchandise this site never '
+                f'ordered')
+        return leaf
+
+    def _leaf_for(self, regime: str):
+        """Step 4's route: which leaf takes a unit of `regime`."""
+        leaf = self._leaves.get(regime)
+        if leaf is None:
+            raise ValueError(
+                f'a unit of the {regime!r} regime unloaded at a site dock serving '
+                f'{tuple(self._leaves)!r}; the channel a leaf binds under IS its regime, so '
+                f'this unit has nowhere to be accepted and its ledger legs would strand')
+        return leaf
+
+    # ── the site day ──────────────────────────────────────────────────────────────
+
+    def open_batch(self, index: int) -> tuple:
+        """`(base, deadline)` for site day `index`: the receiving crew's absolute epoch and
+        the whistle as a REMAINDER on the dock's batch-local clocks.
+
+        IDEMPOTENT PER INDEX, and that is the contract — one base, asked for twice.  Both
+        leaves of one batch stamp their unload rows from the same epoch because there is
+        one crew on one dock, so the first call computes and the rest read.  The identical
+        rule, for the identical reason, as `PutawayPool.open_batch`.
+
+        `base` is `max(day.start_of(index), recv_clock)`: the receivers start at shift start
+        and work what is standing, or they carry on from where yesterday overrun left them.
+        Never either leaf's `arm_clock` -- that is a PICK crew's release instant, and basing
+        the dock on it would idle the site receivers whenever a pick crew overran its day
+        and would misattribute a picking overrun to the dock's cut.  `deadline` is the rest
+        of the day CONTAINING that base, so `base + deadline` is the day's end however far
+        the carry has run.
+
+        THIS IS NOT WHAT AN UNCOUPLED RUN DOES, and the divergence is deliberate rather
+        than a restatement: the shipped runner bases its receive rows at
+        `max(arm_clock, recv_clock)` — this leaf's pick-crew release instant. Under one
+        crew on one dock that instant is a property of one channel, so the site base moves
+        to the shift start. Any run that adopts this is therefore not row-comparable with
+        one that did not, which is why the coordinator does not quietly apply it to the
+        one-leaf path (`open_batch` has no caller until a coupled run has one).
+        """
+        if index == self._open:
+            return self._base, self._deadline
+        if self.day is None:
+            raise RuntimeError(
+                'a site receiving clock needs a working day to be based on: no `day` was '
+                'bound, so there is no shift start to start the crew at and no whistle to '
+                'measure the remainder against. Coupling is an era feature and the era '
+                'completes the grid')
+        if self._owed_records:
+            raise RuntimeError(
+                f'site day {index} opened while day {self._open} still owes records from '
+                f'{sorted(self._owed_records)}; the carry is committed once per site day, '
+                f'after every leaf has reported, and a day that opens early would rebase '
+                f'the other leaf rows against an epoch it never ran in')
+        if not self._leaves:
+            raise RuntimeError(
+                'no leaf is bound to this coordinator; bind every leaf before the batch '
+                'loop, or the day is opened for a crew nobody is scheduling')
+        self._open = index
+        self._base = max(self.day.start_of(index), self.recv_clock)
+        self._deadline = self.day.remaining(self._base)
+        self._owed_records = set(self._leaves)
+        self._finish = None
+        return self._base, self._deadline
+
+    def note_records(self, leaf, finish) -> None:
+        """`leaf` has stamped its unload rows; `finish` is the absolute instant its last
+        one ended, or None when it recorded nothing.
+
+        Called once per leaf per site day, on BOTH the picked and the skipped path — a
+        batch that picked nothing still drained the dock.  When the last leaf reports, the
+        site carry is committed.  THE RESET HAS ONE OWNER for exactly the reason the put
+        pool says so: one leaf restarting a shared crew's clocks before the other has
+        recorded is a silent, plausible-looking zeroing of a half-spent day.
+
+        The carry moves only when somebody actually worked: no records anywhere means the
+        crew is where it was, exactly as an unpooled leaf leaves `recv_clock` alone.
+        """
+        ch = self._channel_of(leaf)
+        if self._open is None:
+            raise RuntimeError(
+                f'the {ch} leaf reported receiving records before the site day was opened; '
+                f'`open_batch` is what sets the epoch those rows are stamped from and what '
+                f'records who still owes a report')
+        if ch not in self._owed_records:
+            raise RuntimeError(
+                f'the {ch} leaf reported receiving records twice in site day {self._open}; '
+                f'the second report would commit a carry over a day the other leaf has '
+                f'already been rebased out of')
+        self._owed_records.discard(ch)
+        if finish is not None:
+            self._finish = finish if self._finish is None else max(self._finish, finish)
+        if self._owed_records:
+            return
+        # THE RESET, and this method is its ONE owner on a coupled run.  Uncoupled it
+        # belongs to `Dock.drain_records`, which a leaf reaches through
+        # `drain_receiving_records` -- and that accessor REFUSES on a coupled leaf (the
+        # first caller would take the other channel's rows and restart the crew's clocks
+        # half-way through the site's batch).  Removing the old owner without appointing a
+        # new one is the silent version of this whole file: the dock's clocks would
+        # accumulate across the arm while the runner kept adding an epoch, so every row
+        # after day 0 would be stamped late by every preceding day's receiving seconds, and
+        # eventually `can_start` would be false from the first unload and the site dock
+        # would stop receiving while `cut` reported a full backlog.  `Dock.drain_records`'
+        # own docstring is where that failure is written down.
+        self.dock.reset_clocks()
+        if self._finish is not None:
+            self.recv_clock = self._finish
+
+    def _channel_of(self, leaf) -> str:
+        for ch, lf in self._leaves.items():
+            if lf is leaf:
+                return ch
+        raise ValueError(
+            'a leaf reported to this coordinator without being bound to it; the site day '
+            'is opened for the leaves the coordinator knows about, so an unbound one would '
+            'commit a carry nobody accounted for')
+
+    def drain_site_rows(self) -> list:
+        """This drain window's SITE-scoped yard rows, and start the list over.
+
+        A coupled drain's `(yard_start, free_doors_start, yard_end, remainder)` belongs to
+        neither leaf -- it is a statement about the site's trailers and the site's doors --
+        so `receive` parks it here instead of handing an arbitrary leaf a number that reads
+        as its channel's.  Nothing consumes this yet; `<pair>/_site/inbound_<pair>.db` is
+        the declared home and its contract bump is the next ticket's.
+        """
+        out, self.site_rows = self.site_rows, []
+        return out
 
     # ── the space view ─────────────────────────────────────────────────────────────────
 
-    def _freeze_views(self, leaf, epoch: float) -> list:
+    def _freeze_views(self, leaves, epoch: float) -> list:
         """`[(regime, view)]` — one frozen space view per leaf that runs a timeline.
 
-        ONE LEAF TODAY, and it is contributed UNTAGGED: a composition of one partitions
-        nothing, so there is no decision for a regime tag to make and inventing one here
-        would be a value nothing checks.  The tag arrives with the owner routing — the
-        coordinator is the thing that holds both managers and calls `freeze` on each,
-        which is the same knowledge the `{sku: leaf}` dict is built from ("Design the site
-        space view", section 5) — and `compose_site_view` REFUSES an untagged contribution
-        the moment there are two, so the absent tag cannot survive into the coupled case.
+        ONE LEAF IS CONTRIBUTED UNTAGGED and more than one is TAGGED, and the asymmetry is
+        the design rather than a shortcut.  A composition of one partitions nothing, so a
+        tag there would decide nothing — and `compose_site_view` returns a lone
+        contribution BY IDENTITY, which is what keeps every standing-yard run already on
+        disk byte-identical (filtering one leaf's `empties` would remove a phantom that
+        belongs to the UNCOUPLED model).  With two, the tag is what partitions `empties` so
+        a mixed trailer's store units rank against store bins, and the composer REFUSES an
+        untagged contribution the moment there are two ("Design the site space view").
 
-        A method rather than an inline expression so the second leaf changes THIS and
-        nothing in `receive`.
+        The tag is the channel the leaf BOUND under, which is the same knowledge the
+        `{sku: leaf}` owner dict is built from — not `regime_of` on anything, because the
+        coordinator is the one object that holds both managers and knows which is which.
         """
-        if leaf.space_timeline is None:
-            return []
-        return [(None, leaf.space_timeline.freeze(leaf, epoch))]
+        leaves = tuple(leaves)
+        tagged = len(leaves) > 1
+        out: list = []
+        for leaf in leaves:
+            if leaf.space_timeline is None:
+                continue
+            tag = self._channel_of(leaf) if tagged else None
+            out.append((tag, leaf.space_timeline.freeze(leaf, epoch)))
+        return out
 
     # ── the drain ─────────────────────────────────────────────────────────────────
 
-    def receive(self, leaf, deadline: float | None) -> tuple:
+    def receive(self, leaves, deadline: float | None) -> tuple | None:
         """One drain of the standing dock: plan arrivals, fill doors, unload, hand off.
 
-        Returns the drain's yard row `(yard_start, free_doors_start, yard_end, remainder)`
-        rather than recording it, so the caller decides where a row belongs — one leaf's
-        `_yard_drains` today, a site-scoped artifact once there are two ("Design the site
-        scope in the run tree").
+        `leaves` is a SEQUENCE, and there is one drain for the whole site however many it
+        holds.  A coordinator serving AT MOST ONE leaf routes and returns exactly as the
+        single-channel drain always did: the yard row comes back and the caller decides
+        where it belongs (`_receive` appends it to that leaf's `_yard_drains`).  From the
+        SECOND leaf the row is site-scoped and belongs in neither leaf's table, so it is
+        parked on `site_rows` and None comes back — a leaf cannot record a number that is
+        not its channel's if it is never handed one ("Design the site scope in the run
+        tree").  That threshold is the one `bind` stamps `site_scoped` on and
+        `_freeze_views` tags on, deliberately: three spellings of "is the site real yet"
+        is three things to keep in step.
+
+        TWO REFUSALS, and they are the same rule from both sides.  A coordinator serving
+        several leaves refuses a drain that does not name all of them — the only way to
+        reach that is a coupled leaf's own `check_reorders`, and what it would do is drain
+        the site's dock for one channel while the other's arrivals are still on the yard:
+        half a site day's receiving, attributed whole.  An UNBOUND coordinator refuses more
+        than one leaf outright, because the owner dict is built by `bind` and without it
+        there is no way to say whose merchandise a lot is.
 
         Four steps, and their order is the design:
 
@@ -117,7 +453,55 @@ class SiteReceiving:
            `position = on_hand + queued + deferred` never wobbles.
         """
         dock, transit = self.dock, self.transit
-        epoch = leaf._now_s if leaf._now_s is not None else 0.0
+        leaves = tuple(leaves)
+        if not leaves:
+            raise ValueError('a drain with no leaf has nobody to pack for and nobody to '
+                             'hand merchandise to')
+        # ONE DOCK IS ONE DRAIN.  A BOUND coordinator is drained for every leaf it serves or
+        # for none: a partial drain would unload the site day for one channel while the
+        # other's arrivals stood on the yard.  An UNBOUND one has no owner dict, so it
+        # cannot route a second leaf at all -- both halves are the same rule, and they key
+        # on the same fact so neither can drift past the other.
+        if self._leaves:
+            if set(map(id, leaves)) != set(map(id, self.leaves)):
+                raise RuntimeError(
+                    f'a drain of the site dock named {len(leaves)} leaf/leaves while the '
+                    f'coordinator serves {tuple(self._leaves)!r}; one dock is one drain, '
+                    f'and a partial one would unload the site day for one channel while '
+                    f'the other arrivals stand on the yard')
+        elif len(leaves) > 1:
+            raise RuntimeError(
+                f'{len(leaves)} leaves were handed to a coordinator none of them is bound '
+                f'to; the `{{sku: leaf}}` owner dict is built by `bind`, so an unbound '
+                f'coordinator has no way to say whose merchandise a lot is')
+        # THE WHISTLE MUST BE THE DAY THE CLOCKS ARE RUNNING ON, checked rather than
+        # trusted -- `PutawayPool.drain` states the reason and it is the same one: a crew
+        # gated on a different day than the epoch its rows are stamped from does work
+        # nobody has the hours for, and every row of it looks ordinary.
+        if self._open is not None and deadline != self._deadline:
+            raise RuntimeError(
+                f'the site dock drained against a deadline of {deadline!r} but site day '
+                f'{self._open} has {self._deadline!r} left; one crew on one dock works one '
+                f'day, and the base its rows are stamped from is that day start')
+        # ONE DRAIN IS ONE INSTANT.  The yard's calendar is the SITE's, so a drain stamped
+        # with two epochs would be two arrival calendars over one set of doors.  Checked
+        # rather than picked from the first leaf: the two leaves' pick crews genuinely
+        # release at different instants inside one site day, and it is the DRIVER's job to
+        # hand the site epoch down -- silently taking leaf[0]'s would make that a detail
+        # nobody could see was wrong.
+        stamps = [lf._now_s for lf in leaves]
+        if any(t is None for t in stamps) and any(t is not None for t in stamps):
+            raise ValueError(
+                f'some leaves of one site drain carry an epoch and some carry none '
+                f'({stamps!r}); an unstamped leaf is not "the same instant as the others", '
+                f'it is a leaf the driver forgot to hand the site epoch to')
+        _known = [t for t in stamps if t is not None]
+        if _known and max(_known) - min(_known) > _EPOCH_TOL:
+            raise ValueError(
+                f'the leaves of one site drain carry different epochs {sorted(_known)!r}; '
+                f'one dock drains at one instant, and two would rank the same yard against '
+                f'two different "now"s')
+        epoch = _known[0] if _known else 0.0
         source = getattr(transit, 'SOURCE', 'reorder')
         ctx = transit.freeze_ctx()
         # CTX-FREEZE IS VIEW-FREEZE: one space projection per drain serves every decision
@@ -132,21 +516,35 @@ class SiteReceiving:
         # contribution -- which it returns BY IDENTITY, so this line is what it always was.
         # With two leaves it becomes two contributions, each tagged with its channel, and
         # the tag is what partitions `empties` so a mixed trailer's store units rank
-        # against store bins ("Design the site space view").  Wired at one leaf rather
-        # than left for the second, because a composer nothing calls is a composer nobody
-        # finds out is wrong.
-        views = self._freeze_views(leaf, epoch)
+        # against store bins ("Design the site space view").
+        views = self._freeze_views(leaves, epoch)
         if views:
             ctx.space = compose_site_view(views)
 
+        # THE OWNER ROUTE FOR STEP 1, and ONE threshold decides it.  The site is "real"
+        # from the SECOND leaf -- the same fact `bind` stamps `site_scoped` on and
+        # `_freeze_views` tags its contributions on -- so a coordinator serving at most one
+        # leaf keeps the historical behaviour: the single leaf the drain was handed packs
+        # everything and takes everything.  Keyed on the LEAVES SERVED and not on whether
+        # the owner dict happens to be populated, because "I bound one leaf to get the site
+        # clock" does not mean "route me as a site", and three spellings of the same
+        # threshold in one file is three things to keep in step.
+        _solo = leaves[0] if len(self._leaves) <= 1 else None
+
         # 1. plans-at-arrival (leaf-side: the transit can reach neither _originals nor
         #    the packer).  Stamped in yard order, so ages are monotone with arrival.
+        #    Each lot is packed by ITS OWNER -- `_originals`, `inbound_split`, the packer
+        #    and `_putaway_seq` are all one channel's, so a mixed trailer is planned lot by
+        #    lot across two leaves.  Stamp ordering needs nothing extra: `_stamp` increments
+        #    a PER-LEAF sequence and each leaf's put queue only ever compares its own, so
+        #    per-leaf FIFO survives a mixed trailer without any cross-leaf sequencing.
         plans_new: list = []
         for trailer in transit.unplanned():
             items: list = []
             tplans: list = []
             for sku, qty in transit.planned_lots(trailer, ctx):
-                lot_plans, lot_items = leaf.plan_lot(sku, qty, source)
+                owner = _solo if _solo is not None else self._owner_of(sku)
+                lot_plans, lot_items = owner.plan_lot(sku, qty, source)
                 tplans.extend(lot_plans)
                 items.extend(lot_items)
             trailer.plans = tplans
@@ -187,11 +585,38 @@ class SiteReceiving:
         #    The leaf's half and the dock's half are separate statements over DISJOINT
         #    state, so the split costs no byte: each accumulator still sees the same
         #    `dur` values in the same order it did when both halves were one loop body.
-        #    Routing to the owning leaf goes HERE when there are two of them.
+        #
+        #    THE OWNER ROUTE FOR STEP 4 IS `regime_of`, not the owner dict: a unit exists
+        #    here, and `regime_of` is single-valued per entity and already answers which
+        #    warehouse it belongs in (CLAUDE.md's reuse list).  Nothing is stamped, carried
+        #    or mapped at the unit level to make that true.  The two routes are then
+        #    CROSS-CHECKED: the dict said who packs the lot, the regime says who takes the
+        #    unit, and a disagreement is the one shape in which the catalogue partition and
+        #    the regime tagging can differ -- a ledger that balances in the wrong warehouse.
+        # The cross-check is a per-SKU fact, so it is memoised per SKU rather than re-run
+        # per unit: a trailer carries many units of few SKUs, and `regime_of` walks up to
+        # six `getattr`s.  The GUARANTEE is unchanged -- every unit still routes through a
+        # taker that was checked against the owner dict.
+        _takers: dict = {}
         for trailer, recs in done:
             for item, t0, dur, w in recs:
                 unit = item.unit
-                leaf.accept(item, dur)
+                if _solo is not None:
+                    taker = _solo
+                else:
+                    sku = unit.order.sku
+                    taker = _takers.get(sku)
+                    if taker is None:
+                        taker = self._leaf_for(regime_of(unit))
+                        if self._owner_of(sku) is not taker:
+                            raise ValueError(
+                                f'sku {sku} was packed by the leaf the owner dict names '
+                                f'and unloads as a {regime_of(unit)!r} unit, which names '
+                                f'another; the catalogue partition and the regime tagging '
+                                f'disagree, so one of the two ledgers this unit touches is '
+                                f'the wrong warehouse')
+                        _takers[sku] = taker
+                taker.accept(item, dur)
                 dock.records.append((t0, dur, unit.order.sku, unit.quantity, w))
                 dock.unloaded += 1
                 dock.seconds += dur
@@ -213,45 +638,79 @@ class SiteReceiving:
         # `left` is computed above the whistle test, not inside it: a drain that ran out of
         # WORK leaves the same remainder as one that ran out of DAY, and only one of those
         # is a cut — the level says what was standing either way.
-        return (ctx.yard_depth, ctx.free_doors, transit.yard_depth, left)
+        row = (ctx.yard_depth, ctx.free_doors, transit.yard_depth, left)
+        if _solo is not None:
+            return row
+        # SITE-SCOPED, so no leaf is handed it.  Same threshold as the routing above, for
+        # the same reason: a row parked here while the caller still expected one back is a
+        # yard row nothing ever writes.  See `drain_site_rows`.
+        self.site_rows.append(row)
+        return None
 
     # ── the phase composition ─────────────────────────────────────────────────────
 
     def drain(self, leaves, put_deadline: float | None = None,
               recv_deadline: float | None = None, now_s: float | None = None) -> dict:
-        """Drive N leaves' phases with ONE shared receive, and return {leaf: triggered}.
+        """Drive N leaves' phases with ONE shared receive, and return the SKUs each
+        triggered, keyed by `id(leaf)`.
 
-        The site composition of the same seven phases `check_reorders` composes for one
-        channel.  THE ORDER IS THE BEHAVIOUR, exactly as it is there: phases 0-3 are the
-        CALENDAR and run per leaf (a lead time elapses whether or not anyone is at work);
-        the receive is ONE shared drain because there is one dock; the put drain is
-        labour and runs per leaf.
+        Keyed by identity rather than by the leaf itself because a manager is unhashable
+        by value here and the caller already holds the leaves it passed in; a caller doing
+        `triggered[leaf]` gets a `KeyError`, so the key is spelled out.
+
+        `SITE_PHASES` IS THIS BODY, and the module constant is where the two facts it
+        encodes are argued: which phases are the SITE's, and why the loop is phase-major.
+        The composition is the same seven phases `check_reorders` composes for one channel,
+        in the same order, because THE ORDER IS THE BEHAVIOUR — firing before the lead tick
+        would decrement an order in the batch it was placed, and releasing before firing
+        would delay every lead-0 arrival by a batch.
 
         Phase 3 (`_release_arrivals`) runs per leaf even though it is a structural no-op
         in standing mode — it is the phase that lands trailers in the yard, so it must
         run for every leaf BEFORE the shared receive.  Dropping it because its return is
         empty would strand every arrival.
 
-        ONE LEAF TODAY.  With a single leaf this is `check_reorders` phase for phase, and
-        `Tests/unit/test_site_receiving.py` pins that equality.  The put pool that makes
-        phase 5 a shared budget is a separate object ("Design the site put-away pool");
-        until it exists, each leaf drains its own put queue against its own deadline.
+        Phase 5 is routed exactly as `check_reorders` routes it: to the SITE PUT POOL when
+        one is bound, which divides the day between the channels and re-drains both against
+        the whole of it, and to the leaf otherwise.  Reached from HERE rather than from each
+        leaf's own composition, it lands after the shared receive for every leaf — so a unit
+        unloaded this morning gets a bin today, in both channels, which is the whole reason
+        the receive sits where it does.
+
+        With a single leaf this is `check_reorders` phase for phase, and
+        `Tests/unit/test_site_receiving.py` pins that equality.
         """
         leaves = list(leaves)
+        if not leaves:
+            raise ValueError('a site drain with no leaf has no phases to run; `receive` '
+                             'says the same thing one level down, and this is where the '
+                             'first `leaves[0]` would otherwise raise an IndexError')
         triggered: dict = {}
+        # PHASE-MAJOR from here down: every leaf runs a phase before any leaf runs the next.
+        # See `SITE_PHASES` for why (leaf-major loading makes every trailer channel-pure).
         for leaf in leaves:
             leaf._now_s = now_s
             leaf._tick_batch()
-            leaf.reclaim_emptied_bins()
-            leaf._advance_lead_queue()
-            triggered[id(leaf)] = leaf._fire_reorders()
-            leaf._release_arrivals()
-        # ONE receive for the site.  The row goes to the leaf that owns the drain record
-        # today; with two leaves it becomes a site-scoped artifact instead.
-        row = self.receive(leaves[0], recv_deadline)
-        leaves[0]._yard_drains.append(row)
         for leaf in leaves:
-            leaf.drain_putaway(put_deadline)
+            leaf.reclaim_emptied_bins()
+        # SITE PHASE.  `_advance_lead_queue` delegates to the ONE transit, which `bind`
+        # asserts every leaf holds, so driving it on the first leaf IS driving it on the
+        # site; driving it on each would tick every supplier lead once per channel.
+        leaves[0]._advance_lead_queue()
+        for leaf in leaves:
+            triggered[id(leaf)] = leaf._fire_reorders()
+        for leaf in leaves:
+            leaf._release_arrivals()
+        # SITE PHASE: ONE receive, for every leaf at once.  With one leaf the row comes back
+        # and goes where it always went; with two it is site-scoped and `receive` parks it.
+        row = self.receive(leaves, recv_deadline)
+        if row is not None:
+            leaves[0]._yard_drains.append(row)
+        for leaf in leaves:
+            if leaf.putaway_pool is None:
+                leaf.drain_putaway(put_deadline)
+            else:
+                leaf.putaway_pool.drain(leaf, put_deadline)
         return triggered
 
     # ── the unload modes: dock physics, and no leaf is reachable from either ───────

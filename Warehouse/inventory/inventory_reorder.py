@@ -686,7 +686,13 @@ class ReorderMixin:
                     'standing drain lives on `Inbound.receiving.SiteReceiving` and is '
                     'reached through `mgr.receiving`. Bind one where the Dock and the '
                     'YardTransit are built')
-            self._yard_drains.append(self.receiving.receive(self, deadline))
+            # ONE LEAF, and the coordinator refuses a partial site drain -- a coupled leaf
+            # reaching here would be draining the site's dock for its own channel while the
+            # other's arrivals stood on the yard.  A coupled run drives `SiteReceiving.drain`
+            # instead, which composes these same seven phases for every leaf at once.
+            row = self.receiving.receive((self,), deadline)
+            if row is not None:
+                self._yard_drains.append(row)
             return
         dock.note_arrivals(arrivals)
         while dock.items and dock.can_start(deadline):
@@ -721,6 +727,33 @@ class ReorderMixin:
     # a boundary violation dressed as an underscore, and they are separately callable —
     # which is what makes the drain's two merchandise-bearing steps testable without
     # standing up a dock.
+    #
+    # `owned_skus` below is the coordinator's THIRD port and is not one of these two: it
+    # carries no merchandise, is read once at bind time rather than during a drain, and
+    # exists so the `{sku: leaf}` owner dict can be built without reaching `_originals`
+    # across the package boundary.
+
+    def owned_skus(self):
+        """The catalogue partition THIS leaf is responsible for, as a view of its keys.
+
+        The third port, and the only one the coordinator reads outside a drain: it builds
+        its `{sku: leaf}` owner dict from every bound leaf's set ONCE, at bind time, and
+        refuses an overlap there (`Inbound/receiving.py`).  Public rather than reaching
+        `_originals` across the package boundary — a cross-package caller that touched a
+        private would be a boundary violation dressed as an underscore.
+
+        `_originals` is the templates the manager was loaded with, which IS the partition:
+        a channel leaf loads its own regime-filtered inventory, so this set is that filter's
+        result and the two leaves' sets are disjoint by construction.
+
+        IT IS FILLED BY INTAKE (`enqueue` / `enqueue_all` / `place_optimal`), which the
+        driver runs to completion BEFORE the batch loop — not by anything a drain does. So
+        the set is stable for the life of a coupled run, and the bind-time read is a read
+        of the whole partition rather than of however much of it had arrived. A caller that
+        broke that would break loudly rather than quietly: a sku the dict never learned
+        about refuses at `_owner_of` instead of being delivered somewhere plausible.
+        """
+        return self._originals.keys()
 
     def plan_lot(self, sku: int, qty: int, source: str) -> tuple:
         """Plans-at-arrival for ONE contiguous lot: `(plans, items)`.

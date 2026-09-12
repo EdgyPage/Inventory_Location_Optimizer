@@ -273,11 +273,17 @@ def test_freeze_views_contributes_one_untagged_view_per_timeline():
         def __init__(self, tl):
             self.space_timeline = tl
 
+    class _Standing:
+        #: The coordinator refuses a non-standing transit at construction, so the fake has
+        #: to carry the one surface that decision is made on and nothing else.
+        STANDING = True
+
     tl = _Timeline()
-    got = SiteReceiving(dock=None, transit=None)._freeze_views(_Leaf(tl), 42.0)
+    got = SiteReceiving(dock=None, transit=_Standing())._freeze_views([_Leaf(tl)], 42.0)
     assert got == [(None, tl.frozen)]
     assert got[0][1].frozen_at == 42.0
-    assert SiteReceiving(dock=None, transit=None)._freeze_views(_Leaf(None), 42.0) == []
+    assert SiteReceiving(dock=None,
+                         transit=_Standing())._freeze_views([_Leaf(None)], 42.0) == []
 
 
 def test_a_real_drain_puts_the_composed_view_on_the_frozen_ctx(monkeypatch):
@@ -308,7 +314,7 @@ def test_a_real_drain_puts_the_composed_view_on_the_frozen_ctx(monkeypatch):
     tl.attach(mgr)
     _dispatch(mgr, 101, 40, 10, 0.0)
     before = tl.views_built
-    mgr.receiving.receive(mgr, None)
+    mgr.receiving.receive((mgr,), None)
 
     assert tl.views_built == before + 1, 'the drain never froze a view at all'
     assert seen, 'the drain never froze a ctx'
@@ -337,9 +343,9 @@ def test_the_drain_routes_through_the_composer_seam(monkeypatch):
     calls = []
     real = SiteReceiving._freeze_views
 
-    def _spy(self, leaf, epoch):
-        out = real(self, leaf, epoch)
-        calls.append((leaf, epoch, len(out)))
+    def _spy(self, leaves, epoch):
+        out = real(self, leaves, epoch)
+        calls.append((tuple(leaves), epoch, len(out)))
         return out
 
     monkeypatch.setattr(SiteReceiving, '_freeze_views', _spy)
@@ -347,8 +353,8 @@ def test_the_drain_routes_through_the_composer_seam(monkeypatch):
     mgr = _manager(YardTransit(Trailer28, lead_s=0.0, doors=4), crew=2)
     SpaceTimeline(drain_sku).attach(mgr)
     _dispatch(mgr, 101, 40, 10, 0.0)
-    mgr.receiving.receive(mgr, None)
+    mgr.receiving.receive((mgr,), None)
 
     assert len(calls) == 1, f'the drain reached the composer seam {len(calls)} time(s)'
-    leaf, epoch, n = calls[0]
-    assert leaf is mgr and n == 1
+    seen_leaves, epoch, n = calls[0]
+    assert seen_leaves == (mgr,) and n == 1

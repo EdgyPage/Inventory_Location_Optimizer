@@ -154,6 +154,25 @@ def _ranked_by_score(taken: list, prefers_low: bool) -> list:
 
 class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
+    #: SITE SCOPE.  True once this manager is one leaf of a SITE that holds more than one
+    #: -- stamped by `SiteReceiving.bind` when the SECOND leaf binds, on every leaf
+    #: including the ones already bound.  From that moment the dock and the transit this
+    #: manager holds are the SITE's, so six of its own accessors would answer a site
+    #: question with one channel's name on it: `dock_depth`, `in_transit_qty`,
+    #: `transit_snapshot`, `receiving_snapshot`, and the two record drains (which would
+    #: additionally hand one leaf the OTHER channel's rows and restart a shared crew's
+    #: clocks mid-batch).  They REFUSE rather than return a plausible number: a leaf
+    #: reporting `dock_depth == 0` while the site dock is backed up is the
+    #: silent-wrong-number class this repo keeps getting bitten by (memories
+    #: `a-right-site-total-hides-two-wrong-shares`, `free-bins-counts-the-whole-geometry`).
+    #: Where those rows LAND at site scope is the run-tree ticket's; this flag's job is to
+    #: make reading them from the wrong scope impossible in the meantime.
+    #:
+    #: A CLASS attribute, unlike the injected brokers in `__init__`, and deliberately: the
+    #: bench and unit tiers build managers through `__new__` to skip construction, and a
+    #: refusal that raised `AttributeError` on those would read as the guard firing.
+    #: `bind` shadows it per instance; nothing else ever writes it.
+    site_scoped: bool = False
 
     def __init__(
         self,
@@ -638,7 +657,12 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
     @property
     def in_transit_qty(self) -> int:
         """Total pieces on order and not yet released — the transit census's level.
-        For `BatchTransit` this is the historical sum of entry quantities, unchanged."""
+        For `BatchTransit` this is the historical sum of entry quantities, unchanged.
+
+        REFUSES on a coupled leaf: the transit is the SITE's one yard, so this level is
+        both channels' merchandise and reporting it per leaf would double the site's
+        in-flight pieces across the pair's two DBs."""
+        self._refuse_site_scope('in_transit_qty', '`mgr.receiving.transit.merchandise()`')
         return self.transit.merchandise()
 
     # ── the transit shim ──────────────────────────────────────────────────────────
@@ -660,7 +684,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
     def transit_snapshot(self) -> list:
         """(sku, qty, remaining_lead) tuples — the public read the replay viewer uses
-        instead of reaching for a private attribute."""
+        instead of reaching for a private attribute.
+
+        REFUSES on a coupled leaf, for `in_transit_qty`'s reason: the rows are the site
+        yard's and every one of them would be written into BOTH leaves' replay tables."""
+        self._refuse_site_scope('transit_snapshot', '`mgr.receiving.transit.snapshot()`')
         return self.transit.snapshot()
 
     @property
@@ -1182,6 +1210,22 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         """
         self._dock = dock
 
+    def _refuse_site_scope(self, name: str, instead: str) -> None:
+        """Raise when a LEAF is asked a question only the SITE can answer.
+
+        One place, six callers, one message shape: `name` is what was asked and `instead`
+        is what a caller at the right scope asks instead.  A method rather than six copies
+        of the raise, because six spellings of one rule is six things to keep in step —
+        and because the refusal is what the site-scope flag exists for, so it should be
+        one readable thing.
+        """
+        if self.site_scoped:
+            raise RuntimeError(
+                f'`{name}` is a LEAF accessor and this leaf is part of a coupled site: the '
+                f'dock and the yard it would read are the SITE\'s, shared with the other '
+                f'channel, so any answer it gave would be a site number wearing one '
+                f'channel\'s name. Ask {instead} instead.')
+
     @property
     def dock_depth(self) -> int:
         """Storage units standing on the dock. 0 when there is no receiving crew.
@@ -1189,7 +1233,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         DISJOINT from `queue_depth`, which counts the put queues and `_held`: an item is in
         one place or the other, never both. A reader wanting the whole unbinned backlog sums
         them, which is why both are reported rather than one merged number.
+
+        REFUSES on a coupled leaf: the dock is the site's, and "how deep is MY dock" has no
+        answer when one dock holds both channels' merchandise.
         """
+        self._refuse_site_scope('dock_depth', '`mgr.receiving.dock.depth`')
         return self._dock.depth if self._dock is not None else 0
 
     @property
@@ -1202,7 +1250,15 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
 
         A drain is a batch boundary -- see `Dock.drain_records` and, for what happens when
         the reset is missed, `drain_putaway_records`.
+
+        REFUSES on a coupled leaf, and this one is worse than reporting a wrong level: the
+        first leaf to call it would take the OTHER channel's unload records into its own DB
+        and restart the shared crew's clocks half-way through the site's batch, leaving the
+        second leaf with an empty drain and every later row rebased.
         """
+        self._refuse_site_scope('drain_receiving_records',
+                                'the site-scoped accessor the coupled driver uses '
+                                '(none exists yet -- see `<pair>/_site/`)')
         return self._dock.drain_records() if self._dock is not None else []
 
     def receiving_snapshot(self) -> tuple:
@@ -1211,7 +1267,14 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         `(0, 0, 0, 0.0)` when there is no receiving crew, so the caller writes the same row
         shape either way and a no-dock run records four honest zeros rather than a NULL that
         every consumer then has to special-case.
+
+        REFUSES on a coupled leaf: all four counters are the site dock's, and the flows
+        RESET, so the first caller would take the site's whole batch and leave the second
+        channel reporting an idle dock.
         """
+        self._refuse_site_scope('receiving_snapshot',
+                                'the site-scoped accessor the coupled driver uses '
+                                '(none exists yet -- see `<pair>/_site/`)')
         return self._dock.snapshot() if self._dock is not None else (0, 0, 0, 0.0)
 
     # ── put-away rework (ADR-0003) ────────────────────────────────────────────────────
@@ -1246,7 +1309,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         refuses to mix event types in one call (the `role`/`event_type` split it exists to
         keep honest), so `repack` rows have to arrive as their own list or the writer would
         have to re-derive the type per row from a discriminator nothing declares.
+
+        REFUSES on a coupled leaf, for `drain_receiving_records`' reason: the list is the
+        site dock's and the first drain empties it for both channels.
         """
+        self._refuse_site_scope('drain_repack_records',
+                                'the site-scoped accessor the coupled driver uses '
+                                '(none exists yet -- see `<pair>/_site/`)')
         return self._dock.drain_repacks() if self._dock is not None else []
 
     def snapshot_putaway_rework(self) -> tuple:

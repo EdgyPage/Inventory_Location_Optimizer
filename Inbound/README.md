@@ -19,7 +19,10 @@ seam.
 - **The site's coordinators** — the objects that sit ABOVE two inventory managers, which
   only this package may do (`wh_operations -> wh_inventory` is forbidden, and `Warehouse ->
   Inbound` is forbidden both ways, so nowhere under `Warehouse/` can serve two channels at
-  once): `receiving.py` (`SiteReceiving` — one dock, one yard, N leaves through two ports)
+  once): `receiving.py` (`SiteReceiving` — one dock, one yard and the site receiving
+  carry, N leaves through three ports, with the `{sku: leaf}` owner dict routing a mixed
+  trailer and `SITE_PHASES` composing the same seven reorder phases with two of them
+  site-scoped)
   and `putaway_pool.py` (`PutawayPool` — one crew of putters over both channels' segregated
   volume: the shared clock list, the day's division, the once-per-site-day reset and the
   site put carry). Both hold no merchandise and own no bins; they decide WHO works and
