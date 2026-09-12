@@ -647,7 +647,7 @@ class ReorderMixin:
 
         WHERE THIS SITS IS THE DESIGN. Above it, steps 0-3 are the CALENDAR: a lead time
         elapses whether or not anyone is at work, and a trailer that arrives at four o'clock
-        has still arrived. Below it, `_drain_putaway` is the put crew's labour. Receiving is
+        has still arrived. Below it, `drain_putaway` is the put crew's labour. Receiving is
         labour too, and it must run BEFORE the put drain, or a unit unloaded at nine in the
         morning would wait a whole batch for a bin -- a latency that would be an artifact of
         where the hook sits rather than anything about a warehouse.
@@ -774,15 +774,24 @@ class ReorderMixin:
         self._recv_seconds += dur
         self._queue(item)
 
-    def _drain_putaway(self, deadline: float | None = None) -> None:
+    def drain_putaway(self, deadline: float | None = None,
+                      charge_cut: bool = True) -> None:
         """Place the stock queue into bins (retries prior-batch stragglers too).
 
         `deadline` is the day's whistle on the put crews' batch-local clocks; what the
         whistle stops stays queued and is drained by the next batch, which is the put side
         of "work that does not complete rolls over to the next shift".
+
+        PUBLIC, like `reclaim_emptied_bins` and for the same reason: a second work stream
+        drives this phase without replaying the five above it.  The site put pool
+        (`Inbound/putaway_pool.py`) calls it TWICE in one site day — once at this leaf's
+        share of the day, once at the whole of it — which is what `charge_cut=False` is
+        for: `cut` is a LEVEL, so each drain charging it would inflate it inside one batch
+        where no downstream rule can undo it.  The pool charges once itself, through
+        `count_put_cut`.  True is every other caller.
         """
         if self._stock_queue:
-            self._stock(deadline=deadline)
+            self._stock(deadline=deadline, charge_cut=charge_cut)
 
     def check_reorders(self, put_deadline: float | None = None,
                        recv_deadline: float | None = None,
@@ -831,5 +840,14 @@ class ReorderMixin:
         triggered = self._fire_reorders()
         arrivals = self._release_arrivals()
         self._receive(arrivals, recv_deadline)
-        self._drain_putaway(put_deadline)
+        # THE POOL OWNS PHASE 5 WHEN THERE IS ONE, exactly as `mgr.receiving` owns phase 4
+        # under a standing yard: `Warehouse -> Inbound` is forbidden in both directions, so
+        # it arrives by INJECTION and is reached through an attribute.  Under one crew of
+        # putters serving two channels this phase is not a leaf's to run alone — the day
+        # has to be divided before either leaf spends it, and the shared clocks reset once
+        # after both.  None is every uncoupled run, and then this line is what it was.
+        if self.putaway_pool is None:
+            self.drain_putaway(put_deadline)
+        else:
+            self.putaway_pool.drain(self, put_deadline)
         return triggered

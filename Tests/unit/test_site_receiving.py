@@ -211,7 +211,7 @@ def test_a_standing_transit_without_a_coordinator_refuses_loudly():
 
 #: The seven phases `check_reorders` composes, in its declared order.
 _PHASES = ('_tick_batch', 'reclaim_emptied_bins', '_advance_lead_queue',
-           '_fire_reorders', '_release_arrivals', '_receive', '_drain_putaway')
+           '_fire_reorders', '_release_arrivals', '_receive', 'drain_putaway')
 
 #: What the SITE composition drives on a leaf instead: the same order, with the leaf's own
 #: `_receive` replaced in place by the coordinator's ONE shared drain.  That substitution

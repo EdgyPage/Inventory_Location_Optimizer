@@ -215,7 +215,7 @@ class SiteReceiving:
         row = self.receive(leaves[0], recv_deadline)
         leaves[0]._yard_drains.append(row)
         for leaf in leaves:
-            leaf._drain_putaway(put_deadline)
+            leaf.drain_putaway(put_deadline)
         return triggered
 
     # ── the unload modes: dock physics, and no leaf is reachable from either ───────

@@ -14,11 +14,17 @@ test over a hand-built payload:
     empty channel rather than an exception, so the sum is checked, and a planted double
     filter proves the check can fail.
 
-The uncoupled comparison is deliberate and is the sharpest thing here: at this commit a
-coupled unit is byte-identical to the two independent units it replaces (the site crews are
-still FIELDED per leaf -- see the ticket's answer), so the two leaves' batch stats must match
-row for row.  When 04's put pool and 01's owner routing land, THIS is the test that will say
-so, by failing in a way that names the leaf whose labour moved.
+The uncoupled comparison is deliberate and is the sharpest thing here.  It used to pin
+coupled == uncoupled row for row and to say in its own docstring that 04's put pool would
+break it.  Site-dock 19 landed the pool and it did: the site's putters are now fielded ONCE
+over both leaves instead of once per leaf, so every absolute put number on a coupled run
+moved.  What the test asserts now is the relationship that makes the move a fix — one crew,
+one uid block, the same people in both DBs — and it REPORTS the size of the move rather than
+pinning it.
+
+Every test here runs under a derived staffing block and the working-day grid, because
+coupling is an era feature: the site crews are derived, never declared, and a coupled unit
+without them is refused.
 
 Run:  python -m pytest Tests/e2e/test_coupled_unit_e2e.py -q
 """
@@ -76,12 +82,46 @@ def _one_arm(monkeypatch):
         monkeypatch.setitem(rs.CONFIG['channels'][_ch], 'restocks', ('fifo',))
 
 
+#: The site put crew this fixture derives.  Two, not one: a crew of one is a serial clock
+#: and would make "the pool books to whoever is free earliest" unobservable.
+_PUT_CREW = 2
+
+#: The two channels' recorded put expectations, deliberately LOPSIDED.  The shares come from
+#: `derived.put.expected_utilization` (crew and day cancel), so equal values would make the
+#: sub-deadlines equal and the day's division indistinguishable from a straight halving.
+_PUT_EU = {'store': 0.25, 'fulfillment': 0.75}
+
+
+def _era_staffing(channel_runs) -> dict:
+    """A derived staffing block for this pair, minimal but CONSISTENT with the payload.
+
+    Coupling is an era feature — the site crews are derived, never declared — so a coupled
+    unit without this block is refused, and every test here goes through it.  The pickers
+    are read off the channel profiles rather than written down, because
+    `_check_declared_crew` compares the two and a literal here would only ever be a second
+    place for the same number to rot.
+    """
+    return {'derived': {
+        'channels': {ch.name: {'pickers': ch.picker.num_pickers} for ch, _ in channel_runs},
+        'put': {'crew': _PUT_CREW, 'expected_utilization': dict(_PUT_EU)},
+        # No receiving crew: `recv_crew_spec(size=0)` returns None, so no dock is
+        # constructed and the leaves keep the shape every test in this file had.
+        'receiving': {'crew': 0},
+    }}
+
+
 @pytest.fixture
 def site(tmp_path, monkeypatch):
     """A prepared pair: the shared assets and the pair dir every test below runs into."""
     log = logging.getLogger('coupled-e2e'); log.setLevel(logging.ERROR)
     monkeypatch.setitem(rs.CONFIG['global'], 'n_batches', 3)
     monkeypatch.setitem(rs.CONFIG['channels']['store'], 'configs', [rs.REGRESSION_CONFIGS[0]])
+    # THE WORKING-DAY GRID, which the site put pool refuses to run without: one batch is one
+    # site day, and a whistle blows at the end of it.  The era completes both
+    # (`--releases-per-day` to 1, `--shift-drain-or-cap` forces the cut); set here directly
+    # so the fixture asserts the pool's precondition rather than a whole era regime.
+    monkeypatch.setitem(rs.CONFIG['global'], 'releases_per_day', 1)
+    monkeypatch.setitem(rs.CONFIG['global'], 'cut_at_day_end', True)
     _one_arm(monkeypatch)
 
     inv_db, aff_db = _mixed_dbs(tmp_path)
@@ -91,6 +131,7 @@ def site(tmp_path, monkeypatch):
         warehouse_db_path=os.path.join(build_pair, 'warehouse.db'))
     mixed, channel_runs = rs._channel_runs_for(shared['inventory'])
     assert mixed, 'the coupled unit needs a mixed catalogue'
+    shared['staffing'] = _era_staffing(channel_runs)
     return dict(log=log, shared=shared, channel_runs=channel_runs, tmp=tmp_path)
 
 
@@ -199,20 +240,49 @@ def test_a_double_filtered_leaf_is_refused(site, monkeypatch):
         sr._run_strategy_worker(ua)
 
 
-# ── coupled is byte-identical to uncoupled, AT THIS COMMIT ───────────────────────
+# ── coupled is NOT uncoupled: the double count ends here ─────────────────────────
+
+def _put_rows(db_path, run_id):
+    """`(actor_uid, t_abs)` for every put row of one run, in row order."""
+    con = sqlite3.connect(db_path)
+    try:
+        return con.execute(
+            'SELECT actor_uid, t_abs FROM work_events WHERE run_id=? AND role=? '
+            'ORDER BY rowid', (run_id, 'put')).fetchall()
+    finally:
+        con.close()
+
 
 def test_a_coupled_unit_matches_the_two_units_it_replaces(site):
-    """The site crews are DECLARED once here but still FIELDED per leaf -- 04's pool is what
-    makes them one crew, and this ticket does not claim it (see the ticket's answer on the
-    ordering).  So a coupled unit must reproduce, row for row, the two independent units it
-    replaces.  When the pool lands this test FAILS, and the leaf whose labour moved is named
-    in the failure -- which is the point of pinning it now."""
+    """THE COMPARABILITY BREAK, measured rather than argued.
+
+    This test used to pin coupled == uncoupled row for row, and said in its own docstring
+    that 04's pool would make it fail.  It does.  `workunits.py` handed EACH leaf the whole
+    derived site crew, so two independent processes fielded the site's labour TWICE; the
+    pool fields it once, over both leaves, and every absolute put number on a coupled run
+    moves as a result.
+
+    What replaces the equality is the relationship that makes the move a FIX and not a
+    regression, and it is structural rather than numeric — a numeric pin on a three-batch
+    fixture would be a different claim every time the fixture moved:
+
+      * the site fields ONE put crew, not one per leaf.  Uncoupled, the two leaves' put
+        rosters sum to `2 x _PUT_CREW` people; coupled, they are the SAME people.
+      * a putter's uid means the same person in BOTH channels' DBs, and sits above both
+        channels' dense picker uids so no rollup joining on `actor_uid` can merge a putter
+        with a picker.
+      * both leaves' put queues are bound to the SAME clock list — identity, which is what
+        makes "a putter busy on one stream is busy on the other" true rather than modelled.
+
+    The size of the move is REPORTED per leaf (see the assertion messages), which is what
+    the ticket asked the failure to produce.
+    """
     coupled_units, _ = _prepare(site, name='run_coupled')
     ua = coupled_units[0]
     ua['log_queue'] = queue.Queue()
     sr._run_strategy_worker(ua)
 
-    # the same two arms, prepared and run the way every run does today
+    # the same two arms, prepared and run the way an uncoupled run does
     solo_dir = str(site['tmp'] / 'run_solo' / 'mixed'); os.makedirs(solo_dir, exist_ok=True)
     solo = []
     for ch, cfg in site['channel_runs']:
@@ -223,11 +293,50 @@ def test_a_coupled_unit_matches_the_two_units_it_replaces(site):
         sr._run_strategy_worker(a)
         solo.append(a)
 
+    k_max = max(lf['k_pickers'] for lf in ua['leaves'])
+    block = set(range(k_max, k_max + _PUT_CREW))
+    moved, coupled_actors, solo_actors = {}, {}, {}
     for leaf, alone in zip(ua['leaves'], solo):
         assert leaf['channel_key'] == alone['channel_key']
+        ch = leaf['channel_key']
+        cp = _put_rows(leaf['db_path'], leaf['run_id'])
+        sp = _put_rows(alone['db_path'], alone['run_id'])
+        # A LEAF THAT PUT NOTHING AWAY IS NOT A FAILURE HERE -- three batches is short
+        # enough that a channel can genuinely fire no reorder -- but it must be the same
+        # story coupled and uncoupled, or the pool changed WHETHER work happened rather
+        # than who did it.
+        assert bool(cp) == bool(sp), (
+            f'{ch}: coupled recorded {len(cp)} put row(s) and uncoupled {len(sp)}; the '
+            f'pool moves who does the work, never whether there is any')
+        # ONE SITE BLOCK, THE SAME IN BOTH DBs.  Uncoupled, each leaf slices its put uids
+        # off its OWN pickers, so the two channels' putters collide with each other and
+        # with somebody's pickers; coupled, they are one block above both.
+        assert {u for u, _ in cp} <= block, (
+            f'{ch}: coupled put rows name actors outside the site block {sorted(block)}: '
+            f'{sorted({u for u, _ in cp} - block)}')
+        coupled_actors[ch] = {u for u, _ in cp}
+        solo_actors[ch] = {u for u, _ in sp}
         c = load_batch_stats(leaf['db_path'], leaf['run_id'])
         s = load_batch_stats(alone['db_path'], alone['run_id'])
-        assert len(c) == len(s) and len(c) >= 1
-        for bc, bs in zip(c, s):
-            assert bc == bs, (f"{leaf['channel_key']}: coupled and uncoupled disagree on "
-                              f'batch stats -- the coupling moved this leaf')
+        assert len(c) == len(s) and len(c) >= 1, 'the coupled run lost a batch'
+        moved[ch] = (sum(1 for bc, bs in zip(c, s) if bc != bs), len(c),
+                     len(cp), len(sp))
+    # ONE CREW, NAMED THE SAME WAY IN BOTH DBs.  Uncoupled, each leaf slices its put uids
+    # off its own picker count, so the two channels' putters are two crews that a site-level
+    # rollup joining on `actor_uid` would merge or split at random; coupled, they are the
+    # same people under the same names.
+    _named = [a for a in coupled_actors.values() if a]
+    assert _named, f'neither leaf put anything away: {moved}'
+    assert all(a == _named[0] for a in _named), (
+        f'the two leaves named different putters: {coupled_actors}. The pool is ONE crew, '
+        f'so both channels must stamp the same uids')
+    assert len(_named[0]) <= _PUT_CREW
+    # The site put crew, once.  Built here rather than read off a leaf because a `_Leaf`
+    # deliberately hands nothing back -- a driver sequences leaves and does not reach into
+    # one -- and this IS the number the double count doubled.
+    pool = sr._build_put_pool(ua)
+    assert len(pool.clocks) == _PUT_CREW, (
+        f'the site put crew is {len(pool.clocks)}, not the derived {_PUT_CREW}')
+    # THE MEASUREMENT, reported rather than pinned: what the break cost, per leaf.
+    print(f'\n  coupled vs uncoupled -- batches differing/total, put rows coupled/solo: '
+          f'{moved}\n  put actors coupled={coupled_actors} solo={solo_actors}')

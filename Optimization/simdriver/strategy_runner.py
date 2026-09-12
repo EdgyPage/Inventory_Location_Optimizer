@@ -49,6 +49,7 @@ from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.placement.Capacity_Reloader import RELOADERS
 from Warehouse.operations import Crew as _Crew, Mode as _Mode, Role as _Role
 from Warehouse.kernel.cost_model import SpeedProfile as _SpeedProfile
+from Warehouse.kernel.crew_clock import new_clocks as _new_clocks
 from Optimization.metrics import work_events as _work_events
 from Warehouse.kernel.timeline import (
     DEFAULT_SHIFT_SECONDS as _DEFAULT_SHIFT_SECONDS,
@@ -62,6 +63,7 @@ from Inbound.gain import (
     FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle,
     OneOwnerBundle as _OneOwnerBundle)
 from Inbound.pack import packer as _inbound_packer
+from Inbound.putaway_pool import PutawayPool as _PutawayPool
 from Inbound.receiving import SiteReceiving as _SiteReceiving
 from Inbound.space import SpaceTimeline as _SpaceTimeline
 from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
@@ -456,10 +458,23 @@ def _cleanup_checkpoints(run_dir: str) -> None:
 
 # ── strategy worker ───────────────────────────────────────────────────────────
 
+def _work_day_of(args: dict):
+    """The working day a payload describes, as a `WorkDay`.
+
+    ONE expression, two callers: a leaf builds its release schedule from it and the site
+    put pool divides it.  Two constructions of the same day would be two days the moment
+    one of them picked up a fallback the other did not, and the symptom would be a put
+    crew whose whistle was minutes away from its own pickers'.
+    """
+    _wd = args.get('work_day') or {}
+    return _WorkDay(length=_wd.get('seconds')
+                    or args.get('shift_seconds') or _DEFAULT_SHIFT_SECONDS)
+
+
 def close_skipped_batch(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id,
                         demanded, sigma_fd, reload_moves, reorder_placements,
                         skus_reordered, units_ordered, put_workers, put_crews,
-                        shift_seconds):
+                        shift_seconds, put_base=None, reset_clocks=True):
     """Everything a batch that produced no tasks still owes.
 
     Returns `(batch_stats_row, work_event_rows, put_clock)`.
@@ -482,6 +497,12 @@ def close_skipped_batch(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_i
     full sweep -- and no arm in the coverage sweep ever skips a batch, so it had no coverage
     at all.  Source-scanning it instead does not work: `if False:` and a commented-out call
     both still contain the strings a scan looks for, and two sabotages proved it.
+
+    THE TWO POOLED PARAMETERS.  `put_base` overrides the crew's epoch with the SITE's --
+    one shared clock list cannot carry two epochs -- and `reset_clocks=False` leaves the
+    crew standing for the pool to reset once both leaves have recorded.  The defaults are
+    every uncoupled run and reproduce this function's whole history; a skipped batch still
+    put hundreds of units away, so it needs both exactly as the picked path does.
     """
     bs = extract_batch_stats([], batch_id=batch_id, k_pickers=k_pickers, run_id=run_id)
     bs.batch_start_time    = arm_clock
@@ -499,12 +520,12 @@ def close_skipped_batch(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_i
     if put_workers is None:
         return bs, rows, put_clock
 
-    recs = mgr.drain_putaway_records()
+    recs = mgr.drain_putaway_records(reset_clocks=reset_clocks)
     if not recs:
         return bs, rows, put_clock
     # The crew picks this batch's queue up when the batch is released OR when it finishes the
     # last one, whichever is later -- the same rule the non-skipped path uses.
-    base = max(arm_clock, put_clock)
+    base = max(arm_clock, put_clock) if put_base is None else put_base
     by_queue: dict = {}
     for r in recs:
         by_queue.setdefault(r[9], []).append(r)
@@ -559,6 +580,13 @@ class _Leaf:
     # than checked here, because the claim is about the leaves TOGETHER.
     n_catalogue: int
     n_skus     : int
+    # A BATCH IS TWO HALVES, and a unit runs every leaf's first half before any leaf's
+    # second: `replenish(i)` is the release instant, the whistles and `check_reorders`;
+    # `step(i)` is the picks, the stats and the rows.  The cut is what makes it two --
+    # the site put pool divides one day between the channels and re-drains both against
+    # the whole of it, and the later leaf's queue does not exist until its own phases
+    # have run.  One leaf calls them back to back, which is the loop they came out of.
+    replenish: object                 # (int) -> None
     step     : object                 # (int) -> None
     finish   : object                 # () -> dict
 
@@ -635,7 +663,58 @@ def _check_site_crews(args: dict) -> None:
             f"derived, never declared")
 
 
-def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
+def _build_put_pool(args: dict):
+    """The SITE's put crew, for a coupled unit: one clock list, one roster, one carry.
+
+    Built at UNIT scope and above both leaves, because that is the only scope that can see
+    both: the crew comes from the pair's derived block (ONE site total, which the leaves no
+    longer carry at all), the uid block has to clear BOTH channels' dense picker uids, and
+    the day's division needs both channels' recorded expectations.  A leaf cannot compute
+    any of the three, which is why the pool is injected into it rather than fished out of
+    it (site-dock 04 section 5).
+
+    THE BLOCK STARTS AT `max(k_pickers)`.  Every existing analysis assumes `actor_uid ==
+    picker_id` for pickers, and the two channels have different picker counts, so a put
+    block chained off either leaf's own pickers would give the same physical putter two
+    different uids in the two DBs -- and any site-level rollup joining on `actor_uid` would
+    merge two different people.  The smaller leaf gets a GAP in its uid space instead,
+    which nothing reads (`put_rows` bounds-checks `widx` against the roster, `work_events`
+    has no uniqueness constraint).  A dense-but-lying uid is worse than a sparse-but-true
+    one.
+
+    THE WORKING DAY IS READ ONCE, from leaves that are checked to agree.  It reaches the
+    worker per leaf (`work_day_spec()` rides `_shared`), so both copies come from one
+    accessor -- but "both copies come from one accessor" is a fact about the parent, and a
+    coupled unit assembled by hand could carry two.  The pool divides ONE day.
+    """
+    _leaves = args['leaves']
+    for _key in ('work_day', 'shift_seconds'):
+        _vals = [la.get(_key) for la in _leaves]
+        if any(v != _vals[0] for v in _vals):
+            raise ValueError(
+                f'the leaves of a coupled unit carry different {_key} records ({_vals!r}); '
+                f'one site put crew works one day, and two days here would give the two '
+                f'channels different whistles over the same people')
+    _wd = _leaves[0].get('work_day') or {}
+    _derived = (args.get('staffing') or {}).get('derived') or {}
+    if not _derived:
+        raise ValueError(
+            'a coupled unit has no derived staffing block, so there is no site put crew to '
+            'pool and no recorded expectation to divide the day by; coupling is an era '
+            'feature (the crews are derived, never declared)')
+    _pc = args['put_crew']
+    _crew = _Crew(role=_Role.PUT, mode=_Mode.of(_pc['mode']),
+                  speed=_SpeedProfile(_pc['x_speed'], _pc['y_speed']), size=_pc['size'])
+    _first_uid = max(int(la['k_pickers']) for la in _leaves)
+    return _PutawayPool(
+        _new_clocks(_crew.size, 'site put pool'), _crew.workers(_first_uid),
+        _derived['put']['expected_utilization'], _work_day_of(_leaves[0]),
+        channels=tuple(la['channel_name'] for la in _leaves),
+        releases_per_day=_wd.get('releases_per_day'),
+        cut_at_day_end=bool(_wd.get('cut_at_day_end')))
+
+
+def _build_leaf(args: dict, unit: dict | None = None, pool=None) -> '_Leaf':
     """One channel leaf, built but not yet run — the setup half of a work unit.
 
     Everything here is per channel and stays so under coupling: one inventory partition, one
@@ -643,6 +722,14 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
     is the leaf's two halves as closures over that setup — `step(i)`, one batch, and
     `finish()`, the run-end flush and the result dict — so a caller can drive ONE leaf (every
     run today) or step two leaves through one batch loop (the coupled unit, site-dock 02 §2).
+
+    `pool` is the SITE PUT POOL (`Inbound.putaway_pool.PutawayPool`), built above the leaves
+    and injected: when it is present this leaf's put queues are bound to the pool's shared
+    clock list rather than minting their own, its put rows are stamped with the pool's
+    workers and the pool's site-wide epoch, and phase 5 of every batch belongs to the pool.
+    None is every uncoupled run and every flag-off leaf, which then fields its own put crew
+    exactly as it always did — double count and all, structurally, because the pool is not
+    CONSTRUCTED rather than constructed and bypassed.
 
     The closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this
     function with the loop inline, and the split moved the loop body and the tail VERBATIM.
@@ -730,9 +817,7 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
     # rather than as three loose keys: a worker re-imports sim_config and would otherwise get
     # pristine defaults for any of them that went missing.
     _wd = args.get('work_day') or {}
-    _release = _ReleaseSchedule(
-        _WorkDay(length=_wd.get('seconds') or _shift_seconds),
-        per_day=_wd.get('releases_per_day'))
+    _release = _ReleaseSchedule(_work_day_of(args), per_day=_wd.get('releases_per_day'))
     # STOP PICKERS AT THE WHISTLE.  Off by default: turning it on changes which units get
     # picked in which batch, so it can never be a silent default.  With it on, work a picker
     # did not reach rolls into the next batch's demand rather than evaporating.
@@ -1058,11 +1143,27 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
     # duplicated uid passes `put_rows`' `0 <= widx < len(workers)` check, `work_events` has no
     # uniqueness constraint, and the merged view still sorts -- so a per-actor rollup would
     # quietly merge two crews and the timeline would say a putter did another stream's work.
+    #
+    # POOLED, THE ROSTER IS THE POOL'S.  One crew of putters serves both channels, so both
+    # leaves stamp the SAME people -- and the block starts above BOTH channels' dense
+    # picker uids (`max(k_pickers)`, allocated with the pool), which leaves the smaller
+    # leaf a gap in its uid space.  Harmless: nothing reads uids densely (`put_rows`
+    # bounds-checks `widx` against the roster, `work_events` has no uniqueness
+    # constraint).  The trade is that a putter's uid means the same person in both DBs,
+    # which any site-level rollup joining on `actor_uid` needs; a dense-but-lying uid is
+    # worse than a sparse-but-true one.  `put_queue_split` is refused under a pool
+    # (`_bind_put_crews`), so there is exactly one queue here to hand it to.
     _uid = _pick_crew.next_uid(0)
     _put_crews = {}
     for _q in mgr.put_queues:
-        _put_crews[_q.name] = _put_crew.workers(_uid)
+        _put_crews[_q.name] = _put_crew.workers(_uid) if pool is None else pool.workers
         _uid = _put_crew.next_uid(_uid)
+    if pool is not None:
+        # THE CURSOR MOVES TO THE POOL'S BLOCK END, not this leaf's.  The receiving crew
+        # chains off it, and the pool's block starts above BOTH channels' pickers -- so a
+        # cursor left at `k_pickers + put_size` would hand the smaller leaf receivers whose
+        # uids sit inside the putters' block, silently merging two crews in one DB.
+        _uid = _put_crews[mgr.put_queues.queues[0].name][-1].uid + 1
     # The default roster for a caller that does not know the queue name (the skipped-batch
     # path passes it through).  With one queue this IS the only roster.
     _put_workers = _put_crews[mgr.put_queues.queues[0].name]
@@ -1080,7 +1181,17 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
         pick_cfg,
         intercept_scale=float(_cc.get('put_intercept_scale', _DEF_PUT_SCALE)),
         item_ratio=float(_cc.get('put_item_ratio', _DEF_PUT_RATIO)))
-    mgr.enable_putaway_timing(_put_crew.speed, cost=_pcost, size=_put_crew.size)
+    # POOLED, THE CLOCKS ARE THE POOL'S: both leaves' queues are handed the SAME
+    # `list[float]`, so `crew_clock.charge` books every put to whichever putter is free
+    # earliest across both channels.  The sharing is identity -- `reset` mutates in place
+    # -- which is why the pool, and not either manager, owns the reset.
+    mgr.enable_putaway_timing(_put_crew.speed, cost=_pcost, size=_put_crew.size,
+                              clocks=None if pool is None else pool.clocks)
+    if pool is not None:
+        # The injection, both ways: the manager routes phase 5 here, and the pool learns
+        # which channel this leaf is so it can hand it its share of the day.
+        mgr.putaway_pool = pool
+        pool.bind(mgr, args['channel_name'])
 
     # ── the receiving crew ────────────────────────────────────────────────────────
     # ABSENT BY DEFAULT, AND STRUCTURALLY SO: `recv_crew_spec()` returns None when the size
@@ -1384,18 +1495,35 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
     t_loop         = time.perf_counter()
     t_ckpt         = time.perf_counter()
 
-    def _step(i: int) -> None:
-        """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
-        below is that loop's, unchanged, so a carry rebound here is rebound in the
-        enclosing setup scope exactly as it was between iterations."""
-        nonlocal _d, _pending, _q, _shift_cut_today, _shift_last_finish, _shift_prev_day
-        nonlocal _shift_standing, arm_clock, cons_breaks, cons_picked, cons_residual
-        nonlocal demand_breaks, dur_count_ckpt, dur_sum_ckpt, last_dur, p1_run, p1_sum_ckpt
-        nonlocal p2_run, p2_sum_ckpt, placed_ckpt, put_clock, recv_clock, reorders_ckpt, skipped
-        nonlocal t_build_ckpt, t_build_run, t_ckpt, t_extract_ckpt, t_extract_run, t_inv_ckpt
-        nonlocal t_inv_run, t_kf_ckpt, t_kf_run, t_pre_ckpt, t_pre_run, t_reord_ckpt
-        nonlocal t_reord_run, t_sample_ckpt, t_sample_run, t_save_run, t_sim_ckpt, t_sim_run
-        nonlocal t_task_ckpt, t_task_run, units_ordered_ckpt
+    # THE SIX NAMES THE TWO HALVES OF A BATCH SHARE, seeded here rather than left to
+    # `_replenish` to create: the closures rebind them through `nonlocal`, and a name
+    # first bound inside one of them would be that function's local instead -- which
+    # reads correctly and carries nothing between the halves.
+    _t = 0.0                 # the phase timer, running across both halves
+    _late = 0.0              # how late this batch was against its release slot
+    _day_end = None          # the whistle for the day this batch was released into
+    _put_base = None         # the put crew's epoch; the SITE's when pooled
+    _batch_early = None      # the batch, sampled early for the standing-demand feed
+    triggered = ()           # the SKUs this batch reordered
+
+    def _replenish(i: int) -> None:
+        """Batch `i`'s REPLENISHMENT half, for this leaf: the release instant, the two
+        whistles, the standing-demand injection, the re-slot and `check_reorders`.
+
+        SPLIT OUT SO EVERY LEAF REPLENISHES BEFORE ANY LEAF PICKS.  The site put pool
+        divides one day between the channels and then re-drains both against the whole
+        of it, so an earlier leaf can spend what a later one did not -- and the later
+        leaf's queue does not exist until its own phases 1-3 have run.  With the whole
+        batch in one call that residue pass would land after the earlier leaf had
+        already snapshotted its queues and stamped its rows: the placements would be
+        real, the rows would be stamped a day late, and `put_queue_state` would report
+        a queue depth that was never standing.  Nothing would raise.
+
+        One leaf calls this and `_step` back to back, which is the loop this was cut
+        out of, line for line.
+        """
+        nonlocal _batch_early, _day_end, _late, _put_base, _t, arm_clock
+        nonlocal _pending, _q, reorders_ckpt, triggered
         _t = time.perf_counter()
         bin_rec.begin_batch(i)
         # THE RELEASE INSTANT, COMPUTED BEFORE ANY WORK IS DISPATCHED.  It used to be
@@ -1425,6 +1553,15 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
         # whichever is later, which is exactly the `_put_base` the event rows use below.
         _put_deadline = (None if _day_end is None
                          else _day_end - max(arm_clock, put_clock))
+        # POOLED, BOTH NUMBERS ARE THE SITE'S and neither is this leaf's to compute.  One
+        # shared clock list cannot carry two epochs, so the base is the SITE DAY START
+        # (`max(day.start_of(i), put_clock_site)`) and the whistle is what is left of that
+        # day -- never `arm_clock`, which would idle the site's putters whenever EITHER
+        # pick crew overran its day and would misattribute a picking overrun to put-away's
+        # cut.  `open_batch` is idempotent per day, so both leaves get the same answer.
+        _put_base = None
+        if pool is not None:
+            _put_base, _put_deadline = pool.open_batch(_release.day_of(i))
         # The RECEIVE whistle: its own day, its own carry.  Reusing `_put_deadline` would be
         # arithmetically well-formed and wrong -- it is the PUT crew's remaining day, already
         # shrunk by the PUT crew's backlog -- and the only symptom would be a `recv_cut` that
@@ -1466,6 +1603,21 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
                                             recv_deadline=_recv_deadline,
                                             now_s=arm_clock)
         reorders_ckpt += len(triggered)
+
+    def _step(i: int) -> None:
+        """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
+        below is that loop's, unchanged, so a carry rebound here is rebound in the
+        enclosing setup scope exactly as it was between iterations."""
+        nonlocal _d, _pending, _q, _shift_cut_today, _shift_last_finish, _shift_prev_day
+        nonlocal _shift_standing, arm_clock, cons_breaks, cons_picked, cons_residual
+        nonlocal demand_breaks, dur_count_ckpt, dur_sum_ckpt, last_dur, p1_run, p1_sum_ckpt
+        nonlocal p2_run, p2_sum_ckpt, placed_ckpt, put_clock, recv_clock, reorders_ckpt, skipped
+        nonlocal t_build_ckpt, t_build_run, t_ckpt, t_extract_ckpt, t_extract_run, t_inv_ckpt
+        nonlocal t_inv_run, t_kf_ckpt, t_kf_run, t_pre_ckpt, t_pre_run, t_reord_ckpt
+        nonlocal t_reord_run, t_sample_ckpt, t_sample_run, t_save_run, t_sim_ckpt, t_sim_run
+        nonlocal t_task_ckpt, t_task_run, units_ordered_ckpt
+        # The six the replenishment half bound; see the seeds above `_replenish`.
+        nonlocal _batch_early, _day_end, _late, _put_base, _t, triggered
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
         # Standardized reorder/stock accounting: N skus reordered (triggered), U units ordered
@@ -1679,7 +1831,8 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
             # stands; under a paced schedule the slot advances it, which is what makes an
             # empty batch cost a day-slot instead of nothing.
             _bs, _we_skip, put_clock = close_skipped_batch(
-                batch_id=i, mgr=mgr, arm_clock=arm_clock, put_clock=put_clock,
+                batch_id=i, mgr=mgr, arm_clock=arm_clock,
+                put_clock=put_clock if pool is None else _put_base,
                 k_pickers=k_pickers, run_id=run_id,
                 # `_eff_batch`, NOT `batch`.  The two differ by exactly the inherited
                 # carry, and using `batch` here gave `items_demanded` a SECOND definition
@@ -1690,7 +1843,15 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
                 reload_moves=batch_rm, reorder_placements=batch_rp,
                 skus_reordered=len(triggered), units_ordered=batch_uo,
                 put_workers=_put_workers, put_crews=_put_crews,
-                shift_seconds=_shift_seconds)
+                shift_seconds=_shift_seconds,
+                # Pooled, the site's epoch and the pool's reset -- a skipped batch still
+                # ran `check_reorders` and may have put hundreds of units away, so it owes
+                # the pool a report exactly as a picked one does.  `put_clock` is handed in
+                # as `_put_base` so the return is the base itself when nothing was
+                # recorded, which is what `note_records` wants either way.
+                put_base=_put_base, reset_clocks=pool is None)
+            if pool is not None:
+                pool.note_records(mgr, put_clock)
             _bs.work_day      = _release.day_of(i)
             (_bs.recv_depth, _bs.recv_unloaded,
              _bs.recv_cut, _bs.recv_seconds) = _rcv
@@ -1865,10 +2026,15 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
             events, batch_id=i, batch_start=bs.batch_start_time, crew=_pick_workers,
             shift_seconds=_shift_seconds))
         if _put_workers is not None:
-            _put_recs = mgr.drain_putaway_records()
+            # POOLED, THE DRAIN LEAVES THE CREW STANDING.  Resetting here would zero the
+            # other leaf's half-spent day with nothing raising and every subsequent row
+            # plausible; the pool resets the one list once, after both leaves report.
+            _put_recs = mgr.drain_putaway_records(reset_clocks=pool is None)
             # The crew picks this wave's queue up when the wave is released OR when it
-            # finishes the last one, whichever is later.
-            _put_base = max(bs.batch_start_time, put_clock)
+            # finishes the last one, whichever is later.  Pooled, `_put_base` is the site's
+            # and was set when the day opened, above.
+            if pool is None:
+                _put_base = max(bs.batch_start_time, put_clock)
             # ONE CALL PER STREAM.  Each queue has its own crew, so a worker index means
             # something only against that crew's roster -- worker 0 of the cart crew and
             # worker 0 of the forklift crew are different people.  With the default single
@@ -1892,6 +2058,17 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
                 # not associative, and `_put_base + (t0 + dur)` moved 28 rows by one
                 # ulp across two arms.  Same value for one worker, exactly.
                 put_clock = max((_put_base + r[0]) + r[1] for r in _put_recs)
+            elif pool is not None:
+                # NOTHING PUT AWAY, and the pool still has to hear from this leaf -- it
+                # resets the shared clocks only when every leaf has reported.  The base is
+                # what to report: a crew that did no work today is free at the day's start,
+                # which is the same answer the carry gives tomorrow either way.
+                put_clock = _put_base
+            if pool is not None:
+                # The site carry is the pool's, committed when the LAST leaf reports, so
+                # both leaves of one batch read one epoch.  `put_clock` stays as this
+                # leaf's own view for the shift ledger's `_shift_last_finish`.
+                pool.note_records(mgr, put_clock)
         pk.extend(picks_b)
         pm.extend(am)
         last_dur        = bs.duration
@@ -2184,7 +2361,7 @@ def _build_leaf(args: dict, unit: dict | None = None) -> '_Leaf':
 
     return _Leaf(strategy=strategy, start_i=start_i, n_batches=n_batches,
                  channel=args.get('channel_name'), n_catalogue=n_catalogue, n_skus=n_skus,
-                 step=_step, finish=_finish)
+                 replenish=_replenish, step=_step, finish=_finish)
 
 
 def _run_strategy_worker_impl(args: dict) -> dict:
@@ -2208,7 +2385,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         # Handed down as an ARGUMENT, never spliced into the leaf payload: the payload is the
         # thing the assertion is about, and a leaf dict that acquires the keys on its way into
         # `_build_leaf` would make "the leaf no longer carries them" untestable.
-        leaves = [_build_leaf(la, unit=args) for la in args['leaves']]
+        _pool = _build_put_pool(args)
+        leaves = [_build_leaf(la, unit=args, pool=_pool) for la in args['leaves']]
         # THE PARTITION SUM. Each leaf loads its OWN inventory and filters it to its regime,
         # so 02 section 4's double-filter (`inventory.orders = [...]` over an already-filtered
         # list) cannot arise -- there is no shared list. What CAN arise is the failure that
@@ -2234,7 +2412,16 @@ def _run_strategy_worker_impl(args: dict) -> dict:
         raise ValueError(
             f'the leaves of a work unit must share one batch range; got '
             f'starts={sorted(_starts)} totals={sorted(_totals)}')
+    # EVERY LEAF REPLENISHES, THEN EVERY LEAF PICKS.  One leaf calls the two back to
+    # back, which is the loop this was cut out of.  Two leaves need the order: the site
+    # put pool gives each channel a share of the day and then re-drains both against the
+    # whole of it, so an earlier leaf can spend the hours a later one did not -- and the
+    # later leaf's put queue does not exist until its own arrivals have been released.
+    # Run whole-batch-per-leaf instead, that residue pass lands AFTER the earlier leaf has
+    # snapshotted its queues and stamped its rows, and nothing raises.
     for i in range(leaves[0].start_i, leaves[0].n_batches):
+        for lf in leaves:
+            lf.replenish(i)
         for lf in leaves:
             lf.step(i)
     results = [lf.finish() for lf in leaves]

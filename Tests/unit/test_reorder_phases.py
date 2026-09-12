@@ -33,7 +33,7 @@ from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, W
 
 #: the canonical sequence, in the order `check_reorders` must run them
 PHASES = ('_tick_batch', 'reclaim_emptied_bins', '_advance_lead_queue',
-          '_fire_reorders', '_release_arrivals', '_receive', '_drain_putaway')
+          '_fire_reorders', '_release_arrivals', '_receive', 'drain_putaway')
 
 
 def _manager(seed: int = 0) -> Inventory_Manager:
@@ -93,7 +93,7 @@ def test_the_release_follows_the_firing():
 def test_the_drain_is_last():
     """It has to see both the arrivals released this batch and any straggler requeued by
     the reloader before it."""
-    assert PHASES[-1] == '_drain_putaway'
+    assert PHASES[-1] == 'drain_putaway'
 
 
 # ── 2. the calendar ──────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ def test_reclaiming_bins_does_not_advance_the_calendar():
 def test_draining_putaway_does_not_advance_the_calendar_or_order_anything():
     mgr = _manager()
     before, queued = mgr._batch_num, len(mgr._lead_queue)
-    mgr._drain_putaway()
+    mgr.drain_putaway()
     assert mgr._batch_num == before
     assert len(mgr._lead_queue) == queued
 
@@ -146,7 +146,7 @@ def test_the_phase_list_here_matches_the_composition():
     assertion above passing while checking a subset.
 
     Matched on `self.<name>(` rather than `self.<name>()`: a phase may take arguments —
-    `_drain_putaway` takes the day's whistle — and requiring the empty call would have made
+    `drain_putaway` takes the day's whistle — and requiring the empty call would have made
     the ratchet fail on a phase it was still checking.
     """
     import inspect
@@ -193,7 +193,7 @@ def test_each_labour_phase_gets_its_own_whistle_and_the_calendar_gets_none():
     mgr.check_reorders(put_deadline=_PUT_WHISTLE, recv_deadline=_RECV_WHISTLE)
 
     assert set(seen) == set(PHASES), 'a phase was not called'
-    assert seen['_drain_putaway'] == ((_PUT_WHISTLE,), {}), (
+    assert seen['drain_putaway'] == ((_PUT_WHISTLE,), {}), (
         'the put drain did not get the put crew\'s whistle')
     # `_receive` also takes this batch's arrivals, so its whistle is the LAST positional.
     assert seen['_receive'][0][-1] == _RECV_WHISTLE, (
@@ -202,7 +202,7 @@ def test_each_labour_phase_gets_its_own_whistle_and_the_calendar_gets_none():
         f"put-away's backlog")
 
     for name in PHASES:
-        if name in ('_drain_putaway', '_receive'):
+        if name in ('drain_putaway', '_receive'):
             continue
         assert seen[name] == ((), {}), (
             f'{name} is CALENDAR and was handed a whistle; a short day would stop time '
@@ -219,7 +219,7 @@ def test_both_deadlines_default_to_none():
     """Every caller that predates the day cut, and every run that does not ask for one."""
     mgr = _manager()
     got: dict = {}
-    mgr._drain_putaway = lambda d=None: got.setdefault('put', d)
+    mgr.drain_putaway = lambda d=None: got.setdefault('put', d)
     mgr._receive = lambda a=(), d=None: got.setdefault('recv', d)
     mgr.check_reorders()
     assert got == {'put': None, 'recv': None}

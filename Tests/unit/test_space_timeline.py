@@ -222,7 +222,7 @@ def _run_standing_cycle(mgr, tl=None) -> list:
             tl.inject_demand({101: 6}, released_at=epoch)   # 6 = one whole pallet
         mgr.reclaim_emptied_bins()                          # step 0: harvest fires here
         _drain(mgr, epoch)                                  # step 4: freeze fires here
-        mgr._drain_putaway()                                # step 5: fill fires here
+        mgr.drain_putaway()                                # step 5: fill fires here
         # one deterministic pick-dry per round, exactly alike on both managers
         bins = (list(mgr._sku_pallet_bins.get(101, ()))
                 or list(mgr._sku_singleton_bins.get(101, ())))

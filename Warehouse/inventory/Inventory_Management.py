@@ -289,6 +289,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin):
         # (`context/architecture.yml:102-103`), which is exactly why the coordinator can
         # sit above two managers when neither may know the other exists.
         self.receiving = None
+        # THE SITE PUT POOL (`Inbound/putaway_pool.py`), which owns phase 5 when one crew
+        # of putters serves two channels: the shared clock list, the day's division
+        # between the leaves, the residue pass and the once-per-site-day reset.  None =
+        # never constructed, which is every uncoupled run -- and then phase 5 is this
+        # manager's own `drain_putaway`, byte for byte what it always was.  Bound by the
+        # driver, never imported, for `receiving`'s reason one comment up.
+        self.putaway_pool = None
         #: Receiving labour, in seconds. Deliberately NOT folded into `_put_seconds`: that
         #: figure has been published, and widening what it counts would move it silently.
         #: Repack rework (ADR-0003) DOES land here -- it is receiving work, done by the
