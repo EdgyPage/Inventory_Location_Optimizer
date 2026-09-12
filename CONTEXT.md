@@ -282,6 +282,19 @@ A policy-relative ordering value, comparable only within its policy.
 **Share**:
 A proportion of a stated whole.
 
+**Line share**:
+A SKU's base weight in the demand sampler: its relative frequency over the whole its section
+draws from. A weight the sampler draws in proportion to, and never the probability that it does
+-- affinity lift and drawing a batch of distinct SKUs without replacement both stand between the
+two, and each is a different function of the share rather than a scaling of it.
+_Avoid_: draw probability (the outcome, below), pick probability, inclusion probability
+
+**Draw probability**:
+The probability that one batch includes a given SKU -- an outcome of the sampler, read off the
+generator, never an input to it. The batches a SKU appears in are Binomial in it, never Poisson
+in a rate: it approaches one for the busiest SKUs, which is exactly where a rate breaks.
+_Avoid_: line share (the weight, above), draw rate, appearance frequency
+
 **Grain**:
 The per-what of one row: per batch, per arm, per picker, session-cumulative.
 

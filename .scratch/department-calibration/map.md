@@ -2,6 +2,22 @@
 
 Label: wayfinder:map
 
+**STATUS: CLOSED, 2026-09-12.** All 46 tickets are resolved and the destination below is reached:
+the era is declared, derived and CALIBRATED on both leaves, its record rides every config seam,
+and the inbound campaign is unblocked at inbound-optimization
+[Re-run the gate and fix the fee threshold](../inbound-optimization/issues/29-rerun-the-gate-and-fix-the-threshold.md).
+
+**What a reader of the archive most needs from this map:** it ends on a reversal. For a month the
+fulfillment leaf realized a first-pass miss four times what the record promised, and three tickets
+were built to correct the fill law -- one of them fitting a multiplier that closed 71% of the gap.
+The law was right. The SAMPLER was broken: v2 re-drew SKUs it had already taken and the sku-keyed
+`Batch.items` collapsed the repeats, so every batch delivered fewer lines than the era declared
+([Fix the sampler's duplicate draws as v3](issues/44-fix-the-sampler-duplicate-draws.md)). Under
+v3 the gap goes +0.0793 to +0.0033 in a 0.020 band with no correction at all, and the fit that
+closed 71% of it was fitting a concentration the defect manufactured. Recorded as ADR-0006.
+**A correction that closes most of a gap is not evidence the gap is real**, and the store control
+-- which passed throughout and caught two dead variants -- is what kept the question open.
+
 ## Destination
 
 Baseline staffing and expected throughput as declared, committed configuration: the
@@ -165,11 +181,16 @@ regime someone chose rather than one the defaults inherited.
   frequencies, and a Fenwick's subtractive update annihilates the small weights sharing a node
   and keeps the difference as phantom mass (its total read 14.6% above its own leaves). v3 is a
   segment tree that recomputes each node from its children and can never return a dead leaf;
-  it delivers exactly `k`, 0/40 short on both channels, at 1.1-1.5x v2. **This is the seventh
-  comparability break and the widest** -- it moves every batch sequence, so the coverage fixed
-  point, the line floor and the derived picking crew move with it, and the era's CALIBRATED
-  status (31) is PROVISIONAL again until
-  [Re-run the reference pair and record the form](issues/43-rerun-and-record-the-form.md).
+  it delivers exactly `k`, 0/40 short on both channels, at 1.1-1.5x v2. **This is the SIXTH
+  comparability break and the widest** (after the per-item charge `fc7a46a5`, the placement pools
+  `a033aff`, ADR-0003's drain order, the derived fill of 35 and the lead-aware record of 37) --
+  it moves every batch sequence, so no absolute pick, travel, throughput or labour number crosses
+  2026-09-12. **CORRECTED 2026-09-12 by 46 and 43:** it was written here as the seventh, counting
+  a fill-law geometry move that never happened, and it does NOT move the coverage fixed point,
+  the line floor or the picking crew -- `n` is declared, so those came back bit-identical and only
+  the put-away and receiving crews followed. The era's CALIBRATED status is no longer provisional:
+  46's run cleared it and [Re-run the reference pair and record the
+  form](issues/43-rerun-and-record-the-form.md) recorded it (ADR-0006).
   A collapsed batch now REFUSES under v1/v3; v2 stays exempt so its archive is reproducible.
 - **If the floor solve cannot clear the declared confidence inside `_MAX_FLOOR_LINES`** (128 lines
   per SKU, `Optimization/simconfig/coverage.py:84`), **the confidence is declared PER CHANNEL**
@@ -740,6 +761,21 @@ regime someone chose rather than one the defaults inherited.
   run of its own (this run is its confirming gate). Also: Modern Standby killed the first
   attempt at the analysis stage (STATUS_IN_PAGE_ERROR); `--resume` recovered it in five minutes
   with all eight arm DBs intact.
+
+- [Re-run the reference pair and record the form](issues/43-rerun-and-record-the-form.md):
+  **the map's last ticket, and no run was taken** -- 46's `comparison_20260912_134002` was the
+  confirming gate and it passed on the first read. Recorded: **ADR-0006** (the fill-law gap was a
+  SAMPLER ARTIFACT, with 39's fitted multiplier -- 3.968 fulfillment closing 71%, 1.739 store
+  closing 52% -- as the rejected alternative, rejected now because a single positive multiplier
+  cannot produce a residual that runs +16% on one channel and -19% on the other); an **ADR-0004
+  amendment** (its shelf half's law is VALIDATED not corrected; its crew half is sampler-invariant
+  BECAUSE the crew is sized on declared units; and the per-channel confidence conditional, decided
+  and not yet fired); and **`CONTEXT.md`** terms **line share** (a WEIGHT) and **draw probability**
+  (an OUTCOME), each avoiding the other by name. CORRECTION found while recording: the v3 flip is
+  the **SIXTH** comparability break, not the seventh -- two memories disagreed in opposite
+  directions, one counting a fill-law geometry move that never happened and the other counting a
+  `p_s` landing that was ruled out of scope. Both fixed; mirror pushed; memory, path and docref
+  gates green.
 
 ## Not yet specified
 

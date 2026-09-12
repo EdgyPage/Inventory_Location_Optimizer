@@ -1,7 +1,7 @@
 # Re-run the reference pair and record the form
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 46
 
 Graduated 2026-09-12 from
@@ -89,3 +89,74 @@ ADRs and the glossary are written, and the memory mirror is synced.
   takes a CELL directory and exits 0 doing nothing when handed a run root (CLAUDE.md 3).
 - Denominate crew shares on distinct `work_day` values, never on calendar span (memory
   `calendar-span-is-not-work-days`).
+
+## Answer
+
+Resolved 2026-09-12. **No run was taken** -- 46's `comparison_20260912_134002` was the confirming
+gate and it passed on the first read (12 arms judged, 0 failed; fulfillment supply 0.0284 against
+an expected 0.0251 at tol 0.020, the store 0.0271 against 0.0248). This ticket was paper only, and
+the paper is written.
+
+### 1. The break is the SIXTH, not the seventh
+
+Recording it turned up a live contradiction: **two memories claimed a different number for it, in
+opposite directions.** `v3-sampler-era` called the flip the SEVENTH break, having counted the
+fill-law geometry move as the sixth -- a move that never happened, because the geometry did not
+follow the sampler. `draw-probability-replaces-line-share` claimed the SIXTH for the `p_s`
+landing, which was ruled out of scope and never bought a break at all. Both are corrected. The
+running list, in the shape the fourth and fifth memories keep it:
+
+1. the per-item charge `fc7a46a5`
+2. the placement pools `a033aff`
+3. ADR-0003's drain order
+4. the derived fill (35)
+5. the lead-aware record (37)
+6. **the v3 sampler flip (44)**
+
+`v3-sampler-era` now carries the break in the fourth/fifth shape: the running list, what moved
+against what did not (`n` is declared, so the floors 1.3078 / 1.4994, the levels, the 2774 aisles
+/ 2,505,050 bins and the picking crew K = 23 are bit-identical; put-away 60 -> 64 and receiving
+22 -> 23 moved because they size on lines and packs), and the era CALIBRATED again under it. Its
+own earlier prediction that the coverage fixed point would move is marked wrong in place rather
+than quietly deleted.
+
+### 2. The paper trail
+
+- **ADR-0006** (`docs/adr/0006-the-fill-law-gap-was-a-sampler-artifact.md`), re-aimed exactly as
+  46 directed: the subject is that the gap was an ARTIFACT, not that the form was corrected. The
+  fitted multiplier is the rejected alternative with 39's numbers intact (`m` = 3.968 fulfillment
+  closing 71%, 1.739 store closing 52%), and the rejection is the sharper one -- a single positive
+  multiplier cannot produce a residual that runs over on one channel by 16% and under on the other
+  by 19%, so the fit would have been the wrong shape even had the gap been real. Landing `p_s` is
+  recorded as the second rejected option, on cost. Consequences carry the accepted ~18% two-sided
+  generator-side error, the sixth break, and `draw_probability.py` staying in the tree uncalled.
+- **ADR-0004 amended** with three paragraphs: the law its shelf half is priced through is
+  VALIDATED and not corrected; the crew half is sampler-invariant *because* of this ADR's own
+  "sized on demanded units" choice (which is why K = 23 held while put and receiving moved); and
+  the standing conditional that if the floor solve cannot clear the confidence inside
+  `_MAX_FLOOR_LINES` the confidence is declared PER CHANNEL -- decided, not yet fired.
+- **`CONTEXT.md`** gains **Line share** and **Draw probability**, placed under Measurement
+  immediately after **Share**, so the weight-versus-outcome contrast lands where a reader is
+  already comparing kinds of number. Each `_Avoid_`s the other by name, which is the whole point:
+  a chain of five tickets chased the difference between them.
+
+### 3. Memory and the gates
+
+`v3-sampler-era` (break re-written, ADR pointer), `draw-probability-replaces-line-share`
+(description rewritten, the never-landed verdict appended, the false sixth-break claim removed),
+`v2-defect-manufactured-the-fill-law-evidence` (ADR pointer) and `MEMORY.md` (both index hooks;
+the draw-probability hook's display title no longer asserts a replacement that never happened).
+Mirror pushed `+0 ~4 -0`.
+
+Green: `verify_memory.py`, `path_guard.py --scan`, `docref_guard.py --scan`. The architecture
+layer needs no regeneration -- `CATALOG_ROOTS` catalogues Python only, so a new ADR is not a
+catalog entry.
+
+### 4. What this closes and what it opens
+
+**The department-calibration map is CLOSED** -- this was its last open ticket, and the destination
+is reached: the era is declared, derived and calibrated on both leaves under a sampler that
+delivers what it promises. **The inbound campaign is unblocked**: inbound-optimization
+[Re-run the gate and fix the fee threshold](../../inbound-optimization/issues/29-rerun-the-gate-and-fix-the-threshold.md)
+listed this ticket as its only blocker and is now on that map's frontier beside
+[Re-size the funnel in site days](../../inbound-optimization/issues/24-resize-the-funnel-in-site-days.md).
