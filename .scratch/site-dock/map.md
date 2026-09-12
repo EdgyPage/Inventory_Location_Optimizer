@@ -99,7 +99,7 @@ BEFORE anything runs: the inbound-optimization map resumes at
 
   ```
   20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis stage ──▶ 25 site crew checks
-      [DONE]                    [DONE]                     └─▶ 26 composite gain bundle
+      [DONE]                    [DONE]                     └─▶ 26 composite gain bundle  [DONE]
   22 coupled resume reconciler  [DONE]   (independent)
   23 funnel spec for arm pairs  [DONE]   (independent)
   27 the site dock's unload price  (grilling, **DONE** -- graduated by 21, answered same day)
@@ -107,7 +107,7 @@ BEFORE anything runs: the inbound-optimization map resumes at
 
   **20, 22 and 23 landed together on 2026-09-11**, run in parallel — which is also how the three
   independent tickets were meant to be used, and **21 followed the same day**. What is left is
-  24 -> 25, with 26 running beside them. **27 closed the same day it was graduated**, and it was
+  **24 -> 25, and nothing else**: 26 landed beside them and is done. **27 closed the same day it was graduated**, and it was
   the map's last open decision — so every decision here is closed and what remains is execution
   alone. **24 carries the SECOND COMPARABILITY BREAK**, which 21 correctly declined: what breaks
   comparability is a run FIELDING one dock, and all three things such a run needs sat on 21's own
@@ -618,18 +618,36 @@ BEFORE anything runs: the inbound-optimization map resumes at
   supports it: check 6 re-prices each row against ITS OWN regime's constant, two exact equalities
   instead of one, failing if a row is ever charged at the other channel's rate.
 
+- [Build the composite gain bundle](issues/26-build-the-composite-gain-bundle.md): **BUILT** —
+  `SiteGainBundle` holds one whole `GainBundle` per channel and binds per leaf, `_build_site_gain`
+  sits at unit scope beside `_build_put_pool`, and `_gain_bundle_for` is untouched and simply
+  called twice. **The commensurability claim is now a measured one, not an assumption.** The
+  charter says a fulfillment hour and a store hour are worth the same to the site; the test
+  RECOVERS the rate from two lopsided mixes (determinant asserted non-zero, reference hours priced
+  through each arm's OWN `OneOwnerBundle` so a coefficient inside the composite cannot cancel) and
+  gets a = b = 1. A planted 1.3x fulfillment weight makes it fail and the recovery returns exactly
+  1.3 — with an unweighted control under the same re-partitioning passing, so the failure is
+  attributable to the weight and not to the rearrangement. **The finding is WHERE it breaks:** the
+  decomposition goes first, because a per-channel coefficient stops the score being the sum of its
+  owners' honest hours — so the precondition is the sharper detector, not the rate. Byte-identity
+  measured over **899,068 rows across 19 tables x 6 arms, zero differing**, with the gain evidence
+  counted first (154 of 181 `plan_order` calls ranked more than one trailer) and an ORACLE:
+  inverting the gain sign in the HEAD copy moves 62,001 rows, so the diff can fail. 10 new tests;
+  15 mutations, 15 caught. **27 turns out to be orthogonal** — no unload charge enters the gain
+  score at all (it is put travel + E[visits] x pick), and a per-regime unload price would be a
+  per-regime COST like `wp.by_regime`'s pick costs, never a per-channel WEIGHT.
+
 ## Not yet specified
 
-- **Nothing here needs a DECISION any more.** Every design ticket on this map is resolved, and
-  the "remaining builds" lump that used to sit in this section has been charted in full: tickets
-  20-26 hold it, item for item. The route to the destination is therefore visible end to end, and
-  what is left in this section is only what is genuinely still dim (below) plus the two decisions
-  that cannot be taken until the code they are about exists — both of which are named inside the
-  tickets that will surface them ([Build the coupled receiving coordinator and the site recv
-  clock](issues/21-build-the-coupled-receiving-coordinator.md) for the site dock's price list,
-  [Build the site crews' cross-leaf checks](issues/25-build-the-site-crew-checks.md) for
-  `receiving_report`'s tolerance). See **The route** under Notes for the ordering and what runs in
-  parallel.
+- **Nothing here needs a DECISION any more.** Every design ticket on this map is resolved, the
+  "remaining builds" lump that used to sit in this section was charted in full as tickets 20-26,
+  and **five of those seven are built** — 20, 21, 22, 23 and 26. The one decision a build reopened
+  closed the same day it was raised ([Decide the site dock's unload
+  price](issues/27-decide-the-site-docks-unload-price.md)). What is left in this section is only
+  what is genuinely still dim (below), plus ONE decision that still cannot be taken until the code
+  it is about exists — `receiving_report`'s tolerance form, named inside
+  [Build the site crews' cross-leaf checks](issues/25-build-the-site-crew-checks.md), which will
+  surface it. See **The route** under Notes.
 
 - **Within-day put interleaving.** The charter shares a DAY budget, so a putter cannot take the
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
