@@ -1,6 +1,6 @@
 ---
 name: v2-defect-manufactured-the-fill-law-evidence
-description: "the fulfillment fill-law gap's whole evidence base was the v2 sampler's duplicate draws — 335 SKUs drawn on half the days carried the repeat statistic; under v3 the concentration signature, the lag-1 suppression and the 3.74x under-pricing all vanish"
+description: "the fulfillment fill-law gap was a v2 sampler artifact, CONFIRMED on a run: under v3 the equilibrium instrument reads 12 arms, 0 failed, and the gap goes +0.0793 to +0.0033 — the duplicate draws were 95.5-97.1% of it"
 metadata: 
   node_type: memory
   type: project
@@ -45,16 +45,27 @@ It UNDER-prices the store by 19% (0.00607 against 0.00721) and OVER-prices fulfi
 `Binomial(K, p_s)` gives a strictly lower `P(N >= 1)` than a Poisson of the same mean, so at
 equal mean it helps fulfillment and hurts the store.
 
-**The realized missed shares were NOT re-measured and are still v2 outcomes** (store 0.0302,
-fulfillment 0.1044). Any "share of the gap" scored against them now compares a v3 generator with
-a v2 run and is meaningless. There is good reason to expect the defect inflated the realized miss
-too -- those 335 SKUs were drawn 15-17 days of 20 against levels sized for ~1.5 lines per SKU, so
-they would have been missing almost constantly -- but that is a PREDICTION, and dept-cal 46 is
-the run that measures it.
+**The prediction was MEASURED and it held** (dept-cal 46, `comparison_20260912_134002`, the
+same shape at the v3 sampler). The equilibrium instrument reads **12 arms judged, 0 FAILED**
+against v2's 4:
+
+| supply clause | v2 | v3 | expected | tol |
+|---|---|---|---|---|
+| fulfillment (4 arms) | 0.1025 - 0.1044, all FAIL | **0.0274 - 0.0286, all PASS** | 0.0251 | 0.020 |
+| store (4 arms) | 0.0300 - 0.0302, PASS | **0.0271 - 0.0285, PASS** | 0.0248 | 0.020 |
+
+The fulfillment gap went **+0.0793 -> +0.0033**: the duplicate draws were **95.5-97.1%** of it
+(store 30-58%). The realized lead was re-measured too (drawn K 1.6742, realized 1.78-1.84 over
+310 trailers) and re-pricing at it moves fulfillment +0.0002. The LABOUR clause moved the other
+way -- fulfillment 0.0099 -> 0.0339 against 0.0246 at tol 0.032, still passing -- because v3
+delivers 9.5% more lines to the same crew.
+
+Consequence: dept-cal 40 / 41 / 42 (the draw-probability form) were ruled OUT OF SCOPE. `p_s`
+had one consumer and it no longer needs correcting.
 
 **How to apply:** treat every fill-law, repeat-structure or per-SKU-inclusion number measured
 before 2026-09-12 as drawn from a defective sampler, and re-measure rather than carry it.
 Reproducing a v2 baseline before reporting a v2-to-v3 difference is what makes the difference
 attributable -- do it. Related: [[v3-sampler-era]],
 [[sampler-affinity-flattens-the-fulfillment-line-rate]],
-[[draw-probability-replaces-line-share]], [[a-count-is-not-a-claim]].
+[[draw-probability-replaces-line-share]], [[a-count-is-not-a-claim]]. Also [[crew-denomination-decides-sampler-sensitivity]].
