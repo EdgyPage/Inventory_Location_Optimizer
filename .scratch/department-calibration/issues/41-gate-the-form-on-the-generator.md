@@ -1,7 +1,7 @@
 # Gate the form on the generator
 
 Type: task
-Status: open
+Status: resolved  <!-- closed OUT OF SCOPE -->
 Blocked by: 40
 
 Graduated 2026-09-12 from
@@ -74,3 +74,22 @@ reported, and the verdict is stated plainly as pass or reject. Reproducible in o
 - Score at realized lines, not over all declared SKUs. The two weightings disagree by a factor of
   4 on fulfillment and that disagreement IS the finding (39, method notes).
 - Floats compare with a tolerance, never `==`.
+
+## Closed: OUT OF SCOPE, 2026-09-12
+
+Ruled out of scope by user decision while resolving
+[Re-take the reference run under v3 and re-establish the gap](46-retake-the-reference-run-under-v3.md), which measured the fill-law gap CLOSED under the
+era's declared sampler: 12 arms judged, **0 failed**, fulfillment supply 0.1044 -> 0.0284
+against an expected 0.0251 at tol 0.020. The v2 sampler's duplicate draws were 95.5-97.1% of
+the gap this chain existed to explain.
+
+There is no new form to gate. The record does still misprice its own prior-line event on
+the GENERATOR -- over-prices fulfillment by 16% (0.04140 vs 0.03485) and under-prices the
+store by 19% (0.00607 vs 0.00721), in opposite directions -- but the instrument accepts the
+REALIZED result on both leaves, which is what the era is calibrated against. A two-sided
+~18% error on an intermediate quantity does not earn a comparability break. This ticket's
+own pre-registered rejection (fulfillment closing while the store overshoots is fatal) is
+what a single-multiplier fix would now trigger, in mirror image.
+
+A scope boundary, not a step on the route: this ticket is NOT in the map's Decisions-so-far.
+It returns only if the destination is redrawn.

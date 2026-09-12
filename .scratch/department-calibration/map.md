@@ -141,6 +141,22 @@ regime someone chose rather than one the defaults inherited.
   own output distribution is not a calibration simulation; it is evaluating a law we wrote down.
   This replaces the flat "there are no calibration simulations" wording with the boundary that
   decision actually meant; the six reference passes stay closed.
+- **The era is CALIBRATED again, and the fill-law gap was an artifact** (measured 2026-09-12,
+  [Re-take the reference run under v3](issues/46-retake-the-reference-run-under-v3.md)).
+  `comparison_20260912_134002` reads **12 arms judged, 0 FAILED** on the equilibrium
+  instrument -- fulfillment supply 0.1044 -> **0.0284** against an expected 0.0251 at tol
+  0.020, the store 0.0302 -> 0.0271. The v2 sampler's duplicate draws were **95.5-97.1%** of
+  the fulfillment gap that 38, 39 and the 40-43 chain existed to explain. The instrument's
+  labour clause moved the other way (fulfillment 0.0099 -> 0.0339 against 0.0246 at tol 0.032)
+  and is now the closer of the two -- v3 delivers 9.5% more lines to the same crew -- but it
+  passes on every arm.
+- **The geometry does NOT follow the sampler; two crews do.** `n` is DECLARED
+  (`mean_fraction` x section size), so the floors (1.3078 / 1.4994), the levels (3,086,462 /
+  2,595,593), the warehouse (2774 aisles / 2,505,050 bins) and the PICKING crew (K=23) came
+  back bit-identical across the v2 -> v3 flip. Put-away (60 -> 64) and receiving (22 -> 23) did
+  NOT: they size on the replenishment each delivered LINE triggers, and packs/day rose
+  15,645.5 -> 17,105.1 (+9.3%), tracking the +9.46% more lines v3 delivers. A crew denominated
+  in declared UNITS is sampler-invariant; one denominated in LINES or PACKS is not.
 - **The era's declared sampler is v3 since 2026-09-12** ([Fix the sampler's duplicate draws as v3](issues/44-fix-the-sampler-duplicate-draws.md)).
   v2 re-drew SKUs it had already taken and the sku-keyed `Batch.items` collapsed the repeats,
   so every v2 batch delivered fewer lines than the era declared (-8.64% fulfillment on 40/40
@@ -714,6 +730,17 @@ regime someone chose rather than one the defaults inherited.
   [Re-take the reference run under v3](issues/46-retake-the-reference-run-under-v3.md).
   The v2 baseline was reproduced first, exactly, so every difference is the sampler.
 
+- [Re-take the reference run under v3 and re-establish the gap](issues/46-retake-the-reference-run-under-v3.md):
+  **the gap is CLOSED** -- 12 arms, 0 failed, fulfillment supply +0.0793 over expected -> +0.0033
+  in a 0.020 band. The realized lead was re-measured (drawn K 1.6742, realized 1.78-1.84, 310
+  trailers) and re-pricing at it moves fulfillment +0.0002. This ticket's own prediction that
+  the geometry would move was WRONG and is corrected in its answer: `n` is declared, so every
+  derived quantity is bit-identical -- except the put and receiving crews, which size on lines.
+  USER DECISION: 40 / 41 / 42 ruled OUT OF SCOPE, 43 re-scoped to record the era and needing no
+  run of its own (this run is its confirming gate). Also: Modern Standby killed the first
+  attempt at the analysis stage (STATUS_IN_PAGE_ERROR); `--resume` recovered it in five minutes
+  with all eight arm DBs intact.
+
 ## Not yet specified
 
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
@@ -767,6 +794,21 @@ regime someone chose rather than one the defaults inherited.
   crossing the 5% floor (22 of 51 reference buckets sit on it).
 
 ## Out of scope
+
+- **The draw-probability form** (user, 2026-09-12, on
+  [Re-take the reference run under v3](issues/46-retake-the-reference-run-under-v3.md)'s
+  measurement). [Characterise the draw probability](issues/40-characterise-the-draw-probability.md),
+  [Gate the form on the generator](issues/41-gate-the-form-on-the-generator.md) and
+  [Land the draw probability through every closed form](issues/42-land-the-draw-probability.md)
+  are CLOSED out of scope: `p_s` had exactly one consumer, correcting a fill law that was
+  under-predicting the realized miss 4x, and the law now reads in band on both leaves with no
+  correction. The record does still misprice its own prior-line event on the GENERATOR -- over
+  on fulfillment by 16%, under on the store by 19%, in opposite directions -- but the
+  instrument accepts the realized result, and a two-sided ~18% error on an intermediate
+  quantity does not earn three tickets and a comparability break. 40's built module
+  (`Optimization/simdriver/draw_probability.py`, 13 green tests) stays in the tree as the
+  sampler effort's starting point; its two `_drawp_*.npz` artifacts are v2 archive, not input.
+
 
 - **Real-world staffing recommendations.** Arrivals are batch-quantized, so the modelled
   crew faces its whole day's work at once and its makespan reads LONG (memory:

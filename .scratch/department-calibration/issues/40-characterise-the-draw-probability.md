@@ -1,7 +1,7 @@
 # Characterise the draw probability
 
 Type: task
-Status: open
+Status: resolved  <!-- closed OUT OF SCOPE -->
 Blocked by: 46
 
 Graduated 2026-09-12 from
@@ -148,3 +148,21 @@ characterising at all now depends on whether a gap survives a v3 run. Two facts 
 regardless: the two `_drawp_*.npz` artifacts in the reference pair are v2 characterisations and
 must be re-drawn, and `max p` = 0.8044 is confirmed an artifact -- under v3 no fulfillment SKU
 is drawn on even half the days, against 335 that were under v2.
+
+## Closed: OUT OF SCOPE, 2026-09-12
+
+Ruled out of scope by user decision while resolving
+[Re-take the reference run under v3 and re-establish the gap](46-retake-the-reference-run-under-v3.md), which measured the fill-law gap CLOSED under the
+era's declared sampler: 12 arms judged, **0 failed**, fulfillment supply 0.1044 -> 0.0284
+against an expected 0.0251 at tol 0.020. The v2 sampler's duplicate draws were 95.5-97.1% of
+the gap this chain existed to explain.
+
+The draw probability had exactly one consumer -- correcting the fill law -- and the law
+now reads in band with no correction. `Optimization/simdriver/draw_probability.py` and its
+13 green tests STAY in the tree, unused: they are the sampler effort's starting point, and
+the module's contract (fingerprint cache, per-SKU counts, both estimators) is sound. Its
+two `_drawp_*.npz` artifacts in the reference pair are v2 characterisations of a sampler
+the era no longer declares; treat them as archive, not input.
+
+A scope boundary, not a step on the route: this ticket is NOT in the map's Decisions-so-far.
+It returns only if the destination is redrawn.

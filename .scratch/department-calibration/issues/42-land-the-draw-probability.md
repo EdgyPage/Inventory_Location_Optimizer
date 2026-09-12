@@ -1,7 +1,7 @@
 # Land the draw probability through every closed form
 
 Type: task
-Status: open
+Status: resolved  <!-- closed OUT OF SCOPE -->
 Blocked by: 41
 
 Graduated 2026-09-12 from
@@ -69,3 +69,18 @@ separately from the rate increment even though they ship together (38 decision 5
   `config-is-not-a-channel-to-an-evaluation`).
 - Resolve run-tree paths through `runschema.resolver_for`, never by joining strings or reading
   directory names positionally.
+
+## Closed: OUT OF SCOPE, 2026-09-12
+
+Ruled out of scope by user decision while resolving
+[Re-take the reference run under v3 and re-establish the gap](46-retake-the-reference-run-under-v3.md), which measured the fill-law gap CLOSED under the
+era's declared sampler: 12 arms judged, **0 failed**, fulfillment supply 0.1044 -> 0.0284
+against an expected 0.0251 at tol 0.020. The v2 sampler's duplicate draws were 95.5-97.1% of
+the gap this chain existed to explain.
+
+Nothing to land: 41 is out of scope and no corrected form exists. Landing `p_s` through the
+closed forms would move every level and buy a seventh comparability break to correct a
+residual the equilibrium instrument already passes (+0.0033 of a 0.020 band).
+
+A scope boundary, not a step on the route: this ticket is NOT in the map's Decisions-so-far.
+It returns only if the destination is redrawn.

@@ -2,13 +2,47 @@
 
 Type: task
 Status: open
-Blocked by: 42
+Blocked by: 46
 
 Graduated 2026-09-12 from
 [Close the fulfillment fill-law gap](38-close-the-fulfillment-fill-law-gap.md), decisions 9, 11
 and 12. The confirming gate and the paper trail. **The inbound campaign unblocks HERE, not at 38**
 -- [Re-run the gate and fix the fee threshold](../../inbound-optimization/issues/29-rerun-the-gate-and-fix-the-threshold.md)
 is blocked on this ticket, because a decision is not a corrected era.
+
+
+## RE-SCOPED 2026-09-12 -- read this before the body above
+
+User decision while resolving
+[Re-take the reference run under v3 and re-establish the gap](46-retake-the-reference-run-under-v3.md).
+
+**There is no form to record, and this ticket needs NO RUN OF ITS OWN.** 46's run
+(`comparison_20260912_134002`) is the confirming gate the body below asks for, and it passed
+on the first read: 12 arms judged, 0 failed, fulfillment supply 0.0284 against an expected
+0.0251 at tol 0.020, the store 0.0271 against 0.0248. Do not take a second era run.
+
+The body's premises that are now DEAD: the primary gate (41) is out of scope; there is no
+corrected form and no fitted multiplier to reject; the geometry did not move, so there is no
+floor/aisle change to report (floors stayed 1.3078 / 1.4994, the warehouse 2774 aisles /
+2,505,050 bins). ADR-0006 loses its subject.
+
+**What this ticket is now:** record the v3 era and close the calibration.
+
+1. **The comparability break** -- the v3 sampler flip, already carried by memory
+   `v3-sampler-era`; make sure the break is named in the same shape as the fourth and fifth.
+   Note that put crew 60 -> 64 and receiving 22 -> 23 moved with it while picking did not.
+2. **ADR-0006, re-aimed**: record that the fulfillment fill-law gap was an ARTIFACT of the v2
+   sampler's duplicate draws (95.5-97.1% of it), with the fitted multiplier `m` = 1.739 /
+   3.968 and its 52% / 71% as the rejected alternative -- rejected now because the thing it
+   fitted was not real, which is a sharper lesson than the one 38 intended.
+3. **The ADR-0004 amendment**, whose first-time confidence is priced through this law.
+4. **The `CONTEXT.md` glossary**: **line share** (`freq / sum freq`, a WEIGHT) against **draw
+   probability** (`p_s`, an OUTCOME). Worth MORE now, not less: a whole chain of tickets
+   chased the difference between them.
+5. **Sync the memory mirror.**
+
+Done when the break, the ADRs and the glossary are written and the mirror is synced. The
+method warnings below about launching and checking a run no longer apply -- there is no run.
 
 ## Question
 
