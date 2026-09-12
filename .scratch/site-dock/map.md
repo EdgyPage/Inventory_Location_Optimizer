@@ -475,18 +475,10 @@ BEFORE anything runs: the inbound-optimization map resumes at
   `yard_overage_total` and `throughput.audit`'s undeclared door read; out of 08 the site-view
   composer itself, the `empties` regime filter with its `regime_of(bin)` assertion, element-wise
   versions, the per-regime `released_at`, the window refusal and the composer's unit test; out of
-  04 the
-  `Inbound/putaway_pool.py` module itself, the proportional split with its residue pass,
-  the site `put_clock` and its day-start base, and the two coupled refusals — all of which
-  now bind to seams that EXIST (`bind_crew(clocks=)`, `drain_putaway_records(reset_clocks=)`,
-  `_stock(charge_cut=)`, `count_put_cut`, and since 18 a coupled unit to bind them in), so what
-  is left is the rule and not the wiring. **18 moved the site `put_clock` here and said why:**
-  a site-wide carry over two per-leaf clock lists is not "the double count persists", it
-  serializes two full crews as if they were one, so the carry and the shared list must land
-  together. 04 is also where this map's first real comparability break lands, and it arrives
-  as a **failing test rather than a measurement** —
-  `test_a_coupled_unit_matches_the_two_units_it_replaces` pins coupled == uncoupled today and
-  fails by construction when the pool ships, naming the leaf whose labour moved; and out of 05 the
+  04 — **graduated in full** as
+  [Build the site put-away pool and the site put clock](issues/19-build-the-site-putaway-pool.md),
+  which also carries the site `put_clock` 18 moved out of 02 section 5 and is where this map's
+  first real comparability break lands; and out of 05 the
   `SiteGainBundle` itself, the second `_gain_bundle_for` call, its refusal when two owners'
   gate knobs disagree (13), and the three-part commensurability test (its sabotage included),
   all of which need two owners to exist before they can be written — the cursor and the
