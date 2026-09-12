@@ -33,12 +33,19 @@ The `{sku: leaf}` owner dict, the refusal on a non-standing transit, and the `SI
 interleave for two leaves all wait for a second leaf to exist ("Design the site receiving
 coordinator", the site-dock map).  `drain` below is the one-leaf composition and states
 its own limit.
+
+The SPACE VIEW is already site-shaped: `_freeze_views` collects one frozen view per leaf
+and `Inbound/site_space.compose_site_view` turns them into the one view a drain reads.
+With one leaf it composes one and returns it by identity; the second leaf changes what
+`_freeze_views` returns and nothing else.
 """
 from __future__ import annotations
 
 from collections import deque
 
 from Warehouse.kernel.allocation import partition
+
+from Inbound.site_space import compose_site_view
 
 
 class SiteReceiving:
@@ -57,6 +64,26 @@ class SiteReceiving:
         #: The one yard: trailer, yard and door STATE.  This object owns the decisions
         #: that state is consulted for.
         self.transit = transit
+
+    # ── the space view ─────────────────────────────────────────────────────────────────
+
+    def _freeze_views(self, leaf, epoch: float) -> list:
+        """`[(regime, view)]` — one frozen space view per leaf that runs a timeline.
+
+        ONE LEAF TODAY, and it is contributed UNTAGGED: a composition of one partitions
+        nothing, so there is no decision for a regime tag to make and inventing one here
+        would be a value nothing checks.  The tag arrives with the owner routing — the
+        coordinator is the thing that holds both managers and calls `freeze` on each,
+        which is the same knowledge the `{sku: leaf}` dict is built from ("Design the site
+        space view", section 5) — and `compose_site_view` REFUSES an untagged contribution
+        the moment there are two, so the absent tag cannot survive into the coupled case.
+
+        A method rather than an inline expression so the second leaf changes THIS and
+        nothing in `receive`.
+        """
+        if leaf.space_timeline is None:
+            return []
+        return [(None, leaf.space_timeline.freeze(leaf, epoch))]
 
     # ── the drain ─────────────────────────────────────────────────────────────────
 
@@ -97,11 +124,20 @@ class SiteReceiving:
         # in it (no per-decision rescans).  `ctx.space` is the named-view arrival point
         # the priority seams reserved; every seeded 'fifo' key ignores it, so with both
         # policies 'fifo' the view is pure data -- neutrality rides the degenerate
-        # lockstep (test_space_timeline).  With two leaves this becomes a COMPOSED view
-        # over one frozen view per leaf ("Design the site space view"); the freeze itself
-        # stays the leaf's, which is why it is reached through the leaf here.
-        if leaf.space_timeline is not None:
-            ctx.space = leaf.space_timeline.freeze(leaf, epoch)
+        # lockstep (test_space_timeline).
+        #
+        # THE FREEZE STAYS THE LEAF'S AND THE COMPOSITION IS THE SITE'S.  `freeze` keeps
+        # its single-manager signature and its purity pin; `compose_site_view` is a pure
+        # function over already-frozen data, and it is reached through here TODAY with one
+        # contribution -- which it returns BY IDENTITY, so this line is what it always was.
+        # With two leaves it becomes two contributions, each tagged with its channel, and
+        # the tag is what partitions `empties` so a mixed trailer's store units rank
+        # against store bins ("Design the site space view").  Wired at one leaf rather
+        # than left for the second, because a composer nothing calls is a composer nobody
+        # finds out is wrong.
+        views = self._freeze_views(leaf, epoch)
+        if views:
+            ctx.space = compose_site_view(views)
 
         # 1. plans-at-arrival (leaf-side: the transit can reach neither _originals nor
         #    the packer).  Stamped in yard order, so ages are monotone with arrival.

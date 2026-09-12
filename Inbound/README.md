@@ -23,7 +23,11 @@ seam.
   and `putaway_pool.py` (`PutawayPool` — one crew of putters over both channels' segregated
   volume: the shared clock list, the day's division, the once-per-site-day reset and the
   site put carry). Both hold no merchandise and own no bins; they decide WHO works and
-  WHEN, and reach each leaf through named public ports.
+  WHEN, and reach each leaf through named public ports. `site_space.py` is the third and
+  the smallest: one pure function composing the leaves' frozen space views into the one a
+  drain reads, with its key set partitioned by regime. It is separate from `space.py`
+  because that module's defining property is that it imports nothing from `Warehouse/`,
+  and the composer needs `regime_of`.
 
 ## What does NOT belong here
 

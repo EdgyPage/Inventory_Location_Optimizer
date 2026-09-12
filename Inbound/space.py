@@ -22,6 +22,15 @@ drain_sku`, handed over by the driver) because the import edge `Inbound -> wh_pi
 is forbidden — the broker holds what it is handed.  This module imports nothing from
 Warehouse at all.
 
+**ONE TIMELINE PER LEAF, AND THE SITE-NESS IS SOMEWHERE ELSE.**  Under a site dock two
+leaves each freeze their own view and `Inbound/site_space.compose_site_view` turns them
+into the one a drain reads — a pure function over frozen data.  `freeze` keeps its
+single-manager signature and its purity pin, and the composer lives in its own module
+precisely so this one keeps the property stated above: it needs `regime_of` to tell which
+channel a bin belongs to, and that is the filter the composition cannot do without (a
+leaf's `empties` is the WHOLE geometry's free index, so it lists the other channel's bins
+as permanently, falsely free).
+
 # ── the five touchpoints (decisions are drain-quantized; data is event-stamped) ───
 
     inject_demand   driver, BEFORE check_reorders: the batch about to be released plus
