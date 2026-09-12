@@ -201,10 +201,18 @@ channel asymmetry without being told it. Expected already-drawn cluster-mates pe
 The multiplicative reinforcement at `Workload_Builder.py:116` therefore engages ~7.4x more often
 per fulfillment draw, and each hit multiplies by ~4-5 (stored lifts are the top-20 tail of
 `U(1, 5)`, `generate_affinity.py:329-341`). Meanwhile `relative_frequency` DISPERSION is
-near-identical across the two sections under the reference profile -- CV 0.577 fulfillment against
-0.580 store (`generate_inventory.py:103`; `generate_mixed_profile.py:109-147`, uniform profile,
-which `mixed_realistic_lt0` is) -- so the concentration is not a frequency story at all. It is one
-mechanism at two sampling densities. Fulfillment also collapses to ONE `(handling, category)`
+close across the two sections and tilted the WRONG WAY to explain anything -- measured on the
+reference catalogue's own `inventory.db`, fulfillment CV **0.5813** against the store's **0.6389**,
+concentration `n * sum(pi^2)` 1.3380 against 1.4082. The store is the MORE dispersed section and
+the more concentrated one by share, yet it is fulfillment whose realized lines concentrate; a
+frequency story predicts the opposite ordering. It is one mechanism at two sampling densities.
+
+(Corrected 2026-09-12 while starting
+[Characterise the draw probability](40-characterise-the-draw-probability.md): this answer first
+cited CV 0.577 / 0.580 from the UNIFORM profile, on the belief that the reference pair was
+`mixed_realistic_lt0`. It is `mixed_realistic_bell_lt0` -- the bell profile, whose `BELL_STORE_FREQ`
+spreads category means 0.05-0.80 against a tight `BELL_FF_FREQ` mixture. The conclusion is
+unchanged and slightly strengthened; the numbers and the attribution were not.) Fulfillment also collapses to ONE `(handling, category)`
 group against the store's twelve (`generate_inventory.py:407-409`, `:285`), so its clusters sit in
 a single densely-sampled pool.
 

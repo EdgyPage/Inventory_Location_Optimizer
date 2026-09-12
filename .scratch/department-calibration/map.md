@@ -652,8 +652,10 @@ regime someone chose rather than one the defaults inherited.
   with `N ~ Binomial(K, p_s)` riding inside the same change because `p_s` is a probability, not a
   rate. The structure predicts 39's fitted `m` without being told it: expected drawn cluster-mates
   per candidate is `cluster_size * k/N` = **0.20 store against 1.45 fulfillment** (7.4x), while
-  `relative_frequency` dispersion is near-identical across the sections (CV 0.577 / 0.580) -- one
-  mechanism at two sampling densities, which is why every per-SKU RATE variant failed. Affordable
+  `relative_frequency` dispersion is close and tilted the WRONG WAY (measured on the reference
+  catalogue, which is the BELL profile: fulfillment CV 0.5813 against the store's 0.6389) -- the
+  MORE dispersed section is the less concentrated one, so a frequency story predicts the opposite
+  ordering. One mechanism at two sampling densities, which is why every per-SKU RATE variant failed. Affordable
   because there is NO fixed-point circularity: under the era the two `units_per_line` cancel, so
   `mean_fraction == STORE_DEMAND / FF_DEMAND` and `k` does not depend on `n`. One rate everywhere
   (`daily_demand`, `expected_travel`, `staffing`, the fragmentation transient) in ONE commit,
@@ -760,3 +762,17 @@ regime someone chose rather than one the defaults inherited.
   `random.Random(seed_batches + i)`, so consecutive per-batch seeds are the untested suspect.
   It is not this map's business: it moves the miss DOWN, so it explains nothing about the fill
   gap, and characterising it belongs to the sampler effort above.
+  **CARVE-OUT, 2026-09-12** (user decision, while building
+  [Characterise the draw probability](issues/40-characterise-the-draw-probability.md)): a
+  correctness DEFECT in the sampler is this map's business, even though the sampler's DESIGN is
+  not. The v2 sampler re-draws SKUs it has already selected, so fulfillment batches deliver
+  **8.64% fewer distinct lines than the era declares** (40/40 batches; v1 produces zero duplicates
+  on the same three) -- which means the declared `n` and the crew derived from it are over-stated
+  on that leaf, and "throughput in equilibrium" is the destination itself. Pulled in as
+  [Fix the sampler's duplicate draws as v3](issues/44-fix-the-sampler-duplicate-draws.md), to land
+  as a NEW sampler version so v1 and v2 stay byte-reproducible. The boundary is unchanged for
+  everything else: re-weighting the lift, the frequency profiles, and characterising the sampler's
+  intended behaviour all stay out. **The lag-1 suppression above is now a suspect rather than a
+  mystery** -- a duplicate draw consumes a slot another SKU would have taken -- and
+  [Re-measure the fill-law targets under v3](issues/45-remeasure-the-fill-targets-under-v3.md)
+  re-measures it; if it vanishes under v3 this entry comes out.
