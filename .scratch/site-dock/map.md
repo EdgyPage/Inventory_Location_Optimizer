@@ -93,6 +93,20 @@ BEFORE anything runs: the inbound-optimization map resumes at
   and **Scope** and amended **Clock**; the decision behind them is
   [ADR-0005](../../docs/adr/0005-inbound-scope-splits-at-the-pack.md). Code identifiers follow at
   build time. Nothing further is owed the glossary by this map unless a ticket coins a term.
+- **The route (charted in full, 2026-09-11).** Every DECISION is closed; what remains is the
+  execution the override carries. Seven build tickets, and three of them are independent:
+
+  ```
+  20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis stage ──▶ 25 site crew checks
+                                                           └─▶ 26 composite gain bundle
+  22 coupled resume reconciler        (independent)
+  23 funnel spec for arm pairs        (independent)
+  ```
+
+  So **20, 22 and 23 are takeable at the same time**, and the critical path is
+  20 -> 21 -> 24 -> 25. The map closes when 26 and 25 are in; the inbound-optimization map then
+  resumes at
+  [Re-verify the gate under the lead-aware record](../inbound-optimization/issues/26-reverify-the-gate-under-the-lead-aware-record.md).
 - Memories every session should load: `site-dock-is-shared-across-channels`,
   `channel-experiment-independent-warehouses`, `receiving-is-its-own-crew`,
   `one-clock-one-speed-one-config`, `config-knob-has-five-seams`,
@@ -475,57 +489,17 @@ BEFORE anything runs: the inbound-optimization map resumes at
 
 ## Not yet specified
 
-- **The remaining builds** — the coupled half of every design ticket. Some graduated out because
-  they are byte-identical and need no second leaf; **01's is DONE** (the coordinator is live, so
-  what remains of it is owner routing, not extraction), **13's is DONE** (the indirection is
-  seated, so what remains of 05 is the composite that answers through it), and **16's is DONE**
-  (10's two byte-identical precursors are in, so what remains of 10 is the reconciler alone), and
-  **17's is DONE** (out of 15's within-leaf half — so what remains of 15 is the site-scope work
-  alone). **THE KEYSTONE IS DONE** —
-  [Build the coupled work unit and its two-leaf worker](issues/18-build-the-coupled-work-unit.md)
-  is built, so a second leaf now EXISTS and every patch below that said it needed one is
-  buildable. Three things that lump no longer holds: 02's sections 1–4 and 6, and section 5's
-  two site-wide carries, which 18 proved belong to the resources rather than to the unit —
-  **`put_clock` moves with 04's shared clock list and `recv_clock` with 01's coupled
-  coordinator**, and each is named in that ticket's scope below rather than floating here.
-  **12's are DONE**, so what remains of 04 is the pool itself and not its seams, and **14's is
-  DONE**, so what remains of 06 is the SPEC side alone. The
-  ADR and the `CONTEXT.md` amendments are **done** (03), and so is 03's **`coupled` marker** in
-  `run_layout.json` (18 wrote it; 14's `select()` refusal was inert until then). What remains,
-  all of it now buildable against a real second leaf: **01's coupled half graduated in full** as
-  [Build the coupled receiving coordinator and the site recv clock](issues/21-build-the-coupled-receiving-coordinator.md)
-  — the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the one-dock coordinator and the
-  site-wide `recv_clock`, all of which 19's two-halves loop makes cheap — leaving only the
-  `_site/` artifact declarations and their contract bump, which are 03's and 07's; out of 07 the site stage and `SiteContext` itself, the
-  `yard` family's move to a third scope value (its `schema_id` bump and four test ties), the site
-  clause in `equilibrium.py` with the report's two-leaf accumulation, the rollup's `ValueError`
-  refusal and its `analyze_run` skip, and the two unlisted leaf surfaces — `series.py`'s
-  `yard_overage_total` and `throughput.audit`'s undeclared door read; **08 graduated in full** as
-  [Build the site space view](issues/20-build-the-site-space-view.md), which 21 is blocked on —
-  a coordinator draining one dock while reading one leaf's free space is a coupled run answering
-  the uncoupled question; and **04 is DONE** — the pool is built,
-  the site `put_clock` is site-wide, the comparability break has landed and been measured, and
-  what remains of 04 is section 7 alone, which is 07's report and is listed there; and out of 05 the
-  `SiteGainBundle` itself, the second `_gain_bundle_for` call, its refusal when two owners'
-  gate knobs disagree (13), and the three-part commensurability test (its sabotage included),
-  all of which need two owners to exist before they can be written — the cursor and the
-  provider protocol they hang on are already in (13);
-  and out of 10 the reconciler itself — `_reconcile_coupled_unit`, the two-leaf completeness
-  test, the torn-pair repair with its `sim_meta.json` removal and leaf reset, the site-DB arm of
-  that reset, the `coupled` refusal reason, and the planted four-state matrix with its mutation
-  sabotages and its one fault-injected torn tree (its two byte-identical precursors already
-  graduated to 16);
-  and out of 15 the WRITE-SIDE reconciliation that needs a pair to exist: the sibling
-  `reconcile_pair` entry with its `coupled`-marker grouping and its FAIL on an absent site DB,
-  the two site-scope uid clauses, constant-C's `C_store == C_ful` clause, the site-total closure
-  against the coordinator's own accumulator, the per-batch site-total table in the site DB, and
-  the second `SEMANTIC_USES` family — which is ORDERED BEHIND 03's site-DB family registration,
-  because `semantics_for` raises on an unregistered family (the within-leaf half graduated to 17);
-  and out of 06 the SPEC side — `PHASE2_ARMS` becoming `PHASE2_PAIRS`, `CHANNEL_RESTOCKS` derived
-  from the rule-pair list, the pair-shaped shape refusal in `_run_whatif_matrix`, and the rewrite
-  of `whatif_config.py:166-170` (whose cross-phase claim this map's own answer makes false), none
-  of which mean anything until the coupled unit builder exists to consume a rule pair — the
-  hand-off side of it is already written and tested (14), so what waits is the consumer.
+- **Nothing here needs a DECISION any more.** Every design ticket on this map is resolved, and
+  the "remaining builds" lump that used to sit in this section has been charted in full: tickets
+  20-26 hold it, item for item. The route to the destination is therefore visible end to end, and
+  what is left in this section is only what is genuinely still dim (below) plus the two decisions
+  that cannot be taken until the code they are about exists — both of which are named inside the
+  tickets that will surface them ([Build the coupled receiving coordinator and the site recv
+  clock](issues/21-build-the-coupled-receiving-coordinator.md) for the site dock's price list,
+  [Build the site crews' cross-leaf checks](issues/25-build-the-site-crew-checks.md) for
+  `receiving_report`'s tolerance). See **The route** under Notes for the ordering and what runs in
+  parallel.
+
 - **Within-day put interleaving.** The charter shares a DAY budget, so a putter cannot take the
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
   coupled run shows a day where one channel's put queue actually starves while the other's crew
