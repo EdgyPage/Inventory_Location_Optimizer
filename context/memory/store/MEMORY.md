@@ -23,7 +23,7 @@
 - [Stakeholder site pilot frame](stakeholder-site-pilot-frame.md) — the pitch frame that converged with non-technical readers; Exp 8 (2026-08-21) codified the publish loop as a skill + 4 persona readers + no-ad-hoc-graphs guard
 - [Calltree framework + first findings](calltree-framework-first-findings.md) — brokers are NOT on the hot path; _aisle_best k=1.66 is the top refactor candidate; traced seconds are never baselines; SECTION_MAP updates ride hot-path renames
 - [v2 sampler era](v2-sampler-era.md) — CLOSED 2026-09-12 (superseded by v3); still the guide to reading an archived v2 run, and its baselines are v2-only
-- [v3 sampler era](v3-sampler-era.md) — the declared sampler since 2026-09-12 and the widest comparability break yet; a collapsed batch now refuses under v1/v3
+- [v3 sampler era](v3-sampler-era.md) — the declared sampler since 2026-09-12; the SIXTH comparability break and the widest, but it moved no geometry (ADR-0006); a collapsed batch now refuses under v1/v3
 - [Crew denomination decides sampler sensitivity](crew-denomination-decides-sampler-sensitivity.md) — a crew sized on declared UNITS is sampler-invariant; one sized on LINES or PACKS is not (picking held, put-away 60→64 and receiving 22→23 did not)
 - [v2 defect manufactured the fill-law evidence](v2-defect-manufactured-the-fill-law-evidence.md) — CONFIRMED on a run 2026-09-12: 12 arms, 0 failed, the gap +0.0793 → +0.0033; the duplicate draws were 95.5-97.1% of it
 - [FIFO restock ignores initial placement](fifo-restock-ignores-initial-placement.md) — opt_fifo and uni_fifo are byte-identical runs, not a near-tie; FIFO's uniform-random aisle pick has no ranking for an optimal initial placement to exploit
@@ -96,5 +96,5 @@
 - [Figures are not byte-reproducible](figures-are-not-byte-reproducible.md) — a HEAD-vs-HEAD control differed on 51/51 PNGs, so prove neutrality on DB rows and strip the wall-clock columns
 - [Fill gap is not the line rate](fill-gap-is-not-the-line-rate.md) — substituting realized per-SKU rates moves it the WRONG way (it zeroes every SKU the window never touched); two confounds make the naive test look conclusive
 - [Fill gap is the line-count shape](fill-gap-is-the-line-count-shape.md) — REFUTED 2026-09-12: the 3.74x and the 71%/52% multiplier were the v2 defect; the METHOD survives, the finding does not
-- [Draw probability replaces line share](draw-probability-replaces-line-share.md) — the line share is the sampler's WEIGHT, not its inclusion probability (reinforced under v3); its cluster-mate NUMBERS are v2 and need re-measuring
+- [Draw probability vs line share](draw-probability-replaces-line-share.md) — a WEIGHT is not an inclusion probability (now two CONTEXT.md terms), but the p_s form was NEVER LANDED and its cluster-mate NUMBERS are v2
 - [v2 sampler re-draws selected SKUs](v2-sampler-redraws-selected-skus.md) — FIXED 2026-09-12 as v3; the cause is catastrophic cancellation under a ~1e26 weight range, NOT the float drift first inferred

@@ -1,6 +1,6 @@
 ---
 name: v3-sampler-era
-description: "since 2026-09-12 the declared batch sampler is v3 (segment tree) — the seventh and widest comparability break, because it moves every batch sequence and with it the coverage fixed point, the line floor and the derived picking crew"
+description: "since 2026-09-12 the declared batch sampler is v3 (segment tree) — the sixth and widest comparability break, because it moves every batch sequence and with it the coverage fixed point, the line floor and the derived picking crew"
 metadata: 
   node_type: memory
   type: project
@@ -30,10 +30,25 @@ zero for a continuous draw, and the strict form is what buys the guarantee.
 **Cost:** 1.53x v2 on fulfillment, 1.10x on store (0.57 / 0.29 s per batch at 160k / 240k SKUs,
 partner-map cache warm) -- still ~1/35th of v1's 21.6 s.
 
-**The comparability break is the widest so far.** It moves every batch sequence, so the coverage
-fixed point, the solved line floor and the derived picking crew all move with it, and the era's
-CALIBRATED status (dept-cal 31 reading clean) is provisional again until the reference pair is
-re-run. Batch caches are fingerprinted per sampler, so no v3 run can be served a v2 file.
+**This is the SIXTH comparability break** -- after the per-item charge `fc7a46a5`, the placement
+pools `a033aff`, ADR-0003's drain order, the derived fill (dept-cal 35) and the lead-aware record
+(dept-cal 37) -- **and the widest of the six**, because it moves every batch sequence rather than
+one priced quantity. Absolute pick, travel, throughput and labour numbers do not cross
+2026-09-12.
+
+**What it does NOT move is the geometry.** This memory first predicted that the coverage fixed
+point, the line floor and the derived picking crew would move with it. They do not: `n` is
+DECLARED (`mean_fraction` x section size), so the floors (1.3078 / 1.4994), the levels
+(3,086,462 / 2,595,593), the warehouse (2774 aisles / 2,505,050 bins) and the picking crew
+(K = 23) came back bit-identical across the flip. The put-away and receiving crews did move
+(60 -> 64, 22 -> 23) because they are denominated in lines and packs
+([[crew-denomination-decides-sampler-sensitivity]]). That makes the flip a controlled
+experiment: same warehouse, same crew, only the batch content differs.
+
+**The era is CALIBRATED again under it.** The reference pair was re-run (dept-cal 46,
+`comparison_20260912_134002`) and the equilibrium instrument reads 12 arms judged, 0 failed;
+dept-cal 43 closed the calibration on that run rather than taking a second one. Batch caches are
+fingerprinted per sampler, so no v3 run can be served a v2 file.
 
 **A collapsed batch now refuses.** `Batch.__init__` raises when `len(items) != len(selected)`
 under any sampler that promises distinct draws (v1, v3); v2 is exempt on purpose so its archive
@@ -43,6 +58,9 @@ the live weight runs out, and only the collapse is a bug.
 **How to apply:** before comparing two runs, read each one's `run_spec.json` `sampler` -- three
 eras now exist and mixing their rows is silent. Absolute pick, travel, throughput and labour
 numbers published before 2026-09-12 were drawn under a sampler that under-delivered fulfillment
-lines by 8.6%, so they are not comparable with anything drawn after. Related:
+lines by 8.6%, so they are not comparable with anything drawn after. Recorded as ADR-0006 (`docs/adr/0006-the-fill-law-gap-was-a-sampler-artifact.md`), which
+carries the gap this flip closed and the fitted multiplier that was rejected with it. Related:
 [[per-item-charge-hard-break]], [[derived-fill-is-the-fourth-comparability-break]],
-[[lead-aware-record-is-the-fifth-comparability-break]].
+[[lead-aware-record-is-the-fifth-comparability-break]],
+[[v2-defect-manufactured-the-fill-law-evidence]],
+[[crew-denomination-decides-sampler-sensitivity]].

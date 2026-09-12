@@ -1,6 +1,6 @@
 ---
 name: draw-probability-replaces-line-share
-description: "the line share freq/sum-freq is the sampler's WEIGHT, not its inclusion probability; dept-cal 38 replaced it with the draw probability p_s (generator-drawn, Binomial not Poisson) and the 0.20-vs-1.45 cluster-mate density derives the channel asymmetry a fitted multiplier only fits"
+description: "the line share freq/sum-freq is the sampler's WEIGHT, not its inclusion probability, and the two are now distinct glossary terms; but the p_s form dept-cal 38 chartered was NEVER LANDED (ruled out of scope once v3 closed the gap), and every number here was measured under the defective v2 sampler"
 metadata: 
   node_type: memory
   type: project
@@ -46,10 +46,9 @@ breaks outright as `p_s` approaches 1, which is where busy fulfillment SKUs live
 with unbiased factorial moments (`c_s(c_s-1)/M(M-1)`), never a plug-in alone: the fill law's
 line-weighted functional is CONVEX in `p_s`, and that Jensen inflation was two thirds of the
 apparent movement at M=20. Keep the store as a live control -- "fulfillment closes, store
-overshoots" is the signature of two dead variants. And when this lands it is the SIXTH
-comparability break, era-only, flag-off byte-identical (cf.
-[[derived-fill-is-the-fourth-comparability-break]],
-[[lead-aware-record-is-the-fifth-comparability-break]]).
+overshoots" is the signature of two dead variants. The comparability break this
+would have bought was never spent on it: the sixth break went to the v3 sampler flip instead
+([[v3-sampler-era]]).
 
 Related: [[sampler-affinity-flattens-the-fulfillment-line-rate]],
 [[fulfillment-fill-law-overpredicts]], [[a-count-is-not-a-claim]].
@@ -62,3 +61,17 @@ under v2, whose duplicate draws manufactured the concentration
 ([[v2-defect-manufactured-the-fill-law-evidence]]), and the asymmetry it was built to explain
 has itself reversed: the record now over-prices fulfillment by 16% and under-prices the store
 by 19%. Re-measure before reusing the cluster-mate densities.
+
+**NEVER LANDED, 2026-09-12 (dept-cal 46, user decision).** The `p_s` form is OUT OF SCOPE. It had
+exactly one consumer -- correcting a fill law that under-predicted the realized miss 4x -- and
+under v3 that law reads in band on both leaves with no correction at all (fulfillment supply
++0.0033, store +0.0023, tol 0.020). Deriving `p_s` would be a measurement with nothing waiting on
+it, and buying a comparability break to land it would be worse. Recorded as ADR-0006. The built
+module `Optimization/simdriver/draw_probability.py` (13 green tests) stays in the tree with no
+caller, as the sampler effort's starting point; its two `_drawp_*.npz` artifacts are v2 archive,
+not input.
+
+**What survives, and it is the durable half:** the line share is a WEIGHT and the draw probability
+is an OUTCOME, and they are now separate terms in `CONTEXT.md` so the distinction cannot rot back
+into one word. The record still misprices its own prior-line event on the generator -- over on
+fulfillment by 16%, under on the store by 19% -- and that is accepted, not corrected.

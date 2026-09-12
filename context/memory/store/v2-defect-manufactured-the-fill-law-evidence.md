@@ -61,7 +61,9 @@ way -- fulfillment 0.0099 -> 0.0339 against 0.0246 at tol 0.032, still passing -
 delivers 9.5% more lines to the same crew.
 
 Consequence: dept-cal 40 / 41 / 42 (the draw-probability form) were ruled OUT OF SCOPE. `p_s`
-had one consumer and it no longer needs correcting.
+had one consumer and it no longer needs correcting. Recorded as ADR-0006
+(`docs/adr/0006-the-fill-law-gap-was-a-sampler-artifact.md`), which carries the fitted multiplier
+as the rejected alternative.
 
 **How to apply:** treat every fill-law, repeat-structure or per-SKU-inclusion number measured
 before 2026-09-12 as drawn from a defective sampler, and re-measure rather than carry it.
