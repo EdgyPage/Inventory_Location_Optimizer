@@ -140,3 +140,36 @@ stamping a derivation identity on the record against rebuild drift (`declare_fro
 recomputes the share from the catalogue, so any rate-law change would make historical rebuilds
 field a different warehouse with nothing stamped to detect it -- the `floors_at` / `holds_at`
 pattern is the answer whenever a rate change does land).
+
+2026-09-12, after [Measure the repeat structure and the realized lead
+distribution](39-measure-the-repeat-structure-and-lead-distribution.md) resolved. **This
+ticket is now unblocked, and its question has narrowed to one shape.** Read 39's answer
+before starting; the short version:
+
+- **Temporal dependence and the lead distribution are both dead.** Not "small" -- dependence
+  across days is structurally impossible in this sampler (independent per-batch seeds, no
+  cross-batch state) and measures NEGATIVE on fulfillment (-0.0089); the lead's realized pmf,
+  reconstructed exactly rather than inferred, is worth +0.0007 (0.9%). The parent's Little
+  lead was also confirmed whole, not partial (the receiving and put-away queues add
+  <= 0.031 d). Do not re-open either.
+- **The form is under-pricing its own event.** `P(>= 1 prior line for the same SKU within K
+  days | a line)`: the record says 0.0414, the share-law-true control says 0.0399, reality is
+  **0.1494** on fulfillment (3.74x) and 0.0105 against 0.0066 on store (1.59x).
+- **A single multiplier on the declared rate, fitted to that probability alone, recovers 71%
+  of fulfillment's gap and 52% of the store's** -- both leaves moving the same way, which no
+  earlier variant managed.
+
+**So the decision this ticket owes is: what does the floor solve against, given that the
+realized line count is far more concentrated across SKUs than the declared share?** It is a
+SHAPE on the section, not a per-SKU rate: substituting realized per-SKU rates zeroes the 78%
+of fulfillment SKUs a finite window never touches and moves the answer backwards (measured,
+twice). The three suspended decisions above (a sixth comparability break; carrying one rate
+through `expected_travel` / `staffing` / the fragmentation transient; the `floors_at` /
+`holds_at` derivation identity) were all suspended on "correct the rate" and now have a
+concrete correction to be judged against. Decision 3 (`Binomial(K, p_s)` for `N`) also stops
+being a small correction: at the corrected rate the Poisson/Binomial divergence is wider than
+it was at the declared one, and it moves the same direction, so it may belong inside whatever
+form is chosen rather than after it.
+
+29% of fulfillment's gap and 48% of the store's are still unexplained; 39's answer names the
+candidates and deliberately puts no order on them.

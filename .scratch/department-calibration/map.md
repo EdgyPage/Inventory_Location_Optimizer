@@ -632,6 +632,17 @@ regime someone chose rather than one the defaults inherited.
   lead (Little's law) beside the stamp with the level it explains; a discarded supplier
   lead refuses until inbound 27. Reference pair: fulfillment floor 1.2668 -> 1.4994, warehouse
   2,536 -> 2,774 aisles; inbound-off byte-identical (the fifth comparability break).
+- [Measure the repeat structure and the realized lead distribution](issues/39-measure-the-repeat-structure-and-lead-distribution.md):
+  neither assumption carries the residual. Temporal dependence is structurally impossible
+  (each batch is seeded on its own; no cross-batch state) and measures NEGATIVE where the gap
+  is (-0.0089 fulfillment). The lead's realized pmf, reconstructed exactly from the trailer
+  draw, is worth +0.0007 (0.9%), and the parent's Little lead was never partial -- the
+  receiving and put-away queues add <= 0.031 d. What IS the mechanism: the record under-prices
+  its own event -- a prior line for the same SKU inside the lead -- by **3.74x** on
+  fulfillment (0.0399 share-law-true control vs 0.1494 realized). One multiplier on the
+  declared rate, fitted to that probability ALONE, then recovers **71%** of fulfillment's gap
+  and **52%** of the store's, both moving the same way. Asset:
+  [measure_repeat_and_lead.py](assets/measure_repeat_and_lead.py).
 
 ## Not yet specified
 
@@ -741,3 +752,12 @@ regime someone chose rather than one the defaults inherited.
   REJECTED and belongs here too. The record models the demand the simulation generates, not the
   reverse; and re-weighting would invalidate the affinity structure the fulfillment channel exists
   to exercise, on every archived run.
+  **Extended again 2026-09-12** (while resolving
+  [Measure the repeat structure and the realized lead distribution](issues/39-measure-the-repeat-structure-and-lead-distribution.md)):
+  the v2 sampler suppresses a same-SKU line at lag 1 by ~14-16% against a count-preserving
+  permutation, and returns the displaced mass at lags 2-3 -- measured twice, on two estimators,
+  over the whole 40 days (49,388 fulfillment pairs) and the 20-day window. Batch-size
+  autocovariance accounts for at most 1.6% of it, and each batch draws from its own
+  `random.Random(seed_batches + i)`, so consecutive per-batch seeds are the untested suspect.
+  It is not this map's business: it moves the miss DOWN, so it explains nothing about the fill
+  gap, and characterising it belongs to the sampler effort above.
