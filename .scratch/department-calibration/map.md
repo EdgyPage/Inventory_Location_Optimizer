@@ -129,6 +129,24 @@ regime someone chose rather than one the defaults inherited.
   floored at `min_headroom` (0.05, assumed); the reference warehouse is 2,536 aisles / 2,311,000
   bins now, a comparability break.
 
+- **Every SKU sits at the line floor, in BOTH sections** (measured 2026-09-12 while working
+  [Close the fulfillment fill-law gap](issues/38-close-the-fulfillment-fill-law-gap.md)):
+  239,938/239,938 store and 160,062/160,062 fulfillment, `Q == L_s`, 100% of stamped demand each.
+  `coverage_days`, the lead and `safety_days` bind on NOTHING -- the entire declared level is
+  `floor_lines * E[line]`, ~1.5 lines per SKU -- so the fill law reduces to one event (a second
+  line inside the replenishment lead) and `floor_lines` is the only lever the solve has. Read
+  `floor_line_demand_share` off the record before reasoning about any level.
+- **Charter amendment, 2026-09-12 (user): no constant is measured from a WAREHOUSE run** -- no
+  clock, no placement, no picks, no travel. Drawing from a declared GENERATOR to characterise its
+  own output distribution is not a calibration simulation; it is evaluating a law we wrote down.
+  This replaces the flat "there are no calibration simulations" wording with the boundary that
+  decision actually meant; the six reference passes stay closed.
+- **If the floor solve cannot clear the declared confidence inside `_MAX_FLOOR_LINES`** (128 lines
+  per SKU, `Optimization/simconfig/coverage.py:84`), **the confidence is declared PER CHANNEL**
+  (user, 2026-09-12) -- store and fulfillment each stamping what they can hold, the audit judging
+  each against its own -- as an amendment to ADR-0004 rather than a workaround, because the
+  finding behind it is that the two channels do not face the same kind of demand. Only fires if
+  the solve refuses.
 ## Decisions so far
 
 <!-- one line per closed ticket: gist + link -->
@@ -659,6 +677,15 @@ regime someone chose rather than one the defaults inherited.
   loss under a lead is the chance of a second line inside the first's lead window, a
   per-SKU line COUNT; by 36 decision 6 it uses the line share, and 26's residual under the
   lead-aware record is what graduates this patch.
+  **38 (2026-09-12) MEASURED the residual, and this patch does NOT explain it.** Re-pricing the
+  fill at realized per-SKU rates moves fulfillment the WRONG way (0.0251 -> 0.0209); against a
+  synthetic control in which the share law is exactly true, sampler concentration accounts for
+  +0.0109 of the +0.0793 gap (14%), the rest being finite-window rate granularity and rollover
+  re-offer contamination of the line count. The concentration is real (-24.5% touched SKUs at
+  -1.8% lines) but it is a temporal DEPENDENCE, not a rate, and a per-SKU rate on the record
+  cannot express it. This patch stays fog as a record quantity; nothing is waiting on it to
+  explain the fill, and the dependence structure is a ticket
+  ([Measure the repeat structure and the realized lead distribution](issues/39-measure-the-repeat-structure-and-lead-distribution.md)).
 - **A derived band for the supply level.** 30 gave the labour clause a band the declared law
   implies (`staffing.cut_share_sd` over the window) but left the supply level's at a typed 0.02:
   the fill closed form stamps a point, and the spread of a finite window's first-attempt share
@@ -708,3 +735,9 @@ regime someone chose rather than one the defaults inherited.
   session's seed, not this map's route; it would also own re-denominating the catalogue's lead
   attribute in days (today batches, converted at the record by 36 decision 4), which the
   "lead-time denomination" entry above already keeps off this map.
+  **Extended 2026-09-12** (user, while working
+  [Close the fulfillment fill-law gap](issues/38-close-the-fulfillment-fill-law-gap.md)):
+  re-weighting the affinity lift so the sampler preserves the declared marginal line share is
+  REJECTED and belongs here too. The record models the demand the simulation generates, not the
+  reverse; and re-weighting would invalidate the affinity structure the fulfillment channel exists
+  to exercise, on every archived run.
