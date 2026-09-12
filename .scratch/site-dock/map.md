@@ -446,6 +446,33 @@ BEFORE anything runs: the inbound-optimization map resumes at
   result dict had to start stating its own arm — 11's "state, don't slice" rule, unfixed on the
   result side and invisible while every unit had one arm.
 
+- [Build the site put-away pool and the site put clock](issues/19-build-the-site-putaway-pool.md):
+  **BUILT** (`9b0e21e8`, `59a9927b`) — and **this is the map's first real comparability break**,
+  measured per leaf rather than argued. `Inbound/putaway_pool.PutawayPool` binds both channels'
+  put queues to ONE `list[float]`, so a putter genuinely takes work from either queue; it owns the
+  day's division (each leaf at a CUMULATIVE share of `derived.put.expected_utilization`, then
+  every leaf again against the whole day), the once-per-site-day reset, and the site `put_clock`
+  based at the site day start. The uid block starts at `max(k_pickers)` so a putter is the same
+  person in both DBs — and the receiving cursor had to chain off the POOL's block end, or the
+  smaller leaf's receivers land inside the putters'. **The structural change: a batch is now TWO
+  HALVES.** 04 section 9 assumed a loop order 18 did not build, and under whole-batch-per-leaf the
+  residue pass fires after the earlier leaf has already snapshotted its queues and stamped its
+  rows — placements real, rows a day late, `put_queue_state` reporting a depth that never stood,
+  nothing raising. So `_build_leaf` returns `replenish(i)` beside `step(i)` and a unit runs every
+  leaf's replenishment before any leaf's picks; 79 lines moved verbatim, six names crossing.
+  **Four refusals, two more than the ticket named:** no derived staffing block (coupling is an era
+  feature — the fallback is the double count with a coupled label on it), no whistle, a grid that
+  is not one batch per site day, and `put_queue_split`. Measured on a 12-batch pair with a site
+  crew of 2 (uncoupled: 2 PER LEAF): store put rows move mean 50.7 s, fulfillment mean 507.7 s and
+  its actors move `[20, 21]` -> `[25, 26]`; put seconds move too (+0.7% / -4.6%), because the
+  two-pass drain changes which unit reaches which bin. Uncoupled is byte-identical, diffed row for
+  row against a `git archive HEAD` copy over 4,917 events, 36 of them puts. **Three findings:** the
+  e2e fixture is too thin to measure the break (3 batches produce ONE put row), so the measurement
+  lives outside the suite and the test asserts the relationship instead; `--catalog-merge` seeded
+  the `purpose` from a docstring fragment for the THIRD time, and a multi-line fill additionally
+  breaks `test_merge_is_idempotent`; and `render_html --build` needed a second pass for an
+  `OSError`, the "run it twice" shape from a different cause.
+
 ## Not yet specified
 
 - **The remaining builds** — the coupled half of every design ticket. Some graduated out because
@@ -465,20 +492,20 @@ BEFORE anything runs: the inbound-optimization map resumes at
   DONE**, so what remains of 06 is the SPEC side alone. The
   ADR and the `CONTEXT.md` amendments are **done** (03), and so is 03's **`coupled` marker** in
   `run_layout.json` (18 wrote it; 14's `select()` refusal was inert until then). What remains,
-  all of it now buildable against a real second leaf: out of 01 the owner dict and — new from
-  18 — the coupled coordinator that owns **one** dock, which is what makes a site-wide
-  `recv_clock` well-posed at all; the leaf-accessor refusals, `SITE_PHASES`, the `_site/`
-  artifact declarations and their contract bump; out of 07 the site stage and `SiteContext` itself, the
+  all of it now buildable against a real second leaf: **01's coupled half graduated in full** as
+  [Build the coupled receiving coordinator and the site recv clock](issues/21-build-the-coupled-receiving-coordinator.md)
+  — the owner dict, the leaf-accessor refusals, `SITE_PHASES`, the one-dock coordinator and the
+  site-wide `recv_clock`, all of which 19's two-halves loop makes cheap — leaving only the
+  `_site/` artifact declarations and their contract bump, which are 03's and 07's; out of 07 the site stage and `SiteContext` itself, the
   `yard` family's move to a third scope value (its `schema_id` bump and four test ties), the site
   clause in `equilibrium.py` with the report's two-leaf accumulation, the rollup's `ValueError`
   refusal and its `analyze_run` skip, and the two unlisted leaf surfaces — `series.py`'s
-  `yard_overage_total` and `throughput.audit`'s undeclared door read; out of 08 the site-view
-  composer itself, the `empties` regime filter with its `regime_of(bin)` assertion, element-wise
-  versions, the per-regime `released_at`, the window refusal and the composer's unit test; out of
-  04 — **graduated in full** as
-  [Build the site put-away pool and the site put clock](issues/19-build-the-site-putaway-pool.md),
-  which also carries the site `put_clock` 18 moved out of 02 section 5 and is where this map's
-  first real comparability break lands; and out of 05 the
+  `yard_overage_total` and `throughput.audit`'s undeclared door read; **08 graduated in full** as
+  [Build the site space view](issues/20-build-the-site-space-view.md), which 21 is blocked on —
+  a coordinator draining one dock while reading one leaf's free space is a coupled run answering
+  the uncoupled question; and **04 is DONE** — the pool is built,
+  the site `put_clock` is site-wide, the comparability break has landed and been measured, and
+  what remains of 04 is section 7 alone, which is 07's report and is listed there; and out of 05 the
   `SiteGainBundle` itself, the second `_gain_bundle_for` call, its refusal when two owners'
   gate knobs disagree (13), and the three-part commensurability test (its sabotage included),
   all of which need two owners to exist before they can be written — the cursor and the
@@ -503,7 +530,10 @@ BEFORE anything runs: the inbound-optimization map resumes at
   earliest-ready cart across channels mid-day. Whether that changes the answer is dim until a
   coupled run shows a day where one channel's put queue actually starves while the other's crew
   sits. The faithful version — both leaves on one time-ordered loop — is a cadence change of the
-  same family the inbound map ruled out, so it graduates only with evidence.
+  same family the inbound map ruled out, so it graduates only with evidence. **19 moved the price
+  of it**: the batch is now two halves (`replenish` then `step`) across every leaf, so a third
+  interleave point exists that did not before. The residue pass is the cheap approximation and it
+  is now built; what is still dim is whether the expensive one buys anything.
 - **One unload price for the site dock.** 15's cross-leaf clause (`C_store == C_ful`) cannot be
   written yet, and 17 is why: the two channels run DIFFERENT pick configs, so today's per-leaf
   docks price at C = 7.6 s and C = 5.1 s. Equality is a claim about the SITE dock owning one
