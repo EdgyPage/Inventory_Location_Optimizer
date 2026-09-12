@@ -104,12 +104,25 @@ python Diagnostics/receiving_report.py <run_root_or_name>            # PASS/FAIL
 python Diagnostics/receiving_report.py <run_root_or_name> --verbose  # the numbers
 ```
 
-Five checks, each catching a defect nothing else can see: the two surfaces' seconds agree;
-their counts agree exactly; the three crews' `actor_uid` blocks are disjoint and contiguous;
-no two rows share a merge key (the existing `rows == sorted(rows)` guard passes on
-duplicates); and `role` agrees with `event_type` in both directions. All five are
-sabotage-verified against a corrupted copy of a real DB. A run with no receiving crew reports
-PASS with no activity — which is every run before the feature existed.
+**Six checks per arm**, each catching a defect nothing else can see: the two surfaces'
+seconds agree; their counts agree exactly; the three crews' `actor_uid` blocks are disjoint
+(*not* contiguous — an allocated-but-idle crew leaves the same gap as a misallocated one, so
+that half failed healthy runs and passed the defect it was for); no two rows share a merge
+key (the existing `rows == sorted(rows)` guard passes on duplicates); `role` agrees with
+`event_type` in both directions; and every receive row re-prices to ONE unload constant,
+`duration - qty x sku_scores.handle_var`. All six are sabotage-verified against a corrupted
+copy of a real DB. A run with no receiving crew reports PASS with no activity — which is
+every run before the feature existed.
+
+**Plus a PAIR pass on a coupled run** (`reconcile_pair`), for the four claims that cannot be
+made from one DB: no `actor_uid` is a site crew member in one leaf and a picker in the other;
+every site-role uid sits above both leaves' pick blocks; the site dock's own per-batch total
+(`site_receiving`, in `<pair>/_site/inbound_*.db`) closes against both leaves' receive rows,
+per batch; and the two channels' unload constants are per REGIME — each leaf's rows price at
+its own constant, no row prices at the other's, and two channels that price their PICKING
+differently must price their UNLOADING differently too. An **uncoupled** run has no pair and
+gets `0 coupled pair(s)` rather than a verdict; every published run is uncoupled, so that is
+the common case and the line exists so the tool does not lie by omission across the archive.
 
 ## Files
 ```

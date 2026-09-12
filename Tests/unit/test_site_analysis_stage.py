@@ -440,8 +440,13 @@ def _two_leaf_tree(tmp_path, *, coupled: bool = True):
     pdata.save_site_inbound(site_db, site_run,
                             yard_trailers=[(0, 0.0, 10.0, 900.0, 'done')],
                             yard_drains=[(0, 2, 4, 1, 12)])
+    # `channels` is the DECLARED channel order and `write_run_layout` writes it on every
+    # run: it is the order `workunits._site_db_path` builds the arm-pair stem in, and the
+    # stage resolves the two halves positionally against it (site-dock 25). A fixture that
+    # omitted it was describing a descriptor no run produces.
     (root / 'run_layout.json').write_text(json.dumps({
         'schema_id': _contract.head(), 'coupled': coupled,
+        'channels': ['store', 'fulfillment'],
         'cells': [_CELL], 'axes': {}}), encoding='utf-8')
     return root, pair_stem, arms
 
@@ -473,14 +478,67 @@ def test_the_site_stage_emits_one_job_per_pair_with_both_leaves_on_it(tmp_path):
 
 
 def test_a_site_job_resolves_each_leafs_own_arm_and_not_the_other_half(tmp_path):
-    """The two halves are RANK-paired, not name-paired, so each leaf must contribute the arm
-    IT ran.  A resolution that paired by position in the stem would give the store leaf the
-    fulfillment arm's key on any pair whose halves are named differently -- which is every
-    pair on a real funnel run."""
+    """Each leaf must contribute the arm IT ran, on a pair whose halves are named
+    DIFFERENTLY -- which is every pair on a real funnel run.
+
+    Half k belongs to channel k of the layout's declared `channels`, which is the order the
+    stem was built in; membership in the leaf's own recorded arm list then decides whether
+    that arm was actually run.  Getting it the other way round -- letting membership decide
+    WHICH channel -- is what site-dock 25 found: both channels draw restock rules from one
+    vocabulary, so a leaf holds arms named like both halves and nothing resolves at all."""
     root, _stem, arms = _two_leaf_tree(tmp_path)
     pair = _jobs(root)[0]['pairs'][0]
     by_channel = {lf['channel']: lf['key'] for lf in pair['leaves']}
     assert by_channel == arms, by_channel
+
+
+def test_a_leaf_that_also_ran_the_other_halfs_arm_still_resolves(tmp_path):
+    """THE DEFECT SITE-DOCK 25 FOUND, planted: the store leaf ALSO ran the fulfillment
+    half's rule, which is the normal case on a campaign where both channels draw from one
+    17-rule vocabulary.  Membership alone matches the store leaf to both names and the pair
+    is skipped with a warning; the whole site stage then runs on nothing."""
+    root, _stem, arms = _two_leaf_tree(tmp_path)
+    leaf = root / _CELL / _PAIR / 'cfg_store' / 'store'
+    meta = json.loads((leaf / 'sim_meta.json').read_text(encoding='utf-8'))
+    meta['strategies'].append({'key': arms['fulfillment'], 'label': arms['fulfillment'],
+                               'db_path': '', 'run_id': 1})
+    (leaf / 'sim_meta.json').write_text(json.dumps(meta), encoding='utf-8')
+    pair = _jobs(root)[0]['pairs'][0]
+    assert {lf['channel']: lf['key'] for lf in pair['leaves']} == arms
+
+
+def test_a_layout_with_no_declared_channel_order_resolves_nothing(tmp_path):
+    """`write_run_layout` writes `channels` on every run, so this is unreachable in
+    production -- and it is a REFUSAL rather than a fallback for that reason. A fallback
+    would have to guess which half is which channel, and a wrong guess reads every site
+    denominator off the other channel's leaf with nothing to say so.
+
+    THE ARMS ARE SWAPPED INTO THE ALPHABETICAL ORDER on purpose: each leaf is given the
+    OTHER half's key, so a fallback that guessed alphabetically ('fulfillment' < 'store')
+    would resolve this tree happily. Against a tree where the guess fails anyway, this test
+    would pass over the fallback and prove nothing."""
+    root, _stem, arms = _two_leaf_tree(tmp_path)
+    for channel, other in (('store', 'fulfillment'), ('fulfillment', 'store')):
+        leaf = root / _CELL / _PAIR / f'cfg_{channel}' / channel
+        meta = json.loads((leaf / 'sim_meta.json').read_text(encoding='utf-8'))
+        meta['strategies'] = [{**meta['strategies'][0], 'key': arms[other]}]
+        (leaf / 'sim_meta.json').write_text(json.dumps(meta), encoding='utf-8')
+    layout = json.loads((root / 'run_layout.json').read_text(encoding='utf-8'))
+    del layout['channels']
+    (root / 'run_layout.json').write_text(json.dumps(layout), encoding='utf-8')
+    assert _jobs(root) == []
+
+
+def test_a_pair_whose_fulfillment_half_was_never_run_emits_no_job(tmp_path):
+    """BOTH LEAVES OR NEITHER. One half present is not half a site denominator, it is a
+    denominator missing one channel's whole load — which renders as a utilisation figure
+    that looks ordinary and is wrong by the size of the other channel."""
+    root, _stem, _arms = _two_leaf_tree(tmp_path)
+    leaf = root / _CELL / _PAIR / 'cfg_fulfillment' / 'fulfillment'
+    meta = json.loads((leaf / 'sim_meta.json').read_text(encoding='utf-8'))
+    meta['strategies'] = [{**meta['strategies'][0], 'key': 'some_other_arm'}]
+    (leaf / 'sim_meta.json').write_text(json.dumps(meta), encoding='utf-8')
+    assert _jobs(root) == []
 
 
 def test_an_uncoupled_tree_with_no_site_directory_emits_no_job(tmp_path):

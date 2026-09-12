@@ -294,6 +294,56 @@ class RunTree:
         m = _capture_regex(tail, 'strategy').match(stem)
         return m.group('capture') if m else os.path.splitext(stem)[0]
 
+    def arm_pair_halves(self, arm_pair: str, have: dict) -> dict:
+        """`{channel: arm_key}` for one arm pair — `{}` when it cannot be resolved.
+
+        The other half of `arm_pair_of`: that inverts the FILENAME to the pair, this splits
+        the pair into its two channels' arms.  Both live here because both are inversions of
+        one declaration, and a consumer that re-derived either would be a second copy to fix
+        when the joiner or the channel-order source moves.
+
+        `have` is `{channel: {arm keys that channel actually ran}}` — whatever the caller
+        already has on disk (a leaf's recorded arm list, a directory's sim DBs).
+
+        POSITIONAL, against `run_layout.json`'s declared `channels`: half k belongs to
+        channel k, because that is the order `workunits._site_db_path(pair_dir, arm_store,
+        arm_ful)` BUILT the stem in (`zip(_sa_s, _sa_f)`, store first, off the same list).
+        Membership then decides only whether the positionally-named arm was RUN.
+
+        RESOLVING BY MEMBERSHIP ALONE IS WRONG, and both consumers of this had that bug
+        independently (site-dock 25, found by mutation).  Both channels draw restock rules
+        from ONE vocabulary, so on a real campaign a leaf holds arms named like BOTH halves;
+        "the channel that holds exactly one of the two names" then matches neither, every
+        pair is skipped, and the site stage runs on nothing.  A one-arm probe cannot see it.
+
+        Every split position is tried rather than `split('__')`: an arm name may contain the
+        joiner, which is why the arm pair is ONE capture in the declared template.
+
+        NO FALLBACK when the layout declares no channel order.  `write_run_layout` writes
+        `channels` on every run, so that is unreachable in production — and a fallback would
+        have to GUESS which half is which channel, where a wrong guess reads one leaf's rows
+        under the other channel's name with nothing to say so.
+
+        A TWO-PLACE AGREEMENT WITH NO THIRD WITNESS, recorded because nothing enforces it:
+        `run_simulation` passes the channel list to `write_run_layout`, and
+        `workunits._prepare_site_run` zips its leaves in the order `_channel_runs_for`
+        produced them.  Both are store-first today and the stem is built from the second
+        while this reads the first.  Emit them in different orders and the mis-pairing is
+        SILENT *only* where both channels ran arms with the same names (the membership check
+        below catches every other shape by failing to resolve at all) — which is exactly the
+        campaign case.  Move either and move the other.
+        """
+        chans = [c for c in (self.layout.get('channels') or ()) if c in have]
+        if len(chans) < 2:
+            return {}
+        for i in range(1, len(arm_pair)):
+            if not arm_pair.startswith('__', i):
+                continue
+            parts = (arm_pair[:i], arm_pair[i + 2:])
+            if all(p in have[c] for c, p in zip(chans, parts)):
+                return dict(zip(chans, parts))
+        return {}
+
     # ── channel runs (the analysis leaf) ───────────────────────────────────────
     def channel_runs(self, cell: str | None = None) -> Iterator[tuple[str, runlayout.ChannelRun]]:
         """Yield (cell_name, ChannelRun) for every analyzed leaf.  `cell=None` spans the whole run.

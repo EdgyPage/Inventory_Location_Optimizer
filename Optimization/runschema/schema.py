@@ -443,14 +443,15 @@ ARTIFACTS = {
         'family': 'sim_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': '{cell}/{pair}/_site/inbound_{strategy}.db', 'format': 'sqlite',
         'scope': 'pair', 'optional': True,
-        'tables': ['yard_trailers', 'yard_drains'],
+        'tables': ['yard_trailers', 'yard_drains', 'site_receiving'],
         'condition': 'COUPLED runs that actually received something. `{strategy}` is the '
                      'ARM PAIR, `<store_arm>__<fulfillment_arm>` — one file per arm pair, '
                      'on the sim_db precedent of putting the arm in the filename stem '
                      'rather than in a directory.',
         'writer': 'finish@Optimization/simdriver/strategy_runner.py',
-        'note': 'a sim DB carrying only the two yard tables, so every analysis broker '
-                'binds it with no new loader: they key on db_path and run_id alone.'},
+        'note': 'a sim DB carrying only the two yard tables and the site dock own '
+                'per-batch receiving totals, so every analysis broker binds it with no '
+                'new loader: they key on db_path and run_id alone.'},
 
     # ── per pair (inside a cell) ────────────────────────────────────────────────
     'warehouse_db': {

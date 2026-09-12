@@ -789,7 +789,7 @@ class _SiteDock:
     """
 
     __slots__ = ('coord', 'dock', 'transit', 'workers', 'release', 'db_path',
-                 'arm_pair', 'log', '_run_id', '_yt', '_yd')
+                 'arm_pair', 'log', '_run_id', '_yt', '_yd', '_sr')
 
     def __init__(self, coord, workers, release, db_path: str, log):
         self.coord = coord
@@ -809,6 +809,10 @@ class _SiteDock:
         self._run_id = None
         self._yt: list = []
         self._yd: list = []
+        #: The SITE dock's own per-batch totals (`site_receiving`), the third site-scoped
+        #: table.  Site-dock 15 section 7: the site half of the closure that
+        #: `receiving_report.reconcile_pair` compares the two leaves' rows against.
+        self._sr: list = []
 
     def __repr__(self):
         return (f'_SiteDock({self.coord!r}, '
@@ -841,13 +845,30 @@ class _SiteDock:
     def collect(self, i: int) -> None:
         """Take this batch's SITE-scoped yard rows off the coordinator and the transit.
 
-        Every batch, unconditionally -- both sources RESET, so a collection that rode a
+        Every batch, unconditionally -- all three sources RESET, so a collection that rode a
         condition would compound rows and hand whatever finally reads them several batches'
         worth stamped as one.  The leaves' own `drain_yard_*` accessors REFUSE under a site
         scope, so there is exactly one collector and it is this one.
+
+        THE SITE DOCK'S OWN TOTALS come with the coordinator's day index on them and are
+        re-stamped with `i` only after the two are checked to agree.  Both are `day_of(i)`
+        by construction (`drive` opens the day the release schedule names), and the pool
+        refuses any grid that is not one batch per site day -- so the check costs nothing
+        and is the one place that structural promise is READ rather than restated.  A
+        silently re-indexed row would land the site's day-3 labour under batch 1 and put
+        the closure check's per-batch localisation onto the wrong batch for the whole run.
         """
         self._yt.extend(self.coord.drain_trailer_stamps())
         self._yd.extend((i, *lv) for lv in self.coord.drain_site_rows())
+        for _day, *_tot in self.coord.drain_site_totals():
+            if _day != i:
+                raise RuntimeError(
+                    f'the site coordinator partitioned site day {_day} while the driver is '
+                    f'collecting batch {i}; one batch IS one site day on a coupled run (the '
+                    f'put pool refuses every other grid), and stamping this row with {i} '
+                    f'would file the site\'s receiving labour under a batch it did not '
+                    f'happen in')
+            self._sr.append((i, *_tot))
 
     # -- the run --------------------------------------------------------------
     def finish(self) -> None:
@@ -863,11 +884,11 @@ class _SiteDock:
             self.log.info(f'  [site] {len(standing)} trailer(s) still on site at run end - '
                           f'detention censored')
             self._yt.extend(standing)
-        if not self._yt and not self._yd:
+        if not self._yt and not self._yd and not self._sr:
             # A coupled standing run that received nothing writes NO site DB, for the same
             # reason an inbound-off run has empty yard tables rather than zero-filled ones:
             # "the yard was empty" and "there was no yard" are different claims.
-            self.log.info('  [site] no trailer or drain rows - no site DB written')
+            self.log.info('  [site] no trailer, drain or dock-total rows - no site DB written')
             return
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         _init_run_db(self.db_path)
@@ -894,9 +915,11 @@ class _SiteDock:
                 self.db_path, 'site',
                 identity={'strategy_key': self.arm_pair})
         save_site_inbound(self.db_path, self._run_id,
-                          yard_trailers=self._yt, yard_drains=self._yd)
+                          yard_trailers=self._yt, yard_drains=self._yd,
+                          site_receiving=self._sr)
         self.log.info(f'  [site] wrote {len(self._yt):,} trailer + {len(self._yd):,} drain '
-                      f'row(s) -> {os.path.basename(self.db_path)}')
+                      f'+ {len(self._sr):,} dock-total row(s) -> '
+                      f'{os.path.basename(self.db_path)}')
 
 
 def _build_site_dock(args: dict, pool, log):

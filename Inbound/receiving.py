@@ -163,6 +163,19 @@ class SiteReceiving:
         #: only evidence a coupled drain happened, and compounding it would hand whatever
         #: finally reads it every batch's rows at once.
         self.site_rows: list = []
+        #: THE SITE DOCK'S OWN PER-SITE-DAY TOTALS, `(depth, unloaded, cut, seconds)` per
+        #: partitioned day — the `site_receiving` table's rows (site-dock 15 section 7).
+        #: Parked here for the same reason `site_rows` is: they are the SITE's counters,
+        #: accrued on one dock by one crew, so a copy on either leaf would be the site total
+        #: wearing one channel's name.  DRAINED EVERY BATCH (`drain_site_totals`) by the
+        #: driver that fields a coupled run, exactly like `site_rows`.
+        #:
+        #: These are the OTHER SIDE of the partition below, not a summary of it: the shares
+        #: are accrued per channel (`_unloaded`, `_cut`, each leaf's own `receiving_seconds`)
+        #: and these come off the dock's own counters.  That is what makes
+        #: `receiving_report.reconcile_pair`'s site-total closure evidence rather than a
+        #: restatement of the shares.
+        self.site_totals: list = []
         self._leaves: dict = {}          # channel -> leaf, in bind order
         self._owner: dict = {}           # sku -> leaf  (step 1's route)
         # The site day's state.  `_open` is None until the first `open_batch`.
@@ -395,6 +408,13 @@ class SiteReceiving:
                 f'`receiving_seconds` and the site total from the dock, so a gap is labour '
                 f'one of the two never saw — an unload handed to a leaf that did not book '
                 f'it, or a repack charged to a dock no leaf owns')
+        # THE SITE'S OWN ROW for this day, parked for `drain_site_totals`.  Recorded AFTER
+        # the closure above rather than before it, so a row that reaches the site DB is one
+        # the decomposition agreed with -- a site total nobody could account for is a crash,
+        # not a row.  Stamped with the coordinator's OWN day index: the driver asserts it
+        # against the batch it is collecting, which is how "one batch is one site day" stops
+        # being an assumption held in two places.
+        self.site_totals.append((self._open, depth, unloaded, cut, seconds))
         self._share = shares
         return shares
 
@@ -574,6 +594,22 @@ class SiteReceiving:
         the declared home and its contract bump is the next ticket's.
         """
         out, self.site_rows = self.site_rows, []
+        return out
+
+    def drain_site_totals(self) -> list:
+        """This drain window's SITE dock totals, `[(day, depth, unloaded, cut, seconds)]`,
+        and start the list over.
+
+        The twin of `drain_site_rows`, and drained on the same cadence for the same reason:
+        a list that only grows is the only evidence the site day was partitioned at all, and
+        compounding it would hand the writer several days' counters stamped as one.
+
+        NORMALLY ONE ROW per call -- `_partition` runs once per site day -- but the list is
+        returned whole rather than popped singly, because a caller that took "the" row would
+        silently drop the second one if a grid ever put two site days in one batch.  The
+        driver asserts the day index instead, which fails loudly on exactly that.
+        """
+        out, self.site_totals = self.site_totals, []
         return out
 
     # ── the space view ─────────────────────────────────────────────────────────────────

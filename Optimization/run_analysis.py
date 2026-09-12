@@ -350,7 +350,13 @@ def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=
                 log.warning(f'  [site] {pair_name}/{arm_pair}: the site DB holds no run; '
                             f'skipped')
                 continue
-            leaves, missing = [], []
+            # WHICH ARM OF WHICH LEAF BELONGS TO THIS PAIR: `rt.arm_pair_halves`, which is
+            # the other half of `rt.arm_pair_of` and lives beside it because both invert one
+            # declaration.  `sim_meta['strategies']` is a list of DICTS, not of keys -- the
+            # same shape `EvalContext` indexes by `s['key']` -- and reading it as keys
+            # silently matches NOTHING, which once made this whole stage emit zero jobs
+            # while logging the line an uncoupled run logs.
+            have, by_channel = {}, {}
             for run in runs:
                 meta_path = rt.leaf_path(run, 'sim_meta')
                 if not os.path.exists(meta_path):
@@ -359,33 +365,28 @@ def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=
                     meta = json.load(f)
                 if sim_result is None:
                     sim_result = _sim_result_from_meta(meta)
-                # WHICH ARM OF THIS LEAF BELONGS TO THIS PAIR is decided by membership in
-                # the leaf's own recorded arm list, never by position in the stem: the two
-                # halves are rank-paired (site-dock 06) and a positional read would pair
-                # the store's third arm with the fulfillment's third DIRECTORY.
-                #
-                # `sim_meta['strategies']` is a list of DICTS, not of keys -- the same shape
-                # `EvalContext` indexes by `s['key']` and `equilibrium_report` reads. Testing
-                # membership on the dict silently matches NOTHING, and the whole stage then
-                # emits zero jobs while logging the line an uncoupled run logs.
-                halves = arm_pair.split('__')
-                arms = [a for a in (meta.get('strategies') or [])
-                        if (a.get('key') if isinstance(a, dict) else a) in halves]
-                if len(arms) != 1:
-                    missing.append(f'{run.channel}:{len(arms)}')
-                    continue
-                arm = arms[0]
-                arm_key = arm.get('key') if isinstance(arm, dict) else arm
-                leaf_db = rt.leaf_path(run, 'sim_db', strategy=arm_key)
-                leaves.append({'key': arm_key, 'db_path': leaf_db,
-                               'run_id': find_run(leaf_db, arm_key),
-                               'channel': run.channel})
-            if missing or len(leaves) < 2:
-                log.warning(f'  [site] {pair_name}/{arm_pair}: resolved {len(leaves)} '
-                            f'leaf/leaves ({missing or "none missing"}); skipped — a site '
+                by_channel[run.channel] = run
+                have[run.channel] = {(a.get('key') if isinstance(a, dict) else a)
+                                     for a in (meta.get('strategies') or [])}
+            halves = rt.arm_pair_halves(arm_pair, have)
+            if not halves:
+                # ASCII in the message: this log reaches a cp1252 console, where an em dash
+                # mangles the line at best (memory `windows-console-is-cp1252`).
+                log.warning(f'  [site] {pair_name}/{arm_pair}: could not resolve both '
+                            f'leaves from the arms each recorded '
+                            f'({ {c: len(v) for c, v in have.items()} }); skipped - a site '
                             f'denominator is both leaves or neither')
                 continue
-            store_arm = arm_pair.split('__')[0]
+            leaves = []
+            for channel, arm_key in halves.items():
+                leaf_db = rt.leaf_path(by_channel[channel], 'sim_db', strategy=arm_key)
+                leaves.append({'key': arm_key, 'db_path': leaf_db,
+                               'run_id': find_run(leaf_db, arm_key),
+                               'channel': channel})
+            # The FIRST declared channel's half. `arm_pair_halves` returns the channels in
+            # the declared order, which is store-first -- the same order the stem was built
+            # in, so "the store half" is read from the declaration rather than from a slice.
+            store_arm = halves[next(iter(halves))]
             pairs.append({'key': arm_pair, 'label': arm_pair,
                           # The pair is named by its STORE half for baseline selection:
                           # the diagonal is by rank and the reference pair is fifo/fifo.

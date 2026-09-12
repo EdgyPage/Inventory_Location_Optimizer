@@ -1,6 +1,6 @@
 {
-  "head": "sha256:49274a556866882ed9b8acf1a708604e4f30e046e032d508e454f8ca19a45814",
-  "source_fingerprint": "sha256:06666b57b9ba46ce1f91ca7bff8e2961dee3d450653e693ab6db53b4b092fa14",
+  "head": "sha256:341e1422457c00de2b170ec90b0ffc2cfd2e7718db950e4827d4bb7cb3a1449b",
+  "source_fingerprint": "sha256:bd28f2f55c8cdb194cefcd56ce415d7db832e4b13d7aac67cbffd9aac430f8b3",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -184,6 +184,16 @@
         "artifact ADDED: figures_site_yard_pngs -> {cell}/{pair}/_site/figures/yard/*.png",
         "artifact ADDED: site_dir -> {cell}/{pair}/_site",
         "artifact ADDED: site_inbound_db -> {cell}/{pair}/_site/inbound_{strategy}.db"
+      ]
+    },
+    "sha256:341e1422457c00de2b170ec90b0ffc2cfd2e7718db950e4827d4bb7cb3a1449b": {
+      "short": "341e1422457c",
+      "parent": "sha256:49274a556866882ed9b8acf1a708604e4f30e046e032d508e454f8ca19a45814",
+      "created": "2026-09-12T02:21:54",
+      "commit": "14037ada",
+      "label": "",
+      "changes": [
+        "artifact site_inbound_db.tables +['site_receiving']"
       ]
     }
   }

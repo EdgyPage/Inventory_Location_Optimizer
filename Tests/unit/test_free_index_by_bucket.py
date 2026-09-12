@@ -219,6 +219,12 @@ def test_the_vintages_before_the_table_read_unknown_never_zero(tmp_path, vintage
                                                         bin_size='medium')])
     con = sqlite3.connect(db)
     con.execute('DROP TABLE free_index')
+    # `site_receiving` postdates BOTH vintages faked here (site-dock 25), so a fake that
+    # left it behind is not that vintage: `dataset.bind(verify=True)` re-derives the shape
+    # and raises rather than trusting the stamp, which is what the recipe's checkpoint-and-
+    # assert-the-bound-id step exists to make loud (memory
+    # `immutable-readers-see-only-the-checkpointed-file`).
+    con.execute('DROP TABLE site_receiving')
     con.execute('ALTER TABLE batch_stats DROP COLUMN put_spills')
     con.execute('ALTER TABLE bin_placement DROP COLUMN unit_size')
     con.execute('ALTER TABLE bin_placement DROP COLUMN bin_size')

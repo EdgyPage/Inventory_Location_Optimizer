@@ -895,6 +895,56 @@ _CREATE_YARD_DRAINS = """
     ) WITHOUT ROWID
 """
 
+# ── the SITE dock's own per-batch totals, one row per site day ───────────────────────────
+# Site-dock 15 section 7, built by site-dock 25.  Written ONLY into a coupled unit's site DB
+# (the run tree's `site_inbound_db`), where it is the third table beside the two yard
+# ones -- and it is there for the same reason they are: these four scalars are the SITE's,
+# accrued on one dock by one crew, and a copy on either channel leaf would be the site total
+# wearing one channel's name (`a-right-site-total-hides-two-wrong-shares`).
+#
+# THIS IS THE OTHER SIDE OF A CLOSURE, and that is the whole point of writing it down.  Each
+# leaf's `batch_stats.recv_*` is that leaf's SHARE of the same site day, partitioned back by
+# SKU (ADR-0005) and accrued from the leaf's own `receiving_seconds`; these are the dock's
+# own counters, accrued at the charge site.  Two accumulators, different code, so the sum of
+# the shares agreeing with the total is evidence rather than a restatement --
+# `Diagnostics/receiving_report.reconcile_pair` is what compares them, and it is the only
+# thing in the repo that can see a pack lost or double-counted at SITE level.
+#
+# PER BATCH, never a run total.  A run total says the site lost 400 seconds and nothing
+# about where; the drain IS a batch boundary, which is exactly where the failure lives (the
+# uncleared checkpoint buffer `receiving_report` check 1 was written for).
+#
+# ZERO ROWS on every uncoupled run, which is every run in the archive: an uncoupled leaf
+# fields its own dock and its own crew, so there is no site total to record and an empty
+# table is the honest statement of that (the yard tables' idiom, and `shift_days`').
+_CREATE_SITE_RECEIVING = """
+    CREATE TABLE IF NOT EXISTS site_receiving (
+        run_id        INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch         INTEGER NOT NULL,  -- pairs 1:1 with each leaf's batch_stats.batch_id;
+                                         -- spelled `batch` like its co-resident yard_drains
+                                         -- rather than `batch_id`, because the site DB's
+                                         -- three tables are read together
+        -- The dock's `snapshot()` tuple, at SITE scope, for this site day.  One batch is one
+        -- site day (the pool refuses any other grid), so the two indexes coincide.
+        recv_depth    INTEGER NOT NULL,  -- LEVEL: storage units standing on the site dock
+                                         -- floor after this day's receiving pass.  A LEVEL,
+                                         -- so it never sums across batches (the recv_cut scar)
+        recv_unloaded INTEGER NOT NULL,  -- FLOW: storage units taken off trailers this day.
+                                         -- Unloads only -- a REPACK is receiving work that no
+                                         -- `unloaded` counter counts, which is why the
+                                         -- closure check filters event_type to match
+        recv_cut      INTEGER NOT NULL,  -- LEVEL: storage units the whistle left unreceived.
+                                         -- A LEVEL, like the leaves' recv_cut: it re-counts
+                                         -- the standing queue every day, so the additive
+                                         -- statistic is the COUNT OF BATCHES with a non-zero
+                                         -- cut, never the sum (`cut-is-a-level-not-a-flow`)
+        recv_seconds  REAL    NOT NULL,  -- FLOW: receiving labour charged at the site dock
+                                         -- this day, repacks INCLUDED (`Dock.charge` accrues
+                                         -- both).  The site half of the closure
+        PRIMARY KEY (run_id, batch)
+    ) WITHOUT ROWID
+"""
+
 # ── the free index PER BUCKET, one row per BinKey per batch ──────────────────────────────
 # The per-bucket form of `batch_stats.free_bins` ("Band the own-bin share and the free-index
 # depth", decision 3).  That total is the WHOLE geometry, so on a channel leaf it counts the
@@ -1011,6 +1061,7 @@ def _apply_run_schema(con: sqlite3.Connection) -> None:
     con.execute(_CREATE_BIN_EVICTION_IDX)
     con.execute(_CREATE_YARD_TRAILERS)
     con.execute(_CREATE_YARD_DRAINS)
+    con.execute(_CREATE_SITE_RECEIVING)
     con.execute(_CREATE_SHIFT_DAYS)
     con.execute(_CREATE_FREE_INDEX)
     _migrate_run_columns(con)
@@ -1190,7 +1241,23 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 (None), not zero: spilling up always existed and was never counted.
     #                 Served by the `batch_frame` optional-fill (None), `load_bin_placements`'
     #                 column guard (NULL) and `load_free_index`'s negotiation ([]).
-    known_ids=('02a78953886c',  # ADR-0003's rework, before the per-bucket free index:
+    #                 2026-09-10 .. 2026-09-12.
+    #   c6bacfdb5c77  the SITE dock's own per-batch totals, 2026-09-12 .. : the
+    #                 `site_receiving` table (site-dock 15 section 7, built by 25).  It is
+    #                 written ONLY into a coupled unit's site inbound DB and is
+    #                 EMPTY in every channel-leaf DB this shape creates, including every
+    #                 uncoupled run's -- so no earlier vintage is missing data, it simply had
+    #                 no site to record.  A consumer asks whether the table exists
+    #                 (`receiving_report._has`) exactly as it asks about `sku_scores`; there
+    #                 is no optional-fill to negotiate because there is no column on an
+    #                 existing table.  The only thing that MOVED on an uncoupled run is this
+    #                 stamp itself.
+    known_ids=('b87cfbb8d041',  # the per-bucket free index, before the site dock's own
+                                # per-batch totals: 2026-09-10 .. 2026-09-12.  Every run in
+                                # the archive is uncoupled and therefore has no site
+                                # receiving row to be missing -- the site DB is the only
+                                # file the new table is ever non-empty in
+              '02a78953886c',  # ADR-0003's rework, before the per-bucket free index:
                                 # 2026-09-08 .. 2026-09-10 (the two re-check runs the era
                                 # was calibrated on; no published run)
               '798778f4fae1',  # the carry split, before ADR-0003's rework columns
@@ -2787,6 +2854,26 @@ def _insert_yard_drains(con: sqlite3.Connection, run_id: int, records: list) -> 
          for batch, ys, fd, ye, sr in records])
 
 
+def _insert_site_receiving(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    """`(batch, recv_depth, recv_unloaded, recv_cut, recv_seconds)` tuples — the SITE dock's
+    own per-site-day counters, one row per batch of a coupled run.
+
+    A PLAIN INSERT, where every neighbour here uses `INSERT OR REPLACE`, and the difference
+    is deliberate.  This table has exactly ONE producer (`_SiteDock.collect`, draining the
+    coordinator once per batch) and it is written ONCE at run end, so a duplicate `batch` is
+    not a re-flush — it is two site days collected under one index, which the coupled grid
+    refuses upstream (one batch IS one site day).  `INSERT OR REPLACE` would silently keep
+    the second and drop the first, which is `carryover-two-producers-one-key` exactly: a
+    table that raises is the fix that memory records.
+    """
+    con.executemany(
+        'INSERT INTO site_receiving '
+        '(run_id, batch, recv_depth, recv_unloaded, recv_cut, recv_seconds) '
+        'VALUES (?,?,?,?,?,?)',
+        [(run_id, int(batch), int(depth), int(unloaded), int(cut), float(seconds))
+         for batch, depth, unloaded, cut, seconds in records])
+
+
 def _insert_shift_days(con: sqlite3.Connection, run_id: int, records: list) -> None:
     """`(day, cap_end, end_s, drained, standing, standing_put, standing_dock, standing_carry,
     standing_carry_labour, standing_carry_supply, last_finish)` tuples -- `strategy_runner`'s
@@ -2841,7 +2928,7 @@ def save_yard_trailers(path: str, run_id: int, records: list) -> None:
 
 
 def save_site_inbound(path: str, run_id: int, *, yard_trailers: list,
-                      yard_drains: list) -> None:
+                      yard_drains: list, site_receiving: list | None = None) -> None:
     """Write a COUPLED unit's site-scoped inbound rows on one connection, one commit.
 
     The third output of a coupled work unit (the run tree's `site_inbound_db`,
@@ -2855,11 +2942,18 @@ def save_site_inbound(path: str, run_id: int, *, yard_trailers: list,
     on `db_path` and `run_id` and nothing else, so a site scope is a different thing for
     those keys to point AT rather than a second implementation of every frame.
 
+    `site_receiving` is the dock's OWN per-site-day totals (site-dock 15 section 7): the
+    third site-scoped table, and the one that gives `receiving_report.reconcile_pair` the
+    site half of its closure.  Keyword-OPTIONAL so a caller that predates it writes no rows
+    — and it is exactly the shape this function's own docstring warns about, so
+    `Tests/unit/test_site_receiving_totals.py` reads the FILE back rather than the
+    argument.
+
     Separate from `save_checkpoint_bundle` rather than a call to it with eleven empty
     lists: a bundle argument that is accepted and never inserted is that function's
     characteristic failure, and eleven of them would be eleven chances at it.
     """
-    if not yard_trailers and not yard_drains:
+    if not yard_trailers and not yard_drains and not site_receiving:
         return
     con = _open_db(path)
     try:
@@ -2867,6 +2961,8 @@ def save_site_inbound(path: str, run_id: int, *, yard_trailers: list,
             _insert_yard_trailers(con, run_id, yard_trailers)
         if yard_drains:
             _insert_yard_drains(con, run_id, yard_drains)
+        if site_receiving:
+            _insert_site_receiving(con, run_id, site_receiving)
         con.commit()
     finally:
         con.close()

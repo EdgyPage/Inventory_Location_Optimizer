@@ -367,8 +367,10 @@ def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as
     # `487a65bf83a9` only while nothing else has been added -- and `dataset.bind` verifies
     # the stamp against the observed shape, so a missed drop fails here rather than in the
     # code under test.  These five are ADR-0003's (2026-09-08); the table, the spill column
-    # and the tier pair are the per-bucket free index's (2026-09-10).
+    # and the tier pair are the per-bucket free index's (2026-09-10); `site_receiving` is
+    # the site dock's own per-batch totals (site-dock 25, 2026-09-12).
     con.execute('DROP TABLE free_index')
+    con.execute('DROP TABLE site_receiving')
     for _c in ('unit_size', 'bin_size', 'bin_state'):
         con.execute(f'ALTER TABLE bin_placement DROP COLUMN {_c}')
     for _c in ('put_spills', 'put_topups', 'recv_repacks', 'recv_repacked_packs',

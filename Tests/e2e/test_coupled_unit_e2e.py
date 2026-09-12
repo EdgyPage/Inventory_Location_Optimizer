@@ -507,6 +507,83 @@ def test_a_coupled_site_dock_matches_the_two_docks_it_replaces(site, monkeypatch
           f'\n  site DB run {site_run}: {n_trailers} trailer row(s), {n_drains} drain row(s)')
 
 
+# ── the cross-leaf reconciliation: the site's own total against the two leaves ───
+
+def test_a_coupled_pair_reconciles_across_both_leaves_and_the_site_dock(site, monkeypatch,
+                                                                       tmp_path):
+    """SITE-DOCK 25, through the production seam rather than over hand-built DBs.
+
+    `Tests/unit/test_receiving_report_pair.py` pins every clause against planted defects on
+    synthetic files. What it cannot show is that a REAL coupled unit produces the three
+    surfaces the clauses read: the site dock's own per-batch totals in `site_receiving`, the
+    two leaves' receive rows partitioned by SKU, and a uid layout where the site crews sit
+    above both channels' pickers. Site-dock 24's worst defect was invisible to its own
+    review and to 110 tests and showed only when the stage was driven end to end, which is
+    why this test exists beside those.
+
+    THE CLOSURE IS THE POINT. The site total accrues at the dock (`Dock.charge`) and the
+    leaves' rows carry per-row durations stamped from drained records — two accumulators on
+    different code — so their agreement is evidence. A planted leak proves it can fail.
+    """
+    import shutil
+
+    from Diagnostics.receiving_report import reconcile_pair
+
+    _standing_yard(monkeypatch, site)
+    units, _ = _prepare(site, name='run_reconcile')
+    ua = units[0]
+    ua['log_queue'] = queue.Queue()
+    sr._run_strategy_worker(ua)
+
+    site_db = ua['site_db']
+    assert os.path.exists(site_db), 'the coupled unit wrote no site DB'
+    con = sqlite3.connect(site_db)
+    try:
+        totals = con.execute('SELECT batch, recv_unloaded, recv_seconds '
+                             'FROM site_receiving ORDER BY batch').fetchall()
+    finally:
+        con.close()
+    # THE EVIDENCE, COUNTED BEFORE THE VERDICT IS TRUSTED: an empty table closes against
+    # two empty leaves, and every clause below would pass over nothing.
+    assert totals, 'the site DB holds no per-batch dock totals'
+    assert sum(s for _b, _u, s in totals) > 0.0, 'the site dock charged no labour'
+
+    leaf_dbs = [lf['db_path'] for lf in ua['leaves']]
+    r = reconcile_pair(leaf_dbs, site_db)
+    assert r['verdict'] == 'PASS', r
+    assert r['active'], 'nothing was received; the reconciliation proves nothing'
+    assert r['site_batches'] == len(totals)
+    assert r['leaf_receive_seconds'] > 0.0
+    assert r['checks']['site_seconds_close'] and r['checks']['site_counts_close']
+    # The uid clauses had a subject: the site crews really are above both pick blocks, and
+    # the floor is the LARGER channel's picker count, which is the whole of site-dock 19.
+    assert r['site_uid_floor'] == max(lf['k_pickers'] for lf in ua['leaves'])
+    assert r['checks']['site_uids_above_both_pick_blocks']
+    assert r['checks']['no_uid_is_site_and_channel']
+
+    # ── and it can FAIL: one receive row dropped from a copy of one leaf ──────
+    cp = str(tmp_path / 'leak.db')
+    which = next(d for d in leaf_dbs
+                 if sqlite3.connect(d).execute(
+                     "SELECT COUNT(*) FROM work_events WHERE role='receive'").fetchone()[0])
+    shutil.copy(which, cp)
+    con = sqlite3.connect(cp)
+    try:
+        cur = con.execute("DELETE FROM work_events WHERE rowid = "
+                          "(SELECT MIN(rowid) FROM work_events WHERE role='receive')")
+        assert cur.rowcount == 1, 'the leak changed nothing'
+        con.commit()
+    finally:
+        con.close()
+    leaked = reconcile_pair([cp if d is which else d for d in leaf_dbs], site_db)
+    assert leaked['verdict'] == 'FAIL', leaked
+    assert leaked['checks']['site_seconds_close'] is False
+    print(f"\n  [reconcile] site batches={r['site_batches']} "
+          f"site secs={r['site_receive_seconds']:,.3f} "
+          f"leaf secs={r['leaf_receive_seconds']:,.3f} "
+          f"per leaf={ {c: lf['receive_rows'] for c, lf in r['leaves'].items()} }")
+
+
 # ── the site gain bundle: one provider, two owners, both transits ────────────────
 
 def test_a_coupled_unit_binds_both_arms_into_one_site_gain_bundle(site, monkeypatch):

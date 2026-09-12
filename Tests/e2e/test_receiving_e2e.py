@@ -346,16 +346,34 @@ def test_the_constant_check_catches_its_three_defects(varied_arm, tmp_path):
         return reconcile(cp, run_id)
 
     # 1. one row's duration moved by 2x the tolerance -- the smallest thing the check claims
-    #    to see, and the one that proves _TOL is not swallowing real error.
-    from Diagnostics.receiving_report import _TOL
-    r = _sabotage('dur', 'UPDATE work_events SET duration = duration + ? '
-                         "WHERE role = 'receive' AND run_id = ? "
-                         'AND id = (SELECT MIN(id) FROM work_events '
-                         "WHERE role = 'receive' AND run_id = ?)",
-                  (2 * _TOL, run_id, run_id))
+    #    to see, and the one that proves the tolerances are not swallowing real error.
+    #
+    #    THE TWO TOLERANCES ARE DIFFERENT AND THAT IS THE DECISION (site-dock 25). Check 6's
+    #    is a SPREAD -- it does not accumulate, so its error is bounded by one row's rounding
+    #    however many rows there are, and it keeps the flat `_TOL`. Check 1 compares two
+    #    SUMS, which grow with the row count: a flat 1e-6 s there failed four archived arms
+    #    on float re-association over 4.18M s. So the sabotage is sized against the arm's own
+    #    sum, and the pair below pins the asymmetry rather than leaving it to be rediscovered.
+    from Diagnostics.receiving_report import _TOL, _tol_for
+    _base = reconcile(src, run_id)
+    _bump = 2 * _tol_for(_base['seconds_events'], _base['seconds_batch_stats'])
+    _sql = ('UPDATE work_events SET duration = duration + ? '
+            "WHERE role = 'receive' AND run_id = ? "
+            'AND id = (SELECT MIN(id) FROM work_events '
+            "WHERE role = 'receive' AND run_id = ?)")
+    r = _sabotage('dur', _sql, (_bump, run_id, run_id))
     assert r['checks']['unload_price_is_constant'] is False, r
     assert r['checks']['seconds_agree'] is False, (
-        'a 2e-6 s move should also show in check 1 on this small arm')
+        f'a {_bump:.3e} s move should show in check 1 on this arm')
+    # ... and a move BELOW check 1's scaled tolerance still breaks check 6, which is the
+    # half that must not be loosened: a spread is where a coefficient entering by the side
+    # door shows up first, and it is visible long before the sum moves.
+    assert 2 * _TOL < _bump, 'the arm is too small for the two tolerances to differ'
+    r = _sabotage('dur_small', _sql, (2 * _TOL, run_id, run_id))
+    assert r['checks']['unload_price_is_constant'] is False, r
+    assert r['checks']['seconds_agree'] is True, (
+        'check 1 fired on 2e-6 s over a multi-thousand-second arm; that is float '
+        're-association, and failing on it is what reddened four archived arms')
 
     # 2. a coefficient that diverged: one SKU's handle term zeroed. Nothing else in the repo
     #    compares those two numbers, so this is the side door check 6 exists to shut.

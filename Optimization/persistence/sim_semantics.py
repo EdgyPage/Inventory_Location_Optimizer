@@ -481,6 +481,39 @@ SIM_DB_SEMANTICS: dict = {
                                     note='units left on staged trailers — a different noun '
                                          'from yard_end, which counts vehicles'),
     },
+    # ── the SITE dock's own per-batch totals (site-dock 15 section 7, built by 25) ──
+    # Four scalars with the same names, the same units and the same accounts as
+    # `batch_stats`' receiving block -- deliberately, because they are the SAME quantities
+    # ONE SCOPE UP: `batch_stats.recv_*` is one channel leaf's SHARE of a site day,
+    # partitioned back by SKU (ADR-0005); these are the site dock's own counters for that
+    # day.  Rows exist only in a coupled unit's site inbound DB (the run tree's
+    # `site_inbound_db`), and the SCOPE IS THE FILE (site-dock 03) rather than a column
+    # here -- site-ness is not a grain, so nothing is added to `Col`.
+    'site_receiving': {
+        'run_id':        _KEY,
+        'batch':         _KEY,
+        'recv_depth':    Col(LEVEL, 'units', 'batch', account=PACKS,
+                             note='the SITE dock floor; zero on every standing-yard run, '
+                                  'where merchandise waits on a trailer rather than on the '
+                                  'floor -- written out because that is the model saying '
+                                  'so, not a licence to assume it'),
+        'recv_unloaded': Col(FLOW, 'units', 'batch', account=PACKS,
+                             note='UNLOADS ONLY. A repack is receiving work priced at the '
+                                  'dock and charged into recv_seconds, but no `unloaded` '
+                                  'counter counts it -- so the closure against the leaves\' '
+                                  'rows filters event_type=receive, while the SECONDS '
+                                  'closure does not'),
+        'recv_cut':      Col(LEVEL, 'units', 'batch', account=PACKS,
+                             note='the site twin of batch_stats.recv_cut and it carries the '
+                                  'same scar: it re-counts the whole standing dock every '
+                                  'batch, so the additive statistic is the count of batches '
+                                  'non-zero, never the sum'),
+        'recv_seconds':  Col(FLOW, 's', 'batch', clock=SIM,
+                             note='the SITE\'s receiving labour for this day, repacks '
+                                  'INCLUDED (Dock.charge accrues both). Sums to the two '
+                                  'leaves\' work_events receive durations -- the one check '
+                                  'that can see a pack lost at site level'),
+    },
     'shift_days': {
         'run_id':         _KEY,
         'day':            _KEY,
