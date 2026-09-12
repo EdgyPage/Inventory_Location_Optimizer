@@ -141,6 +141,20 @@ regime someone chose rather than one the defaults inherited.
   own output distribution is not a calibration simulation; it is evaluating a law we wrote down.
   This replaces the flat "there are no calibration simulations" wording with the boundary that
   decision actually meant; the six reference passes stay closed.
+- **The era's declared sampler is v3 since 2026-09-12** ([Fix the sampler's duplicate draws as v3](issues/44-fix-the-sampler-duplicate-draws.md)).
+  v2 re-drew SKUs it had already taken and the sku-keyed `Batch.items` collapsed the repeats,
+  so every v2 batch delivered fewer lines than the era declared (-8.64% fulfillment on 40/40
+  batches, -1.02% store on 29/40). The cause was NOT the float drift the ticket inferred but
+  catastrophic cancellation: affinity lift compounds `lift_mult` to ~1e20 against ~1e-6 base
+  frequencies, and a Fenwick's subtractive update annihilates the small weights sharing a node
+  and keeps the difference as phantom mass (its total read 14.6% above its own leaves). v3 is a
+  segment tree that recomputes each node from its children and can never return a dead leaf;
+  it delivers exactly `k`, 0/40 short on both channels, at 1.1-1.5x v2. **This is the seventh
+  comparability break and the widest** -- it moves every batch sequence, so the coverage fixed
+  point, the line floor and the derived picking crew move with it, and the era's CALIBRATED
+  status (31) is PROVISIONAL again until
+  [Re-run the reference pair and record the form](issues/43-rerun-and-record-the-form.md).
+  A collapsed batch now REFUSES under v1/v3; v2 stays exempt so its archive is reproducible.
 - **If the floor solve cannot clear the declared confidence inside `_MAX_FLOOR_LINES`** (128 lines
   per SKU, `Optimization/simconfig/coverage.py:84`), **the confidence is declared PER CHANNEL**
   (user, 2026-09-12) -- store and fulfillment each stamping what they can hold, the audit judging
@@ -668,6 +682,18 @@ regime someone chose rather than one the defaults inherited.
   `_MAX_FLOOR_LINES` refuses. **The mechanism is argued from the sampler's structure, NOT yet
   measured** -- the gate exists to falsify it in minutes. Four `task` tickets carry the build.
 
+- [Fix the sampler's duplicate draws as v3](issues/44-fix-the-sampler-duplicate-draws.md):
+  BUILT and declared. The inherited mechanism is REFUTED (0/73 duplicates in batch 2 had
+  `u > true_total`; drift alone produces none at all) -- it is catastrophic cancellation under a
+  ~1e26 weight range, and the `2^k - 1` index signature is its consequence, not its cause.
+  `_SegTree` recomputes every node from its children, so its root is bit-for-bit a rebuild and
+  its descent cannot enter dead ground. v3 delivers exactly `k` (store 618.1/618.1, fulfillment
+  2,980.6/2,980.6, 0/40 short) at 1.10x / 1.53x v2 and ~1/35th of v1; v1 and v2 are byte-untouched.
+  USER DECISIONS: the era flips (`SAMPLER = 'v3'`), and a collapsed batch refuses under any
+  sampler promising distinct draws (v2 exempt). 9 gates in `Tests/unit/test_batch_sampler_v3.py`,
+  proven non-vacuous against v2. v2's second failure mode -- an early break returning fewer than
+  `k` with no repeats -- is recorded so a short batch is never read as a collapse.
+
 ## Not yet specified
 
 - **Whether the aisle-split axis still asks its old question.** 23 found that decision 9's
@@ -776,3 +802,13 @@ regime someone chose rather than one the defaults inherited.
   mystery** -- a duplicate draw consumes a slot another SKU would have taken -- and
   [Re-measure the fill-law targets under v3](issues/45-remeasure-the-fill-targets-under-v3.md)
   re-measures it; if it vanishes under v3 this entry comes out.
+  **SEED MATERIAL, 2026-09-12** (measured while resolving 44, and left here rather than
+  ticketed, because it is about the sampler's DESIGN and not a defect): the lift model
+  compounds without bound. Affinity lift is **2.8-5.0, median 4.5**, over a **median 35
+  partners**, and every already-selected partner multiplies it in again, so `lift_mult`
+  reaches **7.8e20** against base frequencies of ~1e-6 -- and from roughly step 500 of a
+  fulfillment batch a SINGLE SKU holds **30-89% of all live draw mass**. v1 and v3 implement
+  that faithfully; it is the declared model, not a bug. Whether a conditional-demand weight
+  should be able to concentrate a batch that hard is a real question for the sampler effort,
+  and it is also why 45 must separate the defect from genuine affinity concentration rather
+  than assuming 39's -24.5% survives.

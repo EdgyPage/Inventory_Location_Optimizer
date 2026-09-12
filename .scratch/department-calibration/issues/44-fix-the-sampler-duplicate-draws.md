@@ -1,7 +1,7 @@
 # Fix the sampler's duplicate draws as v3
 
 Type: task
-Status: open
+Status: resolved
 
 Found 2026-09-12 while building
 [Characterise the draw probability](40-characterise-the-draw-probability.md), which measured the
@@ -84,3 +84,116 @@ unchanged, the era's sampler declaration is recorded, and the memory `v2-sampler
   exact integer count.
 - The affinity partner map is ~14M entries and over a gigabyte resident per process; memory, not
   compute, sets the worker count (see 40's answer).
+
+## Answer
+
+Resolved 2026-09-12. **v3 is built, tested, and is the era's declared sampler.** It delivers
+exactly `k` distinct SKUs on both reference sections, 40/40 batches, at 1.1-1.5x v2's cost.
+The inherited mechanism was **wrong** and is replaced by a proven one.
+
+### 1. The mechanism: NOT float drift. Catastrophic cancellation.
+
+This ticket carried an inferred account -- `total()` and `find()` descend different nodes, drift
+lets `uniform(0, total)` overshoot the reachable prefix, `find` clamps on a boundary. **Refuted,
+two ways.** In batch 2, **0 of 73** duplicates had `u > true_total` (batch 0: 17/179), so
+overshoot cannot be the cause. And a synthetic `_Fenwick` at the same `n` and `k`, driven only by
+drift under three weight laws with and without partner updates, produces **zero** duplicates --
+its error stays at 1e-12..1e-14, twelve orders of magnitude too small to matter.
+
+The real cause is the **weight dynamic range**, which nobody had measured. Affinity lift values
+are **2.8-5.0 (median 4.5)** over a **median 35 partners**, and the conditional-demand model
+multiplies lift in once per already-selected partner, so `lift_mult` compounds to **7.8e20**
+against base frequencies of ~1e-6: roughly **26 orders of magnitude**, against float64's 16.
+A Fenwick node is maintained as `t[j] += (new - old)`. Zeroing a ~1e19 weight subtracts a ~1e19
+delta from nodes that also aggregate ~1e4 of small weights; those are annihilated
+(`1e19 + 1e4 == 1e19`) and **the node keeps the difference as phantom mass**. Measured through
+one fulfillment batch, the Fenwick's `total()` ran **14.6% above the true sum of its own leaves**
+(1.19e5 vs 1.04e5), and the heaviest live SKU legitimately held **30-89%** of live weight from
+step 500 on. The draws then descend into ground that is already dead.
+
+The `2^k - 1` index signature this ticket reported is a **consequence, not a cause** -- once
+`rem` exceeds the live mass in a subtree the descent takes every remaining bit -- so it should
+not be reasoned from. Reproduction, instrumented:
+[repro_sampler_duplicates.py](../assets/repro_sampler_duplicates.py) (reproduces 179 / 423 / 73
+exactly, and derives every path from the run's own `run_spec.json`).
+
+**Why v1 is clean structurally, not by luck:** `np.searchsorted` over a cumsum whose inactive
+entries are exactly 0.0 cannot return a zeroed index -- that would require
+`prefix(i) < u <= prefix(i)`. v1 also rebuilds `w` and its cumsum from scratch every draw, so no
+residue survives. v1's own annihilation is harmless: it zeroes probabilities already ~1e-22.
+
+**v2 has a SECOND failure mode nobody had seen.** On a strongly-clustered section its total goes
+non-positive and the draw loop **breaks early**, returning fewer than `k` with no repeats at all.
+A test that only checks "the batch was short" cannot tell the two apart, which is why the gate
+below pins a fixture that genuinely collapses.
+
+### 2. v3: `_SegTree`, and why it cannot fail this way
+
+`Warehouse/picking/Workload_Builder.py` gains `_SegTree` + `_lift_weighted_sample_v3`, registered
+as `_SAMPLERS['v3']`. Every internal node is **recomputed from its two children**, never adjusted
+by a delta, so no residue can survive a removal -- the same property v1 buys by rebuilding each
+draw, at O(log n) per update instead of O(n) per draw. Measured: the root is **bit-for-bit
+identical** to a fresh rebuild of its own leaves through a whole fulfillment batch (relative error
+`0.000e+00`, where the Fenwick reached `1.457e-01`).
+
+`find` branches right **only into a subtree holding positive mass**, so every step stays inside
+positively-weighted ground and the returned leaf is **guaranteed live** -- a structural guarantee,
+not a tolerance. It is also total: a `u` at or above the root (which `random.uniform` can return)
+walks to the last live leaf instead of off the end. Its boundary rule is strict where v1's
+`searchsorted` is side='left'; they differ only on exact prefix boundaries -- measure zero for a
+continuous draw -- and the strict form is exactly what buys the guarantee.
+
+**v1 and v2 are untouched.** The only line removed from `Workload_Builder.py` is the `_SAMPLERS`
+dict literal; both function bodies are byte-identical, `batch_fingerprint` needed no change (it
+already hashes any non-v1 sampler name), and `Tests/unit/test_batch_sampler_v2.py` still passes.
+
+| | store | fulfillment |
+|---|---|---|
+| requested / batch | 618.1 | 2,980.6 |
+| v2 delivered | 611.8 (**-1.02%**, 29/40 short) | 2,723.1 (**-8.64%**, 40/40 short) |
+| **v3 delivered** | **618.1 (0.00%, 0/40 short)** | **2,980.6 (0.00%, 0/40 short)** |
+| v3 cost vs v2 | 1.10x | 1.53x |
+
+v2's figures reproduce the run's own `_batches_*.pkl` exactly. v3 is still ~1/35th of v1's 21.6
+s/batch. The store's `std_fraction` is `mean/3`, not `mean/4` -- read it off the pickled
+`BatchConfig`, it is not in `config.json`.
+
+### 3. The era flips to v3 (user decision, 2026-09-12)
+
+`SAMPLER = 'v3'` in `Optimization/config/settings.py`; `--sampler` accepts `v1|v2|v3`. **This is
+the seventh comparability break and the widest**: it moves every batch sequence, so the coverage
+fixed point, the solved line floor and the derived picking crew move with it, and the era's
+CALIBRATED status (31 reading clean) is **provisional again** until
+[Re-run the reference pair and record the form](43-rerun-and-record-the-form.md). Batch caches are
+fingerprinted per sampler, so no v3 run can be served a v2 file.
+
+### 4. A collapsed batch now refuses (user decision, 2026-09-12)
+
+`Batch.__init__` raises when `len(items) != len(selected)` under any sampler that promises
+distinct draws (v1, v3); **v2 is exempt on purpose** so its archive stays reproducible -- an
+unconditional guard would make every v2 run refuse. The check is against `selected`, never `k`:
+a short draw is legitimate when the live weight runs out, and only the collapse is the bug. It is
+O(1), and it would have caught this on the very first batch.
+
+### 5. Gates
+
+`Tests/unit/test_batch_sampler_v3.py`, 9 tests, green -- and **proven non-vacuous**: pointing v3
+at v2's function makes the two behaviour gates fail (1,413 repeats; 123 lines of 1,536) while the
+`_SegTree` invariant tests correctly stay green. The fixture is a mutual-partner clique
+(n=3072, clique=64, k=1536) because a uniformly-random partner graph does **not** reproduce the
+defect -- the lift multiplications spread too thin. v2 fails it on 10/12 seeds, v3 on 0/12.
+`test_batch_sampler_v2.py::test_unknown_sampler_raises` used `'v3'` as its *unknown* name and was
+moved to `'v99'`.
+
+### 6. A finding for the sampler effort, deliberately NOT ticketed here
+
+The lift compounding to ~1e20, and one SKU holding 30-89% of a batch's live draw mass from step
+500 on, is the **declared weight model working as written** -- v1 and v3 implement it faithfully.
+Whether it *should* compound without bound is a question about the sampler's DESIGN, which this
+map's Out-of-scope carve-out explicitly excludes (a defect is in scope; the design is not). It is
+recorded in that entry as seed material rather than resolved here. It is also directly relevant
+to [Re-measure the fill-law targets under v3](45-remeasure-the-fill-targets-under-v3.md)'s
+question 2, which must now separate the defect from genuine affinity concentration.
+
+Memories: [[v2-sampler-redraws-selected-skus]] rewritten with the proven mechanism (the refuted
+one is named so it cannot come back), new [[v3-sampler-era]], [[v2-sampler-era]] marked closed.
