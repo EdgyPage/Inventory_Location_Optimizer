@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simdriver.draw_probability · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_draw_probability_py" data-id="Optimization/simdriver/draw_probability.py">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <span class="here"><code>Optimization/simdriver/draw_probability.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simdriver.draw_probability</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_draw_probability_py.html"><code>Optimization/simdriver/draw_probability.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simdriver.draw_probability</code></pre>
+<section class="doc">draw_probability.py — the DRAW PROBABILITY `p_s`: what the declared sampler actually does.
+
+The coverage record prices a SKU&#x27;s prior lines at its **line share** `pi_s = freq / sum freq`
+(`Optimization/simconfig/coverage.py`).  That is the sampler&#x27;s BASE WEIGHT, not its inclusion
+probability.  `Workload_Builder._lift_weighted_sample` draws `k` DISTINCT SKUs per batch WITHOUT
+replacement and multiplies every survivor&#x27;s weight by `prod lift(A, B)` over the partners already
+drawn, so the probability a SKU lands in a batch is a different function of the catalogue, not a
+scaled one (.scratch/department-calibration, &quot;Close the fulfillment fill-law gap&quot;, decision 1).
+
+This module computes that probability -- the **draw probability** `p_s` -- by running the declared
+sampler and nothing else.  No warehouse is planned, no inventory is placed, no simulation is
+stepped: exactly `Batch(batch_cfg, inventory, affinity, rng=random.Random(seed_batches + i))` for
+`i` in `[0, M)`, which is the identical call `batch_precompute._sample_range` makes.  Because the
+run&#x27;s own script uses the SAME base seed, the run&#x27;s `n_batches` batches are a PREFIX of this sample
+(decision 7) -- there is no second demand stream to reconcile.
+
+WHY THIS IS AFFORDABLE, and why it may run BEFORE the coverage fixed point.  Under the era the two
+`units_per_line` cancel in `era_coverage.stage_a`, so a channel&#x27;s `mean_fraction` reduces to the
+declared `STORE_DEMAND` / `FF_DEMAND` constant: `k` is a declared fraction times the section size
+and does NOT depend on the fixed point&#x27;s `n`.  `p_s` is therefore a pure function of
+`(inventory, affinity, batch_cfg, seed)` -- all declared before the solve runs -- and is drawn ONCE
+rather than re-drawn per round.  (`batch_precompute` runs AFTER the solve, from the converged
+declaration, which is why its file cannot serve this purpose: it holds `n_batches` batches, and
+`n_batches` is a window length, not a precision.)
+
+WHAT COMES BACK, and why it is COUNTS rather than probabilities.  A chunk returns the per-SKU
+count `c_s` of batches that included it, positionally over `load_inventory_from_db`&#x27;s
+`ORDER BY sku` -- the same candidate order `_lift_weighted_sample` indexes, so the vector aligns
+with the inventory the caller already holds.  Counts are kept rather than `c_s / M` because the
+consumer needs BOTH estimators and only counts can give the unbiased one:
+
+    p_s               -&gt;  c_s / M                                       (the plug-in)
+    p_s^j (1-p_s)^i   -&gt;  c_s^(j) · (M - c_s)^(i) / M^(j+i)             (falling factorials)
+
+the second being exact for `c_s ~ Binomial(M, p_s)`.  This matters because the fill law&#x27;s
+line-weighted functional is CONVEX in `p_s`, so a plug-in carries an upward Jensen bias that
+shrinks only as `M` grows -- the identical artifact that, at the 20-batch window, was worth two
+thirds of the apparent movement in &quot;Close the fulfillment fill-law gap&quot;.  `M` is DECLARED by
+requiring the two to agree (`prior_line_probability` below, and `--ladder` on the CLI), which makes
+the precision a measurement rather than a guess.  The plug-in is what the record carries; the
+unbiased form is the diagnostic that sizes `M`.
+
+Chunk counts are stored SEPARATELY and in range order, so any prefix `M_j` is a partial sum: one
+draw answers the whole ladder instead of one draw per rung.
+
+The fingerprint is `batch_precompute.batch_fingerprint` unchanged -- the same inputs decide both
+sequences, and `M` enters it through the `n_batches` slot.  Files are named `_drawp_*.npz`, so a
+draw can never be served from (or poison) a `_batches_*.pkl`.</section>
+<section class="rel"><h2>Imports <span class="count">(4)</span></h2><ul><li><a href="nOptimization_config_channels_py.html"><code>Optimization.config.channels</code></a> <span class="dim">Optimization/config/channels.py</span></li><li><a href="nOptimization_simdriver_batch_precompute_py.html"><code>Optimization.simdriver.batch_precompute</code></a> <span class="dim">Optimization/simdriver/batch_precompute.py</span></li><li><a href="nWarehouse_catalog_Affinity_Store_py.html"><code>Warehouse.catalog.Affinity_Store</code></a> <span class="dim">Warehouse/catalog/Affinity_Store.py</span></li><li><a href="nWarehouse_picking_Workload_Builder_py.html"><code>Warehouse.picking.Workload_Builder</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(9)</span></h2><ul><li><a href="nOptimization_simdriver_draw_probability_py___assets.html"><code>_assets</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nOptimization_simdriver_draw_probability_py___count_range.html"><code>_count_range</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nOptimization_simdriver_draw_probability_py___main.html"><code>_main</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nOptimization_simdriver_draw_probability_py__ensure_draw_probability.html"><code>ensure_draw_probability</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nOptimization_simdriver_draw_probability_py__ladder.html"><code>ladder</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nOptimization_simdriver_draw_probability_py__load_counts.html"><code>load_counts</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nOptimization_simdriver_draw_probability_py__precompute_counts.html"><code>precompute_counts</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nOptimization_simdriver_draw_probability_py__prior_line_probability.html"><code>prior_line_probability</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nOptimization_simdriver_draw_probability_py__write_counts.html"><code>write_counts</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_draw_probability_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/draw_probability.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

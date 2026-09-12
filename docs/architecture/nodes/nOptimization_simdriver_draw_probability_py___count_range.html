@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_count_range · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_draw_probability_py___count_range" data-id="Optimization/simdriver/draw_probability.py::_count_range">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_draw_probability_py.html"><code>Optimization/simdriver/draw_probability.py</code></a> <span class="sep">›</span> <span class="here"><code>_count_range</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_count_range</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_draw_probability_py.html"><code>Optimization/simdriver/draw_probability.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _count_range(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches, lo: int, hi: int, channel_regime=None) -&gt; np.ndarray</code></pre>
+<section class="doc">Module-level (spawn-picklable) chunk worker: draw batches `[lo, hi)` and return the
+per-SKU inclusion COUNT over the inventory&#x27;s own order.
+
+Builds the full `Batch` rather than calling the sampler directly, deliberately: `Batch`
+also draws each selected SKU&#x27;s line quantity from the same `rng`, and reproducing the
+run&#x27;s stream exactly means reproducing every draw that stream makes, not only the ones
+this module reads.  The batches themselves are dropped as soon as they are counted, so
+peak memory is the memoized assets plus one batch and the count vector.
+
+MEMORY, not compute, sets the worker count.  The partner map is ~14M entries of Python
+tuples on the reference catalogue -- well over a gigabyte resident -- so each worker is
+expensive to hold and cheap to keep busy (~0.22 s/batch on the fulfillment section).  A
+handful of workers each drawing thousands of batches is the shape that fits; one worker
+per core is how this thrashes.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_draw_probability_py___assets.html"><code>_assets</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li><li><a href="nWarehouse_picking_Workload_Builder_py__Batch.html"><code>Batch</code></a> <span class="dim">Warehouse/picking/Workload_Builder.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_draw_probability_py__precompute_counts.html"><code>precompute_counts</code></a> <span class="dim">Optimization/simdriver/draw_probability.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_draw_probability_py___count_range">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/draw_probability.py#:~:text=def%20_count_range">Source ↗</a></p>
+</article>
+</main>
+</body></html>

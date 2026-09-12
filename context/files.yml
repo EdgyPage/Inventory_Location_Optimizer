@@ -1382,6 +1382,17 @@ files:
       - {name: "Cell", file: "Optimization/simdriver/cells.py", kind: "class"}
       - {name: "reference_cell", file: "Optimization/simdriver/cells.py", kind: "function"}
     notes: ""
+  "Optimization/simdriver/draw_probability.py":
+    purpose: "the DRAW PROBABILITY `p_s` -- the chance the declared sampler puts a SKU in a batch -- characterised by a generator-only draw, as per-SKU counts so both the plug-in and the unbiased estimator are available."
+    layer: "opt_simdriver"
+    key_symbols:
+      - {name: "precompute_counts", file: "Optimization/simdriver/draw_probability.py", kind: "function"}
+      - {name: "write_counts", file: "Optimization/simdriver/draw_probability.py", kind: "function"}
+      - {name: "load_counts", file: "Optimization/simdriver/draw_probability.py", kind: "function"}
+      - {name: "ensure_draw_probability", file: "Optimization/simdriver/draw_probability.py", kind: "function"}
+      - {name: "prior_line_probability", file: "Optimization/simdriver/draw_probability.py", kind: "function"}
+      - {name: "ladder", file: "Optimization/simdriver/draw_probability.py", kind: "function"}
+    notes: ""
   "Optimization/simdriver/era_coverage.py":
     purpose: "the calibrated era's stage-A expectation per channel, and the pair-level fixed point that sizes the warehouse in stock days."
     layer: "opt_simdriver"
@@ -2301,6 +2312,21 @@ files:
       - {name: "test_a_coupled_site_dock_matches_the_two_docks_it_replaces", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_coupled_pair_reconciles_across_both_leaves_and_the_site_dock", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_coupled_unit_binds_both_arms_into_one_site_gain_bundle", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+    notes: ""
+  "Tests/e2e/test_draw_probability.py":
+    purpose: "the gate for the draw-probability characterisation: the counts are the run's own batch sequence, a chunk prefix is a shorter draw, and the unbiased estimator beats the plug-in's Jensen bias."
+    layer: "tests"
+    key_symbols:
+      - {name: "SEED_B", file: "Tests/e2e/test_draw_probability.py", kind: "const"}
+      - {name: "test_counts_match_the_batch_sequence", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
+      - {name: "test_serial_equals_parallel", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
+      - {name: "test_chunk_prefix_equals_a_shorter_draw", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
+      - {name: "test_unbiased_beats_plug_in_at_small_M", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
+      - {name: "test_estimators_converge_as_M_grows", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
+      - {name: "test_zero_count_sku_contributes_nothing", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
+      - {name: "test_fingerprint_routes_and_reuses", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
+      - {name: "test_different_M_is_a_different_file", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
+      - {name: "test_ladder_is_monotone_in_M", file: "Tests/e2e/test_draw_probability.py", kind: "function"}
     notes: ""
   "Tests/e2e/test_production_hours_e2e.py":
     purpose: "the objective's three legs, against the run that wrote them."

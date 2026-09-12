@@ -12501,6 +12501,111 @@
       "src": "Optimization/simdriver/cells.py::_build_cells"
     },
     {
+      "dst": "Optimization/config/channels.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/draw_probability.py"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_precompute.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/draw_probability.py"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::_main",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/draw_probability.py"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/draw_probability.py"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_precompute.py::_load_worker_inventory",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::_assets"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::_assets"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::_assets",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::_count_range"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::Batch",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::_count_range"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_precompute.py::_load_worker_inventory",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::_main"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::ensure_draw_probability",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::_main"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::ladder",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::_main"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::load_counts",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::_main"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_precompute.py::_load_worker_inventory",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::ensure_draw_probability"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_precompute.py::batch_fingerprint",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::ensure_draw_probability"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::precompute_counts",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::ensure_draw_probability"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::write_counts",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::ensure_draw_probability"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::ensure_draw_probability"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::prior_line_probability",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::ladder"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::_count_range",
+      "kind": "calls",
+      "src": "Optimization/simdriver/draw_probability.py::precompute_counts"
+    },
+    {
+      "dst": "Optimization/simdriver/draw_probability.py::_count_range",
+      "kind": "ref",
+      "src": "Optimization/simdriver/draw_probability.py::precompute_counts"
+    },
+    {
       "dst": "Optimization/config/sim_config.py",
       "kind": "imports",
       "src": "Optimization/simdriver/era_coverage.py"
@@ -36469,6 +36574,86 @@
       "kind": "function",
       "module": "Optimization/simdriver/cells.py",
       "name": "reference_cell",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "Optimization.simdriver.draw_probability",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::_assets",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "_assets",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::_count_range",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "_count_range",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::_main",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "_main",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::ensure_draw_probability",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "ensure_draw_probability",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::ladder",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "ladder",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::load_counts",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "load_counts",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::precompute_counts",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "precompute_counts",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::prior_line_probability",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "prior_line_probability",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/draw_probability.py",
+      "id": "Optimization/simdriver/draw_probability.py::write_counts",
+      "kind": "function",
+      "module": "Optimization/simdriver/draw_probability.py",
+      "name": "write_counts",
       "public": true
     },
     {

@@ -8290,7 +8290,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{**ERA_RUN_DEFAULTS, 'inbound_trailer_type': '53', 'inbound_standing_yard': True, 'inbound_dock_doors': PHASE2_DOCK_DOORS, 'inbound_door_team': PHASE2_DOOR_TEAM, 'inbound_lead_minutes': PHASE2_LEAD..."
+      "value_preview": "{**ERA_RUN_DEFAULTS, 'couple_channels': True, 'inbound_trailer_type': '53', 'inbound_standing_yard': True, 'inbound_dock_doors': PHASE2_DOCK_DOORS, 'inbound_door_team': PHASE2_DOOR_TEAM, 'inbound_l..."
     },
     "Optimization/config/whatif_config.py::SPECS": {
       "decorators": [],
@@ -13759,6 +13759,75 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cells, fallback: str | None=None) -> str"
+    },
+    "Optimization/simdriver/draw_probability.py": {
+      "decorators": [],
+      "doc": "draw_probability.py \u2014 the DRAW PROBABILITY `p_s`: what the declared sampler actually does.\n\nThe coverage record prices a SKU's prior lines at its **line share** `pi_s = freq / sum freq`\n(`Optimization/simconfig/coverage.py`).  That is the sampler's BASE WEIGHT, not its inclusion\nprobability.  `Workload_Builder._lift_weighted_sample` draws `k` DISTINCT SKUs per batch WITHOUT\nreplacement and multiplies every survivor's weight by `prod lift(A, B)` over the partners already\ndrawn, so the probability a SKU lands in a batch is a different function of the catalogue, not a\nscaled one (.scratch/department-calibration, \"Close the fulfillment fill-law gap\", decision 1).\n\nThis module computes that probability -- the **draw probability** `p_s` -- by running the declared\nsampler and nothing else.  No warehouse is planned, no inventory is placed, no simulation is\nstepped: exactly `Batch(batch_cfg, inventory, affinity, rng=random.Random(seed_batches + i))` for\n`i` in `[0, M)`, which is the identical call `batch_precompute._sample_range` makes.  Because the\nrun's own script uses the SAME base seed, the run's `n_batches` batches are a PREFIX of this sample\n(decision 7) -- there is no second demand stream to reconcile.\n\nWHY THIS IS AFFORDABLE, and why it may run BEFORE the coverage fixed point.  Under the era the two\n`units_per_line` cancel in `era_coverage.stage_a`, so a channel's `mean_fraction` reduces to the\ndeclared `STORE_DEMAND` / `FF_DEMAND` constant: `k` is a declared fraction times the section size\nand does NOT depend on the fixed point's `n`.  `p_s` is therefore a pure function of\n`(inventory, affinity, batch_cfg, seed)` -- all declared before the solve runs -- and is drawn ONCE\nrather than re-drawn per round.  (`batch_precompute` runs AFTER the solve, from the converged\ndeclaration, which is why its file cannot serve this purpose: it holds `n_batches` batches, and\n`n_batches` is a window length, not a precision.)\n\nWHAT COMES BACK, and why it is COUNTS rather than probabilities.  A chunk returns the per-SKU\ncount `c_s` of batches that included it, positionally over `load_inventory_from_db`'s\n`ORDER BY sku` -- the same candidate order `_lift_weighted_sample` indexes, so the vector aligns\nwith the inventory the caller already holds.  Counts are kept rather than `c_s / M` because the\nconsumer needs BOTH estimators and only counts can give the unbiased one:\n\n    p_s               ->  c_s / M                                       (the plug-in)\n    p_s^j (1-p_s)^i   ->  c_s^(j) \u00b7 (M - c_s)^(i) / M^(j+i)             (falling factorials)\n\nthe second being exact for `c_s ~ Binomial(M, p_s)`.  This matters because the fill law's\nline-weighted functional is CONVEX in `p_s`, so a plug-in carries an upward Jensen bias that\nshrinks only as `M` grows -- the identical artifact that, at the 20-batch window, was worth two\nthirds of the apparent movement in \"Close the fulfillment fill-law gap\".  `M` is DECLARED by\nrequiring the two to agree (`prior_line_probability` below, and `--ladder` on the CLI), which makes\nthe precision a measurement rather than a guess.  The plug-in is what the record carries; the\nunbiased form is the diagnostic that sizes `M`.\n\nChunk counts are stored SEPARATELY and in range order, so any prefix `M_j` is a partial sum: one\ndraw answers the whole ladder instead of one draw per rung.\n\nThe fingerprint is `batch_precompute.batch_fingerprint` unchanged -- the same inputs decide both\nsequences, and `M` enters it through the `n_batches` slot.  Files are named `_drawp_*.npz`, so a\ndraw can never be served from (or poison) a `_batches_*.pkl`.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/draw_probability.py::_assets": {
+      "decorators": [],
+      "doc": "Load-or-reuse this process's (inventory, affinity, position map).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv_db, max_skus, sku_allowlist, aff_db, channel_regime)"
+    },
+    "Optimization/simdriver/draw_probability.py::_count_range": {
+      "decorators": [],
+      "doc": "Module-level (spawn-picklable) chunk worker: draw batches `[lo, hi)` and return the\nper-SKU inclusion COUNT over the inventory's own order.\n\nBuilds the full `Batch` rather than calling the sampler directly, deliberately: `Batch`\nalso draws each selected SKU's line quantity from the same `rng`, and reproducing the\nrun's stream exactly means reproducing every draw that stream makes, not only the ones\nthis module reads.  The batches themselves are dropped as soon as they are counted, so\npeak memory is the memoized assets plus one batch and the count vector.\n\nMEMORY, not compute, sets the worker count.  The partner map is ~14M entries of Python\ntuples on the reference catalogue -- well over a gigabyte resident -- so each worker is\nexpensive to hold and cheap to keep busy (~0.22 s/batch on the fulfillment section).  A\nhandful of workers each drawing thousands of batches is the shape that fits; one worker\nper core is how this thrashes.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches, lo: int, hi: int, channel_regime=None) -> np.ndarray"
+    },
+    "Optimization/simdriver/draw_probability.py::_main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv: list) -> int"
+    },
+    "Optimization/simdriver/draw_probability.py::ensure_draw_probability": {
+      "decorators": [],
+      "doc": "Compute-or-reuse this (pair, channel)'s draw file under `out_dir`.  Returns\n`(path, fingerprint)`.\n\nNamed by the fingerprint, so two channels never collide and an identical declaration is a\nfile-exists hit; the write is atomic and the loader re-verifies the fingerprint.  Exactly\nthe contract `batch_precompute.ensure_batches` offers, over the same inputs, with `M` in\nthe `n_batches` slot.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches: int, n_draws: int, workers: int=1, chunks: int=_DEFAULT_CHUNKS, log=None, channel_regime=None) -> tuple"
+    },
+    "Optimization/simdriver/draw_probability.py::ladder": {
+      "decorators": [],
+      "doc": "The prefix ladder: `(M_j, K, plug_in, unbiased, abs_gap, rel_gap)` for every chunk\nprefix and every `K`.  One draw answers the whole table -- which is the point of keeping\nthe chunk counts apart.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(blob: dict, ks=(1, 2, 3, 4)) -> list"
+    },
+    "Optimization/simdriver/draw_probability.py::load_counts": {
+      "decorators": [],
+      "doc": "Return `{sku, counts, bounds, M, seed_batches}` IFF the stored fingerprint matches\n(or no expectation is given); else None, so a caller falls back to drawing.\n\n`counts` is the per-chunk matrix, NOT the total -- summing is the caller's, because the\nprefix ladder is the reason the chunks are kept apart.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, expected_fingerprint: str | None=None) -> dict | None"
+    },
+    "Optimization/simdriver/draw_probability.py::precompute_counts": {
+      "decorators": [],
+      "doc": "Draw `n_draws` batches and return `(bounds, counts)`.\n\n`bounds` is the list of `(lo, hi)` chunk ranges in order and `counts` the matching\n`(len(bounds), n_skus)` int64 matrix, so `counts[:j].sum(0)` is the count vector at\nprefix `bounds[j-1][1]` -- the ladder, from one draw.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches: int, n_draws: int, workers: int=1, chunks: int=_DEFAULT_CHUNKS, channel_regime=None) -> tuple"
+    },
+    "Optimization/simdriver/draw_probability.py::prior_line_probability": {
+      "decorators": [],
+      "doc": "`P(>= 1 prior line for the same SKU within K days | a line)`, line-weighted, both ways.\n\nThe fill law on a floored section reduces to exactly this event, so it is the quantity\nwhose precision decides `M`.  A line belongs to SKU `s` with probability proportional to\n`p_s`, and the days are independent (each batch draws from its own\n`random.Random(seed_batches + i)`; no cross-batch state), so\n\n    Q(K) = sum_s p_s \u00b7 (1 - (1 - p_s)^K) / sum_s p_s\n\nReturns `(plug_in, unbiased)`.  The plug-in substitutes `c_s / M`; the unbiased form uses\nthe binomial falling-factorial identity\n\n    E[ c^(j) \u00b7 (M - c)^(i) ] = M^(j+i) \u00b7 p^j \u00b7 (1 - p)^i\n\nwith `j = 1`, `i = K`, which is exact rather than an alternating expansion and therefore\nstable at every `K` the transit law puts mass on.  Their DIFFERENCE is the plug-in's\nJensen bias at this `M`; agreement is the criterion that declares `M`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(counts: np.ndarray, M: int, K: int) -> tuple"
+    },
+    "Optimization/simdriver/draw_probability.py::write_counts": {
+      "decorators": [],
+      "doc": "Persist the draw atomically (tmp + os.replace) so a half-written file is never\nobserved as complete.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, fingerprint: str, skus: np.ndarray, bounds: list, counts: np.ndarray, seed_batches: int) -> None"
     },
     "Optimization/simdriver/era_coverage.py": {
       "decorators": [],
