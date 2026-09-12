@@ -643,6 +643,28 @@ regime someone chose rather than one the defaults inherited.
   declared rate, fitted to that probability ALONE, then recovers **71%** of fulfillment's gap
   and **52%** of the store's, both moving the same way. Asset:
   [measure_repeat_and_lead.py](assets/measure_repeat_and_lead.py).
+- [Close the fulfillment fill-law gap](issues/38-close-the-fulfillment-fill-law-gap.md): the line
+  share `pi_s = freq / sum freq` is the WRONG MARGINAL. The sampler draws `k` DISTINCT SKUs per
+  batch without replacement, multiplying each survivor by `prod lift(A, B)` over the partners
+  already drawn, so a weight share is not an inclusion probability. The floor solves against the
+  **draw probability** `p_s` instead -- DEFINED as what the declared sampler does, characterised by
+  a generator-only draw of M batches on the run's own `seed_batches` (no warehouse, no simulation),
+  with `N ~ Binomial(K, p_s)` riding inside the same change because `p_s` is a probability, not a
+  rate. The structure predicts 39's fitted `m` without being told it: expected drawn cluster-mates
+  per candidate is `cluster_size * k/N` = **0.20 store against 1.45 fulfillment** (7.4x), while
+  `relative_frequency` dispersion is near-identical across the sections (CV 0.577 / 0.580) -- one
+  mechanism at two sampling densities, which is why every per-SKU RATE variant failed. Affordable
+  because there is NO fixed-point circularity: under the era the two `units_per_line` cancel, so
+  `mean_fraction == STORE_DEMAND / FF_DEMAND` and `k` does not depend on `n`. One rate everywhere
+  (`daily_demand`, `expected_travel`, `staffing`, the fragmentation transient) in ONE commit,
+  era-only with flag-off byte-identical, cached as a fingerprinted pair-directory artifact with a
+  derivation identity that makes a rebuild REFUSE. Gated generator-side BEFORE any warehouse is
+  built -- the record's line-weighted prior-line probability within 10% relative of 39's empirical
+  on both channels -- with "fulfillment closes, store overshoots" fatal by rule and "short on both"
+  a rejection, not a stamped residual. Whatever floor the solve then asks for is the warehouse
+  bought; 38 decision 4 (confidence per channel) survives only as the fallback if
+  `_MAX_FLOOR_LINES` refuses. **The mechanism is argued from the sampler's structure, NOT yet
+  measured** -- the gate exists to falsify it in minutes. Four `task` tickets carry the build.
 
 ## Not yet specified
 
@@ -674,29 +696,6 @@ regime someone chose rather than one the defaults inherited.
   throttles picks — a lag/propagation read, not just levels) is dim until the era exists.
   04 left one sharp edge of it: whether a CAPPED day on a campaign arm is also a comparison
   caveat (the arm did not deliver the declared throughput) is reported, not yet judged.
-- **An affinity-aware line share.** 34 found that the batch sampler's affinity lift spreads a
-  fulfillment section's lines over SKUs almost flat across the frequency deciles (41,669 SKUs
-  touched by day 25 against the line share's 54,995; correlation of frequency with realized
-  lines 0.04), while every closed form on the record weights SKUs by `freq / sum freq`. Section
-  SUMS are right; per-SKU line COUNTS on fulfillment are not, which is where 13's -6.8%
-  fulfillment residual and the fragmentation transient's +23% both live. Whether the record
-  should carry a sampler-faithful per-SKU rate (and how one is derived without a run) is dim
-  until a closed form needs the per-SKU count rather than the section sum -- the trajectory
-  band is the first that will, and `fragmentation.section_fragmentation` already takes the
-  rate through `lines_per_day_by_sku`.
-  **36 (2026-09-10) made the lead-aware fill the FIRST closed form that needs it**: the
-  loss under a lead is the chance of a second line inside the first's lead window, a
-  per-SKU line COUNT; by 36 decision 6 it uses the line share, and 26's residual under the
-  lead-aware record is what graduates this patch.
-  **38 (2026-09-12) MEASURED the residual, and this patch does NOT explain it.** Re-pricing the
-  fill at realized per-SKU rates moves fulfillment the WRONG way (0.0251 -> 0.0209); against a
-  synthetic control in which the share law is exactly true, sampler concentration accounts for
-  +0.0109 of the +0.0793 gap (14%), the rest being finite-window rate granularity and rollover
-  re-offer contamination of the line count. The concentration is real (-24.5% touched SKUs at
-  -1.8% lines) but it is a temporal DEPENDENCE, not a rate, and a per-SKU rate on the record
-  cannot express it. This patch stays fog as a record quantity; nothing is waiting on it to
-  explain the fill, and the dependence structure is a ticket
-  ([Measure the repeat structure and the realized lead distribution](issues/39-measure-the-repeat-structure-and-lead-distribution.md)).
 - **A derived band for the supply level.** 30 gave the labour clause a band the declared law
   implies (`staffing.cut_share_sd` over the window) but left the supply level's at a typed 0.02:
   the fill closed form stamps a point, and the spread of a finite window's first-attempt share

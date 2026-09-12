@@ -1,7 +1,7 @@
 # Close the fulfillment fill-law gap
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: 39
 
 Graduated 2026-09-12 from inbound-optimization
@@ -173,3 +173,168 @@ form is chosen rather than after it.
 
 29% of fulfillment's gap and 48% of the store's are still unexplained; 39's answer names the
 candidates and deliberately puts no order on them.
+
+## Answer
+
+**`pi_s` is the wrong marginal.** The record prices a SKU's prior lines at its BASE WEIGHT
+SHARE (`freq / sum freq`), but the sampler draws `k` DISTINCT SKUs per batch WITHOUT
+replacement, multiplying each survivor's weight by `prod lift(A, B)` over the partners already
+drawn (`Warehouse/picking/Workload_Builder.py:104,116`). A weight share is not an inclusion
+probability. The floor solves against the **draw probability** `p_s` instead -- the probability
+the declared sampler puts SKU `s` in a batch -- and `p_s` is DEFINED as what that sampler does,
+characterised by a generator-only draw. `N ~ Binomial(K, p_s)` replaces the compound Poisson in
+the same change.
+
+### Why this and not 39's multiplier
+
+39's `m` is a fitted stand-in for a structural quantity, and the structure predicts `m`'s own
+channel asymmetry without being told it. Expected already-drawn cluster-mates per candidate is
+`cluster_size * k / N`:
+
+| | store | fulfillment |
+|---|---|---|
+| batch fraction `k / N` (`settings.py:270-271`) | 0.00245 | 0.01814 |
+| cluster size (`generate_affinity.py:90`) | 80 | 80 |
+| **expected drawn cluster-mates per candidate** | **0.20** | **1.45** |
+| 39's fitted `m` | 1.739 | 3.968 |
+
+The multiplicative reinforcement at `Workload_Builder.py:116` therefore engages ~7.4x more often
+per fulfillment draw, and each hit multiplies by ~4-5 (stored lifts are the top-20 tail of
+`U(1, 5)`, `generate_affinity.py:329-341`). Meanwhile `relative_frequency` DISPERSION is
+near-identical across the two sections under the reference profile -- CV 0.577 fulfillment against
+0.580 store (`generate_inventory.py:103`; `generate_mixed_profile.py:109-147`, uniform profile,
+which `mixed_realistic_lt0` is) -- so the concentration is not a frequency story at all. It is one
+mechanism at two sampling densities. Fulfillment also collapses to ONE `(handling, category)`
+group against the store's twelve (`generate_inventory.py:407-409`, `:285`), so its clusters sit in
+a single densely-sampled pool.
+
+This is also why 38's own rate substitution failed and 39's `m` closed only 71% / 52%: both
+operate on a per-SKU RATE, and the defect is in the map from declared weight to realized
+inclusion -- a different function, not a scaled one.
+
+### The form, as decided
+
+1. **The corrected object is the marginal itself, not a shape on top of it.** `p_s` replaces
+   `pi_s` wherever the record reads a per-SKU rate. Rejected: a declared dispersion parameter
+   beside `pi_s` (39's `m` is its one-parameter instance and it lands short on BOTH leaves by a
+   similar proportion -- the signature of a stand-in, not of a missing second parameter); and
+   firing decision 4's per-channel confidence now, which answers "the solve refuses" before the
+   solve has been asked.
+2. **`p_s` is defined by a generator-only draw, permanently -- not derived, and this is not the
+   charter's fallback being taken reluctantly.** The lift is sequential over a without-replacement
+   draw, so an exact closed form is a sum over subset orderings and every tractable approximation
+   is an unvalidated model of a model. A generator draw has neither defect the charter's
+   "derived first" exists to prevent: it is a pure function of declared inputs (catalogue
+   frequencies, `affinity.db`, the batch fraction and cv, a seed), it touches no warehouse and no
+   simulation, and it is repeatable to any precision bought. Chasing the closed form would buy
+   LESS fidelity than the fallback, which inverts the rule's purpose.
+3. **There is no fixed-point circularity, which is what makes (2) affordable.** Under the era the
+   two `units_per_line` cancel exactly (`era_coverage.py:195,230-232` against `:96`), so
+   `mean_fraction == STORE_DEMAND / FF_DEMAND` -- declared constants. `k` is a declared fraction
+   times the section size and does NOT depend on `n`. `p_s` can be characterised once, before the
+   solve, and never re-drawn inside it. Cost at era batch sizes is ~0.02-0.04 s/batch
+   (`Workload_Builder.py:68` scaled from k/N 0.15-0.20 down to 0.00245 / 0.01814), and
+   `batch_precompute.precompute_batches` already parallelises across a spawn pool with no
+   warehouse in the loop.
+4. **One rate, everywhere, in one commit.** `daily_demand`, `expected_travel`, `staffing` and the
+   fragmentation transient all take `p_s`, not just the fill law. Two per-SKU demand rates in one
+   record is the failure this map has paid for twice (`cut-is-a-level-not-a-flow`,
+   `carryover-two-producers-one-key`), and pricing the PROBABILITY of a prior line at one rate
+   while the STOCK that line draws down uses another is incoherent on its own terms.
+   Consequence accepted deliberately: today 100% of both sections sits at the line floor, so
+   `coverage_days`, the lead and `safety_days` bind on nothing; a corrected `p_s` should lift the
+   busy SKUs OFF the floor, which is the first time the declared coverage would bind on anything.
+5. **`N ~ Binomial(K, p_s)` rides inside the form, not after it.** Under (1) it stops being the
+   small correction 38 first judged it: `p_s` is a probability, not a rate -- the sampler draws
+   distinct SKUs and the era releases one batch a day, so a SKU takes at most one line per day --
+   and a Poisson parameterised by a probability breaks outright as `p_s` approaches 1, which is
+   where the busy fulfillment SKUs now live. Panjer covers the whole (a,b,0) class
+   (`a = -p/(1-p)`, `b = (K+1)p/(1-p)`, `g(0) = (1-p)^K`), so it is a parameter change. Its
+   increment is REPORTED separately even though it ships together. The `releases_per_day > 1`
+   limitation is stated where `coverage.py:376` pins the supplier-lead rounding -- pinned to the
+   era, not solved.
+6. **The characterisation is a shared-asset stage with a fingerprint cache**, run per
+   (pair, channel) ahead of `era_coverage.fixed_point` in `build_shared_assets`
+   (`sim_assets.py:190`), on the `ensure_batches` pattern (`batch_precompute.py:169`). Rejected: a
+   catalogue artifact beside `affinity.db` (the batch fraction is a RUN declaration in
+   `settings.py` and `--max-skus` moves `len(section)`, so it would need keying on the run's
+   declaration anyway); and computing it lazily inside `rescale_section` (`coverage.py` "imports
+   no CONFIG and touches no file" is load-bearing -- `p_s` arrives as an ARGUMENT, exactly as the
+   stamped line law does).
+7. **The run's own `seed_batches`, drawn out to M batches**, so the run's actual script is a
+   PREFIX of the characterisation and there is no second demand stream to reconcile. `M` is
+   declared by requiring the plug-in `p_hat_s = c_s / M` and the unbiased factorial-moment
+   estimate (`c_s (c_s - 1) / M (M - 1)`) to agree within tolerance -- which turns "how big is M"
+   from a guess into a measurement. The plug-in is what enters the record; the moment estimate is
+   a reported diagnostic, not a second rate. This matters because the fill law's line-weighted
+   functional is CONVEX in `p_s`, so estimator noise inflates it upward -- the same Jensen artifact
+   that was worth two thirds of 38's apparent movement at M = 20. The store binds M, not
+   fulfillment (mean count ~25 against ~181 at M = 10,000). Rejected: shrinking `p_hat_s` toward
+   `k * pi_s`, which reintroduces the wrong marginal as a prior.
+8. **Era-only; flag-off stays byte-identical.** `coverage` runs in every mode (ADR-0002), so this
+   would otherwise move flag-off stock levels too. Both prior breaks -- derived fill (fourth) and
+   the lead-aware record (fifth) -- landed era-only, and the flag-off path has no first-time
+   confidence and no floor solve, so a corrected `p_s` buys it nothing while costing every
+   archived flag-off run its comparability. Rejected: a flag of its own, which adds a sixth seam
+   to maintain (`config-knob-has-five-seams`) for a switch nobody would set independently.
+9. **The gate is generator-side and declared BEFORE the measurement.** The record's own
+   line-weighted `P(>= 1 prior line for the same SKU within K days | a line)` must match 39's
+   empirical -- store **0.01052**, fulfillment **0.14938** -- within **10% relative on both
+   channels**. Relative, not absolute: the two are 14x apart, so an absolute band is vacuous on one
+   and brutal on the other. No warehouse is built to run this gate. The equilibrium instrument's
+   `supply` band on one re-run is the CONFIRMING gate, not the primary one.
+   Two rules fixed now rather than after the numbers land:
+   - **Fulfillment closing while the store overshoots is FATAL**, by rule. It is the signature of
+     the two dead variants (38's best reached fulfillment 0.1370 only by driving the store to
+     0.0909 against a realized 0.0302) and it should not be a judgement call made afterwards.
+   - **Landing short on both leaves is a REJECTION, not a stamped residual.** The whole value of
+     this form over `m` is that it is derived; "close enough" is a much weaker defence for a
+     derived quantity than for a fitted one, and a stamped known-bias is how a wrong constant
+     survives for months.
+10. **Rebuilds read the artifact and REFUSE on drift.** `p_s` is a fingerprinted artifact in the
+    pair directory, travelling with the run tree (so a `COLD_DRIVE` rebuild resolves), plus a
+    derivation identity on the record. `declare_from_record` recomputes the share from the
+    catalogue (`era_coverage.py:346`), so without this a rate-law change would make every
+    historical rebuild field a different warehouse with nothing stamped to detect it -- this is
+    the `floors_at` / `holds_at` pattern applied to the thing that actually needed it, and the
+    refusal is the important half. Rejected: stamping ~400k floats per pair on the record; and
+    stamping only the inputs and re-drawing, which makes every analysis pass pay the draw.
+11. **Whatever warehouse the solve asks for is the one we buy.** Fulfillment sits at floor 1.267
+    with a stamped miss of 0.0251 against a 0.0253 target, so the solve is on the boundary; a
+    corrected rate raises the miss at that floor to roughly 0.08 (39's re-priced figure) and the
+    floor must then buy enough shelf to survive a SECOND prior line. EXPECTATION, not a
+    measurement: nearer 2-2.5 lines than 4x, because `P(>= 2 prior lines)` falls off steeply from
+    `P(>= 1) = 0.149`. That is plausibly a considerably larger warehouse than the current 2,774
+    aisles and a slower campaign, and a bin cap cannot contain it (`a-bin-cap-is-self-defeating`:
+    a smaller warehouse is a shorter trip, a higher derived lines/day, and BIGGER levels).
+    Rejected: holding the geometry and lowering the declared confidence to what it supports --
+    that chooses the warehouse and lets the confidence fall out, which is the same inversion this
+    map's destination exists to prevent. 38 decision 4 (confidence declared per channel) survives
+    as the named fallback, firing ONLY if `_MAX_FLOOR_LINES` actually refuses.
+12. **Glossary, and an ADR.** `pi_s` keeps the name **line share** (a weight); `p_s` is the
+    **draw probability** (an outcome). ADR-0006 records the form and must AMEND ADR-0004, whose
+    first-time confidence is priced through exactly the law being replaced. The rejected
+    alternative it must carry, with 39's numbers, is the fitted multiplier.
+
+### What this does NOT claim
+
+The mechanism is argued from the sampler's structure and from its prediction of the channel
+asymmetry; it is **not yet measured**. Nothing here is a finding about `p_s`'s value. Decision 9
+exists precisely so that the form can be falsified on the generator, in minutes, before a sixth
+comparability break is bought.
+
+### Graduated
+
+The fog patch **An affinity-aware line share** is cleared from the map: it asked whether the record
+should carry a sampler-faithful per-SKU rate and how one is derived without a run, and both halves
+are answered above. Four `task` tickets carry the build, in order:
+[Characterise the draw probability](40-characterise-the-draw-probability.md) ->
+[Gate the form on the generator](41-gate-the-form-on-the-generator.md) ->
+[Land the draw probability through every closed form](42-land-the-draw-probability.md) ->
+[Re-run the reference pair and record the form](43-rerun-and-record-the-form.md).
+
+The inbound campaign's
+[Re-run the gate and fix the fee threshold](../../inbound-optimization/issues/29-rerun-the-gate-and-fix-the-threshold.md)
+was blocked on THIS ticket and has been re-pointed at the last of the four: resolving a decision
+does not give the campaign a corrected era, and the old edge would have turned the inbound map
+green on a warehouse that does not exist.
