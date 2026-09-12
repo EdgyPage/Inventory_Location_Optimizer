@@ -21,8 +21,16 @@ def lead_queue_depth(self) -&gt; int</code></pre>
 Through the transit&#x27;s own census, NOT the `_lead_queue` shim below: the shim
 exposes `BatchTransit`&#x27;s entry list and a trailer transit has no such list — the
 first e2e run with the trailer flag on found exactly that AttributeError here.
-For `BatchTransit`, `depth` IS `len(entries)`, so flag-off reads are unchanged.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+For `BatchTransit`, `depth` IS `len(entries)`, so flag-off reads are unchanged.
+
+REFUSES on a coupled leaf, for `in_transit_qty`&#x27;s reason and with a sharper edge:
+under a trailer pipeline an in-flight ENTRY is a TRAILER, and a trailer&#x27;s load is
+mixed by construction — so this level is the whole site&#x27;s and reporting it per leaf
+would double the site&#x27;s in-flight count across the pair&#x27;s two DBs (the shape
+ADR-0005 rejected in as many words). The site-scoped replacement counts this leaf&#x27;s
+own in-flight LOTS instead, which is what `BatchTransit.depth` counted before the
+trailer pipeline existed and the only reading that both decomposes and sums.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__refuse_site_scope.html"><code>_refuse_site_scope</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_lead_queue_depth">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20lead_queue_depth">Source ↗</a></p>
 </article>
 </main>

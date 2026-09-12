@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_site_unload_cost · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___site_unload_cost" data-id="Optimization/simdriver/strategy_runner.py::_site_unload_cost">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_site_unload_cost</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_site_unload_cost</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _site_unload_cost(leaf_args: dict)</code></pre>
+<section class="doc">ONE channel&#x27;s entry in the site dock&#x27;s price list (site-dock 27).
+
+The SAME chain a leaf builds for its own dock, evaluated against THIS channel&#x27;s pick
+config: pickers -&gt; put-away (`PutawayCost.from_pick`) -&gt; receiving
+(`UnloadCost.from_putaway`), then the inbound spec&#x27;s own coefficients overlaid.  Built
+from the leaf payload rather than copied off the leaf, because the dock exists before
+any leaf does -- and because re-deriving it here from the same inputs is what makes the
+two entries provably the two constants an uncoupled run already charges.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nInbound_unload_py__UnloadCost_from_putaway.html"><code>from_putaway</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nWarehouse_operations_putaway_py__PutawayCost_from_pick.html"><code>from_pick</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf.html"><code>_build_leaf</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___build_site_dock.html"><code>_build_site_dock</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___site_unload_cost">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_site_unload_cost">Source ↗</a></p>
+</article>
+</main>
+</body></html>

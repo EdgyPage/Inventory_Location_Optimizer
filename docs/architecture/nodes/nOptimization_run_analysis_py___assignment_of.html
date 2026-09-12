@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_assignment_of · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_analysis_py___assignment_of" data-id="Optimization/run_analysis.py::_assignment_of">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_analysis_py.html"><code>Optimization/run_analysis.py</code></a> <span class="sep">›</span> <span class="here"><code>_assignment_of</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_assignment_of</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_analysis_py.html"><code>Optimization/run_analysis.py</code></a></p>
+
+<pre class="sig"><code>def _assignment_of(arm_key: str) -&gt; str</code></pre>
+<section class="doc">The assignment rule inside an arm key — what `core.baseline` matches the baseline on.
+
+An arm key is `&lt;initial&gt;_&lt;assignment&gt;[_&lt;reslot&gt;]`, and the baseline declaration selects
+on `assignment == &#x27;fifo&#x27;`.  A site&#x27;s members are arm PAIRS, which carry no such field of
+their own, so the store half&#x27;s rule is lifted onto the pair: the diagonal is rank against
+rank and the reference pair is `fifo`/`fifo` (site-dock 06), so the half naming `fifo`
+names the reference pair.  Falls back to the whole key, which makes the baseline
+resolution fall back POSITIONALLY and say so — never silently onto another pair.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_analysis_py___site_jobs.html"><code>_site_jobs</code></a> <span class="dim">Optimization/run_analysis.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_analysis_py___assignment_of">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_analysis.py#:~:text=def%20_assignment_of">Source ↗</a></p>
+</article>
+</main>
+</body></html>

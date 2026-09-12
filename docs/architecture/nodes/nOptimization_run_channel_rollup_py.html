@@ -17,17 +17,24 @@
 <pre class="sig"><code>Optimization.run_channel_rollup</code></pre>
 <section class="doc">run_channel_rollup.py — combine per-channel best plans into a whole-warehouse saving.
 
-The simulation treats store and fulfillment as two INDEPENDENT sections of the warehouse, each
-sweeping its OWN set of pick-time regression configs and analyzed on its own by run_analysis.py
-(its own `fifo` baseline, its own winner).  This post-analysis step is the ONE place that
-combines them: for each inventory it reads every channel&#x27;s series JSON, computes each plan&#x27;s
-absolute production-time saving vs that channel&#x27;s `fifo` baseline, picks the best (config, plan)
-per channel across ALL that channel&#x27;s configs, and SUMS the per-channel best savings into a
-cumulative whole-warehouse saving.
+UNDER THE INBOUND-OFF MODEL the simulation treats store and fulfillment as two INDEPENDENT
+sections of the warehouse, each sweeping its OWN set of pick-time regression configs and
+analyzed on its own by run_analysis.py (its own `fifo` baseline, its own winner).  This
+post-analysis step is the ONE place that combines them: for each inventory it reads every
+channel&#x27;s series JSON, computes each plan&#x27;s absolute production-time saving vs that channel&#x27;s
+`fifo` baseline, picks the best (config, plan) per channel across ALL that channel&#x27;s configs,
+and SUMS the per-channel best savings into a cumulative whole-warehouse saving.
 
-Because the channels are independent, absolute savings (sim-unit `ss_prod_hours` deltas) are
-ADDITIVE — any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the
-per-plan CSV this writes doubles as a mix-and-match table: no cross-product simulation needed.
+**That summing is only valid while the channels are independent, and this script REFUSES a run
+where they are not.**  Under the inbound-off model each channel fields its own dock, its own
+receiving crew and its own pool of putters, so absolute savings (sim-unit `ss_prod_hours`
+deltas) are ADDITIVE — any (store-plan, fulfillment-plan) pairing is just the sum of the two
+rows, and the per-plan CSV doubles as a mix-and-match table with no cross-product simulation
+needed.  Under a COUPLED run (`--couple-channels`) one dock and one pool of putters serve both
+channels, so a store plan changes what the fulfillment crew can do and back: the premise is
+void, not merely the plumbing.  `rollup()` raises `ValueError` on such a run and
+`analyze_run` skips the step outright.  The whole published archive is inbound-off, so
+refusing costs no history.
 
 Run AFTER run_analysis.py (which writes the series JSONs).  The analysis default preset is
 BY_INITIAL (focus=&#x27;all&#x27;), so BOTH uni_* and opt_* arms land in the series and the rollup sees

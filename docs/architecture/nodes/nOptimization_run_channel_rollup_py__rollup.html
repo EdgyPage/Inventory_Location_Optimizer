@@ -18,7 +18,19 @@
 <section class="doc">Roll one CELL directory&#x27;s per-channel winners up into a whole-warehouse saving.
 
 `base_dir` is a cell dir; both output CSVs render through the run-tree contract
-(`rt.path(&#x27;channel_rollup_csv&#x27; / &#x27;channel_rollup_summary_csv&#x27;, cell=...)`).</section>
+(`rt.path(&#x27;channel_rollup_csv&#x27; / &#x27;channel_rollup_summary_csv&#x27;, cell=...)`).
+
+REFUSES A COUPLED RUN with a `ValueError`, and the TYPE is the decision (site-dock 07
+section 4).  `SystemExit` is the house style for a CLI shape refusal and is what
+`run_restock_selection` uses -- but `analyze_run._step` catches `Exception`, and
+`SystemExit` is not one, so a `SystemExit` here would abort `analyze_run` MID-RUN from
+inside its cell loop, killing every remaining cell&#x27;s analysis and the cross-cell what-if
+stage.  `run_restock_selection` gets away with it because nothing calls it from the hub.
+A `ValueError` matches this file&#x27;s own in-library precedent (`_baseline_entry`) and is
+caught and logged per cell.  `analyze_run` additionally SKIPS the step on a coupled run,
+so the log reads `skipped: coupled run` rather than `analysis step failed` once per cell
+-- a failure line on every cell of a healthy run is how a reader learns to ignore
+failure lines.</section>
 <section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_run_channel_rollup_py___channel_rows.html"><code>_channel_rows</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li><li><a href="nOptimization_run_channel_rollup_py___find_series.html"><code>_find_series</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li><li><a href="nOptimization_run_channel_rollup_py___is_num.html"><code>_is_num</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li><li><a href="nOptimization_run_channel_rollup_py___tree_for.html"><code>_tree_for</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nOptimization_analyze_run_py__analyze_run.html"><code>analyze_run</code></a> <span class="dim">Optimization/analyze_run.py</span></li><li><a href="nOptimization_run_channel_rollup_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_channel_rollup.py</span></li><li><a href="nscripts_archive_cells_py__analyse_cell.html"><code>analyse_cell</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_channel_rollup_py__rollup">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_channel_rollup.py#:~:text=def%20rollup">Source ↗</a></p>
 </article>

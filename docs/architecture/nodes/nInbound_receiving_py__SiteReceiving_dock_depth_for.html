@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dock_depth_for · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_receiving_py__SiteReceiving_dock_depth_for" data-id="Inbound/receiving.py::SiteReceiving.dock_depth_for">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a> <span class="sep">›</span> <a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="sep">›</span> <span class="here"><code>dock_depth_for</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>dock_depth_for</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def dock_depth_for(self, leaf) -&gt; int</code></pre>
+<section class="doc">Storage units of THIS leaf&#x27;s merchandise standing on the site dock floor.
+
+The site-scoped replacement for `Inventory_Manager.dock_depth`.  A LEVEL, so it
+neither drains nor resets and may be read at any instant -- unlike `snapshot_for`,
+which is a per-site-day drain and can be taken once.
+
+Zero on every standing-yard run by construction: merchandise waits on a trailer
+until a receiver pulls it, and `accept` hands it straight to the put queue.  Written
+out anyway, because &quot;the floor is empty&quot; is a fact about the standing model and not
+a licence for the caller to assume it.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving__channel_of.html"><code>_channel_of</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__leaf_for.html"><code>_leaf_for</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nWarehouse_kernel_regime_py__regime_of.html"><code>regime_of</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving_dock_depth_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20dock_depth_for">Source ↗</a></p>
+</article>
+</main>
+</body></html>

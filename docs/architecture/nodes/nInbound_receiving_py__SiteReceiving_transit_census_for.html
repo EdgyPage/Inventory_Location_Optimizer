@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>transit_census_for · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_receiving_py__SiteReceiving_transit_census_for" data-id="Inbound/receiving.py::SiteReceiving.transit_census_for">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a> <span class="sep">›</span> <a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="sep">›</span> <span class="here"><code>transit_census_for</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>transit_census_for</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def transit_census_for(self, leaf) -&gt; tuple</code></pre>
+<section class="doc">`(rows, qty, depth)` — THIS leaf&#x27;s share of the site&#x27;s in-flight merchandise.
+
+The site-scoped replacement for the three transit reads a leaf refuses:
+`transit_snapshot` (the replay rows), `in_transit_qty` (the units level) and the
+`lead_queue_depth` a leaf would take from `transit.depth`.  All three come off ONE
+census pass so they cannot disagree with each other, which is the failure two
+separate walks of a live yard invite.
+
+THE SPLIT IS BY SKU, which is the pack rule ADR-0005 settles: a lot has exactly one
+owning channel however mixed the trailer carrying it.  `rows` and `qty` therefore
+SUM across the leaves to the site&#x27;s own census exactly.
+
+`depth` is the one that needs saying out loud.  Uncoupled it counts in-flight
+ENTRIES, which under a trailer pipeline are TRAILERS — and a trailer is mixed by
+construction, so it decomposes to nothing.  Here it counts this leaf&#x27;s in-flight
+LOTS instead, which is what `BatchTransit.depth` counted before the trailer pipeline
+existed and is the only reading that both decomposes and sums.  A mixed trailer
+therefore contributes one lot to each channel rather than one trailer to both: the
+&quot;two copies of one yard sum to twice the trailers&quot; outcome ADR-0005 rejected is what
+counting trailers here would produce.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving__channel_of.html"><code>_channel_of</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nInbound_receiving_py__SiteReceiving__owner_of.html"><code>_owner_of</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving_transit_census_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20transit_census_for">Source ↗</a></p>
+</article>
+</main>
+</body></html>

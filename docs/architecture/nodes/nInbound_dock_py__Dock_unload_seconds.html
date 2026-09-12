@@ -13,12 +13,19 @@
 <nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_dock_py.html"><code>Inbound/dock.py</code></a> <span class="sep">›</span> <a href="nInbound_dock_py__Dock.html"><code>Dock</code></a> <span class="sep">›</span> <span class="here"><code>unload_seconds</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>unload_seconds</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_dock_py.html"><code>Inbound/dock.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def unload_seconds(self, weight: float, volume: float, quantity: int) -&gt; float</code></pre>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def unload_seconds(self, weight: float, volume: float, quantity: int, unit=None) -&gt; float</code></pre>
 <section class="doc">Seconds to take ONE storage unit off a trailer, priced by this dock&#x27;s own cost
 model — here so the manager needs no import of `unload`; the dock owns its price
-list.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_unload_py__unload_cost.html"><code>unload_cost</code></a> <span class="dim">Inbound/unload.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+list.
+
+`unit` is the `StorageUnit` being taken off, and it is read ONLY by a site dock:
+the price list is keyed by the unit&#x27;s own regime (site-dock 27), so the resolution
+happens here, at the charge site, where every caller already holds the unit.  An
+uncoupled dock has `costs is None` and returns before ever looking at it — which is
+what keeps the archived path byte-identical AND keeps `regime_of`&#x27;s six `getattr`s
+out of a hot loop that has no use for them.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_dock_py__Dock_cost_for.html"><code>cost_for</code></a> <span class="dim">Inbound/dock.py</span></li><li><a href="nInbound_unload_py__unload_cost.html"><code>unload_cost</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nWarehouse_kernel_regime_py__regime_of.html"><code>regime_of</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_dock_py__Dock_unload_seconds">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/dock.py#:~:text=def%20unload_seconds">Source ↗</a></p>
 </article>
 </main>

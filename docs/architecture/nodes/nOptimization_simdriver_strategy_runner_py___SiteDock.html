@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_SiteDock · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___SiteDock" data-id="Optimization/simdriver/strategy_runner.py::_SiteDock">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_SiteDock</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_SiteDock</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>class _SiteDock</code></pre>
+<section class="doc">The SITE&#x27;s inbound, at UNIT scope: one dock, one yard, one coordinator, one DB.
+
+The receiving twin of `_build_put_pool`&#x27;s `PutawayPool`, and built for the same three
+reasons: the crew is the pair&#x27;s derived receiving crew (ONE site total, which the
+leaves no longer carry), the uid block chains off the put pool&#x27;s so a receiver is the
+same person in both DBs, and one yard is one yard -- two leaves each ticking their own
+supplier-lead queue would land every order a batch early (`SITE_PHASES`).
+
+It also owns the coupled unit&#x27;s THIRD OUTPUT, the contract&#x27;s `site_inbound_db`
+(ADR-0005).  A trailer&#x27;s load is mixed by construction and a door is occupied by the
+trailer rather than by either channel&#x27;s share of it, so those rows belong to neither
+leaf -- writing them to `leaves[0]` would be `a-right-site-total-hides-two-wrong-shares`
+built deliberately, which is exactly why site-dock 21 parked them and left the artifact
+to this ticket.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_site_dock.html"><code>_build_site_dock</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___SiteDock">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=class%20_SiteDock">Source ↗</a></p>
+</article>
+</main>
+</body></html>

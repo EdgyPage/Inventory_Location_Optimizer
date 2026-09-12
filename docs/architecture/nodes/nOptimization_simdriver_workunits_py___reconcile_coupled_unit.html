@@ -49,10 +49,12 @@ leaves do not share one batch range, and that refusal cannot clear itself: a lea
 at `n_batches` is planned as a done arm and never reset, while its sibling resets to 0, so
 every later `--resume` reproduces the same disagreement and the pair is wedged for good.
 
-THE SITE DB IS THE UNIT&#x27;S THIRD OUTPUT and joins the reset.  `reset_strategy_db` knows an
-arm&#x27;s `sim_&lt;arm&gt;.db`, its keyframe sibling and its checkpoint; it does not know
-`&lt;pair&gt;/_site/inbound_&lt;a&gt;__&lt;b&gt;.db`, so a replayed unit would append a SECOND run&#x27;s
-trailer, drain and door rows to it.  It is the only such artifact -- every pack-denominated
+THE SITE DB IS THE UNIT&#x27;S THIRD OUTPUT and joins the reset -- for every rank that
+REPLAYS, not only for the ranks that disagree.  `reset_strategy_db` knows an arm&#x27;s
+`sim_&lt;arm&gt;.db`, its keyframe sibling and its checkpoint; it does not know the site DB, so
+a replayed unit would append a SECOND run&#x27;s trailer and drain rows to it, and `find_run`
+resolves the OLDEST run -- so every site yard figure would render over the abandoned one.
+A pair in step but PARTIAL is not torn and not stale, and it replays all the same.  It is the only such artifact -- every pack-denominated
 receiving quantity lives in its own channel&#x27;s sim DB (ADR-0005), and the run layout&#x27;s
 `coupled` marker is written once per run by the parent, not per unit -- so the reset surface
 is exactly three things per leaf plus one per rank.

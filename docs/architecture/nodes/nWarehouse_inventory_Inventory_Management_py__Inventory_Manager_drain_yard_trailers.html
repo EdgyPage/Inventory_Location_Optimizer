@@ -19,8 +19,13 @@
 
 `[]` on any transit without the standing surfaces (`BatchTransit`, `TrailerTransit`)
 — probed the way `_receive` probes for `STANDING`, so neither is edited to satisfy
-a reader neither has anything to say to.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf__step.html"><code>_step</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+a reader neither has anything to say to.
+
+REFUSES on a coupled leaf: both leaves hold ONE transit, so the first to drain takes
+every trailer on the site into its own table and the second finds none — one
+channel&#x27;s yard scorecard rendered over the whole site&#x27;s trailers, and the other&#x27;s
+rendered empty. The mixed trailer is exactly what makes this undecomposable.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__refuse_site_scope.html"><code>_refuse_site_scope</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf__step.html"><code>_step</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_drain_yard_trailers">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20drain_yard_trailers">Source ↗</a></p>
 </article>
 </main>

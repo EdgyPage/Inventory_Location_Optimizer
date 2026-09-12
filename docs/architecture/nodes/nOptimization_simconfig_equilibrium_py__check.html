@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>check</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def check(db_path: str, run_id: int, day_lo: int, day_hi: int, *, expectations: dict) -&gt; Verdict</code></pre>
+<pre class="sig"><code>def check(db_path: str, run_id: int, day_lo: int, day_hi: int, *, expectations: dict, departments: tuple=DEPARTMENTS) -&gt; Verdict</code></pre>
 <section class="doc">The check over one arm&#x27;s sim DB: load the five sources, judge the window.
 
 `expectations` is `expectations_for(...)` for this leaf.  The loaders are the

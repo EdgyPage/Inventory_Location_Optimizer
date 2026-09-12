@@ -131,6 +131,20 @@
       "kind": "function",
       "signature": "(cell: str, cr) -> str"
     },
+    "Diagnostics/equilibrium_report.py::_site_reading": {
+      "decorators": [],
+      "doc": "The site clause as one line: each department's banded site number, then the\nper-channel SHARES beside it -- never instead of it (memory\n`a-right-site-total-hides-two-wrong-shares`: a right site total hid two bands failing in\nopposite directions).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clause) -> str"
+    },
+    "Diagnostics/equilibrium_report.py::_site_verdicts": {
+      "decorators": [],
+      "doc": "One SITE verdict per `(cell, pair, arm-pair)`: put and recv banded ONCE.\n\nKeyed by `(cell, pair, RANK)`, never by an arm key, and that is the whole of it: the\ndiagonal is rank against rank (site-dock 06), so the two halves of one pair are named\ndifferently on any run whose channels sweep different rule subsets -- and keying on the\nkey would then put each leaf in its own bucket, leave every bucket one channel short,\nand turn the site clause off for the entire run while reporting it as skipped.  The rank\nis the leaf's position in its OWN ordered `sim_meta['strategies']`, which is the same\nordering `_prepare_site_run` zips the pair out of.\n\nA pair with one channel is not banded: a site clause over half a site is a smaller\ndenominator, not a smaller site, and it would pass or fail for the wrong reason.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(site_rows: dict, out) -> dict"
+    },
     "Diagnostics/equilibrium_report.py::_window_arg": {
       "decorators": [],
       "doc": null,
@@ -584,7 +598,7 @@
     },
     "Inbound/dock.py": {
       "decorators": [],
-      "doc": "dock.py \u2014 the receiving crew and what is standing on their floor.\n\n# \u2500\u2500 why this is not a fourth PutQueue \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`put_queue.py` says, in writing, that a fourth stream should be a row rather than a class.\nFor put-away streams that is right and this file does not change it. A receiving CREW is a\ndifferent thing, and three properties of `PutQueueSet` make membership actively wrong \u2014 each\nverified in the code, not argued from taste:\n\n  1. `Inventory_Manager._stock`'s drain loop iterates EVERY queue in `self.put_queues` and\n     hands its contents to the placement pool. A dock in that set would have its trailers\n     placed into bins on batch 1, which is the entire feature undone.\n  2. `_cost_putaway` recomputes `self._put_clock = max(x.finish for x in self._put_queues)`,\n     and that feeds `_put_base = max(bs.batch_start_time, put_clock)` \u2014 the offset applied to\n     every put row in every later batch. A dock in the set would silently shift the whole\n     put-away stream along the absolute axis with its durations unchanged.\n  3. A fourth member flips `len(self.put_queues) == 1` false, which swaps `_stock_queue` from\n     a bare deque to `_MultiQueueView` \u2014 whose setter raises, and which re-sorts the whole\n     backlog by age on every read. Three consumers outside this package read it.\n\nSo the dock stands alone and shares the part that genuinely IS the same: the crew's clock,\nvia `Warehouse.kernel.crew_clock`. There is exactly one copy of the whistle rule.\n\n# \u2500\u2500 what the dock does and does not model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nIt holds `PutawayItem`s \u2014 ALREADY PACKED and ALREADY STAMPED \u2014 and hands them to the put\nqueue one at a time as its crew works through the day. Three consequences worth stating:\n\n**Packing happens at ARRIVAL, not at unload.** The load plan is the shipper's and is fixed\nwhen the trailer is loaded. If the day boundary re-packed a half-unloaded trailer, the tier\nmix \u2014 and therefore `unit_category`, the queue an item routes to, and which bins are legal \u2014\nwould become a function of crew size and day length, and a receiving-staffing sweep would\nsilently be a packing sweep as well. `Inbound/pack.py` measured the effect:\nhalving deliveries re-packed 5 of the first 12 SKUs, in BOTH directions.\n\n**The age stamp is the arrival's, not the unload's.** Items reach the dock through `_admit`,\nwhich stamps on arrival, so a pallet that waited three batches on the dock is three batches\nold when it finally gets floor space. Stamping at unload would make the longest-waiting\nmerchandise the youngest thing in the warehouse \u2014 the priority inversion `_admit`'s docstring\nexists to forbid.\n\n**The dock exerts backpressure on nothing, and nothing exerts backpressure on the dock.**\n`arrive()` never refuses: there is no floor limit, because a refusal needs somewhere for the\nmerchandise to go and the only candidate is `_held`, which `_admit_held` retries INSIDE\n`_stock` \u2014 so held trailer merchandise would be put away for free, bypassing the crew\nentirely. The only bound on receiving is the crew's hours. The dock's DEPTH is the report.\n(One real coupling is kept: unloading hands the item to the put queue, so if that queue is at\nits staging limit the item goes to `_held` \u2014 unloading and put-away admission are different\nacts, and the unit is legitimately off the trailer either way.)\n\n# \u2500\u2500 two limitations that will produce plausible wrong numbers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n**Arrivals are quantized to BATCHES.** `Inventory_Manager.LEAD_TIME_UNIT` is `'batches'`, so\nevery trailer in a batch arrives at the same instant \u2014 the batch epoch \u2014 and the crew has no\nsub-batch arrival times to schedule against. The direction is knowable: a real day's arrivals\nspread out, so the modelled crew faces its whole day's work at once and its makespan reads\nLONG. Sizing a receiving crew off this model would therefore over-staff it. Converting lead\ntime to seconds moves every restock result on every arm and is a change of its own.\n\n**A put row can carry a smaller `t_abs` than the receive row of the same unit.** Both clocks\nrestart at the batch epoch and the streams are simulated independently and merged, which is\nthe model `work_events` already declares. The overlap is bounded by one batch's receive\nmakespan. Widening `_put_base` to include the dock's finish would over-correct \u2014 it would\nmake the first pallet off the truck wait for the last \u2014 and the honest fix needs a dock\ncoordinate and a per-unit handoff instant, neither of which exists.",
+      "doc": "dock.py \u2014 the receiving crew and what is standing on their floor.\n\n# \u2500\u2500 why this is not a fourth PutQueue \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`put_queue.py` says, in writing, that a fourth stream should be a row rather than a class.\nFor put-away streams that is right and this file does not change it. A receiving CREW is a\ndifferent thing, and three properties of `PutQueueSet` make membership actively wrong \u2014 each\nverified in the code, not argued from taste:\n\n  1. `Inventory_Manager._stock`'s drain loop iterates EVERY queue in `self.put_queues` and\n     hands its contents to the placement pool. A dock in that set would have its trailers\n     placed into bins on batch 1, which is the entire feature undone.\n  2. `_cost_putaway` recomputes `self._put_clock = max(x.finish for x in self._put_queues)`,\n     and that feeds `_put_base = max(bs.batch_start_time, put_clock)` \u2014 the offset applied to\n     every put row in every later batch. A dock in the set would silently shift the whole\n     put-away stream along the absolute axis with its durations unchanged.\n  3. A fourth member flips `len(self.put_queues) == 1` false, which swaps `_stock_queue` from\n     a bare deque to `_MultiQueueView` \u2014 whose setter raises, and which re-sorts the whole\n     backlog by age on every read. Three consumers outside this package read it.\n\nSo the dock stands alone and shares the part that genuinely IS the same: the crew's clock,\nvia `Warehouse.kernel.crew_clock`. There is exactly one copy of the whistle rule.\n\n# \u2500\u2500 what the dock does and does not model \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nIt holds `PutawayItem`s \u2014 ALREADY PACKED and ALREADY STAMPED \u2014 and hands them to the put\nqueue one at a time as its crew works through the day. Three consequences worth stating:\n\n**Packing happens at ARRIVAL, not at unload.** The load plan is the shipper's and is fixed\nwhen the trailer is loaded. If the day boundary re-packed a half-unloaded trailer, the tier\nmix \u2014 and therefore `unit_category`, the queue an item routes to, and which bins are legal \u2014\nwould become a function of crew size and day length, and a receiving-staffing sweep would\nsilently be a packing sweep as well. `Inbound/pack.py` measured the effect:\nhalving deliveries re-packed 5 of the first 12 SKUs, in BOTH directions.\n\n**The age stamp is the arrival's, not the unload's.** Items reach the dock through `_admit`,\nwhich stamps on arrival, so a pallet that waited three batches on the dock is three batches\nold when it finally gets floor space. Stamping at unload would make the longest-waiting\nmerchandise the youngest thing in the warehouse \u2014 the priority inversion `_admit`'s docstring\nexists to forbid.\n\n**The dock exerts backpressure on nothing, and nothing exerts backpressure on the dock.**\n`arrive()` never refuses: there is no floor limit, because a refusal needs somewhere for the\nmerchandise to go and the only candidate is `_held`, which `_admit_held` retries INSIDE\n`_stock` \u2014 so held trailer merchandise would be put away for free, bypassing the crew\nentirely. The only bound on receiving is the crew's hours. The dock's DEPTH is the report.\n(One real coupling is kept: unloading hands the item to the put queue, so if that queue is at\nits staging limit the item goes to `_held` \u2014 unloading and put-away admission are different\nacts, and the unit is legitimately off the trailer either way.)\n\n# \u2500\u2500 two limitations that will produce plausible wrong numbers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n**Arrivals are quantized to BATCHES.** `Inventory_Manager.LEAD_TIME_UNIT` is `'batches'`, so\nevery trailer in a batch arrives at the same instant \u2014 the batch epoch \u2014 and the crew has no\nsub-batch arrival times to schedule against. The direction is knowable: a real day's arrivals\nspread out, so the modelled crew faces its whole day's work at once and its makespan reads\nLONG. Sizing a receiving crew off this model would therefore over-staff it. Converting lead\ntime to seconds moves every restock result on every arm and is a change of its own.\n\n**A put row can carry a smaller `t_abs` than the receive row of the same unit.** Both clocks\nrestart at the batch epoch and the streams are simulated independently and merged, which is\nthe model `work_events` already declares. The overlap is bounded by one batch's receive\nmakespan. Widening `_put_base` to include the dock's finish would over-correct \u2014 it would\nmake the first pallet off the truck wait for the last \u2014 and the honest fix needs a dock\ncoordinate and a per-unit handoff instant, neither of which exists.\n\n# \u2500\u2500 one dock, one price, or one dock and a price LIST \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA per-leaf dock holds ONE `UnloadCost`, derived from that channel's own pick config, and\nthat is every run on disk.  A SITE dock serves two channels whose pick configs differ, and\n\"Decide the site dock's unload price\" (site-dock 27, user, 2026-09-11) settled whose price\nit charges: **the unload price is a statement about the MERCHANDISE, not about the crew**,\nso the site dock holds a price LIST keyed by the unloaded unit's own regime.  A fulfillment\ntote genuinely is quicker to move than a store pallet, and one crew can work at two rates\nwithout incoherence \u2014 which is exactly what `Inbound/putaway_pool.py` already established\none crew over, where `s_put` is keyed by channel while the putters are one pool.\n\nThe list is not a mode the single-channel path runs with a one-entry map: `costs` is None\non every uncoupled dock and `cost` is None on every site dock, so a dock holds exactly one\nof the two and the other is structurally absent.  That is what keeps every archived run\nbyte-identical \u2014 an uncoupled leaf builds its own dock from its own pick config exactly as\nit always did, and `unload_seconds` never so much as resolves a regime.",
       "kind": "module",
       "signature": null
     },
@@ -599,7 +613,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, spec: DockSpec, cost=None)"
+      "signature": "(self, spec: DockSpec, cost=None, costs: dict | None=None)"
     },
     "Inbound/dock.py::Dock.__repr__": {
       "decorators": [],
@@ -642,6 +656,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, idxs, dur: float)"
+    },
+    "Inbound/dock.py::Dock.cost_for": {
+      "decorators": [],
+      "doc": "This dock's price for merchandise of `regime` \u2014 a SITE dock only.\n\nRefuses on an uncoupled dock rather than answering with its one price: \"which\nregime's price\" is a question that dock has no opinion about, and an answer would\nmake the caller's regime resolution look consulted when it was ignored.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, regime: str) -> UnloadCost"
     },
     "Inbound/dock.py::Dock.crew_size": {
       "decorators": [
@@ -714,6 +735,13 @@
       "kind": "function",
       "signature": "(self) -> tuple"
     },
+    "Inbound/dock.py::Dock.take_records": {
+      "decorators": [],
+      "doc": "This batch's unload records, WITHOUT restarting the crew's clock.\n\n`drain_records` is this plus the reset, and the reset is the half that has exactly\nONE owner.  Uncoupled that owner is `drain_records` itself and nothing calls this;\non a coupled run the site's receiving coordinator partitions these rows between two\nleaves and the reset belongs to `SiteReceiving.note_records`, which fires once both\nleaves have stamped \u2014 so the coordinator needs the rows without the reset rather\nthan a second reset it would have to undo.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
     "Inbound/dock.py::Dock.takes": {
       "decorators": [],
       "doc": "Does this dock intercept an admission from `source`?",
@@ -730,10 +758,10 @@
     },
     "Inbound/dock.py::Dock.unload_seconds": {
       "decorators": [],
-      "doc": "Seconds to take ONE storage unit off a trailer, priced by this dock's own cost\nmodel \u2014 here so the manager needs no import of `unload`; the dock owns its price\nlist.",
+      "doc": "Seconds to take ONE storage unit off a trailer, priced by this dock's own cost\nmodel \u2014 here so the manager needs no import of `unload`; the dock owns its price\nlist.\n\n`unit` is the `StorageUnit` being taken off, and it is read ONLY by a site dock:\nthe price list is keyed by the unit's own regime (site-dock 27), so the resolution\nhappens here, at the charge site, where every caller already holds the unit.  An\nuncoupled dock has `costs is None` and returns before ever looking at it \u2014 which is\nwhat keeps the archived path byte-identical AND keeps `regime_of`'s six `getattr`s\nout of a hot loop that has no use for them.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, weight: float, volume: float, quantity: int) -> float"
+      "signature": "(self, weight: float, volume: float, quantity: int, unit=None) -> float"
     },
     "Inbound/dock.py::DockSpec": {
       "decorators": [
@@ -809,7 +837,7 @@
     },
     "Inbound/gain.py::SiteGainBundle": {
       "decorators": [],
-      "doc": "The site dock's bundle provider: ONE `GainBundle` per channel, dispatched by the\nBinKey's OWN regime \u2014 the composite of 05 decision 1.\n\nA mixed trailer's store units must be priced by the store arm's pool and its\nfulfillment units by the fulfillment arm's.  `place_load` already groups a load by\nBinKey and `regime_of_key` reads the regime straight off that key (regime is itself a\nBinKey component), so the charter's \"per-unit, keyed by owning channel\" needs no\nper-unit loop: the seam is one level coarser and free.  This is the SAME owner\nresolution the site receiving coordinator makes at its step-4 handoff\n(`regime_of(item.unit)`) \u2014 one fact, read through the key the loop already holds.\n\n# \u2500\u2500 two whole bundles, not one bundle with keyed fields \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nEach owner is the WHOLE `GainBundle` `_gain_bundle_for` built for that leaf, from that\nleaf's own `mgr` / `strat` / `sctx`.  `_gain_bundle_for` is called twice and is\notherwise untouched, which is what keeps each half FAITHFUL TO ITS ARM structurally\nrather than by argument: neither is rebuilt, reinterpreted or averaged, so the\ncomposite adds nothing neither arm would do.  Owner-keyed FIELDS on one bundle were\nthe rejected alternative \u2014 `GainBundle.__init__`'s cross-field refusals (an\n`expect_heads` with no pool; a `uniform` carrying one) would silently stop applying,\nbecause the five arm fields would no longer sit on one object to be checked against\neach other.\n\n# \u2500\u2500 what is NOT keyed, and the refusal that makes that safe \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nHalf the bundle is already site-wide: `binkey_of` and `tier_ranks_for` are pure,\n`put_speed` is the one put crew's (`put_crew_spec()` \u2014 one site CONFIG), and the\ngate's `fee_threshold_days` / `urgency_horizon_days` are site CONFIG too.  `wp_of`\nneeds no keying for the opposite reason: it is `_wp_for(wp, unit)`, which ALREADY\ndispatches per regime.\n\nSo those five are REFUSED at `bind` when two owners disagree, rather than resolved.\nThey cannot differ on a lawful run \u2014 both come from one `inbound_spec()` and one\n`put_crew` record \u2014 which is exactly why a silent first-wins would never be noticed.\nTwo of them are also what makes `for_key(None)` honest: the evaluator resolves with a\nNone cursor to key its groups in the first place, and answering that with the\nfirst-bound owner is only lawful because every owner answers it the same.",
+      "doc": "The site dock's bundle provider: ONE `GainBundle` per channel, dispatched by the\nBinKey's OWN regime \u2014 the composite of 05 decision 1.\n\nA mixed trailer's store units must be priced by the store arm's pool and its\nfulfillment units by the fulfillment arm's.  `place_load` already groups a load by\nBinKey and `regime_of_key` reads the regime straight off that key (regime is itself a\nBinKey component), so the charter's \"per-unit, keyed by owning channel\" needs no\nper-unit loop: the seam is one level coarser and free.  This is the SAME owner\nresolution the site receiving coordinator makes at its step-4 handoff\n(`regime_of(item.unit)`) \u2014 one fact, read through the key the loop already holds.\n\n# \u2500\u2500 two whole bundles, not one bundle with keyed fields \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nEach owner is the WHOLE `GainBundle` `_gain_bundle_for` built for that leaf, from that\nleaf's own `mgr` / `strat` / `sctx`.  `_gain_bundle_for` is called twice and is\notherwise untouched, which is what keeps each half FAITHFUL TO ITS ARM structurally\nrather than by argument: neither is rebuilt, reinterpreted or averaged, so the\ncomposite adds nothing neither arm would do.  Owner-keyed FIELDS on one bundle were\nthe rejected alternative \u2014 `GainBundle.__init__`'s cross-field refusals (an\n`expect_heads` with no pool; a `uniform` carrying one) would silently stop applying,\nbecause the five arm fields would no longer sit on one object to be checked against\neach other.\n\n# \u2500\u2500 what is NOT keyed, and the refusal that makes that safe \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nHalf the bundle is already site-wide: `binkey_of` and `tier_ranks_for` are pure,\n`put_speed` is the one put crew's (`put_crew_spec()` \u2014 one site CONFIG), and the\ngate's `fee_threshold_days` / `urgency_horizon_days` are site CONFIG too.  `wp_of`\nneeds no keying because on the payload this code actually receives the two owners'\ncopies are IDENTICAL FUNCTIONS OF DIFFERENT DATA and the refusal below covers them:\n`workunits` sets `ch_wp.by_regime = None` on every mixed-catalogue channel leaf, so\n`_wp_for(wp, unit)` returns that leaf's own `wp` unchanged and dispatches nothing.\n(An earlier draft of this paragraph said `_wp_for` \"ALREADY dispatches per regime\".\nIt does not, here \u2014 the per-regime table is nulled one layer up, and it is the leaf's\nown regime-pure `wp` that makes the answer right.  A false justification is how the\nnext change goes wrong.)\n\nSo those five are REFUSED at `bind` when two owners disagree, rather than resolved.\nThey cannot differ on a lawful run \u2014 both come from one `inbound_spec()` and one\n`put_crew` record \u2014 which is exactly why a silent first-wins would never be noticed.\nTwo of them are also what makes `for_key(None)` honest: the evaluator resolves with a\nNone cursor to key its groups in the first place, and answering that with the\nfirst-bound owner is only lawful because every owner answers it the same.",
       "kind": "class",
       "signature": ""
     },
@@ -1425,6 +1453,20 @@
       "kind": "function",
       "signature": "(self, sku: int)"
     },
+    "Inbound/receiving.py::SiteReceiving._partition": {
+      "decorators": [],
+      "doc": "Split THIS site day's dock into per-channel shares.  Runs once per day.\n\nOne dock is one drain, so the rows, the flows and the labour all arrive as site\ntotals \u2014 and ADR-0005 says the pack-denominated half of them decomposes and belongs\nback on the owning channel's own record.  This is where that happens, once, so the\ntwo leaves cannot each take the whole (`a-right-site-total-hides-two-wrong-shares`\nis that failure, and `receiving_report` checks 1 and 2 would PASS through it because\nboth surfaces delegate to the same dock).\n\nEvery row is routed by its SKU through the same `{sku: leaf}` dict step 1 packs by,\nso an unload row, a repack row and the lot that produced them cannot land in\ndifferent channels.\n\nTHE CLOSURE IS ASSERTED, not assumed: the shares are accrued independently of the\ndock's own counters (the leaves' `receiving_seconds` especially, which is the only\nsurface that sees a repack), so summing them back to the dock's totals is a real\ncheck that the decomposition is complete rather than a restatement.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Inbound/receiving.py::SiteReceiving._take": {
+      "decorators": [],
+      "doc": "`leaf`'s share of `what` for this site day, served exactly once.\n\nThe same \"compute once, serve each caller once\" contract `open_batch` keeps, and\nfor a sharper reason: these are DRAINS.  A leaf that asked twice would take the\nother channel's rows the second time only if the first call had left them \u2014\npopping is what makes the second call raise instead.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf, what: str)"
+    },
     "Inbound/receiving.py::SiteReceiving._unload_merged": {
       "decorators": [],
       "doc": "The 'merged' pooled gang: v1's physics kept as the verification bridge.\n\nOne crew works trailers strictly in dock-rank order, completing the top-ranked\nfirst; a freed door pulls the frozen-ranking-next trailer, which joins the END of\nthe work list.  In the degenerate configuration (FIFO, doors >= every trailer, no\ncap) the charge sequence is exactly the v1 drain's \u2014 the lockstep pin.\nUnder a door-team `cap` the gang IS one team of `cap` on one trailer \u2014 the cap is\na property of the trailer, not of the dealing rule \u2014 so the rest of the crew\nidles; None keeps the whole crew, byte-identically.\nReturns [(trailer, [(item, t0, dur, worker), ...])] in canonical drain order.",
@@ -1446,6 +1488,13 @@
       "kind": "function",
       "signature": "(self, leaf, channel: str) -> None"
     },
+    "Inbound/receiving.py::SiteReceiving.dock_depth_for": {
+      "decorators": [],
+      "doc": "Storage units of THIS leaf's merchandise standing on the site dock floor.\n\nThe site-scoped replacement for `Inventory_Manager.dock_depth`.  A LEVEL, so it\nneither drains nor resets and may be read at any instant -- unlike `snapshot_for`,\nwhich is a per-site-day drain and can be taken once.\n\nZero on every standing-yard run by construction: merchandise waits on a trailer\nuntil a receiver pulls it, and `accept` hands it straight to the put queue.  Written\nout anyway, because \"the floor is empty\" is a fact about the standing model and not\na licence for the caller to assume it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf) -> int"
+    },
     "Inbound/receiving.py::SiteReceiving.drain": {
       "decorators": [],
       "doc": "Drive N leaves' phases with ONE shared receive, and return the SKUs each\ntriggered, keyed by `id(leaf)`.\n\nKeyed by identity rather than by the leaf itself because a manager is unhashable\nby value here and the caller already holds the leaves it passed in; a caller doing\n`triggered[leaf]` gets a `KeyError`, so the key is spelled out.\n\n`SITE_PHASES` IS THIS BODY, and the module constant is where the two facts it\nencodes are argued: which phases are the SITE's, and why the loop is phase-major.\nThe composition is the same seven phases `check_reorders` composes for one channel,\nin the same order, because THE ORDER IS THE BEHAVIOUR \u2014 firing before the lead tick\nwould decrement an order in the batch it was placed, and releasing before firing\nwould delay every lead-0 arrival by a batch.\n\nPhase 3 (`_release_arrivals`) runs per leaf even though it is a structural no-op\nin standing mode \u2014 it is the phase that lands trailers in the yard, so it must\nrun for every leaf BEFORE the shared receive.  Dropping it because its return is\nempty would strand every arrival.\n\nPhase 5 is routed exactly as `check_reorders` routes it: to the SITE PUT POOL when\none is bound, which divides the day between the channels and re-drains both against\nthe whole of it, and to the leaf otherwise.  Reached from HERE rather than from each\nleaf's own composition, it lands after the shared receive for every leaf \u2014 so a unit\nunloaded this morning gets a bin today, in both channels, which is the whole reason\nthe receive sits where it does.\n\nWith a single leaf this is `check_reorders` phase for phase, and\n`Tests/unit/test_site_receiving.py` pins that equality.",
@@ -1453,9 +1502,30 @@
       "kind": "function",
       "signature": "(self, leaves, put_deadline: float | None=None, recv_deadline: float | None=None, now_s: float | None=None) -> dict"
     },
+    "Inbound/receiving.py::SiteReceiving.drain_records_for": {
+      "decorators": [],
+      "doc": "THIS leaf's unload rows for the site day \u2014 the replacement for\n`drain_receiving_records`.  Does NOT restart the crew's clocks: that reset has one\nowner and it is `note_records`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf) -> list"
+    },
+    "Inbound/receiving.py::SiteReceiving.drain_repacks_for": {
+      "decorators": [],
+      "doc": "THIS leaf's repack rows for the site day \u2014 the replacement for\n`drain_repack_records`.  Routed by sku like every other row, so a rescue is\nrecorded in the warehouse whose merchandise was rescued.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf) -> list"
+    },
     "Inbound/receiving.py::SiteReceiving.drain_site_rows": {
       "decorators": [],
       "doc": "This drain window's SITE-scoped yard rows, and start the list over.\n\nA coupled drain's `(yard_start, free_doors_start, yard_end, remainder)` belongs to\nneither leaf -- it is a statement about the site's trailers and the site's doors --\nso `receive` parks it here instead of handing an arbitrary leaf a number that reads\nas its channel's.  Nothing consumes this yet; `<pair>/_site/inbound_<pair>.db` is\nthe declared home and its contract bump is the next ticket's.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/receiving.py::SiteReceiving.drain_trailer_stamps": {
+      "decorators": [],
+      "doc": "The site's FINISHED trailer stamps for this batch, and start the list over.\n\nTrailer-denominated, so the site's and not a channel's (ADR-0005).  Both leaves\nhold this one transit, so a leaf draining it would take every trailer on the site\ninto its own table and leave the other channel's yard looking empty \u2014 which is why\n`Inventory_Manager.drain_yard_trailers` refuses once the scope is the site's.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -1489,6 +1559,27 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, leaves, deadline: float | None) -> tuple | None"
+    },
+    "Inbound/receiving.py::SiteReceiving.snapshot_for": {
+      "decorators": [],
+      "doc": "`(depth, unloaded, cut, seconds)` \u2014 THIS leaf's share of the site dock.\n\nThe site-scoped replacement for `Inventory_Manager.receiving_snapshot`, which\nrefuses on a coupled leaf because all four counters are the site's and three of them\nRESET: the first caller would take the site's whole batch and leave the other\nchannel reporting an idle dock.  Here the reset happens once, in `_partition`, and\neach leaf is served its own share.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf) -> tuple"
+    },
+    "Inbound/receiving.py::SiteReceiving.standing_trailer_stamps": {
+      "decorators": [],
+      "doc": "Stamps for trailers STILL ON SITE at run end \u2014 read, never drained.\n\nWorse than the drain above if a leaf were left to do it: this one does NOT empty\nanything, so BOTH leaves would report the same censored trailers and every detention\nday at run end would be counted twice.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Inbound/receiving.py::SiteReceiving.transit_census_for": {
+      "decorators": [],
+      "doc": "`(rows, qty, depth)` \u2014 THIS leaf's share of the site's in-flight merchandise.\n\nThe site-scoped replacement for the three transit reads a leaf refuses:\n`transit_snapshot` (the replay rows), `in_transit_qty` (the units level) and the\n`lead_queue_depth` a leaf would take from `transit.depth`.  All three come off ONE\ncensus pass so they cannot disagree with each other, which is the failure two\nseparate walks of a live yard invite.\n\nTHE SPLIT IS BY SKU, which is the pack rule ADR-0005 settles: a lot has exactly one\nowning channel however mixed the trailer carrying it.  `rows` and `qty` therefore\nSUM across the leaves to the site's own census exactly.\n\n`depth` is the one that needs saying out loud.  Uncoupled it counts in-flight\nENTRIES, which under a trailer pipeline are TRAILERS \u2014 and a trailer is mixed by\nconstruction, so it decomposes to nothing.  Here it counts this leaf's in-flight\nLOTS instead, which is what `BatchTransit.depth` counted before the trailer pipeline\nexisted and is the only reading that both decomposes and sums.  A mixed trailer\ntherefore contributes one lot to each channel rather than one trailer to both: the\n\"two copies of one yard sum to twice the trailers\" outcome ADR-0005 rejected is what\ncounting trailers here would produce.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf) -> tuple"
     },
     "Inbound/site_space.py": {
       "decorators": [],
@@ -3624,6 +3715,13 @@
       "kind": "function",
       "signature": "(eval_key: str, save_dir: str) -> bool"
     },
+    "Optimization/Performance_Evaluations/core/artifact_map.py::site_dirs": {
+      "decorators": [],
+      "doc": "Every out_subdir a SITE-scope evaluation writes into, under `<pair>/_site/`.\n\nFlat, like `run_dirs()` and for the same reason rather than by copying it: the site\nstage's jobs are one per PAIR, so no two workers share an output root and there is no\nwipe race for the shared-top ownership rule to arbitrate.  `prepare_site_dir` wipes the\nroot once and creates these under it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> tuple"
+    },
     "Optimization/Performance_Evaluations/core/baseline.py": {
       "decorators": [],
       "doc": "baseline \u2014 WHICH arm every comparison is quoted against, declared instead of counted.\n\n`EvalContext.base` was `self.strategies[0]`.  That is correct only because the strategy\nlist happens to be built baseline-first, which is a property of how the run harness\nassembles `sim_result['strategies']` \u2014 a fact no chart module can see and none of them\nstates.  Two things in this package already knew better and said so separately:\n`cost/rollup.BASE_RULE = 'fifo'`, and about ninety prose strings naming FIFO in titles and\naxis labels.\n\nSo the selection is declared here, once, and resolved by matching rather than by index.\nThe positional answer stays as an explicit FALLBACK with a log line, because two cases\nmake it the only available answer:\n\n  * `_focus_filter` runs BEFORE the baseline is taken.  Under `focus='opt'` the arm list\n    is restricted to `opt_*` and the FIFO arm may not be in it at all.\n  * an ad-hoc or synthetic strategy list (tests, notebooks) carries no `assignment` key.\n\nBoth are legitimate, and both must be visible when they happen \u2014 a comparison quietly\nre-baselined against a different arm changes every number on the page without changing\na filename.",
@@ -4001,6 +4099,81 @@
       "kind": "function",
       "signature": "(self, artifact: str) -> list"
     },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext": {
+      "decorators": [],
+      "doc": "One PAIR's site, under a coupled run: both channel leaves and the yard they share.\n\nTHE FOURTH EVALUATION SCOPE that reads simulation output, and it is a subclass rather\nthan a second implementation because that IS the design (\"Re-scope the analysis\nsurfaces to the site\", section 1): every frame broker keys on `s['db_path']` and\n`s['run_id']` and nothing else, so site-ness lives in what the keys POINT AT.  A site\n\"strategy\" is an ARM PAIR whose `db_path` is the contract's `site_inbound_db`, and\nwhich additionally carries its two leaves so the denominators can be the site's.\n\nInheriting is what keeps `staffing_expectations`, `fee_threshold_days`, `dock_ceiling`\nand `footer` single implementations.  All four read `sim_result`, and the values they\nread are genuinely site-wide already: the door count, the door-team cap, the fee\nthreshold and the derived receiving crew are one site's, stamped per leaf only because\na leaf is where `_sim_result_from_meta` runs.\n\nONE JOB PER `(cell, pair)`, NOT PER ARM PAIR, and that deviates from 07 section 1 with\na reason: the yard family's marks are `ranked` and `serial`, which compare arms, so\nevery arm pair has to be in ONE context or there is nothing to rank against; and the\ndeclared output tree is `figures_site_yard_pngs`, one directory per pair, which two\nconcurrent per-arm-pair jobs would race to wipe.\n\nTHE ERA GATE PROBES THE SITE DB, and this class has to say so rather than assume it is\nexempt.  An earlier draft of this docstring claimed there was no `capabilities()` here\nand that the gate was therefore a no-op \u2014 which is FALSE for a SUBCLASS: `era_shortfall`\nhasattr-checks the method, finds the inherited one, and calls it.  Three of the four\nyard evaluations declare quantities and every one of them raised `AttributeError` on the\nfirst real coupled run, rendering nothing while the `[access]` summary reported a grant\n(`a-grant-is-not-an-output`, exactly).  So the cache is initialised like every other and\nthe probe reads the SITE DB, which is the right file to ask: a site capability is what\nthe site's own record carries, not what one channel's does.",
+      "kind": "class",
+      "signature": "(EvalContext)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, pairs: list, out_dir: str, sim_result: dict, log: logging.Logger) -> None"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.batch_df": {
+      "decorators": [],
+      "doc": "The SITE's batch record: every leaf's frame, concatenated.\n\nThis is the one override that matters.  `_arm_end_s` and both of\n`yard.scorecard`'s denominators read through it, so the censoring bound becomes the\nunion of the two leaves' clocks and the receiver's busy share is both leaves'\nseconds over the days they share.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.channels": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The channels this site serves, in declared order \u2014 the order the per-channel\nshares are printed in, taken off the first arm pair because every pair of one site\nhas the same two leaves.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.drain_df": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.footer": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.from_job": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "`focus` is accepted and IGNORED, and that is stated rather than silent.\n\nA focus filter selects `uni_*` or `opt_*` ARMS; a site's members are arm PAIRS, and\nthe pairing is the diagonal by rank (site-dock 06) \u2014 dropping half a diagonal would\nleave pairs whose two halves came from different ranks, which is a different\nexperiment rather than a subset of this one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cls, job: dict, focus: str) -> 'SiteContext'"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.leaf_batch_df": {
+      "decorators": [],
+      "doc": "ONE leaf's batch frame inside a site \u2014 the per-channel SHARE, never the site's.\n\nPrinted BESIDE the site number and never instead of it (memory\n`a-right-site-total-hides-two-wrong-shares`: put-away's site load was 0.9% exact\nwhile both per-channel bands failed in opposite directions).  Not memoised: it is\nread once per arm pair per render, and a second cache keyed by `(key, channel)`\nbeside `_bcache` is a second thing to invalidate.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key, channel)"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.title": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/Performance_Evaluations/core/context.py::SiteContext.yard_df": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
+    },
     "Optimization/Performance_Evaluations/core/context.py::_probe_capabilities": {
       "decorators": [],
       "doc": "Which optional sources EVERY arm of this context can actually answer from.\n\nThe runtime half of the era gate, and it opened the day a quantity first named a\ncapability. `core/era.py`'s static rule proves a declared read is either inside the\nguaranteed surface or named as a capability; that is a statement about the QUANTITY\nTABLE and says nothing about the file in front of you. A vetted vintage can carry a\nconditional table and no rows in it \u2014 measured across two archived cells,\n`aisle_metrics` has rows in 52 of 60 arms and `reorder_queue` in 68 of 166 \u2014 and\nwithout this probe the only symptom would be a figure that silently does not appear.\n\nINTERSECTED across arms, not unioned. A comparison figure draws every arm on one axis,\nso a capability one arm cannot answer is a capability the figure cannot use: the union\nwould license a chart that silently omits an arm, which reads as that arm scoring zero.\n\nAbsent files are skipped rather than counted as answering nothing \u2014 `requests` already\ndenies on those, with a better message, and folding the two would report a missing file\nas a data-era problem.",
@@ -4102,6 +4275,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "tuple((f for f, d in FAMILIES.items() if d['scope'] == 'run'))"
+    },
+    "Optimization/Performance_Evaluations/core/families.py::SITE_SCOPE_FAMILIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('yard',)"
     },
     "Optimization/Performance_Evaluations/core/families.py::VIEWS": {
       "decorators": [],
@@ -4548,7 +4728,7 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::_arm_end_s": {
       "decorators": [],
-      "doc": "When this arm stopped, on its own absolute axis \u2014 the CENSORING bound.\n\n`max(batch_start_time + duration)` rather than the last row's, because DB order is not\nguaranteed sorted (the same reason `_elapsed` argsorts).  0.0 on an empty frame, which\nmakes every censored detention 0 \u2014 honest for a run with no batches at all, and the\nonly case where it can happen.",
+      "doc": "When this arm stopped, on its own absolute axis \u2014 the CENSORING bound.\n\n`max(batch_start_time + duration)` rather than the last row's, because DB order is not\nguaranteed sorted (the same reason `_elapsed` argsorts).  0.0 on an empty frame, which\nmakes every censored detention 0 \u2014 honest for a run with no batches at all, and the\nonly case where it can happen.\n\nTHROUGH `ctx.batch_df`, NOT `batch_frame`, and the indirection is the whole of what\nmakes the yard family honest at site scope.  A site's batch record is BOTH leaves'\nframes concatenated, so this bound becomes the SITE end \u2014 the union across two clocks\n\u2014 which is what a censoring bound over one shared yard has to be.  `EvalContext.batch_df`\ndelegates straight back here, so a leaf reads exactly what it always read.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key) -> float"
@@ -4574,6 +4754,13 @@
     "Optimization/Performance_Evaluations/core/requests.py::_deny_absent": {
       "decorators": [],
       "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_deny_absent_site": {
+      "decorators": [],
+      "doc": "Every file a SITE request reads has to be on disk: the site DB AND both leaves'.\n\nTwo separate absences with one message shape.  A missing site DB is a coupled run that\nreceived nothing (or was never coupled at all); a missing leaf DB is the same condition\n`_deny_absent` reports one scope down \u2014 and the site's denominators come from the\nleaves, so half a site is not a smaller site, it is a wrong one.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx)"
@@ -4628,6 +4815,24 @@
         "request('shift', 'config')"
       ],
       "doc": "Every arm's per-day ledger frame -- `{key: shift_df}`.\n\nERA-UNMET, not Denied, when no arm closed a single day: the files were read and hold\nno drain-or-cap ledger, which is every run before the calibrated era and every\nflag-off run since.  A throughput audit over that would report \"every day drained\"\nabout a site that never had a day.  The `days_capped` quantity names the `shift_days`\ncapability, so the probe refuses the audit before this compose runs; this check is\nthe same fact found the other way round, for a caller that declared no quantity.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_site_batch": {
+      "decorators": [
+        "request('batch', 'site')"
+      ],
+      "doc": "Every arm pair's SITE batch frame \u2014 both leaves', concatenated.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::_site_yard": {
+      "decorators": [
+        "request('yard', 'site')"
+      ],
+      "doc": "Both yard frames for every arm pair, read from `<pair>/_site/inbound_*.db`.\n\nThe SAME composes as the config namespace \u2014 `yard_frame` and `drain_frame` key on\n`db_path` and `run_id` and nothing else, so site-ness lives in what those keys point\nAT rather than in a second implementation (07 section 1).  The denial and the\nera-unmet halves say the same thing they say one scope down, for the same reasons.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx)"
@@ -4760,6 +4965,13 @@
     "Optimization/Performance_Evaluations/core/requests.py::shift_frame": {
       "decorators": [],
       "doc": "One strategy's per-DAY ledger frame, memoised -- the throughput audit's frame.\n\nJoined to the batch and work frames through `work_day`, and priced against the\ncontext's staffing expectations (`ctx.staffing_expectations()`), which are None on a\nrun whose record carries no derived block: the utilization columns are then NaN and\nthe day verdicts still render.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::site_batch_frame": {
+      "decorators": [],
+      "doc": "A SITE's batch frame: every leaf's, concatenated.  Memoised in `ctx._bcache`.\n\nONE CONCAT, AND IT ANSWERS BOTH OF THE DENOMINATOR QUESTIONS 07 asked, with no new\narithmetic anywhere:\n\n  * DOOR UTILIZATION takes the SITE CALENDAR SPAN \u2014 `min(batch_start_time)` to\n    `max(start + duration)` \u2014 and over the concatenated frame that is exactly the union\n    of the two leaves' clocks.  A door is occupied on the site's calendar whatever\n    channel's packs sit behind it.\n  * RECEIVER BUSY takes both leaves' `recv_seconds` over DISTINCT `work_day`, and over\n    the concatenated frame that is exactly what `nansum` and `nunique` return.  Still\n    WORK days and never the calendar span (memory `calendar-span-is-not-work-days`,\n    which printed 184% once); the leaves share days by construction, because\n    `staffing` refuses to sum channels that ran different batch counts.\n\nThe per-leaf `recv_seconds` are each leaf's OWN share of the site dock \u2014 the coupled\ndriver writes them from the coordinator's decomposition \u2014 so the sum is the site total\nrather than either channel's number counted twice.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
@@ -5115,6 +5327,13 @@
       "kind": "function",
       "signature": "(out_dir)"
     },
+    "Optimization/Performance_Evaluations/driver.py::prepare_site_dir": {
+      "decorators": [],
+      "doc": "Wipe + recreate one pair's `site_dir` analysis root, then its declared subdirs.\n\nThe site DB lives in this same directory and is the SIMULATION's output, not the\nanalysis's \u2014 so this wipes the analysis SUBDIRS and never the root, unlike\n`prepare_run_dir`.  Wiping the root here would delete `inbound_<arm-pair>.db` and every\nlater re-analysis of the same run would find no yard at all, which reads exactly like\nan inbound-off run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out_dir)"
+    },
     "Optimization/Performance_Evaluations/driver.py::resolve_params": {
       "decorators": [],
       "doc": null,
@@ -5151,6 +5370,20 @@
       "signature": "(ctx, key, overrides, cli_set)"
     },
     "Optimization/Performance_Evaluations/driver.py::run_root_keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(preset)"
+    },
+    "Optimization/Performance_Evaluations/driver.py::run_site": {
+      "decorators": [],
+      "doc": "Run all site-scope evaluations named in `keys` (config granularity).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, keys, overrides, cli_set)"
+    },
+    "Optimization/Performance_Evaluations/driver.py::site_keys": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -5630,7 +5863,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(_TABLES, _HEADLINE, _TRENDS, _DETAIL, _AGG, _RUN)"
+      "value_preview": "(_TABLES, _HEADLINE, _TRENDS, _DETAIL, _AGG, _SITE, _RUN)"
     },
     "Optimization/Performance_Evaluations/presets.py::_HEADLINE": {
       "decorators": [],
@@ -5645,6 +5878,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "['cost.compute', 'cost.rollup', 'dossier.index', 'tables.census', 'catalog.rules', 'catalog.inventory', 'catalog.fixed']"
+    },
+    "Optimization/Performance_Evaluations/presets.py::_SITE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['yard.site_binding', 'yard.site_detention', 'yard.site_fee', 'yard.site_scorecard']"
     },
     "Optimization/Performance_Evaluations/presets.py::_STATS": {
       "decorators": [],
@@ -6335,6 +6575,15 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/yard/binding.py::render_site": {
+      "decorators": [
+        "evaluation(key='yard.site_binding', label='Site yard binding (coupled)', scope='site', needs=('yard', 'batch'), family='yard', shape=('serial', 'ranked'), quantities=(DEPTH, CUTS))"
+      ],
+      "doc": "Did the yard bind \u2014 the SITE's yard, for a coupled run.\n\nThe render body is `render`, unchanged: a `SiteContext` populates the same\n`_by_key` shape an `EvalContext` does, so every frame broker works over it\nuntouched and site-ness lives in what the keys point AT (\"Re-scope the analysis\nsurfaces to the site\", section 1).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
     "Optimization/Performance_Evaluations/yard/detention.py": {
       "decorators": [],
       "doc": "yard.detention \u2014 how long the site held each trailer, and how that time is spread.\n\nDETENTION IS arrived -> emptied: the whole time the carrier's trailer is on site,\nINCLUDING its hours at a door. That definition is what makes it a fair substrate for a\nfee \u2014 it is monotone under any ordering, so staging a trailer early and then unloading it\nslowly sheds nothing, and no policy can win the fee axis by shuffling where the waiting\nhappens rather than shortening it.\n\n## Why a distribution, not just a mean\n\nThe adversarial control arm (`lifo`) does not RAISE mean detention much \u2014 it serves the\nsame trailers with the same crew \u2014 it CONCENTRATES it, holding a few trailers a very long\ntime while the rest move normally. A mean beside a mean would show that arm as roughly\ntied and the fee total as mysteriously worse. The box per arm is where the mechanism\nbecomes visible, and the threshold is drawn on it as a fixed mark so a reader can see the\ntail crossing the line rather than infer it from a number elsewhere.\n\nThe mean is still reported, because it is the quantity the ranked comparison is defined\non and the one a percent view can be taken of. The two figures answer different halves.\n\n## Censored rows are IN, and marked\n\nA trailer still standing when the run ends contributes its lower bound. Excluding it would\nremove exactly the longest-held trailers \u2014 the ones the fee is about \u2014 and understate the\narm that produced them. Each arm's censored share is annotated so the bound is legible.",
@@ -6367,6 +6616,15 @@
         "evaluation(key='yard.detention', label='Detention per trailer, mean and distribution', scope='config', needs=('yard', 'batch'), family='yard', shape='ranked', quantities=(QUANTITY,))"
       ],
       "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/yard/detention.py::render_site": {
+      "decorators": [
+        "evaluation(key='yard.site_detention', label='Site trailer detention (coupled)', scope='site', needs=('yard', 'batch'), family='yard', shape='ranked', quantities=('yard_detention_days',))"
+      ],
+      "doc": "Trailer detention \u2014 the SITE's yard, for a coupled run.\n\nThe render body is `render`, unchanged: a `SiteContext` populates the same\n`_by_key` shape an `EvalContext` does, so every frame broker works over it\nuntouched and site-ness lives in what the keys point AT (\"Re-scope the analysis\nsurfaces to the site\", section 1).",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, params)"
@@ -6414,6 +6672,15 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/yard/fee.py::render_site": {
+      "decorators": [
+        "evaluation(key='yard.site_fee', label='Site detention fee exposure (coupled)', scope='site', needs=('yard', 'batch'), family='yard', shape='ranked', quantities=tuple((k for k, _f in _PANELS)))"
+      ],
+      "doc": "Detention fee exposure \u2014 the SITE's yard, for a coupled run.\n\nThe render body is `render`, unchanged: a `SiteContext` populates the same\n`_by_key` shape an `EvalContext` does, so every frame broker works over it\nuntouched and site-ness lives in what the keys point AT (\"Re-scope the analysis\nsurfaces to the site\", section 1).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
     "Optimization/Performance_Evaluations/yard/scorecard.py": {
       "decorators": [],
       "doc": "yard.scorecard \u2014 the read-outs that have no honest direction, in one table.\n\nThree numbers the yard produces that a reader needs and that must NOT be ranked:\n\n  DOOR UTILIZATION       \u03a3 door spans \u00f7 (doors \u00d7 the arm's span). Neither high nor low is\n                         good. Low says the doors were never the constraint; high says they\n                         were saturated and adding one would change the answer. Both are\n                         findings about the CONFIGURATION, not scores for the policy.\n  THE CONTENTION PAIR    trailers standing and doors free at each drain's freeze. The\n                         licence for the whole comparison \u2014 with doors free and nothing\n                         standing, every ordering rule picks the same trailers and the arms\n                         are byte-identical by construction.\n  THE CENSORED SHARE     what fraction of trailer rows are bounded rather than observed. A\n                         provenance fact about the other figures, not a result.\n\n`DIRECTIONS` admits only 'lower' and 'higher', so declaring any of these as a Quantity\nwould force a direction none of them has \u2014 and a false direction is worse than no\ndeclaration, because every derived view downstream would then assert it. They live here\ninstead, in an INSPECTION mark, which is the family grammar's own slot for a read-out with\nno baseline in it. The column semantics they are built from are declared where the reads\nactually happen, in `common/frames.py`.\n\n## The door count is DERIVED, and exactly\n\nNothing records `INBOUND_DOCK_DOORS` where the analysis can see it (that is the run-shape\nlayer's job). But `free_doors_start = doors \u2212 staged`, and the first drain of a run always\nfreezes with nothing staged, so `max(free_doors_start)` IS the door count whenever the\nrun's first drain is in the frame. On a resumed arm whose early drains are missing it\nbecomes a lower bound, which makes utilization an UPPER bound \u2014 stated in the table rather\nthan left for a reader to assume away.",
@@ -6427,6 +6694,20 @@
       "signature": null,
       "value_preview": "('arm', 'trailers', 'censored', 'doors', 'door util', 'receiver busy', 'dock ceiling', 'yard depth (mean/max)', 'free doors (mean)', 'drains bound')"
     },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_SITE_AT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_COLS.index('receiver busy') + 1"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_SITE_COL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'per channel'"
+    },
     "Optimization/Performance_Evaluations/yard/scorecard.py::_arm_span_days": {
       "decorators": [],
       "doc": "The arm's own wall of sim time, in days \u2014 utilization's denominator.",
@@ -6434,9 +6715,30 @@
       "kind": "function",
       "signature": "(ctx, key) -> float"
     },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_busy_share": {
+      "decorators": [],
+      "doc": "One frame's receiver-busy share against the SITE crew and the SITE's work days.\n\nFactored out of `_receiver_busy` so the site number and the per-channel shares are\ncomputed by ONE function against ONE denominator.  That is the whole point of printing\nthem together: a share is of a whole the channel does not own (ADR-0005 says so in as\nmany words), so it is only readable beside the total it is a share OF.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(bdf, crew: int, S: float, n_days: int) -> str"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_cols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(site: bool) -> tuple"
+    },
     "Optimization/Performance_Evaluations/yard/scorecard.py::_receiver_busy": {
       "decorators": [],
       "doc": "The crew's BUSY SHARE: receiver-seconds charged \u00f7 (crew \u00d7 day_seconds \u00d7 WORK DAYS).\n\nThe door-team cap's own read-out (\"Decide the contention regime under the derived crew\",\n4), and deliberately beside door utilization rather than in place of it: doors can be\nsaturated while the crew idles (a capped dock cannot seat everyone) and the crew can be\nsaturated with doors to spare. Neither direction is better, which is why this lives in\nthe inspection table and is not a Quantity.\n\nTHE DENOMINATOR IS WORK DAYS, not the arm's calendar span, and the distinction is not\npedantic: the sim clock only advances through working hours, so an arm of 40 work days on\nan 8-hour day spans 13.3 CALENDAR days. Dividing a crew's seconds by the calendar span\nover-reads the share by exactly the ratio of the two \u2014 it reported 184% busy on the first\nreal run this was rendered against, which is how it was caught. `_arm_span_days` is the\nright denominator for DOOR utilization (door spans are calendar time) and the wrong one\nhere, which is why the two read-outs beside each other do not share one.\n\nCounted as DISTINCT `work_day` values rather than batches, so it stays right if a day\never releases more than one batch, and it is the same count\n`equilibrium._utilization_clause` grants against \u2014 the two reports cannot mean different\nthings by \"busy\". '-' when the run derived no crew (flag-off) or recorded no receiving\nseconds; never 0%, which is a different and stronger claim.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key) -> str"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::_receiver_split": {
+      "decorators": [],
+      "doc": "The per-channel receiver shares, beside the site number and never instead of it.\n\n`a-right-site-total-hides-two-wrong-shares` is exact about why this column exists:\nput-away's site load was 0.9% off while both per-channel bands failed in OPPOSITE\ndirections.  A site total is not evidence for the split, and the split is the only\nplace the crews' fairness is visible.\n\nCalled only from the SITE registration \u2014 an uncoupled leaf's yard IS that channel's, so\nthe column does not exist there at all rather than printing 100%.  Both shares use the\nSITE crew and the SITE's work-day count: they are shares of one whole, so they sum to the\nsite number and are not utilizations in their own right.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key) -> str"
@@ -6446,13 +6748,22 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(ctx, s, tdf, ddf)"
+      "signature": "(ctx, s, tdf, ddf, site: bool=False)"
     },
     "Optimization/Performance_Evaluations/yard/scorecard.py::render": {
       "decorators": [
         "evaluation(key='yard.scorecard', label='Yard read-outs with no direction', scope='config', needs=('yard', 'batch'), family='yard', shape='inspection')"
       ],
       "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params, site: bool=False)"
+    },
+    "Optimization/Performance_Evaluations/yard/scorecard.py::render_site": {
+      "decorators": [
+        "evaluation(key='yard.site_scorecard', label='Site yard read-outs (coupled)', scope='site', needs=('yard', 'batch'), family='yard', shape='inspection')"
+      ],
+      "doc": "Yard read-outs with no direction \u2014 the SITE's yard, for a coupled run.\n\nThe render body is `render`, unchanged: a `SiteContext` populates the same\n`_by_key` shape an `EvalContext` does, so every frame broker works over it\nuntouched and site-ness lives in what the keys point AT (\"Re-scope the analysis\nsurfaces to the site\", section 1).\n\nThe ONE thing the site table adds is the per-channel SHARE column, which exists only\nhere: a right site total hides two wrong shares, and an uncoupled leaf has no share to\nreport because its yard is its own.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, params)"
@@ -9599,6 +9910,13 @@
       "kind": "function",
       "signature": "(path: str, run_id: int, records: list) -> None"
     },
+    "Optimization/persistence/Picking_Data.py::save_site_inbound": {
+      "decorators": [],
+      "doc": "Write a COUPLED unit's site-scoped inbound rows on one connection, one commit.\n\nThe third output of a coupled work unit (the run tree's `site_inbound_db`,\nADR-0005): trailer- and door-denominated rows belong to neither channel, because a\ntrailer's load is mixed by construction and a door is occupied by the trailer rather\nthan by either channel's share of it.\n\nA SITE DB IS A SIM DB carrying only these two tables, which is why this takes the same\n`(path, run_id)` every other writer here takes and inserts through the same two\nhelpers.  That is what lets the analysis brokers bind it with no new loader: they key\non `db_path` and `run_id` and nothing else, so a site scope is a different thing for\nthose keys to point AT rather than a second implementation of every frame.\n\nSeparate from `save_checkpoint_bundle` rather than a call to it with eleven empty\nlists: a bundle argument that is accepted and never inserted is that function's\ncharacteristic failure, and eleven of them would be eleven chances at it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int, *, yard_trailers: list, yard_drains: list) -> None"
+    },
     "Optimization/persistence/Picking_Data.py::save_sku_scores": {
       "decorators": [],
       "doc": "Per-SKU placement scores.  records: (sku, map_target, labor_cost, handle_var,\nexpected_popularity, expected_labor, equilibrium_qty, reorder_point, lead_time_mean).",
@@ -9963,6 +10281,13 @@
       "kind": "function",
       "signature": "(base_dir: str, log: logging.Logger) -> int | None"
     },
+    "Optimization/run_analysis.py::_assignment_of": {
+      "decorators": [],
+      "doc": "The assignment rule inside an arm key \u2014 what `core.baseline` matches the baseline on.\n\nAn arm key is `<initial>_<assignment>[_<reslot>]`, and the baseline declaration selects\non `assignment == 'fifo'`.  A site's members are arm PAIRS, which carry no such field of\ntheir own, so the store half's rule is lifted onto the pair: the diagonal is rank against\nrank and the reference pair is `fifo`/`fifo` (site-dock 06), so the half naming `fifo`\nnames the reference pair.  Falls back to the whole key, which makes the baseline\nresolution fall back POSITIONALLY and say so \u2014 never silently onto another pair.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(arm_key: str) -> str"
+    },
     "Optimization/run_analysis.py::_coerce": {
       "decorators": [],
       "doc": null,
@@ -10019,6 +10344,13 @@
       "kind": "function",
       "signature": "(meta: dict) -> dict"
     },
+    "Optimization/run_analysis.py::_site_jobs": {
+      "decorators": [],
+      "doc": "Parent pre-pass for the SITE stage: one job per `(cell, pair)` on a COUPLED run.\n\n`[]` on every uncoupled run, and that is a structural return rather than a guard: the\nsite DBs simply do not exist, `site_inbound_dbs` finds none, and no job is emitted.  A\nsite stage reading an empty scope reports zeros rather than refusing \u2014 but it is worth\nsaying which zero this is, because `a-grant-is-not-an-output` is exactly the trap here:\nthe `[access]` summary counts INPUTS, so only the `[render]` run summary says whether\nanything was written.  Hence the log line below naming the pair count either way.\n\nONE JOB PER PAIR, not per arm pair, and `SiteContext` says why: the yard family's marks\nare `ranked` and `serial`, so every arm pair has to be in one context to be ranked\nagainst the others, and the declared output tree is one directory per pair.\n\nEVERY PATH IS RESOLVED THROUGH THE CONTRACT.  The site DBs come from\n`rt.site_inbound_dbs`, the arm pair from `rt.arm_pair_of`, and each leaf's sim DB from\n`rt.leaf_path(run, 'sim_db', strategy=)` \u2014 never a joined string, and never a tree level\nconsumed by NAME (`<pair>/store/store/` is a real path).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=())"
+    },
     "Optimization/run_analysis.py::_staffing_record": {
       "decorators": [],
       "doc": "The staffing record to stamp onto sim_result: the run's own when it recorded one,\nelse a reconstruction from the restored inputs with every value marked `assumed` --\nwhich is what a pre-record run's crew was, a compile-time constant nobody chose.",
@@ -10056,7 +10388,7 @@
     },
     "Optimization/run_channel_rollup.py": {
       "decorators": [],
-      "doc": "run_channel_rollup.py \u2014 combine per-channel best plans into a whole-warehouse saving.\n\nThe simulation treats store and fulfillment as two INDEPENDENT sections of the warehouse, each\nsweeping its OWN set of pick-time regression configs and analyzed on its own by run_analysis.py\n(its own `fifo` baseline, its own winner).  This post-analysis step is the ONE place that\ncombines them: for each inventory it reads every channel's series JSON, computes each plan's\nabsolute production-time saving vs that channel's `fifo` baseline, picks the best (config, plan)\nper channel across ALL that channel's configs, and SUMS the per-channel best savings into a\ncumulative whole-warehouse saving.\n\nBecause the channels are independent, absolute savings (sim-unit `ss_prod_hours` deltas) are\nADDITIVE \u2014 any (store-plan, fulfillment-plan) pairing is just the sum of the two rows.  So the\nper-plan CSV this writes doubles as a mix-and-match table: no cross-product simulation needed.\n\nRun AFTER run_analysis.py (which writes the series JSONs).  The analysis default preset is\nBY_INITIAL (focus='all'), so BOTH uni_* and opt_* arms land in the series and the rollup sees\nthe full suite.  If you instead analyzed with --preset DEFAULT (focus='uni'), every opt_* arm\nis dropped and the rollup picks the best from only half the suite (it warns when it detects\nthis \u2014 re-run the analysis without --preset DEFAULT):\n  python run_analysis.py <base_dir>\n  python run_channel_rollup.py <base_dir>\nOutputs (under <base_dir>, rendered by the run-tree contract as the `channel_rollup_csv` /\n`channel_rollup_summary_csv` artifacts \u2014 this module is their declared writer, and\nTests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals):\n  the per-plan rollup CSV     \u2014 one row per (inventory, config, channel, plan): absolute + % saving\n  the rollup summary CSV      \u2014 best plan per channel + the cumulative whole-warehouse saving",
+      "doc": "run_channel_rollup.py \u2014 combine per-channel best plans into a whole-warehouse saving.\n\nUNDER THE INBOUND-OFF MODEL the simulation treats store and fulfillment as two INDEPENDENT\nsections of the warehouse, each sweeping its OWN set of pick-time regression configs and\nanalyzed on its own by run_analysis.py (its own `fifo` baseline, its own winner).  This\npost-analysis step is the ONE place that combines them: for each inventory it reads every\nchannel's series JSON, computes each plan's absolute production-time saving vs that channel's\n`fifo` baseline, picks the best (config, plan) per channel across ALL that channel's configs,\nand SUMS the per-channel best savings into a cumulative whole-warehouse saving.\n\n**That summing is only valid while the channels are independent, and this script REFUSES a run\nwhere they are not.**  Under the inbound-off model each channel fields its own dock, its own\nreceiving crew and its own pool of putters, so absolute savings (sim-unit `ss_prod_hours`\ndeltas) are ADDITIVE \u2014 any (store-plan, fulfillment-plan) pairing is just the sum of the two\nrows, and the per-plan CSV doubles as a mix-and-match table with no cross-product simulation\nneeded.  Under a COUPLED run (`--couple-channels`) one dock and one pool of putters serve both\nchannels, so a store plan changes what the fulfillment crew can do and back: the premise is\nvoid, not merely the plumbing.  `rollup()` raises `ValueError` on such a run and\n`analyze_run` skips the step outright.  The whole published archive is inbound-off, so\nrefusing costs no history.\n\nRun AFTER run_analysis.py (which writes the series JSONs).  The analysis default preset is\nBY_INITIAL (focus='all'), so BOTH uni_* and opt_* arms land in the series and the rollup sees\nthe full suite.  If you instead analyzed with --preset DEFAULT (focus='uni'), every opt_* arm\nis dropped and the rollup picks the best from only half the suite (it warns when it detects\nthis \u2014 re-run the analysis without --preset DEFAULT):\n  python run_analysis.py <base_dir>\n  python run_channel_rollup.py <base_dir>\nOutputs (under <base_dir>, rendered by the run-tree contract as the `channel_rollup_csv` /\n`channel_rollup_summary_csv` artifacts \u2014 this module is their declared writer, and\nTests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals):\n  the per-plan rollup CSV     \u2014 one row per (inventory, config, channel, plan): absolute + % saving\n  the rollup summary CSV      \u2014 best plan per channel + the cumulative whole-warehouse saving",
       "kind": "module",
       "signature": null
     },
@@ -10111,7 +10443,7 @@
     },
     "Optimization/run_channel_rollup.py::rollup": {
       "decorators": [],
-      "doc": "Roll one CELL directory's per-channel winners up into a whole-warehouse saving.\n\n`base_dir` is a cell dir; both output CSVs render through the run-tree contract\n(`rt.path('channel_rollup_csv' / 'channel_rollup_summary_csv', cell=...)`).",
+      "doc": "Roll one CELL directory's per-channel winners up into a whole-warehouse saving.\n\n`base_dir` is a cell dir; both output CSVs render through the run-tree contract\n(`rt.path('channel_rollup_csv' / 'channel_rollup_summary_csv', cell=...)`).\n\nREFUSES A COUPLED RUN with a `ValueError`, and the TYPE is the decision (site-dock 07\nsection 4).  `SystemExit` is the house style for a CLI shape refusal and is what\n`run_restock_selection` uses -- but `analyze_run._step` catches `Exception`, and\n`SystemExit` is not one, so a `SystemExit` here would abort `analyze_run` MID-RUN from\ninside its cell loop, killing every remaining cell's analysis and the cross-cell what-if\nstage.  `run_restock_selection` gets away with it because nothing calls it from the hub.\nA `ValueError` matches this file's own in-library precedent (`_baseline_entry`) and is\ncaught and logged per cell.  `analyze_run` additionally SKIPS the step on a coupled run,\nso the log reads `skipped: coupled run` rather than `analysis step failed` once per cell\n-- a failure line on every cell of a healthy run is how a reader learns to ignore\nfailure lines.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, log=print) -> dict"
@@ -11384,6 +11716,13 @@
       "kind": "function",
       "signature": "(self, cell: str, group_key: str) -> str"
     },
+    "Optimization/runschema/resolver.py::RunTree.arm_pair_of": {
+      "decorators": [],
+      "doc": "'\u2026/_site/inbound_uni_fifo__opt_lpt.db' -> 'uni_fifo__opt_lpt'.\n\nInverts the declared template the way `strategy_of` inverts `sim_db`'s, and for the\nsame reason: renaming the site DB pattern in `schema.py` must not leave a consumer\nslicing fixed prefix and suffix lengths behind.  The arm pair is ONE capture, not\ntwo \u2014 the store and fulfillment halves are joined by `__` inside the stem, and the\npair, not either half, is what a site evaluation is keyed by.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, site_db: str) -> str"
+    },
     "Optimization/runschema/resolver.py::RunTree.axes": {
       "decorators": [],
       "doc": "Sorted distinct values per axis, observed from the tree and backfilled from the\ndescriptor.  `channel` is [] on a store-only run \u2014 that emptiness is meaningful, and the UI\nshould hide the channel selector rather than invent a value.",
@@ -11586,6 +11925,20 @@
       "kind": "function",
       "signature": "(self, cr: runlayout.ChannelRun) -> str"
     },
+    "Optimization/runschema/resolver.py::RunTree.site_dir": {
+      "decorators": [],
+      "doc": "<cell>/<pair>/_site \u2014 the site stage root, the pair-scope twin of `dossier_dir`.\n\nPresent on COUPLED runs only.  A consumer asks whether it exists rather than\nassuming: `exists('site_dir', cell=, pair=)`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, pair: str) -> str"
+    },
+    "Optimization/runschema/resolver.py::RunTree.site_inbound_dbs": {
+      "decorators": [],
+      "doc": "Every arm pair's site inbound DB under one pair \u2014 `[]` on an uncoupled run.\n\nThrough `glob`, so the arm-pair part is wildcarded by the CONTRACT rather than by a\njoined `_site/inbound_*.db` literal: the segment, the prefix and the extension all\nlive in one template and a consumer that spelled them again would be a second\ndeclaration to keep in step.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, pair: str) -> list[str]"
+    },
     "Optimization/runschema/resolver.py::RunTree.strategy_of": {
       "decorators": [],
       "doc": "'\u2026/sim_uni_fifo_norsl.db' -> 'uni_fifo_norsl', by inverting the sim_db template.\n\nDerived from the contract rather than slicing fixed prefix/suffix lengths, so renaming the\nsim DB pattern in schema.py cannot leave this behind.",
@@ -11778,9 +12131,23 @@
       "signature": null,
       "value_preview": "('headline', 'trajectories', 'labor', 'throughput', 'task_time', 'layout', 'significance', 'yard', 'diagnostics')"
     },
+    "Optimization/runschema/schema.py::_SITE_FIGURE_FAMILIES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('yard',)"
+    },
     "Optimization/runschema/schema.py::_figure_globs": {
       "decorators": [],
       "doc": "`figures_<family>_pngs` for every family whose figures land in a per-leaf tree.\n\nOne glob per family rather than one for the whole tree, so preflight can name WHICH\nfamily an undeclared file violated.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict"
+    },
+    "Optimization/runschema/schema.py::_site_figure_globs": {
+      "decorators": [],
+      "doc": "`figures_site_<family>_pngs` for every family that renders into a site tree.\n\nOPTIONAL and conditioned on coupling, the same shape the per-leaf `yard` glob already\ncarries for the standing yard: a run that is not coupled has no site tree at all, which\nis an absence of a model rather than an empty folder.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
@@ -12196,6 +12563,13 @@
       "signature": null,
       "value_preview": "{'put': 'put', 'recv': 'receive'}"
     },
+    "Optimization/simconfig/equilibrium.py::_dept_seconds": {
+      "decorators": [],
+      "doc": "One department's seconds inside the window, for one leaf.\n\nThe SAME arithmetic `_utilization_clause` does inline, factored out so the leaf clause\nand the site clause cannot mean different things by \"worked\" -- which is the drift the\nequilibrium report exists to prevent (\"the two cannot disagree\").",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batch_rows, work_rows, days: list[int], dept: str) -> float"
+    },
     "Optimization/simconfig/equilibrium.py::_expected_repacked_packs": {
       "decorators": [],
       "doc": "The `f_repack` the record stamped, or None if it carries none.\n\nPrefers the DERIVED block's constant (where `derive` records it with its provenance)\nand falls back to the raw input, so a record written before the constant was recorded\nbut after the input existed still answers.  Neither present means a pre-ADR-0003\nrecord, and the clause must report rather than judge.",
@@ -12324,10 +12698,10 @@
     },
     "Optimization/simconfig/equilibrium.py::_utilization_clause": {
       "decorators": [],
-      "doc": null,
+      "doc": "Realized-vs-expected utilization per department over one LEAF's window.\n\n`departments` is what a coupled leaf narrows.  Under one site dock and one site pool of\nputters, put and receiving are not this channel's crews at all: a leaf's seconds over a\nSITE crew is a share of a whole the channel does not own (ADR-0005 says exactly that),\nand banding it per leaf would publish two verdicts on one crew that can disagree with\neach other -- the double count reappearing as a reporting artefact after being fixed by\nconstruction.  SITE BANDS, LEAVES REPORT: the leaf keeps `pick`, and\n`site_utilization_clause` carries put and recv once against the SUMMED expectation.",
       "is_async": false,
       "kind": "function",
-      "signature": "(batch_rows, work_rows, days: list[int], expectations: dict) -> Clause"
+      "signature": "(batch_rows, work_rows, days: list[int], expectations: dict, departments: tuple=DEPARTMENTS) -> Clause"
     },
     "Optimization/simconfig/equilibrium.py::arm_expectations": {
       "decorators": [],
@@ -12348,14 +12722,14 @@
       "doc": "The check over one arm's sim DB: load the five sources, judge the window.\n\n`expectations` is `expectations_for(...)` for this leaf.  The loaders are the\nversion-negotiating ones (`shift_days`, `work_events`, `carryover` and `free_index` are\nconditional tables: a pre-era vintage answers `[]`, which the labour clause reports as a\nwindow the ledger never closed rather than as a plausible pass, and the rework clause\nas a depth never recorded per bucket).",
       "is_async": false,
       "kind": "function",
-      "signature": "(db_path: str, run_id: int, day_lo: int, day_hi: int, *, expectations: dict) -> Verdict"
+      "signature": "(db_path: str, run_id: int, day_lo: int, day_hi: int, *, expectations: dict, departments: tuple=DEPARTMENTS) -> Verdict"
     },
     "Optimization/simconfig/equilibrium.py::check_rows": {
       "decorators": [],
-      "doc": "The five clauses over already-loaded rows.  See the module docstring for each.\n\n`shift_rows` are `load_shift_days` dicts; `batch_rows` are `BatchStats` (or dicts with\nthe same fields); `work_rows` are `load_work_hours` dicts; `carry_rows` are\n`load_carryover` rows (dicts or dataclasses with batch_id, reason, sku, qty) -- REQUIRED,\nnot defaulted, because an empty list reads as \"everything served\" and a caller that\nforgot to load the table must not get that answer by accident.  `free_rows` are\n`load_free_index` rows and ARE defaulted: an absent table means \"the depth was never\nrecorded per bucket\", which the rework clause reports as exactly that -- the reading is\nnever judged, so a missing list cannot manufacture a pass.  Raises `InstrumentError`\nfrom the released-late clause and from `demand_flows`; every other outcome is a `Verdict`.",
+      "doc": "The five clauses over already-loaded rows.  See the module docstring for each.\n\n`shift_rows` are `load_shift_days` dicts; `batch_rows` are `BatchStats` (or dicts with\nthe same fields); `work_rows` are `load_work_hours` dicts; `carry_rows` are\n`load_carryover` rows (dicts or dataclasses with batch_id, reason, sku, qty) -- REQUIRED,\nnot defaulted, because an empty list reads as \"everything served\" and a caller that\nforgot to load the table must not get that answer by accident.  `free_rows` are\n`load_free_index` rows and ARE defaulted: an absent table means \"the depth was never\nrecorded per bucket\", which the rework clause reports as exactly that -- the reading is\nnever judged, so a missing list cannot manufacture a pass.  Raises `InstrumentError`\nfrom the released-late clause and from `demand_flows`; every other outcome is a `Verdict`.\n\n`departments` narrows the UTILIZATION clause alone, and a COUPLED leaf is the one\ncaller that narrows it: put and receiving are the SITE's crews there, banded once\nby `site_utilization_clause` against the SUMMED expectation. Site bands, leaves\nreport -- two verdicts on one crew can disagree with each other, and that is the\ndouble count reappearing as a reporting artefact after being fixed by construction.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, day_hi: int, expectations: dict, free_rows=None) -> Verdict"
+      "signature": "(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, day_hi: int, expectations: dict, free_rows=None, departments: tuple=DEPARTMENTS) -> Verdict"
     },
     "Optimization/simconfig/equilibrium.py::demand_flows": {
       "decorators": [],
@@ -12405,6 +12779,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(final_ch: dict) -> dict | None"
+    },
+    "Optimization/simconfig/equilibrium.py::site_utilization_clause": {
+      "decorators": [],
+      "doc": "ONE band over the SITE's put and receiving crews, and the leaves' shares beside it.\n\nTHE WHOLE ARGUMENT FOR ONE SITE CLAUSE IS THAT `expected_utilization` IS LINEAR IN LOAD.\nA department's expectation is `load / (crew x S)` by construction, and crew and day are\nthe SITE's -- one crew, one day -- so the two channels' expectations SUM to the site's,\nexactly, with no reweighting.  The realized side sums the same way because the loads do.\nThat identity is asserted by `Tests/unit/test_site_equilibrium.py`, not assumed, because\neverything this clause claims rests on it.\n\nAND IT SITS AT rho RATHER THAN BELOW IT, for put, on a coupled run.  `expected_utilization`\ncarries a standing caveat -- \"integer crews and single-channel leaves undercut rho by\nconstruction\" -- whose SECOND half is what the site put pool removed: a leaf undercut rho\nbecause it fielded the whole site crew against one channel's load.  Under one pooled crew\nover both channels' volume that cause is gone, and the caveat is retired FOR PUT ON A\nCOUPLED RUN.  It is kept verbatim flag-off and kept whole for the integer-crew half, which\nthe pool does not touch.\n\n`rows_by_channel` is `{channel: (batch_rows, work_rows)}`; `expectations_by_channel` is\n`{channel: expectations_for(...)}`.  Two channels' rows in, one banded reading out, with\neach channel's realized share carried INSIDE it as an unbanded number -- printed beside\nthe site figure and never instead of it, because a right site total hides two wrong\nshares (put-away's site load was 0.9% exact while both per-channel bands failed in\nopposite directions).\n\nA pure rows-in function, like every other clause here: no CONFIG, no settings, no run\ntree.  The REPORT walks the tree and accumulates; this only bands.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows_by_channel: dict, days: list[int], expectations_by_channel: dict) -> Clause"
     },
     "Optimization/simconfig/equilibrium.py::summarize": {
       "decorators": [],
@@ -13564,6 +13945,47 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/simdriver/strategy_runner.py::_SiteDock": {
+      "decorators": [],
+      "doc": "The SITE's inbound, at UNIT scope: one dock, one yard, one coordinator, one DB.\n\nThe receiving twin of `_build_put_pool`'s `PutawayPool`, and built for the same three\nreasons: the crew is the pair's derived receiving crew (ONE site total, which the\nleaves no longer carry), the uid block chains off the put pool's so a receiver is the\nsame person in both DBs, and one yard is one yard -- two leaves each ticking their own\nsupplier-lead queue would land every order a batch early (`SITE_PHASES`).\n\nIt also owns the coupled unit's THIRD OUTPUT, the contract's `site_inbound_db`\n(ADR-0005).  A trailer's load is mixed by construction and a door is occupied by the\ntrailer rather than by either channel's share of it, so those rows belong to neither\nleaf -- writing them to `leaves[0]` would be `a-right-site-total-hides-two-wrong-shares`\nbuilt deliberately, which is exactly why site-dock 21 parked them and left the artifact\nto this ticket.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/strategy_runner.py::_SiteDock.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, coord, workers, release, db_path: str, log)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_SiteDock.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_SiteDock.collect": {
+      "decorators": [],
+      "doc": "Take this batch's SITE-scoped yard rows off the coordinator and the transit.\n\nEvery batch, unconditionally -- both sources RESET, so a collection that rode a\ncondition would compound rows and hand whatever finally reads them several batches'\nworth stamped as one.  The leaves' own `drain_yard_*` accessors REFUSE under a site\nscope, so there is exactly one collector and it is this one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_SiteDock.drive": {
+      "decorators": [],
+      "doc": "Run site day `i`'s seven phases across every bound leaf; return what each\ntriggered, keyed by `id(leaf)`.\n\nTHE WHOLE COMPOSITION, ONCE -- never each leaf's own `check_reorders`.  Phase 5 is\nrouted from inside `SiteReceiving.drain`, which is the only placement that puts the\nsite's receive BEFORE every leaf's put drain; run through the leaves' own\ncompositions instead and the earlier leaf's put drain fires before the site has\nunloaded anything, so its receipts wait a whole batch for a bin (site-dock 21's\nhand-off list says this in as many words).\n\nBoth deadlines are SITE values and both accessors are idempotent per site day, so\nasking here and asking again inside a leaf returns the same answer rather than two.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int, pool) -> dict"
+    },
+    "Optimization/simdriver/strategy_runner.py::_SiteDock.finish": {
+      "decorators": [],
+      "doc": "The censored tail, then one write of the whole run's site rows.\n\nTHE TAIL IS READ HERE AND NOWHERE ELSE.  `standing_yard_trailers` does not drain,\nso two leaves reading it would bill every trailer still on site at run end twice --\nwhich is why that accessor refuses under a site scope too, unlike its two\ndrain-shaped neighbours.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
     "Optimization/simdriver/strategy_runner.py::_arm_expected_pick": {
       "decorators": [],
       "doc": "The arm's expected day under ITS OWN initial placement, or None flag-off.\n\nThe pair's demand was derived at setup from the class-uniform expectation\n(`workunits._derive_staffing_for_pair`); this is the SAME closed form\n(`simconfig/expected_travel`) over the bins the arm just filled, at the pair's derived\nline count and spread, stamped for the throughput audit's per-arm band\n(`equilibrium.arm_expectations`).  It sizes nothing.  Flag-off (no derived block in\nthe payload) it computes nothing and returns None, so the store-only path is untouched.",
@@ -13573,10 +13995,10 @@
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf": {
       "decorators": [],
-      "doc": "One channel leaf, built but not yet run \u2014 the setup half of a work unit.\n\nEverything here is per channel and stays so under coupling: one inventory partition, one\nwarehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns\nis the leaf's two halves as closures over that setup \u2014 `step(i)`, one batch, and\n`finish()`, the run-end flush and the result dict \u2014 so a caller can drive ONE leaf (every\nrun today) or step two leaves through one batch loop (the coupled unit, site-dock 02 \u00a72).\n\n`pool` is the SITE PUT POOL (`Inbound.putaway_pool.PutawayPool`), built above the leaves\nand injected: when it is present this leaf's put queues are bound to the pool's shared\nclock list rather than minting their own, its put rows are stamped with the pool's\nworkers and the pool's site-wide epoch, and phase 5 of every batch belongs to the pool.\nNone is every uncoupled run and every flag-off leaf, which then fields its own put crew\nexactly as it always did \u2014 double count and all, structurally, because the pool is not\nCONSTRUCTED rather than constructed and bypassed.\n\n`site_gain` is the SITE GAIN BUNDLE (`Inbound.gain.SiteGainBundle`), built above the\nleaves the same way and for the same reason: one mixed trailer is priced per unit by\nthe OWNING channel's arm, and only a scope that sees both leaves can hold both arms.\nThis leaf binds its own bundle into it and hands the composite to its transit. None is\nevery uncoupled run, which wraps its one bundle in a `OneOwnerBundle` exactly as it\nalways did \u2014 so a single-owner run reads the very object `_gain_bundle_for` returned.\n\nThe closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this\nfunction with the loop inline, and the split moved the loop body and the tail VERBATIM.\nThey rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries\n(`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between\ncalls exactly as they survived between iterations.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
+      "doc": "One channel leaf, built but not yet run \u2014 the setup half of a work unit.\n\nEverything here is per channel and stays so under coupling: one inventory partition, one\nwarehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns\nis the leaf's two halves as closures over that setup \u2014 `step(i)`, one batch, and\n`finish()`, the run-end flush and the result dict \u2014 so a caller can drive ONE leaf (every\nrun today) or step two leaves through one batch loop (the coupled unit, site-dock 02 \u00a72).\n\n`pool` is the SITE PUT POOL (`Inbound.putaway_pool.PutawayPool`), built above the leaves\nand injected: when it is present this leaf's put queues are bound to the pool's shared\nclock list rather than minting their own, its put rows are stamped with the pool's\nworkers and the pool's site-wide epoch, and phase 5 of every batch belongs to the pool.\nNone is every uncoupled run and every flag-off leaf, which then fields its own put crew\nexactly as it always did \u2014 double count and all, structurally, because the pool is not\nCONSTRUCTED rather than constructed and bypassed.\n\n`site_gain` is the SITE GAIN BUNDLE (`Inbound.gain.SiteGainBundle`), built above the\nleaves the same way and for the same reason: one mixed trailer is priced per unit by\nthe OWNING channel's arm, and only a scope that sees both leaves can hold both arms.\nThis leaf binds its own bundle into it and hands the composite to its transit. None is\nevery uncoupled run, which wraps its one bundle in a `OneOwnerBundle` exactly as it\nalways did \u2014 so a single-owner run reads the very object `_gain_bundle_for` returned.\n\n`site` is the SITE DOCK (`_SiteDock`), built above the leaves for the third time and\nfor the third version of the same reason: one dock, one yard and one receiving crew\nserve the whole site, so only a scope that sees both leaves can build them once. When\nit is present this leaf receives the site's dock, the site's transit and the site's\nreceiving roster instead of minting its own, binds itself onto the coordinator, and\nstops running phases 0-5 in its own `replenish` \u2014 the unit drives them once for every\nleaf (`SiteReceiving.drain`). None is every uncoupled run AND the coupled inbound-OFF\npole, which names no trailer pipeline and therefore has no site inbound to build.\n\nThe closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this\nfunction with the loop inline, and the split moved the loop body and the tail VERBATIM.\nThey rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries\n(`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between\ncalls exactly as they survived between iterations.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
       "is_async": false,
       "kind": "function",
-      "signature": "(args: dict, unit: dict | None=None, pool=None, site_gain=None) -> '_Leaf'"
+      "signature": "(args: dict, unit: dict | None=None, pool=None, site_gain=None, site=None) -> '_Leaf'"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state": {
       "decorators": [],
@@ -13591,6 +14013,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._note_triggered": {
+      "decorators": [],
+      "doc": "Record what the SITE drain fired for THIS leaf.  Coupled units only.\n\n`SiteReceiving.drain` keys its result by `id(leaf)` because a manager is not\nhashable by value there; the leaf knows which manager is its own, so the lookup\nhappens here rather than the driver guessing at an order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(trig: dict) -> None"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish": {
       "decorators": [],
@@ -13619,6 +14048,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(args: dict)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_site_dock": {
+      "decorators": [],
+      "doc": "The SITE's dock, yard and receiving coordinator -- or None when the unit fields none.\n\nNone is the coupled INBOUND-OFF pole, which the funnel runs in every cell (site-dock\n06): no trailer type is named, so no transit exists, each leaf keeps its own batch lead\nqueue byte-identically and `check_reorders` stays each leaf's own composition.  That is\na real configuration, not a degenerate one, so it is a return rather than a refusal.\n\nEverything else about a coupled unit's inbound IS refused rather than degraded, because\nevery degradation here is the double count with a coupled label on it:\n\n  * a NON-STANDING trailer pipeline -- the v1 drain runs through each manager's own dock\n    deque, so two leaves would field two docks and two crews under one site's declared\n    one, and no table would say so;\n  * a standing yard with NO receiving crew -- a yard nobody unloads produces no receipts\n    at all, silently, for the whole run;\n  * two leaves carrying DIFFERENT inbound specs -- one site is one yard, and two specs\n    would be two arrival calendars over one set of doors.\n\nTHE PRICE LIST IS BUILT HERE (site-dock 27).  The unload price is a statement about the\nMERCHANDISE, so the dock holds one `UnloadCost` per regime, each derived from ITS OWN\nchannel's pick config through the same picking -> put-away -> receiving chain a leaf\nbuilds for itself.  The two constants that exist today ARE the two entries, which is\nwhy an uncoupled run is untouched: it constructs no list at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict, pool, log)"
     },
     "Optimization/simdriver/strategy_runner.py::_build_site_gain": {
       "decorators": [],
@@ -13717,6 +14153,13 @@
       "kind": "function",
       "signature": "(args: dict) -> dict"
     },
+    "Optimization/simdriver/strategy_runner.py::_site_unload_cost": {
+      "decorators": [],
+      "doc": "ONE channel's entry in the site dock's price list (site-dock 27).\n\nThe SAME chain a leaf builds for its own dock, evaluated against THIS channel's pick\nconfig: pickers -> put-away (`PutawayCost.from_pick`) -> receiving\n(`UnloadCost.from_putaway`), then the inbound spec's own coefficients overlaid.  Built\nfrom the leaf payload rather than copied off the leaf, because the dock exists before\nany leaf does -- and because re-deriving it here from the same inputs is what makes the\ntwo entries provably the two constants an uncoupled run already charges.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(leaf_args: dict)"
+    },
     "Optimization/simdriver/strategy_runner.py::_timed_build": {
       "decorators": [],
       "doc": "Run the strategy's build hook and return its wall seconds.\n\nSETUP, not loop time.  The batch loop's clock (`t_loop` .. `elapsed`) starts long\nafter this, so every section column in runtime_metrics excludes it \u2014 which is why the\nMap family's offline address-map solve was, for a long time, an unmeasured cost that\nthe published pages could only describe qualitatively.  It is a real number now, and\n`runtime_metrics.OUTSIDE_TOTAL` is where it says it is not part of `total_s`.\n\nFor rules with no build step this is a few microseconds of function call; the number\nis still recorded, because \"measured, and it was nothing\" is a different statement\nfrom \"never measured\".",
@@ -13733,10 +14176,10 @@
     },
     "Optimization/simdriver/strategy_runner.py::close_skipped_batch": {
       "decorators": [],
-      "doc": "Everything a batch that produced no tasks still owes.\n\nReturns `(batch_stats_row, work_event_rows, put_clock)`.\n\nA batch with no tasks still HAPPENED.  `check_reorders` runs above the skip guard and may\nhave put hundreds of units away -- measured at 66-426 records per batch from batch 1 on.\nTwo things used to ride on the bare `skipped += 1; continue`:\n\n  * those put records were never drained, so they carried into the NEXT batch's drain and\n    were stamped against the next batch's epoch;\n  * no `batch_stats` row was written, which is why the absolute axis could not be\n    recovered downstream by a cumsum.  The runner's comment described that as the design;\n    it was the leak.\n\nThe row is zero-duration and zero-items, and `arm_clock` is deliberately NOT advanced:\nthere is no principled duration for an empty batch until a release schedule exists to say\nwhat a day-slot costs.  So the skip still precedes the advance.\n\nA MODULE-LEVEL FUNCTION, not an inline branch, because inline it was reachable only by a\nfull sweep -- and no arm in the coverage sweep ever skips a batch, so it had no coverage\nat all.  Source-scanning it instead does not work: `if False:` and a commented-out call\nboth still contain the strings a scan looks for, and two sabotages proved it.\n\nTHE TWO POOLED PARAMETERS.  `put_base` overrides the crew's epoch with the SITE's --\none shared clock list cannot carry two epochs -- and `reset_clocks=False` leaves the\ncrew standing for the pool to reset once both leaves have recorded.  The defaults are\nevery uncoupled run and reproduce this function's whole history; a skipped batch still\nput hundreds of units away, so it needs both exactly as the picked path does.",
+      "doc": "Everything a batch that produced no tasks still owes.\n\nReturns `(batch_stats_row, work_event_rows, put_clock)`.\n\nA batch with no tasks still HAPPENED.  `check_reorders` runs above the skip guard and may\nhave put hundreds of units away -- measured at 66-426 records per batch from batch 1 on.\nTwo things used to ride on the bare `skipped += 1; continue`:\n\n  * those put records were never drained, so they carried into the NEXT batch's drain and\n    were stamped against the next batch's epoch;\n  * no `batch_stats` row was written, which is why the absolute axis could not be\n    recovered downstream by a cumsum.  The runner's comment described that as the design;\n    it was the leak.\n\nThe row is zero-duration and zero-items, and `arm_clock` is deliberately NOT advanced:\nthere is no principled duration for an empty batch until a release schedule exists to say\nwhat a day-slot costs.  So the skip still precedes the advance.\n\nA MODULE-LEVEL FUNCTION, not an inline branch, because inline it was reachable only by a\nfull sweep -- and no arm in the coverage sweep ever skips a batch, so it had no coverage\nat all.  Source-scanning it instead does not work: `if False:` and a commented-out call\nboth still contain the strings a scan looks for, and two sabotages proved it.\n\nTHE TWO POOLED PARAMETERS.  `put_base` overrides the crew's epoch with the SITE's --\none shared clock list cannot carry two epochs -- and `reset_clocks=False` leaves the\ncrew standing for the pool to reset once both leaves have recorded.  The defaults are\nevery uncoupled run and reproduce this function's whole history; a skipped batch still\nput hundreds of units away, so it needs both exactly as the picked path does.\n\n`lead_depth` is the third, and it is a SITE-DOCK parameter rather than a pooled one:\n`mgr.lead_queue_depth` reads the transit's own census, and under coupling that transit\nis the site's ONE yard, so both leaves would report every in-flight entry on the site\nand a sum across the pair would double it (ADR-0005 rejected exactly that shape).  The\ndriver passes this leaf's own share; None is every uncoupled run.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id, demanded, sigma_fd, reload_moves, reorder_placements, skus_reordered, units_ordered, put_workers, put_crews, shift_seconds, put_base=None, reset_clocks=True)"
+      "signature": "(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id, demanded, sigma_fd, reload_moves, reorder_placements, skus_reordered, units_ordered, put_workers, put_crews, shift_seconds, put_base=None, reset_clocks=True, lead_depth=None)"
     },
     "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint": {
       "decorators": [],
@@ -13927,7 +14370,7 @@
     },
     "Optimization/simdriver/workunits.py::_reconcile_coupled_unit": {
       "decorators": [],
-      "doc": "Is this coupled pair complete \u2014 and if it is torn, REPAIR it.  Site-dock 10 sections 1-3.\n\n`leaves` is `[(channel_run_dir, [arm_key, ...]), ...]` in the declared channel order\n(store first), positionally aligned: arm rank r of one leaf pairs with rank r of the\nother, which is exactly how `_prepare_site_run` builds the units.  Returns True only when\nevery leaf is complete, i.e. when `_build_work_units` may skip the pair.\n\nTHE FOUR STATES.  Both complete -> skip.  Neither started, or both mid-flight and in step\n-> nothing to do; the ordinary per-arm resume below handles them.  The other two are the\nones this function exists for:\n\n  * TORN -- one leaf finalized and the other not.  Reachable only by a kill between the\n    two `_finalize_config_run` calls, and the repair is whole-dir: a finalized leaf has\n    had its checkpoints cleaned, so there is no per-arm position left to compare and every\n    arm of BOTH leaves replays.  The complete leaf's marker is removed, which is what\n    un-finalizes it.\n  * SKEWED -- the two leaves' copies of one arm disagree about where they are.  Each leaf\n    writes its own `_ckpt_<arm>.pkl` inside one batch loop (`strategy_runner`: leaf A\n    saves, then leaf B), so a kill between the two saves leaves the pair one checkpoint\n    apart.  That rank replays in both leaves.\n\nTHE REPLAY IS FORCED, NOT CHOSEN.  The leaves step in lockstep over a shared dock, a\nshared put clock and a shared receiving clock, so leaf B cannot be stepped without leaf A\nbeing stepped.  There is no version of this where the leaf that got further is spared; the\nonly question was whether its output is discarded CLEANLY or left to collide with the\nreplay, and that question has one answer.  The reset is exact -- the same reset\n`_plan_strategy_start` already applies to a partial arm, which replays bit-identically\nfrom batch 0 -- which is why refusing the resume outright would buy nothing.\n\nTHE SKEW IS WHY THIS IS NOT OPTIONAL.  `_run_strategy_worker_impl` refuses a unit whose\nleaves do not share one batch range, and that refusal cannot clear itself: a leaf already\nat `n_batches` is planned as a done arm and never reset, while its sibling resets to 0, so\nevery later `--resume` reproduces the same disagreement and the pair is wedged for good.\n\nTHE SITE DB IS THE UNIT'S THIRD OUTPUT and joins the reset.  `reset_strategy_db` knows an\narm's `sim_<arm>.db`, its keyframe sibling and its checkpoint; it does not know\n`<pair>/_site/inbound_<a>__<b>.db`, so a replayed unit would append a SECOND run's\ntrailer, drain and door rows to it.  It is the only such artifact -- every pack-denominated\nreceiving quantity lives in its own channel's sim DB (ADR-0005), and the run layout's\n`coupled` marker is written once per run by the parent, not per unit -- so the reset surface\nis exactly three things per leaf plus one per rank.\n\n`mid_flight` is the supervisor's RETRY, not a resume of a dead run.  A tear seen there\nmeans a `_finalize_config_run` raised while the pool was still up, and every unit is\nalready in `done_uids` -- so a repair would delete the output of units that will never be\nresubmitted.  The tear is reported and left for the next `--resume`, where the units are\nplanned again and the repair is safe.\n\nIT IS NOT SILENT.  `run.log` is the only place a multi-hour run's damage is visible, and\n\"a finished leaf was discarded and replayed\" is a line a reader must be able to find.",
+      "doc": "Is this coupled pair complete \u2014 and if it is torn, REPAIR it.  Site-dock 10 sections 1-3.\n\n`leaves` is `[(channel_run_dir, [arm_key, ...]), ...]` in the declared channel order\n(store first), positionally aligned: arm rank r of one leaf pairs with rank r of the\nother, which is exactly how `_prepare_site_run` builds the units.  Returns True only when\nevery leaf is complete, i.e. when `_build_work_units` may skip the pair.\n\nTHE FOUR STATES.  Both complete -> skip.  Neither started, or both mid-flight and in step\n-> nothing to do; the ordinary per-arm resume below handles them.  The other two are the\nones this function exists for:\n\n  * TORN -- one leaf finalized and the other not.  Reachable only by a kill between the\n    two `_finalize_config_run` calls, and the repair is whole-dir: a finalized leaf has\n    had its checkpoints cleaned, so there is no per-arm position left to compare and every\n    arm of BOTH leaves replays.  The complete leaf's marker is removed, which is what\n    un-finalizes it.\n  * SKEWED -- the two leaves' copies of one arm disagree about where they are.  Each leaf\n    writes its own `_ckpt_<arm>.pkl` inside one batch loop (`strategy_runner`: leaf A\n    saves, then leaf B), so a kill between the two saves leaves the pair one checkpoint\n    apart.  That rank replays in both leaves.\n\nTHE REPLAY IS FORCED, NOT CHOSEN.  The leaves step in lockstep over a shared dock, a\nshared put clock and a shared receiving clock, so leaf B cannot be stepped without leaf A\nbeing stepped.  There is no version of this where the leaf that got further is spared; the\nonly question was whether its output is discarded CLEANLY or left to collide with the\nreplay, and that question has one answer.  The reset is exact -- the same reset\n`_plan_strategy_start` already applies to a partial arm, which replays bit-identically\nfrom batch 0 -- which is why refusing the resume outright would buy nothing.\n\nTHE SKEW IS WHY THIS IS NOT OPTIONAL.  `_run_strategy_worker_impl` refuses a unit whose\nleaves do not share one batch range, and that refusal cannot clear itself: a leaf already\nat `n_batches` is planned as a done arm and never reset, while its sibling resets to 0, so\nevery later `--resume` reproduces the same disagreement and the pair is wedged for good.\n\nTHE SITE DB IS THE UNIT'S THIRD OUTPUT and joins the reset -- for every rank that\nREPLAYS, not only for the ranks that disagree.  `reset_strategy_db` knows an arm's\n`sim_<arm>.db`, its keyframe sibling and its checkpoint; it does not know the site DB, so\na replayed unit would append a SECOND run's trailer and drain rows to it, and `find_run`\nresolves the OLDEST run -- so every site yard figure would render over the abandoned one.\nA pair in step but PARTIAL is not torn and not stale, and it replays all the same.  It is the only such artifact -- every pack-denominated\nreceiving quantity lives in its own channel's sim DB (ADR-0005), and the run layout's\n`coupled` marker is written once per run by the parent, not per unit -- so the reset surface\nis exactly three things per leaf plus one per rank.\n\n`mid_flight` is the supervisor's RETRY, not a resume of a dead run.  A tear seen there\nmeans a `_finalize_config_run` raised while the pool was still up, and every unit is\nalready in `done_uids` -- so a repair would delete the output of units that will never be\nresubmitted.  The tear is reported and left for the next `--resume`, where the units are\nplanned again and the repair is safe.\n\nIT IS NOT SILENT.  `run.log` is the only place a multi-hour run's damage is visible, and\n\"a finished leaf was discarded and replayed\" is a line a reader must be able to find.",
       "is_async": false,
       "kind": "function",
       "signature": "(pair_dir, leaves, n_batches, log, tag='', mid_flight=False) -> bool"
@@ -18068,7 +18511,7 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._refuse_site_scope": {
       "decorators": [],
-      "doc": "Raise when a LEAF is asked a question only the SITE can answer.\n\nOne place, six callers, one message shape: `name` is what was asked and `instead`\nis what a caller at the right scope asks instead.  A method rather than six copies\nof the raise, because six spellings of one rule is six things to keep in step \u2014\nand because the refusal is what the site-scope flag exists for, so it should be\none readable thing.",
+      "doc": "Raise when a LEAF is asked a question only the SITE can answer.\n\nOne place, TEN callers, one message shape: `name` is what was asked and `instead`\nis what a caller at the right scope asks instead.  A method rather than ten copies\nof the raise, because ten spellings of one rule is ten things to keep in step \u2014\nand because the refusal is what the site-scope flag exists for, so it should be\none readable thing.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, name: str, instead: str) -> None"
@@ -18223,14 +18666,14 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_drains": {
       "decorators": [],
-      "doc": "This batch's per-drain yard levels, and start the list over.\n\n`[]` when the standing yard is not bound, which is not the same as a row of zeros \u2014\nsee the field's own note.  Drained per batch for `drain_putaway_records`' reason.",
+      "doc": "This batch's per-drain yard levels, and start the list over.\n\n`[]` when the standing yard is not bound, which is not the same as a row of zeros \u2014\nsee the field's own note.  Drained per batch for `drain_putaway_records`' reason.\n\nREFUSES on a coupled leaf.  The row is `(yard_start, free_doors_start, yard_end,\nremainder)` \u2014 trailer- and door-denominated, so the SITE's and not a channel's\n(ADR-0005), which is why the coordinator parks it on `site_rows` rather than handing\nit down.  A leaf that drained this anyway would report an empty yard while the\nsite's was full, because nothing was ever appended to its own list.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_trailers": {
       "decorators": [],
-      "doc": "This batch's FINISHED trailer stamps, and start the transit's list over.\n\n`[]` on any transit without the standing surfaces (`BatchTransit`, `TrailerTransit`)\n\u2014 probed the way `_receive` probes for `STANDING`, so neither is edited to satisfy\na reader neither has anything to say to.",
+      "doc": "This batch's FINISHED trailer stamps, and start the transit's list over.\n\n`[]` on any transit without the standing surfaces (`BatchTransit`, `TrailerTransit`)\n\u2014 probed the way `_receive` probes for `STANDING`, so neither is edited to satisfy\na reader neither has anything to say to.\n\nREFUSES on a coupled leaf: both leaves hold ONE transit, so the first to drain takes\nevery trailer on the site into its own table and the second finds none \u2014 one\nchannel's yard scorecard rendered over the whole site's trailers, and the other's\nrendered empty. The mixed trailer is exactly what makes this undecomposable.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -18329,7 +18772,7 @@
       "decorators": [
         "property"
       ],
-      "doc": "In-flight transit ENTRIES: lead-queue records flag-off, trailers flag-on.\n\nThrough the transit's own census, NOT the `_lead_queue` shim below: the shim\nexposes `BatchTransit`'s entry list and a trailer transit has no such list \u2014 the\nfirst e2e run with the trailer flag on found exactly that AttributeError here.\nFor `BatchTransit`, `depth` IS `len(entries)`, so flag-off reads are unchanged.",
+      "doc": "In-flight transit ENTRIES: lead-queue records flag-off, trailers flag-on.\n\nThrough the transit's own census, NOT the `_lead_queue` shim below: the shim\nexposes `BatchTransit`'s entry list and a trailer transit has no such list \u2014 the\nfirst e2e run with the trailer flag on found exactly that AttributeError here.\nFor `BatchTransit`, `depth` IS `len(entries)`, so flag-off reads are unchanged.\n\nREFUSES on a coupled leaf, for `in_transit_qty`'s reason and with a sharper edge:\nunder a trailer pipeline an in-flight ENTRY is a TRAILER, and a trailer's load is\nmixed by construction \u2014 so this level is the whole site's and reporting it per leaf\nwould double the site's in-flight count across the pair's two DBs (the shape\nADR-0005 rejected in as many words). The site-scoped replacement counts this leaf's\nown in-flight LOTS instead, which is what `BatchTransit.depth` counted before the\ntrailer pipeline existed and the only reading that both decomposes and sums.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
@@ -18400,7 +18843,7 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.standing_yard_trailers": {
       "decorators": [],
-      "doc": "Stamps for trailers STILL ON SITE \u2014 read at run end, and never drained.\n\nThe censored tail.  A run that stops with trailers standing has held them for at\nleast as long as it ran, and dropping those rows would report the adversarial arm's\nfee as clipped rather than concentrated.",
+      "doc": "Stamps for trailers STILL ON SITE \u2014 read at run end, and never drained.\n\nThe censored tail.  A run that stops with trailers standing has held them for at\nleast as long as it ran, and dropping those rows would report the adversarial arm's\nfee as clipped rather than concentrated.\n\nREFUSES on a coupled leaf, and this one is worse than its two neighbours: it drains\nNOTHING, so both leaves would report the SAME censored trailers and every detention\nday still standing at run end would be billed twice.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
@@ -19899,7 +20342,7 @@
     },
     "Warehouse/kernel/regime.py::regime_of": {
       "decorators": [],
-      "doc": "Storage regime ('store' | 'fulfillment') of an Order, StorageUnit, Bin, or Aisle.\n\nDuck-typed and single-valued.  Unknown / legacy objects fall back to 'store', so any\ninventory or warehouse built before this feature behaves exactly as before.",
+      "doc": "Storage regime ('store' | 'fulfillment') of an Order, StorageUnit, Bin, or Aisle.\n\nDuck-typed and single-valued.  Unknown / legacy objects fall back to 'store', so any\ninventory or warehouse built before this feature behaves exactly as before.\n\nA TUPLE IS REFUSED, LOUDLY.  The fallback above is what makes a BinKey dangerous here:\na key is a plain tuple, every `getattr` below falls through it, and the answer comes\nback 'store' for a fulfillment key with nothing raising.  `regime_of_key` is the\nspelling for that input and the two names are three characters apart, so the mistake is\na typo away.  An identity check on `type` rather than `isinstance`: this is duck-typed\nand hot-ish, no entity is a tuple subclass, and the check must cost nothing.",
       "is_async": false,
       "kind": "function",
       "signature": "(x) -> str"

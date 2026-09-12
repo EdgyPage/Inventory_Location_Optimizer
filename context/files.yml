@@ -318,6 +318,7 @@ files:
       - {name: "figure_subdir", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
       - {name: "save_in_bounds", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
       - {name: "config_dirs", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
+      - {name: "site_dirs", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
       - {name: "run_dirs", file: "Optimization/Performance_Evaluations/core/artifact_map.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/core/baseline.py":
@@ -335,6 +336,7 @@ files:
       - {name: "REQUIRES", file: "Optimization/Performance_Evaluations/core/context.py", kind: "const"}
       - {name: "EvalContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
       - {name: "AggregateContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
+      - {name: "SiteContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
       - {name: "RunContext", file: "Optimization/Performance_Evaluations/core/context.py", kind: "class"}
     notes: ""
   "Optimization/Performance_Evaluations/core/discovery.py":
@@ -359,6 +361,7 @@ files:
       - {name: "VIEWS", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
       - {name: "RUN_SCOPE_FAMILIES", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
       - {name: "LEAF_FAMILIES", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
+      - {name: "SITE_SCOPE_FAMILIES", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
       - {name: "LEGACY_VIEWS_CEILING", file: "Optimization/Performance_Evaluations/core/families.py", kind: "const"}
       - {name: "check_view", file: "Optimization/Performance_Evaluations/core/families.py", kind: "function"}
       - {name: "figures_subdir", file: "Optimization/Performance_Evaluations/core/families.py", kind: "function"}
@@ -419,6 +422,7 @@ files:
       - {name: "metric_frames", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "series_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "breakdown_dict", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "site_batch_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "record_error", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "era_shortfall", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "resolve_needs", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -465,13 +469,16 @@ files:
       - {name: "prepare_config_dirs", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "prepare_aggregate_dir", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "prepare_run_dir", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "prepare_site_dir", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "resolve_params", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "run_config", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "run_aggregate", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "run_at_root", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "run_site", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "run_one", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "config_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "aggregate_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
+      - {name: "site_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
       - {name: "run_root_keys", file: "Optimization/Performance_Evaluations/driver.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/headline/all_arms.py":
@@ -641,6 +648,7 @@ files:
       - {name: "DEPTH", file: "Optimization/Performance_Evaluations/yard/binding.py", kind: "const"}
       - {name: "CUTS", file: "Optimization/Performance_Evaluations/yard/binding.py", kind: "const"}
       - {name: "render", file: "Optimization/Performance_Evaluations/yard/binding.py", kind: "function"}
+      - {name: "render_site", file: "Optimization/Performance_Evaluations/yard/binding.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/yard/detention.py":
     purpose: "how long the site held each trailer, and how that time is spread."
@@ -648,18 +656,21 @@ files:
     key_symbols:
       - {name: "QUANTITY", file: "Optimization/Performance_Evaluations/yard/detention.py", kind: "const"}
       - {name: "render", file: "Optimization/Performance_Evaluations/yard/detention.py", kind: "function"}
+      - {name: "render_site", file: "Optimization/Performance_Evaluations/yard/detention.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/yard/fee.py":
     purpose: "what the inbound ordering cost the carrier, per arm."
     layer: "evaluations"
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/yard/fee.py", kind: "function"}
+      - {name: "render_site", file: "Optimization/Performance_Evaluations/yard/fee.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/yard/scorecard.py":
     purpose: "the read-outs that have no honest direction, in one table."
     layer: "evaluations"
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/yard/scorecard.py", kind: "function"}
+      - {name: "render_site", file: "Optimization/Performance_Evaluations/yard/scorecard.py", kind: "function"}
     notes: ""
   "Optimization/analyze_run.py":
     purpose: "Post-sim analysis hub \u2014 analyze_run() iterates every cell of a run (per-cell registry graphs + whole-warehouse rollup) then the cross-cell what-if summaries; run_simulation calls it in-process so one command runs sim + analysis, and `python -m Optimization.analyze_run` re-analyzes a finished run."
@@ -997,6 +1008,7 @@ files:
       - {name: "save_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_shift_days", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "save_site_inbound", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_checkpoint_bundle", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_free_index", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -1281,6 +1293,7 @@ files:
       - {name: "arm_expectations", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "demand_flows", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "window_of", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
+      - {name: "site_utilization_clause", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "fill_at", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "realized_lead", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
       - {name: "check_rows", file: "Optimization/simconfig/equilibrium.py", kind: "function"}
@@ -2284,6 +2297,7 @@ files:
       - {name: "test_the_leaves_partition_the_catalogue", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_double_filtered_leaf_is_refused", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_coupled_unit_matches_the_two_units_it_replaces", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_a_coupled_site_dock_matches_the_two_docks_it_replaces", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_coupled_unit_binds_both_arms_into_one_site_gain_bundle", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
     notes: ""
   "Tests/e2e/test_production_hours_e2e.py":
@@ -2514,6 +2528,7 @@ files:
       - {name: "test_both_leaves_complete_skips_and_touches_nothing", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
       - {name: "test_neither_leaf_started_is_incomplete_and_unrepaired", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
       - {name: "test_both_leaves_partial_and_in_step_are_left_alone", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_a_finished_rank_keeps_its_site_db_while_a_partial_one_loses_it", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
       - {name: "test_a_torn_pair_is_un_finalized_and_both_leaves_replay", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
       - {name: "test_a_torn_pair_repairs_in_the_other_direction_too", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
       - {name: "test_a_skewed_arm_pair_replays_in_both_leaves", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
@@ -4911,6 +4926,112 @@ files:
       - {name: "test_diff_names_the_actual_difference", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
       - {name: "test_diff_is_empty_for_an_unchanged_db", file: "Tests/unit/test_sim_schema_id.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_site_analysis_stage.py":
+    purpose: "the analysis half of the site scope: the context that reads both leaves, the denominators that become the site's, and the rollup's refusal of a coupled run."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_site_batch_frame_is_both_leaves_concatenated", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_site_span_is_the_union_and_exceeds_either_leaf_alone", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_censoring_bound_becomes_the_site_end", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_recv_seconds_sum_and_the_work_days_are_the_shared_count", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_leaf_batch_df_returns_that_leaf_alone", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_leaf_batch_df_refuses_a_channel_the_pair_has_no_leaf_for", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_context_reports_the_channels_it_serves", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_an_uncoupled_empty_cell_returns_nothing_rather_than_raising", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_rollup_refuses_a_coupled_cell_before_reading_anything", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_refusal_is_a_valueerror_and_specifically_not_a_systemexit", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_arm_pair_of_inverts_the_declared_site_db_template", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_site_inbound_dbs_finds_the_declared_file_and_nothing_else", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_site_inbound_dbs_is_empty_where_there_is_no_site_directory", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_site_scope_families_are_declared_and_real", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_contract_and_the_registry_declare_the_same_site_families", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_site_stage_emits_one_job_per_pair_with_both_leaves_on_it", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_a_site_job_resolves_each_leafs_own_arm_and_not_the_other_half", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_an_uncoupled_tree_with_no_site_directory_emits_no_job", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+      - {name: "test_the_site_context_answers_the_capability_probe", file: "Tests/unit/test_site_analysis_stage.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_site_dock_builder.py":
+    purpose: "the site dock, yard and receiving roster a coupled unit builds at unit scope, its per-regime price list, and the run shapes it refuses rather than degrades."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_site_fields_one_dock_one_yard_and_one_coordinator", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_the_price_list_is_keyed_by_regime_and_not_by_channel_name", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_each_entry_is_that_channels_own_derived_unload_cost", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_the_receiving_block_chains_off_the_put_pools_block_end", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_an_inbound_off_coupled_unit_fields_no_site_dock", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_a_non_standing_pipeline_is_refused", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_a_standing_yard_with_no_receiving_crew_is_refused", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_two_leaves_with_different_inbound_records_are_refused", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_one_leaf_with_inbound_beside_one_without_is_refused", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_a_unit_with_no_site_db_is_refused", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_an_asymmetric_gain_policy_is_refused_at_build_time", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_a_symmetric_gain_policy_builds_one_composite", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_no_gain_policy_anywhere_builds_nothing", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_a_site_db_that_already_holds_a_run_refuses_a_second", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+      - {name: "test_the_site_run_is_stamped_with_its_arm_pair", file: "Tests/unit/test_site_dock_builder.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_site_dock_price.py":
+    purpose: "the site dock's per-regime unload price list: each unit priced at its own regime's constant, the single-price path untouched, and the records seam."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_fixture_pair_differs_only_in_regime", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_a_single_price_dock_holds_no_list_and_prices_as_it_always_did", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_a_single_price_dock_ignores_the_unit_it_is_handed", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_the_site_dock_prices_each_unit_at_its_own_regimes_constant", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_the_two_durations_differ_in_the_direction_the_two_prices_imply", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_a_site_dock_holds_no_single_price_at_all", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_cost_for_returns_the_declared_object_for_each_regime", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_the_price_list_is_copied_at_construction", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_a_dock_handed_both_shapes_refuses", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_an_empty_price_list_refuses_at_construction", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_a_site_dock_asked_for_a_price_with_no_unit_refuses", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_an_uncoupled_dock_refuses_to_answer_which_regimes_price", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_a_site_dock_refuses_a_regime_it_has_no_entry_for", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_a_site_dock_refuses_a_unit_whose_regime_it_does_not_price", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_take_records_hands_the_rows_over_and_leaves_the_clock_where_it_was", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_drain_records_is_take_records_plus_the_reset", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_the_two_hand_back_the_same_rows_for_the_same_batch", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+      - {name: "test_a_drain_after_a_take_is_still_a_reset_and_hands_back_nothing", file: "Tests/unit/test_site_dock_price.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_site_equilibrium.py":
+    purpose: "the equilibrium check at site scope: one band over the site put and receiving crews, the leaves' shares beside it, and the leaf clause narrowed to pick."
+    layer: "tests"
+    key_symbols:
+      - {name: "S", file: "Tests/unit/test_site_equilibrium.py", kind: "const"}
+      - {name: "TOL", file: "Tests/unit/test_site_equilibrium.py", kind: "const"}
+      - {name: "DAYS", file: "Tests/unit/test_site_equilibrium.py", kind: "const"}
+      - {name: "OUTSIDE_DAY", file: "Tests/unit/test_site_equilibrium.py", kind: "const"}
+      - {name: "PUT_CREW", file: "Tests/unit/test_site_equilibrium.py", kind: "const"}
+      - {name: "RECV_CREW", file: "Tests/unit/test_site_equilibrium.py", kind: "const"}
+      - {name: "EXPECTED", file: "Tests/unit/test_site_equilibrium.py", kind: "const"}
+      - {name: "PICKERS", file: "Tests/unit/test_site_equilibrium.py", kind: "const"}
+      - {name: "test_the_site_and_leaf_department_tuples_partition_the_three", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_the_fixture_window_is_lumpy_and_seed_stable_in_both_directions", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_the_site_number_equals_the_two_leaves_sum", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_the_reference_site_window_sits_in_band_and_passes", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_the_site_grant_is_one_crew_times_one_day_times_the_shared_days", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_a_site_out_of_band_fails_and_names_the_department", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_the_per_channel_shares_are_present_for_every_channel", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_a_per_channel_share_is_of_the_site_grant_not_a_per_channel_one", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_a_coupled_leaf_clause_bands_pick_alone", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_the_default_leaf_clause_still_bands_all_three", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_the_leaf_and_site_clauses_mean_the_same_thing_by_worked", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_two_channels_deriving_different_crews_for_one_department_raises", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_a_crew_disagreement_on_receiving_raises_too", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_an_empty_rows_by_channel_raises", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+      - {name: "test_a_department_absent_from_one_channel_reads_as_absent_rather_than_banding", file: "Tests/unit/test_site_equilibrium.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_site_equilibrium_report.py":
+    purpose: "the equilibrium report's two-leaf accumulation at site scope: one band per arm pair, and the two denominator refusals (half a site, and two windows)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_complete_pair_is_banded_once_and_labelled_by_its_arm_pair", file: "Tests/unit/test_site_equilibrium_report.py", kind: "function"}
+      - {name: "test_the_two_halves_may_be_named_DIFFERENTLY_and_still_be_one_site", file: "Tests/unit/test_site_equilibrium_report.py", kind: "function"}
+      - {name: "test_the_shares_are_reported_beside_the_site_number", file: "Tests/unit/test_site_equilibrium_report.py", kind: "function"}
+      - {name: "test_half_a_site_is_skipped_rather_than_banded", file: "Tests/unit/test_site_equilibrium_report.py", kind: "function"}
+      - {name: "test_two_windows_are_two_grants_and_are_skipped", file: "Tests/unit/test_site_equilibrium_report.py", kind: "function"}
+      - {name: "test_a_site_that_derived_two_crews_for_one_department_raises", file: "Tests/unit/test_site_equilibrium_report.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_site_receiving.py":
     purpose: "the receiving coordinator, and the two ports it reaches through."
     layer: "tests"
@@ -4953,6 +5074,25 @@ files:
       - {name: "test_a_drain_with_no_leaf_refuses_from_both_entry_points", file: "Tests/unit/test_site_receiving.py", kind: "function"}
       - {name: "test_records_reported_before_the_day_opens_say_so", file: "Tests/unit/test_site_receiving.py", kind: "function"}
       - {name: "test_an_unbound_leaf_cannot_report_records", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_partition_hands_each_leaf_its_own_unload_rows", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_dock_is_partitioned_once_and_served_to_each_leaf_once", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_snapshot_shares_close_against_the_docks_own_totals", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_a_count_the_channels_cannot_account_for_is_refused", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_labour_the_leaves_never_booked_is_refused", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_a_snapshot_asked_for_twice_in_one_site_day_is_refused", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_partition_is_refused_before_the_site_day_is_opened", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_transit_census_splits_by_sku_and_sums_to_the_sites_own", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_dock_floor_is_decomposed_by_regime", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+      - {name: "test_the_trailer_stamps_are_the_sites_and_the_leaves_refuse_them", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_site_scorecard_columns.py":
+    purpose: "the yard scorecard's per-channel share column exists only at site scope, so re-analysing an archived uncoupled run renders the table it always rendered."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_leaf_table_is_the_column_list_it_has_always_had", file: "Tests/unit/test_site_scorecard_columns.py", kind: "function"}
+      - {name: "test_the_site_table_inserts_the_share_column_beside_the_number_it_is_a_share_of", file: "Tests/unit/test_site_scorecard_columns.py", kind: "function"}
+      - {name: "test_the_two_tables_differ_by_exactly_one_column", file: "Tests/unit/test_site_scorecard_columns.py", kind: "function"}
+      - {name: "test_the_site_registration_renders_the_site_table", file: "Tests/unit/test_site_scorecard_columns.py", kind: "function"}
     notes: ""
   "Tests/unit/test_site_space_view.py":
     purpose: "Pins the site space view: the regime partition and both leaves' phantoms dropped, identity pass-through of the frozen tuples, element-wise versions, per-regime `released_at`, every refusal, and that a real drain still routes through the composer seam."

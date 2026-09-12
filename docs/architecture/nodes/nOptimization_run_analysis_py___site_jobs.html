@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_site_jobs · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_analysis_py___site_jobs" data-id="Optimization/run_analysis.py::_site_jobs">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_analysis_py.html"><code>Optimization/run_analysis.py</code></a> <span class="sep">›</span> <span class="here"><code>_site_jobs</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_site_jobs</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_analysis_py.html"><code>Optimization/run_analysis.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=())</code></pre>
+<section class="doc">Parent pre-pass for the SITE stage: one job per `(cell, pair)` on a COUPLED run.
+
+`[]` on every uncoupled run, and that is a structural return rather than a guard: the
+site DBs simply do not exist, `site_inbound_dbs` finds none, and no job is emitted.  A
+site stage reading an empty scope reports zeros rather than refusing — but it is worth
+saying which zero this is, because `a-grant-is-not-an-output` is exactly the trap here:
+the `[access]` summary counts INPUTS, so only the `[render]` run summary says whether
+anything was written.  Hence the log line below naming the pair count either way.
+
+ONE JOB PER PAIR, not per arm pair, and `SiteContext` says why: the yard family&#x27;s marks
+are `ranked` and `serial`, so every arm pair has to be in one context to be ranked
+against the others, and the declared output tree is one directory per pair.
+
+EVERY PATH IS RESOLVED THROUGH THE CONTRACT.  The site DBs come from
+`rt.site_inbound_dbs`, the arm pair from `rt.arm_pair_of`, and each leaf&#x27;s sim DB from
+`rt.leaf_path(run, &#x27;sim_db&#x27;, strategy=)` — never a joined string, and never a tree level
+consumed by NAME (`&lt;pair&gt;/store/store/` is a real path).</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_driver_py__prepare_site_dir.html"><code>prepare_site_dir</code></a> <span class="dim">Optimization/Performance_Evaluations/driver.py</span></li><li><a href="nOptimization_Performance_Evaluations_driver_py__site_keys.html"><code>site_keys</code></a> <span class="dim">Optimization/Performance_Evaluations/driver.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__find_run.html"><code>find_run</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_run_analysis_py___assignment_of.html"><code>_assignment_of</code></a> <span class="dim">Optimization/run_analysis.py</span></li><li><a href="nOptimization_run_analysis_py___sim_result_from_meta.html"><code>_sim_result_from_meta</code></a> <span class="dim">Optimization/run_analysis.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_analysis_py__run_analysis.html"><code>run_analysis</code></a> <span class="dim">Optimization/run_analysis.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_analysis_py___site_jobs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_analysis.py#:~:text=def%20_site_jobs">Source ↗</a></p>
+</article>
+</main>
+</body></html>

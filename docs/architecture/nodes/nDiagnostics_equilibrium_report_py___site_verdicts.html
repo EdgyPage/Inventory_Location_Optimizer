@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_site_verdicts · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_equilibrium_report_py___site_verdicts" data-id="Diagnostics/equilibrium_report.py::_site_verdicts">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_equilibrium_report_py.html"><code>Diagnostics/equilibrium_report.py</code></a> <span class="sep">›</span> <span class="here"><code>_site_verdicts</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_site_verdicts</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_equilibrium_report_py.html"><code>Diagnostics/equilibrium_report.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _site_verdicts(site_rows: dict, out) -&gt; dict</code></pre>
+<section class="doc">One SITE verdict per `(cell, pair, arm-pair)`: put and recv banded ONCE.
+
+Keyed by `(cell, pair, RANK)`, never by an arm key, and that is the whole of it: the
+diagonal is rank against rank (site-dock 06), so the two halves of one pair are named
+differently on any run whose channels sweep different rule subsets -- and keying on the
+key would then put each leaf in its own bucket, leave every bucket one channel short,
+and turn the site clause off for the entire run while reporting it as skipped.  The rank
+is the leaf&#x27;s position in its OWN ordered `sim_meta[&#x27;strategies&#x27;]`, which is the same
+ordering `_prepare_site_run` zips the pair out of.
+
+A pair with one channel is not banded: a site clause over half a site is a smaller
+denominator, not a smaller site, and it would pass or fail for the wrong reason.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_equilibrium_report_py___site_reading.html"><code>_site_reading</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__site_utilization_clause.html"><code>site_utilization_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_equilibrium_report_py__report.html"><code>report</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_equilibrium_report_py___site_verdicts">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/equilibrium_report.py#:~:text=def%20_site_verdicts">Source ↗</a></p>
+</article>
+</main>
+</body></html>

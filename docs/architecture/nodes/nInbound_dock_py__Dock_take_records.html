@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>take_records · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_dock_py__Dock_take_records" data-id="Inbound/dock.py::Dock.take_records">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_dock_py.html"><code>Inbound/dock.py</code></a> <span class="sep">›</span> <a href="nInbound_dock_py__Dock.html"><code>Dock</code></a> <span class="sep">›</span> <span class="here"><code>take_records</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>take_records</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_dock_py.html"><code>Inbound/dock.py</code></a></p>
+
+<pre class="sig"><code>def take_records(self) -&gt; list</code></pre>
+<section class="doc">This batch&#x27;s unload records, WITHOUT restarting the crew&#x27;s clock.
+
+`drain_records` is this plus the reset, and the reset is the half that has exactly
+ONE owner.  Uncoupled that owner is `drain_records` itself and nothing calls this;
+on a coupled run the site&#x27;s receiving coordinator partitions these rows between two
+leaves and the reset belongs to `SiteReceiving.note_records`, which fires once both
+leaves have stamped — so the coordinator needs the rows without the reset rather
+than a second reset it would have to undo.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_dock_py__Dock_drain_records.html"><code>drain_records</code></a> <span class="dim">Inbound/dock.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_dock_py__Dock_take_records">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/dock.py#:~:text=def%20take_records">Source ↗</a></p>
+</article>
+</main>
+</body></html>

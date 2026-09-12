@@ -14,9 +14,17 @@
 <h1><span class="kind kind-function">function</span> <code>_utilization_clause</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
 
-<pre class="sig"><code>def _utilization_clause(batch_rows, work_rows, days: list[int], expectations: dict) -&gt; Clause</code></pre>
-<section class="doc empty">No docstring.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Clause.html"><code>Clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___get.html"><code>_get</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
+<pre class="sig"><code>def _utilization_clause(batch_rows, work_rows, days: list[int], expectations: dict, departments: tuple=DEPARTMENTS) -&gt; Clause</code></pre>
+<section class="doc">Realized-vs-expected utilization per department over one LEAF&#x27;s window.
+
+`departments` is what a coupled leaf narrows.  Under one site dock and one site pool of
+putters, put and receiving are not this channel&#x27;s crews at all: a leaf&#x27;s seconds over a
+SITE crew is a share of a whole the channel does not own (ADR-0005 says exactly that),
+and banding it per leaf would publish two verdicts on one crew that can disagree with
+each other -- the double count reappearing as a reporting artefact after being fixed by
+construction.  SITE BANDS, LEAVES REPORT: the leaf keeps `pick`, and
+`site_utilization_clause` carries put and recv once against the SUMMED expectation.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Clause.html"><code>Clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___dept_seconds.html"><code>_dept_seconds</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__check_rows.html"><code>check_rows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py___utilization_clause">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20_utilization_clause">Source ↗</a></p>
 </article>
 </main>

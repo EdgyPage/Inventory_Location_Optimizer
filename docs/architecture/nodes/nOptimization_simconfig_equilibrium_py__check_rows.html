@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>check_rows</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_equilibrium_py.html"><code>Optimization/simconfig/equilibrium.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, day_hi: int, expectations: dict, free_rows=None) -&gt; Verdict</code></pre>
+<pre class="sig"><code>def check_rows(*, shift_rows, batch_rows, work_rows, carry_rows, day_lo: int, day_hi: int, expectations: dict, free_rows=None, departments: tuple=DEPARTMENTS) -&gt; Verdict</code></pre>
 <section class="doc">The five clauses over already-loaded rows.  See the module docstring for each.
 
 `shift_rows` are `load_shift_days` dicts; `batch_rows` are `BatchStats` (or dicts with
@@ -25,7 +25,13 @@ forgot to load the table must not get that answer by accident.  `free_rows` are
 `load_free_index` rows and ARE defaulted: an absent table means &quot;the depth was never
 recorded per bucket&quot;, which the rework clause reports as exactly that -- the reading is
 never judged, so a missing list cannot manufacture a pass.  Raises `InstrumentError`
-from the released-late clause and from `demand_flows`; every other outcome is a `Verdict`.</section>
+from the released-late clause and from `demand_flows`; every other outcome is a `Verdict`.
+
+`departments` narrows the UTILIZATION clause alone, and a COUPLED leaf is the one
+caller that narrows it: put and receiving are the SITE&#x27;s crews there, banded once
+by `site_utilization_clause` against the SUMMED expectation. Site bands, leaves
+report -- two verdicts on one crew can disagree with each other, and that is the
+double count reappearing as a reporting artefact after being fixed by construction.</section>
 <section class="rel"><h2>Callees <span class="count">(7)</span></h2><ul><li><a href="nOptimization_simconfig_equilibrium_py__Verdict.html"><code>Verdict</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___labour_clause.html"><code>_labour_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___released_late_clause.html"><code>_released_late_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___rework_clause.html"><code>_rework_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___supply_clause.html"><code>_supply_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py___utilization_clause.html"><code>_utilization_clause</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__demand_flows.html"><code>demand_flows</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_throughput_audit_py___verdict_for.html"><code>_verdict_for</code></a> <span class="dim">Optimization/Performance_Evaluations/throughput/audit.py</span></li><li><a href="nOptimization_simconfig_equilibrium_py__check.html"><code>check</code></a> <span class="dim">Optimization/simconfig/equilibrium.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_equilibrium_py__check_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/equilibrium.py#:~:text=def%20check_rows">Source ↗</a></p>
 </article>

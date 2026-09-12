@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiteContext · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_context_py__SiteContext" data-id="Optimization/Performance_Evaluations/core/context.py::SiteContext">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a> <span class="sep">›</span> <span class="here"><code>SiteContext</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>SiteContext</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a></p>
+
+<pre class="sig"><code>class SiteContext(EvalContext)</code></pre>
+<section class="doc">One PAIR&#x27;s site, under a coupled run: both channel leaves and the yard they share.
+
+THE FOURTH EVALUATION SCOPE that reads simulation output, and it is a subclass rather
+than a second implementation because that IS the design (&quot;Re-scope the analysis
+surfaces to the site&quot;, section 1): every frame broker keys on `s[&#x27;db_path&#x27;]` and
+`s[&#x27;run_id&#x27;]` and nothing else, so site-ness lives in what the keys POINT AT.  A site
+&quot;strategy&quot; is an ARM PAIR whose `db_path` is the contract&#x27;s `site_inbound_db`, and
+which additionally carries its two leaves so the denominators can be the site&#x27;s.
+
+Inheriting is what keeps `staffing_expectations`, `fee_threshold_days`, `dock_ceiling`
+and `footer` single implementations.  All four read `sim_result`, and the values they
+read are genuinely site-wide already: the door count, the door-team cap, the fee
+threshold and the derived receiving crew are one site&#x27;s, stamped per leaf only because
+a leaf is where `_sim_result_from_meta` runs.
+
+ONE JOB PER `(cell, pair)`, NOT PER ARM PAIR, and that deviates from 07 section 1 with
+a reason: the yard family&#x27;s marks are `ranked` and `serial`, which compare arms, so
+every arm pair has to be in ONE context or there is nothing to rank against; and the
+declared output tree is `figures_site_yard_pngs`, one directory per pair, which two
+concurrent per-arm-pair jobs would race to wipe.
+
+THE ERA GATE PROBES THE SITE DB, and this class has to say so rather than assume it is
+exempt.  An earlier draft of this docstring claimed there was no `capabilities()` here
+and that the gate was therefore a no-op — which is FALSE for a SUBCLASS: `era_shortfall`
+hasattr-checks the method, finds the inherited one, and calls it.  Three of the four
+yard evaluations declare quantities and every one of them raised `AttributeError` on the
+first real coupled run, rendering nothing while the `[access]` summary reported a grant
+(`a-grant-is-not-an-output`, exactly).  So the cache is initialised like every other and
+the probe reads the SITE DB, which is the right file to ask: a site capability is what
+the site&#x27;s own record carries, not what one channel&#x27;s does.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_context_py__SiteContext">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/context.py#:~:text=class%20SiteContext">Source ↗</a></p>
+</article>
+</main>
+</body></html>

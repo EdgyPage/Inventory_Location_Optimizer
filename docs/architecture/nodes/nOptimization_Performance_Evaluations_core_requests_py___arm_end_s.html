@@ -20,8 +20,14 @@
 `max(batch_start_time + duration)` rather than the last row&#x27;s, because DB order is not
 guaranteed sorted (the same reason `_elapsed` argsorts).  0.0 on an empty frame, which
 makes every censored detention 0 — honest for a run with no batches at all, and the
-only case where it can happen.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__batch_frame.html"><code>batch_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__yard_frame.html"><code>yard_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+only case where it can happen.
+
+THROUGH `ctx.batch_df`, NOT `batch_frame`, and the indirection is the whole of what
+makes the yard family honest at site scope.  A site&#x27;s batch record is BOTH leaves&#x27;
+frames concatenated, so this bound becomes the SITE end — the union across two clocks
+— which is what a censoring bound over one shared yard has to be.  `EvalContext.batch_df`
+delegates straight back here, so a leaf reads exactly what it always read.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_requests_py__yard_frame.html"><code>yard_frame</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_requests_py___arm_end_s">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/requests.py#:~:text=def%20_arm_end_s">Source ↗</a></p>
 </article>
 </main>

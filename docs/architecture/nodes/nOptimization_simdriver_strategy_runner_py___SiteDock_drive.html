@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>drive · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___SiteDock_drive" data-id="Optimization/simdriver/strategy_runner.py::_SiteDock.drive">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <a href="nOptimization_simdriver_strategy_runner_py___SiteDock.html"><code>_SiteDock</code></a> <span class="sep">›</span> <span class="here"><code>drive</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>drive</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def drive(self, i: int, pool) -&gt; dict</code></pre>
+<section class="doc">Run site day `i`&#x27;s seven phases across every bound leaf; return what each
+triggered, keyed by `id(leaf)`.
+
+THE WHOLE COMPOSITION, ONCE -- never each leaf&#x27;s own `check_reorders`.  Phase 5 is
+routed from inside `SiteReceiving.drain`, which is the only placement that puts the
+site&#x27;s receive BEFORE every leaf&#x27;s put drain; run through the leaves&#x27; own
+compositions instead and the earlier leaf&#x27;s put drain fires before the site has
+unloaded anything, so its receipts wait a whole batch for a bin (site-dock 21&#x27;s
+hand-off list says this in as many words).
+
+Both deadlines are SITE values and both accessors are idempotent per site day, so
+asking here and asking again inside a leaf returns the same answer rather than two.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___SiteDock_drive">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20drive">Source ↗</a></p>
+</article>
+</main>
+</body></html>

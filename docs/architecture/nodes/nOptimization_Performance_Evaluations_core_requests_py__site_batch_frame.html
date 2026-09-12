@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>site_batch_frame · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_requests_py__site_batch_frame" data-id="Optimization/Performance_Evaluations/core/requests.py::site_batch_frame">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a> <span class="sep">›</span> <span class="here"><code>site_batch_frame</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>site_batch_frame</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def site_batch_frame(ctx, key)</code></pre>
+<section class="doc">A SITE&#x27;s batch frame: every leaf&#x27;s, concatenated.  Memoised in `ctx._bcache`.
+
+ONE CONCAT, AND IT ANSWERS BOTH OF THE DENOMINATOR QUESTIONS 07 asked, with no new
+arithmetic anywhere:
+
+  * DOOR UTILIZATION takes the SITE CALENDAR SPAN — `min(batch_start_time)` to
+    `max(start + duration)` — and over the concatenated frame that is exactly the union
+    of the two leaves&#x27; clocks.  A door is occupied on the site&#x27;s calendar whatever
+    channel&#x27;s packs sit behind it.
+  * RECEIVER BUSY takes both leaves&#x27; `recv_seconds` over DISTINCT `work_day`, and over
+    the concatenated frame that is exactly what `nansum` and `nunique` return.  Still
+    WORK days and never the calendar span (memory `calendar-span-is-not-work-days`,
+    which printed 184% once); the leaves share days by construction, because
+    `staffing` refuses to sum channels that ran different batch counts.
+
+The per-leaf `recv_seconds` are each leaf&#x27;s OWN share of the site dock — the coupled
+driver writes them from the coordinator&#x27;s decomposition — so the sum is the site total
+rather than either channel&#x27;s number counted twice.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_frames_py___bdf.html"><code>_bdf</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__load_batch_stats.html"><code>load_batch_stats</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_context_py__SiteContext_batch_df.html"><code>batch_df</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_requests_py___site_batch.html"><code>_site_batch</code></a> <span class="dim">Optimization/Performance_Evaluations/core/requests.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_requests_py__site_batch_frame">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/requests.py#:~:text=def%20site_batch_frame">Source ↗</a></p>
+</article>
+</main>
+</body></html>
