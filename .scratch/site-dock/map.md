@@ -2,6 +2,22 @@
 
 Label: wayfinder:map
 
+**STATUS: CLOSED, 2026-09-12.** Every ticket is resolved — 21 charted decisions, 7 builds, and
+one decision a build reopened and closed the same day. The destination below is reached. The
+successor effort is the inbound-optimization map, which resumes at
+[Re-verify the gate under the lead-aware record](../inbound-optimization/issues/26-reverify-the-gate-under-the-lead-aware-record.md).
+
+**What a reader of the archive most needs from this map:** it moved absolute numbers TWICE, and
+both moves are dated and measured rather than argued.
+[Build the site put-away pool](issues/19-build-the-site-putaway-pool.md) ended the put double
+count (one crew of putters over both leaves instead of one crew each), and
+[Build the site analysis stage](issues/24-build-the-site-analysis-stage.md) fielded one dock where
+two stood. Uncoupled and flag-off runs are byte-identical across both, proven row for row against
+a `git archive HEAD` copy every time. And
+[Decide the site dock's unload price](issues/27-decide-the-site-docks-unload-price.md) cost
+nothing at all — measured at +0.00% on both leaves, because the per-regime list's two entries are
+the constants each leaf already charged.
+
 ## Destination
 
 The site dock landed on `develop`: both channels' inbound through one yard, one door set and one
@@ -98,7 +114,7 @@ BEFORE anything runs: the inbound-optimization map resumes at
   decision on this map is closed**; what remains is the execution the override carries:
 
   ```
-  20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis  [DONE]  ──▶ 25 site crew checks  (LAST)
+  20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis  [DONE]  ──▶ 25 site crew checks  [DONE]
       [DONE]                    [DONE]                     └─▶ 26 composite gain bundle  [DONE]
   22 coupled resume reconciler  [DONE]   (independent)
   23 funnel spec for arm pairs  [DONE]   (independent)
@@ -107,7 +123,10 @@ BEFORE anything runs: the inbound-optimization map resumes at
 
   **20, 22 and 23 landed together on 2026-09-11**, run in parallel — which is also how the three
   independent tickets were meant to be used, and **21 followed the same day**. What is left is
-  **25, and nothing else** — 24 and 26 are both in, so the map is one ticket from its destination. **27 closed the same day it was graduated**, and it was
+  **NOTHING. The map is CLOSED** — all seven build tickets and the one decision they reopened are
+  in, and the destination is reached: the site dock is on `develop`, both channels' inbound runs
+  through one yard and one crew, put-away draws on one site pool, the funnel's cells are paired,
+  and flag-off is byte-identical, measured so at every step. **27 closed the same day it was graduated**, and it was
   the map's last open decision — so every decision here is closed and what remains is execution
   alone. **24 carries the SECOND COMPARABILITY BREAK**, which 21 correctly declined: what breaks
   comparability is a run FIELDING one dock, and all three things such a run needs sat on 21's own
@@ -663,6 +682,28 @@ BEFORE anything runs: the inbound-optimization map resumes at
   archived run and collides two uncoupled leaves in one pair-level directory — so the site tree is
   an ADDITION (`SITE_SCOPE_FAMILIES` beside `LEAF_FAMILIES`) rather than a move.
 
+- [Build the site crews' cross-leaf checks](issues/25-build-the-site-crew-checks.md): **BUILT —
+  and the map's last ticket.** `reconcile_pair` in `receiving_report.py` carries 15's four held
+  clause families, and `site_receiving` is a new declared table holding the site dock's own
+  per-batch counters — the closure's SECOND side, without which the check compares a total to
+  itself. Check 6 landed in its two-constant form: `C_store` over the store leaf's rows and
+  `C_ful` over the fulfillment leaf's, each re-priced against its own regime's price-list entry,
+  because 24 established the coordinator partitions by SKU BEFORE the driver stamps and **one DB
+  does not hold both regimes' rows**. **`_TOL` was DECIDED rather than graduated:** `_tol_for`
+  scales with magnitude where a SUM meets a SUM, check 6's spread keeps the flat absolute one, and
+  the argument is a PHYSICAL lower bound — every defect check 1 hunts moves the sum by at least
+  one unload (5.1 s), and 1e-9 x 4.18M s is 4.2e-3 s. The upper margin is recorded as **empirical,
+  not a bound**, which is the honest half. **Every check proven to FAIL on a planted defect** —
+  six plants on a real 12-batch coupled tree, each failing the right clause and localising the
+  batch, including the two the per-leaf checks are blind to by construction: a batch missing from
+  BOTH leaves, and a WHOLE leaf charged at the other channel's rate (where
+  `unload_price_is_constant_per_leaf` stays true). **Its review found seven real defects, one
+  critical and of this map's favourite shape:** the pair-scope FAIL was UNREACHABLE on a real
+  campaign, because the pairing is read off the site DBs' filenames — so an arm pair whose file
+  never reached disk was never enumerated, and the check that exists to notice a missing pair
+  could not notice the missing pair. Byte-identity 149,271 rows across 15 tables with an oracle;
+  47 mutations, 47 caught, five survivors across passes all closed with new tests.
+
 ## Not yet specified
 
 - **Nothing here needs a DECISION any more.** Every design ticket on this map is resolved, the
@@ -688,13 +729,12 @@ BEFORE anything runs: the inbound-optimization map resumes at
   dock holds a per-regime price LIST, so `C_store == C_ful` is false by construction and is
   RETIRED rather than written. This entry asked whether the map's sharpest falsifier was even
   well-posed. It was — about the wrong thing.
-- **`receiving_report`'s absolute tolerance.** `_TOL` is 1e-6 SECONDS, compared against sums
-  that grow with the row count: on a 505,177-row arm checks 1's two surfaces accumulate 1.3e-6 s
-  apart over 4,177,040.9 s — a relative error of 3e-13 reported as a FAIL, on four archived arms
-  today. Absolute-versus-relative is a decision (a relative tolerance hides a small real
-  discrepancy on a large arm, which is the failure check 1 exists for), and it grows sharper
-  under coupling, where a site total is the sum of two leaves'. Not ticketed because the right
-  form is not yet clear.
+- ~~**`receiving_report`'s absolute tolerance.**~~ **CLOSED** by
+  [Build the site crews' cross-leaf checks](issues/25-build-the-site-crew-checks.md), which took
+  the decision rather than graduating it: `_tol_for` scales with magnitude where a SUM meets a
+  SUM, and check 6's spread keeps the flat absolute one. This entry said "the right form is not
+  yet clear"; what made it clear was a PHYSICAL lower bound — every defect check 1 hunts moves the
+  sum by at least one unload.
 
 ## Out of scope
 
