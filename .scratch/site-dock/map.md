@@ -93,25 +93,25 @@ BEFORE anything runs: the inbound-optimization map resumes at
   and **Scope** and amended **Clock**; the decision behind them is
   [ADR-0005](../../docs/adr/0005-inbound-scope-splits-at-the-pack.md). Code identifiers follow at
   build time. Nothing further is owed the glossary by this map unless a ticket coins a term.
-- **The route (charted in full, 2026-09-11).** Seven build tickets, three of them independent
-  — and ONE decision, reopened by the build that reached it (27, below). Everything else is the
-  execution the override carries:
+- **The route (charted in full, 2026-09-11).** Seven build tickets, three of them independent,
+  plus one decision reopened by the build that reached it and closed the same day (27). **Every
+  decision on this map is closed**; what remains is the execution the override carries:
 
   ```
   20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis stage ──▶ 25 site crew checks
       [DONE]                    [DONE]                     └─▶ 26 composite gain bundle
   22 coupled resume reconciler  [DONE]   (independent)
   23 funnel spec for arm pairs  [DONE]   (independent)
-  27 the site dock's unload price  (grilling, OPEN, **HITL** -- graduated by 21; 24 needs it)
+  27 the site dock's unload price  (grilling, **DONE** -- graduated by 21, answered same day)
   ```
 
   **20, 22 and 23 landed together on 2026-09-11**, run in parallel — which is also how the three
   independent tickets were meant to be used, and **21 followed the same day**. What is left is
-  24 -> 25, plus 26 off 21, and the one DECISION 21 graduated — **27 is the only HITL ticket on
-  this map and needs a human**, and 24 is blocked on it because a coupled standing run cannot be
-  fielded through an unpriced dock. **24 also now carries the SECOND COMPARABILITY BREAK**, which
-  21 correctly declined: what breaks comparability is a run FIELDING one dock, and all three
-  things such a run needs sat on 21's own exclusion list. The map closes when 25 and 26 are in; the inbound-optimization
+  24 -> 25, with 26 running beside them. **27 closed the same day it was graduated**, and it was
+  the map's last open decision — so every decision here is closed and what remains is execution
+  alone. **24 carries the SECOND COMPARABILITY BREAK**, which 21 correctly declined: what breaks
+  comparability is a run FIELDING one dock, and all three things such a run needs sat on 21's own
+  exclusion list. Pricing the dock, as it turned out, costs nothing. The map closes when 25 and 26 are in; the inbound-optimization
   map then resumes at
   [Re-verify the gate under the lead-aware record](../inbound-optimization/issues/26-reverify-the-gate-under-the-lead-aware-record.md).
 - Memories every session should load: `site-dock-is-shared-across-channels`,
@@ -597,6 +597,27 @@ BEFORE anything runs: the inbound-optimization map resumes at
   coordinator over a v1 transit was "harmless", and none of the four was true once the
   refusal existed.
 
+- [Decide the site dock's unload price](issues/27-decide-the-site-docks-unload-price.md):
+  **the unload price is a statement about the MERCHANDISE** (user, 2026-09-11), so the site dock
+  holds a price LIST keyed by the unloaded unit's own regime rather than one site-wide constant.
+  A fulfillment tote is quicker to move than a store pallet, and that is a fact about the thing
+  moved rather than about who moves it — which is the same thing
+  [Build the site put-away pool](issues/19-build-the-site-putaway-pool.md) already established
+  and TESTED one crew over (`s_put` keyed by channel, one pool of putters), so the two site crews
+  now say the same thing about pricing instead of opposite things. **Rejected:** one channel's
+  price winning (+49% on every fulfillment unload, bought with a statement about the mix rather
+  than about the warehouse — and the 7.6 s / 5.1 s spread is held to 4.4e-15 by check 6, so
+  declaring one of them wrong needs an argument nobody has); and a units-weighted blend, which is
+  worse than arbitrary because it MOVES WHEN THE MIX MOVES — `window-mix-before-model-error`
+  baked into the cost model itself, where no later analysis could separate the two. **It costs no
+  comparability break**, and is the first site-scoping decision on this map that is free: every
+  archived run is uncoupled, an uncoupled leaf constructs no list at all, and the two constants
+  that exist today ARE the list's two entries. **It retires 15's `C_store == C_ful`** — the clause
+  15 called the site dock's sharpest falsifier, which re-read under this answer was a claim about
+  PLUMBING dressed as one about physics. What replaces it is stronger and 15's own machinery
+  supports it: check 6 re-prices each row against ITS OWN regime's constant, two exact equalities
+  instead of one, failing if a row is ever charged at the other channel's rate.
+
 ## Not yet specified
 
 - **Nothing here needs a DECISION any more.** Every design ticket on this map is resolved, and
@@ -618,14 +639,11 @@ BEFORE anything runs: the inbound-optimization map resumes at
   of it**: the batch is now two halves (`replenish` then `step`) across every leaf, so a third
   interleave point exists that did not before. The residue pass is the cheap approximation and it
   is now built; what is still dim is whether the expensive one buys anything.
-- ~~**One unload price for the site dock.**~~ **TICKETED — no longer fog.** The coupled
-  coordinator now exists, and 21 found the question is not merely well-posed but has a THIRD
-  answer nobody had named: a price LIST keyed by the unloaded unit's own regime, which the
-  `regime_of` route at the handoff makes natural and which would retire 15's `C_store == C_ful`
-  by construction rather than satisfy or falsify it. That is a decision, so it graduated as
-  [Decide the site dock's unload price](issues/27-decide-the-site-docks-unload-price.md)
-  (`grilling`, open). 21 left the coordinator HANDED a priced dock and building none, so all
-  three answers stay reachable; **24 cannot build the site dock until this closes.**
+- ~~**One unload price for the site dock.**~~ **CLOSED**, same day it was ticketed, by
+  [Decide the site dock's unload price](issues/27-decide-the-site-docks-unload-price.md): the
+  dock holds a per-regime price LIST, so `C_store == C_ful` is false by construction and is
+  RETIRED rather than written. This entry asked whether the map's sharpest falsifier was even
+  well-posed. It was — about the wrong thing.
 - **`receiving_report`'s absolute tolerance.** `_TOL` is 1e-6 SECONDS, compared against sums
   that grow with the row count: on a 505,177-row arm checks 1's two surfaces accumulate 1.3e-6 s
   apart over 4,177,040.9 s — a relative error of 3e-13 reported as a FAIL, on four archived arms

@@ -26,12 +26,24 @@ leaves' DBs — which is precisely what a cross-leaf, role-qualified disjointnes
 also left the smaller leaf a deliberate GAP in its uid space, so any clause that assumes a dense
 uid range is wrong by construction. Check role-qualified identity, never density.
 
-**`C_store == C_ful` may not be well-posed, and this ticket is where that is settled.** The map's
-fog says the two channels run different pick configs, so today's per-leaf docks price at C = 7.6 s
-and C = 5.1 s; equality is a claim about the SITE dock owning one price list, which
-[Build the coupled receiving coordinator](21-build-the-coupled-receiving-coordinator.md) decides
-by having a price list at all. If 21 gave the site dock one price, this clause is a test; if it
-did not, this clause is void and must be recorded as such rather than written to pass.
+**`C_store == C_ful` IS RETIRED, and what replaces it is stronger.**
+[Decide the site dock's unload price](27-decide-the-site-docks-unload-price.md) settled it: the
+unload price is a statement about the MERCHANDISE, so the site dock holds a price LIST keyed by
+the unloaded unit's regime and the equality is false BY CONSTRUCTION. Do not write it, and do not
+write a weakened version of it. 15 called it "the site dock's sharpest falsifier" and it was
+sharp about the wrong thing — re-read under 27 it was a claim about PLUMBING (that two leaves
+resolved one price list) dressed as a claim about physics.
+
+**What replaces it is check 6 in a two-constant form**, which 15's own machinery already
+supports: re-price each receiving row against ITS OWN regime's constant, so the check becomes two
+exact equalities instead of one and FAILS if a row is ever charged at the other channel's rate —
+the defect the equality was reaching for and could not see.
+
+**The precondition, and it is this ticket's to establish BEFORE writing the check:** a receive
+row's regime has to be resolvable from the sim DB alone. `work_events` at the `receive` role may
+or may not carry it. If it does not, that is a COLUMN, and a column is a schema change that rides
+the pipeline (`--sync` before the DDL edit, `--accept` after), never a consumer edit. Establish it
+first — a check that silently cannot resolve the regime falls back to one constant and passes.
 
 ## What proves it
 

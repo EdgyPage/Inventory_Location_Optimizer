@@ -1,7 +1,7 @@
 # Build the composite gain bundle
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 21
 
 AFK. Graduated from the map's "remaining builds" fog by the execution override (map Notes).

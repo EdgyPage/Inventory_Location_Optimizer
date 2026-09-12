@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 21, 27
+Blocked by: 21
 
 AFK. Graduated from the map's "remaining builds" fog by the execution override (map Notes).
 [Re-scope the analysis surfaces to the site](07-rescope-the-analysis-surfaces.md) settled the
@@ -71,11 +71,17 @@ leaf's own composition, or the earlier leaf's put drain runs before the site's r
 the dock once and partition its records by owner (the six refused leaf accessors are the list of
 what needs a site-scoped replacement); and drain `site_rows` every batch.
 
-**And one decision must close first:** [Decide the site dock's unload
-price](27-decide-the-site-docks-unload-price.md). One dock has one `UnloadCost` and the two
-channels price at two, so the site dock cannot be priced until 27 answers. 21 leaves
-`SiteReceiving` handed a priced dock rather than building one, so all three candidate answers
-stay reachable — but a coupled standing run cannot be fielded through an unpriced dock.
+**The price decision is CLOSED and it is yours to build.**
+[Decide the site dock's unload price](27-decide-the-site-docks-unload-price.md) answered: the
+unload price is a statement about the MERCHANDISE, so the site dock holds a price LIST keyed by
+the unloaded unit's own regime — the same shape 19 already tested one crew over, where `s_put`
+is keyed by channel while the putters are one pool. So: `DockSpec`/`Dock` take a per-regime
+mapping instead of one `UnloadCost` and `Dock.unload_seconds` resolves per unit at the charge
+site, where 21's step-4 handoff already holds `regime_of(item.unit)`. Flag-off and uncoupled
+construct NO list, structurally, in the `recv_crew_spec` style — an uncoupled leaf builds its own
+dock from its own pick config exactly as today, which is what keeps every archived run
+byte-identical. **That decision costs no comparability break**; yours is the one that does, and
+it comes from fielding the dock, not from pricing it.
 
 ## What proves it
 
