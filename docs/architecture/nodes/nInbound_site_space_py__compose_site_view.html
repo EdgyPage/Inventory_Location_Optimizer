@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>compose_site_view · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_site_space_py__compose_site_view" data-id="Inbound/site_space.py::compose_site_view">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_site_space_py.html"><code>Inbound/site_space.py</code></a> <span class="sep">›</span> <span class="here"><code>compose_site_view</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>compose_site_view</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_site_space_py.html"><code>Inbound/site_space.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def compose_site_view(contributions) -&gt; SpaceView | None</code></pre>
+<section class="doc">One site view from `[(regime, view), ...]`, one entry per leaf that froze.
+
+`regime` is the CONTRIBUTING LEAF&#x27;s channel — the coordinator tags each contribution
+because it is the thing that holds both managers and called `freeze` on each, which is
+the same knowledge its `{sku: leaf}` owner dict is built from.  It is allowed to be
+None on a single-entry composition and only there: nothing is partitioned, so there is
+nothing for a tag to decide.
+
+Returns None when nothing froze (no leaf runs a timeline), which is every run without
+a standing yard, and the single view UNCHANGED when one leaf froze.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nInbound_space_py__SpaceView.html"><code>SpaceView</code></a> <span class="dim">Inbound/space.py</span></li><li><a href="nWarehouse_kernel_regime_py__regime_of.html"><code>regime_of</code></a> <span class="dim">Warehouse/kernel/regime.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_site_space_py__compose_site_view">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/site_space.py#:~:text=def%20compose_site_view">Source ↗</a></p>
+</article>
+</main>
+</body></html>

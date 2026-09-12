@@ -1066,6 +1066,11 @@
       "src": "Inbound/putaway_pool.py::PutawayPool.note_records"
     },
     {
+      "dst": "Inbound/site_space.py",
+      "kind": "imports",
+      "src": "Inbound/receiving.py"
+    },
+    {
       "dst": "Warehouse/kernel/allocation.py",
       "kind": "imports",
       "src": "Inbound/receiving.py"
@@ -1081,6 +1086,11 @@
       "src": "Inbound/receiving.py::SiteReceiving.drain"
     },
     {
+      "dst": "Inbound/receiving.py::SiteReceiving._freeze_views",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
       "dst": "Inbound/receiving.py::SiteReceiving._unload_merged",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.receive"
@@ -1089,6 +1099,31 @@
       "dst": "Inbound/receiving.py::SiteReceiving._unload_split",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Inbound/site_space.py::compose_site_view",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Inbound/space.py",
+      "kind": "imports",
+      "src": "Inbound/site_space.py"
+    },
+    {
+      "dst": "Warehouse/kernel/regime.py",
+      "kind": "imports",
+      "src": "Inbound/site_space.py"
+    },
+    {
+      "dst": "Inbound/space.py::SpaceView",
+      "kind": "calls",
+      "src": "Inbound/site_space.py::compose_site_view"
+    },
+    {
+      "dst": "Warehouse/kernel/regime.py::regime_of",
+      "kind": "calls",
+      "src": "Inbound/site_space.py::compose_site_view"
     },
     {
       "dst": "Inbound/space.py::SpaceView",
@@ -7356,9 +7391,39 @@
       "src": "Optimization/config/strategies.py::_stock_optimal"
     },
     {
+      "dst": "Optimization/config/strategies.py",
+      "kind": "imports",
+      "src": "Optimization/config/whatif_config.py"
+    },
+    {
       "dst": "Optimization/config/whatif_config.py::phase2_inbound_axis",
       "kind": "calls",
       "src": "Optimization/config/whatif_config.py::SPECS"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::rule_pairs_of",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::channel_restocks_for"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::validate_spec",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::get_spec"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::_rule_pairs",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::rule_pairs_of"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::rule_pairs_of",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::swept_rules_of"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::_rule_pairs",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::validate_spec"
     },
     {
       "dst": "Optimization/gpu/gpu_auction.py::_top2_numpy",
@@ -9152,6 +9217,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::staffing_spec",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::swept_rules_of",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
@@ -12296,6 +12366,11 @@
       "src": "Optimization/simdriver/scenario.py"
     },
     {
+      "dst": "Optimization/config/whatif_config.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/scenario.py"
+    },
+    {
       "dst": "Optimization/runschema/runlayout.py",
       "kind": "imports",
       "src": "Optimization/simdriver/scenario.py"
@@ -12352,6 +12427,26 @@
     },
     {
       "dst": "Optimization/config/strategies.py::restocks_for",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::channel_restocks_for",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::rule_pairs_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::swept_rules_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::validate_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
@@ -13536,6 +13631,11 @@
       "src": "Optimization/simdriver/workunits.py"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_arm_position"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::_config_name",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
@@ -13551,7 +13651,7 @@
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
     {
-      "dst": "Optimization/runschema/sim_manifest.py::_resume_path",
+      "dst": "Optimization/config/strategies.py::strategies_for",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
@@ -13566,12 +13666,22 @@
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
     {
+      "dst": "Optimization/simdriver/workunits.py::_leaf_is_complete",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_build_work_units"
+    },
+    {
       "dst": "Optimization/simdriver/workunits.py::_prepare_channel_run",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
     {
       "dst": "Optimization/simdriver/workunits.py::_prepare_site_run",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_build_work_units"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
@@ -13726,6 +13836,31 @@
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
+      "dst": "Optimization/runschema/sim_manifest.py::_load_resume",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_forget_arms"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_resume_path",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_forget_arms"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_save_resume",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_forget_arms"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_resume_path",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_leaf_is_complete"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_meta_path",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_leaf_is_complete"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::create_run",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_plan_strategy_start"
@@ -13741,12 +13876,12 @@
       "src": "Optimization/simdriver/workunits.py::_plan_strategy_start"
     },
     {
-      "dst": "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint",
+      "dst": "Optimization/simdriver/strategy_runner.py::reset_strategy_db",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_plan_strategy_start"
     },
     {
-      "dst": "Optimization/simdriver/strategy_runner.py::reset_strategy_db",
+      "dst": "Optimization/simdriver/workunits.py::_arm_position",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_plan_strategy_start"
     },
@@ -13841,6 +13976,11 @@
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
     {
+      "dst": "Optimization/simdriver/workunits.py::_arm_db_path",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
       "dst": "Optimization/simdriver/workunits.py::_channel_batch_plan",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
@@ -13874,6 +14014,46 @@
       "dst": "Optimization/simdriver/workunits.py::_prepare_channel_run",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_site_run"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_load_resume",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::reset_strategy_db",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_arm_db_path",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_arm_position",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_forget_arms",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_leaf_is_complete",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_meta_path",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_site_db_path",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit"
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::_write_run_spec",
@@ -21510,6 +21690,14 @@
     },
     {
       "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._freeze_views",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_freeze_views",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
       "id": "Inbound/receiving.py::SiteReceiving._unload_merged",
       "kind": "function",
       "module": "Inbound/receiving.py",
@@ -21538,6 +21726,22 @@
       "kind": "function",
       "module": "Inbound/receiving.py",
       "name": "receive",
+      "public": true
+    },
+    {
+      "file": "Inbound/site_space.py",
+      "id": "Inbound/site_space.py",
+      "kind": "module",
+      "module": "Inbound/site_space.py",
+      "name": "Inbound.site_space",
+      "public": true
+    },
+    {
+      "file": "Inbound/site_space.py",
+      "id": "Inbound/site_space.py::compose_site_view",
+      "kind": "function",
+      "module": "Inbound/site_space.py",
+      "name": "compose_site_view",
       "public": true
     },
     {
@@ -28654,18 +28858,18 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
-      "id": "Optimization/config/whatif_config.py::ERA_RUN_DEFAULTS",
+      "id": "Optimization/config/whatif_config.py::COUPLED_CHANNELS",
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
-      "name": "ERA_RUN_DEFAULTS",
+      "name": "COUPLED_CHANNELS",
       "public": true
     },
     {
       "file": "Optimization/config/whatif_config.py",
-      "id": "Optimization/config/whatif_config.py::PHASE2_ARMS",
+      "id": "Optimization/config/whatif_config.py::ERA_RUN_DEFAULTS",
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
-      "name": "PHASE2_ARMS",
+      "name": "ERA_RUN_DEFAULTS",
       "public": true
     },
     {
@@ -28718,6 +28922,14 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_PAIRS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_PAIRS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::PHASE2_RECV_CREW_SIZE",
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
@@ -28730,6 +28942,22 @@
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
       "name": "PHASE2_RECV_DAY_SECONDS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_RIDER",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_RIDER",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_RUN_DEFAULTS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_RUN_DEFAULTS",
       "public": true
     },
     {
@@ -28766,6 +28994,22 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::_rule_pairs",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "_rule_pairs",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::channel_restocks_for",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "channel_restocks_for",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::get_spec",
       "kind": "function",
       "module": "Optimization/config/whatif_config.py",
@@ -28787,6 +29031,30 @@
       "module": "Optimization/config/whatif_config.py",
       "name": "_policy",
       "public": false
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::rule_pairs_of",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "rule_pairs_of",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::swept_rules_of",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "swept_rules_of",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::validate_spec",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "validate_spec",
+      "public": true
     },
     {
       "file": "Optimization/gpu/__init__.py",
@@ -35510,6 +35778,22 @@
     },
     {
       "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_arm_db_path",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_arm_db_path",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_arm_position",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_arm_position",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
       "id": "Optimization/simdriver/workunits.py::_build_work_units",
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
@@ -35538,6 +35822,30 @@
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
       "name": "_derive_staffing_for_pair",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_forget_arms",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_forget_arms",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_leaf_is_complete",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_leaf_is_complete",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_meta_path",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_meta_path",
       "public": false
     },
     {
@@ -35582,6 +35890,14 @@
     },
     {
       "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_reconcile_coupled_unit",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_reconcile_coupled_unit",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
       "id": "Optimization/simdriver/workunits.py::_record_coverage",
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
@@ -35602,6 +35918,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
       "name": "_run_root_spec",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_site_db_path",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_site_db_path",
       "public": false
     },
     {

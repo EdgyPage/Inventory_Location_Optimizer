@@ -15,11 +15,30 @@
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_strategies_py.html"><code>Optimization/config/strategies.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def strategies_for(restocks) -&gt; list[Strategy]</code></pre>
-<section class="doc">Subset of STRATEGIES whose restock rule is in `restocks` (None ⇒ all).
+<section class="doc">Subset of STRATEGIES whose restock rule is in `restocks` (None ⇒ all), IN THE ORDER
+`restocks` states it — initial (uni/opt) outer, the caller&#x27;s rule order inner.
 
 Lets one channel run only a subset of restock rules (e.g. store: fifo + rank_labor)
-while another runs the full suite, without perturbing the global grid used elsewhere.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+while another runs the full suite, without perturbing the global grid used elsewhere.
+
+THE ORDER IS LOAD-BEARING UNDER COUPLING, and it was not before.  `_prepare_site_run`
+(`Optimization/simdriver/workunits.py`) builds the site&#x27;s arm PAIRS by zipping the two
+channels&#x27; lists as this function returns them, so position i of the store list is run
+against position i of the fulfillment list.  A filter that re-imposed the GRID&#x27;s order —
+which the old `[s for s in STRATEGIES if s.restock in restocks]` did — would throw away
+the rank order `run_restock_selection` spent a whole phase-1 run computing and pair rank 1
+against whichever of the other channel&#x27;s rules happens to sit earliest in `_RESTOCKS`.
+Same shape as site-dock 06 section 0&#x27;s `sorted(set(arms))` finding, one level down: a sort
+that destroys the only thing the diagonal reads, with nothing raising.
+
+BYTE-IDENTICAL when the caller&#x27;s order IS the grid order, which every committed
+`CHANNEL_RESTOCKS` value and every registered spec&#x27;s arm set is (asserted in
+Tests/unit/test_funnel_spec_pairs.py) — so this re-ordering moves no run that exists today.
+
+The inner order comes from ITERATION, so an unordered container has no defined arm order
+and is refused: a `set` would pair the two channels by whatever its hash order happened to
+be, which is a different campaign on a different Python build.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___build_work_units.html"><code>_build_work_units</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_strategies_py__strategies_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/strategies.py#:~:text=def%20strategies_for">Source ↗</a></p>
 </article>
 </main>

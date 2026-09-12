@@ -30,9 +30,31 @@ so an anchor inheriting a run-level `--inbound-lead-spread` would raise instead 
 Carrying the regime here makes the spec the whole experimental condition, reproducible
 without a remembered command line.
 
-The anchor is the validity check that phase 1&#x27;s ranking transferred — present as a cell,
-never the reference.  The reference is `fifo`, so every delta reads &quot;versus FIFO&quot;, which
-is the campaign&#x27;s own question.</section>
+THE ANCHOR IS NOT A CROSS-PHASE VALIDITY CHECK, and saying so here was false (site-dock 06
+section 3, which rewrote this paragraph rather than amending it — a stale comment claiming a
+guarantee the campaign does not have is worse than no comment).  EVERY cell of phase 2 runs
+the COUPLED site model, `inb_off` included, because coupling is a property of the RUN and is
+DECLARED (`--couple-channels`, carried by `PHASE2_RUN_DEFAULTS`), never inferred from the
+inbound flag.  So `inb_off` is the inbound-OFF POLE INSIDE the coupled model — the control
+for &quot;does running an inbound pipeline at all change the answer, versus which policy runs it&quot;,
+and the only cell with no yard, which makes it the structural zero for every yard quantity.
+
+What that trades away is the comparison with phase 1, and the trade is deliberate.  Phase 1
+is inbound-off and UNCOUPLED, so it ranks placement arms under 2x the site put labour: an
+uncoupled leaf is handed the WHOLE derived site crew, twice over (site-dock 19 measured the
+break).  Under the old leaf model `inb_off` was comparable with phase 1 but confounded
+against its own nine siblings; coupling every cell inverts that, and the matrix&#x27;s own deltas
+are what the campaign publishes, so that is the side kept whole.  The asymmetry is not a
+clean scaling either — what doubles is put and receiving CAPACITY, not labour seconds, and
+under drain-or-cap a larger crew cuts less and completes more per day by an amount that
+differs per arm — so a RANK comparison across the boundary is no more invariant than an
+hours one.  The caveat is carried as a STAMP (`restock_selection.json`&#x27;s `put_regime:
+&#x27;per-leaf&#x27;`) and published with the campaign; there is no runtime gate because nothing in
+the codebase reads two run roots, so there is no join to gate.  The one reachable mistake —
+pointing the selector at a coupled root — is refused by `run_restock_selection.select`.
+
+The reference is `fifo`, so every delta reads &quot;versus FIFO&quot;, which is the campaign&#x27;s own
+question.  The anchor is present as a cell, never the reference.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_whatif_config_py__SPECS.html"><code>SPECS</code></a> <span class="dim">Optimization/config/whatif_config.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_whatif_config_py__phase2_inbound_axis">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/whatif_config.py#:~:text=def%20phase2_inbound_axis">Source ↗</a></p>
 </article>

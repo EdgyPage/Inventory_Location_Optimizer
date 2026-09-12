@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_reconcile_coupled_unit · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___reconcile_coupled_unit" data-id="Optimization/simdriver/workunits.py::_reconcile_coupled_unit">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_reconcile_coupled_unit</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_reconcile_coupled_unit</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _reconcile_coupled_unit(pair_dir, leaves, n_batches, log, tag=&#x27;&#x27;, mid_flight=False) -&gt; bool</code></pre>
+<section class="doc">Is this coupled pair complete — and if it is torn, REPAIR it.  Site-dock 10 sections 1-3.
+
+`leaves` is `[(channel_run_dir, [arm_key, ...]), ...]` in the declared channel order
+(store first), positionally aligned: arm rank r of one leaf pairs with rank r of the
+other, which is exactly how `_prepare_site_run` builds the units.  Returns True only when
+every leaf is complete, i.e. when `_build_work_units` may skip the pair.
+
+THE FOUR STATES.  Both complete -&gt; skip.  Neither started, or both mid-flight and in step
+-&gt; nothing to do; the ordinary per-arm resume below handles them.  The other two are the
+ones this function exists for:
+
+  * TORN -- one leaf finalized and the other not.  Reachable only by a kill between the
+    two `_finalize_config_run` calls, and the repair is whole-dir: a finalized leaf has
+    had its checkpoints cleaned, so there is no per-arm position left to compare and every
+    arm of BOTH leaves replays.  The complete leaf&#x27;s marker is removed, which is what
+    un-finalizes it.
+  * SKEWED -- the two leaves&#x27; copies of one arm disagree about where they are.  Each leaf
+    writes its own `_ckpt_&lt;arm&gt;.pkl` inside one batch loop (`strategy_runner`: leaf A
+    saves, then leaf B), so a kill between the two saves leaves the pair one checkpoint
+    apart.  That rank replays in both leaves.
+
+THE REPLAY IS FORCED, NOT CHOSEN.  The leaves step in lockstep over a shared dock, a
+shared put clock and a shared receiving clock, so leaf B cannot be stepped without leaf A
+being stepped.  There is no version of this where the leaf that got further is spared; the
+only question was whether its output is discarded CLEANLY or left to collide with the
+replay, and that question has one answer.  The reset is exact -- the same reset
+`_plan_strategy_start` already applies to a partial arm, which replays bit-identically
+from batch 0 -- which is why refusing the resume outright would buy nothing.
+
+THE SKEW IS WHY THIS IS NOT OPTIONAL.  `_run_strategy_worker_impl` refuses a unit whose
+leaves do not share one batch range, and that refusal cannot clear itself: a leaf already
+at `n_batches` is planned as a done arm and never reset, while its sibling resets to 0, so
+every later `--resume` reproduces the same disagreement and the pair is wedged for good.
+
+THE SITE DB IS THE UNIT&#x27;S THIRD OUTPUT and joins the reset.  `reset_strategy_db` knows an
+arm&#x27;s `sim_&lt;arm&gt;.db`, its keyframe sibling and its checkpoint; it does not know
+`&lt;pair&gt;/_site/inbound_&lt;a&gt;__&lt;b&gt;.db`, so a replayed unit would append a SECOND run&#x27;s
+trailer, drain and door rows to it.  It is the only such artifact -- every pack-denominated
+receiving quantity lives in its own channel&#x27;s sim DB (ADR-0005), and the run layout&#x27;s
+`coupled` marker is written once per run by the parent, not per unit -- so the reset surface
+is exactly three things per leaf plus one per rank.
+
+`mid_flight` is the supervisor&#x27;s RETRY, not a resume of a dead run.  A tear seen there
+means a `_finalize_config_run` raised while the pool was still up, and every unit is
+already in `done_uids` -- so a repair would delete the output of units that will never be
+resubmitted.  The tear is reported and left for the next `--resume`, where the units are
+planned again and the repair is safe.
+
+IT IS NOT SILENT.  `run.log` is the only place a multi-hour run&#x27;s damage is visible, and
+&quot;a finished leaf was discarded and replayed&quot; is a line a reader must be able to find.</section>
+<section class="rel"><h2>Callees <span class="count">(8)</span></h2><ul><li><a href="nOptimization_runschema_sim_manifest_py___load_resume.html"><code>_load_resume</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py__reset_strategy_db.html"><code>reset_strategy_db</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_workunits_py___arm_db_path.html"><code>_arm_db_path</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___arm_position.html"><code>_arm_position</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___forget_arms.html"><code>_forget_arms</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___leaf_is_complete.html"><code>_leaf_is_complete</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___meta_path.html"><code>_meta_path</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___site_db_path.html"><code>_site_db_path</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___build_work_units.html"><code>_build_work_units</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___reconcile_coupled_unit">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_reconcile_coupled_unit">Source ↗</a></p>
+</article>
+</main>
+</body></html>

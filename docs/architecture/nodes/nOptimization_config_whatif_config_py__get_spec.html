@@ -15,8 +15,11 @@
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_whatif_config_py.html"><code>Optimization/config/whatif_config.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def get_spec(name)</code></pre>
-<section class="doc">Return the cell-matrix spec dict for a registered name (KeyError if unknown).</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main__resolve_spec.html"><code>_resolve_spec</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<section class="doc">Return the cell-matrix spec dict for a registered name (KeyError if unknown).
+
+Shape-checked on the way out (`validate_spec`): `run_simulation._resolve_spec` catches the
+KeyError to print the choices, so a shape refusal is raised as a ValueError and propagates.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_whatif_config_py__validate_spec.html"><code>validate_spec</code></a> <span class="dim">Optimization/config/whatif_config.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main__resolve_spec.html"><code>_resolve_spec</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_whatif_config_py__get_spec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/whatif_config.py#:~:text=def%20get_spec">Source ↗</a></p>
 </article>
 </main>

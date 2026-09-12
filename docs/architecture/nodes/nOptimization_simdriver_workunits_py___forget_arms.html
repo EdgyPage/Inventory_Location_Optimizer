@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_forget_arms · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___forget_arms" data-id="Optimization/simdriver/workunits.py::_forget_arms">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_forget_arms</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_forget_arms</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _forget_arms(run_dir: str, arms) -&gt; None</code></pre>
+<section class="doc">Drop `arms` from one leaf&#x27;s resume record so the planner starts them FRESH.
+
+`reset_strategy_db` removes the arm&#x27;s db and its checkpoint but cannot touch the resume
+record, and the record is the planner&#x27;s fallback: `_arm_position` reads the checkpoint
+`or prev_start`, so an arm whose checkpoint was just deleted would be planned at the
+counter the LAST prepare wrote -- typically `n_batches` -- and would then run an empty
+loop over a database that no longer exists.  Nothing raises; the arm simply produces no
+rows.  Dropping the entry makes `prev_id` None, which is the fresh branch.
+
+The file is removed outright when no arm survives it, so the leaf reads as a new run
+rather than a resume of nothing.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_runschema_sim_manifest_py___load_resume.html"><code>_load_resume</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li><li><a href="nOptimization_runschema_sim_manifest_py___resume_path.html"><code>_resume_path</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li><li><a href="nOptimization_runschema_sim_manifest_py___save_resume.html"><code>_save_resume</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___reconcile_coupled_unit.html"><code>_reconcile_coupled_unit</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___forget_arms">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_forget_arms">Source ↗</a></p>
+</article>
+</main>
+</body></html>

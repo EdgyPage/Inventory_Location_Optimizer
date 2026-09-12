@@ -107,6 +107,12 @@ files:
     key_symbols:
       - {name: "SiteReceiving", file: "Inbound/receiving.py", kind: "class"}
     notes: "Owns the standing drain, which used to be the manager's `_receive_standing`. Reaches each channel's leaf through two public ports (`plan_lot`, `accept`) and never imports one: `Warehouse <-> Inbound` is forbidden both ways, so the driver binds it (`mgr.receiving`). That is what lets one dock serve two leaves."
+  "Inbound/site_space.py":
+    purpose: "Composes the leaves' frozen space views into the ONE view a drain reads: `empties` filtered per contributing leaf so the key set is partitioned by regime, `predicted` and `emptied_at` unioned, versions element-wise, `released_at` per regime, the futuresight window refused."
+    layer: "inbound"
+    key_symbols:
+      - {name: "compose_site_view", file: "Inbound/site_space.py", kind: "function"}
+    notes: ""
   "Inbound/space.py":
     purpose: "the event-stamped space timeline the standing dock's decisions read."
     layer: "inbound"
@@ -816,7 +822,8 @@ files:
     layer: "opt_config"
     key_symbols:
       - {name: "WHATIF", file: "Optimization/config/whatif_config.py", kind: "const"}
-      - {name: "PHASE2_ARMS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_PAIRS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_RIDER", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_THRESHOLD_DAYS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_LEAD_MINUTES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_LEAD_SPREAD", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -827,9 +834,15 @@ files:
       - {name: "PHASE2_RECV_DAY_SECONDS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "ERA_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PILOT_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "phase2_inbound_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "COUPLED_CHANNELS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "rule_pairs_of", file: "Optimization/config/whatif_config.py", kind: "function"}
+      - {name: "channel_restocks_for", file: "Optimization/config/whatif_config.py", kind: "function"}
+      - {name: "swept_rules_of", file: "Optimization/config/whatif_config.py", kind: "function"}
+      - {name: "validate_spec", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "get_spec", file: "Optimization/config/whatif_config.py", kind: "function"}
     notes: ""
   "Optimization/gpu/gpu_auction.py":
@@ -2252,6 +2265,13 @@ files:
       - {name: "test_independent_sweep_is_union_not_cross_product", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
       - {name: "test_store_only_catalog_skips_fulfillment_sweep", file: "Tests/e2e/test_channel_runner_smoke.py", kind: "function"}
     notes: ""
+  "Tests/e2e/test_coupled_resume_e2e.py":
+    purpose: "Drives a real mid-flight kill of a coupled pair and the resume that repairs it end to end, so the reconciler is proven against a torn tree the simulation actually produced rather than one built by hand."
+    layer: "tests"
+    key_symbols:
+      - {name: "site", file: "Tests/e2e/test_coupled_resume_e2e.py", kind: "function"}
+      - {name: "test_a_real_mid_flight_kill_tears_a_coupled_pair_and_resume_repairs_it", file: "Tests/e2e/test_coupled_resume_e2e.py", kind: "function"}
+    notes: ""
   "Tests/e2e/test_coupled_unit_e2e.py":
     purpose: "The coupled (site) work unit end to end: one unit, two channel leaves, one batch loop. Proves both leaves' DBs are written with the right identity, that the site crews sit on the unit and on neither leaf (the double count, fixed by deletion), that the leaves partition the catalogue, and -- the pin that will fail when 04's put pool lands -- that a coupled unit still matches the two independent units it replaces."
     layer: "tests"
@@ -2484,6 +2504,25 @@ files:
       - {name: "test_macros_verifier_accepts_every_committed_contract", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
       - {name: "test_macros_verifier_rejects_an_uncommitted_schema", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
       - {name: "test_macros_verifier_rejects_moved_levels", file: "Tests/integration/test_consumer_paths_golden.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_coupled_resume_reconciler.py":
+    purpose: "Pins the coupled pair's completeness test and its four-part torn-pair repair (both leaf DBs, the meta markers, the site DB and the resume records), the checkpoint-skew state, and the batch-grain refusal."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_both_leaves_complete_skips_and_touches_nothing", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_neither_leaf_started_is_incomplete_and_unrepaired", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_both_leaves_partial_and_in_step_are_left_alone", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_a_torn_pair_is_un_finalized_and_both_leaves_replay", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_a_torn_pair_repairs_in_the_other_direction_too", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_a_skewed_arm_pair_replays_in_both_leaves", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_the_resume_record_forgets_only_the_discarded_arm", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_the_repaired_tree_plans_a_fresh_start_with_one_run_per_db", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_a_repair_is_declined_while_the_pool_is_still_up", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_the_site_db_sits_under_the_reserved_pair_subtree", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_batch_grain_resume_is_refused_for_a_coupled_leaf", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_both_leaves_of_a_site_run_are_prepared_as_coupled", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_the_supervisor_declares_its_retries_mid_flight", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
+      - {name: "test_an_uncoupled_leaf_is_untouched_by_the_new_reason", file: "Tests/integration/test_coupled_resume_reconciler.py", kind: "function"}
     notes: ""
   "Tests/integration/test_crash_recovery.py":
     purpose: "locks run_simulation crash-recovery: the finalize gate, the supervisor's rebuild/quarantine, and _plan_strategy_start granularity."
@@ -3843,6 +3882,41 @@ files:
       - {name: "test_mixed_plan_fraction_regime_and_weights", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
       - {name: "test_zero_fraction_gives_no_fulfillment", file: "Tests/unit/test_fulfillment_inventory.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_funnel_spec_pairs.py":
+    purpose: "Pins the phase-2 funnel spec as ordered RULE PAIRS: the derived per-channel columns reproduce today's curated install, rank order survives to the zip, the driver installs what the derivation says, and every shape a spec cannot mean is refused before a run directory exists."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_derived_channel_restocks_reproduce_the_committed_install", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_committed_channel_restocks_survive_a_spec_that_declares_nothing", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_rule_pair_list_derives_the_arm_set_it_came_from", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_an_asymmetric_pairing_derives_two_different_columns_in_rank_order", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_derived_columns_zip_back_to_the_pairing", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_rule_pair_spec_refuses_a_single_channel_run", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_descriptors_arm_field_is_unchanged_for_every_committed_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_rule_pair_campaign_records_the_rules_it_actually_swept", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_driver_writes_the_descriptor_through_that_accessor", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_flat_arm_tuple_under_the_new_name_is_refused", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_malformed_pair_list_is_refused", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_pair_list_without_the_fifo_rider_is_refused", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_rule_ranked_twice_in_one_column_is_refused", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_declaring_both_arms_and_rule_pairs_is_refused", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_rule_pairs_without_declared_coupling_are_refused", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_an_inbound_matrix_with_no_arm_set_is_refused_at_get_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_every_other_registered_spec_passes_its_own_shape_check", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_campaign_spec_declares_coupling_and_the_era", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_strategies_for_is_unchanged_for_every_grid_ordered_arm_set", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_no_committed_spec_moves_an_arm", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_strategies_for_follows_the_declared_rank_order", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_strategies_for_refuses_an_unordered_arm_set", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_repeated_rule_cannot_open_a_second_rank_slot", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_driver_installs_each_channels_own_column_from_a_pair_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_spec_that_declares_no_arm_set_leaves_the_committed_value_alone", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_flat_arm_spec_still_installs_the_same_subset_everywhere", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_flat_fifo_rider_refusal_still_fires_at_the_driver", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_pair_spec_satisfies_the_flat_rider_check_by_construction", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_driver_validates_a_spec_that_never_came_through_get_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_an_inbound_spec_with_no_arm_set_is_refused_at_the_driver_too", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_gain_plan.py":
     purpose: "the gain-family ordering entries and their evaluator."
     layer: "tests"
@@ -4831,6 +4905,31 @@ files:
       - {name: "test_accept_flips_the_ledger_and_charges_the_leaf_not_the_dock", file: "Tests/unit/test_site_receiving.py", kind: "function"}
       - {name: "test_a_standing_transit_without_a_coordinator_refuses_loudly", file: "Tests/unit/test_site_receiving.py", kind: "function"}
       - {name: "test_the_site_composition_substitutes_only_the_receive_phase", file: "Tests/unit/test_site_receiving.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_site_space_view.py":
+    purpose: "Pins the site space view: the regime partition and both leaves' phantoms dropped, identity pass-through of the frozen tuples, element-wise versions, per-regime `released_at`, every refusal, and that a real drain still routes through the composer seam."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_one_contribution_is_returned_by_identity", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_one_contribution_keeps_its_phantom", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_no_contribution_composes_to_none", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_empties_is_partitioned_by_regime", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_neither_leaf_phantom_survives", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_the_tuples_pass_through_by_identity", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_regime_of_a_BINKEY_is_the_trap_this_filter_avoids", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_predicted_and_emptied_at_are_unioned_not_filtered", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_versions_are_element_wise_and_never_summed", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_two_different_histories_do_not_compose_equal", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_released_at_is_carried_per_regime_and_never_averaged", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_one_site_epoch_and_a_disagreement_is_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_a_futuresight_window_is_refused_rather_than_zipped", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_an_untagged_contribution_is_refused_once_there_are_two", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_two_leaves_claiming_one_regime_are_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_an_emptied_at_id_collision_is_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_a_heterogeneous_key_is_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_freeze_views_contributes_one_untagged_view_per_timeline", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_a_real_drain_puts_the_composed_view_on_the_frozen_ctx", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_the_drain_routes_through_the_composer_seam", file: "Tests/unit/test_site_space_view.py", kind: "function"}
     notes: ""
   "Tests/unit/test_sorted_bins_container.py":
     purpose: "`_SortedBins` behaves exactly like the `set[Aisle.Bin]` it"
