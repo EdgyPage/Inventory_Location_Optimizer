@@ -93,21 +93,25 @@ BEFORE anything runs: the inbound-optimization map resumes at
   and **Scope** and amended **Clock**; the decision behind them is
   [ADR-0005](../../docs/adr/0005-inbound-scope-splits-at-the-pack.md). Code identifiers follow at
   build time. Nothing further is owed the glossary by this map unless a ticket coins a term.
-- **The route (charted in full, 2026-09-11).** Every DECISION is closed; what remains is the
-  execution the override carries. Seven build tickets, and three of them are independent:
+- **The route (charted in full, 2026-09-11).** Seven build tickets, three of them independent
+  — and ONE decision, reopened by the build that reached it (27, below). Everything else is the
+  execution the override carries:
 
   ```
   20 site space view ──▶ 21 coupled receiving coordinator ─┬─▶ 24 site analysis stage ──▶ 25 site crew checks
       [DONE]                    [DONE]                     └─▶ 26 composite gain bundle
   22 coupled resume reconciler  [DONE]   (independent)
   23 funnel spec for arm pairs  [DONE]   (independent)
-  27 the site dock's unload price  (grilling, OPEN -- graduated by 21; 24 needs it)
+  27 the site dock's unload price  (grilling, OPEN, **HITL** -- graduated by 21; 24 needs it)
   ```
 
   **20, 22 and 23 landed together on 2026-09-11**, run in parallel — which is also how the three
   independent tickets were meant to be used, and **21 followed the same day**. What is left is
-  24 -> 25, plus 26 off 21, and the one DECISION 21 graduated (27, which 24 needs before it can
-  build the site dock). The map closes when 25 and 26 are in; the inbound-optimization
+  24 -> 25, plus 26 off 21, and the one DECISION 21 graduated — **27 is the only HITL ticket on
+  this map and needs a human**, and 24 is blocked on it because a coupled standing run cannot be
+  fielded through an unpriced dock. **24 also now carries the SECOND COMPARABILITY BREAK**, which
+  21 correctly declined: what breaks comparability is a run FIELDING one dock, and all three
+  things such a run needs sat on 21's own exclusion list. The map closes when 25 and 26 are in; the inbound-optimization
   map then resumes at
   [Re-verify the gate under the lead-aware record](../inbound-optimization/issues/26-reverify-the-gate-under-the-lead-aware-record.md).
 - Memories every session should load: `site-dock-is-shared-across-channels`,

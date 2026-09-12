@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 21
+Blocked by: 21, 27
 
 AFK. Graduated from the map's "remaining builds" fog by the execution override (map Notes).
 [Re-scope the analysis surfaces to the site](07-rescope-the-analysis-surfaces.md) settled the
@@ -39,6 +39,43 @@ Two traps this stage sits on top of:
 - **A crew share denominated on span over-reads ~3x** (memory `calendar-span-is-not-work-days`);
   a leaf's span is its distinct `work_day` count, and the site's is the same count because one
   batch is one site day.
+
+## Amendment (2026-09-11, from ticket 21)
+
+**THIS TICKET NOW CARRIES THE SECOND COMPARABILITY BREAK.** 21 built the coupled receiving
+coordinator and correctly declined to measure a break, because the thing that breaks
+comparability is a coupled run FIELDING one dock — and three things such a run needs were on
+21's own exclusion list. Two of them are this ticket's:
+
+- **The site-scoped rows have no home.** A coupled drain's `yard_drains` and `yard_trailers`
+  are trailer- and door-denominated, so they are the site's and not a channel's. Their declared
+  artifact is `<pair>/_site/inbound_<arm-pair>.db` (ADR-0005), and until it exists 21 PARKS the
+  row rather than handing it to `leaves[0]` — writing it there would be
+  `a-right-site-total-hides-two-wrong-shares` built deliberately.
+- **One transit carries ONE `gain_bundle` slot for two owners** — that is 05's, and it is
+  [Build the composite gain bundle](26-build-the-composite-gain-bundle.md), which runs
+  alongside this ticket rather than before it.
+
+So the run that fields the site dock is this one, and its acceptance gains what 21's could not
+have: **measure the break per leaf and record it**, the way
+[Build the site put-away pool](19-build-the-site-putaway-pool.md) did.
+`Tests/e2e/test_coupled_unit_e2e.py::test_a_coupled_unit_matches_the_two_units_it_replaces` was
+amended by 19 and left untouched by 21; extend it here.
+
+**21's hand-off list for the driver, verbatim, so it is not re-derived:** build the dock, yard
+and coordinator at UNIT scope the way `_build_put_pool` does; hand the SAME transit to both
+leaves and `bind` each; chain the receiving uid block off the put pool's block end; base
+`_recv_base` on `open_batch(day_of(i))` and report each leaf's finish to `note_records`; drive
+`SiteReceiving.drain` INSTEAD of two `check_reorders` — phase 5 must not go back through each
+leaf's own composition, or the earlier leaf's put drain runs before the site's receive; drain
+the dock once and partition its records by owner (the six refused leaf accessors are the list of
+what needs a site-scoped replacement); and drain `site_rows` every batch.
+
+**And one decision must close first:** [Decide the site dock's unload
+price](27-decide-the-site-docks-unload-price.md). One dock has one `UnloadCost` and the two
+channels price at two, so the site dock cannot be priced until 27 answers. 21 leaves
+`SiteReceiving` handed a priced dock rather than building one, so all three candidate answers
+stay reachable — but a coupled standing run cannot be fielded through an unpriced dock.
 
 ## What proves it
 
