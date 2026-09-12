@@ -220,7 +220,14 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
         work_units, meta = _build_work_units(
             pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
             skip_completed=(skip_completed or attempt > 0),
-            resume_granularity=resume_granularity)
+            resume_granularity=resume_granularity,
+            # THE POOL IS STILL UP on every attempt after the first, and `done_uids` already
+            # holds the units that finished before the break -- they are filtered out of
+            # `remaining` below and will never be resubmitted.  The coupled reconciler needs
+            # to know that: a torn pair seen HERE would be repaired by discarding the output
+            # of exactly those units.  A `--resume` of a dead run has no done_uids and is the
+            # state the repair is written for (site-dock 10 / 22).
+            mid_flight=attempt > 0)
         remaining = [(uid, sa) for uid, sa in work_units if uid not in done_uids]
         if not remaining:
             break

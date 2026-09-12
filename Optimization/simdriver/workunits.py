@@ -42,9 +42,34 @@ from Warehouse.layout.Storage_Primitive import StoreCart
 # Warehouse.kernel.regime.regime_of, Optimization.config.channels.make_channel.
 
 
+def _arm_db_path(run_dir: str, arm: str) -> str:
+    """`<channel run dir>/sim_<arm>.db` — ONE spelling of an arm's result DB.
+
+    `_prepare_channel_run` builds the map the workers are handed and `_reconcile_coupled_unit`
+    has to name the same files to discard them, so the two read it from here.  A second
+    spelling would not fail: it would remove nothing and leave the arm's rows to be appended
+    to on the replay, which is the silent-doubling shape `_plan_strategy_start`'s duplicate-run
+    refusal exists to make impossible.
+    """
+    return os.path.join(run_dir, f'sim_{arm}.db')
+
+
+def _arm_position(run_dir: str, arm: str, prev_start: int = 0) -> int:
+    """The batch this arm would resume AT, from its on-disk state.
+
+    The advanced per-arm checkpoint when there is one, else the counter the last prepare
+    recorded in the leaf's resume file.  ONE definition, because `_plan_strategy_start` decides an
+    arm's branch from it and `_reconcile_coupled_unit` decides whether a coupled pair's two
+    leaves AGREE from it — and two leaves compared by a different rule from the one that
+    plans them is a comparison that can be true while the plan disagrees.
+    """
+    return load_worker_checkpoint(run_dir, arm) or prev_start
+
+
 def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity,
                          granularity, prev_id, prev_start, is_resume, log,
-                         roll_over: bool = False, receiving: bool = False):
+                         roll_over: bool = False, receiving: bool = False,
+                         coupled: bool = False):
     """Decide (run_id, start_batch) for one strategy, honoring resume granularity.
 
     - Fresh run / a strategy new on resume → init DB + create_run, start 0; RAISES if
@@ -55,7 +80,23 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
         strategy granularity → reset the arm's DB + fresh run_id, start 0 (bit-identical to an
                                uncrashed run — no un-replayed physical state);
         batch granularity    → reuse run_id, start = ckpt (fast, but NOT bit-identical — warn),
-                               and REFUSED outright when the carry is on (see below).
+                               and REFUSED outright when the carry is on, when a dock exists,
+                               or when the arm is a LEAF OF A COUPLED UNIT (see below).
+
+    THE COUPLED REFUSAL IS THE STRONGEST OF THE THREE, and independent of the other two
+    (site-dock 10 section 4).  Two leaves resume from two independently written
+    `_ckpt_<arm>.pkl` files in two directories, so a batch-level resume could lawfully start
+    them at DIFFERENT batches -- and one batch is one site day (`simconfig/staffing.py`, which
+    refuses channels with differing batch counts outright).  A site day half-run in one channel
+    and not the other is not a degraded run; it is a run whose shared dock, put pool and recv
+    clock never existed.  It is stated separately rather than left to the other two because
+    NEITHER of them is a statement about coupling: `receiving` evaporates if a derived crew
+    ever rounds below 1, and `roll_over` is a work-day knob any cell may clear, so today's
+    coverage is a coincidence nobody would notice losing.
+
+    There is no assertion anywhere downstream that the two leaves' batch-level starts agree,
+    and there must not be: refusing here is what makes the case unreachable, and asserting
+    about it would imply it is not.
 
     THE CARRY MAKES BATCH-LEVEL RESUME LOSE DEMAND, not just precision.  `_pending` -- the
     units a day cut or a stock clamp rolled into the next batch -- lives in the worker's
@@ -91,7 +132,7 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
         init_run_db(db_path)
         return create_run(db_path, s.run_type, run_params,
                           identity={**identity, 'strategy_key': s.key}), 0
-    ckpt = load_worker_checkpoint(ch_run_dir, s.key) or prev_start
+    ckpt = _arm_position(ch_run_dir, s.key, prev_start)
     if 0 < ckpt < n_batches:
         if granularity == 'strategy':
             reset_strategy_db(ch_run_dir, db_path, s.key)
@@ -99,13 +140,21 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
             log.info(f'  [{s.key}] strategy-level reset -> batch 0 (bit-identical)')
             return create_run(db_path, s.run_type, run_params,
                               identity={**identity, 'strategy_key': s.key}), 0
-        if roll_over or receiving:
-            # Two different pieces of worker-local state, same consequence and same fix.
-            # The receiving case is the worse of the two: unlike the pick carry, merchandise
-            # standing on a discarded dock is STILL credited to the inventory position, so
-            # the SKU does not re-order either -- the run reports labour it did not do and
-            # inventory it does not have.
-            why = ('unpicked demand rolls over: the carry lives in the worker and is in no '
+        if coupled or roll_over or receiving:
+            # Three different pieces of state, same consequence and same fix.  The COUPLED
+            # case is checked first because it is the only one of the three that is a
+            # statement about this unit's SHAPE rather than about a knob: the other two can
+            # both be off on a coupled run, and then the refusal would evaporate silently.
+            # The receiving case is the worse of the two knobs: unlike the pick carry,
+            # merchandise standing on a discarded dock is STILL credited to the inventory
+            # position, so the SKU does not re-order either -- the run reports labour it did
+            # not do and inventory it does not have.
+            why = ('this arm is one LEAF of a coupled unit: its sibling leaf keeps its own '
+                   'checkpoint in its own directory, so resuming at a batch would start the '
+                   'two channels on different site DAYS -- a day whose shared dock, put pool '
+                   'and receiving clock never existed in either leaf'
+                   if coupled else
+                   'unpicked demand rolls over: the carry lives in the worker and is in no '
                    'checkpoint, so resuming here would DROP every unit the pre-crash run '
                    'carried and report throughput it did not earn'
                    if roll_over else
@@ -163,6 +212,7 @@ def _prepare_channel_run(
     log     : logging.Logger,
     workers : int = 1,
     resume_granularity: str = 'strategy',
+    coupled : bool = False,  # this channel-run is one LEAF of a coupled unit (site-dock 10)
 ) -> tuple[list, list]:
     """Pre-initialise ONE channel-run (one config driving one channel): create DBs, get
     run_ids, build strategy_args for the flat ProcessPoolExecutor.
@@ -175,6 +225,11 @@ def _prepare_channel_run(
 
     Returns (strategy_args_list, [sim_result_skeleton]).  log_queue is NOT set — the caller
     injects it before submission.
+
+    ``coupled`` says this run is one leaf of a COUPLED unit (`_prepare_site_run`).  It changes
+    nothing here except the resume grain the planner will accept: a leaf may not resume at a
+    batch, because its sibling's checkpoint lives in another directory and the two would start
+    on different site days.  Default False, so every uncoupled caller is byte-identical.
     """
     from dataclasses import replace                        # noqa: E402 (local)
     from Warehouse.kernel.regime import regime_of                           # noqa: E402
@@ -335,7 +390,7 @@ def _prepare_channel_run(
     ch_strategies = strategies_for(ch.restocks)
     ch_run_dir = os.path.join(run_dir, ch.name) if mixed else run_dir
     os.makedirs(ch_run_dir, exist_ok=True)
-    ch_db_path = {s.key: os.path.join(ch_run_dir, f'sim_{s.key}.db') for s in ch_strategies}
+    ch_db_path = {s.key: _arm_db_path(ch_run_dir, s.key) for s in ch_strategies}
 
     if mixed:
         # Channel-specific cost + pool + a REGIME-PURE precomputed batch stream shared across
@@ -402,7 +457,8 @@ def _prepare_channel_run(
             resume_granularity, prev_ids.get(s.key), prev_starts.get(s.key, 0),
             resume is not None, log,
             roll_over=bool(work_day_spec().get('roll_over_unpicked')),
-            receiving=recv_crew_spec(size=_recv_size) is not None)
+            receiving=recv_crew_spec(size=_recv_size) is not None,
+            coupled=coupled)
     if resume:
         log.info(f'  Resuming [{ch.name}]  '
                  + '  '.join(f'{s.key}@{starts[s.key]}' for s in ch_strategies))
@@ -543,7 +599,11 @@ def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str,
         (ch, cfg), = _by_channel[_name]
         _sa, _sk = _prepare_channel_run(ch, cfg, mixed, shared, pair_dir, log,
                                         workers=workers,
-                                        resume_granularity=resume_granularity)
+                                        resume_granularity=resume_granularity,
+                                        # The leaf's resume grain (site-dock 10 section 4):
+                                        # a batch-level start is refused for BOTH leaves, so
+                                        # the pair can only ever replay a whole arm together.
+                                        coupled=True)
         leaves.append((_config_name(cfg), ch, _sa))
         skeletons.extend(_sk)
 
@@ -586,6 +646,197 @@ def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str,
             # log_queue is NOT set here -- injected by the flat pool, as for a leaf unit.
         })
     return unit_args, skeletons
+
+
+# ── the coupled pair's completeness, and the torn-pair repair ──────────────────
+# Site-dock 10.  A coupled unit finalizes TWO leaves, so a kill can leave a half-written pair
+# that every existing guard reads one leaf at a time and therefore calls half-complete.  The
+# rule is both leaves or neither, and a pair that disagrees with itself REPAIRS rather than
+# refuses: strategy-granularity resume already replays a partial arm bit-identically from
+# batch 0 (`_plan_strategy_start`), and un-finalizing a leaf that happened to reach the end is
+# that same operation applied one step later.  Refusal-until-clean is the right answer only
+# where no exact replay exists; here one does.
+
+def _meta_path(run_dir: str) -> str:
+    """The completeness marker of ONE channel-run dir.  The declaration's name is spelled
+    HERE and nowhere else in this module -- `runschema`'s ratchet counts every hand-written
+    copy of a contract path, comments included, and three readers of one marker is three
+    places to edit when the tree moves."""
+    return os.path.join(run_dir, 'sim_meta.json')
+
+
+def _leaf_is_complete(run_dir: str) -> bool:
+    """Today's completeness test for ONE channel-run dir — no new marker.
+
+    The marker present AND the resume file absent, which is the pair of facts
+    `supervisor._finalize_config_run` writes in that order (site-dock 16 closed the window
+    where a kill could leave neither).  A coupled unit needs nothing recorded beyond this:
+    finalize runs only when every member uid succeeded, so TWO finalized leaves cannot exist
+    without a successful unit, and the pair of markers already carries the fact a third one
+    would record.  A third marker could also tear in its own right -- a kill after both leaves
+    finalize but before it is written re-runs a FINISHED pair -- and adding a third thing to
+    keep in sync is not how two things being out of sync gets fixed.
+
+    ONE function, and the uncoupled skip guard reads it too: the coupled rule is this same
+    test applied to two directories instead of one, and two spellings of "complete" would be
+    two things to keep in step over exactly the question this file is reconciling.
+    """
+    return os.path.exists(_meta_path(run_dir)) and not os.path.exists(_resume_path(run_dir))
+
+
+def _site_db_path(pair_dir: str, arm_store: str, arm_ful: str) -> str:
+    """`<pair>/_site/inbound_<arm_store>__<arm_ful>.db` — the coupled unit's THIRD output.
+
+    Site-dock 03 section 1: the pair is the only directory that dominates both leaves (their
+    configs are siblings, so they share no ancestor below it), and the arm pair rides in the
+    filename stem rather than a directory, on the `strategy` precedent.  The `_` prefix is the
+    run tree's RESERVED one, so every walker skips the subtree.
+
+    Built from `pair_dir` here rather than resolved through `runschema.resolver_for`: the
+    artifact is not DECLARED yet -- that is the contract bump site-dock 24 carries with the
+    writer -- so there is no accessor to ask, and the rule this repo actually enforces is
+    about CONSUMERS walking a finished tree positionally.  This is the parent building a path
+    under a directory it owns, which is what `reset_strategy_db` does with `_ckpt_<arm>.pkl`.
+    Stated in ONE place so the writer reads it from here instead of spelling it a second time.
+    The stem is TWO-armed by construction, because a site is two channels (`_prepare_site_run`
+    refuses anything else); a third leaf raises here rather than quietly naming a file after
+    two of the three.
+    """
+    return os.path.join(pair_dir, '_site', f'inbound_{arm_store}__{arm_ful}.db')
+
+
+def _forget_arms(run_dir: str, arms) -> None:
+    """Drop `arms` from one leaf's resume record so the planner starts them FRESH.
+
+    `reset_strategy_db` removes the arm's db and its checkpoint but cannot touch the resume
+    record, and the record is the planner's fallback: `_arm_position` reads the checkpoint
+    `or prev_start`, so an arm whose checkpoint was just deleted would be planned at the
+    counter the LAST prepare wrote -- typically `n_batches` -- and would then run an empty
+    loop over a database that no longer exists.  Nothing raises; the arm simply produces no
+    rows.  Dropping the entry makes `prev_id` None, which is the fresh branch.
+
+    The file is removed outright when no arm survives it, so the leaf reads as a new run
+    rather than a resume of nothing.
+    """
+    resume = _load_resume(run_dir)
+    if not resume:
+        return
+    run_ids = {k: v for k, v in (resume.get('run_ids') or {}).items() if k not in arms}
+    starts  = {k: v for k, v in (resume.get('next_batch') or {}).items() if k not in arms}
+    if run_ids:
+        _save_resume(run_dir, run_ids, starts)
+    else:
+        os.remove(_resume_path(run_dir))
+
+
+def _reconcile_coupled_unit(pair_dir, leaves, n_batches, log, tag='', mid_flight=False) -> bool:
+    """Is this coupled pair complete — and if it is torn, REPAIR it.  Site-dock 10 sections 1-3.
+
+    `leaves` is `[(channel_run_dir, [arm_key, ...]), ...]` in the declared channel order
+    (store first), positionally aligned: arm rank r of one leaf pairs with rank r of the
+    other, which is exactly how `_prepare_site_run` builds the units.  Returns True only when
+    every leaf is complete, i.e. when `_build_work_units` may skip the pair.
+
+    THE FOUR STATES.  Both complete -> skip.  Neither started, or both mid-flight and in step
+    -> nothing to do; the ordinary per-arm resume below handles them.  The other two are the
+    ones this function exists for:
+
+      * TORN -- one leaf finalized and the other not.  Reachable only by a kill between the
+        two `_finalize_config_run` calls, and the repair is whole-dir: a finalized leaf has
+        had its checkpoints cleaned, so there is no per-arm position left to compare and every
+        arm of BOTH leaves replays.  The complete leaf's marker is removed, which is what
+        un-finalizes it.
+      * SKEWED -- the two leaves' copies of one arm disagree about where they are.  Each leaf
+        writes its own `_ckpt_<arm>.pkl` inside one batch loop (`strategy_runner`: leaf A
+        saves, then leaf B), so a kill between the two saves leaves the pair one checkpoint
+        apart.  That rank replays in both leaves.
+
+    THE REPLAY IS FORCED, NOT CHOSEN.  The leaves step in lockstep over a shared dock, a
+    shared put clock and a shared receiving clock, so leaf B cannot be stepped without leaf A
+    being stepped.  There is no version of this where the leaf that got further is spared; the
+    only question was whether its output is discarded CLEANLY or left to collide with the
+    replay, and that question has one answer.  The reset is exact -- the same reset
+    `_plan_strategy_start` already applies to a partial arm, which replays bit-identically
+    from batch 0 -- which is why refusing the resume outright would buy nothing.
+
+    THE SKEW IS WHY THIS IS NOT OPTIONAL.  `_run_strategy_worker_impl` refuses a unit whose
+    leaves do not share one batch range, and that refusal cannot clear itself: a leaf already
+    at `n_batches` is planned as a done arm and never reset, while its sibling resets to 0, so
+    every later `--resume` reproduces the same disagreement and the pair is wedged for good.
+
+    THE SITE DB IS THE UNIT'S THIRD OUTPUT and joins the reset.  `reset_strategy_db` knows an
+    arm's `sim_<arm>.db`, its keyframe sibling and its checkpoint; it does not know
+    `<pair>/_site/inbound_<a>__<b>.db`, so a replayed unit would append a SECOND run's
+    trailer, drain and door rows to it.  It is the only such artifact -- every pack-denominated
+    receiving quantity lives in its own channel's sim DB (ADR-0005), and the run layout's
+    `coupled` marker is written once per run by the parent, not per unit -- so the reset surface
+    is exactly three things per leaf plus one per rank.
+
+    `mid_flight` is the supervisor's RETRY, not a resume of a dead run.  A tear seen there
+    means a `_finalize_config_run` raised while the pool was still up, and every unit is
+    already in `done_uids` -- so a repair would delete the output of units that will never be
+    resubmitted.  The tear is reported and left for the next `--resume`, where the units are
+    planned again and the repair is safe.
+
+    IT IS NOT SILENT.  `run.log` is the only place a multi-hour run's damage is visible, and
+    "a finished leaf was discarded and replayed" is a line a reader must be able to find.
+    """
+    states = [_leaf_is_complete(d) for d, _ in leaves]
+    if all(states):
+        return True
+
+    # Ranks are paired positionally.  A ragged arm set is `_prepare_site_run`'s refusal, a few
+    # lines later and by name; reconciling the ranks that DO line up cannot mask it, because
+    # completeness is a property of the directory rather than of any arm.
+    ranks = list(zip(*[arms for _, arms in leaves]))
+    if any(states):
+        torn, stale = True, list(ranks)                    # whole dir: no positions survive
+    else:
+        # One resume record per leaf, read once: it is the fallback `_arm_position` uses when
+        # an arm has no checkpoint yet, and re-reading it per arm would be the same answer
+        # a hundred times on a full arm suite.
+        torn = False
+        prev = [(_load_resume(d) or {}).get('next_batch') or {} for d, _ in leaves]
+        stale = [r for r in ranks
+                 if len({_arm_position(d, a, int(p.get(a, 0) or 0))
+                         for ((d, _), p, a) in zip(leaves, prev, r)}) > 1]
+    if not stale:
+        return False
+
+    _what = ('one leaf is finalized and the other is not'
+             if torn else
+             f'{len(stale)} arm pair(s) disagree about where they are')
+    if mid_flight:
+        log.error(f'  [{tag}] TORN coupled pair during a live retry ({_what}) -- NOT repairing: '
+                  f'the units that wrote these leaves are already done and would not be '
+                  f'resubmitted, so the repair would delete output nothing rebuilds. A '
+                  f'finalize must have failed above; resume this run to repair it.')
+        return False
+
+    log.warning(f'  [{tag}] TORN coupled pair: {_what}. A coupled unit writes BOTH leaves from '
+                f'one batch loop over a shared dock and put pool, so neither leaf can be '
+                f'replayed alone -- discarding {len(stale)} arm pair(s) in both leaves and '
+                f'replaying them from batch 0 (bit-identical, site-dock 10).')
+    for (run_dir, _arms), arms in zip(leaves, zip(*stale)):
+        for a in arms:
+            reset_strategy_db(run_dir, _arm_db_path(run_dir, a), a)
+        _forget_arms(run_dir, set(arms))
+        if torn:
+            # The un-finalize.  Removing the marker is what takes the leaf back out of
+            # "complete"; the resume file is already gone (that is what made it complete),
+            # so `_plan_strategy_start` takes its fresh branch over the db this just reset.
+            _meta = _meta_path(run_dir)
+            if os.path.exists(_meta):
+                os.remove(_meta)
+                log.warning(f'  [{tag}] un-finalized {run_dir} '
+                            f'(removed {os.path.basename(_meta)})')
+    for r in stale:
+        _site_db = _site_db_path(pair_dir, *r)
+        if os.path.exists(_site_db):
+            os.remove(_site_db)
+            log.warning(f'  [{tag}] discarded the site DB for arm pair {r}: a replay would '
+                        f'have appended a second run of trailer, drain and door rows to it')
+    return False
 
 
 def put_constant(totals, override) -> dict:
@@ -1014,7 +1265,7 @@ def _stamp_site_identity(ua: dict, label: str, cfg_names: dict) -> tuple:
 
 
 def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
-                      skip_completed, resume_granularity):
+                      skip_completed, resume_granularity, mid_flight=False):
     """(Re-)prepare all work units from on-disk state.
 
     Returns (work_units, meta):
@@ -1025,6 +1276,11 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
                    finalized only when EVERY member uid succeeds (see _run_pool) — so a crashed
                    arm never finalizes its group, keeping resume.pkl and staying resumable.
     Re-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.
+
+    `mid_flight` says the POOL IS STILL UP and this is the supervisor's rebuild-and-resubmit
+    after a hard worker death, not a `--resume` of a dead run.  Only the coupled reconciler
+    reads it, and only to decline a repair whose outputs nothing would rebuild — see
+    `_reconcile_coupled_unit`.  Default False, so an uncoupled run never reaches it.
     """
     work_units, meta = [], {}
     for label, inv_db, aff_db in pairs:
@@ -1051,16 +1307,30 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
         # campaign INCLUDING its inbound-off pole, so "coupling rides the inbound flag" is no
         # longer a rule a reader could derive from the flag.  A store-only catalogue has
         # nothing to couple and `_prepare_site_run` refuses one.
+        #
+        # THIS FLAG IS THE RECONCILER'S GROUND TRUTH, and it is a RESTORED declaration rather
+        # than an inference: `couple_channels` rides the resume-restored parameter set and
+        # reaches the tree as the run layout's `coupled` (site-dock 18), so a `--resume`
+        # arrives back here with the same answer the killed run had.  Nothing reads a uid to
+        # decide it -- a run that resumed uncoupled would rebuild per-channel units over a
+        # tree whose leaves were written by coupled ones, and the completeness question below
+        # would then be asked one leaf at a time, which is the state this whole ticket exists
+        # to make impossible.
         if couple_channels() and mixed:
             _cfg_names = {ch.name: _config_name(cfg) for ch, cfg in channel_runs}
-            # BOTH leaves or neither (site-dock 10): a unit writes two leaves, so a pair with
-            # one finalized leaf is a torn pair and must be re-run, not skipped.  `all()` over
-            # the pair rather than a per-leaf `continue` is what makes that true here.
-            _leaf_dirs = [os.path.join(pair_dir, _cfg_names[ch.name], ch.name)
-                          for ch, _ in channel_runs]
-            if skip_completed and all(
-                    os.path.exists(os.path.join(d, 'sim_meta.json'))
-                    and not os.path.exists(_resume_path(d)) for d in _leaf_dirs):
+            # BOTH leaves or neither (site-dock 10).  A unit writes two leaves, so a pair with
+            # one finalized leaf is a TORN pair: it must be re-run, and the finished leaf must
+            # be un-finalized first or its arms would be planned over populated databases.
+            # `_reconcile_coupled_unit` answers "is this pair complete" and repairs as a side
+            # effect; it lives above both `_prepare_channel_run` calls because a two-leaf
+            # question cannot be asked inside a one-leaf prepare, and the reset must happen
+            # parent-side before any worker reopens a file (`reset_strategy_db`, Windows).
+            _leaves = [(os.path.join(pair_dir, _cfg_names[ch.name], ch.name),
+                        [s.key for s in strategies_for(ch.restocks)])
+                       for ch, _ in channel_runs]
+            if skip_completed and _reconcile_coupled_unit(
+                    pair_dir, _leaves, CONFIG['global']['n_batches'], log,
+                    tag=f'{label}/coupled', mid_flight=mid_flight):
                 log.info(f'  [{label}/coupled] both leaves already complete — skipping (resume)')
                 continue
             try:
@@ -1085,12 +1355,12 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
         for ch, cfg in channel_runs:
             cfg_name = _config_name(cfg)
             # Outputs live at <cfg>/<channel>/ (mixed) or <cfg>/ (store-only); the skip guard
-            # keys on that exact dir.  A finalized channel-run (sim_meta.json present AND
-            # resume.pkl removed) is skipped so resume never recomputes complete work.
+            # keys on that exact dir.  A finalized channel-run is skipped so resume never
+            # recomputes complete work -- `_leaf_is_complete` is that test, shared with the
+            # coupled reconciler so the one-leaf and two-leaf rules cannot drift apart.
             ch_run_dir = os.path.join(pair_dir, cfg_name, ch.name) if mixed \
                          else os.path.join(pair_dir, cfg_name)
-            if skip_completed and os.path.exists(os.path.join(ch_run_dir, 'sim_meta.json')) \
-                    and not os.path.exists(_resume_path(ch_run_dir)):
+            if skip_completed and _leaf_is_complete(ch_run_dir):
                 log.info(f'  [{label}/{cfg_name}/{ch.name}] already complete — skipping (resume)')
                 continue
             try:
