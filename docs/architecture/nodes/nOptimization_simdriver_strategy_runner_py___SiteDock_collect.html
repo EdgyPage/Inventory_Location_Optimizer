@@ -17,10 +17,18 @@
 <pre class="sig"><code>def collect(self, i: int) -&gt; None</code></pre>
 <section class="doc">Take this batch&#x27;s SITE-scoped yard rows off the coordinator and the transit.
 
-Every batch, unconditionally -- both sources RESET, so a collection that rode a
+Every batch, unconditionally -- all three sources RESET, so a collection that rode a
 condition would compound rows and hand whatever finally reads them several batches&#x27;
 worth stamped as one.  The leaves&#x27; own `drain_yard_*` accessors REFUSE under a site
-scope, so there is exactly one collector and it is this one.</section>
+scope, so there is exactly one collector and it is this one.
+
+THE SITE DOCK&#x27;S OWN TOTALS come with the coordinator&#x27;s day index on them and are
+re-stamped with `i` only after the two are checked to agree.  Both are `day_of(i)`
+by construction (`drive` opens the day the release schedule names), and the pool
+refuses any grid that is not one batch per site day -- so the check costs nothing
+and is the one place that structural promise is READ rather than restated.  A
+silently re-indexed row would land the site&#x27;s day-3 labour under batch 1 and put
+the closure check&#x27;s per-batch localisation onto the wrong batch for the whole run.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___SiteDock_collect">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20collect">Source ↗</a></p>
 </article>

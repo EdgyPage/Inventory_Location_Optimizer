@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>reconcile_pair · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_receiving_report_py__reconcile_pair" data-id="Diagnostics/receiving_report.py::reconcile_pair">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a> <span class="sep">›</span> <span class="here"><code>reconcile_pair</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>reconcile_pair</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
+
+<pre class="sig"><code>def reconcile_pair(leaf_dbs, site_db: str | None) -&gt; dict</code></pre>
+<section class="doc">Cross-check ONE coupled arm pair: two channel leaves against the site&#x27;s own dock.
+
+`leaf_dbs` are the leaves of one arm pair -- one DB per channel, each naming its channel
+in `simulation_runs.channel`. `site_db` is that pair&#x27;s site inbound DB (the contract&#x27;s
+`site_inbound_db`), or None when the pair produced none. Returns a dict; never raises on content, exactly as
+`reconcile` does.
+
+Four clauses, A-D in the module docstring, and every one of them is UNSTATEABLE from one
+DB. What is NOT here is as deliberate: checks 1 and 2 stay PER LEAF and unedited
+(site-dock 15 section 2), because moving them to site scope discards the per-channel
+attribution ADR-0005 goes to some length to keep -- and because both of their surfaces
+now delegate to one coordinator-held dock, so a leaf handed the whole drain would agree
+with itself and PASS while owning the other channel&#x27;s entire receiving labour. Clause C
+is what sees that.
+
+ON THE ABSENT SITE DB, and this SHARPENS site-dock 15 section 5 rather than restating it.
+15 said an absent site DB on a coupled pair is a FAIL, full stop. It cannot be: site-dock
+06 couples every cell INCLUDING its inbound-OFF pole, and site-dock 24&#x27;s
+`_build_site_dock` returns None there -- no trailer pipeline, no dock, no site DB, and
+that is a real configuration rather than a degenerate one. So the rule is conditioned on
+the evidence: a pair whose leaves recorded RECEIVING and has no site DB is a run that
+lost its site scope and FAILs; a pair whose leaves recorded none is the inbound-off pole
+and is a PASS with `active=False`. That keeps 15&#x27;s rule reachable (it fires on exactly
+the defect it was written for -- site-dock 21&#x27;s parked rows never reaching an artifact)
+without failing half the campaign.</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___dominant_constant.html"><code>_dominant_constant</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___finite.html"><code>_finite</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___leaf_state.html"><code>_leaf_state</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___site_totals.html"><code>_site_totals</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___tol_for.html"><code>_tol_for</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py__reconcile_pair">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20reconcile_pair">Source ↗</a></p>
+</article>
+</main>
+</body></html>

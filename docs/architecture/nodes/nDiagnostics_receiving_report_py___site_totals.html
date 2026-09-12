@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_site_totals · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_receiving_report_py___site_totals" data-id="Diagnostics/receiving_report.py::_site_totals">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a> <span class="sep">›</span> <span class="here"><code>_site_totals</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_site_totals</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
+
+<pre class="sig"><code>def _site_totals(site_db: str | None) -&gt; tuple</code></pre>
+<section class="doc">`(by_batch, note, answerable)` — the SITE dock&#x27;s per-batch counters, or why not.
+
+`answerable` is False ONLY for a file that cannot hold the answer — a site DB written
+before `site_receiving` existed. That is the difference between &quot;the site total is
+missing&quot; (a defect: the rows were parked and never reached an artifact) and &quot;this
+vintage never recorded one&quot; (a fact about the file), and conflating them would make the
+tool red on every site DB site-dock 24&#x27;s build wrote.
+
+The `site_db is None` and &quot;does not exist&quot; branches are NOT reachable from `main`, which
+only ever passes a path `rt.site_inbound_dbs` just found (a pair with no site DB never
+reaches `reconcile_pair` at all — `main` reports it separately). They are kept because
+`reconcile_pair` is callable on its own and a caller that hands it None should get the
+no-site-total answer rather than an exception.
+
+`by_batch` is `{batch: (seconds, unloaded)}`, straight off `site_receiving`.
+
+READ WITH AN INLINE QUERY, and that is a deviation from CLAUDE.md section 2 worth stating
+rather than leaving to be noticed. The rule is that SQL belongs in a named query beside
+the family with a per-vintage `dataset.override` where a shape moved. What moved here is
+not a shape: the whole TABLE is absent before this build, so there is no older column
+layout for an override to describe -- the negotiation is &quot;does it exist&quot;, which is the
+`_has` probe this file already uses for `sku_scores` and which every one of checks 1-5
+reads `work_events` and `batch_stats` through. A named query plus an override that says
+&quot;on every earlier vintage, nothing&quot; would be a second declaration of the same absence.
+Check 6 is the one clause here that goes through a loader, and only because
+`receive_event_frame` already existed and had been waiting for a caller.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___open_ro.html"><code>_open_ro</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__reconcile_pair.html"><code>reconcile_pair</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py___site_totals">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20_site_totals">Source ↗</a></p>
+</article>
+</main>
+</body></html>

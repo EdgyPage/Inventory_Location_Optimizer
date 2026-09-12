@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_unload_price</code></h1>
 <p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _unload_price(con, db_path: str, where: str, args: dict) -&gt; dict</code></pre>
+<pre class="sig"><code>def _unload_price(con, db_path: str, where: str, args: dict, keep_residuals: bool=False) -&gt; dict</code></pre>
 <section class="doc">Check 6&#x27;s state: re-price every receive row from the run&#x27;s OWN per-SKU handle term.
 
 `duration - qty * handle_var` must collapse to `per_item + intercept` -- one constant per
@@ -34,8 +34,14 @@ immutable -- and whose `receive_event_frame` query serves the columns this needs
 filtered to `role=&#x27;receive&#x27;` (so repacks arrive included, which is the point). It and
 `load_receive_events` had ZERO callers since they were written; this is the caller they
 were written for. A second inline query here would be a second thing to keep in step with
-the DDL.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__load_receive_events.html"><code>load_receive_events</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+the DDL.
+
+`keep_residuals` additionally returns EVERY row&#x27;s `c` under `unload_residuals`, which the
+PAIR-scope clause needs and `reconcile` deliberately does not: the pair check asks which
+rows price at the OTHER channel&#x27;s constant, and a min-and-spread summary cannot answer
+that. Off by default, because a 505,177-row arm would otherwise carry half a million
+floats out of a function whose caller wants two numbers.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__load_receive_events.html"><code>load_receive_events</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___leaf_state.html"><code>_leaf_state</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py___unload_price">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20_unload_price">Source ↗</a></p>
 </article>
 </main>

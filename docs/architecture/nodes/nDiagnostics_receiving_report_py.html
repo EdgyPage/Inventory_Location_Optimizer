@@ -43,7 +43,9 @@ number on its own.
 1. **Seconds agree.** `SUM(duration) WHERE role=&#x27;receive&#x27;` against `SUM(recv_seconds)`.
    Catches a dropped `we.extend`, a `bs.recv_seconds` assignment that never ran (the skipped
    branch), and a checkpoint buffer that was not cleared — `INSERT OR REPLACE` on a composite
-   key makes re-inserted rows look correct, but it doubles this sum.
+   key makes re-inserted rows look correct, but it doubles this sum. The tolerance SCALES
+   with the sum (`_tol_for`), because a flat one failed four archived arms on float
+   re-association; read that function before changing either constant.
 
 2. **Counts agree, EXACTLY.** `COUNT(*) WHERE role=&#x27;receive&#x27;` against `SUM(recv_unloaded)`.
    Both are carried integers rather than recomputed floats, so `==` is the stronger statement
@@ -123,11 +125,89 @@ number on its own.
    the missing contiguity check below is a monument to -- and there is no ambiguity here:
    1e-15 against 4.6e+03.
 
-   The cross-leaf clause -- `C_store == C_ful`, the site dock&#x27;s sharpest falsifier -- needs two
-   leaves and is not here. Note what the archive already says about it: the two channels run
-   DIFFERENT pick configs (store intercept 15, fulfillment 10), so today&#x27;s per-leaf docks price
-   at C = 7.6 s and C = 5.1 s respectively. Equality is therefore a claim about a SITE dock
-   having one price list, not something a coupled run would satisfy for free.
+   The cross-leaf half of this check needs two leaves and lives in `reconcile_pair` below.
+   `C_store == C_ful` -- which site-dock 15 called the site dock&#x27;s sharpest falsifier and an
+   earlier draft of this docstring promised -- is RETIRED and must not be written: the unload
+   price is a statement about the MERCHANDISE, so the site dock holds a price LIST keyed by
+   the unloaded unit&#x27;s own regime (site-dock 27) and the equality is false BY CONSTRUCTION.
+   What replaces it is the TWO-CONSTANT form, and it is strictly stronger; see
+   `reconcile_pair`.
+
+# ── the pair-scope checks, and why they are a sibling rather than five more arguments ──
+
+`reconcile_pair` takes a COUPLED unit&#x27;s two channel leaves and its site DB. Widening
+`reconcile` with an optional peer was rejected (site-dock 15 section 5): it puts a scope
+discriminator inside a function whose contract is &quot;one DB, six checks&quot;, and every per-leaf
+check would grow an `if peer is not None` branch that no run in the archive ever takes.
+
+On an UNCOUPLED run there is no pair, so there is no verdict — `main` reports
+`0 coupled pair(s)` rather than printing something green about a run that has no site. Every
+published run is inbound-off and uncoupled, so that is the common case rather than the
+corner. An ABSENT SITE DB on a coupled pair is a FAIL and not a MISSING: `MISSING` means
+&quot;this arm was not run&quot;, and a pair that produced two leaf DBs and no site DB is a run that
+LOST its site scope.
+
+  A. **No uid carries a site role in one leaf and a per-channel role in the other.** A uid
+     is not an identity; `(role, uid)` is. Site-dock 04 preserves `actor_uid == picker_id`,
+     so store picker 3 and fulfillment picker 3 are DIFFERENT people, while the put pool&#x27;s
+     block starts at `max(k_pickers)` over both channels precisely so a putter&#x27;s uid means
+     the SAME person in both DBs. The defect this catches is a leaf that builds its own site
+     crew off its OWN pick cursor: fulfillment&#x27;s putter lands at `k_ful`, inside store&#x27;s
+     picker block, and every per-actor rollup silently merges a putter with a picker.
+     Nothing else in the repo can see it.
+
+  B. **Every site-role uid lies at or above both leaves&#x27; pick blocks.** A FLOOR over
+     `max(max pick uid) + 1` across the pair, and never set equality: an idle putter writes
+     no rows in one leaf, and the smaller leaf is left a deliberate uid GAP (site-dock 19),
+     so a check that assumed a dense range would be wrong by construction. That is the same
+     trap the retired contiguity check below is a monument to.
+
+  C. **The site total closes against the two leaves&#x27; rows, PER BATCH.** The sum over both
+     leaves of `work_events` receive seconds equals the site dock&#x27;s own
+     `site_receiving.recv_seconds`. It is a real check rather than a second tautology because
+     the two accumulators run on DIFFERENT CODE: the dock&#x27;s total accrues at the charge site
+     (`Dock.charge`), the leaves&#x27; rows carry per-row durations stamped from drained records.
+
+     WHAT IT UNIQUELY COVERS IS NARROWER THAN THAT MAKES IT SOUND, and the narrowing is the
+     honest claim. `SiteReceiving._partition` already ASSERTS that the leaves&#x27; own
+     `receiving_seconds` sum to the dock&#x27;s, and RAISES — so a routing or decomposition defect
+     kills the run before a row is written and never reaches this check. What is left for
+     this one is everything that goes wrong AFTER the partition: a row that never reached the
+     DB, a flush that never fired, a checkpoint buffer that was not cleared. That is the one
+     class no per-leaf check can see either — a final flush that never fired takes BOTH of a
+     leaf&#x27;s surfaces with it, so check 1 passes over exactly that defect while this one
+     fails.
+
+     Per batch, never a run total: a run total says the site lost 400 seconds and nothing
+     about where, and the drain IS a batch boundary. The counts close too, and they filter
+     `event_type=&#x27;receive&#x27;`: a REPACK is receiving work priced at the dock and charged into
+     `recv_seconds`, but no `unloaded` counter counts it, so the seconds closure includes
+     repacks and the count closure cannot.
+
+  D. **The two constants are per regime** — check 6&#x27;s cross-leaf half, in the two-constant
+     form site-dock 27 chose over the retired equality. Each leaf is regime-PURE (the
+     coordinator partitions the dock&#x27;s records by SKU before the driver stamps anything, so
+     one DB never holds both regimes&#x27; rows), so `C_store` is measured over the store leaf&#x27;s
+     rows and `C_ful` over the fulfillment leaf&#x27;s, each against its own regime&#x27;s entry in the
+     dock&#x27;s price list. Three clauses, because the defect has three shapes and only the
+     per-leaf spread is visible from one DB:
+
+       * each leaf&#x27;s own residuals collapse to ONE constant (check 6, restated at pair scope
+         so the pair verdict does not depend on a reader having run the per-leaf one);
+       * NO ROW of either leaf prices at the OTHER regime&#x27;s constant — the exact second
+         equality, which NAMES a contaminated row rather than only reporting a spread;
+       * and if the two leaves price their PICKING differently, they must price their
+         UNLOADING differently too. `sku_scores.labor_cost - handle_var` is
+         `pick_intercept + pick_per_item`, one constant per run, recoverable from the same
+         file; `C` is a positive linear map of that same pair of coefficients through
+         site-wide scales. So two channels whose pick constants differ cannot charge the
+         same unload price unless the two terms exactly cancel. THAT is the clause that sees
+         a WHOLE leaf charged at the other channel&#x27;s rate — the shape the per-leaf spread is
+         blind to, because a uniformly mispriced leaf has a spread of zero.
+
+     Both cross-leaf clauses go INACTIVE (reported, never a silent pass) when the pair&#x27;s two
+     constants coincide: two channels MAY run the same pick config, and from two sim DBs
+     &quot;the same config&quot; and &quot;one regime resolved to the other&quot; are the same reading.
 
 # ── usage ─────────────────────────────────────────────────────────────────────────
 
@@ -137,8 +217,9 @@ number on its own.
 Run roots may be bare names (resolved under COMPARISON_OUTPUT_DIR) or absolute paths. Arms
 are enumerated through the run&#x27;s own contract (`runschema.resolver_for`) and never by joining
 path strings: the store CONFIG and the store CHANNEL are both named `store`, so
-`&lt;cell&gt;/&lt;pair&gt;/store/store/` is a real path, and two levels are conditional.</section>
-<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(10)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__SEMANTIC_USES.html"><code>SEMANTIC_USES</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___HERE.html"><code>_HERE</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___TOL.html"><code>_TOL</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___open_ro.html"><code>_open_ro</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___sim_dbs.html"><code>_sim_dbs</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___unload_price.html"><code>_unload_price</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+`&lt;cell&gt;/&lt;pair&gt;/store/store/` is a real path, and two levels are conditional. The pair pass
+runs on top of the same walk when the run layout carries the `coupled` marker.</section>
+<section class="rel"><h2>Imports <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(23)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__SEMANTIC_USES.html"><code>SEMANTIC_USES</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___BUCKET_DP.html"><code>_BUCKET_DP</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___CHANNEL_ROLES.html"><code>_CHANNEL_ROLES</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___HERE.html"><code>_HERE</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___REL_TOL.html"><code>_REL_TOL</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___ROOT.html"><code>_ROOT</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___SITE_ROLES.html"><code>_SITE_ROLES</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___TOL.html"><code>_TOL</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___coupled_pairs.html"><code>_coupled_pairs</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___dominant_constant.html"><code>_dominant_constant</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___finite.html"><code>_finite</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___fmt_s.html"><code>_fmt_s</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___leaf_state.html"><code>_leaf_state</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___open_ro.html"><code>_open_ro</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___sim_dbs.html"><code>_sim_dbs</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___site_totals.html"><code>_site_totals</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___split_arm_pair.html"><code>_split_arm_pair</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___tol_for.html"><code>_tol_for</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___unload_price.html"><code>_unload_price</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile_pair.html"><code>reconcile_pair</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py">Source ↗</a></p>
 </article>
 </main>

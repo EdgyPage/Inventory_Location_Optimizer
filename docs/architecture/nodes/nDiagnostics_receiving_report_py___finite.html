@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_finite · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_receiving_report_py___finite" data-id="Diagnostics/receiving_report.py::_finite">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a> <span class="sep">›</span> <span class="here"><code>_finite</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_finite</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
+
+<pre class="sig"><code>def _finite(v) -&gt; bool</code></pre>
+<section class="doc">Whether a seconds value is a real number a tolerance can be compared against.
+
+REACHABLE, and via INFINITY rather than NaN. SQLite stores a Python NaN as NULL, so a
+NaN never comes back out of these queries -- but an infinity round-trips, and `SUM` of a
+column holding one is `inf`. That breaks the comparison two ways at once: `_tol_for(inf)`
+is itself `inf`, so `abs(x - inf) &gt; inf` is False for any finite other side; and
+`abs(inf - inf)` is NaN, which compares False against everything. A check that only
+compared would report a clean PASS about a value that is not a number.
+
+Named rather than inlined because both surfaces that sum seconds need it.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile_pair.html"><code>reconcile_pair</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py___finite">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20_finite">Source ↗</a></p>
+</article>
+</main>
+</body></html>

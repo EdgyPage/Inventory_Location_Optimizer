@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>arm_pair_halves · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_runschema_resolver_py__RunTree_arm_pair_halves" data-id="Optimization/runschema/resolver.py::RunTree.arm_pair_halves">
+<nav class="crumbs"><a href="../layers.html">opt_runschema</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema_resolver_py.html"><code>Optimization/runschema/resolver.py</code></a> <span class="sep">›</span> <a href="nOptimization_runschema_resolver_py__RunTree.html"><code>RunTree</code></a> <span class="sep">›</span> <span class="here"><code>arm_pair_halves</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>arm_pair_halves</code></h1>
+<p class="meta">layer <span class="chip">opt_runschema</span> · file <a href="../files/nOptimization_runschema_resolver_py.html"><code>Optimization/runschema/resolver.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def arm_pair_halves(self, arm_pair: str, have: dict) -&gt; dict</code></pre>
+<section class="doc">`{channel: arm_key}` for one arm pair — `{}` when it cannot be resolved.
+
+The other half of `arm_pair_of`: that inverts the FILENAME to the pair, this splits
+the pair into its two channels&#x27; arms.  Both live here because both are inversions of
+one declaration, and a consumer that re-derived either would be a second copy to fix
+when the joiner or the channel-order source moves.
+
+`have` is `{channel: {arm keys that channel actually ran}}` — whatever the caller
+already has on disk (a leaf&#x27;s recorded arm list, a directory&#x27;s sim DBs).
+
+POSITIONAL, against `run_layout.json`&#x27;s declared `channels`: half k belongs to
+channel k, because that is the order `workunits._site_db_path(pair_dir, arm_store,
+arm_ful)` BUILT the stem in (`zip(_sa_s, _sa_f)`, store first, off the same list).
+Membership then decides only whether the positionally-named arm was RUN.
+
+RESOLVING BY MEMBERSHIP ALONE IS WRONG, and both consumers of this had that bug
+independently (site-dock 25, found by mutation).  Both channels draw restock rules
+from ONE vocabulary, so on a real campaign a leaf holds arms named like BOTH halves;
+&quot;the channel that holds exactly one of the two names&quot; then matches neither, every
+pair is skipped, and the site stage runs on nothing.  A one-arm probe cannot see it.
+
+Every split position is tried rather than `split(&#x27;__&#x27;)`: an arm name may contain the
+joiner, which is why the arm pair is ONE capture in the declared template.
+
+NO FALLBACK when the layout declares no channel order.  `write_run_layout` writes
+`channels` on every run, so that is unreachable in production — and a fallback would
+have to GUESS which half is which channel, where a wrong guess reads one leaf&#x27;s rows
+under the other channel&#x27;s name with nothing to say so.
+
+A TWO-PLACE AGREEMENT WITH NO THIRD WITNESS, recorded because nothing enforces it:
+`run_simulation` passes the channel list to `write_run_layout`, and
+`workunits._prepare_site_run` zips its leaves in the order `_channel_runs_for`
+produced them.  Both are store-first today and the stem is built from the second
+while this reads the first.  Emit them in different orders and the mis-pairing is
+SILENT *only* where both channels ran arms with the same names (the membership check
+below catches every other shape by failing to resolve at all) — which is exactly the
+campaign case.  Move either and move the other.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_resolver_py__RunTree_arm_pair_halves">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/resolver.py#:~:text=def%20arm_pair_halves">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_tol_for · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_receiving_report_py___tol_for" data-id="Diagnostics/receiving_report.py::_tol_for">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a> <span class="sep">›</span> <span class="here"><code>_tol_for</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_tol_for</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
+
+<pre class="sig"><code>def _tol_for(*magnitudes) -&gt; float</code></pre>
+<section class="doc">The seconds tolerance for comparing two accumulations of size ~`magnitudes`.
+
+# ── why an absolute tolerance alone was wrong, and why a relative one alone is too ──
+
+`_TOL` was 1e-6 SECONDS flat, compared against sums that GROW WITH THE ROW COUNT. On a
+505,177-row arm check 1&#x27;s two surfaces accumulate 1.3e-6 s apart over 4,177,040.9 s —
+a relative error of 3e-13, which is float re-association and nothing else — and the tool
+reports it as a FAIL. It does so on four arms of the archive today, and it gets sharper
+under coupling, where a SITE total is the sum of two leaves&#x27; and carries both leaves&#x27;
+accumulation error.
+
+The objection that kept this open is real and is the right objection: a purely RELATIVE
+tolerance hides a small real discrepancy on a large arm, which is the failure check 1
+exists for. What settles it is that the discrepancy check 1 hunts has a PHYSICAL LOWER
+BOUND. Every defect it was written for — a dropped `we.extend`, an unrun `recv_seconds`
+assignment, an uncleared checkpoint buffer — moves the sum by at least ONE UNLOAD, and
+the smallest unload the archive actually prices is 5.1 s (the fulfillment constant;
+store&#x27;s is 7.6 s). So the question is only whether the tolerance can be kept far below
+one unload while sitting far above float noise, and at this scale it can:
+
+    arm                 sum (s)      1e-9 x sum    observed float noise   one unload
+    505,177 rows      4,177,040.9      4.2e-3 s          1.3e-6 s          5.1-7.6 s
+    a 12-batch pair       62,278.9      6.2e-5 s          ~1e-11 s          5.1-7.6 s
+
+4.2e-3 s is under a THOUSANDTH of the smallest thing that can really go missing, and
+three orders above the observed noise. The absolute floor is kept so that a tiny run —
+or a comparison against zero — is not handed a tolerance of zero.
+
+THE UPPER MARGIN IS EMPIRICAL, NOT A BOUND, and that is worth knowing before this is
+reused at a larger scale. Worst-case float summation error is `N * eps * |sum|`, which
+at 505,177 rows is ~1.1e-10 relative — only ~9x under this floor rather than the ~3e4x
+the OBSERVED 3e-13 suggests. An arm an order of magnitude larger (~5M rows) would put
+the worst case above `_REL_TOL` and the false FAIL would return. At that point the
+relative term wants scaling by the row count, not raising.
+
+IT ALSO CHANGES VERDICTS ON THE ARCHIVE, dated here so a later reader is not confused by
+a record that no longer reproduces: the four arms recorded as failing check 1 on
+1.3e-6 s of re-association PASS from 2026-09-12 (site-dock 25). Nothing about those runs
+moved; the tolerance did.
+
+Applied ONLY to sums. A spread (check 6) does not accumulate: it is a max minus a min
+over per-row residuals, so its error is bounded by one row&#x27;s rounding however many rows
+there are, and giving it a row-count-dependent tolerance would loosen it for no reason.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__reconcile.html"><code>reconcile</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py__reconcile_pair.html"><code>reconcile_pair</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py___tol_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20_tol_for">Source ↗</a></p>
+</article>
+</main>
+</body></html>

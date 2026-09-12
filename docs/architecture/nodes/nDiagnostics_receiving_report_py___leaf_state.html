@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_leaf_state · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_receiving_report_py___leaf_state" data-id="Diagnostics/receiving_report.py::_leaf_state">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a> <span class="sep">›</span> <span class="here"><code>_leaf_state</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_leaf_state</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
+
+<pre class="sig"><code>def _leaf_state(db_path: str) -&gt; dict</code></pre>
+<section class="doc">Everything the pair clauses need out of ONE channel leaf&#x27;s sim DB, in one open.
+
+Gathered per leaf rather than per clause so the file is opened once (these are archived
+WAL-less files and `_open_ro`&#x27;s immutable flag is what keeps a read from minting sidecars
+it cannot remove -- memory `wal-sidecars-come-from-readers`).
+
+THE CHANNEL COMES OFF `simulation_runs.channel`, never off the directory the file sits
+in. A leaf&#x27;s config directory and its channel directory can carry the same name (the
+store config and the store channel are both `store`), and site-dock 24 established that
+the regime a row belongs to is resolvable from the sim DB ALONE precisely because this
+column names it -- which is what made check 6&#x27;s two-constant form buildable with no new
+column and no `--sync`.
+
+`pick_constant` is `labor_cost - handle_var` off `sku_scores`, which is
+`pick_intercept + pick_per_item` (`Order.compute_labor_cost` computes `labor_cost` as
+`per_pick(1.0, intercept, handle_var, 1, per_item)`). One constant per run, and its
+SPREAD is reported so a caller can see whether it really is one before leaning on it.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py___has.html"><code>_has</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___open_ro.html"><code>_open_ro</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li><li><a href="nDiagnostics_receiving_report_py___unload_price.html"><code>_unload_price</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__reconcile_pair.html"><code>reconcile_pair</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py___leaf_state">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20_leaf_state">Source ↗</a></p>
+</article>
+</main>
+</body></html>

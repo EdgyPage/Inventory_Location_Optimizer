@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_coupled_pairs · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nDiagnostics_receiving_report_py___coupled_pairs" data-id="Diagnostics/receiving_report.py::_coupled_pairs">
+<nav class="crumbs"><a href="../layers.html">diagnostics</a> <span class="sep">›</span> <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a> <span class="sep">›</span> <span class="here"><code>_coupled_pairs</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_coupled_pairs</code></h1>
+<p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_receiving_report_py.html"><code>Diagnostics/receiving_report.py</code></a></p>
+
+<pre class="sig"><code>def _coupled_pairs(rt) -&gt; tuple</code></pre>
+<section class="doc">`(pairs, dockless)` for a COUPLED run — `([], [])` on every uncoupled one.
+
+`pairs` is `[(label, leaf_dbs, site_db)]`, one entry per arm pair that HAS a site DB.
+`dockless` is `[(label, leaf_dbs)]` for everything that should have one and does not --
+a whole pair directory with no site DB at all, and (the hard case below) a single arm a
+leaf ran that no site-DB stem names.  ONE list, because both take the same rule: a
+defect when those leaves received, the ordinary inbound-off case when they did not.
+
+THE PAIRING COMES FROM THE SITE DB&#x27;S OWN NAME, which is the only declared record of it:
+`&lt;store_arm&gt;__&lt;fulfillment_arm&gt;` is the artifact&#x27;s `{strategy}` capture (site-dock 24),
+inverted through `rt.arm_pair_of` and split by `rt.arm_pair_halves`.  There is
+deliberately no fallback that zips the two channels&#x27; arm lists -- site-dock 06&#x27;s finding
+is that `sorted(set(arms))` destroys the rank the diagonal IS, so a pairing built that
+way is alphabetical, the right length, and wrong in a way nothing downstream detects.
+
+THE ARM PAIR THAT WROTE NO SITE DB IS THE HARD CASE, and reading the pairing off the
+filenames is what makes it hard: an arm pair whose `inbound_*.db` never reached disk is
+not ENUMERATED, so without the sweep below it would be neither FAIL nor MISSING but
+absent -- 33 of 34 pairs reported green while one lost its site scope, which is the
+defect site-dock 15 section 5 was written for, unreachable.  So every arm a leaf ran and
+no site-DB stem names is swept up here and handed on with `site_db=None`; the pairing
+for such an arm is unknown by construction, so the arm is reported under its own key and
+its leaves are the ones that ran it.
+
+A COUPLED INBOUND-OFF cell contributes no pairs at all, because it fields no dock and
+writes no site DB anywhere under the pair.  That is `dockless`, and the caller decides
+what it means: nothing, if its leaves never received; a lost site scope, if they did.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_receiving_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/receiving_report.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_receiving_report_py___coupled_pairs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/receiving_report.py#:~:text=def%20_coupled_pairs">Source ↗</a></p>
+</article>
+</main>
+</body></html>
