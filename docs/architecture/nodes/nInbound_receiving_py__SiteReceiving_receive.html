@@ -18,16 +18,23 @@
 <section class="doc">One drain of the standing dock: plan arrivals, fill doors, unload, hand off.
 
 `leaves` is a SEQUENCE, and there is one drain for the whole site however many it
-holds.  With one leaf the row is RETURNED and the caller decides where it belongs
-(`_receive` appends it to that leaf&#x27;s `_yard_drains`, which is what it always did);
-with two it is site-scoped and belongs in neither leaf&#x27;s table, so it is parked on
-`site_rows` and None comes back — a leaf cannot record a number that is not its
-channel&#x27;s if it is never handed one (&quot;Design the site scope in the run tree&quot;).
+holds.  A coordinator serving AT MOST ONE leaf routes and returns exactly as the
+single-channel drain always did: the yard row comes back and the caller decides
+where it belongs (`_receive` appends it to that leaf&#x27;s `_yard_drains`).  From the
+SECOND leaf the row is site-scoped and belongs in neither leaf&#x27;s table, so it is
+parked on `site_rows` and None comes back — a leaf cannot record a number that is
+not its channel&#x27;s if it is never handed one (&quot;Design the site scope in the run
+tree&quot;).  That threshold is the one `bind` stamps `site_scoped` on and
+`_freeze_views` tags on, deliberately: three spellings of &quot;is the site real yet&quot;
+is three things to keep in step.
 
-A coordinator serving several leaves REFUSES a drain that does not name all of
-them.  The only way to reach that is a coupled leaf&#x27;s own `check_reorders`, and
-what it would do is drain the site&#x27;s dock for one channel while the other&#x27;s
-arrivals are still on the yard: half a site day&#x27;s receiving, attributed whole.
+TWO REFUSALS, and they are the same rule from both sides.  A coordinator serving
+several leaves refuses a drain that does not name all of them — the only way to
+reach that is a coupled leaf&#x27;s own `check_reorders`, and what it would do is drain
+the site&#x27;s dock for one channel while the other&#x27;s arrivals are still on the yard:
+half a site day&#x27;s receiving, attributed whole.  An UNBOUND coordinator refuses more
+than one leaf outright, because the owner dict is built by `bind` and without it
+there is no way to say whose merchandise a lot is.
 
 Four steps, and their order is the design:
 
