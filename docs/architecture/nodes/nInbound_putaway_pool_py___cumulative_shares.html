@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_cumulative_shares · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_putaway_pool_py___cumulative_shares" data-id="Inbound/putaway_pool.py::_cumulative_shares">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_putaway_pool_py.html"><code>Inbound/putaway_pool.py</code></a> <span class="sep">›</span> <span class="here"><code>_cumulative_shares</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_cumulative_shares</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_putaway_pool_py.html"><code>Inbound/putaway_pool.py</code></a></p>
+
+<pre class="sig"><code>def _cumulative_shares(expected_utilization: dict, channels: tuple) -&gt; dict</code></pre>
+<section class="doc">Each channel&#x27;s share of the day, stacked in `channels` order.
+
+`expected_utilization[n]` is `load_n / (crew x S)` by construction, so crew and day
+cancel and the share is just `exp_n / sum(exp)` — the split needs no new record field.
+A single-channel catalogue gets 1.0 and the residue pass is a no-op, so the degenerate
+case is correct for free.
+
+Stacked (0.4, 1.0) rather than flat (0.4, 0.6) because the clocks are SHARED: the
+second leaf starts from wherever the first left them, so its whistle is a point on the
+same day, not a length of its own.  The last channel&#x27;s is 1.0 by construction, which
+is what hands it everything the earlier ones did not spend.
+
+A site expecting NO put work at all gives everyone the whole day: nobody should be
+starved by a script that said nothing was coming, and with no expectation to divide
+there is no fairer division than none.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_putaway_pool_py__PutawayPool___init__.html"><code>__init__</code></a> <span class="dim">Inbound/putaway_pool.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_putaway_pool_py___cumulative_shares">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/putaway_pool.py#:~:text=def%20_cumulative_shares">Source ↗</a></p>
+</article>
+</main>
+</body></html>

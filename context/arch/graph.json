@@ -1041,6 +1041,31 @@
       "src": "Inbound/priorities.py"
     },
     {
+      "dst": "Warehouse/kernel/crew_clock.py",
+      "kind": "imports",
+      "src": "Inbound/putaway_pool.py"
+    },
+    {
+      "dst": "Inbound/putaway_pool.py::_cumulative_shares",
+      "kind": "calls",
+      "src": "Inbound/putaway_pool.py::PutawayPool.__init__"
+    },
+    {
+      "dst": "Inbound/putaway_pool.py::PutawayPool._channel_of",
+      "kind": "calls",
+      "src": "Inbound/putaway_pool.py::PutawayPool.drain"
+    },
+    {
+      "dst": "Inbound/putaway_pool.py::PutawayPool._channel_of",
+      "kind": "calls",
+      "src": "Inbound/putaway_pool.py::PutawayPool.note_records"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::reset",
+      "kind": "calls",
+      "src": "Inbound/putaway_pool.py::PutawayPool.note_records"
+    },
+    {
       "dst": "Warehouse/kernel/allocation.py",
       "kind": "imports",
       "src": "Inbound/receiving.py"
@@ -12581,6 +12606,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Inbound/putaway_pool.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Inbound/receiving.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -12682,6 +12712,11 @@
     },
     {
       "dst": "Warehouse/kernel/cost_model.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
     },
@@ -12886,6 +12921,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_work_day_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
       "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
@@ -13031,6 +13071,21 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_futuresight_window",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::Batch",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
+    },
+    {
       "dst": "Optimization/simconfig/equilibrium.py::is_drained",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._shift_close_out"
@@ -13097,11 +13152,6 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_futuresight_window",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
     },
@@ -13186,11 +13236,6 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
     },
     {
-      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
@@ -13209,6 +13254,26 @@
       "dst": "Warehouse/picking/fast_pick.py::DeferredPickSimulation",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
+    },
+    {
+      "dst": "Inbound/putaway_pool.py::PutawayPool",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_put_pool"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_work_day_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_put_pool"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_put_pool"
+    },
+    {
+      "dst": "Warehouse/kernel/crew_clock.py::new_clocks",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_put_pool"
     },
     {
       "dst": "Optimization/simconfig/staffing.py::channel_crew",
@@ -13271,9 +13336,19 @@
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_build_put_pool",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::_check_site_crews",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::WorkDay",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_work_day_of"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::extract_batch_stats",
@@ -17826,11 +17901,6 @@
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders"
     },
     {
-      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drain_putaway",
-      "kind": "calls",
-      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders"
-    },
-    {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._fire_reorders",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders"
@@ -17847,6 +17917,11 @@
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._tick_batch",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.drain_putaway",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders"
     },
@@ -21328,6 +21403,86 @@
       "module": "Inbound/priorities.py",
       "name": "yard_key",
       "public": true
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py",
+      "kind": "module",
+      "module": "Inbound/putaway_pool.py",
+      "name": "Inbound.putaway_pool",
+      "public": true
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::PutawayPool",
+      "kind": "class",
+      "module": "Inbound/putaway_pool.py",
+      "name": "PutawayPool",
+      "public": true
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::PutawayPool.__init__",
+      "kind": "function",
+      "module": "Inbound/putaway_pool.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::PutawayPool.__repr__",
+      "kind": "function",
+      "module": "Inbound/putaway_pool.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::PutawayPool._channel_of",
+      "kind": "function",
+      "module": "Inbound/putaway_pool.py",
+      "name": "_channel_of",
+      "public": false
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::PutawayPool.bind",
+      "kind": "function",
+      "module": "Inbound/putaway_pool.py",
+      "name": "bind",
+      "public": true
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::PutawayPool.drain",
+      "kind": "function",
+      "module": "Inbound/putaway_pool.py",
+      "name": "drain",
+      "public": true
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::PutawayPool.note_records",
+      "kind": "function",
+      "module": "Inbound/putaway_pool.py",
+      "name": "note_records",
+      "public": true
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::PutawayPool.open_batch",
+      "kind": "function",
+      "module": "Inbound/putaway_pool.py",
+      "name": "open_batch",
+      "public": true
+    },
+    {
+      "file": "Inbound/putaway_pool.py",
+      "id": "Inbound/putaway_pool.py::_cumulative_shares",
+      "kind": "function",
+      "module": "Inbound/putaway_pool.py",
+      "name": "_cumulative_shares",
+      "public": false
     },
     {
       "file": "Inbound/receiving.py",
@@ -35083,6 +35238,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_replenish",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._shift_close_out",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -35095,6 +35258,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_step",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_put_pool",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_build_put_pool",
       "public": false
     },
     {
@@ -35215,6 +35386,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_timed_build",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_work_day_of",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_work_day_of",
       "public": false
     },
     {
@@ -41323,14 +41502,6 @@
     },
     {
       "file": "Warehouse/inventory/inventory_reorder.py",
-      "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drain_putaway",
-      "kind": "function",
-      "module": "Warehouse/inventory/inventory_reorder.py",
-      "name": "_drain_putaway",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/inventory_reorder.py",
       "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drop_sku_from_aisle",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
@@ -41415,6 +41586,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
       "name": "check_reorders",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_reorder.py",
+      "id": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.drain_putaway",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_reorder.py",
+      "name": "drain_putaway",
       "public": true
     },
     {

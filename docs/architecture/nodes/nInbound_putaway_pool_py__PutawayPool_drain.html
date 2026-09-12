@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>drain · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_putaway_pool_py__PutawayPool_drain" data-id="Inbound/putaway_pool.py::PutawayPool.drain">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_putaway_pool_py.html"><code>Inbound/putaway_pool.py</code></a> <span class="sep">›</span> <a href="nInbound_putaway_pool_py__PutawayPool.html"><code>PutawayPool</code></a> <span class="sep">›</span> <span class="here"><code>drain</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>drain</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_putaway_pool_py.html"><code>Inbound/putaway_pool.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def drain(self, leaf, deadline) -&gt; None</code></pre>
+<section class="doc">Phase 5 for `leaf`, against its share of the day — and, on the last leaf of the
+day, the residue pass and the cut for every leaf.
+
+Reached from `Inventory_Manager.check_reorders`, which routes phase 5 here when a
+pool is bound exactly as it routes phase 4 to `mgr.receiving`.  `deadline` is the
+whole day&#x27;s remainder, the value `open_batch` handed the driver; it is CHECKED
+against the pool&#x27;s own rather than trusted, because a leaf drained against a
+different day than the one the clocks are running on would place work nobody has
+the hours for, and every row of it would look ordinary.
+
+NEITHER PASS CHARGES THE CUT.  `cut` is a LEVEL — it re-counts the standing queue
+every time it is charged — so two charges inside one batch inflate it where no
+downstream &quot;count the non-zero batches&quot; rule can undo it.  Both drains pass
+`charge_cut=False` and the cut is counted once, below, against the FULL day.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_putaway_pool_py__PutawayPool__channel_of.html"><code>_channel_of</code></a> <span class="dim">Inbound/putaway_pool.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_putaway_pool_py__PutawayPool_drain">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/putaway_pool.py#:~:text=def%20drain">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>open_batch · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_putaway_pool_py__PutawayPool_open_batch" data-id="Inbound/putaway_pool.py::PutawayPool.open_batch">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_putaway_pool_py.html"><code>Inbound/putaway_pool.py</code></a> <span class="sep">›</span> <a href="nInbound_putaway_pool_py__PutawayPool.html"><code>PutawayPool</code></a> <span class="sep">›</span> <span class="here"><code>open_batch</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>open_batch</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_putaway_pool_py.html"><code>Inbound/putaway_pool.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def open_batch(self, index: int) -&gt; tuple</code></pre>
+<section class="doc">`(base, deadline)` for site day `index`: the put crew&#x27;s absolute epoch and the
+whistle as a REMAINDER on the batch-local clocks.
+
+IDEMPOTENT PER INDEX, and that is the contract: every leaf asks, and every leaf
+must get the same answer, because one clock list cannot carry two epochs.  The
+first call computes; the rest read.
+
+`base` is `max(day.start_of(index), put_clock)` — the putters start at shift start
+and work what is on the dock, or they carry on from where yesterday&#x27;s overrun left
+them.  `deadline` is the rest of the day CONTAINING that base, so base + deadline
+is the day&#x27;s end however far the carry has run.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_putaway_pool_py__PutawayPool_open_batch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/putaway_pool.py#:~:text=def%20open_batch">Source ↗</a></p>
+</article>
+</main>
+</body></html>

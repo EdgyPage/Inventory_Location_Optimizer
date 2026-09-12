@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>close_skipped_batch</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def close_skipped_batch(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id, demanded, sigma_fd, reload_moves, reorder_placements, skus_reordered, units_ordered, put_workers, put_crews, shift_seconds)</code></pre>
+<pre class="sig"><code>def close_skipped_batch(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id, demanded, sigma_fd, reload_moves, reorder_placements, skus_reordered, units_ordered, put_workers, put_crews, shift_seconds, put_base=None, reset_clocks=True)</code></pre>
 <section class="doc">Everything a batch that produced no tasks still owes.
 
 Returns `(batch_stats_row, work_event_rows, put_clock)`.
@@ -36,7 +36,13 @@ what a day-slot costs.  So the skip still precedes the advance.
 A MODULE-LEVEL FUNCTION, not an inline branch, because inline it was reachable only by a
 full sweep -- and no arm in the coverage sweep ever skips a batch, so it had no coverage
 at all.  Source-scanning it instead does not work: `if False:` and a commented-out call
-both still contain the strings a scan looks for, and two sabotages proved it.</section>
+both still contain the strings a scan looks for, and two sabotages proved it.
+
+THE TWO POOLED PARAMETERS.  `put_base` overrides the crew&#x27;s epoch with the SITE&#x27;s --
+one shared clock list cannot carry two epochs -- and `reset_clocks=False` leaves the
+crew standing for the pool to reset once both leaves have recorded.  The defaults are
+every uncoupled run and reproduce this function&#x27;s whole history; a skipped batch still
+put hundreds of units away, so it needs both exactly as the picked path does.</section>
 <section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_metrics_Simulation_Analytics_py__extract_batch_stats.html"><code>extract_batch_stats</code></a> <span class="dim">Optimization/metrics/Simulation_Analytics.py</span></li><li><a href="nOptimization_metrics_work_events_py__put_rows.html"><code>put_rows</code></a> <span class="dim">Optimization/metrics/work_events.py</span></li><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_drain_putaway_records.html"><code>drain_putaway_records</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf__step.html"><code>_step</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py__close_skipped_batch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20close_skipped_batch">Source ↗</a></p>
 </article>

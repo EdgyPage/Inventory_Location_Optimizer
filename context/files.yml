@@ -95,6 +95,12 @@ files:
       - {name: "dock_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "bounded_order", file: "Inbound/priorities.py", kind: "function"}
     notes: ""
+  "Inbound/putaway_pool.py":
+    purpose: "The site put pool: ONE crew of putters as one shared clock list bound to both channels' put queues, owning the day's division between them, the residue re-drain, the once-per-site-day reset and the site put carry."
+    layer: "inbound"
+    key_symbols:
+      - {name: "PutawayPool", file: "Inbound/putaway_pool.py", kind: "class"}
+    notes: ""
   "Inbound/receiving.py":
     purpose: "the site's receiving coordinator: one dock, one yard, N leaves."
     layer: "inbound"
@@ -4352,6 +4358,40 @@ files:
       - {name: "test_the_manager_reporters_unwrap_the_item", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
       - {name: "test_the_diagnostics_bucket_helper_accepts_either", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
       - {name: "test_every_queue_walker_in_the_repo_unwraps", file: "Tests/unit/test_putaway_item_consumers.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_putaway_pool.py":
+    purpose: "Pins the site put pool: the proportional division, both directions of the residue pass, the cut charged once, the reset owned once, the site base and carry, every refusal, and two prices over one crew."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_each_leaf_drains_at_its_own_share_of_the_day", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_single_channel_site_gets_the_whole_day_and_no_residue", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_site_expecting_no_put_work_starves_nobody", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_channel_absent_from_the_expectation_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_last_share_is_exactly_one", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_residue_pass_re_drains_every_leaf_against_the_whole_day", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_store_leaf_finishing_early_releases_its_hours_to_fulfillment", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_neither_pass_charges_the_cut_and_the_pool_charges_once", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_cut_is_counted_after_the_residue_not_before", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_both_leaves_read_the_same_epoch", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_base_is_the_site_day_start_not_a_leaf_batch_start", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_an_overrunning_carry_shortens_the_day_it_lands_in", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_clocks_reset_once_after_every_leaf_has_reported", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_carry_does_not_move_when_nobody_worked", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_pool_without_a_whistle_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_pool_over_a_grid_that_is_not_one_batch_per_day_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_an_unbound_leaf_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_binding_the_same_channel_twice_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_leaf_that_drains_twice_in_one_day_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_leaf_that_drains_against_another_day_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_day_that_opens_while_a_leaf_still_owes_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_reporting_records_before_draining_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_put_uid_block_clears_both_channels_pickers", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_coupled_unit_without_a_derived_block_is_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_leaves_that_describe_different_working_days_are_refused", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_the_builder_refuses_a_unit_without_the_working_day_grid", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_two_managers_bound_to_one_pool_share_the_SAME_list", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_a_manager_drain_can_leave_the_shared_crew_standing", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
+      - {name: "test_one_crew_works_at_two_prices_and_the_ratio_is_the_two_put_constants", file: "Tests/unit/test_putaway_pool.py", kind: "function"}
     notes: ""
   "Tests/unit/test_putaway_provenance.py":
     purpose: "where a queued unit came from is declared, not inferred."

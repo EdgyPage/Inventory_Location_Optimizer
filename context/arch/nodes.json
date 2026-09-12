@@ -1235,6 +1235,74 @@
       "kind": "function",
       "signature": "(policy: str)"
     },
+    "Inbound/putaway_pool.py": {
+      "decorators": [],
+      "doc": "putaway_pool \u2014 one site pool of putters over two channels' segregated volume.\n\n`PutawayPool` is the site's put-away crew: ONE `list[float]` of worker clocks, bound to\nboth channels' put queues, so `crew_clock.charge` greedy-books every put to whichever\nputter is free earliest ACROSS BOTH CHANNELS.  A putter genuinely takes work from either\nqueue, with no new scheduling vocabulary \u2014 the sharing is identity, not arithmetic.\n\nSegregation survives untouched.  The two managers keep their own queues, carts, geometries\nand `_put_seconds`; a cart carries one channel's packs only.  **Only the people are\nshared**, which is exactly the charter's \"one site pool over segregated volume\".\n\n# \u2500\u2500 why it lives here, and cannot live anywhere else \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`wh_operations -> wh_inventory` is forbidden (`context/architecture.yml:88`), so the\npackage where crews live cannot drive a manager's drain; `warehouse_core -> inbound` and\n`wh_inventory -> inbound` are forbidden in BOTH directions (`:102-103`).  `Inbound/` is\ntherefore the only package that may sit above two managers \u2014 the same argument that put\n`SiteReceiving` here.\n\nSo this module never imports a manager.  It DUCK-TYPES its leaves and reaches each one\nthrough exactly three public ports:\n\n    leaf.drain_putaway(deadline, charge_cut=False) -> None\n        Phase 5 of a completed batch, promoted from `_drain_putaway` for this caller.\n    leaf.count_put_cut(deadline) -> None\n        What the whistle stopped, charged ONCE per site day against the FULL day.\n    leaf.drain_putaway_records(reset_clocks=False)\n        Not called here \u2014 the driver calls it and reports the result to `note_records`,\n        because only the driver knows the batch epoch the rows are stamped from.\n\n# \u2500\u2500 the three things this owns that nobody else can \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n**The day's division.**  With shared clocks and a fixed leaf order, the first leaf drains,\npushes the clocks, and the second starts from wherever the first left them \u2014 so the second\nwould absorb every cut, every day, as a pure artefact of loop order.  That bias would look\nexactly like a finding.  Each leaf therefore drains against a CUMULATIVE sub-deadline at\nits own share of the day, and then every leaf re-drains against the whole day: the residue\npass IS the charter's \"a channel that finishes early releases labour to the other\", and it\nruns in both directions.  Earlier-to-later is free (the cumulative deadline hands the later\nleaf whatever the earlier one did not spend); later-to-earlier is what the residue pass is\nfor.\n\n**The reset.**  `drain_putaway_records()` resets every queue's clocks, and on a shared list\none leaf's drain resetting the pool before the other has recorded is a silent, plausible-\nlooking zeroing \u2014 every subsequent row wrong and nothing raising.  So on a coupled run the\nmanager drain stops resetting (`reset_clocks=False`) and the pool resets the one list once\nper site day, after BOTH leaves have handed their records over.  Giving that trap a single\nowner is the main argument for this module existing at all.\n\n**The site `put_clock`.**  A shared clock list cannot carry two epochs: `put_clock` is the\nabsolute carry `crew_start` is measured from, so two carries over one list would stamp the\nsame worker's same second at two different absolute instants.  Under one put crew there is\none put carry, based at the SITE DAY START \u2014 `max(day.start_of(i), put_clock)` \u2014 never at\neither leaf's `batch_start_time`, which would idle the site's putters whenever a pick crew\noverran its day and misattribute a picking overrun to put-away's cut.\n\n# \u2500\u2500 what is NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nWithin-day interleaving.  The two leaves each run their day as today and draw from one pool\nof crew-seconds; a putter is never dispatched between the channels mid-batch.  An\nevent-driven cadence is out of scope, inherited.\n\nThe band.  What the coupled put clause READS \u2014 one site number against the summed\nexpectation, retiring `expected_utilization`'s \"single-channel leaves undercut rho\" caveat\nfor put \u2014 needs the site analysis stage and belongs to \"Re-scope the analysis surfaces\".",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/putaway_pool.py::PutawayPool": {
+      "decorators": [],
+      "doc": "The site's putters: one clock list, one uid block, one carry, N leaves.\n\nConstructed by the driver at UNIT scope, where the crew is sized from the staffing\nrecord, and bound onto each leaf it serves (`mgr.putaway_pool`) \u2014 the same injection\nprecedent as `enable_receiving`, `mgr.packer` and `mgr.receiving`: the broker holds\nwhat it is handed, and nothing under `Warehouse/` imports this package.\n\n`clocks` and `workers` are parallel and index-aligned: clock `w` is worker `w`, which\nis what lets `work_events.put_rows` name the same person in both channels' DBs.  The\ndriver mints both, exactly as it mints every other crew \u2014 this holds them.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/putaway_pool.py::PutawayPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, clocks: list, workers: tuple, expected_utilization: dict, day, *, channels: tuple, releases_per_day, cut_at_day_end: bool)"
+    },
+    "Inbound/putaway_pool.py::PutawayPool.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/putaway_pool.py::PutawayPool._channel_of": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf) -> str"
+    },
+    "Inbound/putaway_pool.py::PutawayPool.bind": {
+      "decorators": [],
+      "doc": "Serve `channel`'s leaf.  Call once per leaf, before the batch loop.\n\nThe leaf's queues must already be bound to `self.clocks`\n(`enable_putaway_timing(..., clocks=pool.clocks)`) \u2014 that binding is what makes\nthe pool real, and this only records who the driver will be stepping.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf, channel: str) -> None"
+    },
+    "Inbound/putaway_pool.py::PutawayPool.drain": {
+      "decorators": [],
+      "doc": "Phase 5 for `leaf`, against its share of the day \u2014 and, on the last leaf of the\nday, the residue pass and the cut for every leaf.\n\nReached from `Inventory_Manager.check_reorders`, which routes phase 5 here when a\npool is bound exactly as it routes phase 4 to `mgr.receiving`.  `deadline` is the\nwhole day's remainder, the value `open_batch` handed the driver; it is CHECKED\nagainst the pool's own rather than trusted, because a leaf drained against a\ndifferent day than the one the clocks are running on would place work nobody has\nthe hours for, and every row of it would look ordinary.\n\nNEITHER PASS CHARGES THE CUT.  `cut` is a LEVEL \u2014 it re-counts the standing queue\nevery time it is charged \u2014 so two charges inside one batch inflate it where no\ndownstream \"count the non-zero batches\" rule can undo it.  Both drains pass\n`charge_cut=False` and the cut is counted once, below, against the FULL day.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf, deadline) -> None"
+    },
+    "Inbound/putaway_pool.py::PutawayPool.note_records": {
+      "decorators": [],
+      "doc": "`leaf` has handed its records over and stamped them; `finish` is the absolute\ninstant its last put ended, or None when it recorded nothing.\n\nCalled once per leaf per site day, on BOTH the picked and the skipped path \u2014 a\nbatch that produced no tasks still ran `check_reorders` and may have put hundreds\nof units away.  When the last leaf reports, the shared clocks reset and the site\ncarry is committed: both halves of \"the pool resets once per site day, after both\nleaves have drained\".\n\nThe carry moves only when somebody actually worked.  No records anywhere means the\ncrew is where it was, exactly as an unpooled leaf leaves `put_clock` alone.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaf, finish) -> None"
+    },
+    "Inbound/putaway_pool.py::PutawayPool.open_batch": {
+      "decorators": [],
+      "doc": "`(base, deadline)` for site day `index`: the put crew's absolute epoch and the\nwhistle as a REMAINDER on the batch-local clocks.\n\nIDEMPOTENT PER INDEX, and that is the contract: every leaf asks, and every leaf\nmust get the same answer, because one clock list cannot carry two epochs.  The\nfirst call computes; the rest read.\n\n`base` is `max(day.start_of(index), put_clock)` \u2014 the putters start at shift start\nand work what is on the dock, or they carry on from where yesterday's overrun left\nthem.  `deadline` is the rest of the day CONTAINING that base, so base + deadline\nis the day's end however far the carry has run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, index: int) -> tuple"
+    },
+    "Inbound/putaway_pool.py::_cumulative_shares": {
+      "decorators": [],
+      "doc": "Each channel's share of the day, stacked in `channels` order.\n\n`expected_utilization[n]` is `load_n / (crew x S)` by construction, so crew and day\ncancel and the share is just `exp_n / sum(exp)` \u2014 the split needs no new record field.\nA single-channel catalogue gets 1.0 and the residue pass is a no-op, so the degenerate\ncase is correct for free.\n\nStacked (0.4, 1.0) rather than flat (0.4, 0.6) because the clocks are SHARED: the\nsecond leaf starts from wherever the first left them, so its whistle is a point on the\nsame day, not a length of its own.  The last channel's is 1.0 by construction, which\nis what hands it everything the earlier ones did not spend.\n\nA site expecting NO put work at all gives everyone the whole day: nobody should be\nstarved by a script that said nothing was coming, and with no expectation to divide\nthere is no fairer division than none.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(expected_utilization: dict, channels: tuple) -> dict"
+    },
     "Inbound/receiving.py": {
       "decorators": [],
       "doc": "receiving \u2014 the site's receiving coordinator: one dock, one yard, N leaves.\n\n`SiteReceiving` owns every DECISION of a standing drain and holds no merchandise.  It\nsits ABOVE the inventory managers rather than inside one, which is what lets one dock\nserve two channels without either manager knowing the other exists.\n\n# \u2500\u2500 why it lives here, and cannot live anywhere else \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`wh_operations -> wh_inventory` is forbidden (`context/architecture.yml:88`), so the\npackage where crews live cannot drive a manager's drain; `warehouse_core -> inbound` and\n`wh_inventory -> inbound` are forbidden in BOTH directions (`:102-103`).  `Inbound/` is\ntherefore the only package that may sit above two managers, which is why the put pool\nlands here too.\n\nThe consequence is that this module can never import a manager.  It DUCK-TYPES its\nleaves and reaches each one through exactly two public ports:\n\n    leaf.plan_lot(sku, qty, source) -> (plans, items)\n        Step 1's per-lot body: resolve `_originals`, apply `inbound_split`, pack, stamp,\n        and debit the pack shortfall against the remainder ledger.\n    leaf.accept(item, dur) -> None\n        Step 4's per-unit body: the deferred->queued flip, `_recv_seconds`, `_queue`.\n\nEverything else a drain touches is the coordinator's own: the `Dock`, the `YardTransit`,\nthe ctx freeze, the door fill, the unload and the handoff ORDER.  `regime_of` (wh_kernel,\ndependency-free) is what will route a unit to its owning leaf once there are two; with\none leaf every unit routes to it trivially, and this module is deliberately written so\nthat adding the second leaf changes the ROUTING and nothing else.\n\n# \u2500\u2500 what is NOT here yet \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe `{sku: leaf}` owner dict, the refusal on a non-standing transit, and the `SITE_PHASES`\ninterleave for two leaves all wait for a second leaf to exist (\"Design the site receiving\ncoordinator\", the site-dock map).  `drain` below is the one-leaf composition and states\nits own limit.",
@@ -13296,10 +13364,10 @@
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf": {
       "decorators": [],
-      "doc": "One channel leaf, built but not yet run \u2014 the setup half of a work unit.\n\nEverything here is per channel and stays so under coupling: one inventory partition, one\nwarehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns\nis the leaf's two halves as closures over that setup \u2014 `step(i)`, one batch, and\n`finish()`, the run-end flush and the result dict \u2014 so a caller can drive ONE leaf (every\nrun today) or step two leaves through one batch loop (the coupled unit, site-dock 02 \u00a72).\n\nThe closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this\nfunction with the loop inline, and the split moved the loop body and the tail VERBATIM.\nThey rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries\n(`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between\ncalls exactly as they survived between iterations.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
+      "doc": "One channel leaf, built but not yet run \u2014 the setup half of a work unit.\n\nEverything here is per channel and stays so under coupling: one inventory partition, one\nwarehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns\nis the leaf's two halves as closures over that setup \u2014 `step(i)`, one batch, and\n`finish()`, the run-end flush and the result dict \u2014 so a caller can drive ONE leaf (every\nrun today) or step two leaves through one batch loop (the coupled unit, site-dock 02 \u00a72).\n\n`pool` is the SITE PUT POOL (`Inbound.putaway_pool.PutawayPool`), built above the leaves\nand injected: when it is present this leaf's put queues are bound to the pool's shared\nclock list rather than minting their own, its put rows are stamped with the pool's\nworkers and the pool's site-wide epoch, and phase 5 of every batch belongs to the pool.\nNone is every uncoupled run and every flag-off leaf, which then fields its own put crew\nexactly as it always did \u2014 double count and all, structurally, because the pool is not\nCONSTRUCTED rather than constructed and bypassed.\n\nThe closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this\nfunction with the loop inline, and the split moved the loop body and the tail VERBATIM.\nThey rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries\n(`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between\ncalls exactly as they survived between iterations.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
       "is_async": false,
       "kind": "function",
-      "signature": "(args: dict, unit: dict | None=None) -> '_Leaf'"
+      "signature": "(args: dict, unit: dict | None=None, pool=None) -> '_Leaf'"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state": {
       "decorators": [],
@@ -13315,6 +13383,13 @@
       "kind": "function",
       "signature": "() -> dict"
     },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish": {
+      "decorators": [],
+      "doc": "Batch `i`'s REPLENISHMENT half, for this leaf: the release instant, the two\nwhistles, the standing-demand injection, the re-slot and `check_reorders`.\n\nSPLIT OUT SO EVERY LEAF REPLENISHES BEFORE ANY LEAF PICKS.  The site put pool\ndivides one day between the channels and then re-drains both against the whole\nof it, so an earlier leaf can spend what a later one did not -- and the later\nleaf's queue does not exist until its own phases 1-3 have run.  With the whole\nbatch in one call that residue pass would land after the earlier leaf had\nalready snapshotted its queues and stamped its rows: the placements would be\nreal, the rows would be stamped a day late, and `put_queue_state` would report\na queue depth that was never standing.  Nothing would raise.\n\nOne leaf calls this and `_step` back to back, which is the loop this was cut\nout of, line for line.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(i: int) -> None"
+    },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._shift_close_out": {
       "decorators": [],
       "doc": "Close working day `day`: the ledger row `(day, cap_end, end_s, drained,\nstanding, standing_put, standing_dock, standing_carry, standing_carry_labour,\nstanding_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing\nwas cut in it, no standing LABOUR survives it -- put queues + held + the dock floor\n+ the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap\n(START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is\ncalendar, not labour; and releases are exhausted by construction at a day\nboundary), and never the SUPPLY carry (`unpicked_unavailable` /\n`unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as\nstanding work it made every finite stock level cap every day).\n`equilibrium.is_drained` is the one definition; this closure only gathers its\narguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay\norigin-aligned, so this is a REPORT of when the crews got off the clock, never a\nscheduler.\n\nThe state is PASSED IN, never read live: the close-out fires at the first batch of\nthe NEXT day, after that batch has already been processed, so the manager's live\ndepths and the folded clocks belong to the new day by then.  The caller hands it\nthe snapshot the previous day's last batch left behind (`_shift_standing`) and the\nclocks and cut flag accumulated before this batch was folded in.  The log-only\nledger read them live and mis-attributed every day's first batch to the day before\n-- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which\npersisting the row was what made visible.  Called once per day boundary, and once\nmore after the loop for the final day, which has no next day to close it.",
@@ -13328,6 +13403,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(i: int) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_put_pool": {
+      "decorators": [],
+      "doc": "The SITE's put crew, for a coupled unit: one clock list, one roster, one carry.\n\nBuilt at UNIT scope and above both leaves, because that is the only scope that can see\nboth: the crew comes from the pair's derived block (ONE site total, which the leaves no\nlonger carry at all), the uid block has to clear BOTH channels' dense picker uids, and\nthe day's division needs both channels' recorded expectations.  A leaf cannot compute\nany of the three, which is why the pool is injected into it rather than fished out of\nit (site-dock 04 section 5).\n\nTHE BLOCK STARTS AT `max(k_pickers)`.  Every existing analysis assumes `actor_uid ==\npicker_id` for pickers, and the two channels have different picker counts, so a put\nblock chained off either leaf's own pickers would give the same physical putter two\ndifferent uids in the two DBs -- and any site-level rollup joining on `actor_uid` would\nmerge two different people.  The smaller leaf gets a GAP in its uid space instead,\nwhich nothing reads (`put_rows` bounds-checks `widx` against the roster, `work_events`\nhas no uniqueness constraint).  A dense-but-lying uid is worse than a sparse-but-true\none.\n\nTHE WORKING DAY IS READ ONCE, from leaves that are checked to agree.  It reaches the\nworker per leaf (`work_day_spec()` rides `_shared`), so both copies come from one\naccessor -- but \"both copies come from one accessor\" is a fact about the parent, and a\ncoupled unit assembled by hand could carry two.  The pool divides ONE day.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict)"
     },
     "Optimization/simdriver/strategy_runner.py::_check_declared_crew": {
       "decorators": [],
@@ -13426,12 +13508,19 @@
       "kind": "function",
       "signature": "(strat, mgr, ctx) -> float"
     },
-    "Optimization/simdriver/strategy_runner.py::close_skipped_batch": {
+    "Optimization/simdriver/strategy_runner.py::_work_day_of": {
       "decorators": [],
-      "doc": "Everything a batch that produced no tasks still owes.\n\nReturns `(batch_stats_row, work_event_rows, put_clock)`.\n\nA batch with no tasks still HAPPENED.  `check_reorders` runs above the skip guard and may\nhave put hundreds of units away -- measured at 66-426 records per batch from batch 1 on.\nTwo things used to ride on the bare `skipped += 1; continue`:\n\n  * those put records were never drained, so they carried into the NEXT batch's drain and\n    were stamped against the next batch's epoch;\n  * no `batch_stats` row was written, which is why the absolute axis could not be\n    recovered downstream by a cumsum.  The runner's comment described that as the design;\n    it was the leak.\n\nThe row is zero-duration and zero-items, and `arm_clock` is deliberately NOT advanced:\nthere is no principled duration for an empty batch until a release schedule exists to say\nwhat a day-slot costs.  So the skip still precedes the advance.\n\nA MODULE-LEVEL FUNCTION, not an inline branch, because inline it was reachable only by a\nfull sweep -- and no arm in the coverage sweep ever skips a batch, so it had no coverage\nat all.  Source-scanning it instead does not work: `if False:` and a commented-out call\nboth still contain the strings a scan looks for, and two sabotages proved it.",
+      "doc": "The working day a payload describes, as a `WorkDay`.\n\nONE expression, two callers: a leaf builds its release schedule from it and the site\nput pool divides it.  Two constructions of the same day would be two days the moment\none of them picked up a fallback the other did not, and the symptom would be a put\ncrew whose whistle was minutes away from its own pickers'.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id, demanded, sigma_fd, reload_moves, reorder_placements, skus_reordered, units_ordered, put_workers, put_crews, shift_seconds)"
+      "signature": "(args: dict)"
+    },
+    "Optimization/simdriver/strategy_runner.py::close_skipped_batch": {
+      "decorators": [],
+      "doc": "Everything a batch that produced no tasks still owes.\n\nReturns `(batch_stats_row, work_event_rows, put_clock)`.\n\nA batch with no tasks still HAPPENED.  `check_reorders` runs above the skip guard and may\nhave put hundreds of units away -- measured at 66-426 records per batch from batch 1 on.\nTwo things used to ride on the bare `skipped += 1; continue`:\n\n  * those put records were never drained, so they carried into the NEXT batch's drain and\n    were stamped against the next batch's epoch;\n  * no `batch_stats` row was written, which is why the absolute axis could not be\n    recovered downstream by a cumsum.  The runner's comment described that as the design;\n    it was the leak.\n\nThe row is zero-duration and zero-items, and `arm_clock` is deliberately NOT advanced:\nthere is no principled duration for an empty batch until a release schedule exists to say\nwhat a day-slot costs.  So the skip still precedes the advance.\n\nA MODULE-LEVEL FUNCTION, not an inline branch, because inline it was reachable only by a\nfull sweep -- and no arm in the coverage sweep ever skips a batch, so it had no coverage\nat all.  Source-scanning it instead does not work: `if False:` and a commented-out call\nboth still contain the strings a scan looks for, and two sabotages proved it.\n\nTHE TWO POOLED PARAMETERS.  `put_base` overrides the crew's epoch with the SITE's --\none shared clock list cannot carry two epochs -- and `reset_clocks=False` leaves the\ncrew standing for the pool to reset once both leaves have recorded.  The defaults are\nevery uncoupled run and reproduce this function's whole history; a skipped batch still\nput hundreds of units away, so it needs both exactly as the picked path does.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id, demanded, sigma_fd, reload_moves, reorder_placements, skus_reordered, units_ordered, put_workers, put_crews, shift_seconds, put_base=None, reset_clocks=True)"
     },
     "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint": {
       "decorators": [],
@@ -18795,13 +18884,6 @@
       "kind": "function",
       "signature": "(self, picks: list[tuple[int, int]], empties: 'list[tuple[Aisle.Bin, float]] | list[Aisle.Bin]') -> None"
     },
-    "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drain_putaway": {
-      "decorators": [],
-      "doc": "Place the stock queue into bins (retries prior-batch stragglers too).\n\n`deadline` is the day's whistle on the put crews' batch-local clocks; what the\nwhistle stops stays queued and is drained by the next batch, which is the put side\nof \"work that does not complete rolls over to the next shift\".",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, deadline: float | None=None) -> None"
-    },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drop_sku_from_aisle": {
       "decorators": [],
       "doc": "Remove one bin's contribution to the per-SKU aisle state (affinity on).\n\nThe CANONICAL per-SKU aisle teardown: drop the bin's column position from\n_aisle_member_pos, decrement the aisle's SKU count, and \u2014 when this was the\nSKU's LAST bin in the aisle \u2014 retire it from the sku/idx sets and subtract\nits lift/demand/pick-load contributions (clamped at 0).\n\n_reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for\nits per-batch hot loop (deliberate micro-optimization over ~7k bins; it also\ntreats a defensive n==0 like n==1, which this cold path never reaches) \u2014\nKEEP THE TWO IN SYNC when editing either.",
@@ -18832,7 +18914,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._receive": {
       "decorators": [],
-      "doc": "Unload what is standing on the dock, until the crew runs out of day.\n\nReturns immediately when there is no receiving crew, which is every run that does not\nask for one -- the dock is not constructed at all, so this is one `is None` test and\nnot a flag.\n\nWHERE THIS SITS IS THE DESIGN. Above it, steps 0-3 are the CALENDAR: a lead time\nelapses whether or not anyone is at work, and a trailer that arrives at four o'clock\nhas still arrived. Below it, `_drain_putaway` is the put crew's labour. Receiving is\nlabour too, and it must run BEFORE the put drain, or a unit unloaded at nine in the\nmorning would wait a whole batch for a bin -- a latency that would be an artifact of\nwhere the hook sits rather than anything about a warehouse.\n\nTHE WHISTLE IS A START GATE, exactly as put-away's is: a receiver already past\n`deadline` begins nothing new, and the unload in progress when it blows finishes. So\novertime is bounded by one unload per worker, which is what someone carrying a pallet\noff a tail lift actually does. `deadline` is a REMAINDER on the crew's batch-local\nclock, not an instant -- see `crew_clock.can_start`.\n\nWhat the whistle stops stays on the dock and is the first thing tomorrow's crew\ntouches: the deque is in arrival order, so the rollover is FIFO and no unit can be\novertaken by merchandise that arrived after it.\n\nTHE STANDING YARD REROUTES THIS PHASE WHOLE.  When the bound transit carries the\nstanding surfaces (`STANDING` \u2014 `YardTransit`; the other transits satisfy them\ntrivially by not having them), every door and crew decision happens here instead:\nplans-at-arrival, the whistle-independent door fill, the budget-gated unload off\nstaged trailers, mid-drain refills, and the canonical handoff.  The dock-floor\ndeque below stays EMPTY in that mode \u2014 the standing buffer is the trailer itself.",
+      "doc": "Unload what is standing on the dock, until the crew runs out of day.\n\nReturns immediately when there is no receiving crew, which is every run that does not\nask for one -- the dock is not constructed at all, so this is one `is None` test and\nnot a flag.\n\nWHERE THIS SITS IS THE DESIGN. Above it, steps 0-3 are the CALENDAR: a lead time\nelapses whether or not anyone is at work, and a trailer that arrives at four o'clock\nhas still arrived. Below it, `drain_putaway` is the put crew's labour. Receiving is\nlabour too, and it must run BEFORE the put drain, or a unit unloaded at nine in the\nmorning would wait a whole batch for a bin -- a latency that would be an artifact of\nwhere the hook sits rather than anything about a warehouse.\n\nTHE WHISTLE IS A START GATE, exactly as put-away's is: a receiver already past\n`deadline` begins nothing new, and the unload in progress when it blows finishes. So\novertime is bounded by one unload per worker, which is what someone carrying a pallet\noff a tail lift actually does. `deadline` is a REMAINDER on the crew's batch-local\nclock, not an instant -- see `crew_clock.can_start`.\n\nWhat the whistle stops stays on the dock and is the first thing tomorrow's crew\ntouches: the deque is in arrival order, so the rollover is FIFO and no unit can be\novertaken by merchandise that arrived after it.\n\nTHE STANDING YARD REROUTES THIS PHASE WHOLE.  When the bound transit carries the\nstanding surfaces (`STANDING` \u2014 `YardTransit`; the other transits satisfy them\ntrivially by not having them), every door and crew decision happens here instead:\nplans-at-arrival, the whistle-independent door fill, the budget-gated unload off\nstaged trailers, mid-drain refills, and the canonical handoff.  The dock-floor\ndeque below stays EMPTY in that mode \u2014 the standing buffer is the trailer itself.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, arrivals=(), deadline: float | None=None) -> None"
@@ -18878,6 +18960,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, put_deadline: float | None=None, recv_deadline: float | None=None, now_s: float | None=None) -> list[int]"
+    },
+    "Warehouse/inventory/inventory_reorder.py::ReorderMixin.drain_putaway": {
+      "decorators": [],
+      "doc": "Place the stock queue into bins (retries prior-batch stragglers too).\n\n`deadline` is the day's whistle on the put crews' batch-local clocks; what the\nwhistle stops stays queued and is drained by the next batch, which is the put side\nof \"work that does not complete rolls over to the next shift\".\n\nPUBLIC, like `reclaim_emptied_bins` and for the same reason: a second work stream\ndrives this phase without replaying the five above it.  The site put pool\n(`Inbound/putaway_pool.py`) calls it TWICE in one site day \u2014 once at this leaf's\nshare of the day, once at the whole of it \u2014 which is what `charge_cut=False` is\nfor: `cut` is a LEVEL, so each drain charging it would inflate it inside one batch\nwhere no downstream rule can undo it.  The pool charges once itself, through\n`count_put_cut`.  True is every other caller.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, deadline: float | None=None, charge_cut: bool=True) -> None"
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin.plan_lot": {
       "decorators": [],
