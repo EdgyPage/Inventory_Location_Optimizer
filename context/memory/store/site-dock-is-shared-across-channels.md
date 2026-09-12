@@ -30,5 +30,14 @@ the crew's full rate at any door count. The site's own dock binds by itself at t
   receiver utilization is a reported metric.
 - The lead law stays 480 min / 0.7; doors stay 4. Contention is the day cutting under arrival
   burstiness, per site.
-- Coupling the channels at the dock is a SUCCESSOR charting effort (seed on the inbound map's
-  Out of scope list); the inbound campaign holds behind it. 27 and 28 are the only frontier.
+- Coupling the channels at the dock was the successor effort; it CLOSED 2026-09-12, and the
+  coupled gate then MEASURED this memory's claim rather than arguing it. One crew of 22 over
+  both channels instead of 22 fielded on each leaf: strict contention 0/40 per leaf -> 20-40%
+  of window drains, binding cuts 0-2 -> 11-12 of 20, detention p50 0.18 -> 1.15 d, and still
+  non-saturated. **So every per-leaf yard reading in the archive is slack by construction, and
+  the number to quote for the site dock is the coupled one.**
+- The fee threshold inherits this. `PHASE2_THRESHOLD_DAYS = 3.0` was calibrated twice, once per
+  channel, on the two yards that never bound; under one dock no trailer of 609 is detained past
+  1.837 days, so 3.0 prices a fee of exactly zero and `gain_gated`'s H grid derives from an
+  unreachable number. The measured knee is ~1.3 d and the sweep is recorded in the comment on
+  the constant. It is deliberately NOT committed yet — see [[fulfillment-fill-law-overpredicts]].
