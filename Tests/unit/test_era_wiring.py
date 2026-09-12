@@ -147,6 +147,12 @@ def test_the_campaign_specs_default_to_the_era_and_the_reference_run_is_gone():
     assert ERA_RUN_DEFAULTS.items() <= pilot.items()
     assert pilot['inbound_standing_yard'] is True and pilot['inbound_trailer_type'] == '53'
     assert pilot['inbound_lead_spread'] > 0 and pilot['inbound_lead_minutes'] > 0
+    # ... and COUPLING, since the gate re-verifies on the SITE's dock rather than per leaf
+    # ("Re-verify the gate under the lead-aware record"): the pilot measures yard contention,
+    # and a per-leaf yard is the artefact the site-dock effort retired.  Asserted HERE beside
+    # the rest of the pilot's regime, and against phase 2's, so the two cannot drift apart.
+    assert pilot['couple_channels'] is True
+    assert SPECS['inbound_policies']['run_defaults']['couple_channels'] is True
     assert not {k for k in pilot if k.startswith('recv_') or k.startswith('put_')}
     for name in ('single', 'scheduler_ab', '_canary_single', '_canary_sweep'):
         assert 'run_defaults' not in SPECS[name], f'{name} must stay flag-off (byte-identical)'

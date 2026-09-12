@@ -107,6 +107,28 @@ PHASE2_RIDER = ('fifo', 'fifo')
 #: at its own threshold with no re-simulation.  `gain_gated` does not -- its urgency gate reads
 #: this value at SIMULATION time, so its three H cells are a FULFILLMENT result and are
 #: degenerate in store.  Read them that way.
+#:
+#: 2026-09-12: **3.0 IS DEGENERATE UNDER THE SITE DOCK AND MUST MOVE BEFORE THE CAMPAIGN RUNS**
+#: ("Re-verify the gate under the lead-aware record").  The paragraph above is a leaf-model
+#: artefact from end to end: it calibrated the threshold twice, once per channel, on two yards
+#: that "Decide the contention regime under the derived crew" then retired.  One dock has ONE
+#: detention distribution, and on the re-verification run no trailer of 609 was detained past
+#: **1.837 days** -- so at 3.0 the overage is exactly zero on every arm, the fee axis is vacuous
+#: and `gain_gated`'s H grid is derived from a number nothing can exceed.  The 3.5x channel
+#: disagreement the paragraph calls a compromise does not exist any more; the threshold is a
+#: measurement again.  Measured over the window population (313-314 trailers per arm, days
+#: 20-39), trailers accruing any overage:
+#:
+#:      0.75 d  95-96%      1.20 d  38-43%      1.50 d   2-4%
+#:      1.00 d  73-76%      1.25 d  28-33%      1.75 d   0-0%
+#:      1.10 d  59-60%      1.30 d  19-25%      2.00 d     0%
+#:
+#: The knee is ~1.3 d: a quarter of trailers pay, the arms separate 1.7x (4.96 vs 8.61
+#: trailer-days), and neither pole is saturated.  IT IS NOT COMMITTED HERE, deliberately.  The
+#: gate that measured it FAILED on fulfillment's supply clause, so the run is not the regime the
+#: campaign will run: closing that gap raises fulfillment's served units ~8%, and the ordered
+#: units -- hence the dock's load -- follow.  Re-take the sweep on the passing run and set the
+#: value THEN, from the table above rather than from a fresh search.
 PHASE2_THRESHOLD_DAYS = 3.0
 PHASE2_LEAD_MINUTES = 480.0        # ~ one working day, the first probe 02 named — confirmed:
                                    # the yard ranks by arrival, not dispatch, at every leaf
@@ -160,8 +182,18 @@ ERA_RUN_DEFAULTS = {
 #: on the command line closes the reproducibility seam 22 named: the gate re-runs as
 #: `--spec inbound_pilot --n-batches 40` and nothing else.  NO crew key rides here, by
 #: decision: under the era the receiving crew is derived and typing one is an error.
+#:
+#: AND COUPLING, since 2026-09-12 ("Re-verify the gate under the lead-aware record").  The gate
+#: measures yard contention, and "Decide the contention regime under the derived crew" found the
+#: per-leaf yard was an ARTEFACT of the independent-warehouse model: the regime the campaign runs
+#: is the SITE's own dock, one yard and one receiving crew over both channels.  A pilot run per
+#: leaf would re-measure the artefact that decision retired.  It rides here rather than on the
+#: command line for the same reason every other key does -- phase 2 carries `couple_channels` in
+#: PHASE2_RUN_DEFAULTS, and a regime the two specs state in DIFFERENT places is a regime they can
+#: drift apart on.
 PILOT_RUN_DEFAULTS = {
     **ERA_RUN_DEFAULTS,
+    'couple_channels': True,
     'inbound_trailer_type': '53',
     'inbound_standing_yard': True,
     'inbound_dock_doors': PHASE2_DOCK_DOORS,

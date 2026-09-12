@@ -432,6 +432,33 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   e2e 4 green, preflight re-proved the tree shape unchanged (no schema event). Owed: the derived
   arch layer, as at 09/13/15/21.
 
+- [Re-verify the gate under the lead-aware record](issues/26-reverify-the-gate-under-the-lead-aware-record.md):
+  **SPLIT -- the yard PASSES on the coupled dock and fulfillment's SUPPLY clause fails; the campaign
+  holds.** One 40-day coupled era run on the reference pair (`comparison_20260912_055947`, clean:
+  no Traceback, no dead arm, conservation OK on all eight leaves, `receiving_report` 0 FAILED over
+  8 arms and 4 pairs). The pilot spec was made coupled FIRST (`PILOT_RUN_DEFAULTS` gained
+  `couple_channels`, pinned against phase 2's own key), so the gate is one command, not a
+  remembered flag. **The yard reading is the site-dock effort's payoff, measured:** one crew of 22
+  over both channels where 23 fielded 22 on EACH leaf, and strict contention goes **0/40 per leaf
+  -> 20-40% of window drains**, binding cuts 0-2 -> 11-12 of 20, detention p50 0.18 -> 1.15 d --
+  non-saturated throughout (depth FALLS 18.0 -> 15.5 across the window, `recv_depth` max 0, 607+
+  of 609 trailers cleared, crew binding at a 182% dock ceiling). 25's band holds. **The failure is
+  a DIFFERENT one from 23's, which is the finding that matters:** 23 said "the lead is not in the
+  coverage record"; the lead is in it now and BOTH leaves realize it (1.782 / 1.789 d against a
+  stamped 1.766), so the explained level is 0.025 and explains none of fulfillment's 0.104. The
+  run's own `fill.vs_transit` curve prices 0.1044 at a **~9.2-day** order-to-shelf lead, the yard's
+  detention is already inside `in_transit`, and double-counting the whole yard reaches ~3 d (0.039)
+  -- so no leg of this pipeline can produce it. Store is the control that rules out the coupling
+  (same dock, same put pool, same lead, +0.005), and coupling moved fulfillment the RIGHT way
+  (0.148 -> 0.104). Graduated to department-calibration as
+  [Close the fulfillment fill-law gap](../department-calibration/issues/38-close-the-fulfillment-fill-law-gap.md).
+  **`PHASE2_THRESHOLD_DAYS` is measured but NOT committed:** 3.0 is degenerate under one dock (no
+  trailer past 1.837 d, so the fee is identically zero and `gain_gated`'s H grid derives from an
+  unreachable number), the leaf model's 3.5x channel compromise no longer exists, and the knee
+  measures at ~1.3 d -- the full sweep is recorded on the constant so re-fixing is a lookup, held
+  only because the failing gate is not the regime the campaign runs. Successor:
+  [Re-run the gate and fix the fee threshold](issues/29-rerun-the-gate-and-fix-the-threshold.md).
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -517,6 +544,15 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   cannot size a cell until a cell is a PAIR of arms. The declared physics they will run under is
   now complete: the supplier lead chains in front of the trailer, and the door team is capped at
   ten with the dock's parallelism ceiling reported beside every receiving utilization.
+  **2026-09-12: the site dock effort CLOSED and the gate ran on it (26). Half the hold lifts.**
+  The coupled dock is no longer a question -- the yard binds, in 25's band, non-saturated -- so
+  nothing about the ARRIVAL regime is outstanding. What holds the campaign now is one channel's
+  coverage form, a department-calibration decision:
+  [Close the fulfillment fill-law gap](../department-calibration/issues/38-close-the-fulfillment-fill-law-gap.md).
+  Execution order: 38 -> [Re-run the gate and fix the fee
+  threshold](issues/29-rerun-the-gate-and-fix-the-threshold.md) (a confirmation on the yard, a
+  verdict on supply, and the threshold fixed off the sweep already recorded on
+  `PHASE2_THRESHOLD_DAYS`) -> 24 -> phase 1 -> selection -> phase 2 -> publish.
 
 ## Out of scope
 
