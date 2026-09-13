@@ -1,7 +1,7 @@
 # Re-run the gate and fix the fee threshold
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: ../../department-calibration/issues/43-rerun-and-record-the-form.md
 
 Graduated 2026-09-12 from
@@ -167,3 +167,129 @@ Two details worth keeping:
 in `Optimization/config/whatif_config.py` -- updating the comment block, which currently
 records 26's sweep and instructs the reader to re-take it on the passing run. Then the yard
 reading goes in the answer beside the supply verdict already recorded above.
+
+## Answer
+
+**PASS on both criteria, and `PHASE2_THRESHOLD_DAYS` is committed at 0.40 -- but not for the
+reason this ticket expected. 26's sweep was read in SITE days and the knob is consumed in
+CALENDAR days, a factor of exactly 3.** Committing the ~1.3 d knee 26 recommended would have
+left the fee axis identically zero -- the same vacuity 3.0 already had, and reported as `0.00`
+everywhere rather than as an error.
+
+No run was launched: `comparison_20260912_134002` was already this ticket's gate run (verified
+on `run_spec.json` in the progress note above). This session ran the reading, found the unit
+defect, re-swept in the knob's real unit, and committed the value.
+
+### The unit defect -- the load-bearing finding
+
+`_ydf` divides by `units.SECONDS_PER_DAY` = **86,400 s**, a calendar day BY DECLARATION: its
+docstring argues the case explicitly ("detention is what the carrier's trailer is held for,
+which accrues overnight and at weekends"; `WORK_DAY_SECONDS` "would understate a standing
+trailer by whatever the site is closed"). A **site day here is 28,800 s** -- day 39 ends at
+1,152,000 s over 40 days. 26's numbers are the same spans divided by 28,800.
+
+Proven three independent ways, not inferred from one ratio:
+
+1. **Raw seconds.** Max completed span on 26's own run is 52,902.9 s. `/86400 = 0.612 d`;
+   `/28800 = 1.837 d` -- 26's recorded max, to three decimals.
+2. **Whole-table correspondence.** Re-running 26's grid through the tool reproduces 26's table
+   exactly with every threshold multiplied by 3: 26's 0.75 d -> 95-96% is the tool's 0.25 d ->
+   94.9-96.2%; 26's 1.00 d -> 73-76% is 0.33 d -> 74.6-76.4%; 26's 1.25 d -> 28-33% is 0.42 d
+   -> 26.0-30.9%. Every row lines up.
+3. **Both consumers agree on 86,400.** The metric via `frames._ydf`, and the urgency gate at
+   `Inbound/gain.py:146` (`_SECONDS_PER_DAY = 86400.0`). `settings.py` states the contract
+   outright: "the SAME threshold feeds the yard fee report -- one knob, two readers, so the
+   gate and the metric can never disagree about 'overdue'." Calendar days is the binding unit;
+   26's hand reading is the outlier.
+
+The knee's LOCATION was right -- 1.3 site days = 0.433 calendar days, where the curve does bend.
+Only the label was wrong. This is exactly the failure `units.py` was written to prevent (the
+1000x hours divisor, five inline copies); it recurred because the sweep was taken by hand
+instead of through `_ydf`.
+
+### Criterion (a) -- the supply clause: PASS (recorded in the progress note, unchanged)
+
+12 arms judged, 0 FAILED. Supply in band on both leaves at a fifth of the tolerance.
+
+### Criterion (b) -- the yard: PASS, weaker than 26
+
+Window days 20-39, detention now in calendar days:
+
+| arm | contend | binding | depth | free doors | det p50 | det max | standing | done | recv_depth |
+|---|---|---|---|---|---|---|---|---|---|
+| opt_fifo | 4/20 | 9/20 | 17.9/24 | 2.85 | 0.365 | 0.552 | 9 | 633 | 0 |
+| opt_tmin | 7/20 | 9/20 | 18.4/25 | 2.50 | 0.370 | 0.569 | 9 | 634 | 0 |
+| uni_fifo | 4/20 | 9/20 | 17.9/24 | 2.85 | 0.365 | 0.552 | 9 | 633 | 0 |
+| uni_tmin | 3/20 | 8/20 | 17.8/24 | 3.00 | 0.360 | 0.547 | 10 | 632 | 0 |
+
+`recv_depth` max 0 on every arm -- the dock still never stands a unit overnight.
+
+**The busier-yard prediction is half right and the half that failed matters.** Trailers rose
++5.4% (642 vs 609) as predicted, but the yard got EASIER, not harder: binding cuts fell 11-12/20
+-> 8-9/20, contention 4-8/20 -> 3-7/20 (uni_tmin at 15% dips below the 20-40% band 26 recorded),
+free doors at freeze rose 2.15-2.35 -> 2.50-3.00, and detention p50 fell 0.389 -> 0.365 d. The
+derived crew grew 22 -> 23 on the v3 line count and outpaced the extra arrivals. Yard depth did
+rise (16.8 -> 18.0 mean), so more trailers stand, but doors free faster.
+
+The yard still binds on 8-9 of 20 window drains, so the campaign has something to optimize and
+the criterion passes. It passes with less headroom than 26's, which is worth watching if the
+crew derivation moves again: this regime is one step from a yard that does not bind.
+
+Standing-at-end rose 1-2 -> 9-10 trailers. Whole-run status, consistent with +33 arrivals into a
+run ending at the same clock; censored rows are kept at the site bound, so the sweep already
+counts them.
+
+### The sweep, re-taken in calendar days, and the knee
+
+330-331 trailers per arm, window days 20-39, on the passing run:
+
+| threshold | over % | overage trailer-days | spread |
+|---|---|---|---|
+| 0.25 d | 93-95% | 37.54 - 41.88 | 1.12x |
+| 0.33 d | 70-72% | 15.28 - 19.10 | 1.25x |
+| 0.38 d | 40-45% | 6.30 - 9.58 | 1.52x |
+| **0.40 d** | **31-37%** | **3.88 - 6.87** | **1.77x** |
+| 0.41 d | 26-33% | 2.93 - 5.72 | 1.95x |
+| 0.42 d | 22-29% | 2.14 - 4.69 | 2.19x |
+| 0.45 d | 8-19% | 0.85 - 2.35 | 2.78x |
+| 0.52 d | 1-3% | 0.03 - 0.19 | 5.47x |
+
+**0.40 d**, on 26's own criterion: a meaningful minority pays (a third, neither pole saturated),
+the arms separate 1.77x -- matching 26's "~1.7x" almost exactly -- and the absolute overage
+(3.88-6.87 trailer-days) is far enough above zero that the axis is not noise. Above 0.43 the low
+arm thins toward the vacuous pole; below 0.38 the fee becomes a near-universal tax and stops
+discriminating "held too long" from normal dwell.
+
+**The knee is stable across regimes**: the same grid on 26's pre-fix run bends in the same place,
+one notch right (0.42 d -> 26-31%, 1.56x), the distribution having shifted slightly left with
+the bigger crew. The choice does not hang on which run measured it.
+
+### Committed
+
+- `PHASE2_THRESHOLD_DAYS = 0.40` in `Optimization/config/whatif_config.py`, its comment block
+  rewritten: the unit defect and its three proofs, the re-taken table, the knee argument, and
+  the stability check. The "fulfillment-calibrated compromise" caveat is retired as this ticket
+  said it would be -- one dock has one detention distribution, so the 3.5x cross-channel
+  disagreement that made 3.0 a compromise no longer exists.
+- `gain_gated`'s H grid is un-degenerated: `PHASE2_H_MULTIPLES` are multiples OF the threshold,
+  so H is now 0.10 / 0.20 / 0.40 d, with `h100` at the intended FIFO-collapse pole. Verified by
+  building the axis: all ten cells carry `fee_threshold_days: 0.4`.
+- `Tests/unit/test_yard_metrics.py` + `test_inbound_params.py` green (31); the config/inbound/
+  gain/yard unit selection green (273). Path guard and docref guard both pass.
+
+### One repair made to get here
+
+`assets/sweep_fee_threshold.py` resolved a bare run name with
+`os.environ.get('COMPARISON_OUTPUT_DIR')`, which is **not exported to the shell** -- it lives in
+`.env`. The tool refused its own run with "no such run" even with the drive attached. Fixed to
+delegate to `runschema.resolve_base_dir`, the resolver every run-tree CLI shares (it imports
+`sim_config`, which loads `.env` as a side effect). Same class of defect as the unit error: a
+production derivation restated locally.
+
+### Verdict for the map
+
+**In band -> phase 1 is launchable**, and
+[Re-size the funnel in site days](24-resize-the-funnel-in-site-days.md) sizes it. Note for that
+ticket: it is named in site days and the campaign's fee knob is in calendar days -- the two
+units coexist legitimately (a batch IS a site day; detention is a carrier's calendar span), so
+it must state which it means at every step rather than inherit "days" from here.

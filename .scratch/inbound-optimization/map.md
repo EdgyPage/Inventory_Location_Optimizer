@@ -459,6 +459,28 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   only because the failing gate is not the regime the campaign runs. Successor:
   [Re-run the gate and fix the fee threshold](issues/29-rerun-the-gate-and-fix-the-threshold.md).
 
+- [Re-run the gate and fix the fee threshold](issues/29-rerun-the-gate-and-fix-the-threshold.md):
+  **the gate PASSES on both criteria and `PHASE2_THRESHOLD_DAYS` is committed at 0.40 — but 26's
+  sweep was read in SITE days while the knob is consumed in CALENDAR days, a factor of exactly
+  3.** Committing 26's ~1.3 d knee would have left the fee axis identically zero, the same
+  vacuity 3.0 had and reported as `0.00` rather than as an error. Proven three ways: raw seconds
+  (26's max span 52,902.9 s is 0.612 d at 86,400 and 1.837 d at 28,800 — 26's recorded figure to
+  three decimals), whole-table correspondence (26's grid reproduces exactly with every threshold
+  ×3), and both consumers agreeing on 86,400 (`frames._ydf` via `units.SECONDS_PER_DAY`, a
+  calendar day by declaration; the urgency gate at `Inbound/gain.py:146`). The knee's LOCATION
+  was right — 1.3 site days *is* 0.433 calendar days — only its label was wrong; the defect
+  recurred because the sweep was taken by hand rather than through `_ydf`, which is precisely
+  what `units.py` exists to prevent. No run was launched: `comparison_20260912_134002` already
+  was the gate run. Supply in band on both leaves at a fifth of tolerance (12 arms, 0 failed).
+  **The busier-yard prediction is half right and the other half matters:** trailers rose +5.4%
+  as predicted, but the yard got EASIER — binding cuts 11-12/20 → 8-9/20, contention 4-8 → 3-7
+  of 20, detention p50 0.389 → 0.365 d — because the derived crew grew 22 → 23 on the v3 line
+  count and outpaced the arrivals. It still binds on 8-9 of 20 drains so the criterion passes,
+  but with less headroom: one step from a yard that does not bind. `recv_depth` max 0 throughout.
+  The knee is stable across regimes (26's run bends one notch right at 0.42 d), the H grid is
+  un-degenerated to 0.10/0.20/0.40 d, and the "fulfillment-calibrated compromise" caveat is
+  retired — one dock has one detention distribution. **Phase 1 is launchable.**
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.

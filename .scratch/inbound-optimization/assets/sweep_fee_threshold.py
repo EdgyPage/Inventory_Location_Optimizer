@@ -54,6 +54,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
 from Optimization.Performance_Evaluations.common.frames import _ddf, _ydf   # noqa: E402
 from Optimization.persistence.Picking_Data import (load_yard_drains,        # noqa: E402
                                                    load_yard_trailers)
+from Optimization.runschema import resolve_base_dir                         # noqa: E402
 from Schema import connect as _connect                                      # noqa: E402
 
 #: 26's grid, kept verbatim so the two runs' tables are read side by side.
@@ -63,15 +64,18 @@ DEFAULT_GRID = (0.75, 1.00, 1.10, 1.20, 1.25, 1.30, 1.50, 1.75, 2.00)
 # ── locating the run ─────────────────────────────────────────────────────────────────────
 
 def _resolve_run(arg):
-    """A path, or a bare run name under COMPARISON_OUTPUT_DIR (the diagnostics convention)."""
-    if os.path.isdir(arg):
-        return os.path.abspath(arg)
-    base = os.environ.get('COMPARISON_OUTPUT_DIR')
-    if base:
-        cand = os.path.join(base, arg)
-        if os.path.isdir(cand):
-            return cand
-    raise SystemExit('no such run: %r (and not found under COMPARISON_OUTPUT_DIR)' % (arg,))
+    """A path, or a bare run name under COMPARISON_OUTPUT_DIR (the diagnostics convention).
+
+    Delegates to `runschema.resolve_base_dir`, which every run-tree CLI shares, rather than
+    reading `os.environ` directly.  That is not a tidiness preference: COMPARISON_OUTPUT_DIR
+    lives in `.env` and is NOT exported to the shell, so a raw `os.environ.get` sees nothing
+    and a bare run name fails to resolve even with the drive attached.  The shared resolver
+    imports `sim_config`, which loads `.env` as a side effect.
+    """
+    root = resolve_base_dir(arg)
+    if not os.path.isdir(root):
+        raise SystemExit('no such run: %r (resolved to %r)' % (arg, root))
+    return root
 
 
 def _site_dbs(run_root):

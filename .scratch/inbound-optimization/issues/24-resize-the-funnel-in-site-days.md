@@ -53,3 +53,22 @@ ticket owes changes shape with it -- a phase-2 cell becomes a PAIR of arms (one 
 fulfillment rule) under one inbound policy, so the unit count is no longer `arms x policies`
 per channel leaf. Re-estimate against the coupled run's wall and RSS per site day once it
 exists; the calibration pin and the once-declared window are unchanged.
+
+2026-09-12, from resolving
+[Re-run the gate and fix the fee threshold](29-rerun-the-gate-and-fix-the-threshold.md): **the
+gate PASSES, so phase 1 is launchable and this ticket's sizing is what stands between here and
+the launch.** Two things it hands over.
+
+**The coupled run this ticket was waiting for now exists.** The comment above says to re-estimate
+against "the coupled run's wall and RSS per site day once it exists" —
+`comparison_20260912_134002` is a coupled 40-day run at `--spec inbound_pilot` on the reference
+pair, and it is the campaign's own regime (v3, era defaults, derived crew 23). Size against it.
+
+**This ticket is denominated in SITE days and the fee knob is in CALENDAR days, and they differ
+by exactly 3.** 29 lost a session to that confusion: a sweep recorded in site days was about to
+be committed into a knob consumed in calendar days, which would have left the fee axis
+identically zero. Both units are legitimate here and this ticket touches both — a batch IS a
+site day (28,800 s, `timeline.DEFAULT_SHIFT_SECONDS`), so the 40-day depth and the 20–39
+measurement window are site days; detention and `PHASE2_THRESHOLD_DAYS` are calendar days
+(86,400 s). State which day every number is in, at every step. Do not inherit the bare word
+"days" from the threshold work.

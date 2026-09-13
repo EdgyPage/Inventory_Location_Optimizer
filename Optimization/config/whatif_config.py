@@ -99,37 +99,47 @@ PHASE2_RIDER = ('fifo', 'fifo')
 #: full catalogue; the H points move with the threshold because they are derived from it
 #: rather than typed beside it.
 #:
-#: THE THRESHOLD IS FULFILLMENT-CALIBRATED AND THAT IS A COMPROMISE, not a measurement that
-#: came out clean.  "Nonzero, non-saturated" lands at 2-3 days in fulfillment and 7-10 days in
-#: store -- 3.5x apart, because the two channels' receiving loads differ 7.4x against one
-#: global crew knob.  3.0 follows the channel that actually binds (46-60 of 75 drains, against
-#: store's 14-17).  The fee REPORT survives this: 07 stores stamps raw, so store is re-reported
-#: at its own threshold with no re-simulation.  `gain_gated` does not -- its urgency gate reads
-#: this value at SIMULATION time, so its three H cells are a FULFILLMENT result and are
-#: degenerate in store.  Read them that way.
+#: THE THRESHOLD IS A MEASUREMENT, AND ITS UNIT IS THE CALENDAR DAY.  Committed 2026-09-12
+#: from the passing gate run `comparison_20260912_134002` ("Re-run the gate and fix the fee
+#: threshold").  The "fulfillment-calibrated compromise" this block used to record is gone with
+#: the leaf model that forced it: one dock has ONE detention distribution, so the 3.5x
+#: cross-channel disagreement that made 3.0 a compromise does not exist any more.
 #:
-#: 2026-09-12: **3.0 IS DEGENERATE UNDER THE SITE DOCK AND MUST MOVE BEFORE THE CAMPAIGN RUNS**
-#: ("Re-verify the gate under the lead-aware record").  The paragraph above is a leaf-model
-#: artefact from end to end: it calibrated the threshold twice, once per channel, on two yards
-#: that "Decide the contention regime under the derived crew" then retired.  One dock has ONE
-#: detention distribution, and on the re-verification run no trailer of 609 was detained past
-#: **1.837 days** -- so at 3.0 the overage is exactly zero on every arm, the fee axis is vacuous
-#: and `gain_gated`'s H grid is derived from a number nothing can exceed.  The 3.5x channel
-#: disagreement the paragraph calls a compromise does not exist any more; the threshold is a
-#: measurement again.  Measured over the window population (313-314 trailers per arm, days
-#: 20-39), trailers accruing any overage:
+#: THE PREVIOUS SWEEP WAS READ IN SITE DAYS AND THE KNOB IS CONSUMED IN CALENDAR DAYS -- a
+#: factor of exactly 3 (86,400 s vs the 28,800 s site day), and the reason the value committed
+#: here is 0.40 rather than the ~1.3 the last block recommended.  Both readers divide by 86,400:
+#: the fee metric through `Performance_Evaluations/common/units.py:SECONDS_PER_DAY` (a calendar
+#: day BY DECLARATION -- detention accrues overnight and at weekends, so a labour bound would
+#: understate a standing trailer by whatever the site is closed) and the urgency gate through
+#: `Inbound/gain.py:_SECONDS_PER_DAY`.  Committing ~1.3 would have made the fee axis IDENTICALLY
+#: ZERO -- no trailer of 642 was detained past 0.569 calendar days -- which is the same vacuity
+#: 3.0 already had, reported as 0.00 everywhere rather than as an error.  A sweep quoted in days
+#: is meaningless without its divisor; take one only through `frames._ydf`, never by hand.
 #:
-#:      0.75 d  95-96%      1.20 d  38-43%      1.50 d   2-4%
-#:      1.00 d  73-76%      1.25 d  28-33%      1.75 d   0-0%
-#:      1.10 d  59-60%      1.30 d  19-25%      2.00 d     0%
+#: Measured over the window population (330-331 trailers per arm, days 20-39) on the passing
+#: run, trailers accruing any overage, and the max/min spread of overage trailer-days across
+#: the four arms -- the fee axis has to be able to RANK them, so the spread is half the test:
 #:
-#: The knee is ~1.3 d: a quarter of trailers pay, the arms separate 1.7x (4.96 vs 8.61
-#: trailer-days), and neither pole is saturated.  IT IS NOT COMMITTED HERE, deliberately.  The
-#: gate that measured it FAILED on fulfillment's supply clause, so the run is not the regime the
-#: campaign will run: closing that gap raises fulfillment's served units ~8%, and the ordered
-#: units -- hence the dock's load -- follow.  Re-take the sweep on the passing run and set the
-#: value THEN, from the table above rather than from a fresh search.
-PHASE2_THRESHOLD_DAYS = 3.0
+#:      0.25 d  93-95%  1.12x     0.39 d  37-42%  1.63x     0.43 d  14-25%  2.49x
+#:      0.33 d  70-72%  1.25x     0.40 d  31-37%  1.77x     0.45 d   8-19%  2.78x
+#:      0.36 d  50-55%  1.38x     0.41 d  26-33%  1.95x     0.48 d   4-10%  3.68x
+#:      0.38 d  40-45%  1.52x     0.42 d  22-29%  2.19x     0.52 d   1- 3%  5.47x
+#:
+#: The knee is 0.40 d: a meaningful minority pays (a third, neither pole saturated), the arms
+#: separate 1.77x (3.88 vs 6.87 trailer-days), and the absolute overage is still far enough
+#: above zero that the axis is not noise.  Above 0.43 the low arm thins toward the vacuous pole;
+#: below 0.38 the fee becomes a near-universal tax and stops discriminating "held too long" from
+#: normal dwell.  The knee is STABLE across regimes: the same grid on the pre-fix run
+#: (`comparison_20260912_055947`) bends in the same place, one notch right (0.42 d -> 26-31%,
+#: 1.56x), the distribution having shifted slightly left when the derived crew grew 22 -> 23 on
+#: the v3 line count.
+#:
+#: `PHASE2_H_MULTIPLES` below are multiples OF this value, so the H grid follows it
+#: automatically: 0.10 / 0.20 / 0.40 d.  `settings.INBOUND_FEE_THRESHOLD_DAYS` (2.0) is still
+#: its stated placeholder and is VACUOUS at this scale -- every campaign cell overrides it
+#: through `phase2_inbound_axis`, but an ad-hoc run that does not gets a dead fee axis and a
+#: never-firing urgency gate.
+PHASE2_THRESHOLD_DAYS = 0.40
 PHASE2_LEAD_MINUTES = 480.0        # ~ one working day, the first probe 02 named — confirmed:
                                    # the yard ranks by arrival, not dispatch, at every leaf
 PHASE2_LEAD_SPREAD = 0.7
