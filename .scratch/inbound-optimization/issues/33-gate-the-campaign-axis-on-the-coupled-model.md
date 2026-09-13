@@ -45,3 +45,30 @@ in four lines against a hand-built `SpaceView` pair. Questions the build has to 
   shape of failure -- a declared campaign that cannot run -- is reachable from the ARM axis too.
   `run_restock_selection` already enforces the cap and backfills, so that side may be covered;
   check, and say so either way.
+
+## Comments
+
+2026-09-13, from resolving [Decide the futuresight family's place](32-decide-the-futuresight-familys-place.md):
+**the decision was BUILD, so the axis keeps its ten cells and this ticket's gate now points the
+other way.** Three consequences for the work here:
+
+- **The instance is being removed, not the class.** Once
+  [Build the coupled futuresight window zip](34-build-the-futuresight-window-zip.md) lands,
+  `compose_site_view` composes windows and no declared cell fails -- so a check written today
+  against the futuresight example would be GREEN on arrival and prove nothing. The gap 31 found
+  is that nothing joins `phase2_inbound_axis()` to the coupled composer's refusals at all; that
+  gap is unchanged and is what this ticket closes.
+- **Which makes the "what is the general predicate?" question load-bearing rather than
+  optional.** With the one known instance gone, a check that can only express "carries a
+  futuresight window" has nothing left to catch. The honest small declared list the sketch
+  offers as the fallback is now the MINIMUM bar, and it has to be a list both the composer and
+  the axis read -- a list only one of them reads is the same two-honest-files gap in a new
+  place.
+- **The sabotage direction is the only way to keep this test non-vacuous.** There will be no
+  failing cell to point at, so the test needs a synthesised one (a cell whose policy the
+  composer declines) to prove the check can actually fail -- memory `real-test-coverage-is-317`
+  and the repo's non-vacuity discipline. Order matters: this can be written and proven against
+  the CURRENT composer, which still refuses, if it lands before 34.
+
+The third sub-question (the same shape of gap reachable from the ARM axis via
+`FAITHFUL_GAIN_FAMILIES`) is untouched by 32 and still needs checking either way.

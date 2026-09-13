@@ -569,6 +569,32 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   machine-independent thing here. Phase 2 restated on the probe's own clock: **8 runnable
   cells, 96 units, 23.8-27.0 h of unit-seconds, ~132 GiB, about 7 h wall at 4 workers.**
 
+- [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md):
+  **BUILD the zip -- phase 2 stays at TEN cells -- and the family is NOT what this map has been
+  calling it.** The build is small and its shape was already written down: both leaves' windows
+  share a batch index by three existing checks, the union is DISJOINT (a SKU is single-regime),
+  so the zip is a strict no-op against per-leaf pricing -- which is also 06's Tier-1 equivalence
+  test, nearly free to write, and why `_window_rates` needs no change. "Assert or trust" was
+  never open: the composer already raises on collision for `predicted` and `emptied_at` under
+  the same argument. Two edits, not one (the refusal, and `window=None` hard-coded in the
+  composed return). The unexercised-path objection the refusal was written for dissolves the
+  moment an arm reaches it. **The correction that outlives the build: futuresight is a
+  CLAIRVOYANCE REFERENCE, not an upper bound.** It replaces the demand rate inside an UNCHANGED
+  greedy, so w=inf prices each unit's future picks exactly while the ordering stays a heuristic
+  -- it bounds PRICING ACCURACY, never achievable gain, and it may legitimately finish BEHIND a
+  lawful arm. So the campaign publishes "perfect demand knowledge buys X% over standing demand",
+  symmetrically for X negative, and is BARRED from "the lawful arm is at the ceiling"; X <= 0 is
+  a finding (the binding constraint is the ordering heuristic, not the estimate), and 10's
+  expect-modest-separation flag rides onto the page rather than staying in the ticket. Both cells
+  stay out of the recommendable set whatever X is. `CONTEXT.md` sharpened accordingly. The
+  `_window_rates` memo is **probe-gated, not folded in** -- it is five lines plus 06's caching
+  contract, the cost has never been measured, and 31 declined the identical trade on the batch
+  script -- so 34 runs ONE `fsight_w5` unit against 31's `gforecast` pole (1,236 s, probe clock)
+  and either records "not worth a build" or graduates the memo with a number attached. Phase 2
+  at ten cells: **120 coupled units, 30.8-35.3 h of unit-seconds, ~164 GiB, ~8.6-9.7 h at 4
+  workers plus 0.88 h fixed** -- +3 h and +32 GiB over dropping the family, and neither binds.
+
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -588,16 +614,20 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   sweep", and the fifo rider's gain bundle — 21 —, which was the last build standing between
   the funnel and the pilot, and the day-divisor pin -- 30 -- which was takeable at any time
   and is done. and the gain-cell cost probe -- 31 -- which
-  was takeable at any time and is done. THREE tickets remain. Two are new and both came out of
-  31, which found that phase 2 cannot be launched as declared:
+  was takeable at any time and is done. THREE tickets remain, one of them new.
   [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md)
-  is the DECISION (build the window zip, or drop the family) and blocks phase 2 whichever way
-  it goes; [Gate the campaign axis on the coupled
-  model](issues/33-gate-the-campaign-axis-on-the-coupled-model.md) closes the CLASS behind it
-  and waits on 32, because the gate it lands would fail on today's axis. The third,
-  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md), is unchanged: gated on
-  phase 1, since which OTHER families need extending is phase 1's output. So the frontier is
-  32 -- and phase 1, which nothing on this map blocks, can run alongside it.)
+  RESOLVED 2026-09-13 as BUILD, which graduated
+  [Build the coupled futuresight window zip](issues/34-build-the-futuresight-window-zip.md) --
+  the zip, its Tier-1 pair, the docstrings the glossary correction invalidates, and the probe
+  that puts the FIRST number on a futuresight cell -- and unblocked
+  [Gate the campaign axis on the coupled
+  model](issues/33-gate-the-campaign-axis-on-the-coupled-model.md), whose gate now points the
+  other way: the one known failing instance is being removed, so the general predicate and a
+  synthesised failing cell are what keep that check non-vacuous (commented there, with the
+  ordering note -- it can be proven against the current composer if it lands before 34). The
+  third, [Extend the gain bundles](issues/20-extend-the-gain-bundles.md), is unchanged: gated on
+  phase 1, since which OTHER families need extending is phase 1's output. So the frontier is 34
+  and 33 -- and phase 1, which nothing on this map blocks, can run alongside both.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -702,6 +732,21 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   or compared with these. Execution order: **phase 1 -> selection -> 20 + 32 (-> 33) -> copy
   `rule_pairs.chosen` AND `staffing.pin` -> phase 2 -> publish**, with 32 launchable now since
   it blocks nothing phase 1 does.
+  **2026-09-13: the axis is settled at TEN cells and the sizing above is final rather than
+  provisional.** [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md)
+  resolved BUILD, so phase 2 is **120 coupled units, 30.8-35.3 h of unit-seconds, ~164 GiB,
+  ~8.6-9.7 h wall at 4 workers, plus 0.88 h of freeze and reshape** -- still a LOWER bound on
+  its two futuresight cells, and [Build the coupled futuresight window
+  zip](issues/34-build-the-futuresight-window-zip.md) is what first lifts that, since its probe
+  times one `fsight_w5` unit against 31's `gforecast` pole before the campaign commits. Every
+  absolute here is on 31's probe clock and must not be mixed with 24's. Execution order:
+  **phase 1 -> selection -> 20 + 34 (-> 33) -> copy `rule_pairs.chosen` AND `staffing.pin` ->
+  phase 2 -> publish**, with 34 and 33 both launchable now since neither blocks anything phase 1
+  does. What the campaign publishes about the reference arms is pre-committed in 32 and is not a
+  launch-time call: "perfect demand knowledge buys X% over standing demand", symmetric in the
+  sign of X, and never "the lawful arm is at the ceiling" -- futuresight bounds pricing accuracy,
+  not achievable gain, so it may finish behind a lawful arm without that meaning anything about
+  headroom.
 
 ## Out of scope
 

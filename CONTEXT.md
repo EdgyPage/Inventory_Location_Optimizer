@@ -219,8 +219,13 @@ _Avoid_: hybrid score (the rejected blended-scalar shape)
 
 **Futuresight window**:
 A declared-unlawful forecast: a policy arm reading w future batches of the precomputed
-demand script, as an upper-bound reference only. w=∞ is the oracle. No real WMS has this,
+demand script, as a clairvoyance reference only. w=∞ is the oracle. No real WMS has this,
 so no recommendable policy may.
+What it bounds is PRICING ACCURACY, not achievable gain: the window replaces the demand
+rate inside an unchanged greedy, so w=∞ prices each unit's future picks exactly while the
+ordering stays a heuristic. A reference arm may therefore finish BEHIND a lawful one, and
+"the lawful arm is at the ceiling" is not a reading this term supports.
+_Avoid_: upper bound (the outcome claim the greedy does not support)
 
 ### Space
 
