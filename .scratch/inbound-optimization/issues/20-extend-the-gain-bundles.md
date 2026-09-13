@@ -48,6 +48,54 @@ evaluator that models the exact solver faithfully would be modelling the rare pa
 `cluster_map_rank` is already the top `t_reord` cost in the suite, so extending it has a
 runtime consequence beyond the build.
 
+## Scope, now known (2026-09-13)
+
+**Phase 1 has RUN (`comparison_20260913_113512`, 68 leaf units, 0 failures) and
+`restock_selection.json` is written, so this ticket is UNBLOCKED and its scope is exactly
+three families.**
+
+`_gain_bundle_for` must serve, site-wide (the cap is the UNION across channels, because an
+extension is work per FAMILY):
+
+    rank_minlabor, rank_labor, rank_cartlabor
+
+That is 08's extension cap of 3 exactly consumed. The selector backfilled PAST `comp` and
+`cmin` -- both of which also need extending -- taking `tmin` (store rank 5) and `rank_random`
+(store rank 7) instead, so the cap did the job it was written for.
+
+Already faithful, nothing owed: `fifo`, `tmin`, `tmax`, `rank_popularity`, `rank_random`.
+
+**Four of the six phase-2 rule pairs cannot run until this lands**, because a gain cell prices
+EVERY arm in its set, so one unfaithful member refuses the whole unit at worker startup:
+
+| rule pair (store x fulfillment) | unfaithful member(s) |
+|---|---|
+| `rank_cartlabor` x `rank_minlabor` | both |
+| `rank_minlabor` x `tmin` | `rank_minlabor` |
+| `rank_labor` x `rank_labor` | `rank_labor` |
+| `tmin` x `rank_cartlabor` | `rank_cartlabor` |
+
+The two that already run are `rank_random` x `rank_popularity` and the mandatory `fifo` rider
+(whose faithful bundle ticket 21 built).
+
+**Do NOT copy `rule_pairs.chosen` into `PHASE2_PAIRS` before this lands.** `validate_spec`
+refuses a gain cell over an unfaithful rule -- correctly, and
+`test_a_gain_cell_over_an_unfaithful_rule_is_refused` pins it -- so copying first puts a spec
+in the tree that refuses at build. The order is: this ticket, THEN the copy (both
+`rule_pairs.chosen` and `staffing.pin`), then phase 2.
+
+`staffing.pin` for the copy, when the time comes:
+`{'mixed_20260816_131535__mixed_realistic_bell_lt0': '0ed2dd1582af'}`.
+
+**One caveat to carry into the extension, from the ranking itself:** the store top three are
+separated by 0.005% and 0.12% (432.93 / 432.95 / 433.46 h) and fulfillment's top EIGHT span
+0.73%. Which of those is "rank 1" is noise at this resolution, and the pairing is rank-aligned,
+so the specific diagonal above is one of several equally defensible draws rather than a derived
+optimum. It does not change WHICH families need extending -- all three are in whatever the
+order -- and it does not threaten the campaign, whose real signal is the 6.1% (store) / 8.0%
+(fulfillment) gap from the best rule down to the order-blind `fifo` control. It is a caveat the
+campaign publishes rather than discovers.
+
 ## Comments
 
 2026-08-31, from resolving [Build the run-shape layer](18-build-the-run-shape-layer.md): the

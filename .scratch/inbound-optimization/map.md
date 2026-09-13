@@ -803,6 +803,30 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   whoever launches phase 1: its documented command points at the one-pair reference view whose
   junction was found DEAD on 2026-09-13 and repaired -- if it ever reports `No inventory+affinity
   DB pairs found`, that is the link under the view and not a missing catalogue.
+  **2026-09-13, later still: PHASE 1 HAS RUN and the selection artifact is written.**
+  `comparison_20260913_113512` -- 68 leaf units, 16 workers, 0 failures, all 17 rules ran, 2.5 h
+  wall including the analysis pass. `restock_selection.json` is at its root.
+  **The ranking (score hours, summed over each channel's leaves):** store picks
+  `rank_cartlabor`, `rank_minlabor`, `rank_labor`, `tmin`, `rank_random`; fulfillment picks
+  `rank_minlabor`, `tmin`, `rank_labor`, `rank_cartlabor`, `rank_popularity`; `fifo` rides as the
+  mandatory rider and is also the order-blind control, at **+6.12% (store) / +8.00%
+  (fulfillment)** behind the best rule -- which is the campaign's real signal. The deliberate
+  worst-case controls land last exactly as designed (`rank_maxlabor` +8.62% / +13.86%, `tmax`
+  16th on both).
+  **The top of each ranking is NOISE and the pairing inherits it:** store's top three sit within
+  0.005% and 0.12% of each other, fulfillment's top EIGHT within 0.73%, and the rule pairs are
+  RANK-ALIGNED -- so the specific diagonal is one of several equally defensible draws, not a
+  derived optimum. It changes nothing about which families get extended (all three are in under
+  any ordering) and nothing about the inbound comparison, which is within-pair across cells; it
+  is a caveat the campaign publishes rather than discovers.
+  **[Extend the gain bundles](issues/20-extend-the-gain-bundles.md) is now UNBLOCKED and its
+  scope is exactly three families** -- `rank_minlabor`, `rank_labor`, `rank_cartlabor`, 08's cap
+  of 3 exactly consumed, with the selector backfilling past `comp` and `cmin` to stay inside it.
+  Four of the six rule pairs refuse until it lands. `staffing.pin` is
+  `0ed2dd1582af` for the reference pair. **The copy into `PHASE2_PAIRS` must wait for 20**:
+  `validate_spec` refuses a gain cell over an unfaithful rule, so copying first puts a refusing
+  spec in the tree. Execution order now: **20 -> copy `rule_pairs.chosen` AND `staffing.pin` ->
+  phase 2 -> publish.**
 
 ## Out of scope
 
