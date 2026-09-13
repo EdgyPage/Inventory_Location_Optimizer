@@ -91,6 +91,7 @@ files:
     key_symbols:
       - {name: "DockContext", file: "Inbound/priorities.py", kind: "class"}
       - {name: "ordering", file: "Inbound/priorities.py", kind: "function"}
+      - {name: "view_needs", file: "Inbound/priorities.py", kind: "function"}
       - {name: "global_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "local_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "yard_key", file: "Inbound/priorities.py", kind: "function"}
@@ -113,6 +114,7 @@ files:
     purpose: "Composes the leaves' frozen space views into the ONE view a drain reads: `empties` filtered per contributing leaf so the key set is partitioned by regime, `predicted` and `emptied_at` unioned, versions element-wise, `released_at` per regime, the futuresight window refused."
     layer: "inbound"
     key_symbols:
+      - {name: "uncomposable_policies", file: "Inbound/site_space.py", kind: "function"}
       - {name: "compose_site_view", file: "Inbound/site_space.py", kind: "function"}
     notes: ""
   "Inbound/space.py":
@@ -835,6 +837,7 @@ files:
     key_symbols:
       - {name: "WHATIF", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_PAIRS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_STAFFING_PIN", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RIDER", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_THRESHOLD_DAYS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_LEAD_MINUTES", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -845,7 +848,11 @@ files:
       - {name: "PHASE2_RECV_CREW_SIZE", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RECV_DAY_SECONDS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "ERA_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "CAMPAIGN_DEPTH_DAYS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "CAMPAIGN_WINDOW_DAYS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "INBOUND_ARRIVAL_REGIME", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PILOT_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE1_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "phase2_inbound_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
@@ -854,6 +861,7 @@ files:
       - {name: "rule_pairs_of", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "channel_restocks_for", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "swept_rules_of", file: "Optimization/config/whatif_config.py", kind: "function"}
+      - {name: "inbound_policies_of", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "validate_spec", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "get_spec", file: "Optimization/config/whatif_config.py", kind: "function"}
     notes: ""
@@ -1362,6 +1370,9 @@ files:
       - {name: "constant", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "derive", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "derived_differs", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "PIN_SIGFIGS", file: "Optimization/simconfig/staffing.py", kind: "const"}
+      - {name: "pin_of", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "pin_digest", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "regime_orders", file: "Optimization/simconfig/staffing.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/batch_precompute.py":
@@ -3234,7 +3245,7 @@ files:
       - {name: "test_fingerprint_v1_unchanged_and_v2_distinct", file: "Tests/unit/test_batch_sampler_v2.py", kind: "function"}
     notes: ""
   "Tests/unit/test_batch_sampler_v3.py":
-    purpose: "gates the segment-tree sampler v3 — it draws k DISTINCT SKUs where v2 repeats itself under a ~1e26 weight range; pins the tree's recompute-from-children and live-leaf-only invariants against an exact-rational reference, and the collapse refusal"
+    purpose: "gates the segment-tree sampler v3 \u2014 it draws k DISTINCT SKUs where v2 repeats itself under a ~1e26 weight range; pins the tree's recompute-from-children and live-leaf-only invariants against an exact-rational reference, and the collapse refusal"
     layer: "tests"
     key_symbols:
       - {name: "test_v3_draws_k_distinct_on_the_fixture_that_breaks_v2", file: "Tests/unit/test_batch_sampler_v3.py", kind: "function"}
@@ -3321,6 +3332,26 @@ files:
       - {name: "test_the_reclaim_loop_still_iterates_bare_bins", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
       - {name: "test_the_id_key_is_justified_by_bin_lifetime", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
       - {name: "test_reclaim_harvest_is_the_one_legal_reader_of_the_stamp", file: "Tests/unit/test_bin_empty_timing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_campaign_cells_can_run.py":
+    purpose: "Pins that a DECLARED campaign cell is one the coupled run can actually run, by joining `POLICY_VIEW_NEEDS` against `COMPOSED_VIEW_FIELDS`/`UNCOMPOSED_VIEW_FIELDS` through `Inbound.site_space.uncomposable_policies` and asserting the partition is exhaustive."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_space_view_field_is_classified_exactly_once", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_every_registered_policy_declares_what_it_reads", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_every_uncomposed_field_has_a_sample_so_the_sweep_below_is_total", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_an_uncomposed_field_is_refused_rather_than_dropped", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_a_composed_field_actually_survives_the_composition", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_the_gate_agrees_with_the_composer_on_every_declared_cell", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_the_campaign_axis_names_no_cell_the_coupled_model_declines", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_the_pilot_and_the_selection_run_name_nothing_uncomposable", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_a_policy_reading_an_uncomposed_field_is_caught", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_a_spec_declaring_such_a_cell_is_refused_at_spec_build", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_an_unknown_policy_name_raises_rather_than_passing", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_a_gain_cell_over_an_unfaithful_rule_is_refused", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_the_same_rules_pass_when_no_cell_names_a_gain_policy", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_a_faithful_ranking_over_the_runnable_cells_is_accepted", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+      - {name: "test_an_uncoupled_spec_naming_the_same_cells_is_not_refused", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
     notes: ""
   "Tests/unit/test_cell_overrides.py":
     purpose: "a cell changes the run, not the declaration."
@@ -3975,6 +4006,25 @@ files:
       - {name: "test_the_driver_validates_a_spec_that_never_came_through_get_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_an_inbound_spec_with_no_arm_set_is_refused_at_the_driver_too", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_funnel_window.py":
+    purpose: "Pins that the campaign's window, arrival regime, and staffing pin are each declared exactly once, and that the site-day and calendar-day units used for the window and the fee threshold cannot be mistaken for one another."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_window_sits_inside_the_depth_and_leaves_a_real_warm_up", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_every_campaign_spec_runs_to_the_declared_depth", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_campaign_day_and_the_fee_day_are_three_fold_apart_and_both_declared", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_reader_takes_the_window_from_the_declaration", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_every_campaign_spec_declares_the_arrival_regime_at_run_level", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_axis_and_the_run_level_regime_cannot_drift_apart", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_inbound_off_anchor_still_turns_the_pipeline_off_over_the_frozen_stock", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_declared_regime_gives_the_coverage_a_nonzero_transit", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_phase_one_stays_uncoupled_and_the_other_two_couple", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_pin_ignores_what_the_record_only_reports", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_pin_catches_every_move_that_changes_what_a_run_fields", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_pin_tolerates_a_float_wobble_below_its_declared_precision", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_a_phase_two_spec_without_a_pin_is_refused_at_spec_build", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+      - {name: "test_the_run_refuses_the_pair_whose_derivation_moved", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_gain_plan.py":
     purpose: "the gain-family ordering entries and their evaluator."
     layer: "tests"
@@ -3988,12 +4038,18 @@ files:
       - {name: "test_gate_serves_overdue_fifo_ahead_of_the_plan", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_gate_with_large_horizon_is_pure_fifo_and_stampless_is_never_urgent", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_gate_plan_prices_space_after_the_urgent_load_consumes", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_gate_and_the_fee_metric_agree_about_overdue", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_two_readers_split_the_boundary_instant_and_that_is_recorded", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_drifted_divisor_breaks_the_correspondence", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_both_readers_resolve_to_the_one_kernel_declaration", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_futuresight_refuses_a_missing_feed_and_accepts_an_empty_window", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_futuresight_reads_the_window_and_forecast_does_not", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_a_sku_absent_from_the_window_pays_put_travel_only", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_window_visits_cap_at_the_event_count", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_window_matching_the_static_rates_reproduces_forecast_exactly", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_futuresight_entry_with_matching_rates_is_forecast_through_the_seam", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_composed_window_prices_exactly_as_each_leaf_window_did", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_dropping_one_leafs_half_of_the_window_moves_the_other_leafs_price", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_seats_next_drain_but_not_now_defers_correctly", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_a_never_demanded_unit_pays_put_travel_only", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_a_load_seatable_nowhere_prices_zero_and_cancels", file: "Tests/unit/test_gain_plan.py", kind: "function"}
@@ -5211,7 +5267,13 @@ files:
       - {name: "test_two_different_histories_do_not_compose_equal", file: "Tests/unit/test_site_space_view.py", kind: "function"}
       - {name: "test_released_at_is_carried_per_regime_and_never_averaged", file: "Tests/unit/test_site_space_view.py", kind: "function"}
       - {name: "test_one_site_epoch_and_a_disagreement_is_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
-      - {name: "test_a_futuresight_window_is_refused_rather_than_zipped", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_the_windows_zip_by_batch_index_and_union_disjoint_skus", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_the_composed_depth_is_the_window_depth_not_the_sum", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_a_sku_in_both_windows_is_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_windows_of_different_depths_are_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_a_window_on_one_leaf_only_is_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_no_feed_composes_to_none_and_two_empty_windows_to_empty", file: "Tests/unit/test_site_space_view.py", kind: "function"}
+      - {name: "test_the_generic_refusal_still_fires_when_the_declaration_is_empty", file: "Tests/unit/test_site_space_view.py", kind: "function"}
       - {name: "test_an_untagged_contribution_is_refused_once_there_are_two", file: "Tests/unit/test_site_space_view.py", kind: "function"}
       - {name: "test_two_leaves_claiming_one_regime_are_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
       - {name: "test_an_emptied_at_id_collision_is_refused", file: "Tests/unit/test_site_space_view.py", kind: "function"}
@@ -5450,8 +5512,10 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_the_sim_declares_its_unit", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_the_kernel_declares_both_days_side_by_side", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_the_analysis_layer_divides_by_the_kernels_own_declaration", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_no_module_carries_its_own_copy_of_the_divisor", file: "Tests/unit/test_timeline.py", kind: "function"}
+      - {name: "test_no_module_declares_its_own_seconds_per_day", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_the_suites_time_units_are_seconds_based", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_the_unit_kinds_no_longer_claim_milliseconds", file: "Tests/unit/test_timeline.py", kind: "function"}
       - {name: "test_the_sims_own_constants_read_as_seconds", file: "Tests/unit/test_timeline.py", kind: "function"}

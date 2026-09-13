@@ -15,12 +15,18 @@
 <p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_whatif_config_py.html"><code>Optimization/config/whatif_config.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def validate_spec(spec, name: str=&#x27;&lt;spec&gt;&#x27;) -&gt; None</code></pre>
-<section class="doc">Refuse a cell-matrix spec whose SHAPE cannot mean what it says.  Raises ValueError.
+<section class="doc">Refuse a cell-matrix spec that cannot mean, or cannot DO, what it says.  ValueError.
 
 Called from `get_spec`, which is the single door every run comes through — so this fires
 before the run directory exists, before the catalogue is read and before a worker is
-forked.  Cheap, total, and pure: it reads the spec and the rule grid, nothing else.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_whatif_config_py___rule_pairs.html"><code>_rule_pairs</code></a> <span class="dim">Optimization/config/whatif_config.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_whatif_config_py__get_spec.html"><code>get_spec</code></a> <span class="dim">Optimization/config/whatif_config.py</span></li><li><a href="nOptimization_simdriver_scenario_py___run_whatif_matrix.html"><code>_run_whatif_matrix</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
+forked.  Cheap, total, and pure: it reads the spec against declared registries and
+nothing else — the rule grid, and (since inbound-optimization 33) the two that say what
+a named policy and a named rule can actually be run with, never the simulation.
+
+The shape refusals come first and `_refuse_unrunnable_cells` last; both kinds guard the
+same thing, a run that completes, publishes, and measures something nobody chose — or,
+for the last one, one that pays its freeze and then dies at its first drain.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_whatif_config_py___refuse_unrunnable_cells.html"><code>_refuse_unrunnable_cells</code></a> <span class="dim">Optimization/config/whatif_config.py</span></li><li><a href="nOptimization_config_whatif_config_py___rule_pairs.html"><code>_rule_pairs</code></a> <span class="dim">Optimization/config/whatif_config.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_whatif_config_py__get_spec.html"><code>get_spec</code></a> <span class="dim">Optimization/config/whatif_config.py</span></li><li><a href="nOptimization_simdriver_scenario_py___run_whatif_matrix.html"><code>_run_whatif_matrix</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_whatif_config_py__validate_spec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/whatif_config.py#:~:text=def%20validate_spec">Source ↗</a></p>
 </article>
 </main>

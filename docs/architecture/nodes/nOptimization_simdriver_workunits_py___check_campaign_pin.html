@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_check_campaign_pin · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___check_campaign_pin" data-id="Optimization/simdriver/workunits.py::_check_campaign_pin">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_check_campaign_pin</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_check_campaign_pin</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _check_campaign_pin(pin: dict | None, label: str, derived: dict) -&gt; None</code></pre>
+<section class="doc">Refuse a pair whose fresh derivation is not the one the campaign pinned.
+
+`pin` is `run_spec[&#x27;staffing&#x27;][&#x27;pin&#x27;]` -- `whatif_config.PHASE2_STAFFING_PIN`, stamped on
+the run at launch, and None on every run that is not a phase-2 campaign, which is the
+no-op path.  The digest is `staffing.pin_digest` over a rounded projection of the derived
+block (&quot;Re-size the funnel in site days&quot;).
+
+THIS IS THE HALF `validate_spec` CANNOT DO.  The spec check fires before a directory
+exists, so all it can see is that a pin was declared; the derivation is per pair and only
+exists once the catalogue is read, the warehouse built and the script precomputed -- here.
+Two refusals, one question: is phase 2 running the warehouse phase 1 ranked?
+
+A pin that names no labels at all, or does not name THIS one, is a refusal too. Phase 1
+ranked the pairs it ran; a pair phase 2 adds afterwards was never ranked, and letting it
+through unchecked is the silent case the pin exists to end.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__pin_digest.html"><code>pin_digest</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___record_derived.html"><code>_record_derived</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___check_campaign_pin">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_check_campaign_pin">Source ↗</a></p>
+</article>
+</main>
+</body></html>

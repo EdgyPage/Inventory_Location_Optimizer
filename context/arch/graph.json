@@ -226,6 +226,11 @@
       "src": "Diagnostics/equilibrium_report.py"
     },
     {
+      "dst": "Optimization/config/whatif_config.py",
+      "kind": "imports",
+      "src": "Diagnostics/equilibrium_report.py"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
       "src": "Diagnostics/equilibrium_report.py"
@@ -936,6 +941,11 @@
       "src": "Inbound/gain.py"
     },
     {
+      "dst": "Warehouse/kernel/timeline.py",
+      "kind": "imports",
+      "src": "Inbound/gain.py"
+    },
+    {
       "dst": "Inbound/gain.py::_site_wide_disagreement",
       "kind": "calls",
       "src": "Inbound/gain.py::SiteGainBundle.bind"
@@ -1356,6 +1366,11 @@
       "src": "Inbound/receiving.py::SiteReceiving.transit_census_for"
     },
     {
+      "dst": "Inbound/priorities.py",
+      "kind": "imports",
+      "src": "Inbound/site_space.py"
+    },
+    {
       "dst": "Inbound/space.py",
       "kind": "imports",
       "src": "Inbound/site_space.py"
@@ -1374,6 +1389,11 @@
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Inbound/site_space.py::compose_site_view"
+    },
+    {
+      "dst": "Inbound/priorities.py::view_needs",
+      "kind": "calls",
+      "src": "Inbound/site_space.py::uncomposable_policies"
     },
     {
       "dst": "Inbound/space.py::SpaceView",
@@ -2054,11 +2074,6 @@
       "dst": "Optimization/Performance_Evaluations/common/frames.py::_level_or_nan",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/common/frames.py::_sdf"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/units.py::SECONDS_PER_DAY",
-      "kind": "ref",
-      "src": "Optimization/Performance_Evaluations/common/frames.py::_ydf"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/artifact_map.py",
@@ -7796,6 +7811,16 @@
       "src": "Optimization/config/strategies.py::_stock_optimal"
     },
     {
+      "dst": "Inbound/gain.py",
+      "kind": "imports",
+      "src": "Optimization/config/whatif_config.py"
+    },
+    {
+      "dst": "Inbound/site_space.py",
+      "kind": "imports",
+      "src": "Optimization/config/whatif_config.py"
+    },
+    {
       "dst": "Optimization/config/strategies.py",
       "kind": "imports",
       "src": "Optimization/config/whatif_config.py"
@@ -7804,6 +7829,26 @@
       "dst": "Optimization/config/whatif_config.py::phase2_inbound_axis",
       "kind": "calls",
       "src": "Optimization/config/whatif_config.py::SPECS"
+    },
+    {
+      "dst": "Inbound/site_space.py::uncomposable_policies",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::_refuse_unrunnable_cells"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::_cells_naming",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::_refuse_unrunnable_cells"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::_rule_pairs",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::_refuse_unrunnable_cells"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::inbound_policies_of",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::_refuse_unrunnable_cells"
     },
     {
       "dst": "Optimization/config/whatif_config.py::rule_pairs_of",
@@ -7824,6 +7869,11 @@
       "dst": "Optimization/config/whatif_config.py::rule_pairs_of",
       "kind": "calls",
       "src": "Optimization/config/whatif_config.py::swept_rules_of"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::_refuse_unrunnable_cells",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::validate_spec"
     },
     {
       "dst": "Optimization/config/whatif_config.py::_rule_pairs",
@@ -9461,6 +9511,11 @@
       "src": "Optimization/run_restock_selection.py"
     },
     {
+      "dst": "Optimization/simconfig/staffing.py",
+      "kind": "imports",
+      "src": "Optimization/run_restock_selection.py"
+    },
+    {
       "dst": "Optimization/run_restock_selection.py::_finite",
       "kind": "calls",
       "src": "Optimization/run_restock_selection.py::_rank_channel"
@@ -9542,6 +9597,21 @@
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::read_run_layout",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::PIN_SIGFIGS",
+      "kind": "ref",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::pin_digest",
+      "kind": "calls",
+      "src": "Optimization/run_restock_selection.py::select"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::pin_of",
       "kind": "calls",
       "src": "Optimization/run_restock_selection.py::select"
     },
@@ -12381,6 +12451,16 @@
       "src": "Optimization/simconfig/staffing.py::partial_expectation"
     },
     {
+      "dst": "Optimization/simconfig/staffing.py::pin_of",
+      "kind": "calls",
+      "src": "Optimization/simconfig/staffing.py::pin_digest"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::_round_sig",
+      "kind": "calls",
+      "src": "Optimization/simconfig/staffing.py::pin_of"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Optimization/simconfig/staffing.py::regime_orders"
@@ -14446,6 +14526,11 @@
       "src": "Optimization/simdriver/workunits.py::_channel_runs_for"
     },
     {
+      "dst": "Optimization/simconfig/staffing.py::pin_digest",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_check_campaign_pin"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::_config_name",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
@@ -14782,6 +14867,11 @@
     },
     {
       "dst": "Optimization/simconfig/staffing.py::derived_differs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_record_derived"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_check_campaign_pin",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_record_derived"
     },
@@ -22233,14 +22323,6 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_SECONDS_PER_DAY",
-      "kind": "const",
-      "module": "Inbound/gain.py",
-      "name": "_SECONDS_PER_DAY",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_load_units",
       "kind": "function",
       "module": "Inbound/gain.py",
@@ -22561,6 +22643,14 @@
     },
     {
       "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::view_needs",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "view_needs",
+      "public": true
+    },
+    {
+      "file": "Inbound/priorities.py",
       "id": "Inbound/priorities.py::yard_key",
       "kind": "function",
       "module": "Inbound/priorities.py",
@@ -22877,6 +22967,14 @@
       "kind": "function",
       "module": "Inbound/site_space.py",
       "name": "compose_site_view",
+      "public": true
+    },
+    {
+      "file": "Inbound/site_space.py",
+      "id": "Inbound/site_space.py::uncomposable_policies",
+      "kind": "function",
+      "module": "Inbound/site_space.py",
+      "name": "uncomposable_policies",
       "public": true
     },
     {
@@ -25149,14 +25247,6 @@
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/common/units.py",
       "name": "RATE_PER_HOUR",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/common/units.py",
-      "id": "Optimization/Performance_Evaluations/common/units.py::SECONDS_PER_DAY",
-      "kind": "const",
-      "module": "Optimization/Performance_Evaluations/common/units.py",
-      "name": "SECONDS_PER_DAY",
       "public": true
     },
     {
@@ -30225,6 +30315,22 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::CAMPAIGN_DEPTH_DAYS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "CAMPAIGN_DEPTH_DAYS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::CAMPAIGN_WINDOW_DAYS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "CAMPAIGN_WINDOW_DAYS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::COUPLED_CHANNELS",
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
@@ -30237,6 +30343,22 @@
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
       "name": "ERA_RUN_DEFAULTS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::INBOUND_ARRIVAL_REGIME",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "INBOUND_ARRIVAL_REGIME",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE1_RUN_DEFAULTS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE1_RUN_DEFAULTS",
       "public": true
     },
     {
@@ -30329,6 +30451,14 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_STAFFING_PIN",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_STAFFING_PIN",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::PHASE2_THRESHOLD_DAYS",
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
@@ -30361,6 +30491,22 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::_cells_naming",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "_cells_naming",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::_refuse_unrunnable_cells",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "_refuse_unrunnable_cells",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::_rule_pairs",
       "kind": "function",
       "module": "Optimization/config/whatif_config.py",
@@ -30381,6 +30527,14 @@
       "kind": "function",
       "module": "Optimization/config/whatif_config.py",
       "name": "get_spec",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::inbound_policies_of",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "inbound_policies_of",
       "public": true
     },
     {
@@ -36145,6 +36299,14 @@
     },
     {
       "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::PIN_SIGFIGS",
+      "kind": "const",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "PIN_SIGFIGS",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
       "id": "Optimization/simconfig/staffing.py::PricingConfig",
       "kind": "class",
       "module": "Optimization/simconfig/staffing.py",
@@ -36221,6 +36383,14 @@
       "kind": "function",
       "module": "Optimization/simconfig/staffing.py",
       "name": "_phi",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::_round_sig",
+      "kind": "function",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "_round_sig",
       "public": false
     },
     {
@@ -36373,6 +36543,22 @@
       "kind": "function",
       "module": "Optimization/simconfig/staffing.py",
       "name": "picker_key",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::pin_digest",
+      "kind": "function",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "pin_digest",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::pin_of",
+      "kind": "function",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "pin_of",
       "public": true
     },
     {
@@ -37445,6 +37631,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
       "name": "_channel_runs_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_check_campaign_pin",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_check_campaign_pin",
       "public": false
     },
     {
@@ -44397,6 +44591,14 @@
       "kind": "function",
       "module": "Warehouse/kernel/timeline.py",
       "name": "scheduled_at",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/timeline.py",
+      "id": "Warehouse/kernel/timeline.py::SECONDS_PER_DAY",
+      "kind": "const",
+      "module": "Warehouse/kernel/timeline.py",
+      "name": "SECONDS_PER_DAY",
       "public": true
     },
     {

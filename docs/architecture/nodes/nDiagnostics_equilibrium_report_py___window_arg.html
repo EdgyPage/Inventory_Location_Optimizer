@@ -15,7 +15,13 @@
 <p class="meta">layer <span class="chip">diagnostics</span> · file <a href="../files/nDiagnostics_equilibrium_report_py.html"><code>Diagnostics/equilibrium_report.py</code></a></p>
 
 <pre class="sig"><code>def _window_arg(text: str | None) -&gt; tuple[int, int] | None</code></pre>
-<section class="doc empty">No docstring.</section>
+<section class="doc">`LO-HI` as a pair of working days, or the literal `campaign` for the funnel&#x27;s own
+measured window -- which is DECLARED, in `whatif_config.CAMPAIGN_WINDOW_DAYS`, and read
+here rather than retyped (&quot;Re-size the funnel in site days&quot;).  A campaign leaf judged
+against a hand-typed window is a utilization reported against a warm-up the constants
+never saw, and nothing in the output would say so.  The days are SITE days: under the era
+one batch is one 28,800 s site day, three times shorter than the calendar day the yard fee
+accrues in.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nDiagnostics_equilibrium_report_py__main.html"><code>main</code></a> <span class="dim">Diagnostics/equilibrium_report.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nDiagnostics_equilibrium_report_py___window_arg">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Diagnostics/equilibrium_report.py#:~:text=def%20_window_arg">Source ↗</a></p>
 </article>
