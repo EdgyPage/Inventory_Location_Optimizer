@@ -150,8 +150,13 @@ GAIN_POLICIES: frozenset = frozenset({'gain_myopic', 'gain_forecast', 'gain_gate
 #: `fifo` leads because it is the one entry that is not optional: 08 makes it a mandatory
 #: phase-2 rider, and a gain cell builds a bundle for EVERY arm in its set, so without it
 #: all five gain cells refuse at worker startup (ticket 21).
+#: The three after the ranked pair were added by ticket 20, from the ranking phase 1
+#: actually produced (`restock_selection.json`): 08's extension cap of three, exactly
+#: consumed, chosen by the selector rather than by the guess this ticket was charted with.
 FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('fifo', 'tmin', 'tmax',
-                                           'rank_popularity', 'rank_random')
+                                           'rank_popularity', 'rank_random',
+                                           'rank_minlabor', 'rank_labor',
+                                           'rank_cartlabor')
 
 # ── the seconds->days divisor: IMPORTED, never restated ───────────────────────────
 # `SECONDS_PER_DAY` comes from `Warehouse.kernel.timeline` at the top of this module and
@@ -169,15 +174,68 @@ FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('fifo', 'tmin', 'tmax',
 # pair side by side and carries the note on which is which.
 
 
+# ── the purity rule, stated once per aisle dict ───────────────────────────────────────
+# A virtual placement may never advance the LIVE bookkeeping, so the pool adapter opens
+# the arm's pool over COPIES.  What "a copy" IS belongs to the DICT, not to the arm that
+# reads it -- two families sharing a dict share its copier -- so it is declared here,
+# once, keyed by the manager attribute the driver hands over.
+#
+# The shapes are not interchangeable and the wrong one fails SILENTLY: `dict(d)` over
+# `aisle_member_pos` hands the pool the live inner LISTS, and `_MinLaborPool.take`
+# appends a column position to one of them -- no error, no symptom, and every later
+# placement in the RUN priced against a warehouse that never happened.  So a name with no
+# entry here is refused at bundle construction rather than copied by a guess.
+#
+# Every copy is a `defaultdict` with the factory `Inventory_Manager` declares, because the
+# pools index and `+=` an aisle they have not seen (`_ads[aid] += fq`,
+# `_amp[aid][idx].append(...)`) exactly as they do against the live dicts.
+
+
+def _copy_of_sets(d):
+    out = defaultdict(set)
+    for a, v in d.items():
+        out[a] = set(v)
+    return out
+
+
+def _copy_of_floats(d):
+    return defaultdict(float, d)
+
+
+def _copy_of_lists_by_key(d):
+    """Two levels down: {aisle: {sku_idx: [x_phys, ...]}}, and the lists are appended to."""
+    out = defaultdict(lambda: defaultdict(list))
+    for a, inner in d.items():
+        o = out[a]
+        for k, xs in inner.items():
+            o[k] = list(xs)
+    return out
+
+
+#: manager attribute -> how a virtual placement's copy of it is made.  The six aisle dicts
+#: the ranked pools commit to; a seventh arrives with its shape, not with a signature.
+AISLE_COPIERS = {
+    'aisle_sku_sets':      _copy_of_sets,
+    'aisle_idx_sets':      _copy_of_sets,
+    'aisle_demand_sum':    _copy_of_floats,
+    'aisle_pick_load_sum': _copy_of_floats,
+    'aisle_vol_sum':       _copy_of_floats,
+    'aisle_member_pos':    _copy_of_lists_by_key,
+}
+
+
 class GainBundle:
     """Everything arm-specific the evaluator needs, injected by the driver.
 
     Three adapters, and the bundle picks exactly one.  `uniform` selects the uniform
     adapter (`fifo`: no pool, no direction — the tier's mean and a seat count).  Else
     `pool_factory` None selects the merge adapter (extremal-D family, direction
-    `minimize`); otherwise the pool adapter calls
-    `pool_factory(candidates, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, wp)`
-    with FRESH copies of the three aisle dicts per evaluation.  `expect_heads` prices
+    `minimize`); otherwise the pool adapter calls `pool_factory(candidates, state, wp)`,
+    where `state` is a FRESH copy per evaluation of every live aisle dict the arm's pool
+    commits to: `aisle_state` names them (manager attribute -> the live dict) and
+    `AISLE_COPIERS` above says how each is copied.  Those names are the seam's whole
+    vocabulary, which is what keeps it fixed -- a family that commits to one more dict is
+    a driver branch plus one more name, never a wider signature here.  `expect_heads` prices
     each unit at the mean over `heads_of(pool)` before consuming (rank_random's no-RNG
     expectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because
     their home (`wh_inventory`) is a forbidden import — the broker rule.
@@ -191,14 +249,13 @@ class GainBundle:
     """
 
     __slots__ = ('minimize', 'pool_factory', 'expect_heads', 'heads_of', 'uniform',
-                 'aisle_sku_sets', 'aisle_idx_sets', 'aisle_demand_sum',
+                 'aisle_state',
                  'put_speed', 'wp_of', 'binkey_of', 'tier_ranks_for',
                  'fee_threshold_days', 'urgency_horizon_days')
 
     def __init__(self, *, put_speed, wp_of, binkey_of, tier_ranks_for,
                  minimize: bool = True, pool_factory=None, expect_heads: bool = False,
-                 heads_of=None, uniform: bool = False, aisle_sku_sets=None,
-                 aisle_idx_sets=None, aisle_demand_sum=None,
+                 heads_of=None, uniform: bool = False, aisle_state=None,
                  fee_threshold_days: float = 2.0,
                  urgency_horizon_days: float = 0.0):
         if expect_heads and (pool_factory is None or heads_of is None):
@@ -213,9 +270,19 @@ class GainBundle:
         self.pool_factory = pool_factory
         self.expect_heads = bool(expect_heads)
         self.heads_of = heads_of
-        self.aisle_sku_sets = aisle_sku_sets if aisle_sku_sets is not None else {}
-        self.aisle_idx_sets = aisle_idx_sets if aisle_idx_sets is not None else {}
-        self.aisle_demand_sum = aisle_demand_sum if aisle_demand_sum is not None else {}
+        self.aisle_state = dict(aisle_state) if aisle_state else {}
+        unknown = sorted(n for n in self.aisle_state if n not in AISLE_COPIERS)
+        if unknown:
+            raise ValueError(
+                f'no copier for aisle state {unknown}: the pool adapter must hand the '
+                f'arm a COPY of every live dict its `take` commits to, and the dict\'s '
+                f'shape decides what a copy is.  Add the name to AISLE_COPIERS with its '
+                f'shape rather than letting it reach the pool uncopied')
+        if self.aisle_state and pool_factory is None:
+            raise ValueError(
+                'aisle_state is the POOL adapter\'s copy list -- the merge and uniform '
+                'adapters open no pool, so state declared here would be copied by nobody '
+                'and read by nobody')
         self.put_speed = put_speed
         self.wp_of = wp_of
         self.binkey_of = binkey_of
@@ -861,16 +928,14 @@ class _Evaluator:
 
     def _make_pool(self, cands, wp):
         """The arm's own pool over COPIES of the aisle bookkeeping — the purity rule:
-        a virtual placement may never advance the live dicts."""
+        a virtual placement may never advance the live dicts.
+
+        One comprehension, per evaluation: the bundle's `aisle_state` says WHICH live
+        dicts this arm's pool commits to and `AISLE_COPIERS` says how each is copied, so
+        a family that touches more of them costs a driver branch and nothing here."""
         b = self.b
-        ass = defaultdict(set)
-        for a, v in b.aisle_sku_sets.items():
-            ass[a] = set(v)
-        ais = defaultdict(set)
-        for a, v in b.aisle_idx_sets.items():
-            ais[a] = set(v)
-        ads = defaultdict(float, b.aisle_demand_sum)
-        return b.pool_factory(list(cands), ass, ais, ads, wp)
+        state = {n: AISLE_COPIERS[n](d) for n, d in b.aisle_state.items()}
+        return b.pool_factory(list(cands), state, wp)
 
     def _place_pool(self, gunits, chain, wp, xk, yk, excluded, predicted, cache):
         """The pool adapter: per tier, the arm's pool (over copies) serves the units

@@ -1,7 +1,7 @@
 # Extend the gain bundles
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 08
 
 ## Question
@@ -95,6 +95,123 @@ optimum. It does not change WHICH families need extending -- all three are in wh
 order -- and it does not threaten the campaign, whose real signal is the 6.1% (store) / 8.0%
 (fulfillment) gap from the best rule down to the order-blind `fifo` control. It is a caveat the
 campaign publishes rather than discovers.
+
+## Answer
+
+**DONE.** `_gain_bundle_for` serves `rank_minlabor`, `rank_labor` and `rank_cartlabor`, and
+all three are in `Inbound.gain.FAITHFUL_GAIN_FAMILIES` — the two edits the ticket names,
+both made, so the selector cannot backfill past a family the driver runs and the driver
+cannot admit a family the selector has not counted. 08's cap of three is exactly consumed,
+not widened; the zoning refusal is untouched; `comp` and `cmin` stay unfaithful, as the
+selector's own backfill decided. All six of phase 2's rule pairs now build.
+
+### What the extension actually was
+
+Not a fourth branch in a dispatch chain. The three families are pool-shaped like
+`rank_popularity`, so their FIDELITY story is the one ticket 14 already told — call the
+arm's own builder over copies. What is new is WHICH copies. Their `take` commits to live
+aisle bookkeeping the older families never touch:
+
+| family | beyond the ranked three, `take` commits to |
+|---|---|
+| `rank_labor` | `_aisle_pick_load_sum` (the LPT balance's running total) |
+| `rank_cartlabor` | `_aisle_pick_load_sum` + `_aisle_vol_sum` (the cart's mass) |
+| `rank_minlabor` | `_aisle_member_pos` — `[aid][sku_idx].append(x_phys)`, two levels down |
+
+The old seam could not express that: `GainBundle` carried three NAMED dicts and `_make_pool`
+copied exactly those three, so serving three more families would have meant six named slots
+and an eight-argument factory that five of eight families ignore — the next family making it
+nine. So the seam was widened by one concept instead of by three dicts:
+
+- `GainBundle.aisle_state` — `{manager attribute: the LIVE dict}` — replaces the three named
+  slots, and `pool_factory(candidates, state, wp)` replaces the five-argument form. The
+  names are the seam's whole vocabulary, so a future family is a driver branch plus a name.
+- `Inbound.gain.AISLE_COPIERS` — `{name: how a copy of it is made}` — states the purity rule
+  once per dict rather than once per arm, because what "a copy" IS belongs to the dict and
+  not to the arm reading it. Two families sharing a dict share its copier.
+- Both loud: a name with no copier is refused at bundle construction (worker startup), and
+  `aisle_state` declared on an adapter that opens no pool is refused as the wiring error it
+  is. The bundle holds the LIVE dicts; the copy is taken per evaluation, at `_make_pool`.
+
+The third shape is why this is worth the paragraph. `_aisle_member_pos` is a dict of dicts of
+LISTS, and `dict(d)` over it is a copy that shares its inner lists — the virtual placement
+then appends a column position to the real warehouse, with no error and no symptom, and every
+later placement in the run is priced against a warehouse that never happened. A per-dict
+copier table makes that shape a declaration; a per-arm copy site makes it something each
+branch has to remember.
+
+### Two values hoisted out of the per-evaluation path (and why production changed)
+
+`_make_pool` rebuilds the policy for EVERY virtual placement, and `plan_order` is O(yard^2)
+of those per drain. So anything the arm's builder computes once per ARM is otherwise
+recomputed thousands of times per drain. Two such values, both now optional keywords that
+every production call leaves at `None` — inert by default, so no production path moves:
+
+- `build_ranked_cartlabor_pool_fn(total_freq=...)`. Its own docstring already forbade moving
+  `sum(freq_by_sku.values())` into the pool ("a dict-order change silently repricing every
+  cart penalty"); calling the builder per evaluation would have done exactly that, AND paid
+  an O(catalogue) sum per pool open. The driver sums once per arm and hands it down.
+- `build_ranked_labor_pool_fn(geo_memos=...)` / `_build_travel_balanced_pool_fn`. The
+  geometry memo is bin geometry, which no copy of the aisle state can move, so one dict for
+  the arm is the same value by the same argument that makes it safe across opens today.
+  Without it every candidate bin re-derives `location`/`x_phys`/`y_phys`/`height_multiplier`
+  on every evaluation.
+
+`rank_minlabor` needed neither: `_MinLaborPool` has no memo and no arm-level sum, so its
+builder is called per evaluation exactly as production calls it per open.
+
+### What proves it
+
+`Tests/unit/test_gain_bundle_labor_families.py` (new, 17 tests), per family:
+
+1. **Faithful-to-arm**: the pool the bundle opens over copies makes the same placements, and
+   advances the same state, as the arm's PRODUCTION pool (the `Placement` its own `build`
+   hook installs) from identical state — `==` on the floats, because the claim is
+   byte-identity, not agreement.
+2. **Purity over all six dicts** after a real `plan_order`, not just the three the older
+   families touch.
+3. **The sabotage** (06 Tier-1): with that dict's copier replaced by the identity, the same
+   run MUST move the live dict — so the purity assertion cannot pass vacuously on a family
+   that never committed to it.
+4. The bundle holds the LIVE dicts (a copy there would freeze the warehouse at worker
+   startup and price every later drain against it), and
+5. the two hoists are one dict / one sum across evaluations.
+
+The file is MUTATION-CHECKED rather than assumed (memory `real-test-coverage-is-317`): five
+deliberate defects — `total_freq` not the arm's sum, the geo memo rebuilt per evaluation,
+`beta` dropped from minlabor, `aisle_member_pos` copied shallowly, `aisle_pick_load_sum`
+dropped from `rank_labor`'s state list — and **all five fail the file**. The first fixture
+did NOT catch the `beta` mutation, which is how the affinity lifts came to be large: at this
+cost scale a reward of ~2 never flips an argmin, so `rank_minlabor` placed identically with
+its compaction term switched off and the equivalence was an agreement about a pure minimiser.
+
+Suite: `Tests/unit` **2440 passed, 1 skipped**. `context/verify_context.py`,
+`path_guard --scan` and `docref_guard --scan` all clean. Four existing tests stated the old
+contract and were updated rather than deleted: the pool-adapter helper in `test_gain_plan`,
+the refusal fixture in `test_restock_selection` (now `rank_maxlabor` — the worst-case control
+whose MIRROR `rank_minlabor` is now served, so the gate is a gate and not a family prefix), a
+docstring example in `test_funnel_window`, and the `_Order` stub, which had no
+`expected_labor` — the field all three families sort on.
+
+### Two things worth carrying forward
+
+- **`beta` is inert for the travel-balanced family.** `build_ranked_labor_fn` /
+  `build_ranked_labor_pool_fn` accept it and do not pass it on — `_travel_balanced_impl` has
+  no affinity reward. That is production behaviour, mirrored exactly here; it is recorded
+  because the signature invites the opposite assumption. Only `rank_minlabor` responds to it.
+- **The runtime consequence the ticket warned about is real but bounded.** With both hoists
+  in place, a travel-balanced pool open costs about what `_MinLaborPool` and
+  `_RankedAssignPool` already cost the evaluator per open — i.e. the extension does not put
+  these families in a different cost class from the two pool families phase 2 already sweeps.
+  What it does not do is remove the O(yard^2)-opens-per-drain shape, which is the evaluator's
+  and is measured by 31.
+
+### What it unblocks
+
+All six rule pairs, and with them the phase-2 launch. The next act is the COPY, which is now
+its own ticket: [Copy the chosen rule pairs into phase 2](35-copy-the-chosen-pairs-into-phase-two.md)
+— `PHASE2_PAIRS` and `PHASE2_STAFFING_PIN`, both `None` today and both refused rather than
+defaulted. Then phase 2, then publish.
 
 ## Comments
 

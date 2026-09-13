@@ -229,8 +229,9 @@ def test_a_phase_two_spec_without_a_pin_is_refused_at_spec_build():
     "Valid in every other respect" got two new requirements with inbound-optimization 33,
     and the happy path below states both rather than inheriting them: the axis drops the
     `fsight_*` cells (the coupled composer declines a futuresight window until 34 lands the
-    zip) and the rules stay inside `FAITHFUL_GAIN_FAMILIES` (`rank_labor` has no faithful
-    gain bundle, so every gain cell would die at its first drain). Neither is about the
+    zip) and the rules stay inside `FAITHFUL_GAIN_FAMILIES` (a rule outside it -- say
+    `rank_maxlabor` -- has no faithful gain bundle, so every gain cell would die at its
+    first drain). Neither is about the
     pin; both are refusals this spec now trips first. See
     `test_campaign_cells_can_run.py`."""
     spec = {**SPECS['inbound_policies'],

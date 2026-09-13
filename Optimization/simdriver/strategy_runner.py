@@ -216,6 +216,25 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
     here at all.  Any other placement family FAILS LOUDLY: an evaluator that cannot
     rebuild the arm's pool over copies would price a fiction under that arm's name,
     and phase 2's top-k should extend this map consciously, not silently.
+
+    Which is what the last three branches are (ticket 20).  Phase 1 ranked, and
+    `rank_minlabor` / `rank_labor` / `rank_cartlabor` are the families its top five
+    named that this map did not already serve -- 08's cap of three, exactly consumed.
+    They arrive on the SAME pool adapter as rank_popularity and through their own
+    builders, so nothing about fidelity is new; what IS new is that their pools commit
+    to live aisle bookkeeping beyond the three dicts the older families touch, and
+    `aisle_state` is where each declares its own.  A dict left off that list is not a
+    refusal, it is a virtual placement advancing the REAL warehouse -- so the list is
+    read off the pool's `take`, not off the builder's signature (`_sku_pick_load_product`
+    and `_sku_vol_product` are handed over LIVE below precisely because `take` only
+    reads them).
+
+    The two arm-level values hoisted out of the per-evaluation path belong to the same
+    reading.  `_make_pool` rebuilds the policy for every virtual placement, so anything
+    the builder computes ONCE per arm would be recomputed O(yard^2) times per drain: the
+    travel-balanced geometry memo, and rank_cartlabor's `total_freq`, whose own docstring
+    forbids moving it into the pool.  Both ride optional builder keywords that every
+    production call leaves at None.
     """
     if getattr(mgr, '_zoning_enabled', False):
         raise ValueError(
@@ -227,12 +246,18 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
         wp_of=lambda unit: _wp_for(wp, unit),
         binkey_of=_binkey_of,
         tier_ranks_for=_tier_ranks_for,
-        aisle_sku_sets=mgr._aisle_sku_sets,
-        aisle_idx_sets=mgr._aisle_idx_sets,
-        aisle_demand_sum=mgr._aisle_demand_sum,
         fee_threshold_days=spec['fee_threshold_days'],
         urgency_horizon_days=spec['urgency_horizon_days'],
     )
+    # The live aisle bookkeeping EVERY ranked pool's `take` commits to; the three
+    # labor families below each add their own.  The evaluator copies exactly what is
+    # named here before every virtual placement (`Inbound.gain.AISLE_COPIERS` holds the
+    # shapes), and carries nothing for the merge and uniform adapters, which open no pool.
+    ranked3 = {
+        'aisle_sku_sets': mgr._aisle_sku_sets,
+        'aisle_idx_sets': mgr._aisle_idx_sets,
+        'aisle_demand_sum': mgr._aisle_demand_sum,
+    }
     restock = strat.restock
     if restock == 'fifo':
         # The mandatory phase-2 rider (08), and the one family with no pool at all:
@@ -243,33 +268,84 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
     if restock in ('tmin', 'tmax'):
         return _GainBundle(minimize=(restock == 'tmin'), **kw)
     if restock == 'rank_popularity':
-        def _factory(cands, ass, ais, ads, wp_local):
+        def _factory(cands, state, wp_local):
             # The arm's OWN builder over the copies — its selector then closes over
             # the copied aisle_demand_sum exactly as the production pool closes over
             # the live one, so a future tiebreak change cannot leave the evaluator
             # pricing a stale policy under the arm's name.
             return _af.build_ranked_popularity_pool_fn(
-                sctx.affinity, wp_local, ass, ais, ads,
+                sctx.affinity, wp_local, state['aisle_sku_sets'],
+                state['aisle_idx_sets'], state['aisle_demand_sum'],
                 sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
                 beta=sctx.beta)(cands)
-        return _GainBundle(pool_factory=_factory, **kw)
+        return _GainBundle(pool_factory=_factory, aisle_state=ranked3, **kw)
     if restock == 'rank_random':
-        def _factory(cands, ass, ais, ads, wp_local):
+        def _factory(cands, state, wp_local):
             # First-live-aisle stand-in for the RNG draw: deterministic consumption
             # under expectation pricing (head-key insertion order is first-appearance
             # in cands — the pool's own documented, stable order).
             return _af._RankedAssignPool(
-                cands, sctx.affinity, wp_local, ass, ais, ads,
+                cands, sctx.affinity, wp_local, state['aisle_sku_sets'],
+                state['aisle_idx_sets'], state['aisle_demand_sum'],
                 sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku, sctx.beta,
                 True, aisle_selector=lambda head_D, head_bin: next(iter(head_bin)))
         return _GainBundle(pool_factory=_factory, expect_heads=True,
-                           heads_of=lambda pool: pool._head_bin, **kw)
+                           heads_of=lambda pool: pool._head_bin,
+                           aisle_state=ranked3, **kw)
+    if restock in ('rank_labor', 'rank_cartlabor'):
+        # One pool class (`_TravelBalancedPool`) and one seam for both: the cart term is
+        # the only difference, and it is the builder's to add.  `_aisle_pick_load_sum` is
+        # the LPT balance's running total and `_aisle_vol_sum` the cart's — both committed
+        # to by `take`, so both are copied; `_sku_pick_load_product` / `_sku_vol_product`
+        # are per-SKU constants it only reads, and stay live.
+        geo: dict = {}                     # arm-level bin geometry, across evaluations
+        cart = restock == 'rank_cartlabor'
+        # Summed ONCE per arm, as `build_ranked_cartlabor_pool_fn` insists: per pool open
+        # it would be an O(catalogue) sum in the evaluator's O(yard^2) loop, and a
+        # dict-order change would silently reprice every cart penalty.
+        total_freq = sum(sctx.freq_by_sku.values()) if cart else None
+
+        def _factory(cands, state, wp_local):
+            ass, ais = state['aisle_sku_sets'], state['aisle_idx_sets']
+            ads, apl = state['aisle_demand_sum'], state['aisle_pick_load_sum']
+            if cart:
+                return _af.build_ranked_cartlabor_pool_fn(
+                    sctx.affinity, wp_local, ass, ais, ads, apl,
+                    mgr._sku_pick_load_product, state['aisle_vol_sum'],
+                    mgr._sku_vol_product, sctx.expected_batch_skus,
+                    sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
+                    beta=sctx.beta, total_freq=total_freq, geo_memos=geo)(cands)
+            return _af.build_ranked_labor_pool_fn(
+                sctx.affinity, wp_local, ass, ais, ads, apl,
+                mgr._sku_pick_load_product,
+                sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
+                beta=sctx.beta, geo_memos=geo)(cands)
+        state_names = dict(ranked3, aisle_pick_load_sum=mgr._aisle_pick_load_sum)
+        if cart:
+            state_names['aisle_vol_sum'] = mgr._aisle_vol_sum
+        return _GainBundle(pool_factory=_factory, aisle_state=state_names, **kw)
+    if restock == 'rank_minlabor':
+        # The minimiser keeps no per-aisle running load, but `take` commits placement
+        # POSITIONS: `_aisle_member_pos[aid][sku_idx].append(x_phys)`, which the partner
+        # centroid then sums in placement order.  It is the quiet one — two levels down,
+        # and a shallow copy would hand the pool the live inner lists.
+        def _factory(cands, state, wp_local):
+            return _af.build_ranked_minlabor_pool_fn(
+                sctx.affinity, wp_local, state['aisle_sku_sets'],
+                state['aisle_idx_sets'], state['aisle_demand_sum'],
+                state['aisle_member_pos'],
+                sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
+                beta=sctx.beta)(cands)
+        return _GainBundle(
+            pool_factory=_factory,
+            aisle_state=dict(ranked3, aisle_member_pos=mgr._aisle_member_pos), **kw)
     raise ValueError(
         f'no faithful gain bundle for placement arm {strat.key!r} (restock '
         f'{restock!r}): the gain evaluator serves {"/".join(FAITHFUL_GAIN_FAMILIES)} '
         f'(fifo by the uniform expectation, tmin/tmax by the k-cheapest merge, the '
-        f'ranked two by a pool over copies).  Extend _gain_bundle_for for this '
-        f'family, or run it with a non-gain inbound policy')
+        f'other five by a pool over copies of the aisle state each one commits to).  '
+        f'Extend _gain_bundle_for AND FAITHFUL_GAIN_FAMILIES for this family, or run '
+        f'it with a non-gain inbound policy')
 
 
 def _futuresight_window_w(spec, batches):

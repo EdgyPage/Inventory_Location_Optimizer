@@ -642,6 +642,36 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   lower bound for that one cell. Found on the way: the one-pair reference view's junction was
   DEAD, which would have failed PHASE 1's own launch command identically; repaired.
 
+- [Extend the gain bundles](issues/20-extend-the-gain-bundles.md): **DONE -- the evaluator
+  serves `rank_minlabor` / `rank_labor` / `rank_cartlabor`, 08's cap of three exactly
+  consumed, so all six phase-2 rule pairs build and the copy is the only edit left.** The
+  extension was not a fourth branch in a dispatch chain: these families are pool-shaped like
+  `rank_popularity`, so their FIDELITY story is 14's, but their `take` commits to live aisle
+  bookkeeping beyond the three dicts the older families touch -- `_aisle_pick_load_sum`
+  (rank_labor), `+ _aisle_vol_sum` (cartlabor), `_aisle_member_pos` (minlabor). The old seam
+  carried three NAMED dicts, so three more families meant six slots and an eight-argument
+  factory five of eight families ignore. **It was widened by one concept instead:
+  `GainBundle.aisle_state` (`{manager attribute: the LIVE dict}`) with
+  `pool_factory(candidates, state, wp)`, and `Inbound.gain.AISLE_COPIERS` stating the purity
+  rule once per DICT rather than once per arm** -- because what "a copy" is belongs to the
+  dict, not to the arm reading it. Both refusals are loud and at worker startup: a name with
+  no copier, and `aisle_state` on an adapter that opens no pool. The third shape is why the
+  table earns its place: `_aisle_member_pos` is a dict of dicts of LISTS, so `dict(d)` over it
+  shares the inner lists and the virtual placement appends a column position to the REAL
+  warehouse -- no error, no symptom, every later placement priced against a warehouse that
+  never happened. **Two production keywords were added, both inert at `None` and byte-identical
+  unused**, because `_make_pool` rebuilds the policy per virtual placement and `plan_order` is
+  O(yard^2) of those per drain: `total_freq` (whose builder docstring already forbade moving
+  the sum into the pool, and a per-open O(catalogue) sum would have done exactly that) and the
+  travel-balanced `geo_memos`. `rank_minlabor` needed neither. **The tests are
+  mutation-checked, and the check paid**: five deliberate defects, all five caught -- but the
+  FIRST fixture missed `beta` dropped from minlabor, because at this cost scale an affinity
+  reward of ~2 never flips an argmin, so the equivalence was an agreement about a pure
+  minimiser. The lifts are large on purpose now. Recorded on the way: **`beta` is inert for
+  the travel-balanced family** (`build_ranked_labor_fn` accepts it and never passes it on --
+  production behaviour, mirrored exactly, and noted because the signature invites the opposite
+  assumption).
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -672,7 +702,13 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   builds fog is EMPTY but for one gated ticket: [Extend the gain
   bundles](issues/20-extend-the-gain-bundles.md), unchanged and still gated on phase 1, since
   which OTHER families need extending is phase 1's output. Nothing else on this map is takeable,
-  and phase 1 -- which nothing here blocks -- is the next act.**)
+  and phase 1 -- which nothing here blocks -- is the next act.**
+  **2026-09-13: 20 is RESOLVED and the builds fog is now genuinely EMPTY.** Phase 1 ran, named
+  three families, and the evaluator was extended to all three. What replaced it is not fog: it
+  is one `task` ticket with no judgement in it,
+  [Copy the chosen rule pairs into phase 2](issues/35-copy-the-chosen-pairs-into-phase-two.md)
+  -- `PHASE2_PAIRS` and `PHASE2_STAFFING_PIN`, both `None` today and both refused rather than
+  defaulted. It is the last edit before the launch.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -827,6 +863,12 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   `validate_spec` refuses a gain cell over an unfaithful rule, so copying first puts a refusing
   spec in the tree. Execution order now: **20 -> copy `rule_pairs.chosen` AND `staffing.pin` ->
   phase 2 -> publish.**
+  **2026-09-13, and last: 20 is DONE, so the copy is takeable and is now the map's whole
+  frontier.** All six rule pairs build; `validate_spec`'s faithfulness refusal is satisfied by
+  the live constant rather than by a remembered list. Execution order is
+  **[35](issues/35-copy-the-chosen-pairs-into-phase-two.md) -> phase 2 -> publish**, and after
+  the copy nothing on this map is a decision -- the destination is reached when phase 2 has run
+  and been published.
 
 ## Out of scope
 

@@ -98,7 +98,7 @@ class _Bin:
 
 class _Order:
     __slots__ = ('sku', 'storage_handle_config', 'demand', 'labor_cost', 'handle_var',
-                 'expected_popularity')
+                 'expected_popularity', 'expected_labor')
 
     def __init__(self, sku, freq=1.0, qty_rate=1.0, labor=1.0, hvar=0.5,
                  category='food', handling='conveyable'):
@@ -108,6 +108,10 @@ class _Order:
         self.labor_cost = labor
         self.handle_var = hvar
         self.expected_popularity = freq * qty_rate
+        # The real Order derives this (freq*qty*cost1); the ranked LABOR pools sort on it,
+        # so a stub without it ranks nothing and the pool's `order` silently keeps queue
+        # order.  Same expression, not a stand-in.
+        self.expected_labor = self.expected_popularity * labor
 
 
 class _Unit:
@@ -983,8 +987,10 @@ def _pool_bundle(orders, live_ass, live_ais, live_ads, expect=False):
     factory_calls: list = []
     heads_calls: list = []
 
-    def factory(cands, ass, ais, ads, wp_local):
+    def factory(cands, state, wp_local):
         factory_calls.append(1)
+        ass, ais, ads = (state['aisle_sku_sets'], state['aisle_idx_sets'],
+                         state['aisle_demand_sum'])
         assert ass is not live_ass and ais is not live_ais and ads is not live_ads, (
             'the pool adapter must hand the pool COPIES of the aisle state')
         sel = (lambda head_D, head_bin: next(iter(head_bin))) if expect else None
@@ -998,8 +1004,9 @@ def _pool_bundle(orders, live_ass, live_ais, live_ads, expect=False):
 
     bundle = _bundle(pool_factory=factory, expect_heads=expect,
                      heads_of=heads_of if expect else None,
-                     aisle_sku_sets=live_ass, aisle_idx_sets=live_ais,
-                     aisle_demand_sum=live_ads)
+                     aisle_state={'aisle_sku_sets': live_ass,
+                                  'aisle_idx_sets': live_ais,
+                                  'aisle_demand_sum': live_ads})
     return bundle, factory_calls, heads_calls
 
 

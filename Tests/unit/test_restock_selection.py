@@ -240,9 +240,11 @@ def test_a_gain_bundle_really_is_built_for_the_rider():
         assert bundle.uniform, f'{key} must take the uniform adapter, not the merge default'
         assert bundle.pool_factory is None
     # ...and an unfaithful family still refuses, so the branch above is about fifo and not a
-    # gate that stopped gating.
+    # gate that stopped gating.  `rank_maxlabor` is the worst-case control and was never in
+    # phase 1's top five, so it is outside the set on purpose -- its MIRROR `rank_minlabor`
+    # is inside it (ticket 20), which is what makes this a gate and not a family prefix.
     with pytest.raises(ValueError, match='no faithful gain bundle'):
-        _gain_bundle_for(STRATEGY_BY_KEY['uni_rank_labor_norsl'], mgr, None, {}, 1.0, spec)
+        _gain_bundle_for(STRATEGY_BY_KEY['uni_rank_maxlabor_norsl'], mgr, None, {}, 1.0, spec)
 
 
 def test_the_faithful_set_is_the_one_the_driver_actually_accepts():

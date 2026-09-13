@@ -1761,11 +1761,20 @@ class _TravelBalancedPool(_Pool):
 def _build_travel_balanced_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets,
                                    aisle_demand_sum, aisle_pick_load_sum,
                                    sku_pick_load_product, freq_by_sku, qty_by_sku,
-                                   cart=None):
+                                   cart=None, geo_memos=None):
     # id(resolved wp) -> (wp, {id(bin): (bin, aisle_id, D, height_mult)}).  Keyed by profile
     # because D and M depend on it; the wp is kept in the value so a recycled id() cannot alias
     # a stale table.  Lives as long as the placement function, i.e. one arm.
-    _geo_memos: dict = {}
+    #
+    # `geo_memos` hands that lifetime to the CALLER, and exists for one of them: the inbound
+    # gain evaluator rebuilds this policy over fresh COPIES of the aisle state on every
+    # evaluation (`Inbound.gain._make_pool`), so a builder-local memo would be born empty
+    # every time and every candidate bin's geometry recomputed -- inside a loop that opens a
+    # pool O(yard^2) times per drain.  What the memo holds is BIN GEOMETRY, which no copy of
+    # the aisle state can move, so sharing it across those rebuilds is the same value by the
+    # same argument that makes it safe across opens within one arm.  None -- every production
+    # call -- keeps the memo builder-local, byte for byte as before.
+    _geo_memos: dict = {} if geo_memos is None else geo_memos
 
     def open_pool(candidates, rep=None):
         w = _wp_for(wp, rep) if rep is not None else wp   # per-regime cost, mixed warehouse
@@ -1806,12 +1815,15 @@ def build_ranked_labor_fn(
 def build_ranked_labor_pool_fn(
     affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
     aisle_pick_load_sum, sku_pick_load_product, freq_by_idx, freq_by_sku,
-    qty_by_sku, beta: float = 1.0,
+    qty_by_sku, beta: float = 1.0, geo_memos=None,
 ):
-    """Pool twin of build_ranked_labor_fn — same signature."""
+    """Pool twin of build_ranked_labor_fn — same signature, plus the optional caller-owned
+    geometry memo (`_build_travel_balanced_pool_fn`, which carries the whole argument).
+    Omitted, as every production call omits it, this is the builder it always was."""
     return _build_travel_balanced_pool_fn(
         affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-        aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku)
+        aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku,
+        geo_memos=geo_memos)
 
 
 def build_ranked_cartlabor_fn(
@@ -1850,17 +1862,27 @@ def build_ranked_cartlabor_pool_fn(
     affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
     aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product,
     expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
+    total_freq=None, geo_memos=None,
 ):
     """Pool twin of build_ranked_cartlabor_fn — same signature.
 
     `total_freq` is summed HERE, once when the policy is built, exactly as the wave builder
     does it: a per-pool sum over the same dict would be the same value today but would make
-    a dict-order change silently repricing every cart penalty."""
-    total_freq = sum(freq_by_sku.values())
+    a dict-order change silently repricing every cart penalty.
+
+    Which is the whole reason it can be passed IN.  A caller that rebuilds this policy per
+    evaluation rather than per arm -- there is one, the inbound gain evaluator -- would turn
+    "once when the policy is built" into once per pool open, an O(catalogue) sum in an
+    O(yard^2)-per-drain loop, and would re-expose exactly the dict-order hazard the
+    paragraph above closes.  Such a caller hoists the sum to its own arm scope and hands it
+    down; it must be `sum(freq_by_sku.values())` over this same dict and nothing else.
+    None -- every production call -- sums here as before."""
+    total_freq = sum(freq_by_sku.values()) if total_freq is None else float(total_freq)
     return _build_travel_balanced_pool_fn(
         affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
         aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku,
-        cart=(aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq))
+        cart=(aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq),
+        geo_memos=geo_memos)
 
 
 def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
