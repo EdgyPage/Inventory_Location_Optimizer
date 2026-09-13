@@ -58,6 +58,42 @@ def _pair_spec(pairs, **over):
     return spec
 
 
+# ── who the neutrality sweeps are about ─────────────────────────────────────────
+# Three sweeps below assert DERIVED == the frozen head expression for every registered spec.
+# That is a claim about runs that EXIST — flat `arms` specs, which is every spec the archive
+# was built from — and it held over the whole registry only while `inbound_policies` declared
+# nothing at all and both sides came back None vacuously.  Since phase 1 ran, its pairs are
+# committed (inbound-opt 35), and a rule-pair spec is BY CONSTRUCTION the thing that moves:
+# the head expressions predate the shape, so they read it as "no arm set" while the derivation
+# reads it as two rank-ordered columns.  That difference is the feature, and it has its own
+# tests below; folded into the sweeps it would only make the neutrality claim unstateable.
+#
+# Split DERIVED from the spec, never listed by name, so a second pair campaign lands on the
+# right side of the line the day it is registered rather than the day someone remembers.  Both
+# sides are asserted non-empty: an exclusion that silently swallowed the registry would turn
+# every sweep it feeds into a test that passes because it visits nothing.
+#
+# ON THE KEY, NOT ON `rule_pairs_of`.  This runs at COLLECTION, and `rule_pairs_of` normalises
+# — so a malformed `PHASE2_PAIRS` (transposed, rider dropped, a rule twice in a column) would
+# raise here and error the whole module out, taking with it the dozen refusal tests that exist
+# to say WHICH shape broke.  A spec that declares the key is a pair spec; whether what it
+# declares is well-shaped is a question for the tests below, which can then answer it.
+_FLAT_SPECS = sorted(n for n in SPECS if SPECS[n].get('rule_pairs') is None)
+_PAIR_SPECS = sorted(n for n in SPECS if SPECS[n].get('rule_pairs') is not None)
+
+
+def test_the_registry_splits_into_flat_and_pair_specs_and_neither_side_is_empty():
+    """Non-vacuity for the three sweeps `_FLAT_SPECS` parametrizes, and for the pair-shaped
+    tests that are the other half of the same story.  Stated once, here, because a sweep whose
+    parameter list went empty reports as PASSED for every name it no longer visits."""
+    assert _FLAT_SPECS, ('every registered spec declares rule pairs — the neutrality sweeps '
+                         'below now visit nothing and cannot fail')
+    assert _PAIR_SPECS, ('no registered spec declares rule pairs — the campaign spec lost its '
+                         'pairing, or PHASE2_PAIRS went back to None')
+    assert set(_FLAT_SPECS) | set(_PAIR_SPECS) == set(SPECS)
+    assert 'inbound_policies' in _PAIR_SPECS         # the campaign, carrying phase 1's draw
+
+
 # ── the derivation reproduces what the driver installs today ────────────────────
 # Transcribed from `_run_whatif_matrix` (Optimization/simdriver/scenario.py) as it stood
 # BEFORE the pair-shaped derivation was wired in: 'all' -> None (full suite), a subset -> that
@@ -73,11 +109,13 @@ def _head_install(spec, channels):
     return {ch: arms for ch in channels}
 
 
-@pytest.mark.parametrize('name', sorted(SPECS))
+@pytest.mark.parametrize('name', _FLAT_SPECS)
 @pytest.mark.parametrize('channels', [_BOTH, ('store',)])
 def test_the_derived_channel_restocks_reproduce_the_committed_install(name, channels):
-    """DERIVED == DECLARED TODAY, asserted, for every registered spec and both catalogue
-    shapes — the precondition for the derivation replacing the driver's install at all."""
+    """DERIVED == DECLARED TODAY, asserted, for every FLAT-armed registered spec and both
+    catalogue shapes — the precondition for the derivation replacing the driver's install at
+    all.  The pair specs are the ones it deliberately does not reproduce; their columns are
+    asserted directly below, against the pairing rather than against the head."""
     spec = SPECS[name]
     assert channel_restocks_for(spec, channels) == _head_install(spec, channels), name
 
@@ -105,6 +143,30 @@ def test_an_asymmetric_pairing_derives_two_different_columns_in_rank_order():
                    'fulfillment': ('rank_labor', 'fifo', 'map')}
     # and the store column is NOT the sorted/grid order of its own members
     assert got['store'] != tuple(k for k in RESTOCK_KEYS if k in got['store'])
+
+
+@pytest.mark.parametrize('name', _PAIR_SPECS)
+def test_a_committed_pair_specs_columns_are_its_own_pairing_sliced(name):
+    """The claim the flat sweeps hand over: a registered pair spec's per-channel columns are
+    its declared pairing, sliced by slot and IN THE DECLARED ORDER.
+
+    Asserted against the spec's own `rule_pairs` rather than against a literal list, because
+    the literal is phase 1's artifact (`restock_selection.json`, on the results drive) and a
+    checkout cannot read it — `Tests` must not grow a dependency on a run tree.  What is
+    checkable here is that nothing between the declaration and the install re-orders, de-dupes
+    or transposes it, which is every failure the derivation exists to prevent.
+    """
+    pairs = rule_pairs_of(SPECS[name])
+    cols = channel_restocks_for(SPECS[name], _BOTH)
+    for slot, ch in enumerate(COUPLED_CHANNELS):
+        assert cols[ch] == tuple(p[slot] for p in pairs), (name, ch)
+        assert len(cols[ch]) == len(pairs), (name, ch, 'a column collapsed — a repeated rule')
+        assert all(r in RESTOCK_KEYS for r in cols[ch]), (name, ch)
+    # …and the pairing survives the round trip back out of the columns: zip the two columns
+    # and the pairs come back. A transposed pair would satisfy both slot assertions above
+    # only if the columns were equal, which the rider alone does not make them.
+    assert tuple(zip(*(cols[ch] for ch in COUPLED_CHANNELS))) == pairs, name
+    assert PHASE2_RIDER in pairs, (name, 'the analysis baseline rode off the campaign')
 
 
 def test_the_derived_columns_zip_back_to_the_pairing():
@@ -142,8 +204,11 @@ def _head_layout_arms(spec):
     return None if spec.get('arms') in (None, 'all') else list(spec['arms'])
 
 
-@pytest.mark.parametrize('name', sorted(SPECS))
+@pytest.mark.parametrize('name', _FLAT_SPECS)
 def test_the_descriptors_arm_field_is_unchanged_for_every_committed_spec(name):
+    """…for the flat-armed specs. A pair spec's descriptor MOVES by design — `None` there
+    would claim the committed 34-arm suite for a run that swept a diagonal — and the next
+    test is that move."""
     assert swept_rules_of(SPECS[name]) == _head_layout_arms(SPECS[name]), name
 
 
@@ -232,24 +297,32 @@ def test_rule_pairs_without_declared_coupling_are_refused(defaults):
 
 
 def test_an_inbound_matrix_with_no_arm_set_is_refused_at_get_spec():
-    """The committed campaign spec, today: PHASE2_PAIRS is None until phase 1 has run, and a
-    matrix that never received an arm set has SKIPPED the selection rather than chosen it.
-
-    It refuses at `get_spec` — before the run directory exists — and the message names the
+    """A matrix that never received an arm set has SKIPPED the selection rather than chosen
+    it: it refuses at `get_spec` — before the run directory exists — and the message names the
     constant to set and the artifact field to copy it from.
+
+    PHASE 1 HAS RUN (inbound-opt 35), so this can no longer be posed as "the committed spec,
+    today".  It used to be, and that made it a test of the constant's value as much as of the
+    gate.  The gate is what matters and it is still live: the reachable defect is now an edit
+    that DROPS the pairing rather than one that never supplied it, so the spec under test is
+    the committed campaign with its `rule_pairs` taken back off — valid in every other
+    respect, which is what makes the refusal attributable to the one thing removed.
     """
-    assert wc.PHASE2_PAIRS is None
+    stripped = {k: v for k, v in SPECS['inbound_policies'].items() if k != 'rule_pairs'}
     with pytest.raises(ValueError, match='PHASE2_PAIRS'):
-        get_spec('inbound_policies')
+        validate_spec(stripped, 'inbound_policies')
     with pytest.raises(ValueError, match='restock_selection'):
-        get_spec('inbound_policies')
+        validate_spec(stripped, 'inbound_policies')
 
 
-def test_every_other_registered_spec_passes_its_own_shape_check():
-    """A gate that refused the whole registry would be found by a person, not by a test."""
+def test_every_registered_spec_passes_its_own_shape_check():
+    """A gate that refused the whole registry would be found by a person, not by a test.
+
+    No spec is excused any more.  `inbound_policies` was, for as long as it was legitimately
+    unbuildable — its pairs were None until phase 1 ranked them — and that exemption is the
+    kind that outlives its reason silently, so it goes out with the constant it was about.
+    """
     for name in sorted(SPECS):
-        if name == 'inbound_policies':
-            continue
         assert get_spec(name) is SPECS[name], name
 
 
@@ -266,7 +339,14 @@ def test_the_campaign_spec_declares_coupling_and_the_era():
     # The campaign states its pairing and nothing else: an `arms` key beside it would be the
     # one the driver reads, and would make both columns the same set.
     assert 'arms' not in SPECS['inbound_policies']
-    assert rule_pairs_of(SPECS['inbound_policies']) is None
+    # …and it DOES state one. Phase 1's ranking is copied in (inbound-opt 35), so the campaign
+    # is a real diagonal rather than the `None` placeholder it carried while phase 1 was
+    # pending — and the pin rides with it, because a ranking is only about the warehouse it
+    # was taken on and `validate_spec` refuses the pairs without it.
+    assert rule_pairs_of(SPECS['inbound_policies']) == tuple(
+        tuple(p) for p in wc.PHASE2_PAIRS)
+    assert SPECS['inbound_policies']['staffing_pin'] is wc.PHASE2_STAFFING_PIN
+    assert wc.PHASE2_STAFFING_PIN, 'the campaign carries an empty pin — validate_spec refuses'
 
 
 # ── strategies_for: the order the zip reads ─────────────────────────────────────
@@ -288,9 +368,12 @@ def test_strategies_for_is_unchanged_for_every_grid_ordered_arm_set(size):
     assert strategies_for(RESTOCK_KEYS) == list(STRATEGIES)
 
 
-@pytest.mark.parametrize('name', sorted(SPECS))
+@pytest.mark.parametrize('name', _FLAT_SPECS)
 def test_no_committed_spec_moves_an_arm(name):
-    """The same claim, aimed at the registry rather than at the grid."""
+    """The same claim, aimed at the registry rather than at the grid — and at the flat-armed
+    specs, which are the ones the archive was built from.  A pair spec's columns are in RANK
+    order, which is the whole point of the shape and is exactly what the old grid-order filter
+    cannot reproduce; `test_strategies_for_follows_the_declared_rank_order` is that half."""
     for ch, rules in (channel_restocks_for(SPECS[name], _BOTH) or {}).items():
         assert strategies_for(rules) == _head_strategies_for(rules), (name, ch)
 
@@ -418,7 +501,11 @@ def test_the_driver_validates_a_spec_that_never_came_through_get_spec(monkeypatc
 
 def test_an_inbound_spec_with_no_arm_set_is_refused_at_the_driver_too(monkeypatch):
     """The refusal that used to be written over the built CELLS. It lives in `validate_spec`
-    now, and the driver calls that — so a campaign spec whose `PHASE2_PAIRS` is still None
-    stops at minute zero rather than launching the full 34-arm suite."""
+    now, and the DRIVER calls that — so a campaign spec that lost its pairing stops at minute
+    zero rather than launching the full 34-arm suite over ten cells.
+
+    The spec is the committed campaign with `rule_pairs` removed: since phase 1 ran the
+    campaign itself builds, and what this test is about is the seam, not the constant."""
+    stripped = {k: v for k, v in SPECS['inbound_policies'].items() if k != 'rule_pairs'}
     with pytest.raises(ValueError, match='states no arm set'):
-        _drive(monkeypatch, SPECS['inbound_policies'], _BOTH)
+        _drive(monkeypatch, stripped, _BOTH)

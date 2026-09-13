@@ -672,6 +672,35 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   production behaviour, mirrored exactly, and noted because the signature invites the opposite
   assumption).
 
+- [Copy the chosen rule pairs into phase 2](issues/35-copy-the-chosen-pairs-into-phase-two.md):
+  **DONE -- phase 1's two hand-off values are committed and the campaign spec BUILDS, which is
+  the last edit between this map and the phase-2 launch.** `PHASE2_PAIRS` and
+  `PHASE2_STAFFING_PIN` carry `restock_selection.json`'s `rule_pairs.chosen` and `staffing.pin`,
+  read off the artifact by script rather than hand-typed, with the run root, `repo_commit`
+  `ba055dd0747f`, cell, sampler and metric in the comment -- the run is the provenance. The
+  refusal `validate_spec` raises when a pair names an unfaithful family is now SATISFIED by all
+  six pairs (20's extension covers exactly the three the artifact's `needs_bundle_extension`
+  named, nothing over and nothing short), and `channel_restocks_for` derives both columns as
+  each channel's `chosen` in rank order **plus the rider** -- which rides outside k, so an
+  equality check against `chosen` alone would have failed on a correct derivation. **Seven
+  tests reshaped, none deleted**, in a third file the ticket had not named: three were
+  registry-wide neutrality sweeps that covered the campaign only VACUOUSLY (both sides `None`
+  while it declared no arm set), now split `_FLAT_SPECS` / `_PAIR_SPECS` derived from the spec
+  rather than by name; four asserted the constants were still `None`, and now pose the
+  committed campaign with its `rule_pairs` taken back off, so the live gate is tested instead
+  of the constant's value. Two added, because excluding specs from a sweep is how a suite goes
+  quietly vacuous: a non-vacuity guard on the split, and the committed campaign's own columns,
+  which had never been asserted (against its own `rule_pairs`, never against the artifact --
+  `Tests/` must not grow a dependency on a run tree). **Mutation-checked, and the check paid**:
+  the split was first written through `rule_pairs_of`, which normalises and runs at COLLECTION,
+  so three of five mutations errored the whole module out and took with it the dozen refusal
+  tests that exist to say which shape broke; rewritten to test the key, all five now land as
+  ordinary failures. `Tests/unit` 2438 passed, both guards clean. The caveat rides at the
+  constant now, not just in the ticket: the pairing is one of several equally defensible draws
+  (store's top three within 0.005% / 0.12%, fulfillment's top eight within 0.73%), and the
+  campaign's real signal is the 6.1% / 8.0% gap to the `fifo` control plus the within-pair
+  inbound comparison across cells.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -708,7 +737,10 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   is one `task` ticket with no judgement in it,
   [Copy the chosen rule pairs into phase 2](issues/35-copy-the-chosen-pairs-into-phase-two.md)
   -- `PHASE2_PAIRS` and `PHASE2_STAFFING_PIN`, both `None` today and both refused rather than
-  defaulted. It is the last edit before the launch.)
+  defaulted. It is the last edit before the launch.
+  **RESOLVED the same day: the constants are committed and the campaign spec builds, so the
+  builds fog is empty and the map holds NO open ticket.** What remains to reach the destination
+  is execution alone -- launch phase 2, then publish -- and neither is a decision.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -869,6 +901,11 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   **[35](issues/35-copy-the-chosen-pairs-into-phase-two.md) -> phase 2 -> publish**, and after
   the copy nothing on this map is a decision -- the destination is reached when phase 2 has run
   and been published.
+  **Later the same day: 35 is DONE.** Both constants are committed off the artifact and
+  `get_spec('inbound_policies')` builds rather than refuses, which is the faithfulness check run
+  rather than argued. Execution order is now **phase 2 -> publish**, with no ticket in front of
+  it: 120 coupled units, ~8.6-9.7 h wall at 4 workers (31's clock), launched detached with a
+  keep-awake per `launch-long-drivers-detached`.
 
 ## Out of scope
 

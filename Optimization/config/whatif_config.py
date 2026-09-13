@@ -90,7 +90,25 @@ WHATIF = {
 #:
 #: `CHANNEL_RESTOCKS` is DERIVED from this list (`channel_restocks_for`), never authored beside
 #: it, so the per-channel arm sets cannot drift from the pairing they exist to express.
-PHASE2_PAIRS = None
+#:
+#: COPIED 2026-09-13 FROM `comparison_20260913_113512/restock_selection.json`, field
+#: `rule_pairs.chosen` — phase 1 at repo_commit ba055dd0747f, cell `k1_off`, sampler v3, 40
+#: batches, ranked on `total_production_time`.  THE RUN IS THE PROVENANCE: these are a ranking
+#: taken on ONE warehouse, so re-deriving them means re-running phase 1, not editing here.  The
+#: two channels rank independently and the diagonal is rank-against-rank, store first; the
+#: trailing `('fifo', 'fifo')` is PHASE2_RIDER, appended by run_restock_selection outside k.
+#:
+#: THE PAIRING IS ONE OF SEVERAL EQUALLY DEFENSIBLE DRAWS, and the campaign publishes that as a
+#: caveat rather than pretending to a derived optimum: store's top three separate by 0.005% and
+#: 0.12%, and fulfillment's top eight span 0.73%.  What the campaign actually reads is the
+#: 6.1% / 8.0% gap down to the order-blind `fifo` control, and -- for inbound -- the WITHIN-PAIR
+#: comparison across cells, neither of which turns on which near-tie took which rank.
+PHASE2_PAIRS = [('rank_cartlabor', 'rank_minlabor'),
+                ('rank_minlabor', 'tmin'),
+                ('rank_labor', 'rank_labor'),
+                ('tmin', 'rank_cartlabor'),
+                ('rank_random', 'rank_popularity'),
+                ('fifo', 'fifo')]
 
 #: THE STAFFING PIN: `{pair label: digest}` -- `restock_selection.json`'s `staffing.pin`, copied
 #: here once phase 1 has run.  None until then and REFUSED rather than defaulted, exactly like
@@ -115,7 +133,14 @@ PHASE2_PAIRS = None
 #: record REPORTS cannot refuse a campaign; `PIN_SIGFIGS` is where the float tolerance is
 #: declared. The readable projection stays on the artifact, which is what a refusal is
 #: diagnosed from.
-PHASE2_STAFFING_PIN = None
+#:
+#: COPIED 2026-09-13 FROM the same run's artifact, field `staffing.pin`.  One entry per
+#: inventory pair — this campaign runs one — and the value is the hash of that pair's projection
+#: at the artifact's declared 6 sigfigs, not anything readable.  A refusal is diagnosed from
+#: `staffing.projection`, which stays on the artifact and is why the artifact is kept.
+PHASE2_STAFFING_PIN = {
+    'mixed_20260816_131535__mixed_realistic_bell_lt0': '0ed2dd1582af',
+}
 
 #: The mandatory rider, as a PAIR.  `run_restock_selection` appends it if absent — outside k and
 #: outside the extension cap — and a spec without it is refused.  That refusal is strictly
