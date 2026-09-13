@@ -136,6 +136,40 @@ LOCAL_POLICIES: dict = {'fifo': _fifo_pallet}
 YARD_POLICIES: dict = {'fifo': _fifo_standing, 'lifo': _lifo_standing}
 DOCK_POLICIES: dict = {'fifo': _fifo_standing, 'lifo': _lifo_standing}
 
+#: WHAT EACH POLICY READS OFF THE FROZEN `SpaceView`, by field name — the half of the
+#: join that lives with the POLICIES.  `Inbound/site_space.py` owns the other half (which
+#: fields a COUPLED composition actually carries) and `uncomposable_policies` puts the two
+#: together; a campaign axis is checked against that one predicate rather than against a
+#: remembered list of bad policy names.
+#:
+#: It exists because two honest files disagreed in silence: `phase2_inbound_axis()` named
+#: ten cells, the composer declined two of them, and nothing joined them — so the campaign
+#: carried two dead cells from the day site-dock closed until a probe run burned its freeze
+#: and failed 24 units on them (inbound-optimization 31).  A policy that reads a structure
+#: the composed view does not carry is not a spelling mistake the registries can catch:
+#: both names resolve, and the run dies at its first drain.
+#:
+#: Registered BESIDE the entry, never inferred: the gain family adds its own rows from
+#: `Inbound/gain.py` exactly as it adds its ordering functions.  An empty set is a real
+#: answer (`fifo`/`lifo` rank trailers by their own arrival stamps and never open the
+#: view); a MISSING row is not, and `Tests/unit/test_campaign_cells_can_run.py` refuses one
+#: so a new policy has to state its reads rather than defaulting to "none" in silence.
+POLICY_VIEW_NEEDS: dict = {'fifo': frozenset(), 'lifo': frozenset()}
+
+
+def view_needs(policy: str) -> frozenset:
+    """The `SpaceView` fields `policy` reads — KeyError if it never declared any.
+
+    Loud like `yard_key`, and for the same reason: an undeclared policy answering
+    "reads nothing" would pass every composability gate by default.
+    """
+    if policy not in POLICY_VIEW_NEEDS:
+        raise KeyError(f'policy {policy!r} declares no SpaceView needs; known: '
+                       f'{sorted(POLICY_VIEW_NEEDS)}. Register its reads beside its '
+                       f'entry (POLICY_VIEW_NEEDS) — a missing row would pass the '
+                       f'coupled-composability gate by defaulting to "reads nothing"')
+    return POLICY_VIEW_NEEDS[policy]
+
 
 def global_key(policy: str):
     if policy not in GLOBAL_POLICIES:

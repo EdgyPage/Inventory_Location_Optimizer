@@ -48,7 +48,72 @@ from __future__ import annotations
 
 from Warehouse.kernel.regime import regime_of
 
+from Inbound.priorities import view_needs
 from Inbound.space import SpaceView
+
+# ── what a composition carries, declared rather than discovered ───────────────────
+#
+# Every `SpaceView` field is in exactly ONE of these two sets, and
+# `test_campaign_cells_can_run.py` pins the partition against `SpaceView.__slots__`.  The
+# exhaustiveness IS the feature: a new field added to the view lands in neither set and
+# fails that test, so classifying it is a decision somebody makes rather than a default
+# somebody inherits.  Derive-one-from-the-other would give it a default in whichever
+# direction is cheapest to write, which is how the window got here.
+#
+# They are read from two places and mean two different things to each.  The composer
+# below REFUSES any contribution carrying an uncomposed field, generically — so the
+# refusal cannot fall behind the declaration.  `uncomposable_policies` reads them the
+# other way, to tell a campaign axis which of its declared cells would die at their first
+# drain (inbound-optimization 33).
+
+#: The fields `compose_site_view` actually merges.  Each is handled explicitly below, and
+#: each is in the returned view.
+COMPOSED_VIEW_FIELDS: frozenset = frozenset({
+    'empties', 'emptied_at', 'predicted', 'released_at', 'versions', 'frozen_at'})
+
+#: The fields it declines.  A leaf carrying one is refused, LOUDLY — the alternative is a
+#: composed view that silently answers None where a leaf answered something, which for
+#: `window` would turn `futuresight` into a dead arm rather than a degraded one.
+#:
+#: THE ZIP RULE FOR `window`, settled and written down for whoever lifts it: zip the two
+#: tuples BY BATCH INDEX (legitimate — one batch is one site day, and the staffing
+#: derivation refuses channels with different batch counts), then union each pair of
+#: `{sku: qty}` dicts, which are disjoint because no SKU belongs to both leaves.  What is
+#: refused is SHIPPING it unexercised; "Decide the futuresight family's place"
+#: (inbound-optimization 32) chose BUILD, so this set empties when that lands — and
+#: emptying it is the whole edit on this side.
+UNCOMPOSED_VIEW_FIELDS: frozenset = frozenset({'window'})
+
+
+def uncomposable_policies(policies) -> dict:
+    """`{policy: the fields it reads that a coupled composition does not carry}`, for the
+    policies that have any — empty when every one of them can run coupled.
+
+    THE JOIN, and the only place the two halves meet.  `POLICY_VIEW_NEEDS` says what an
+    entry opens; `COMPOSED_VIEW_FIELDS` says what a two-leaf view can hand it.  A
+    campaign axis names policies, so this is what a spec-time gate can ask without
+    building a warehouse: `validate_spec` calls it over the cells a coupled spec declares
+    and refuses before the run directory exists, where the failure it replaces was a
+    burned freeze and 24 units dying at their first drain.
+
+    Unknown policy names raise (`view_needs`): a gate that skipped what it could not
+    resolve would pass the one spelling mistake the registries also miss.
+
+    AGAINST WHAT IS COMPOSED, never against what is refused, and the difference is the
+    whole generality of this predicate.  The two sets partition the view, so for today's
+    fields the answers are identical — but `UNCOMPOSED_VIEW_FIELDS` empties when 34 lands
+    the window zip, and an intersection with an empty set can never catch anything again.
+    Subtracting the composed set keeps asking the question the class is actually about:
+    *does this policy need a structure a composed view does not carry* — which still has
+    an answer for a field nobody has classified yet, and for one that does not exist on
+    the view at all.
+    """
+    out = {}
+    for policy in dict.fromkeys(policies):
+        blocked = view_needs(policy) - COMPOSED_VIEW_FIELDS
+        if blocked:
+            out[policy] = blocked
+    return out
 
 
 def compose_site_view(contributions) -> SpaceView | None:
@@ -95,23 +160,22 @@ def compose_site_view(contributions) -> SpaceView | None:
             f'the leaves froze at different instants {sorted(stamps)}; one drain is one '
             f'freeze, and `frozen_at` is the urgency gate\'s "now"')
 
-    # THE FUTURESIGHT WINDOW IS REFUSED, NOT ZIPPED.  The rule is settled and written down
-    # below for whoever lifts this; what is refused is shipping it unexercised.  `_window`
-    # is None on every LAWFUL arm (`futuresight` is the declared-unlawful entry), so a zip
-    # here would be a path no run takes -- and an unexercised path is not a feature, it is
-    # a place for one to rot (memory `hand-run-test-tiers-rot-silently`).
+    # AN UNCOMPOSED FIELD IS REFUSED, NOT DROPPED -- over the DECLARATION at the top of
+    # this module rather than a branch per field, so the refusal cannot fall behind the
+    # set (the two would then be the same two-honest-files gap this join exists to close).
+    # `window` is the only member today; its zip rule is written on the declaration.
     #
-    # The rule, when a lawful arm needs it: zip the two tuples BY BATCH INDEX (legitimate --
-    # one batch is one site day, and the staffing derivation refuses channels with different
-    # batch counts), then union each pair of `{sku: qty}` dicts, which are disjoint because
-    # no SKU belongs to both leaves.
-    windowed = [r for r, v in entries if v.window is not None]
-    if windowed:
-        raise ValueError(
-            f'leaf/leaves {windowed} carry a futuresight window, and composing two windows '
-            f'is a rule this function states but deliberately does not implement: no lawful '
-            f'arm builds one, so the zip would ship unexercised. See the comment above this '
-            f'refusal for the rule to build when an arm needs it')
+    # `is not None` and not truthiness: an EMPTY window is a futuresight run at the end of
+    # its script, which is a real value and still uncomposable.
+    for field in sorted(UNCOMPOSED_VIEW_FIELDS):
+        carriers = [r for r, v in entries if getattr(v, field) is not None]
+        if carriers:
+            raise ValueError(
+                f'leaf/leaves {carriers} carry `{field}`, a SpaceView structure '
+                f'`compose_site_view` declines to compose '
+                f'(UNCOMPOSED_VIEW_FIELDS). Every policy that reads it is unrunnable '
+                f'coupled, which `uncomposable_policies` reports at spec build; see the '
+                f'declaration for the rule to implement when one has to run')
 
     empties: dict = {}
     predicted: dict = {}
@@ -187,4 +251,8 @@ def compose_site_view(contributions) -> SpaceView | None:
         # contract; equality is the only operation.
         versions=tuple(tuple(v.versions[slot] for _, v in entries) for slot in range(3)),
         frozen_at=next(iter(stamps)),
+        # THE ONLY VALUE THE REFUSAL ABOVE LEAVES REACHABLE, not a drop: `window` is in
+        # UNCOMPOSED_VIEW_FIELDS, so no entry that got here carries one.  Composing it
+        # means moving the field into COMPOSED_VIEW_FIELDS and merging it here — both, or
+        # the partition test fails.
         window=None)

@@ -27,6 +27,12 @@ them guards a defect whose only other symptom is a run that completes and means 
 from Optimization.config.strategies import RESTOCK_KEYS   # the rule universe a spec is checked
                                                           # against — same-layer, derived from
                                                           # the grid, never a hand-kept copy
+# The two registries that decide whether a DECLARED cell can actually run, read the same way
+# `run_restock_selection` reads the second of them: a declared list, never the simulation.  A
+# campaign is authored here, so this is where "this spec names something the run will decline"
+# has to be answerable — see `_refuse_unrunnable_cells`.
+from Inbound.gain import FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES
+from Inbound.site_space import uncomposable_policies
 
 WHATIF = {
     # ── ABC aisle splitting: OFF (k=1 = whole aisle, no A/B/C segmentation) ───────────────
@@ -663,12 +669,110 @@ def swept_rules_of(spec) -> list | None:
     return None if arms in (None, 'all') else list(arms)
 
 
+def inbound_policies_of(spec) -> tuple[str, ...]:
+    """Every yard/dock policy the spec NAMES, distinct and in declaration order — from its
+    inbound axis and its run defaults alike.
+
+    Two key spellings, because the two seams have two: an inbound axis entry states
+    `yard_policy` (a `CONFIG['global']` `inbound_*` name with the prefix dropped, which is
+    what `_inbound_axis` validates against), while `run_defaults` states the full
+    `inbound_yard_policy`.  A gate that read only one of them would pass a spec that names
+    its policy at the other seam.
+    """
+    keys = ('yard_policy', 'dock_policy')
+    names = [ov[k] for _suffix, ov in (spec.get('inbound') or [])
+             for k in keys if (ov or {}).get(k)]
+    defaults = spec.get('run_defaults') or {}
+    names += [defaults[f'inbound_{k}'] for k in keys if defaults.get(f'inbound_{k}')]
+    return tuple(dict.fromkeys(names))
+
+
+def _cells_naming(spec, policies) -> list:
+    """The axis suffixes that name any of `policies`, for a message that points at CELLS —
+    which is what a reader has to go and edit — rather than at policy names."""
+    return [suffix for suffix, ov in (spec.get('inbound') or [])
+            if {(ov or {}).get('yard_policy'), (ov or {}).get('dock_policy')} & set(policies)]
+
+
+def _refuse_unrunnable_cells(spec, name: str) -> None:
+    """Refuse a spec whose DECLARED cells the run would decline at their first drain.
+
+    THE CLASS OF DEFECT (inbound-optimization 31, 33): two honest files that nothing
+    checks against each other.  `phase2_inbound_axis()` declared ten cells and
+    `Inbound/site_space.py` refused two of them under coupling; both were right, both were
+    tested, and the campaign carried two dead cells from the day site-dock closed until a
+    probe run paid its freeze and watched 24 units fail.  The shape reaches this spec
+    registry from two directions and both are checked here:
+
+    * **The inbound axis** names a yard/dock policy that reads a `SpaceView` structure a
+      COUPLED composition does not carry (`uncomposable_policies`).  Conditional on
+      coupling: a single-leaf composition is the view by identity, so the same policy is
+      perfectly runnable uncoupled and refusing it there would be false.
+    * **The arm axis** names a restock rule the gain evaluator has no faithful bundle for
+      (`FAITHFUL_GAIN_FAMILIES`), while some cell names a gain policy.  `rule_pairs` is a
+      HAND-COPIED artifact field and the artifact legitimately reports families that still
+      need `_gain_bundle_for` extended (`needs_bundle_extension`), so copying a ranking
+      before that extension lands is a reachable edit, not a typo.
+
+    Neither is visible to the refusals above it: `validate_spec` reads the spec's SHAPE,
+    and both of these are properties of what the named POLICY and the named RULE can do.
+    """
+    policies = inbound_policies_of(spec)
+    if not policies:
+        return
+
+    # COUPLING AS DECLARED BY THE SPEC, the same source the `rule_pairs` refusal reads.
+    # A `--couple-channels` typed over an uncoupled spec is out of this check's reach and
+    # deliberately so: no registered spec carrying an inbound axis leaves coupling to the
+    # command line, and a gate that guessed at the effective value would be wrong in the
+    # direction that refuses legal runs.
+    if (spec.get('run_defaults') or {}).get('couple_channels'):
+        blocked = uncomposable_policies(policies)
+        if blocked:
+            cells = _cells_naming(spec, blocked)
+            detail = '; '.join(f'{p} reads {sorted(f)}' for p, f in sorted(blocked.items()))
+            raise ValueError(
+                f'{name}: cell(s) {cells} name inbound policies the COUPLED site model '
+                f'cannot run — {detail}. Every cell of a coupled spec composes two leaves '
+                f'(Inbound.site_space.compose_site_view), and a composed view does not '
+                f'carry those structures, so each of these cells dies at its first drain '
+                f'after the run has paid for its freeze. Compose the structure (move the '
+                f'field into COMPOSED_VIEW_FIELDS and merge it) or drop the cells.')
+
+    if not set(policies) & GAIN_POLICIES:
+        return
+    # THE ARM SIDE.  `arms` only when it is a declared list: 'all' is the whole grid and
+    # `None` means "leave CHANNEL_RESTOCKS as committed", neither of which is a chosen set
+    # this check can speak about — and neither reaches a gain cell without `rule_pairs`,
+    # which the refusals above already require of an inbound matrix.
+    declared = spec.get('rule_pairs')
+    rules = ([r for pair in _rule_pairs(declared, name) for r in pair] if declared is not None
+             else list(spec['arms']) if isinstance(spec.get('arms'), (list, tuple)) else [])
+    unfaithful = [r for r in dict.fromkeys(rules) if r not in FAITHFUL_GAIN_FAMILIES]
+    if unfaithful:
+        gain_cells = _cells_naming(spec, set(policies) & GAIN_POLICIES)
+        raise ValueError(
+            f'{name}: names restock rule(s) {unfaithful} and gain cell(s) {gain_cells}. The '
+            f'gain evaluator has a faithful bundle only for '
+            f'{", ".join(FAITHFUL_GAIN_FAMILIES)}, and raises for anything else rather than '
+            f'pricing a fiction under that arm\'s name — so every gain cell of this spec '
+            f'dies at its first drain. Extend _gain_bundle_for AND Inbound.gain.'
+            f'FAITHFUL_GAIN_FAMILIES for those families (the selection artifact flags them '
+            f'as `needs_bundle_extension`), or copy a ranking that stays inside the set.')
+
+
 def validate_spec(spec, name: str = '<spec>') -> None:
-    """Refuse a cell-matrix spec whose SHAPE cannot mean what it says.  Raises ValueError.
+    """Refuse a cell-matrix spec that cannot mean, or cannot DO, what it says.  ValueError.
 
     Called from `get_spec`, which is the single door every run comes through — so this fires
     before the run directory exists, before the catalogue is read and before a worker is
-    forked.  Cheap, total, and pure: it reads the spec and the rule grid, nothing else.
+    forked.  Cheap, total, and pure: it reads the spec against declared registries and
+    nothing else — the rule grid, and (since inbound-optimization 33) the two that say what
+    a named policy and a named rule can actually be run with, never the simulation.
+
+    The shape refusals come first and `_refuse_unrunnable_cells` last; both kinds guard the
+    same thing, a run that completes, publishes, and measures something nobody chose — or,
+    for the last one, one that pays its freeze and then dies at its first drain.
     """
     if spec.get('rule_pairs') is not None and spec.get('arms') is not None:
         raise ValueError(
@@ -714,6 +818,11 @@ def validate_spec(spec, name: str = '<spec>') -> None:
             f'phase 1 ranked (see run_restock_selection), not the committed default: set '
             f'whatif_config.PHASE2_PAIRS from restock_selection.json\'s `rule_pairs.chosen`, '
             f'including its mandatory {PHASE2_RIDER!r} rider.')
+
+    # LAST, because it is the only refusal here that asks what the named policies and rules
+    # can DO rather than what the spec's shape says — and because the shape has to be sound
+    # before `rule_pairs` can be read for the arm half.
+    _refuse_unrunnable_cells(spec, name)
 
 
 def get_spec(name):

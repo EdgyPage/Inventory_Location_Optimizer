@@ -209,12 +209,17 @@ def test_one_site_epoch_and_a_disagreement_is_refused():
 # ── 4. the refusals ──────────────────────────────────────────────────────────────
 
 def test_a_futuresight_window_is_refused_rather_than_zipped():
-    """The zip rule is settled and written on the refusal; what is refused is SHIPPING it
-    unexercised. `_window` is None on every lawful arm, so the code would rot in place
-    (memory `hand-run-test-tiers-rot-silently`)."""
+    """The zip rule is settled and written on the declaration; what is refused is SHIPPING
+    it unexercised. `_window` is None on every lawful arm, so the code would rot in place
+    (memory `hand-run-test-tiers-rot-silently`).
+
+    The refusal is now driven by `UNCOMPOSED_VIEW_FIELDS` rather than a branch per field
+    (inbound-optimization 33), so the message names the FIELD; the general form of this
+    test — every declared uncomposed field is refused, every composed one survives — is in
+    `test_campaign_cells_can_run.py`."""
     (store, _, _), (ful, _, _) = _leaves()
     store.window = ({1: 2},)
-    with pytest.raises(ValueError, match='futuresight window'):
+    with pytest.raises(ValueError, match='carry `window`'):
         compose_site_view([(_STORE, store), (_FUL, ful)])
 
 

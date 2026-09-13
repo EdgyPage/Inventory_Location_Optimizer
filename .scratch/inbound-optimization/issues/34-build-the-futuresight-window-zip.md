@@ -80,3 +80,27 @@ unconditionally, and the campaign's published reading is pre-committed in 32 sec
 including what it must NOT say if futuresight loses to `gforecast`, which is a live outcome
 rather than a pathology. Whoever builds this does not need to act on that, but should not
 publish anything that contradicts it.
+
+2026-09-13, from resolving [Gate the campaign axis on what a coupled run can do](33-gate-the-campaign-axis-on-the-coupled-model.md):
+**the zip is now THREE edits, not the two 32 counted, and a test will tell you if you stop at
+two.** The refusal at `Inbound/site_space.py` is no longer a hand-written `window` branch: it
+is driven by `UNCOMPOSED_VIEW_FIELDS`, which partitions `SpaceView.__slots__` with
+`COMPOSED_VIEW_FIELDS`. So landing the zip means:
+
+1. move `'window'` from `UNCOMPOSED_VIEW_FIELDS` into `COMPOSED_VIEW_FIELDS` (the partition is
+   asserted exhaustive, so the two halves of this move are not optional);
+2. merge the field in the composed view's return, where `window=None` is hard-coded today —
+   `test_a_composed_field_actually_survives_the_composition[window]` fails if you do 1 without
+   2, which is the careless-landing case and was sabotage-tested;
+3. empty `_KNOWN_DEAD` in `Tests/unit/test_campaign_cells_can_run.py` — it pins
+   `{fsight_w5, fsight_wall}` today and its failure message says exactly this.
+
+The zip RULE itself moved with the refusal and now lives on the `UNCOMPOSED_VIEW_FIELDS`
+declaration, verbatim (zip by batch index, union each `{sku: qty}` pair, disjoint by regime).
+Nothing else about 32's plan changes: the equivalence test it asks for (composed pricing ==
+per-leaf pricing) is still the Tier-1 cross-check, and `_window_rates` stays probe-gated.
+
+One more thing this ticket now unblocks rather than merely fixing: until it lands,
+`validate_spec` REFUSES the phase-2 spec by name, listing `fsight_w5` and `fsight_wall`. That
+is correct — those cells cannot run — but it means phase 2 cannot launch in any form, not even
+its eight runnable cells, without either this build or dropping the two cells from the axis.

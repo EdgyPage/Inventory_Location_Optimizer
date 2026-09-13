@@ -594,6 +594,25 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   at ten cells: **120 coupled units, 30.8-35.3 h of unit-seconds, ~164 GiB, ~8.6-9.7 h at 4
   workers plus 0.88 h fixed** -- +3 h and +32 GiB over dropping the family, and neither binds.
 
+- [Gate the campaign axis on what a coupled run can do](issues/33-gate-the-campaign-axis-on-the-coupled-model.md):
+  **both a spec-time refusal and a test, and the general predicate is "does this cell's policy
+  need a `SpaceView` structure a composed view does not carry"** -- asked against what the
+  composer COMPOSES, never against what it refuses, which is what keeps it alive after 34
+  empties the refusal set. Two declarations, one join: `POLICY_VIEW_NEEDS` (what each yard/dock
+  entry reads, registered beside the entry) and `COMPOSED_VIEW_FIELDS` /
+  `UNCOMPOSED_VIEW_FIELDS` (an EXHAUSTIVE partition of `SpaceView.__slots__`, so a new field
+  must be classified rather than defaulted), met by `site_space.uncomposable_policies` and read
+  by `validate_spec`. The refusal is the half that would actually have caught 31 -- that probe
+  ran a throwaway spec no committed test could see -- and the test is the half that costs a
+  launch nothing; the gate is conditional on COUPLING, because a one-leaf composition is the
+  view by identity. Three things make the test survive 34: the subtraction, the exhaustive
+  partition, and **a composed field must SURVIVE a composition, not merely be allowed into one**
+  (refusal and silent drop are the same defect arriving two ways). `_KNOWN_DEAD =
+  {fsight_w5, fsight_wall}` is pinned, so emptying it is the visible half of 34. And the third
+  sub-question is answered NO: `_rule_pairs` checked `rule_pairs` against the rule universe and
+  never against `FAITHFUL_GAIN_FAMILIES`, so a hand-copied ranking carrying a family that still
+  needs 20's extension would have died at the first drain of every gain cell -- now refused in
+  the same place.
 
 ## Not yet specified
 

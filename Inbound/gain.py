@@ -115,7 +115,7 @@ from collections import defaultdict
 from heapq import merge as _hmerge
 from math import isclose
 
-from Inbound.priorities import DOCK_POLICIES, YARD_POLICIES, ordering
+from Inbound.priorities import DOCK_POLICIES, POLICY_VIEW_NEEDS, YARD_POLICIES, ordering
 
 from Warehouse.kernel.cost_model import height_multiplier, per_pick
 from Warehouse.kernel.regime import REGIMES, regime_of_key
@@ -1081,3 +1081,19 @@ for _registry in (YARD_POLICIES, DOCK_POLICIES):
     _registry['gain_gated'] = gain_gated
     _registry['futuresight'] = futuresight
 del _registry
+
+# ...AND THE VIEW FIELDS EACH ONE READS, in the same breath as the entry itself.  This is
+# the arm's half of the coupled-composability join (`POLICY_VIEW_NEEDS`): the composer
+# declares what a two-leaf composition carries, these declare what the entry opens, and
+# `site_space.uncomposable_policies` is the only place the two meet.  Read off the entries
+# above rather than guessed — `plan_order` touches `predicted` on every path, but a
+# `predicted=False` arm is DEFINED not to see it (the docstring says so), and a need is
+# what the policy's answer depends on, not what an inner frame happens to dereference.
+POLICY_VIEW_NEEDS['gain_myopic'] = frozenset({'empties'})
+POLICY_VIEW_NEEDS['gain_forecast'] = frozenset({'empties', 'predicted'})
+#: `frozen_at` is the urgency gate's "now" — the one place hours and days meet (05).
+POLICY_VIEW_NEEDS['gain_gated'] = frozenset({'empties', 'predicted', 'frozen_at'})
+#: The window is the whole arm: `futuresight` RAISES on a None one rather than falling
+#: back to `gain_forecast` under its own name, so a composition that dropped it silently
+#: would not be a degraded arm, it would be a dead one.
+POLICY_VIEW_NEEDS['futuresight'] = frozenset({'empties', 'predicted', 'window'})

@@ -121,3 +121,20 @@ gate unchanged (the ranking in `restock_selection.json`), but note for whoever w
 under the site-dock coupling a gain bundle prices a trailer against TWO arms at once (a store
 rule and a fulfillment rule), so `channels.<ch>.needs_bundle_extension` names families per
 channel and the bundle for a paired cell is the pair of them.
+
+2026-09-13, from resolving [Gate the campaign axis on what a coupled run can do](33-gate-the-campaign-axis-on-the-coupled-model.md):
+gate unchanged (still the ranking in `restock_selection.json`), but the consequence of SKIPPING
+this ticket is no longer silent. `validate_spec` now refuses a spec whose `rule_pairs` name a
+family outside `Inbound.gain.FAITHFUL_GAIN_FAMILIES` while any cell names a gain policy — so
+copying the artifact's `rule_pairs.chosen` before extending `_gain_bundle_for` fails at spec
+build, by name, instead of at the first drain of every gain cell after the freeze is paid for.
+
+Two notes for whoever works this:
+
+- **The refusal reads the live constant**, so it self-updates: extending the evaluator (the
+  branch in `_gain_bundle_for` AND the name in `FAITHFUL_GAIN_FAMILIES`, both, as this ticket
+  already says) is what clears it. There is nothing to edit in `whatif_config.py`.
+- **The condition is "some cell names a `GAIN_POLICIES` entry"**, matching where
+  `_gain_bundle_for` is actually called — a fifo/lifo-only matrix may sweep any rule, and a
+  test pins that so the condition cannot quietly widen into "phase 2 may only ever sweep five
+  families".
