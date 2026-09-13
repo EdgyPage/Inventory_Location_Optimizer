@@ -65,6 +65,8 @@ carries `derived`; a copied constant keeps the provenance it arrived with.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from dataclasses import dataclass, field
 
@@ -881,6 +883,74 @@ def derived_differs(a: dict | None, b: dict | None, *, rel_tol: float = 1e-9) ->
 
     _walk(a or {}, b or {}, '')
     return diffs
+
+
+# -- the campaign pin: one derivation, two phases ---------------------------------
+
+#: SIGNIFICANT FIGURES every float in a pin is rounded to before it is hashed.  A digest of
+#: raw floats would be an `==` on floats by the back door, which this repo forbids; rounding
+#: first is where the tolerance is DECLARED, once, instead of applied at each comparison.
+#: Six is far tighter than any drift worth catching (a derivation that really moved moves the
+#: crews and the demand by percent) and far looser than the last-bit differences a different
+#: numpy build produces.
+PIN_SIGFIGS = 6
+
+
+def _round_sig(x: float, sig: int = PIN_SIGFIGS) -> float:
+    """`x` to `sig` significant figures; 0.0 and non-finite values pass through unchanged."""
+    if not math.isfinite(x) or x == 0.0:
+        return float(x)
+    return round(float(x), sig - 1 - int(math.floor(math.log10(abs(float(x))))))
+
+
+def pin_of(derived: dict) -> dict:
+    """The part of a derivation a CAMPAIGN pins across phases: the crews it fields, the day's
+    demand, the two prices and the script depth, rounded to `PIN_SIGFIGS`.
+
+    NOT the whole derived block, on purpose.  `derived_differs` compares two derivations of
+    the SAME run and rightly fails on anything; this answers a different question -- "is phase
+    2 running the warehouse phase 1 ranked?" -- and what decides that is what a run FIELDS and
+    what its script contains.  Reporting-only keys (`expected_utilization`, `analytic`,
+    `guarantee`) move when the reporting moves and would refuse a campaign over a comment.
+
+    `script.batches` is in the projection because the derivation reads the sampled script: two
+    phases at different depths derive different per-day loads from the same catalogue, which
+    is the drift a depth typed on a command line produces.  `CAMPAIGN_DEPTH_DAYS` is what
+    stops it; this is what NOTICES.
+    """
+    out: dict = {'day_seconds': _round_sig(float(derived.get('day_seconds') or 0.0)),
+                 'channels': {}}
+    for name, ch in sorted((derived.get('channels') or {}).items()):
+        script = ch.get('script') or {}
+        out['channels'][name] = {
+            'pickers': int(ch.get('pickers') or 0),
+            'daily_demand_units': _round_sig(float(ch.get('daily_demand_units') or 0.0)),
+            's_pick': _round_sig(float((ch.get('s_pick') or {}).get('value') or 0.0)),
+            'batch_mean_fraction': _round_sig(float((ch.get('batch') or {})
+                                                    .get('mean_fraction') or 0.0)),
+            'script_batches': int(script.get('batches') or 0),
+            'script_units': _round_sig(float(script.get('units') or 0.0)),
+        }
+    put = derived.get('put') or {}
+    out['put'] = {
+        'crew': int(put.get('crew') or 0),
+        's_put': {n: _round_sig(float((c or {}).get('value') or 0.0))
+                  for n, c in sorted((put.get('s_put') or {}).items())},
+    }
+    out['receiving'] = {'crew': int((derived.get('receiving') or {}).get('crew') or 0)}
+    return out
+
+
+def pin_digest(derived: dict) -> str:
+    """A 12-hex identity for `pin_of(derived)` -- the one string a campaign spec carries.
+
+    The projection itself is recorded on `restock_selection.json` so a refusal can be
+    DIAGNOSED (which crew moved, which price), and only this travels into the spec: a pin the
+    size of the projection would be twenty hand-copied floats in a tracked file, and a typo in
+    one of them is indistinguishable from the drift it exists to catch.
+    """
+    canon = json.dumps(pin_of(derived), sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(canon.encode('utf-8')).hexdigest()[:12]
 
 
 def regime_orders(orders, regime: str | None) -> list:

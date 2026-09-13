@@ -48,6 +48,11 @@ def _pair_spec(pairs, **over):
     """
     spec = {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
             'schedulers': ['lpt'], 'rule_pairs': pairs, 'reference': 'k1_off_fifo',
+            # A pin is as mandatory as the pairs ("Re-size the funnel in site days"): a
+            # ranking is only about the warehouse it was taken on, and the funnel puts a
+            # legal build between the phases. `Tests/unit/test_funnel_window.py` owns the
+            # refusal; here it is just part of being valid.
+            'staffing_pin': {'lbl': 'deadbeef0000'},
             'run_defaults': PHASE2_RUN_DEFAULTS}
     spec.update(over)
     return spec

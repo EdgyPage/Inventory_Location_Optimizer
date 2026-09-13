@@ -9,6 +9,7 @@ re-read of two finished runs, and for the re-check that follows it (31).
 
     python Diagnostics/equilibrium_report.py <run_root>                  # every closed day
     python Diagnostics/equilibrium_report.py <run_root> --window 20-39   # the measured window
+    python Diagnostics/equilibrium_report.py <run_root> --window campaign  # ...as DECLARED
     python Diagnostics/equilibrium_report.py <run_root> --arm fifo --json out.json
 
 `<run_root>` is a run directory under the `COMPARISON_OUTPUT_DIR` from `.env` (a path, or a
@@ -40,8 +41,18 @@ if _ROOT not in sys.path:
 
 
 def _window_arg(text: str | None) -> tuple[int, int] | None:
+    """`LO-HI` as a pair of working days, or the literal `campaign` for the funnel's own
+    measured window -- which is DECLARED, in `whatif_config.CAMPAIGN_WINDOW_DAYS`, and read
+    here rather than retyped ("Re-size the funnel in site days").  A campaign leaf judged
+    against a hand-typed window is a utilization reported against a warm-up the constants
+    never saw, and nothing in the output would say so.  The days are SITE days: under the era
+    one batch is one 28,800 s site day, three times shorter than the calendar day the yard fee
+    accrues in."""
     if not text:
         return None
+    if text.strip().lower() == 'campaign':
+        from Optimization.config.whatif_config import CAMPAIGN_WINDOW_DAYS
+        return CAMPAIGN_WINDOW_DAYS
     lo, _, hi = text.partition('-')
     return int(lo), int(hi)
 
@@ -225,7 +236,9 @@ def bucket_table(verdict) -> list[str]:
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument('run', help='run root (a path, or a bare name under COMPARISON_OUTPUT_DIR)')
-    p.add_argument('--window', help='LO-HI working days to judge (default: every closed day)')
+    p.add_argument('--window', help='LO-HI working (SITE) days to judge, or `campaign` for '
+                                    'whatif_config.CAMPAIGN_WINDOW_DAYS (default: every '
+                                    'closed day)')
     p.add_argument('--arm', help='one strategy key (default: every arm)')
     p.add_argument('--json', help='write every verdict\'s as_dict() here')
     p.add_argument('--no-buckets', action='store_true',

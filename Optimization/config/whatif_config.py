@@ -58,9 +58,12 @@ WHATIF = {
 
 # ── the inbound funnel: phase 1 selects restock rules, phase 2 sweeps inbound policy ──
 # Two specs for one campaign ("Design the phased funnel", `.scratch/inbound-optimization`).
-# Phase 1 is a FRESH, inbound-OFF run whose only job is to rank the 17 restock rules on total
+# Phase 1 is a FRESH, UNCOUPLED run whose only job is to rank the 17 restock rules on total
 # production hours; no phase-1 number is ever published, which is what makes a between-phase
 # build legal.  Phase 2 is the ten-cell inbound matrix over the rules phase 1 chose.
+# Phase 1 is no longer inbound-OFF (`PHASE1_RUN_DEFAULTS`): it runs the arrival regime under
+# `fifo` so both phases solve their line floor at the same order-to-shelf lead.  What still
+# separates them is COUPLING, and that is deliberate -- see `PHASE2_RUN_DEFAULTS`.
 
 #: THE PHASE-2 RULE PAIRS: an ORDERED tuple of `(store_rule, fulfillment_rule)`, rank-aligned,
 #: store first — `restock_selection.json`'s `rule_pairs.chosen`, copied here once phase 1 has
@@ -82,6 +85,31 @@ WHATIF = {
 #: `CHANNEL_RESTOCKS` is DERIVED from this list (`channel_restocks_for`), never authored beside
 #: it, so the per-channel arm sets cannot drift from the pairing they exist to express.
 PHASE2_PAIRS = None
+
+#: THE STAFFING PIN: `{pair label: digest}` -- `restock_selection.json`'s `staffing.pin`, copied
+#: here once phase 1 has run.  None until then and REFUSED rather than defaulted, exactly like
+#: the pairs above -- and for a reason the pairs do not carry on their own.
+#:
+#: A rule pair is a RANKING, and a ranking is only meaningful about the warehouse it was taken
+#: on.  The funnel deliberately allows a BUILD between the phases (no phase-1 number is ever
+#: published, which is what makes it legal, and "Extend the gain bundles" is one), so the era
+#: derivation -- crews, the day's demand, the two expected-travel prices, the script depth --
+#: can legitimately move in between.  When it does, phase 2 executes phase 1's ranking against a
+#: different site: different crews, a different line floor, different levels.  Nothing in the
+#: run tree joins two run roots, so nothing else can notice.
+#:
+#: TWO REFUSALS, because one cannot do the job. `validate_spec` refuses a phase-2 spec that
+#: carries no pin at all -- cheap, total, before a directory exists. The MATCH can only be
+#: checked once the derivation exists, which is per pair at setup, so the run stamps the pin it
+#: was launched with onto its own `run_spec.json` and `workunits._record_derived` refuses the
+#: pair whose fresh derivation hashes to something else.
+#:
+#: The digest is `staffing.pin_digest`: a 12-hex hash of a rounded PROJECTION of the derived
+#: block, not of the block itself. Reporting-only keys are outside it, so a change to what the
+#: record REPORTS cannot refuse a campaign; `PIN_SIGFIGS` is where the float tolerance is
+#: declared. The readable projection stays on the artifact, which is what a refusal is
+#: diagnosed from.
+PHASE2_STAFFING_PIN = None
 
 #: The mandatory rider, as a PAIR.  `run_restock_selection` appends it if absent — outside k and
 #: outside the extension cap — and a spec without it is refused.  That refusal is strictly
@@ -186,6 +214,46 @@ ERA_RUN_DEFAULTS = {
     'cut_at_day_end': True,
 }
 
+#: THE CAMPAIGN'S WINDOW, DECLARED ONCE AND IN SITE DAYS ("Re-size the funnel in site days").
+#: The funnel inherits the reference run's window (department-calibration, "Sequence the
+#: inbound funnel", decision 4): a run is `CAMPAIGN_DEPTH_DAYS` site days deep and days
+#: `CAMPAIGN_WINDOW_DAYS` are the MEASURED ones; everything before the window is warm-up,
+#: where the replenishment wave has not yet reached the shelf.  Both phases read these two
+#: names, so no campaign run can report utilization against a warm-up the constants never saw.
+#:
+#: THE UNIT IS THE SITE DAY.  Under the era one batch IS one site day
+#: (`timeline.DEFAULT_SHIFT_SECONDS`, 28,800 s), which is why a depth in BATCHES and a window
+#: in DAYS are the same number here.  `PHASE2_THRESHOLD_DAYS` and the yard fee are CALENDAR
+#: days (86,400 s) and are a factor of three away -- "Re-run the gate and fix the fee
+#: threshold" lost a session to reading one as the other, so every span the campaign quotes
+#: says WHICH day it is in.  `Tests/unit/test_funnel_window.py` pins the two apart.
+CAMPAIGN_DEPTH_DAYS = 40
+CAMPAIGN_WINDOW_DAYS = (20, 39)
+
+#: THE ARRIVAL REGIME, as run-level defaults: the trailer, the standing yard, the doors, the
+#: door team and the lead law.  Every campaign spec carries this AT RUN LEVEL, and the reason
+#: is the FREEZE, not tidiness.  On a multi-cell run `scenario.py` plans the inventory once per
+#: pair before any cell runs, and since department-calibration's "Declare the coverage against
+#: the inbound lead" that planning reads the trailer's lead law: each SKU's order-to-shelf lead
+#: is its supplier lead PLUS the day-quantized transit (`sim_config.inbound_lead_law` ->
+#: `era_coverage.lead_block`), and the line floor is SOLVED at that lead.  A phase-2 spec that
+#: named the regime only on its inbound AXIS would therefore freeze a warehouse stocked for
+#: transit 0 and then simulate nine of its ten cells against it -- silently, since the freeze
+#: logs a transit of 0.000 and nothing compares it with the cells'.
+#:
+#: Every cell of the inbound axis states every key it touches (`phase2_inbound_axis`), so
+#: `_apply_cell` overwrites all of this per cell: the axis still varies the POLICY, and
+#: `inb_off` still turns the pipeline off.  What the run-level declaration fixes is the ONE
+#: thing a cell cannot vary after the fact -- the stock the frozen warehouse holds.
+INBOUND_ARRIVAL_REGIME = {
+    'inbound_trailer_type': '53',
+    'inbound_standing_yard': True,
+    'inbound_dock_doors': PHASE2_DOCK_DOORS,
+    'inbound_door_team': PHASE2_DOOR_TEAM,
+    'inbound_lead_minutes': PHASE2_LEAD_MINUTES,
+    'inbound_lead_spread': PHASE2_LEAD_SPREAD,
+}
+
 #: THE PILOT GATE'S WHOLE REGIME as run-level defaults: the era, plus the arrival regime the
 #: gate committed ("Run the pilot gate", 5) -- the same constants phase 2's inbound axis
 #: reads, so the pilot and the campaign cannot drift apart.  Carrying them here rather than
@@ -203,18 +271,47 @@ ERA_RUN_DEFAULTS = {
 #: drift apart on.
 PILOT_RUN_DEFAULTS = {
     **ERA_RUN_DEFAULTS,
+    **INBOUND_ARRIVAL_REGIME,
     'couple_channels': True,
-    'inbound_trailer_type': '53',
-    'inbound_standing_yard': True,
-    'inbound_dock_doors': PHASE2_DOCK_DOORS,
-    'inbound_door_team': PHASE2_DOOR_TEAM,
-    'inbound_lead_minutes': PHASE2_LEAD_MINUTES,
-    'inbound_lead_spread': PHASE2_LEAD_SPREAD,
+    'n_batches': CAMPAIGN_DEPTH_DAYS,
 }
 
-#: PHASE 2'S REGIME: the era, plus COUPLING.  A phase-2 cell is a pair of arms run as ONE site —
-#: one dock, one receiving crew, one pool of putters over both channels — so the campaign runs
-#: `--couple-channels` and the run root stamps `coupled: true` (site-dock 18).
+#: PHASE 1'S REGIME: the era, the arrival regime, the window -- and NO coupling.
+#:
+#: THE ARRIVAL REGIME IS ON, and phase 1 is therefore not an inbound-OFF run any more
+#: (department-calibration, "Declare the coverage against the inbound lead", decision 11).
+#: The reason is the record, not the yard: each SKU's lead is now its supplier lead plus the
+#: trailer's day-quantized transit and the line floor is SOLVED at that lead, so an inbound-off
+#: phase 1 and an inbound-on phase 2 would field different floors, different levels and
+#: different warehouses -- and the staffing pin below would then refuse phase 2 as designed.
+#: With the regime on, both phases share one derivation and one warehouse.  The yard is slack
+#: under the derived crew ("Verify the derived receiving crew under arrivals"), so it costs
+#: phase 1 little.
+#:
+#: COUPLING STAYS OFF, and that is not an oversight: phase 1 is the ranking run, a rank needs
+#: each channel's own hours scale, and `run_restock_selection.select` REFUSES a coupled root.
+#: What phase 1 pays for that is 2x the site put labour on each leaf (site-dock 19) -- the
+#: caveat the campaign publishes, stamped as `restock_selection.json`'s `put_regime`.  The
+#: per-leaf YARD it also implies is the artefact "Decide the contention regime under the
+#: derived crew" retired; phase 1 publishes no yard reading, so it rides along harmlessly.
+PHASE1_RUN_DEFAULTS = {
+    **ERA_RUN_DEFAULTS,
+    **INBOUND_ARRIVAL_REGIME,
+    'n_batches': CAMPAIGN_DEPTH_DAYS,
+}
+
+#: PHASE 2'S REGIME: the era, the arrival regime, the window, plus COUPLING.  A phase-2 cell is
+#: a pair of arms run as ONE site — one dock, one receiving crew, one pool of putters over both
+#: channels — so the campaign runs `--couple-channels` and the run root stamps `coupled: true`
+#: (site-dock 18).
+#:
+#: THE ARRIVAL REGIME IS HERE AS WELL AS ON THE AXIS, and the two are not a duplication: the
+#: axis decides what each CELL simulates, this decides what the FREEZE plans (see
+#: `INBOUND_ARRIVAL_REGIME`).  A ten-cell run freezes one warehouse per pair before any cell
+#: starts, and the line floor is solved at the lead CONFIG carries then.  Without the regime
+#: here that freeze prices transit 0 and every inbound-on cell runs against a warehouse stocked
+#: for a pipeline it does not have.  `inb_off` still turns the pipeline off at simulation time,
+#: which is what makes it the control: same stock, same warehouse, no yard.
 #:
 #: IT IS DECLARED HERE, on the RUN, and that is the whole point.  The charter's original rule was
 #: "coupling rides the inbound flag"; site-dock 18 found it unbuildable, because site-dock 06
@@ -229,7 +326,9 @@ PILOT_RUN_DEFAULTS = {
 #: which is why the campaign's staffing pin works unchanged across phases.
 PHASE2_RUN_DEFAULTS = {
     **ERA_RUN_DEFAULTS,
+    **INBOUND_ARRIVAL_REGIME,
     'couple_channels': True,
+    'n_batches': CAMPAIGN_DEPTH_DAYS,
 }
 
 #: H as MULTIPLES of the calibrated threshold, never absolute days — a horizon authored
@@ -269,7 +368,8 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
     and the only cell with no yard, which makes it the structural zero for every yard quantity.
 
     What that trades away is the comparison with phase 1, and the trade is deliberate.  Phase 1
-    is inbound-off and UNCOUPLED, so it ranks placement arms under 2x the site put labour: an
+    is UNCOUPLED and, since department-calibration decision 11, inbound-ON, so it ranks
+    placement arms under 2x the site put labour: an
     uncoupled leaf is handed the WHOLE derived site crew, twice over (site-dock 19 measured the
     break).  Under the old leaf model `inb_off` was comparable with phase 1 but confounded
     against its own nine siblings; coupling every cell inverts that, and the matrix's own deltas
@@ -306,7 +406,12 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
     for w in (finite_w, 'all'):
         axis.append((f'fsight_w{w}', _policy('futuresight', futuresight_batches=w)))
     # The inbound-OFF anchor: no trailer type is the family's STRUCTURAL off switch, so the
-    # manager keeps its batch lead queue and this cell is comparable with phase 1.
+    # manager keeps its batch lead queue and no yard exists.  It is NOT comparable with phase
+    # 1 and has not been since two separate decisions moved: phase 2 couples every cell
+    # (site-dock 06 section 3, the docstring above) and phase 1 now runs the arrival regime ON
+    # (department-calibration decision 11, `PHASE1_RUN_DEFAULTS`).  What it IS: the inbound-off
+    # pole inside the coupled model, over the SAME frozen warehouse as its nine siblings --
+    # which is why the arrival regime rides `PHASE2_RUN_DEFAULTS` and not just this axis.
     # `door_team` clears here for the same reason `lead_spread` does: it is the standing
     # yard's knob and `inbound_spec()` refuses it without the flag, so an anchor inheriting
     # the cap would raise at spec build rather than run.
@@ -332,14 +437,15 @@ SPECS = {
     # The committed picker-scheduler A/B sweep (round_robin vs lpt over the full arm suite).
     'scheduler_ab': WHATIF,
     # ── the funnel, phase 1: rank the 17 restock rules, publish nothing ──────────────
-    # ONE cell, inbound OFF, scheduler fixed at `lpt` — the series' winner; measuring on the
+    # ONE cell, UNCOUPLED, the arrival regime on under `fifo` (`PHASE1_RUN_DEFAULTS`), and the
+    # scheduler fixed at `lpt` — the series' winner; measuring on the
     # naive scheduler the series retired would rank for a configuration nobody runs.  A single
     # scheduler adds no name suffix, so the cell is `k1_off` and `is_reference` is False for it
     # (the predicate wants round_robin), which is why the reference is declared.
     'inbound_select': {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
         'schedulers': ['lpt'], 'arms': 'all', 'reference': 'k1_off',
-        'run_defaults': ERA_RUN_DEFAULTS,
+        'run_defaults': PHASE1_RUN_DEFAULTS,
     },
     # ── the funnel, phase 2: ten inbound policies over phase 1's chosen rule PAIRS ────
     # `rule_pairs` is PHASE2_PAIRS: None until the selection artifact is read, and refused
@@ -356,6 +462,7 @@ SPECS = {
     'inbound_policies': {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
         'schedulers': ['lpt'], 'rule_pairs': PHASE2_PAIRS,
+        'staffing_pin': PHASE2_STAFFING_PIN,
         'inbound': phase2_inbound_axis(),
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
@@ -581,6 +688,20 @@ def validate_spec(spec, name: str = '<spec>') -> None:
                 f'`couple_channels`. A rule pair is one COUPLED unit over two leaves; run '
                 f'uncoupled, the two channels sweep their columns independently and the '
                 f'diagonal means nothing. Carry PHASE2_RUN_DEFAULTS.')
+
+    # ...AND ITS STAFFING PIN.  A rule pair is a ranking, and a ranking is only about the
+    # warehouse it was taken on; the funnel puts a legal BUILD between the phases, so the era
+    # derivation can move in between and phase 2 would execute phase 1's ranking against
+    # different crews and a different line floor.  Refused HERE for the shape (there is a pin
+    # at all) and again per pair at setup for the MATCH (`workunits._record_derived`), because
+    # no derivation exists this early.
+    if pairs is not None and not spec.get('staffing_pin'):
+        raise ValueError(
+            f'{name}: declares `rule_pairs` but no `staffing_pin`. Phase 1 ranked ONE '
+            f'warehouse; without the pin a between-phase build that moved the derivation '
+            f'runs that ranking on a different site and nothing notices. Set '
+            f'whatif_config.PHASE2_STAFFING_PIN from restock_selection.json’s '
+            f'`staffing.pin`.')
 
     # AN INBOUND MATRIX MUST STATE ITS ARM SET.  Neither key means "leave CHANNEL_RESTOCKS as
     # committed", which is the full 34-arm suite — 1,360 work units where the funnel budgeted

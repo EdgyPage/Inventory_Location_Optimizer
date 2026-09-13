@@ -1101,6 +1101,45 @@ def _run_root_spec(base_dir: str) -> tuple:
     return None, None
 
 
+def _check_campaign_pin(pin: dict | None, label: str, derived: dict) -> None:
+    """Refuse a pair whose fresh derivation is not the one the campaign pinned.
+
+    `pin` is `run_spec['staffing']['pin']` -- `whatif_config.PHASE2_STAFFING_PIN`, stamped on
+    the run at launch, and None on every run that is not a phase-2 campaign, which is the
+    no-op path.  The digest is `staffing.pin_digest` over a rounded projection of the derived
+    block ("Re-size the funnel in site days").
+
+    THIS IS THE HALF `validate_spec` CANNOT DO.  The spec check fires before a directory
+    exists, so all it can see is that a pin was declared; the derivation is per pair and only
+    exists once the catalogue is read, the warehouse built and the script precomputed -- here.
+    Two refusals, one question: is phase 2 running the warehouse phase 1 ranked?
+
+    A pin that names no labels at all, or does not name THIS one, is a refusal too. Phase 1
+    ranked the pairs it ran; a pair phase 2 adds afterwards was never ranked, and letting it
+    through unchecked is the silent case the pin exists to end.
+    """
+    if not pin:
+        return
+    want = pin.get(label) if isinstance(pin, dict) else None
+    got = _staffing.pin_digest(derived)
+    if want == got:
+        return
+    if want is None:
+        raise RuntimeError(
+            f'[staffing] this run carries a campaign staffing pin, and it does not name the '
+            f'pair {label!r} (it names {sorted(pin) if isinstance(pin, dict) else pin!r}). '
+            f'Phase 1 ranked the pairs it ran; a pair phase 2 adds afterwards was never '
+            f'ranked. Point the run at phase 1 catalogue, or re-run phase 1 for this pair.')
+    raise RuntimeError(
+        f'[staffing] the derivation for pair {label!r} hashes to {got!r}, and this run was '
+        f'launched against the campaign pin {want!r}. Phase 1 ranked ONE warehouse and this '
+        f'is a different one -- the crews, the day’s demand, one of the two '
+        f'expected-travel prices or the script depth has moved since the ranking was taken. '
+        f'Diff this run derived block against `staffing.projection[{label!r}]` in the '
+        f'phase-1 run restock_selection.json to see which. Re-run phase 1 under the current '
+        f'derivation, or roll the change back; do not re-copy the pin to make this pass.')
+
+
 def _record_derived(base_dir: str, label: str, derived: dict, calibration: dict,
                     log: logging.Logger) -> None:
     """Write this pair's `derived` and `calibration` blocks into the run spec's `staffing`
@@ -1119,6 +1158,7 @@ def _record_derived(base_dir: str, label: str, derived: dict, calibration: dict,
                     'carried in the payload but not recorded')
         return
     st = spec.setdefault('staffing', {})
+    _check_campaign_pin(st.get('pin'), label, derived)
     prev = (st.get('derived') or {}).get(label)
     if prev is not None:
         diffs = _staffing.derived_differs(prev, derived)

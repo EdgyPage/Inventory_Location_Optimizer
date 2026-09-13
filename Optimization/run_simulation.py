@@ -1199,6 +1199,14 @@ def main():
                 'inputs'    : staffing_spec(),
                 'provenance': staffing_provenance(explicit),
                 'era'       : bool(g['shift_drain_or_cap']),
+                # THE CAMPAIGN PIN the run was LAUNCHED with (whatif_config.PHASE2_STAFFING_PIN
+                # through the spec; None for every non-campaign run).  Recorded here rather than
+                # re-read from the spec at setup for the same reason the era is: a resume must
+                # finish under the pin it started on, and `_record_derived` is handed this file
+                # already.  Checking the MATCH needs a derivation, which does not exist until
+                # the pair is prepared, so the shape half lives in `validate_spec` and this is
+                # how the value reaches the half that can compare.
+                'pin'       : (spec_dict or {}).get('staffing_pin'),
             },
             # The inbound family. Read from `g` (post-overlay) like the two families above,
             # and recorded WHOLE rather than only when on: a phase-2 cell that cannot say

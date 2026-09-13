@@ -481,6 +481,39 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   un-degenerated to 0.10/0.20/0.40 d, and the "fulfillment-calibrated compromise" caveat is
   retired — one dock has one detention distribution. **Phase 1 is launchable.**
 
+- [Re-size the funnel in site days](issues/24-resize-the-funnel-in-site-days.md): **phase 2 fits
+  on one drive — 120 work units and ~169 GiB against the old 480 and 1.1 TB, 37.8 h of
+  unit-seconds; phase 1 is 68 units, 12–17 h, ~47 GiB — and one build in the way was a DEFECT
+  FIX, not tidiness.** Measured off the passing gate run (`comparison_20260912_134002`, the
+  campaign's own regime): per-pair setup 3,633 s once, a coupled unit 1,134 s mean for BOTH
+  leaves at 28.3 s per site day, peak RSS 3.2–4.1 GiB, ~1.4 GiB of disk. A coupled unit runs two
+  leaves in the wall and at LESS RAM than one old leaf built (one warehouse for the site, not one
+  per channel), and the old counts assumed two inventory pairs where the era's reference
+  catalogue is one — those two together are the 4x and the 6x. **The phase-2 figure is a FLOOR:**
+  the gate priced nothing (`yard_policy='fifo'`, one cell), so the eight gain cells' multiplier
+  and the per-cell reshape are both unmeasured — graduated as
+  [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md), which
+  must land before phase 2 but not before phase 1. **The defect: phase 2 named its arrival regime
+  only on its inbound AXIS, and a multi-cell run freezes its inventory before any cell starts.**
+  Since department-calibration decision 11 that freeze reads the trailer's lead law and solves the
+  line floor at it — so phase 2 would have frozen a warehouse stocked for transit 0 and run nine
+  inbound-on cells against it, logging `0.000` that nothing compares with the cells'. The regime
+  is now `INBOUND_ARRIVAL_REGIME`, declared once and carried at RUN level by all three campaign
+  specs, which also makes `inb_off` a better control (same warehouse, same stock, no yard). The
+  window is declared once too (`CAMPAIGN_DEPTH_DAYS` / `CAMPAIGN_WINDOW_DAYS`, site days, on
+  `run_defaults` and behind `equilibrium_report --window campaign`), so the two phases cannot be
+  typed to different depths — which matters because the staffing derivation reads the sampled
+  SCRIPT. **Phase 1 now runs the arrival regime ON and stays UNCOUPLED** (`PHASE1_RUN_DEFAULTS`):
+  the 2026-09-10 instruction to take `PILOT_RUN_DEFAULTS` could not be followed literally once 26
+  put coupling in it, and phase 1 may not couple — `run_restock_selection.select` refuses a
+  coupled root. **The calibration pin's rationale changed and got stronger:** there is no
+  calibration record to go stale any more, but the funnel puts a legal BUILD between the phases by
+  design, so a moved derivation leaves phase 2 executing phase 1's ranking against a different
+  site. Two refusals — `validate_spec` for the shape, `workunits._check_campaign_pin` per pair for
+  the match, over a rounded projection so a reporting change cannot refuse a campaign. The
+  `inb_off` anchor's role is recorded on the ticket: the inbound-off pole INSIDE the coupled
+  model, never a cross-phase check — and nothing in the campaign is one any more.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -498,10 +531,13 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   fold — 16 —, the yard metrics — 17 —, the total-production-hours build — 19 —, the
   run-shape layer — 18 —, which paid the seams 3–4 debt every knob deferred to "the first
   sweep", and the fifo rider's gain bundle — 21 —, which was the last build standing between
-  the funnel and the pilot. ONE ticket remains and it is NOT on the frontier:
-  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md) stays gated on phase 1,
-  since which OTHER families need extending is phase 1's output. So the frontier is empty by
-  design: the next act is the pilot, not a ticket.)
+  the funnel and the pilot. THREE tickets remain and none of them is on the frontier, because
+  all three sit BETWEEN the phases: [Extend the gain bundles](issues/20-extend-the-gain-bundles.md)
+  is gated on phase 1, since which OTHER families need extending is phase 1's output;
+  [Pin the day divisor](issues/30-pin-the-day-divisor.md) and
+  [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md) are both
+  AFK, neither blocks phase 1, and both must land before phase 2. So the frontier is empty by
+  design: the next act is the phase-1 run, not a ticket.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -575,6 +611,20 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   threshold](issues/29-rerun-the-gate-and-fix-the-threshold.md) (a confirmation on the yard, a
   verdict on supply, and the threshold fixed off the sweep already recorded on
   `PHASE2_THRESHOLD_DAYS`) -> 24 -> phase 1 -> selection -> phase 2 -> publish.
+  **2026-09-12, later: the hold is FULLY LIFTED and phase 1 is launchable now.**
+  [Re-size the funnel in site days](issues/24-resize-the-funnel-in-site-days.md) resolved, so
+  nothing on this map stands between here and the launch. The sizing above (136 / 480 units,
+  ~13 h, ~1.1 TB) is superseded: **phase 1 is 68 leaf units, 12–17 h of unit-seconds and ~47 GiB,
+  after ~1 h of per-pair setup; phase 2 is 120 COUPLED units, a floor of 37.8 h and ~169 GiB.**
+  The launch is `--spec inbound_select --profiles-dir <the one-pair reference view> --workers N`
+  and nothing else: the depth and the arrival regime now ride `run_defaults`, so no remembered
+  flag survives. Execution order: **phase 1 -> selection -> [Extend the gain bundles](issues/20-extend-the-gain-bundles.md)
+  + [Pin the day divisor](issues/30-pin-the-day-divisor.md) + [Measure what a gain cell actually
+  costs](issues/31-measure-what-a-gain-cell-costs.md) (all three between the phases, all three
+  before phase 2) -> copy `rule_pairs.chosen` AND `staffing.pin` -> phase 2 -> publish.** Two
+  qualifications the campaign publishes rather than discovers are unchanged (it is mostly a
+  fulfillment result; phase 1 ranks under 2x the site put labour phase 2 runs), and the phase-2
+  wall is a floor until 31 measures the gain multiplier.
 
 ## Out of scope
 

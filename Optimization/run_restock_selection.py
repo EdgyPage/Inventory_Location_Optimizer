@@ -86,6 +86,7 @@ if _REPO_ROOT not in sys.path:
 
 from Inbound.gain import FAITHFUL_GAIN_FAMILIES              # noqa: E402
 from Optimization.config.strategies import STRATEGY_BY_KEY   # noqa: E402
+from Optimization.simconfig import staffing as _staffing      # noqa: E402
 
 #: The series-document field the ranking reads, and the quantity it belongs to.  Named as a
 #: pair because the artifact records both: a later reader needs to know which figure to look at
@@ -448,6 +449,29 @@ def select(base_dir: str, k: int = DEFAULT_K,
             f"member refuses the whole unit at worker startup")
 
     spec = _load_run_spec(base_dir) or {}
+    # THE STAFFING PIN.  Phase 1 ranks the rules of ONE warehouse: the crews, the levels, the
+    # line floor and the script all follow from the derivation this run made at setup.  The
+    # campaign then puts a BUILD between the phases BY DESIGN -- no phase-1 number is ever
+    # published, which is what makes that legal, and "Extend the gain bundles" is exactly such
+    # a build.  A change that moves the derivation therefore leaves phase 2 running a different
+    # site from the one whose ranking it is executing, and nothing in the run tree joins two run
+    # roots to notice.  The digest is what phase 2 carries; the projection beside it is what a
+    # refusal is DIAGNOSED from ("Re-size the funnel in site days").
+    _derived = (spec.get('staffing') or {}).get('derived') or {}
+    staffing_pin = {
+        'sigfigs': _staffing.PIN_SIGFIGS,
+        'pin': {lab: _staffing.pin_digest(d) for lab, d in sorted(_derived.items())},
+        'projection': {lab: _staffing.pin_of(d) for lab, d in sorted(_derived.items())},
+        'note': "copy `pin` into whatif_config.PHASE2_STAFFING_PIN. `inbound_policies` "
+                "refuses to start without it, and every work unit refuses if its own "
+                "derivation hashes to something else -- so a between-phase build that moves "
+                "the crews, the day's demand, the two prices or the script depth is caught "
+                "before a cell runs rather than after the campaign publishes",
+    }
+    if not _derived:
+        log('')
+        log('  !! this run recorded no derived staffing block, so there is no pin to copy (a '
+            'flag-off run, or one predating the era). `inbound_policies` will refuse.')
     doc = {
         'version': 1,
         'written': datetime.now().isoformat(timespec='seconds'),
@@ -482,6 +506,7 @@ def select(base_dir: str, k: int = DEFAULT_K,
         'baseline_rule': BASELINE_RULE,
         'baseline_rule_pair': list(BASELINE_RULE_PAIR),
         'faithful_gain_families': list(FAITHFUL_GAIN_FAMILIES),
+        'staffing': staffing_pin,
         'put_regime': PUT_REGIME,
         'put_regime_note': 'phase 1 runs the UNCOUPLED leaf model, so each leaf fields the '
                            'whole derived SITE put and receiving crew and the site\'s labour '
@@ -512,6 +537,11 @@ def select(base_dir: str, k: int = DEFAULT_K,
     log(f'\nWrote {out}')
     log('Copy `rule_pairs.chosen` into phase 2\'s rule-pair list before running '
         '`--spec inbound_policies`; each channel\'s `arms` is the leaf projection of it.')
+    if staffing_pin['pin']:
+        log('Copy `staffing.pin` into whatif_config.PHASE2_STAFFING_PIN as well -- phase 2 '
+            'refuses to start without it:')
+        for _lab, _dig in staffing_pin['pin'].items():
+            log(f'    {_lab!r}: {_dig!r},')
     if not rule_pairs['complete']:
         log(f"!! `rule_pairs.complete` is false — {rule_pairs['incomplete_reason']}")
     return doc

@@ -136,7 +136,12 @@ def test_a_utilization_target_must_lie_in_the_unit_interval():
 def test_the_campaign_specs_default_to_the_era_and_the_reference_run_is_gone():
     assert ERA_RUN_DEFAULTS == {'shift_drain_or_cap': True, 'releases_per_day': 1,
                                 'roll_over_unpicked': True, 'cut_at_day_end': True}
-    assert SPECS['inbound_select']['run_defaults'] is ERA_RUN_DEFAULTS
+    # Phase 1 carries the era PLUS the arrival regime and the declared depth
+    # (PHASE1_RUN_DEFAULTS, "Re-size the funnel in site days"): since department-calibration
+    # decision 11 it runs the yard ON under `fifo`, so both phases solve their line floor at
+    # the same order-to-shelf lead. What it still does NOT carry is coupling -- asserted in
+    # Tests/unit/test_funnel_spec_pairs.py and again in Tests/unit/test_funnel_window.py.
+    assert ERA_RUN_DEFAULTS.items() <= SPECS['inbound_select']['run_defaults'].items()
     # Phase 2 carries the era PLUS coupling (site-dock 23: PHASE2_RUN_DEFAULTS), so it is a
     # SUPERSET rather than the same object — the era keys are what this asserts, and
     # Tests/unit/test_funnel_spec_pairs.py owns the coupling key.
