@@ -3,7 +3,7 @@
 - [GPU broker dormant](gpu-broker-dormant-not-for-placement.md) — GPU broker is validated infra with no consumer; don't GPU-accelerate placement (calc already reduced away, greedy stays CPU)
 - [Channels = independent warehouses](channel-experiment-independent-warehouses.md) — store/fulfillment run independently (both full 34-arm suite as of 2026-07-08; arm subsets live in strategies.CHANNEL_RESTOCKS); combine best plans with run_channel_rollup.py
 - [_build_inventory tests fire no reorders](build-inventory-tests-no-reorders.md) — perf_simulation._build_inventory orders lack reorder_point; set it to 0 to actually exercise reorder-time placement
-- [Results drive location](results-drive-location.md) — new runs write to COMPARISON_OUTPUT_DIR, but as of 2026-08-15 the archive lives on COLD_DRIVE (COMPARISON_OUTPUT_DIR has no sim_*.db); don't trust sim_meta.json's inv_db (stale)
+- [Results drive location](results-drive-location.md) — resolve run/catalogue paths through the .env keys and VERIFY: drive letters have moved, the 2026-08-15 COLD_DRIVE archive claim has inverted, and the one-pair reference view is junctions that break with a misleading error
 - [Fulfillment travel rework plan](fulfillment-travel-rework-plan.md) — approved multi-phase plan, all four deliverables landed 2026-08-14; fast_pick.py is the production sim (four-way lockstep, guarded by test_travel_decomposition + test_scheduler, NOT the name the code claimed)
 - [No \uXXXX in heredoc Python](no-unicode-escapes-in-heredoc-python.md) — escapes land as literal text in files.yml and break catalog idempotency; paste the real char or use Edit
 - [No triple single quotes in Bash heredocs](no-triple-single-quotes-in-bash-heredocs.md) — a heredoc body holding a Python triple-single-quote or an escaped double quote dies at the shell before anything runs; Write patch scripts to a file and run them
@@ -98,3 +98,4 @@
 - [Fill gap is the line-count shape](fill-gap-is-the-line-count-shape.md) — REFUTED 2026-09-12: the 3.74x and the 71%/52% multiplier were the v2 defect; the METHOD survives, the finding does not
 - [Draw probability vs line share](draw-probability-replaces-line-share.md) — a WEIGHT is not an inclusion probability (now two CONTEXT.md terms), but the p_s form was NEVER LANDED and its cluster-mate NUMBERS are v2
 - [v2 sampler re-draws selected SKUs](v2-sampler-redraws-selected-skus.md) — FIXED 2026-09-12 as v3; the cause is catastrophic cancellation under a ~1e26 weight range, NOT the float drift first inferred
+- [Two days: site and calendar](two-days-site-and-calendar.md) — "days" is ambiguous by 3x (site 28,800 s vs calendar 86,400 s); the yard fee is calendar days, and a threshold above ~0.6 zeroes the axis silently

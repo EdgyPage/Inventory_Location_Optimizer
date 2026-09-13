@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f8316019-3a49-404c-ad0d-e5f670ed885b
-  modified: 2026-08-14T13:04:04.427Z
+  modified: 2026-09-13T16:34:59.544Z
 ---
 
 As of 2026-08-13, `python -m pytest Tests/unit Tests/integration -q` reported **374 passed**, but
@@ -38,5 +38,6 @@ not coverage of behaviour, and a directory can look well covered while no test r
 **How to apply:** when a suite's pass count is offered as proof, check that the assertions can
 actually raise, AND that something observes a value rather than the source text. The cheap probe is `grep -n 'check(' Tests/**/*.py` — every surviving hit should be
 inside a docstring explaining the history, never a live call. If a conversion of vacuous tests
-leaves the pass count unchanged, the conversion was cosmetic. See [[claude-md-section-3-traps]] —
-CLAUDE.md §3 carries this warning for the same reason.
+leaves the pass count unchanged, the conversion was cosmetic. CLAUDE.md §3 ("Silent traps") carries
+this warning too — the check()-harness trap and the "no `def test_` collects nothing" trap are
+both listed there directly, so there is no separate memory for it.

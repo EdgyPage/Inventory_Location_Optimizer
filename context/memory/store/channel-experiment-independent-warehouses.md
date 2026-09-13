@@ -21,10 +21,3 @@ Quick smoke run: `run_simulation.py --n-batches N --max-skus S --max-bins B` (th
 **`run_analysis.py` now DEFAULTS to `--preset BY_INITIAL`** (focus='all'), which keeps both `uni_*` and `opt_*` arms and bakes in `top_n=3, top_by='initial'` (top 3 per initial). So the plain `run_analysis.py <dir> --workers N` already gives top-3 uni + top-3 opt — there is NO `--top-n` flag (change N via `--set compare.top_metric.top_n=K`). Pass `--preset DEFAULT` only for the legacy uni-only mode (focus='uni', drops every `opt_*` arm → rollup sees half the suite). `run_channel_rollup.py` warns when it detects dropped arms.
 
 **Fixed bug (was silently producing blank sim DBs):** the aisle-index fast path in `Assignment_Functions._build_aisle_score_fn` (and the two `build_load_*` fns) used the pallet-only `_SIZE_RANKS`/`_SIZES_DESCENDING`; fulfillment units (sizes `ff_*`) never matched an ff BinKey, so `opt_cmax`/`opt_cmin` on fulfillment placed nothing → all batches skipped → blank DB. Fixed by using `tier_ranks_for(unit_type)`. `run_simulation` now runs `_warn_blank_arms` at the end to loudly flag any sim_*.db with zero batches.
-
-**AMENDED 2026-09-10 for INBOUND** ([[site-dock-is-shared-across-channels]]): the independence
-holds for picking and placement, but NOT for the dock. The channels share one dock, one yard,
-one door set and one receiving crew, and trailers carry both channels' lots; running each
-channel's inbound alone in its leaf (with the site crew handed to it whole) produces artefact
-utilizations and a yard that never binds. Coupling the channels at the dock is a successor
-charting effort; until it lands, no per-leaf inbound number is a site fact.

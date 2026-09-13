@@ -1,12 +1,21 @@
 ---
 name: v2-sampler-era
-description: v2 Fenwick batch sampler was the default era 2026-08-20 to 2026-09-12 (commit 21f3b3c) — SUPERSEDED by v3; v2 runs are row-comparable with neither the pre-flip archive nor anything after
+description: "CLOSED 2026-09-12, superseded by v3 (see [[v3-sampler-era]] for the current default). v2 Fenwick batch sampler was the era from 2026-08-20 (commit 21f3b3c) to 2026-09-12 — kept as the guide to reading an archived v2 run"
 metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-09-12T15:21:09.622Z
+  modified: 2026-09-13T16:39:25.629Z
 ---
+
+**CLOSED 2026-09-12 — superseded by v3, see [[v3-sampler-era]] for the CURRENT default.**
+`Optimization/config/settings.py` `SAMPLER` reads `'v3'` as of that commit; v2 re-drew SKUs it
+had already taken (the sku-keyed `Batch.items` collapsed the repeats), so every v2 batch
+under-delivered lines against the era's declaration — measured -1.02%/-8.64% on the reference
+pair (see [[v2-sampler-redraws-selected-skus]], [[v2-defect-manufactured-the-fill-law-evidence]]).
+Nothing below this line was updated for the flip; it is kept only as the guide to reading a run
+whose `run_spec.json` still names `sampler: v2`, and its own baselines are v2-only — do not use
+them to judge a v3 run.
 
 As of 2026-08-20 (commit 21f3b3c), `CONFIG['global']['sampler'] = 'v2'`: all new runs draw
 batches with the Fenwick sampler (`BatchConfig.sampler` in
@@ -44,14 +53,6 @@ defaulted from CONFIG, the CONFIG override block, `run_spec.json` + `--resume` r
 Channel/`make_channel`/`batch_config`, `build_shared_assets`, and `config.json` provenance) so a
 result set's era is always recoverable from its own run_spec — never assume the checkout default
 when reading an archived run.
-
-**SUPERSEDED 2026-09-12 — this era is closed.** v2 re-selected SKUs it had already drawn, so a
-batch delivered fewer distinct lines than its declared `k` (fulfillment -8.64% on 40/40 batches);
-v1 was clean on the same seeds. That was a correctness bug in the era's own declared throughput,
-not a comparability footnote — see [[v2-sampler-redraws-selected-skus]] for the proven mechanism.
-The default is now v3 ([[v3-sampler-era]]). Everything below still describes the v2 era and stays
-true OF IT: use it to read an archived v2 run, never to plan a new one. The NEW-ERA baselines
-below are v2 baselines and can no longer serve a byte-identical gate on a default-config run.
 
 **How to apply:** before treating two runs as comparable (digest gate, throughput comparison,
 labour-cost comparison), check which sampler produced each — mixing v1 and v2 rows silently
