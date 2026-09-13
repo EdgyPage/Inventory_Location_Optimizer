@@ -1,7 +1,7 @@
 # Re-run the gate and fix the fee threshold
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: ../../department-calibration/issues/43-rerun-and-record-the-form.md
 
 Graduated 2026-09-12 from
