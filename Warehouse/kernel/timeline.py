@@ -27,6 +27,12 @@ right, which is exactly why nothing caught it for the life of the project.
 That is fixed.  `units.py` now IMPORTS `SECONDS_PER_HOUR` from here instead of restating a
 literal, so the sim's unit and the analysis layer's divisor cannot disagree again.
 
+This module also declares BOTH DAYS, side by side: `DEFAULT_SHIFT_SECONDS` (the SITE day,
+28,800 s -- a batch) and `SECONDS_PER_DAY` (the CALENDAR day, 86,400 s -- a carrier's
+detention).  They used to live three modules apart with neither naming the other, which is
+how a threshold measured in one got consumed in the other.  Both are legitimate; the
+ambiguity is in the word.
+
 ## 2. The epoch
 
 A picker's `t` is absolute only because the runner gives it the epoch to start from.  The
@@ -51,8 +57,31 @@ TIME_UNIT = 'seconds'
 SECONDS_PER_HOUR = 3600.0
 
 
-#: Default shift length: an eight-hour day, in the sim's own unit.
+#: Default shift length: an eight-hour day, in the sim's own unit.  THE SITE DAY -- the
+#: first of the two days below, and the one a batch is measured in.
 DEFAULT_SHIFT_SECONDS = 8 * SECONDS_PER_HOUR
+
+#: THE CALENDAR DAY -- the second one, and three times longer.  Elapsed wall time, which
+#: runs overnight and at weekends exactly as it does mid-shift.  A carrier's detention is
+#: the case that needs it: a trailer is held whether or not anyone is on the clock, so
+#: `DEFAULT_SHIFT_SECONDS` above is a LABOUR bound that would understate a standing
+#: trailer by however long the site is closed.
+#:
+#: Both days are real and this project needs both, so the hazard is neither value but the
+#: WORD: a span quoted in "days" is ambiguous by a factor of THREE.  A fee threshold read
+#: off a sweep taken in site days and then consumed here in calendar days does not raise --
+#: it produces a silently vacuous axis that reports `0.00` ("Re-run the gate and fix the
+#: fee threshold", inbound-optimization 29, which lost a session to exactly that).  The two
+#: are declared side by side, each naming its twin, so no reader meets one without meeting
+#: the other; that adjacency is the point of the hoist, more than the de-duplication.
+#:
+#: Derived from `SECONDS_PER_HOUR` rather than written as 86400 for the reason `units.py`
+#: spells out: ONE declaration of what a sim second is, and everything downstream of it.
+#: Both readers of this constant -- the analysis layer's fee metric and the simulation's
+#: own urgency gate -- import it from here.  They cannot import each other:
+#: `{forbid: [inbound, evaluations]}` is the rule, and it is the right rule, so this
+#: module is the only seam the two share.
+SECONDS_PER_DAY = 24.0 * SECONDS_PER_HOUR
 
 
 def shift_index(t_abs: float, shift_seconds: float = DEFAULT_SHIFT_SECONDS) -> int:

@@ -292,7 +292,6 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "TIME_UNITS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
-      - {name: "SECONDS_PER_DAY", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "PER_HOUR", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "KINDS", file: "Optimization/Performance_Evaluations/common/units.py", kind: "const"}
       - {name: "Unit", file: "Optimization/Performance_Evaluations/common/units.py", kind: "class"}
@@ -5992,6 +5991,7 @@ files:
       - {name: "TIME_UNIT", file: "Warehouse/kernel/timeline.py", kind: "const"}
       - {name: "SECONDS_PER_HOUR", file: "Warehouse/kernel/timeline.py", kind: "const"}
       - {name: "DEFAULT_SHIFT_SECONDS", file: "Warehouse/kernel/timeline.py", kind: "const"}
+      - {name: "SECONDS_PER_DAY", file: "Warehouse/kernel/timeline.py", kind: "const"}
       - {name: "shift_index", file: "Warehouse/kernel/timeline.py", kind: "function"}
       - {name: "shift_offset", file: "Warehouse/kernel/timeline.py", kind: "function"}
       - {name: "batch_epoch", file: "Warehouse/kernel/timeline.py", kind: "function"}

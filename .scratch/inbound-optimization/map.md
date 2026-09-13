@@ -514,6 +514,32 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   `inb_off` anchor's role is recorded on the ticket: the inbound-off pole INSIDE the coupled
   model, never a cross-phase check — and nothing in the campaign is one any more.
 
+- [Pin the day divisor to one declaration](issues/30-pin-the-day-divisor.md): **HOISTED --
+  `SECONDS_PER_DAY` is declared once, in `Warehouse/kernel/timeline.py`, beside the SITE day
+  it is three times longer than; `units.py` re-exports it, `Inbound/gain.py` and the gate's
+  own test import it.** The pin-test alternative was rejected on the ticket's reasoning, not
+  its cost: it catches drift and does nothing about the INVISIBILITY that produced 29's
+  defect, since neither file named the other. The kernel was already the right home -- it
+  owned `TIME_UNIT`, `SECONDS_PER_HOUR` and, decisively, the OTHER day; only the VALUE moved,
+  the CHOICE of which day a detention accrues in stays in `units.py` with its rationale. It is
+  also the ONLY seam available: `{forbid: [inbound, evaluations]}` is correct and permanent.
+  `settings.py`'s "one knob, two readers ... can never disagree about overdue" is now a test
+  (section 4b) that hands the same span to BOTH readers through their real entry points
+  rather than restating either predicate. **Two findings.** (i) The readers SPLIT the boundary
+  instant -- the gate is `>=`, the fee is `> threshold` -- which is deliberately not fixed
+  (changing the gate moves arm behaviour) and unreachable anyway, because the two never
+  measure the same span at all: `frozen_at - arrived` at a drain versus `emptied - arrived`
+  entire. Only the CONVERSION can agree; that asymmetry is now pinned rather than rediscovered.
+  (ii) The span set must sit inside the 3x band or the test is VACUOUS -- 0.5 days is not
+  sensitive to a site/calendar drift (0.5 x 3 is still under a 2.0 threshold) -- so the
+  sabotage test asserts 1.0 and 1.5 specifically flip. The hours ratchet gained a twin for the
+  day, and the gap it exposed matters: **the hours ratchet never scanned `Inbound/`**, the
+  module the gate lives in, which is a structural reason the divisor drifted there. Strict
+  no-op proven bit-exact (`24.0 * 3600.0` and `86400.0` both pack `40f5180000000000`) with
+  `is`-identity across all three modules; unit 2393 and yard/receiving e2e 14 green, every
+  other tier at its stashed baseline. No schema event. Owed: the derived arch layer, as at
+  09/13/15/21/28.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -531,13 +557,13 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   fold — 16 —, the yard metrics — 17 —, the total-production-hours build — 19 —, the
   run-shape layer — 18 —, which paid the seams 3–4 debt every knob deferred to "the first
   sweep", and the fifo rider's gain bundle — 21 —, which was the last build standing between
-  the funnel and the pilot. THREE tickets remain and none of them is on the frontier, because
-  all three sit BETWEEN the phases: [Extend the gain bundles](issues/20-extend-the-gain-bundles.md)
-  is gated on phase 1, since which OTHER families need extending is phase 1's output;
-  [Pin the day divisor](issues/30-pin-the-day-divisor.md) and
-  [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md) are both
-  AFK, neither blocks phase 1, and both must land before phase 2. So the frontier is empty by
-  design: the next act is the phase-1 run, not a ticket.)
+  the funnel and the pilot, and the day-divisor pin -- 30 -- which was takeable at any time
+  and is done. TWO tickets remain, both BETWEEN the phases:
+  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md) is gated on phase 1, since
+  which OTHER families need extending is phase 1's output, and
+  [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md) is
+  AFK, does not block phase 1, and must land before phase 2 -- so 31 IS on the frontier and
+  takeable now, though the act with the most ahead of it is still the phase-1 run.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -619,9 +645,12 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   The launch is `--spec inbound_select --profiles-dir <the one-pair reference view> --workers N`
   and nothing else: the depth and the arrival regime now ride `run_defaults`, so no remembered
   flag survives. Execution order: **phase 1 -> selection -> [Extend the gain bundles](issues/20-extend-the-gain-bundles.md)
-  + [Pin the day divisor](issues/30-pin-the-day-divisor.md) + [Measure what a gain cell actually
-  costs](issues/31-measure-what-a-gain-cell-costs.md) (all three between the phases, all three
-  before phase 2) -> copy `rule_pairs.chosen` AND `staffing.pin` -> phase 2 -> publish.** Two
+  + [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md)
+  (both between the phases, both before phase 2) -> copy `rule_pairs.chosen` AND
+  `staffing.pin` -> phase 2 -> publish.** [Pin the day divisor](issues/30-pin-the-day-divisor.md)
+  was the third of that set and is DONE -- taken before phase 1 rather than after, since it is
+  a strict no-op and its only risk was leaving a simulation-time divisor unpinned across the
+  between-phase build window. Two
   qualifications the campaign publishes rather than discovers are unchanged (it is mostly a
   fulfillment result; phase 1 ranks under 2x the site put labour phase 2 runs), and the phase-2
   wall is a floor until 31 measures the gain multiplier.

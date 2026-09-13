@@ -74,9 +74,13 @@ from Warehouse.catalog.Order import StorageHandleConfig
 from Warehouse.inventory.inventory_common import binkey_of, tier_ranks_for
 from Warehouse.kernel.cost_model import SpeedProfile
 from Warehouse.kernel.regime import regime_of
+from Warehouse.kernel.timeline import SECONDS_PER_DAY
 from Warehouse.placement import Assignment_Functions as af
 
-_DAY = 86400.0
+#: IMPORTED, not restated.  This line used to read `_DAY = 86400.0`, a third copy of the
+#: divisor beside the gate's and the fee metric's -- so it moved WITH the gate instead of
+#: pinning it, and the drift it existed to catch was invisible to it.
+_DAY = SECONDS_PER_DAY
 _WP = WorkloadParams()                       # repo defaults: 4/2 ft/s, intercept 1.0
 _PUT = SpeedProfile(2.0, 4.0)                # settings.py PUT_FOOT_X / PUT_FOOT_Y
 _KEY_M = ('conveyable', 'food', 'medium', 'pallet')
@@ -311,6 +315,118 @@ def test_gate_plan_prices_space_after_the_urgent_load_consumes():
         'the urgent load consumed the cheap bin, so the plan pair now contends over '
         'the bracket step and the heavy-handling load jumps — the prefix visibly '
         'consumed space')
+
+
+# ── 4b. one knob, two readers: the gate and the fee metric (ticket 30) ────────────
+#
+# `settings.py` states a guarantee above INBOUND_FEE_THRESHOLD_DAYS — "one knob, two
+# readers, so the gate and the metric can never disagree about overdue" — and until this
+# ticket it was claimed by COMMENT alone, while each reader converted seconds to days from
+# its own literal.  The two cannot import each other (`{forbid: [inbound, evaluations]}`),
+# so nothing local could have caught a drift; these two tests are the enforcement.
+#
+# The span is handed to both readers directly, which is the only comparison that means
+# anything: the gate measures `frozen_at - arrived` (drain-quantized, a trailer still
+# standing) and the metric measures `emptied - arrived` (the whole detention), so a
+# per-TRAILER agreement is not a thing that exists.  What must agree is the CONVERSION.
+
+_GATE_THRESHOLD_DAYS = 2.0
+
+
+def _gate_says_overdue(span_s, threshold_days=_GATE_THRESHOLD_DAYS):
+    """Did `gain_gated` put a trailer of this detention in its urgent prefix?
+
+    Read through the REAL entry rather than by restating its expression — a test that
+    recomputes the predicate cannot fail when the predicate is wrong.  Two identical
+    loads, so the plan ties and keeps the handed order (pinned above): handed
+    `[fresh, aged]`, the aged one leads the output if and only if it was forced.
+    """
+    now = 10.0 * _DAY
+    aged = _trailer(0, now - span_s, [_Unit(_Order(1), 4)])
+    fresh = _trailer(1, now, [_Unit(_Order(1), 4)])
+    view = _view({_KEY_M: [_Bin(0, 100.0), _Bin(1, 200.0)]}, frozen_at=now)
+    bundle = _bundle(fee_threshold_days=threshold_days, urgency_horizon_days=0.0)
+    out = yard_key('gain_gated')([fresh, aged], _ctx(view, bundle))
+    return out[0].seq == 0
+
+
+def _metric_says_over(span_s, threshold_days=_GATE_THRESHOLD_DAYS):
+    """Did `frames._ydf` flag a trailer of this detention as over the threshold?"""
+    from Optimization.Performance_Evaluations.common.frames import _ydf
+    row = {'seq': 0, 'status': 'done', 'arrived_s': 0.0,
+           'staged_s': 0.0, 'emptied_s': span_s}
+    return bool(_ydf([row], run_end_s=span_s, threshold_days=threshold_days)
+                .at[0, 'over_threshold'])
+
+
+#: Spans in CALENDAR days against a 2.0-day threshold.  1.0 and 1.5 carry the test: each
+#: is comfortably under the threshold on a calendar day and comfortably OVER it on the
+#: 28,800 s site day, so either reader drifting to the wrong day flips it.  That 3x is the
+#: live hazard, not a hypothetical — it is the defect inbound-optimization 29 spent a
+#: session on, and 0.5 is deliberately NOT sensitive to it (0.5 x 3 is still under 2.0),
+#: which is why the set needs the middle of the band rather than just its ends.
+_SPANS_DAYS = (0.1, 0.5, 1.0, 1.5, 1.9, 2.5, 3.0, 7.0)
+
+
+def test_the_gate_and_the_fee_metric_agree_about_overdue():
+    for d in _SPANS_DAYS:
+        span = d * _DAY
+        assert _gate_says_overdue(span) == _metric_says_over(span), (
+            f'a detention of {d} days reads overdue to one reader and not the other: '
+            f'gate={_gate_says_overdue(span)}, metric={_metric_says_over(span)}. '
+            f'This is the guarantee settings.py states over INBOUND_FEE_THRESHOLD_DAYS')
+
+
+def test_the_two_readers_split_the_boundary_instant_and_that_is_recorded():
+    """EXACTLY at the threshold they differ, and the asymmetry is deliberate-by-omission.
+
+    The gate is `>= threshold` (already overdue jumps the plan) and the fee is
+    `overage > 0`, i.e. `> threshold` (a trailer at exactly the free allowance has
+    accrued nothing).  Both readings are right for their own job and neither is worth
+    changing: the gate's would alter ARM BEHAVIOUR, which ticket 30 is a strict no-op.
+
+    It is pinned rather than smoothed over because it is unreachable in practice for a
+    reason a reader should not have to re-derive — the two never measure the same span
+    (see the section note), and float equality on `end - arrived == threshold * 86400`
+    is a coincidence the simulation has no way to produce.  If this test ever fails, the
+    boundary moved; that is a real change, not a rounding one.
+    """
+    span = _GATE_THRESHOLD_DAYS * _DAY
+    assert _gate_says_overdue(span) is True, 'the gate is >=: at the threshold, urgent'
+    assert _metric_says_over(span) is False, 'the fee is >: at the threshold, no overage'
+
+
+def test_a_drifted_divisor_breaks_the_correspondence(monkeypatch):
+    """The sabotage half — without it the agreement test could be vacuously true.
+
+    Moving the GATE's divisor to the site day is the exact drift the hoist prevents and
+    the one nothing could previously catch, since the gate owned a private literal.
+    """
+    from Inbound import gain
+    from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS
+    monkeypatch.setattr(gain, 'SECONDS_PER_DAY', float(DEFAULT_SHIFT_SECONDS))
+    broken = [d for d in _SPANS_DAYS
+              if _gate_says_overdue(d * _DAY) != _metric_says_over(d * _DAY)]
+    assert broken, (
+        'the gate read the site day instead of the calendar day and NOTHING disagreed — '
+        'then the agreement test above proves nothing.  The span set must keep values '
+        'inside the 3x band (see _SPANS_DAYS)')
+    assert 1.0 in broken and 1.5 in broken, (
+        f'the two spans chosen to carry the 3x drift did not flip: broken={broken}')
+
+
+def test_both_readers_resolve_to_the_one_kernel_declaration():
+    """Identity, not equality: two modules that happen to agree today is the state this
+    ticket found.  `is` is what makes a re-introduced literal fail here rather than in a
+    campaign six weeks later."""
+    from Inbound import gain
+    from Optimization.Performance_Evaluations.common import units
+    from Warehouse.kernel import timeline
+    assert gain.SECONDS_PER_DAY is timeline.SECONDS_PER_DAY
+    assert units.SECONDS_PER_DAY is timeline.SECONDS_PER_DAY
+    assert timeline.SECONDS_PER_DAY == 3.0 * timeline.DEFAULT_SHIFT_SECONDS, (
+        'the calendar day is three site days — the ambiguity the two declarations sit '
+        'side by side to make visible')
 
 
 # ── the futuresight window (the declared-unlawful reference, ticket 13) ───────────

@@ -35,6 +35,25 @@ def test_the_sim_declares_its_unit():
     assert timeline.SECONDS_PER_HOUR == 3600.0
 
 
+def test_the_kernel_declares_both_days_side_by_side():
+    """The SITE day and the CALENDAR day, in one module and three times apart.
+
+    They lived three modules apart with neither naming the other until "Pin the day
+    divisor" (30), which is how a fee threshold swept in site days got consumed in
+    calendar days and produced an identically-zero axis instead of an error.  The
+    adjacency is the fix; this pins that they stayed adjacent.
+    """
+    assert timeline.DEFAULT_SHIFT_SECONDS == 28800.0
+    assert timeline.SECONDS_PER_DAY == 86400.0
+    assert timeline.SECONDS_PER_DAY == 3.0 * timeline.DEFAULT_SHIFT_SECONDS
+    src = inspect.getsource(timeline)
+    day = src.index('SECONDS_PER_DAY = ')
+    shift = src.index('DEFAULT_SHIFT_SECONDS = ')
+    assert 0 < day - shift < 2000, (
+        'the two days drifted apart in the file — a reader who meets one must meet the '
+        'other, which is the whole point of the hoist')
+
+
 def test_the_analysis_layer_divides_by_the_kernels_own_declaration():
     """Not "equal to 3600" — IMPORTED from here.  The two disagreed by 1000x for the life
     of the project because each restated the number in its own words; an equality test
@@ -44,8 +63,18 @@ def test_the_analysis_layer_divides_by_the_kernels_own_declaration():
     from Optimization.Performance_Evaluations.common import units
     assert units.PER_HOUR == timeline.SECONDS_PER_HOUR
     assert units.SECONDS_PER_HOUR is timeline.SECONDS_PER_HOUR
-    src = inspect.getsource(units)
-    assert 'from Warehouse.kernel.timeline import SECONDS_PER_HOUR' in src
+    # Matched through the AST rather than as a source LINE: the line grew a second name
+    # when `SECONDS_PER_DAY` was hoisted here too, and a test that pins the exact spelling
+    # of an import breaks on every legitimate edit while catching no drift.
+    imported = {alias.name
+                for node in ast.walk(ast.parse(inspect.getsource(units)))
+                if isinstance(node, ast.ImportFrom)
+                and node.module == 'Warehouse.kernel.timeline'
+                for alias in node.names}
+    assert 'SECONDS_PER_HOUR' in imported
+    assert 'SECONDS_PER_DAY' in imported, (
+        "the seconds->days divisor is the kernel's too, and this module "
+        "re-exports it and declares nothing (see Pin the day divisor, 30)")
     # No assertion that '3.6e6' is absent from the TEXT: the comment beside PER_HOUR quotes
     # the old number to explain the 1000x history, and a check that forbade the literal in
     # prose would push people to delete the explanation.  The code itself is covered by
@@ -82,6 +111,56 @@ def test_no_module_carries_its_own_copy_of_the_divisor():
             if 'MS_PER_HOUR' in code or '3600000' in code or '3.6e6' in code:
                 offenders.append(path.relative_to(root).as_posix())
     assert not offenders, f'{offenders} still carry the milliseconds-per-hour divisor'
+
+
+def test_no_module_declares_its_own_seconds_per_day():
+    """The same ratchet for the DAY, added by "Pin the day divisor" (30).
+
+    The hours divisor got this guard after five copies of it stayed wrong by 1000x.  The
+    day then repeated the pattern in miniature: `units.py` derived it here, `Inbound/gain.py`
+    wrote a bare `86400.0`, and the gate's own test restated the literal a third time, so
+    the test moved WITH the gate rather than pinning it.  They agreed; nothing made them.
+
+    Two offences, because either alone is enough to split the readers again:
+      * a module that ASSIGNS `SECONDS_PER_DAY` instead of importing it, and
+      * an `86400` literal anywhere in code.
+    `Inbound` is scanned as well as `Optimization` and `Warehouse` -- the gate lives there,
+    which is exactly the module the hour's ratchet would have missed.
+    """
+    import pathlib
+    root = pathlib.Path(inspect.getfile(timeline)).parents[2]
+    home = pathlib.Path(inspect.getfile(timeline)).resolve()
+    declared, literals = [], []
+    for sub in ('Optimization', 'Warehouse', 'Inbound'):
+        for path in sorted((root / sub).rglob('*.py')):
+            if path.resolve() == home:
+                continue
+            try:
+                tree = ast.parse(path.read_text(encoding='utf-8'))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            rel = path.relative_to(root).as_posix()
+            for node in ast.walk(tree):
+                targets = []
+                if isinstance(node, ast.Assign):
+                    targets = node.targets
+                elif isinstance(node, ast.AnnAssign):
+                    targets = [node.target]
+                for t in targets:
+                    if isinstance(t, ast.Name) and t.id.lstrip('_') == 'SECONDS_PER_DAY':
+                        declared.append(f'{rel}:{t.lineno}')
+                if (isinstance(node, ast.Constant)
+                        and isinstance(node.value, (int, float))
+                        and not isinstance(node.value, bool)
+                        and float(node.value) == 86400.0):
+                    literals.append(f'{rel}:{node.lineno}')
+    assert not declared, (
+        f'{declared} declare their own SECONDS_PER_DAY. Import it from '
+        f'Warehouse.kernel.timeline: the analysis layer and the simulation cannot import '
+        f'each other, so the kernel is the one seam they share')
+    assert not literals, (
+        f'{literals} spell the day as a literal. One declaration, and it is derived from '
+        f'SECONDS_PER_HOUR rather than written out, for the reason units.py spells out')
 
 
 def test_the_suites_time_units_are_seconds_based():

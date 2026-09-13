@@ -136,10 +136,11 @@ PHASE2_RIDER = ('fifo', 'fifo')
 #: THE PREVIOUS SWEEP WAS READ IN SITE DAYS AND THE KNOB IS CONSUMED IN CALENDAR DAYS -- a
 #: factor of exactly 3 (86,400 s vs the 28,800 s site day), and the reason the value committed
 #: here is 0.40 rather than the ~1.3 the last block recommended.  Both readers divide by 86,400:
-#: the fee metric through `Performance_Evaluations/common/units.py:SECONDS_PER_DAY` (a calendar
-#: day BY DECLARATION -- detention accrues overnight and at weekends, so a labour bound would
-#: understate a standing trailer by whatever the site is closed) and the urgency gate through
-#: `Inbound/gain.py:_SECONDS_PER_DAY`.  Committing ~1.3 would have made the fee axis IDENTICALLY
+#: both now IMPORT `Warehouse/kernel/timeline.py:SECONDS_PER_DAY` -- a calendar day BY
+#: DECLARATION, since detention accrues overnight and at weekends and a labour bound would
+#: understate a standing trailer by whatever the site is closed.  (At the time of this defect
+#: each reader had its own literal; the single declaration is inbound-optimization 30, which
+#: also put the site day beside it.)  Committing ~1.3 would have made the fee axis IDENTICALLY
 #: ZERO -- no trailer of 642 was detained past 0.569 calendar days -- which is the same vacuity
 #: 3.0 already had, reported as 0.00 everywhere rather than as an error.  A sweep quoted in days
 #: is meaningless without its divisor; take one only through `frames._ydf`, never by hand.

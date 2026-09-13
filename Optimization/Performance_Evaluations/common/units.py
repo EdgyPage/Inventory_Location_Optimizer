@@ -28,26 +28,30 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-# The one declaration of what the simulator counts in.  `timeline` is stdlib-only, so
-# importing it keeps this module's no-heavy-imports promise intact.
-from Warehouse.kernel.timeline import SECONDS_PER_HOUR
+# The one declaration of what the simulator counts in, and of the two days it counts in.
+# `timeline` is stdlib-only, so importing it keeps this module's no-heavy-imports promise
+# intact.  `SECONDS_PER_DAY` is re-exported below rather than aliased here, so the ~4 call
+# sites that read it off THIS module keep working.
+from Warehouse.kernel.timeline import SECONDS_PER_DAY, SECONDS_PER_HOUR
 
 #: (label, SECONDS per unit), largest first.  A duration renders in the largest unit
 #: that keeps its typical magnitude at or above 1.
 TIME_UNITS = (('hours', SECONDS_PER_HOUR), ('minutes', 60.0), ('seconds', 1.0))
 
-#: THE seconds->days divisor, and the only one.  The yard's fee proxy compares a detention
-#: span against `INBOUND_FEE_THRESHOLD_DAYS`, so somewhere a number of seconds has to become
-#: a number of days — and the last time a conversion like this was spelled inline at each
-#: call site, five copies of the hours divisor stayed wrong by 1000x for the life of the
-#: project because each restated it rather than importing it.  It is derived from
-#: `SECONDS_PER_HOUR` rather than written as 86400 for the same reason: one declaration of
-#: what a sim second is, and everything downstream of it.
-#:
-#: A CALENDAR day, not a working day.  Detention is what the carrier's trailer is held for,
-#: which accrues overnight and at weekends exactly as it does mid-shift; `WORK_DAY_SECONDS`
-#: is a labour bound and would understate a standing trailer by whatever the site is closed.
-SECONDS_PER_DAY = 24.0 * SECONDS_PER_HOUR
+# ── the seconds->days divisor: NOT declared here ─────────────────────────────────
+# `SECONDS_PER_DAY` is imported at the top of this module and re-exported under this
+# module's name, which is why `frames._ydf` reading `units.SECONDS_PER_DAY` and
+# `yard/scorecard` importing it from here both still work.  It used to be DECLARED on this
+# line, and the simulation's own urgency gate then declared a second copy as a bare
+# `86400.0` -- one knob, two readers, two literals, and nothing making them agree
+# ("Pin the day divisor", inbound-optimization 30).  `timeline` now holds the one
+# declaration, beside the SITE day, and carries the note on which is which.
+#
+# Why this suite wants the CALENDAR day: detention is what the carrier's trailer is held
+# for, and it accrues overnight and at weekends exactly as it does mid-shift, so the site's
+# working day would understate a standing trailer by however long the site is closed.  That
+# CHOICE is this module's to make -- picking the scale is what a presentation-unit policy
+# does -- and only the VALUE belongs to the kernel.
 
 #: The fixed scale for a per-second RATE.  IMPORTED from the kernel's own declaration
 #: rather than restated, so the sim's unit and the analysis layer's divisor cannot

@@ -188,6 +188,15 @@ INBOUND_DOOR_TEAM = None         # TRAILER PHYSICS, not a policy: at most this m
 # never blend into one scalar anywhere: the fee side is only ever the yes/no urgency test
 # these two express, and the SAME threshold feeds the yard fee report -- one knob, two
 # readers, so the gate and the metric can never disagree about "overdue".
+#
+# ENFORCED, not just stated ("Pin the day divisor", 30).  This sentence stood for a while
+# as a claim: the knob was one value, but `Inbound/gain.py` and the analysis layer each
+# converted seconds to days from its OWN literal, so agreeing was a coincidence they were
+# free to stop having.  Both now import `Warehouse.kernel.timeline.SECONDS_PER_DAY` -- the
+# only module the two may share, `{forbid: [inbound, evaluations]}` being the correct rule
+# -- and `Tests/unit/test_gain_plan.py` section 4b hands the same span to both readers and
+# fails when they disagree.  DAYS HERE ARE CALENDAR DAYS, 86,400 s, three times the site
+# day a batch is measured in; `timeline` declares the pair side by side.
 INBOUND_FEE_THRESHOLD_DAYS = 2.0    # free yard days before a trailer accrues overage;
                                     # 2.0 is a stated placeholder -- calibration rides the
                                     # funnel, not this default

@@ -119,6 +119,7 @@ from Inbound.priorities import DOCK_POLICIES, YARD_POLICIES, ordering
 
 from Warehouse.kernel.cost_model import height_multiplier, per_pick
 from Warehouse.kernel.regime import REGIMES, regime_of_key
+from Warehouse.kernel.timeline import SECONDS_PER_DAY
 
 #: The entry names that need a driver-injected `GainBundle` on the transit.
 #: `futuresight` ADDITIONALLY needs the window feed — the driver refuses at startup
@@ -143,7 +144,20 @@ GAIN_POLICIES: frozenset = frozenset({'gain_myopic', 'gain_forecast', 'gain_gate
 FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('fifo', 'tmin', 'tmax',
                                            'rank_popularity', 'rank_random')
 
-_SECONDS_PER_DAY = 86400.0
+# ── the seconds->days divisor: IMPORTED, never restated ───────────────────────────
+# `SECONDS_PER_DAY` comes from `Warehouse.kernel.timeline` at the top of this module and
+# was declared HERE, as a bare `86400.0`, until "Pin the day divisor" (30).  The gate below
+# and the fee metric (`frames._ydf`) are the "one knob, two readers" `settings.py` promises
+# can never disagree about overdue -- and each was converting seconds to days from its own
+# literal, which is the `units.py` failure recurring in a new place.
+#
+# They cannot import each other: `{forbid: [inbound, evaluations]}` is the rule and it is
+# the right one, since receiving must not depend on analysis.  So the shared declaration
+# sits in `wh_kernel`, which both may read, and `Tests/unit/test_gain_plan.py` section 4b
+# hands the same span to both readers and fails when they disagree.
+#
+# A CALENDAR day, three times the site day a batch is measured in; `timeline` declares the
+# pair side by side and carries the note on which is which.
 
 
 class GainBundle:
@@ -1032,7 +1046,7 @@ def gain_gated(candidates, ctx) -> list:
     due_days = bundle.fee_threshold_days - bundle.urgency_horizon_days
     urgent = [t for t in candidates
               if t.arrived_s is not None
-              and (now - t.arrived_s) / _SECONDS_PER_DAY >= due_days]
+              and (now - t.arrived_s) / SECONDS_PER_DAY >= due_days]
     urgent.sort(key=lambda t: (t.arrived_s, t.seq))
     return plan_order(candidates, bundle, space, predicted=True,
                       forced_prefix=urgent)
