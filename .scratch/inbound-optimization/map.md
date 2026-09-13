@@ -4,12 +4,24 @@ Label: wayfinder:map
 
 ## Destination
 
+**REACHED 2026-09-13.** All 35 tickets are resolved and every deliverable below is committed on
+`develop`; the two live fog remnants were beyond this destination and moved to Out of scope as
+the successor effort's starting signposts. This map is closed.
+
 Inbound optimization landed on `develop`: heterogeneous seeded leads, a standing yard whose
 finite doors bind, the split yard-/dock-priority seams filled by space-aware policy arms
 (myopic + standing-demand forecasting) under the yard-overage fee proxy, a behavior-neutral
 caching contract at declared freeze points — all flag-off byte-identical — and the phased funnel
 (inbound-off top-k selection → top-k × inbound policies) decided and ready, so the campaign
 "does space-aware inbound beat FIFO, and at what fee cost" can run.
+
+**"Can run" is the destination, and it is met literally.** Phase 1 has run, its ranking is
+selected, the gain evaluator serves every family that ranking names, and
+`get_spec('inbound_policies')` builds rather than refuses — so the campaign is launchable with
+no edit and no decision in front of it. RUNNING it and PUBLISHING it are execution past this
+boundary: they decide nothing, they are a ~9 h / ~164 GiB campaign plus a publish loop, and
+scoping them in would have redrawn the destination rather than walked to it. They are the
+successor effort's first act (see Out of scope), and closing here is the 2026-09-13 call.
 
 ## Notes
 
@@ -703,209 +715,9 @@ caching contract at declared freeze points — all flag-off byte-identical — a
 
 ## Not yet specified
 
-- **The builds** — every implementation graduates here once its governing decisions close.
-  ONE fog item remains: the RESUME-GUARD EXTENSION TO YARD STATE. Nothing inspects inbound
-  state on resume today — `_plan_strategy_start` takes `roll_over` and `receiving`, not
-  `inbound`. The standing yard is covered because `inbound_spec` refuses a standing yard
-  without a receiving crew, so the planner's `receiving=` is never False there (since 23 both
-  read the DERIVED crew under the era, not the declared key); but a v1 trailer run with a
-  trailer type and NO receiving crew has worker-local trailers in no checkpoint and is not
-  refused under `--resume-granularity batch`. Out of scope stays out
-  of scope (no trailer checkpoint format) — this is a refusal, not a format.
-  (Done: the standing-yard mechanics — 09 —, the space-timeline build — 11 —, the
-  ordering-seam generalization — 12 —, the gain evaluator + gain-plan arms — 14 —, the
-  futuresight window feed + entry — 13 —, the lead distribution — 15 —, the eviction
-  fold — 16 —, the yard metrics — 17 —, the total-production-hours build — 19 —, the
-  run-shape layer — 18 —, which paid the seams 3–4 debt every knob deferred to "the first
-  sweep", and the fifo rider's gain bundle — 21 —, which was the last build standing between
-  the funnel and the pilot, and the day-divisor pin -- 30 -- which was takeable at any time
-  and is done. and the gain-cell cost probe -- 31 -- which
-  was takeable at any time and is done. THREE tickets remain, one of them new.
-  [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md)
-  RESOLVED 2026-09-13 as BUILD, and
-  [Build the coupled futuresight window zip](issues/34-build-the-futuresight-window-zip.md)
-  RESOLVED the same day -- the zip, its Tier-1 pair, the glossary correction across five sites,
-  and the probe that put the FIRST number on a futuresight cell (0.91x the `gforecast` pole, so
-  the `_window_rates` memo is closed rather than graduated). 33 had already landed, its gate kept
-  non-vacuous by a synthesised failing cell rather than by the instance 34 removed. **So the
-  builds fog is EMPTY but for one gated ticket: [Extend the gain
-  bundles](issues/20-extend-the-gain-bundles.md), unchanged and still gated on phase 1, since
-  which OTHER families need extending is phase 1's output. Nothing else on this map is takeable,
-  and phase 1 -- which nothing here blocks -- is the next act.**
-  **2026-09-13: 20 is RESOLVED and the builds fog is now genuinely EMPTY.** Phase 1 ran, named
-  three families, and the evaluator was extended to all three. What replaced it is not fog: it
-  is one `task` ticket with no judgement in it,
-  [Copy the chosen rule pairs into phase 2](issues/35-copy-the-chosen-pairs-into-phase-two.md)
-  -- `PHASE2_PAIRS` and `PHASE2_STAFFING_PIN`, both `None` today and both refused rather than
-  defaulted. It is the last edit before the launch.
-  **RESOLVED the same day: the constants are committed and the campaign spec builds, so the
-  builds fog is empty and the map holds NO open ticket.** What remains to reach the destination
-  is execution alone -- launch phase 2, then publish -- and neither is a decision.)
-- **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
-  released batch ("how far ahead can availability reliably be planned"), a future inbound
-  view-arm family; parked by the space-timeline resolution (03), which shipped predictions
-  untimed. (The unlawful version — reading the future script — is no longer fog: it is the
-  futuresight window reference family, decided by the objective resolution, 10.)
-- **The funnel campaign** — no longer a design gap OR a build gap: 08 specified it end to end
-  (pilot → phase 1 → selection → phase 2 → publish) and 18 landed the last build in the way,
-  so what remains is EXECUTION and it is UNBLOCKED. `--spec inbound_select` runs phase 1,
-  `run_restock_selection` writes the hand-off, `PHASE2_ARMS` takes its answer, and
-  `--spec inbound_policies` runs the ten-cell matrix (refusing to start until the arm set is
-  set), plus phase 2's command line carrying `PHASE2_RECV_CREW_SIZE` /
-  `PHASE2_RECV_DAY_SECONDS`, which have no cell axis and ARE the experimental condition.
-  The pilot (22) has RUN and gated through: the regime that makes both acceptance criteria
-  hold is known and committed. Two qualifications it attached, which the campaign must publish
-  with rather than discover — the comparison is mostly a FULFILLMENT result (store binds 14–17
-  of 75 drains against fulfillment's 46–60), and `gain_gated`'s H grid is fulfillment-only,
-  because one global fee threshold cannot serve channels whose non-saturated bands sit 3.5×
-  apart. **Whether phase 2 is worth running BEFORE the department-calibration effort lands is
-  now an open call, not a settled yes**: the passing config still carries a 15.9–22.0%
-  fulfillment missed share, so a campaign run there measures inbound ordering under a scarcity
-  the staffing model never chose. Sizing, if it runs as-is: phase 1 is 136 work units, phase 2
-  is 480; measured at published depth one unit is ~1,230–1,320 s wall at ~5.5 GB peak RSS, so
-  phase 2 is ~13 h of simulation and ~1.1 TB — archive-as-you-go is mandatory, workers are
-  RAM-bound before CPU-bound, and the grids are the trimming lever.
-  **Decided 2026-09-05 at department-calibration's
-  [Sequence the inbound funnel](../department-calibration/issues/05-sequence-the-inbound-funnel.md):
-  phase 1 is HELD.** It runs under the calibrated era, not the historical continuous regime — a
-  ranking taken today would be taken under a cost model (per-item charge) and a batch script (cut
-  on) no later run uses, and the `inb_off` anchor would compare across eras. The lift is that map's
-  [Take the reference run](../department-calibration/issues/09-take-the-reference-run.md) resolving.
-  The pilot's committed regime (`--recv-crew-size 4 --recv-day-seconds 43200`, `PHASE2_RECV_*`) is
-  an ERROR under the era — the receiving crew is derived, on the site's day — so the pilot gate is
-  re-run as a VERIFICATION, not a search, and phase 2's command line no longer carries an
-  experimental condition. **Execution order is now:** reference run (that map) →
-  [Verify the derived receiving crew under arrivals](issues/23-verify-the-derived-receiving-crew.md)
-  → phase 1 → selection → phase 2 → publish, with
-  [Re-size the funnel in site days](issues/24-resize-the-funnel-in-site-days.md) done before
-  phase 1 launches (the funnel inherits the reference window, 40 site days with 20–39 measured, so
-  the 136/480-unit sizing above is stale). `restock_selection.json` will pin the staffing record
-  and `inbound_policies` refuse under a different one.
-  **2026-09-10: the verification (23) read OUT OF BAND and the hold is back on.** The receiving
-  crew is fine; the coverage record carries no lead and the yard does not bind under the derived
-  crew. Execution order is now: department-calibration's
-  [Declare the coverage against the inbound lead](../department-calibration/issues/36-declare-the-coverage-against-the-inbound-lead.md)
-  and this map's
-  [Decide the contention regime under the derived crew](issues/25-decide-the-contention-regime-under-the-derived-crew.md)
-  (independent) →
-  [Re-verify the gate under the lead-aware record](issues/26-reverify-the-gate-under-the-lead-aware-record.md)
-  → 24 → phase 1 → selection → phase 2 → publish. The pilot regime no longer rides a command
-  line at all: `PILOT_RUN_DEFAULTS` carries it.
-  **2026-09-10, later: the hold is now behind the SITE-DOCK COUPLING** (Out of scope, the
-  successor seed). 25 found the slack yard was the leaf model, not a knob: the campaign's dock
-  is the site's, and phase 2's cells become PAIRS of arms under one inbound policy. Execution
-  order: [Chain the supplier lead before the trailer](issues/27-chain-the-supplier-lead-before-the-trailer.md)
-  and [Cap the door team](issues/28-cap-the-door-team.md) (independent, frontier) -> the
-  site-dock effort -> 26 on the coupled dock -> 24 -> phase 1 -> selection -> phase 2 -> publish.
-  **2026-09-11: 27 and 28 are both RESOLVED, so this map's frontier is EMPTY and the next act is
-  not a ticket on it** -- it was the SITE-DOCK CHARTING SESSION, done the same day and now
-  [`.scratch/site-dock/map.md`](../site-dock/map.md) (Out of scope, below, carries the seed). The two remaining tickets both wait on that effort:
-  [Re-verify the gate under the lead-aware record](issues/26-reverify-the-gate-under-the-lead-aware-record.md)
-  reads the gate on the coupled dock, and [Re-size the funnel in site days](issues/24-resize-the-funnel-in-site-days.md)
-  cannot size a cell until a cell is a PAIR of arms. The declared physics they will run under is
-  now complete: the supplier lead chains in front of the trailer, and the door team is capped at
-  ten with the dock's parallelism ceiling reported beside every receiving utilization.
-  **2026-09-12: the site dock effort CLOSED and the gate ran on it (26). Half the hold lifts.**
-  The coupled dock is no longer a question -- the yard binds, in 25's band, non-saturated -- so
-  nothing about the ARRIVAL regime is outstanding. What holds the campaign now is one channel's
-  coverage form, a department-calibration decision:
-  [Close the fulfillment fill-law gap](../department-calibration/issues/38-close-the-fulfillment-fill-law-gap.md).
-  Execution order: 38 -> [Re-run the gate and fix the fee
-  threshold](issues/29-rerun-the-gate-and-fix-the-threshold.md) (a confirmation on the yard, a
-  verdict on supply, and the threshold fixed off the sweep already recorded on
-  `PHASE2_THRESHOLD_DAYS`) -> 24 -> phase 1 -> selection -> phase 2 -> publish.
-  **2026-09-12, later: the hold is FULLY LIFTED and phase 1 is launchable now.**
-  [Re-size the funnel in site days](issues/24-resize-the-funnel-in-site-days.md) resolved, so
-  nothing on this map stands between here and the launch. The sizing above (136 / 480 units,
-  ~13 h, ~1.1 TB) is superseded: **phase 1 is 68 leaf units, 12–17 h of unit-seconds and ~47 GiB,
-  after ~1 h of per-pair setup; phase 2 is 120 COUPLED units, a floor of 37.8 h and ~169 GiB.**
-  The launch is `--spec inbound_select --profiles-dir <the one-pair reference view> --workers N`
-  and nothing else: the depth and the arrival regime now ride `run_defaults`, so no remembered
-  flag survives. Execution order: **phase 1 -> selection -> [Extend the gain bundles](issues/20-extend-the-gain-bundles.md)
-  + [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md)
-  (both between the phases, both before phase 2) -> copy `rule_pairs.chosen` AND
-  `staffing.pin` -> phase 2 -> publish.** [Pin the day divisor](issues/30-pin-the-day-divisor.md)
-  was the third of that set and is DONE -- taken before phase 1 rather than after, since it is
-  a strict no-op and its only risk was leaving a simulation-time divisor unpinned across the
-  between-phase build window. Two
-  qualifications the campaign publishes rather than discovers are unchanged (it is mostly a
-  fulfillment result; phase 1 ranks under 2x the site put labour phase 2 runs), and the phase-2
-  wall is a floor until 31 measures the gain multiplier.
-  **2026-09-12, later still: phase 2 CANNOT be launched as declared, and its sizing is
-  re-based.** [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md)
-  found two of the ten cells unrunnable under coupling (the futuresight family; see the decision
-  entry above), so the campaign is 8 cells until
-  [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md)
-  says otherwise: **96 coupled units, 23.8-27.0 h of unit-seconds, ~132 GiB, ~7 h wall at
-  4 workers, plus 0.76 h of freeze and reshape.** At ten cells, if the zip is built, 120 units
-  and 30.8-35.3 h -- a LOWER bound for the two futuresight cells, which nothing has ever timed
-  because nothing can until the zip exists. **Every absolute above is on the probe's clock, and
-  the gate run's is a different one**: identical work runs ~3.4x faster in the freeze and ~1.6x
-  faster per unit, so the 37.8 h / 169 GiB figures from 24 must not be multiplied by 31's ratio
-  or compared with these. Execution order: **phase 1 -> selection -> 20 + 32 (-> 33) -> copy
-  `rule_pairs.chosen` AND `staffing.pin` -> phase 2 -> publish**, with 32 launchable now since
-  it blocks nothing phase 1 does.
-  **2026-09-13: the axis is settled at TEN cells and the sizing above is final rather than
-  provisional.** [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md)
-  resolved BUILD, so phase 2 is **120 coupled units, 30.8-35.3 h of unit-seconds, ~164 GiB,
-  ~8.6-9.7 h wall at 4 workers, plus 0.88 h of freeze and reshape** -- still a LOWER bound on
-  its two futuresight cells, and [Build the coupled futuresight window
-  zip](issues/34-build-the-futuresight-window-zip.md) is what first lifts that, since its probe
-  times one `fsight_w5` unit against 31's `gforecast` pole before the campaign commits. Every
-  absolute here is on 31's probe clock and must not be mixed with 24's. Execution order:
-  **phase 1 -> selection -> 20 + 34 (-> 33) -> copy `rule_pairs.chosen` AND `staffing.pin` ->
-  phase 2 -> publish**, with 34 and 33 both launchable now since neither blocks anything phase 1
-  does. What the campaign publishes about the reference arms is pre-committed in 32 and is not a
-  launch-time call: "perfect demand knowledge buys X% over standing demand", symmetric in the
-  sign of X, and never "the lawful arm is at the ceiling" -- futuresight bounds pricing accuracy,
-  not achievable gain, so it may finish behind a lawful arm without that meaning anything about
-  headroom.
-  **2026-09-13, later: the zip LANDED and phase 2 is launchable in any form.** Until
-  [34](issues/34-build-the-futuresight-window-zip.md), `validate_spec` refused the phase-2 spec
-  BY NAME over `fsight_w5`/`fsight_wall`, so not even the eight runnable cells could start;
-  `uncomposable_policies` now returns `{}` for every policy the spec names. The ten-cell sizing
-  stands (120 coupled units, ~164 GiB) with one cell measured slightly UNDER what 32 assumed and
-  `fsight_wall` still the only unpriced one. **Execution order is unchanged and the frontier is
-  empty: phase 1 -> selection -> [20](issues/20-extend-the-gain-bundles.md) -> copy
-  `rule_pairs.chosen` AND `staffing.pin` -> phase 2 -> publish.** One operational note for
-  whoever launches phase 1: its documented command points at the one-pair reference view whose
-  junction was found DEAD on 2026-09-13 and repaired -- if it ever reports `No inventory+affinity
-  DB pairs found`, that is the link under the view and not a missing catalogue.
-  **2026-09-13, later still: PHASE 1 HAS RUN and the selection artifact is written.**
-  `comparison_20260913_113512` -- 68 leaf units, 16 workers, 0 failures, all 17 rules ran, 2.5 h
-  wall including the analysis pass. `restock_selection.json` is at its root.
-  **The ranking (score hours, summed over each channel's leaves):** store picks
-  `rank_cartlabor`, `rank_minlabor`, `rank_labor`, `tmin`, `rank_random`; fulfillment picks
-  `rank_minlabor`, `tmin`, `rank_labor`, `rank_cartlabor`, `rank_popularity`; `fifo` rides as the
-  mandatory rider and is also the order-blind control, at **+6.12% (store) / +8.00%
-  (fulfillment)** behind the best rule -- which is the campaign's real signal. The deliberate
-  worst-case controls land last exactly as designed (`rank_maxlabor` +8.62% / +13.86%, `tmax`
-  16th on both).
-  **The top of each ranking is NOISE and the pairing inherits it:** store's top three sit within
-  0.005% and 0.12% of each other, fulfillment's top EIGHT within 0.73%, and the rule pairs are
-  RANK-ALIGNED -- so the specific diagonal is one of several equally defensible draws, not a
-  derived optimum. It changes nothing about which families get extended (all three are in under
-  any ordering) and nothing about the inbound comparison, which is within-pair across cells; it
-  is a caveat the campaign publishes rather than discovers.
-  **[Extend the gain bundles](issues/20-extend-the-gain-bundles.md) is now UNBLOCKED and its
-  scope is exactly three families** -- `rank_minlabor`, `rank_labor`, `rank_cartlabor`, 08's cap
-  of 3 exactly consumed, with the selector backfilling past `comp` and `cmin` to stay inside it.
-  Four of the six rule pairs refuse until it lands. `staffing.pin` is
-  `0ed2dd1582af` for the reference pair. **The copy into `PHASE2_PAIRS` must wait for 20**:
-  `validate_spec` refuses a gain cell over an unfaithful rule, so copying first puts a refusing
-  spec in the tree. Execution order now: **20 -> copy `rule_pairs.chosen` AND `staffing.pin` ->
-  phase 2 -> publish.**
-  **2026-09-13, and last: 20 is DONE, so the copy is takeable and is now the map's whole
-  frontier.** All six rule pairs build; `validate_spec`'s faithfulness refusal is satisfied by
-  the live constant rather than by a remembered list. Execution order is
-  **[35](issues/35-copy-the-chosen-pairs-into-phase-two.md) -> phase 2 -> publish**, and after
-  the copy nothing on this map is a decision -- the destination is reached when phase 2 has run
-  and been published.
-  **Later the same day: 35 is DONE.** Both constants are committed off the artifact and
-  `get_spec('inbound_policies')` builds rather than refuses, which is the faithfulness check run
-  rather than argued. Execution order is now **phase 2 -> publish**, with no ticket in front of
-  it: 120 coupled units, ~8.6-9.7 h wall at 4 workers (31's clock), launched detached with a
-  keep-awake per `launch-long-drivers-detached`.
+(Empty — the map is closed. The three remnants below were beyond this destination and moved to
+Out of scope as the successor effort's starting signposts. Everything else this section held was
+graduated into tickets and resolved; Decisions so far is the index, ticket by ticket.)
 
 ## Out of scope
 
@@ -959,3 +771,31 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   and the coupling rides the inbound flag so phase 1 stays per-channel -- which leaves phase 1
   ranking under 2x the site put labour that phase 2 will run under, a caveat the campaign
   publishes rather than discovers.
+- **Run phase 2, then publish** — the successor effort's FIRST ACT, and the reason this map
+  closed rather than continued. Nothing about it is a decision: the spec builds, the pairs and
+  the staffing pin are committed off phase 1's artifact (35), and every family the ranking names
+  is served by the evaluator (20). What is left is a launch and a publish loop. Sizing, from 31's
+  clock (do NOT mix with 24's, which predates the re-size): 120 coupled units — 6 rule pairs x 2
+  stock_modes x 10 cells — 30.8–35.3 h of unit-seconds, ~164 GiB, ~8.6–9.7 h wall at 4 workers.
+  Launch detached with no console and a keep-awake (`launch-long-drivers-detached`); archive as
+  you go. **Three things the campaign must publish WITH rather than discover:** the comparison is
+  mostly a FULFILLMENT result (store binds 14–17 of 75 drains against fulfillment's 46–60);
+  `gain_gated`'s H grid is fulfillment-only, because one global fee threshold cannot serve
+  channels whose non-saturated bands sit 3.5x apart; and the rule pairing is one of several
+  equally defensible draws rather than a derived optimum (store's top three separate by 0.005%
+  and 0.12%, fulfillment's top eight span 0.73%, and the pairing is rank-aligned) — the signal is
+  the 6.1% / 8.0% gap down to the order-blind `fifo` control and the WITHIN-PAIR inbound
+  comparison across cells, neither of which turns on which near-tie took which rank.
+- **Resume-guard extension to yard state** — the one build remnant, and a REFUSAL rather than a
+  format (the trailer checkpoint format stays declined, above). Nothing inspects inbound state on
+  resume today: `_plan_strategy_start` takes `roll_over` and `receiving`, not `inbound`. The
+  standing yard is already covered, because `inbound_spec` refuses a standing yard without a
+  receiving crew and so the planner's `receiving=` is never False there (since 23 both read the
+  DERIVED crew under the era, not the declared key). The gap is narrower and real: a v1 trailer
+  run with a trailer type and NO receiving crew has worker-local trailers in no checkpoint, and
+  is not refused under `--resume-granularity batch`. The successor effort decides the refusal.
+- **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
+  released batch ("how far ahead can availability reliably be planned"), a future inbound
+  view-arm family; parked by the space-timeline resolution (03), which shipped predictions
+  untimed. The UNLAWFUL version is not a remnant: it is the futuresight window reference family,
+  decided by the objective resolution (10) and built by 13 and 34.
