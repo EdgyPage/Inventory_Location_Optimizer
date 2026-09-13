@@ -309,7 +309,7 @@ is also settable per cell (above), which is how phase 2 sweeps ten policies in o
 | `--inbound-yard-policy` / `--inbound-dock-policy` | (CONFIG: `fifo`) | freed door ← which standing trailer; crew ← which staged trailer. `fifo`, `lifo`, the three `gain_*` arms, `futuresight` |
 | `--inbound-fee-threshold-days` | (CONFIG: 2.0) | free yard days before overage accrues. ONE knob, TWO readers — the urgency gate and the fee report — so they can never disagree about "overdue". Stamps are stored raw, so the fee is re-reportable under a different threshold without re-simulating |
 | `--inbound-urgency-horizon-days` | (CONFIG: 0.0) | `gain_gated`'s only dial. Hours and days never blend into one score; the gate is the only place they meet |
-| `--inbound-futuresight-batches` | — | the futuresight window in script batches, or `all` for the oracle. A declared-**unlawful** upper-bound reference, never in the recommendable set |
+| `--inbound-futuresight-batches` | — | the futuresight window in script batches, or `all` for the oracle. A declared-**unlawful** clairvoyance reference, never in the recommendable set: it bounds pricing accuracy, not achievable gain |
 | `--inbound-crew-allocation` | (CONFIG: `split`) | `split` = door teams (the standing physics); `merged` = v1's pooled gang. A mechanics mode, not a policy |
 | `--inbound-unload-{intercept,weight-coef,volume-coef}` | — | the dock's own unload price. Omit to take the put-away value by reference, which is what every existing run did |
 

@@ -69,20 +69,23 @@ from Inbound.space import SpaceView
 #: The fields `compose_site_view` actually merges.  Each is handled explicitly below, and
 #: each is in the returned view.
 COMPOSED_VIEW_FIELDS: frozenset = frozenset({
-    'empties', 'emptied_at', 'predicted', 'released_at', 'versions', 'frozen_at'})
+    'empties', 'emptied_at', 'predicted', 'released_at', 'versions', 'frozen_at',
+    'window'})
 
-#: The fields it declines.  A leaf carrying one is refused, LOUDLY — the alternative is a
-#: composed view that silently answers None where a leaf answered something, which for
-#: `window` would turn `futuresight` into a dead arm rather than a degraded one.
+#: The fields it declines — EMPTY since "Build the coupled futuresight window zip"
+#: (inbound-optimization 34) composed `window`, the only member this set ever had.
 #:
-#: THE ZIP RULE FOR `window`, settled and written down for whoever lifts it: zip the two
-#: tuples BY BATCH INDEX (legitimate — one batch is one site day, and the staffing
-#: derivation refuses channels with different batch counts), then union each pair of
-#: `{sku: qty}` dicts, which are disjoint because no SKU belongs to both leaves.  What is
-#: refused is SHIPPING it unexercised; "Decide the futuresight family's place"
-#: (inbound-optimization 32) chose BUILD, so this set empties when that lands — and
-#: emptying it is the whole edit on this side.
-UNCOMPOSED_VIEW_FIELDS: frozenset = frozenset({'window'})
+#: KEPT RATHER THAN DELETED, and the emptiness is the interesting state.  Deleting it
+#: deletes the PARTITION, and the partition is what makes a new `SpaceView` field a
+#: decision somebody makes instead of a default somebody inherits — which is the exact
+#: route `window` took in.  A leaf carrying a member is refused LOUDLY: a composed view
+#: that silently answers None where a leaf answered something is, for a field an arm
+#: REQUIRES, a dead arm rather than a degraded one.
+#:
+#: The composer's refusal below reads this set generically, so an empty set leaves that
+#: loop unexercised — `test_site_space_view.py` re-classifies a field for the length of
+#: one call to keep it provably live (memory `real-test-coverage-is-317`).
+UNCOMPOSED_VIEW_FIELDS: frozenset = frozenset()
 
 
 def uncomposable_policies(policies) -> dict:
@@ -230,6 +233,65 @@ def compose_site_view(contributions) -> SpaceView | None:
                     f'different bins and not one bin emptied twice')
             emptied_at[bin_id] = stamp
 
+    # THE FUTURESIGHT WINDOW: ZIP BY BATCH INDEX, THEN UNION EACH PAIR OF `{sku: qty}`.
+    # Indexing is legitimate because ONE BATCH IS ONE SITE DAY: both leaves advance one
+    # script index per drain, `_futuresight_window` clamps each at the same `n_batches`,
+    # and the staffing derivation refuses channels with different batch counts — so slot
+    # `i` is the same day on both sides rather than two leaves' i-th remaining batch.
+    #
+    # The union is DISJOINT because a SKU is single-regime, which is also why
+    # `_window_rates` needs no change: the flat `{sku: (total, events)}` shape survives and
+    # every load still reads exactly its own leaf's entry.  A per-regime window would break
+    # that aggregation and is the wrong shape.
+    #
+    # ALL OR NONE, refused rather than filled in.  `_fs_w` comes off the inbound spec and a
+    # cell names ONE policy, so production feeds every leaf or none; a window on one side
+    # only is a feed that ran half the site, and composing it would price one channel's
+    # future picks against the other channel's blindness — `futuresight` running as
+    # `gain_forecast` under its own name, which is the fake-arm hazard `_require` exists
+    # for.  An EMPTY window on every leaf is not that: it composes to `()`, which is a run
+    # at the end of its script and legal.
+    windows = [v.window for _, v in entries]
+    carriers = [r for (r, _), w in zip(entries, windows) if w is not None]
+    if carriers and len(carriers) != len(entries):
+        raise ValueError(
+            f'only leaf/leaves {carriers} carry `window`, of {regimes!r}; the futuresight '
+            f"feed is driven by the cell's ONE policy, so either every leaf gets a window "
+            f'or none does, and a half-fed site would price one channel clairvoyantly and '
+            f'the other blind under a single arm name')
+    window = None
+    if carriers:
+        depths = {len(w) for w in windows}
+        if len(depths) != 1:
+            raise ValueError(
+                f'the leaves carry windows of different depths {sorted(depths)}; both the '
+                f'clamp at `n_batches` and the equal batch counts the staffing derivation '
+                f'enforces make these agree, so a mismatch means one of those broke and '
+                f'slot i is no longer one site day')
+        zipped = []
+        for i, per_batch in enumerate(zip(*windows)):
+            merged: dict = {}
+            for d in per_batch:
+                n = len(merged)
+                merged.update(d)
+                if len(merged) != n + len(d):
+                    # The collision check RIDES the union's own iteration (`predicted` and
+                    # `emptied_at` above raise under the same disjoint-by-construction
+                    # argument).  WHICH SKUs collided is recomputed here, on the failure
+                    # path, rather than paid for on every batch of every drain.
+                    seen: dict = {}
+                    for r, w in zip(regimes, windows):
+                        for sku in w[i]:
+                            seen.setdefault(sku, []).append(r)
+                    raise ValueError(
+                        f'SKU(s) {sorted(k for k, rs in seen.items() if len(rs) > 1)} '
+                        f"appear in more than one leaf's window at batch {i}; a SKU "
+                        f'belongs to exactly one channel, so the windows are disjoint by '
+                        f'construction and a collision means the batch scripts were built '
+                        f'over a catalogue the owner map does not describe')
+            zipped.append(merged)
+        window = tuple(zipped)
+
     return SpaceView(
         empties=empties,
         emptied_at=emptied_at,
@@ -251,8 +313,9 @@ def compose_site_view(contributions) -> SpaceView | None:
         # contract; equality is the only operation.
         versions=tuple(tuple(v.versions[slot] for _, v in entries) for slot in range(3)),
         frozen_at=next(iter(stamps)),
-        # THE ONLY VALUE THE REFUSAL ABOVE LEAVES REACHABLE, not a drop: `window` is in
-        # UNCOMPOSED_VIEW_FIELDS, so no entry that got here carries one.  Composing it
-        # means moving the field into COMPOSED_VIEW_FIELDS and merging it here — both, or
-        # the partition test fails.
-        window=None)
+        # ZIPPED ABOVE, and this line is the half that is easy to miss: a `window=None`
+        # left hard-coded here composes the field perfectly and then throws it away, which
+        # `futuresight` cannot tell from a feed that never ran.  Declaring and merging are
+        # two edits, and `test_a_composed_field_actually_survives_the_composition` is the
+        # one that fails if only the first is made.
+        window=window)

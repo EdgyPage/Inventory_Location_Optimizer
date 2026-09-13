@@ -93,9 +93,18 @@ pure gain (only already-overdue trailers jump), >= threshold = pure FIFO.
 
 # ── the futuresight window (`futuresight`) ────────────────────────────────────────
 
-`gain_forecast` reading `ctx.space.window` — the declared-unlawful upper-bound
-REFERENCE ("Define the inbound objective" decision 6): a real WMS cannot see
-undispatched orders, so this arm never enters the recommendable set.  The window is
+`gain_forecast` reading `ctx.space.window` — the declared-unlawful CLAIRVOYANCE
+REFERENCE ("Define the inbound objective" decision 6; the term sharpened by "Decide the
+futuresight family's place", 32): a real WMS cannot see undispatched orders, so this arm
+never enters the recommendable set.
+
+NOT an upper bound, and the difference is publishable rather than pedantic.  The window
+replaces the demand RATE inside an UNCHANGED greedy, so w=inf prices each unit's future
+picks exactly while the ORDERING stays a heuristic — it bounds PRICING ACCURACY, never
+achievable gain.  A reference arm may therefore finish BEHIND a lawful one, which is a
+finding (the binding constraint is the ordering, not the estimate) and not a pathology;
+"the lawful arm is at the ceiling" is not a reading this arm supports in either
+direction.  The window is
 the next `INBOUND_FUTURESIGHT_BATCHES` script batches' realized demand ('all' = the
 oracle w=inf), driver-fed on its own view slot; the batch script is i.i.d. draws from
 the static rates, so the edge is exactly SAMPLING-NOISE knowledge — which SKUs land,
@@ -1055,7 +1064,9 @@ def gain_gated(candidates, ctx) -> list:
 @ordering
 def futuresight(candidates, ctx) -> list:
     """`gain_forecast` reading the window slot (module note) — the declared-unlawful
-    upper-bound reference, never recommendable.  An EMPTY window (a run at the end
+    CLAIRVOYANCE reference, never recommendable; it bounds pricing accuracy and NOT
+    achievable gain, so it may legitimately finish behind a lawful arm (32).  An EMPTY
+    window (a run at the end
     of its script) is legal and prices every pick term zero; a MISSING one (None)
     means no feed ran, and ranking anyway would silently be `gain_forecast` under
     this arm's name — the same fake-arm hazard `_require` exists for."""

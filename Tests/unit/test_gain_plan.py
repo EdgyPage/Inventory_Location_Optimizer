@@ -534,6 +534,82 @@ def test_futuresight_entry_with_matching_rates_is_forecast_through_the_seam():
         'forecast plan — nontrivially (contention decides, not arrival order)')
 
 
+# ── the coupled zip: 06's Tier-1 pair for the composed window (34) ────────────────
+
+def _leaf_window_views(store_win, ful_win):
+    """Two leaf views carrying only a window, and the site view `compose_site_view` makes
+    of them.  `empties` is EMPTY on both deliberately: the composer's regime filter is
+    `test_site_space_view.py`'s subject, and a pool that differed between the two sides
+    would make a price difference here ambiguous.  Holding the pool fixed is what isolates
+    the claim to the window."""
+    from Inbound.site_space import compose_site_view
+
+    def _leaf(win):
+        return SpaceView(empties={}, emptied_at={}, predicted={}, released_at=0.0,
+                         versions=(0, 0, 0), frozen_at=0.0, window=win)
+
+    return compose_site_view([('store', _leaf(store_win)),
+                              ('fulfillment', _leaf(ful_win))])
+
+
+def test_the_composed_window_prices_exactly_as_each_leaf_window_did():
+    """06's Tier-1 EQUIVALENCE for the zip, and it is the strong form rather than "the
+    composed window has both leaves' keys": because the union is DISJOINT, a load reads
+    only its own leaf's entries, so composing is a strict no-op against pricing each leaf's
+    window alone — an exact float, not an approximation.
+
+    Two-sided on purpose.  The failure the zip exists to prevent is one leaf's half being
+    dropped, and a one-sided test would see that in only one of the two directions."""
+    from Inbound.gain import _window_rates
+    store_win = ({1: 3}, {1: 2})
+    ful_win = ({2: 9}, {2: 4, 5: 1})
+    site = _leaf_window_views(store_win, ful_win)
+    assert _window_rates(site.window) == {**_window_rates(store_win),
+                                          **_window_rates(ful_win)}, (
+        'the aggregate a load prices against must be the two leaves\' aggregates, merged '
+        'with neither side\'s totals or event counts disturbed')
+
+    view = _view({_KEY_M: [_Bin(0, 480.0, 96.0)]})
+    site_rates = _window_rates(site.window)
+    for sku, own in ((1, store_win), (2, ful_win)):
+        unit = _Unit(_Order(sku, qty_rate=5.0), 30)
+        leaf_cost, leaf_takes = _Evaluator(
+            _bundle(), view, window_rates=_window_rates(own)).place_load([unit], set(), False)
+        site_cost, site_takes = _Evaluator(
+            _bundle(), view, window_rates=site_rates).place_load([unit], set(), False)
+        assert site_cost == leaf_cost and site_takes == leaf_takes, (
+            f'sku {sku}: the composed window moved a price its own leaf\'s window set')
+
+
+def test_dropping_one_leafs_half_of_the_window_moves_the_other_leafs_price():
+    """06's Tier-1 SABOTAGE, and the non-vacuity guard the equivalence above needs: the
+    prices it compares must be sensitive to the window at all.  Price the fulfillment load
+    against STORE's window alone — the drop-the-other-half defect — and its SKU falls out
+    of the aggregate, so it prices put-travel-only and the equality breaks."""
+    from Inbound.gain import _window_rates
+    store_win = ({1: 3}, {1: 2})
+    ful_win = ({2: 9}, {2: 4, 5: 1})
+    site = _leaf_window_views(store_win, ful_win)
+    b = _Bin(0, 480.0, 96.0)
+    view = _view({_KEY_M: [b]})
+    unit = _Unit(_Order(2, qty_rate=5.0), 30)
+
+    def _price(rates):
+        return _Evaluator(_bundle(), view, window_rates=rates).place_load(
+            [unit], set(), False)[0]
+
+    put_only = _PUT.x_pace * b.x_phys + _PUT.y_pace * b.y_phys
+    assert _price(_window_rates(store_win)) == pytest.approx(put_only), (
+        'sku 2 is absent from store\'s window, so a half-composed feed prices it put-only')
+    assert _price(_window_rates(site.window)) > put_only, (
+        'under the zip it carries real pick work — which is what the equivalence above is '
+        'asserting stayed identical, and what a dropped half would silently remove')
+    static = _Evaluator(_bundle(), view).place_load([unit], set(), False)[0]
+    assert _price(_window_rates(site.window)) != static, (
+        'the composed window must actually be READ: equal to the static price and every '
+        'assertion in this pair would hold with the window ignored entirely')
+
+
 # ── exhaustion: the spill rule's two docstring claims, pinned directly ────────────
 
 def test_seats_next_drain_but_not_now_defers_correctly():

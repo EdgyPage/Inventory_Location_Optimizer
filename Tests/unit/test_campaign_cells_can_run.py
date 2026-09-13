@@ -53,12 +53,12 @@ _STORE, _FUL = 'store', 'fulfillment'
 #: policy and this whole gate is inert for it, which is why the list is not "every spec".
 _CAMPAIGN = ('inbound_select', 'inbound_policies', 'inbound_pilot')
 
-#: THE CELLS THE COUPLED MODEL DECLINES TODAY, pinned so that emptying the set is the
-#: visible half of 34 landing. `fsight_w5` and `fsight_wall` are 31's finding; 32 decided
-#: BUILD, so when the window is composed this becomes `set()` and this test is what says
-#: so. It is NOT an allowlist for new dead cells — a third name appearing here is the
+#: THE CELLS THE COUPLED MODEL DECLINES. EMPTY since "Build the coupled futuresight
+#: window zip" (34) composed `window`: `fsight_w5` and `fsight_wall` were 31's finding, 32
+#: decided BUILD, and emptying this set was the visible half of that landing. Kept at
+#: `set()` rather than deleted — it is NOT an allowlist, so a name appearing here is the
 #: defect this module exists to catch, not a line to add.
-_KNOWN_DEAD = {'fsight_w5', 'fsight_wall'}
+_KNOWN_DEAD: set = set()
 
 #: BinKey is a PLAIN TUPLE — `(handling, category, storage_size, unit_category)`, shaped
 #: like `test_site_space_view.py`'s so the composer's regime filter behaves as in
@@ -75,24 +75,37 @@ class _Bin:
         self.tag = tag
 
 
-#: A legal non-None value per UNCOMPOSED field, so the refusal can be driven generically.
-#: Guarded below: a new uncomposed field with no sample here fails rather than silently
-#: dropping out of the sweep.
-_SAMPLE = {'window': ({101: 3}, {102: 1})}
+#: A legal non-None value per field a leaf can carry that the base below does not build
+#: inline, as a (store, ful) PAIR. The pair is the point: the two leaves' values have to be
+#: legal TOGETHER, and for `window` that means DISJOINT SKUs, because a SKU is single-regime
+#: and the composer refuses a collision (34). Guarded below: a new field with no sample here
+#: fails rather than silently dropping out of a sweep.
+_SAMPLE = {'window': (({101: 3}, {101: 1}),
+                      ({201: 5}, {202: 2}))}
 
 
 def _leaves(**over):
     """Two leaves shaped as production builds them — every COMPOSED field carrying
     something, so "did it survive the composition" is answerable for each.  `frozen_at`
-    matches: one drain is one freeze, and a mismatch is its own refusal."""
+    matches: one drain is one freeze, and a mismatch is its own refusal.
+
+    A `_SAMPLE` field is carried BY DEFAULT once the declaration composes it, and only
+    then: that is what gives `test_a_composed_field_actually_survives_the_composition`
+    something to look at for `window`, while leaving an UNCOMPOSED field absent from the
+    base so `_composed_carrying` adding it is what drives the refusal.  `over` values are
+    (store, ful) pairs like `_SAMPLE`'s."""
+    carried = {f: v for f, v in _SAMPLE.items() if f in COMPOSED_VIEW_FIELDS}
+    carried.update(over)
+    s_over = {f: v[0] for f, v in carried.items()}
+    f_over = {f: v[1] for f, v in carried.items()}
     s_bins = (_Bin(_K_STORE, 's0'),)
     f_bins = (_Bin(_K_FUL, 'f0'),)
     store = SpaceView(empties={_K_STORE: s_bins}, emptied_at={id(s_bins[0]): 5.0},
                       predicted={_K_STORE: s_bins}, released_at=10.0, versions=(1, 2, 3),
-                      frozen_at=100.0, **over)
+                      frozen_at=100.0, **s_over)
     ful = SpaceView(empties={_K_FUL: f_bins}, emptied_at={id(f_bins[0]): 6.0},
                     predicted={_K_FUL: f_bins}, released_at=20.0, versions=(4, 5, 6),
-                    frozen_at=100.0, **over)
+                    frozen_at=100.0, **f_over)
     return store, ful
 
 
@@ -131,7 +144,11 @@ def test_every_registered_policy_declares_what_it_reads():
 
 def test_every_uncomposed_field_has_a_sample_so_the_sweep_below_is_total():
     """Non-vacuity guard for this module itself: a new uncomposed field with no sample
-    would drop out of `test_an_uncomposed_field_is_refused` and prove nothing."""
+    would drop out of `test_an_uncomposed_field_is_refused` and prove nothing.
+
+    Vacuous while the set is EMPTY (34), and deliberately kept for the field that lands in
+    it next; what keeps the composer's refusal loop itself exercised meanwhile is
+    `test_site_space_view.py::test_the_generic_refusal_still_fires_when_the_declaration_is_empty`."""
     assert UNCOMPOSED_VIEW_FIELDS <= set(_SAMPLE)
 
 
@@ -140,7 +157,11 @@ def test_every_uncomposed_field_has_a_sample_so_the_sweep_below_is_total():
 @pytest.mark.parametrize('field', sorted(UNCOMPOSED_VIEW_FIELDS))
 def test_an_uncomposed_field_is_refused_rather_than_dropped(field):
     """Refused, loudly, and naming the field. Dropped silently, `futuresight` is not a
-    degraded arm but a dead one — it raises on a None window by design."""
+    degraded arm but a dead one — it raises on a None window by design.
+
+    COLLECTS NOTHING since 34 emptied the declaration, which is why the composer's loop is
+    pinned directly in `test_site_space_view.py` as well; this stays for the next field
+    classified uncomposed."""
     out = _composed_carrying({field})
     assert isinstance(out, ValueError), f'{field} is declared uncomposed but composed anyway'
     assert f'`{field}`' in str(out)
@@ -175,16 +196,16 @@ def test_the_gate_agrees_with_the_composer_on_every_declared_cell(name):
 
 def test_the_campaign_axis_names_no_cell_the_coupled_model_declines():
     """Phase 2 couples EVERY cell (PHASE2_RUN_DEFAULTS), so an uncomposable policy on the
-    axis is a dead cell. Pinned rather than asserted empty because 34 has not landed:
-    emptying `_KNOWN_DEAD` is the visible half of that ticket."""
+    axis is a dead cell. `_KNOWN_DEAD` emptied when 34 landed the window zip, so all ten
+    declared cells are runnable — and this now fails in one direction only, which is the
+    direction that matters."""
     blocked = uncomposable_policies(inbound_policies_of(SPECS['inbound_policies']))
     dead = {suffix for suffix, ov in phase2_inbound_axis()
             if {ov.get('yard_policy'), ov.get('dock_policy')} & set(blocked)}
     assert dead == _KNOWN_DEAD, (
-        'the set of phase-2 cells the coupled model declines has changed. Emptied: 34 has '
-        'landed the window zip — clear _KNOWN_DEAD. Grown: a new cell names a policy that '
-        'reads a structure a composed view does not carry, which is the defect this module '
-        'exists to catch, not a line to add here.')
+        'the set of phase-2 cells the coupled model declines has changed: a cell names a '
+        'policy that reads a structure a composed view does not carry, which is the defect '
+        'this module exists to catch, not a line to add here.')
 
 
 def test_the_pilot_and_the_selection_run_name_nothing_uncomposable():
@@ -269,8 +290,8 @@ def test_the_same_rules_pass_when_no_cell_names_a_gain_policy():
 
 
 def test_a_faithful_ranking_over_the_runnable_cells_is_accepted():
-    """The green case, and the shape phase 2 launches in once 34 lands: no refusal fires on
-    a spec whose cells and arms the run can both actually serve."""
+    """The green case, and the shape phase 2 launches in: no refusal fires on a spec whose
+    cells and arms the run can both actually serve."""
     validate_spec(_phase2_like(rule_pairs=[('fifo', 'fifo'), ('tmin', 'tmax')]), 'clean')
 
 

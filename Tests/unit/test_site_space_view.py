@@ -25,6 +25,10 @@ What is pinned, and why each is a silent failure otherwise:
   * **`emptied_at` is keyed by `id(bin)` and the leaves hold TWO warehouses.**  Each leaf
     builds its own, so the id-spaces are independent and CPython recycles ids; a collision
     would hand one leaf's lookup the other leaf's stamp for a different bin.
+  * **The futuresight window zips BY BATCH INDEX** (inbound-optimization 34).  Its unions
+    are disjoint because a SKU is single-regime, so a collision is a refusal and not a
+    merge; the depth stays w rather than becoming 2w; and the feed is ALL OR NONE, because
+    a window on one leaf only would run `futuresight` as `gain_forecast` on the other.
 
 The trap this test is written against, from memory `lockstep-tests-compare-aggregates-only`:
 assert the composed KEY SETS and their tuples, never a count of bins.
@@ -35,6 +39,7 @@ from __future__ import annotations
 
 import pytest
 
+from Inbound import site_space
 from Inbound.site_space import compose_site_view
 from Inbound.space import SpaceView
 
@@ -206,22 +211,93 @@ def test_one_site_epoch_and_a_disagreement_is_refused():
         compose_site_view([(_STORE, store), (_FUL, ful)])
 
 
-# ── 4. the refusals ──────────────────────────────────────────────────────────────
+# ── 4. the futuresight window, ZIPPED (34) ───────────────────────────────────────
 
-def test_a_futuresight_window_is_refused_rather_than_zipped():
-    """The zip rule is settled and written on the declaration; what is refused is SHIPPING
-    it unexercised. `_window` is None on every lawful arm, so the code would rot in place
-    (memory `hand-run-test-tiers-rot-silently`).
-
-    The refusal is now driven by `UNCOMPOSED_VIEW_FIELDS` rather than a branch per field
-    (inbound-optimization 33), so the message names the FIELD; the general form of this
-    test — every declared uncomposed field is refused, every composed one survives — is in
-    `test_campaign_cells_can_run.py`."""
+def test_the_windows_zip_by_batch_index_and_union_disjoint_skus():
+    """One batch is one SITE day: both leaves advance one script index per drain, so slot
+    `i` is the same day on both sides. The two batches here carry different SKU sets, so a
+    flatten or a concatenation gives a visibly different answer than the zip."""
     (store, _, _), (ful, _, _) = _leaves()
-    store.window = ({1: 2},)
-    with pytest.raises(ValueError, match='carry `window`'):
+    store.window = ({1: 3}, {1: 2, 3: 1})
+    ful.window = ({2: 5}, {4: 7})
+    out = compose_site_view([(_STORE, store), (_FUL, ful)])
+    assert out.window == ({1: 3, 2: 5}, {1: 2, 3: 1, 4: 7})
+    assert isinstance(out.window, tuple), (
+        '`SpaceView.window` is a TUPLE of batch dicts; a list passes every equality here '
+        'and changes the declared type the driver feeds and `_window_rates` walks')
+
+
+def test_the_composed_depth_is_the_window_depth_not_the_sum():
+    """What the by-index rule actually pins, since `_window_rates` FLATTENS and cannot see
+    it (recorded on ticket 34): a concatenation prices identically today and would still be
+    wrong — the window means "the next w batches", `_futuresight_window` clamps it at
+    `n_batches`, and the depth refusal below compares lengths."""
+    (store, _, _), (ful, _, _) = _leaves()
+    store.window = ({1: 3}, {1: 2})
+    ful.window = ({2: 5}, {2: 1})
+    assert len(compose_site_view([(_STORE, store), (_FUL, ful)]).window) == 2
+
+
+def test_a_sku_in_both_windows_is_refused():
+    """A SKU is single-regime, so the windows are disjoint by construction — the same
+    argument `predicted` and `emptied_at` raise under, and the same discipline."""
+    (store, _, _), (ful, _, _) = _leaves()
+    store.window = ({1: 3}, {7: 1})
+    ful.window = ({2: 5}, {7: 4})
+    with pytest.raises(ValueError, match='window at batch 1') as exc:
+        compose_site_view([(_STORE, store), (_FUL, ful)])
+    assert '[7]' in str(exc.value), 'the refusal must name the colliding SKU, not just fire'
+
+
+def test_windows_of_different_depths_are_refused():
+    """`_futuresight_window` clamps every leaf at the same `n_batches` and the staffing
+    derivation refuses channels with different batch counts, so a mismatch means one of
+    those broke and slot i is no longer one site day. Asserted, not handled."""
+    (store, _, _), (ful, _, _) = _leaves()
+    store.window = ({1: 3},)
+    ful.window = ({2: 5}, {2: 1})
+    with pytest.raises(ValueError, match='different depths'):
         compose_site_view([(_STORE, store), (_FUL, ful)])
 
+
+def test_a_window_on_one_leaf_only_is_refused():
+    """ALL OR NONE. The feed is driven by the cell's ONE policy, so production feeds every
+    leaf or none; composing a half-fed site would price one channel clairvoyantly and the
+    other blind under a single arm name — `futuresight` silently running as
+    `gain_forecast`, which is the fake-arm hazard."""
+    (store, _, _), (ful, _, _) = _leaves()
+    store.window = ({1: 3},)
+    with pytest.raises(ValueError, match='only leaf/leaves'):
+        compose_site_view([(_STORE, store), (_FUL, ful)])
+
+
+def test_no_feed_composes_to_none_and_two_empty_windows_to_empty():
+    """The distinction `futuresight` raises on: None is "no feed ran" and is an error for
+    that arm; `()` is a run at the END of its script and is legal. Composing the second to
+    the first would turn a legal arm into a dead one on its last batches."""
+    (store, _, _), (ful, _, _) = _leaves()
+    assert compose_site_view([(_STORE, store), (_FUL, ful)]).window is None
+    store.window = ful.window = ()
+    out = compose_site_view([(_STORE, store), (_FUL, ful)])
+    assert out.window == () and out.window is not None
+
+
+def test_the_generic_refusal_still_fires_when_the_declaration_is_empty(monkeypatch):
+    """34 emptied `UNCOMPOSED_VIEW_FIELDS`, so the composer's refusal loop is now
+    unexercised code and `test_campaign_cells_can_run.py`'s sweep over that set collects
+    NOTHING (memory `real-test-coverage-is-317`, memory `hand-run-test-tiers-rot-silently`).
+
+    Re-classify a field for the length of one call and the loop must still refuse it. That
+    is also the proof the loop reads the DECLARATION rather than a field name someone
+    hard-coded — which is what a future field's classification depends on."""
+    monkeypatch.setattr(site_space, 'UNCOMPOSED_VIEW_FIELDS', frozenset({'window'}))
+    (store, _, _), (ful, _, _) = _leaves()
+    store.window = ful.window = ({1: 2},)
+    with pytest.raises(ValueError, match='declines to compose'):
+        site_space.compose_site_view([(_STORE, store), (_FUL, ful)])
+
+
+# ── 5. the other refusals ────────────────────────────────────────────────────────
 
 def test_an_untagged_contribution_is_refused_once_there_are_two():
     """The tag is what partitions `empties`. It is absent at one leaf because nothing is
@@ -260,7 +336,7 @@ def test_a_heterogeneous_key_is_refused():
         compose_site_view([(_STORE, a), (_FUL, b)])
 
 
-# ── 5. the wiring: the coordinator really does reach the composer ───────────────
+# ── 6. the wiring: the coordinator really does reach the composer ───────────────
 
 def test_freeze_views_contributes_one_untagged_view_per_timeline():
     """The tag is absent at ONE leaf because a composition of one partitions nothing — and

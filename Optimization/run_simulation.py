@@ -878,8 +878,8 @@ def main():
         default=CONFIG['global']['inbound_futuresight_batches'],
         help="The futuresight arm's window, in SCRIPT BATCHES ahead of the one being "
              "released; 'all' is the oracle (w=inf). The arm REQUIRES it and requires the "
-             'precomputed batch script. A declared-UNLAWFUL upper-bound reference, never '
-             'in the recommendable set.')
+             'precomputed batch script. A declared-UNLAWFUL clairvoyance reference, never '
+             'in the recommendable set: it bounds pricing accuracy, not achievable gain.')
     for _flag, _key, _what in (
             ('--inbound-unload-intercept', 'inbound_unload_intercept', 'fixed seconds per unload'),
             ('--inbound-unload-weight-coef', 'inbound_unload_weight_coef', 'seconds per pound'),

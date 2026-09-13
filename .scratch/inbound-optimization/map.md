@@ -614,6 +614,34 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   needs 20's extension would have died at the first drain of every gain cell -- now refused in
   the same place.
 
+- [Build the coupled futuresight window zip](issues/34-build-the-futuresight-window-zip.md):
+  **BUILT -- both futuresight cells are alive, phase 2 can launch in ANY form for the first
+  time, and the probe's verdict inverts the worry: `fsight_w5` runs at 0.91x the `gforecast`
+  pole, so the `_window_rates` memo is NEVER built.** 33's three edits were the right three and
+  its warning was accurate (the hard-coded `window=None` in the composed return is the one that
+  hides). `UNCOMPOSED_VIEW_FIELDS` is KEPT at empty, because deleting it deletes the partition
+  that makes the next field a decision rather than a default. Three refusals ride the zip, and
+  the one 32 did not name has the teeth: a window on ONE leaf only is refused, since a half-fed
+  site would run `futuresight` as `gain_forecast` on the other channel under its own name.
+  **The finding that outlives the build: the by-index rule is a SHAPE contract, not a pricing
+  one** -- concatenating prices IDENTICALLY, measured by sabotage, because `_window_rates`
+  flattens before aggregating. It earns its place on depth (w, not 2w) and on the timed-lookahead
+  family still in the fog; pinned with that reasoning written on it, because a reader who finds
+  the invariance alone will otherwise conclude the rule was decoration. 06's Tier-1 pair is
+  written TWO-SIDED (the defect it prevents is one leaf's half being dropped, visible in only one
+  direction from one side), and the refusal's own test went vacuous on the empty declaration -- a
+  visible pytest SKIP -- so a monkeypatched re-classification keeps the composer's generic loop
+  provably live. The glossary correction was FIVE sites, not the three the ticket named, and none
+  of them were the two files it named. **The probe also refines 31 section 5:** the `gforecast`
+  control reproduced 31's published pole to 0.6% while the FREEZE in the same run ran 25% slower
+  (1,208 s vs 966 s), so pooled per-unit walls transfer between runs and serial setup does not --
+  which is why 0.91x holds both within-run and cross-run. RSS identical to 1 MiB across the cells
+  (31's "time, not memory" extends to the window feed itself); disk 1.375 GiB/unit. **Still
+  unmeasured: `fsight_wall`** -- the mechanism that made w=5 cheap (SKUs missing from a short
+  window price put-only) is exactly what an 'all' window removes, so phase 2's sizing stays a
+  lower bound for that one cell. Found on the way: the one-pair reference view's junction was
+  DEAD, which would have failed PHASE 1's own launch command identically; repaired.
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -635,18 +663,16 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   and is done. and the gain-cell cost probe -- 31 -- which
   was takeable at any time and is done. THREE tickets remain, one of them new.
   [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md)
-  RESOLVED 2026-09-13 as BUILD, which graduated
-  [Build the coupled futuresight window zip](issues/34-build-the-futuresight-window-zip.md) --
-  the zip, its Tier-1 pair, the docstrings the glossary correction invalidates, and the probe
-  that puts the FIRST number on a futuresight cell -- and unblocked
-  [Gate the campaign axis on the coupled
-  model](issues/33-gate-the-campaign-axis-on-the-coupled-model.md), whose gate now points the
-  other way: the one known failing instance is being removed, so the general predicate and a
-  synthesised failing cell are what keep that check non-vacuous (commented there, with the
-  ordering note -- it can be proven against the current composer if it lands before 34). The
-  third, [Extend the gain bundles](issues/20-extend-the-gain-bundles.md), is unchanged: gated on
-  phase 1, since which OTHER families need extending is phase 1's output. So the frontier is 34
-  and 33 -- and phase 1, which nothing on this map blocks, can run alongside both.)
+  RESOLVED 2026-09-13 as BUILD, and
+  [Build the coupled futuresight window zip](issues/34-build-the-futuresight-window-zip.md)
+  RESOLVED the same day -- the zip, its Tier-1 pair, the glossary correction across five sites,
+  and the probe that put the FIRST number on a futuresight cell (0.91x the `gforecast` pole, so
+  the `_window_rates` memo is closed rather than graduated). 33 had already landed, its gate kept
+  non-vacuous by a synthesised failing cell rather than by the instance 34 removed. **So the
+  builds fog is EMPTY but for one gated ticket: [Extend the gain
+  bundles](issues/20-extend-the-gain-bundles.md), unchanged and still gated on phase 1, since
+  which OTHER families need extending is phase 1's output. Nothing else on this map is takeable,
+  and phase 1 -- which nothing here blocks -- is the next act.**)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -766,6 +792,17 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   sign of X, and never "the lawful arm is at the ceiling" -- futuresight bounds pricing accuracy,
   not achievable gain, so it may finish behind a lawful arm without that meaning anything about
   headroom.
+  **2026-09-13, later: the zip LANDED and phase 2 is launchable in any form.** Until
+  [34](issues/34-build-the-futuresight-window-zip.md), `validate_spec` refused the phase-2 spec
+  BY NAME over `fsight_w5`/`fsight_wall`, so not even the eight runnable cells could start;
+  `uncomposable_policies` now returns `{}` for every policy the spec names. The ten-cell sizing
+  stands (120 coupled units, ~164 GiB) with one cell measured slightly UNDER what 32 assumed and
+  `fsight_wall` still the only unpriced one. **Execution order is unchanged and the frontier is
+  empty: phase 1 -> selection -> [20](issues/20-extend-the-gain-bundles.md) -> copy
+  `rule_pairs.chosen` AND `staffing.pin` -> phase 2 -> publish.** One operational note for
+  whoever launches phase 1: its documented command points at the one-pair reference view whose
+  junction was found DEAD on 2026-09-13 and repaired -- if it ever reports `No inventory+affinity
+  DB pairs found`, that is the link under the view and not a missing catalogue.
 
 ## Out of scope
 
