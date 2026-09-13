@@ -540,6 +540,35 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   other tier at its stashed baseline. No schema event. Owed: the derived arch layer, as at
   09/13/15/21/28.
 
+- [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md):
+  **the probe could not price the cell it was sent to price -- `fsight_wall` cannot run AT ALL
+  under the coupled model, and neither can `fsight_w5`, so 2 of phase 2's 10 declared cells are
+  DEAD rather than expensive.** `Inbound/site_space.py` refuses to compose two futuresight
+  windows (deliberately, with the lift rule written beside it and a unit test pinning it), and
+  every phase-2 cell couples; measured on a probe run, all four coupled units of the
+  `fsight_wall` cell failed identically, and a direct call to `compose_site_view` proves the
+  refusal keys on the window's PRESENCE, not its width. Nothing was wrong in `site_space.py`:
+  the gap is that **nothing checks the campaign's declared axis against the coupled model's
+  refusals** -- successors [Decide the futuresight family's
+  place](issues/32-decide-the-futuresight-familys-place.md) (build the zip or drop the family)
+  and [Gate the campaign axis on the coupled
+  model](issues/33-gate-the-campaign-axis-on-the-coupled-model.md). With the family out, both
+  unmeasured costs land at the CHEAP end of 24's brackets, from a three-cell probe
+  (`fifo` control + `gmyopic` + `gforecast`, the gate's own `fifo`/`tmin` arms, 12 coupled
+  units, 0 failures): **a gain cell is 1.6-1.9x an unpriced one** (arm-dependent, 1.45-2.20
+  across two adapters -- size on the upper end), **a reshape is 221 s** against 24's 1.0-10.1 h
+  bracket for ten of them, and the freeze is 975 s, so the campaign's whole fixed cost is
+  **0.76 h**. Pricing costs TIME, NOT MEMORY -- peak RSS is identical to three digits across
+  all three cells, the ARM sets it and the policy does not touch it -- and disk holds at
+  1.37 GiB per coupled unit. **The third cell was the control, and section 5 is why it had to
+  be in-run: the gate run's absolutes are NOT reproducible.** The probe's freeze does
+  bit-for-bit identical work (same line floors, same units fielded, same fragmentation) in
+  966 s against the gate's 3,261 s, uniformly ~3.4x faster at every stage, with no worker pool
+  anywhere in it to explain the gap. So 24's 1,134 s per unit and 3,633 s setup are numbers
+  from a different clock and cannot be multiplied by this ticket's ratio; the RATIO is the only
+  machine-independent thing here. Phase 2 restated on the probe's own clock: **8 runnable
+  cells, 96 units, 23.8-27.0 h of unit-seconds, ~132 GiB, about 7 h wall at 4 workers.**
+
 ## Not yet specified
 
 - **The builds** — every implementation graduates here once its governing decisions close.
@@ -558,12 +587,17 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   run-shape layer — 18 —, which paid the seams 3–4 debt every knob deferred to "the first
   sweep", and the fifo rider's gain bundle — 21 —, which was the last build standing between
   the funnel and the pilot, and the day-divisor pin -- 30 -- which was takeable at any time
-  and is done. TWO tickets remain, both BETWEEN the phases:
-  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md) is gated on phase 1, since
-  which OTHER families need extending is phase 1's output, and
-  [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md) is
-  AFK, does not block phase 1, and must land before phase 2 -- so 31 IS on the frontier and
-  takeable now, though the act with the most ahead of it is still the phase-1 run.)
+  and is done. and the gain-cell cost probe -- 31 -- which
+  was takeable at any time and is done. THREE tickets remain. Two are new and both came out of
+  31, which found that phase 2 cannot be launched as declared:
+  [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md)
+  is the DECISION (build the window zip, or drop the family) and blocks phase 2 whichever way
+  it goes; [Gate the campaign axis on the coupled
+  model](issues/33-gate-the-campaign-axis-on-the-coupled-model.md) closes the CLASS behind it
+  and waits on 32, because the gate it lands would fail on today's axis. The third,
+  [Extend the gain bundles](issues/20-extend-the-gain-bundles.md), is unchanged: gated on
+  phase 1, since which OTHER families need extending is phase 1's output. So the frontier is
+  32 -- and phase 1, which nothing on this map blocks, can run alongside it.)
 - **Timed / deeper lookahead views** — predicted-clear timing and LAWFUL demand beyond the
   released batch ("how far ahead can availability reliably be planned"), a future inbound
   view-arm family; parked by the space-timeline resolution (03), which shipped predictions
@@ -654,6 +688,20 @@ caching contract at declared freeze points — all flag-off byte-identical — a
   qualifications the campaign publishes rather than discovers are unchanged (it is mostly a
   fulfillment result; phase 1 ranks under 2x the site put labour phase 2 runs), and the phase-2
   wall is a floor until 31 measures the gain multiplier.
+  **2026-09-12, later still: phase 2 CANNOT be launched as declared, and its sizing is
+  re-based.** [Measure what a gain cell actually costs](issues/31-measure-what-a-gain-cell-costs.md)
+  found two of the ten cells unrunnable under coupling (the futuresight family; see the decision
+  entry above), so the campaign is 8 cells until
+  [Decide the futuresight family's place](issues/32-decide-the-futuresight-familys-place.md)
+  says otherwise: **96 coupled units, 23.8-27.0 h of unit-seconds, ~132 GiB, ~7 h wall at
+  4 workers, plus 0.76 h of freeze and reshape.** At ten cells, if the zip is built, 120 units
+  and 30.8-35.3 h -- a LOWER bound for the two futuresight cells, which nothing has ever timed
+  because nothing can until the zip exists. **Every absolute above is on the probe's clock, and
+  the gate run's is a different one**: identical work runs ~3.4x faster in the freeze and ~1.6x
+  faster per unit, so the 37.8 h / 169 GiB figures from 24 must not be multiplied by 31's ratio
+  or compared with these. Execution order: **phase 1 -> selection -> 20 + 32 (-> 33) -> copy
+  `rule_pairs.chosen` AND `staffing.pin` -> phase 2 -> publish**, with 32 launchable now since
+  it blocks nothing phase 1 does.
 
 ## Out of scope
 
