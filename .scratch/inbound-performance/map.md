@@ -96,6 +96,19 @@ Concretely, the destination is reached when:
   reorders the queue.
   → [06-production-never-stands-a-yard.md](issues/06-production-never-stands-a-yard.md)
 
+- **[07] Copy-on-write aisle views: 64–117x less copying, byte-identical.** The first refactor,
+  and the first measured BEFORE it was built. A pool touches 1.22 of 46 live aisles; the eager copy
+  walked all forty-six, 9.3M set-element copies in 20 batches on one leaf. `AISLE_VIEWS` now sits
+  beside `AISLE_COPIERS`, asserted to cover each other at import. Floats copy nothing at all (a read
+  falls through; only writes overlay); sets and the two-level list dict materialize one aisle per
+  access. `values()`/`items()` stay eager on purpose — a lazy one would hand out the live container.
+  Byte-identical on all four pool adapters with the live dicts inside the digest, and four different
+  digests across arms so the comparison is not vacuous. It also broke an existing sabotage test by
+  moving the seam it patched — repaired by pointing it at the table production reads.
+  **Worth −45.5% / −49.3% / −77.7% on the receive drain** (labor / cartlabor / minlabor), paired
+  same-process. `rank_minlabor` is the big one and it is fulfillment's #1 and store's #2 arm.
+  → [07-copy-on-write-aisle-views.md](issues/07-copy-on-write-aisle-views.md)
+
 ## Fog
 
 - **The recipe is being asked for two things that pull against each other**: a real fixture wants
@@ -106,8 +119,9 @@ Concretely, the destination is reached when:
 - Where the 1.6–1.9x pricing multiplier actually lives, now that the candidate loop is ruled out
   at production scale. The per-UNIT hypothesis (entries x units_per_trailer x tiers) is stated in
   ticket 06 and not yet measured.
-- Whether `_make_pool`'s per-placement aisle-dict copy can be made copy-on-write without the pool
-  builders iterating a whole dict somewhere.
+- **Whether the campaign's 1.6–1.9x priced/unpriced multiplier moves.** The drain is 45–78% cheaper
+  at meso scale, but that ratio is what actually restates phase 2's 8.6–9.7 h sizing, and it needs a
+  same-day priced-vs-unpriced control at campaign shape.
 - How much of a coupled priced run is currently in **no section at all** — the coupled leaf returns
   before `check_reorders`, so the drain may be entirely unattributed.
 
