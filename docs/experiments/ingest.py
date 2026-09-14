@@ -243,7 +243,14 @@ def _leaf_file(rt, cell, inv, cfg, name, cfg_src):
 
 def _copy(src, dst, dry, log):
     if not src or not os.path.isfile(src):
-        log.append(f"  MISSING  {src}")
+        # `src` is None whenever _leaf_file / _find could not resolve the curated name, so
+        # logging it alone printed "MISSING  None" and named nothing at all -- in the one
+        # line whose entire job is to name the stale figure (see the registry note above:
+        # the param_frequency rename staged nothing for months and this log was its only
+        # symptom). `dst` always carries the name, because site_tree.path built it FROM the
+        # name. A non-None `src` that is not a file is a different failure -- resolution
+        # worked and the file went away -- so that path is worth printing as-is.
+        log.append(f"  MISSING  {src if src else os.path.relpath(dst, _DOCS)}")
         return 0
     log.append(f"  copy     {src}  ->  {os.path.relpath(dst, _DOCS)}")
     if not dry:
@@ -296,6 +303,22 @@ def main(argv=None):
     # which are the current figures its sweep never produced.
     top3, full_suite, inv_plots = LEGACY_TOP3, LEGACY_FULL_SUITE, LEGACY_INVENTORY_PLOTS
     yml = os.path.join(exp_dir, "experiment.yml")
+    # ... EXCEPT when this invocation is scaffolding a new experiment. `--gen-manifest`
+    # with no manifest yet means "this is a NEW experiment", and the starter manifest
+    # written at the end of main() already names the CURRENT figures for exactly that
+    # reason -- so staging the legacy set here made the two disagree on the first pass:
+    # every retired name logged MISSING (30 of them on a 2-cell run), no current figure
+    # was staged, and only a SECOND ingest -- now reading the manifest it just wrote --
+    # staged anything real. The starter list and the starter staging are one decision;
+    # this makes the pass that stages agree with the pass that declares.
+    #
+    # A plain ingest is untouched: without --gen-manifest a manifest-less experiment is
+    # a LEGACY snapshot and still renders the frozen legacy set, which is the whole
+    # reason the two lists parted ways.
+    if args.gen_manifest and not os.path.isfile(yml) and _DEFAULTS is not None:
+        top3, full_suite, inv_plots = (DEFAULT_TOP3, DEFAULT_FULL_SUITE,
+                                       DEFAULT_INVENTORY_PLOTS)   # stages what that
+                                                                  # manifest will name
     ymldoc = {}
     if yaml and os.path.isfile(yml):
         with open(yml, encoding="utf-8") as fh:
