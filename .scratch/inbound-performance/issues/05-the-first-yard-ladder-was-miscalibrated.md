@@ -101,3 +101,53 @@ and the yard is the one quantity the inbound cells exist to vary. `_levels` now 
    measurements of the same quantity; if they disagree, the ladder is measuring something else.
 3. A second seed, and a repeated top rung — one point cannot separate a code threshold from the
    machine.
+
+## Answer: the yard is an UNSTABLE queue, and batch count is the growth axis
+
+The candidate answer above -- "more batches, because a yard behind a binding whistle is unstable
+where the put queue is not" -- is confirmed, and the magnitude is larger than the question implied.
+Same recipe (600 SKUs, coverage 10 / safety 2, bins_per_aisle 100, doors 4, crew 2), same probe,
+only the batch count changed:
+
+| batches | whistle | final yard | T | `place_load` | `_make_pool` |
+|---|---|---|---|---|---|
+| 10 | 20 s | 3 | 2.80 | 192 | 584 |
+| 10 | 10 s | 8 | 2.98 | 214 | 722 |
+| **40** | **20 s** | **391** | **151.87** | **1,810,900** | **3,479,636** |
+| **40** | **10 s** | **403** | **157.89** | **1,956,882** | **3,823,146** |
+
+Over a 4x increase in batches: yard depth **x130**, T **x54**, `place_load` **x9,432**, pool opens
+**x5,958**.
+
+The internal arithmetic is consistent, which is the check that the numbers are real rather than a
+runaway: `place_load` should be `entries x T(T+1)`. Entries went 18 -> 78 (x4.3) and `T(T+1)` went
+7.84 -> 23,065 (x2,942); their product is x12,650 against a measured x9,432 -- the same order, with
+the gap explained by T being a MEAN over entries whose depth grows through the run.
+
+**This settles the disagreement ticket 05 opened with the `growth-ladder-use-the-skus-knob`
+memory.** That memory records the batches knob saturating every backlog level, and it is right --
+about the PUT QUEUE, which drains every batch. The yard behind a binding whistle does not drain,
+so it accumulates instead of saturating. Both statements are true of different queues, and the
+memory should not be read as covering this one.
+
+### What it does and does not say about the campaign
+
+**Does not:** these whistles are 10-20 SECONDS. The era's is the site shift (~8 h), so this is a
+starved configuration, not the campaign's. Nothing here shows the campaign's yard reaching 391.
+
+**Does, and it matters:** whenever the whistle binds AT ALL, depth compounds with batch count
+rather than settling. The campaign runs `CAMPAIGN_DEPTH_DAYS = 40` -- exactly the depth at which
+this measurement shows compounding dominating -- on the full 400,000-SKU catalogue with
+`MAX_SKUS = None`. Whether the era's crew (derived to `RHO_RECV = 0.85`) leaves a residue each day
+is now the single question that decides whether the evaluator's O(T^2) is trivial or enormous in
+the campaign, because 40 days of a small daily residue is not a small yard.
+
+**And it raises the value of the copy-on-write refactor sharply.** At T = 152 a single-leaf
+40-batch run opens **3.5 million** pools, each of which was copying every live aisle. That is the
+regime ticket 07's fix was built for, arrived at from the other direction.
+
+### Consequence for the ladder
+
+Batch count belongs on the ladder as a first-class axis alongside catalogue size. A `skus` ladder
+run at a fixed shallow depth would report the yard as trivial and would be measuring the warm-up,
+not the operating point.

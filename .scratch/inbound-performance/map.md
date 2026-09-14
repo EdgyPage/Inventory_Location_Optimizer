@@ -120,6 +120,17 @@ Concretely, the destination is reached when:
   same-process. `rank_minlabor` is the big one and it is fulfillment's #1 and store's #2 arm.
   → [07-copy-on-write-aisle-views.md](issues/07-copy-on-write-aisle-views.md)
 
+- **[05, answered] The yard is an UNSTABLE queue — batch count is the growth axis.** Same recipe,
+  10 → 40 batches: yard depth 3 → **391**, T 2.80 → **151.87**, pool opens 584 → **3.48 million**.
+  It does not saturate. That settles the disagreement with `growth-ladder-use-the-skus-knob`, which
+  is right about the PUT queue (drains every batch) and does not cover this one. The whistles used
+  were 10–20 s, so this is a starved configuration and NOT the campaign's — but it means that
+  whenever the whistle binds at all, depth compounds with batch count, and the campaign runs
+  `CAMPAIGN_DEPTH_DAYS = 40` on the full 400,000-SKU catalogue (`MAX_SKUS = None`). Whether the
+  era's crew (`RHO_RECV = 0.85`) leaves a daily residue is now the single question that decides
+  whether the evaluator's O(T²) is trivial or enormous. A `skus` ladder at shallow depth would
+  measure the warm-up and report the yard as trivial.
+
 ## Fog
 
 - **The recipe is being asked for two things that pull against each other**: a real fixture wants
