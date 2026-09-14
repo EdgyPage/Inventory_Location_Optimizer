@@ -36,6 +36,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import statistics as st
@@ -68,15 +69,31 @@ def _configure(policy: str, coverage: float, recv_crew: int) -> None:
              inbound_standing_yard=True,
              inbound_yard_policy=policy,
              inbound_dock_policy=policy,
-             # THE ERA. Without it there is no whistle and the yard cannot stand; see the header.
-             shift_drain_or_cap=True,
-             cut_at_day_end=True,
-             roll_over_unpicked=True)
+             )
+    # THE ERA, TAKEN FROM THE CAMPAIGN'S OWN CONSTANT rather than restated.  Without it there
+    # is no whistle and the yard cannot stand (see the header) -- and restating it by hand is
+    # how this tool first ran: it set `shift_drain_or_cap`, `cut_at_day_end` and
+    # `roll_over_unpicked`, missed `releases_per_day`, and the coupled put pool refused with
+    # "this run releases None batch(es) per day".  A loud refusal, caught in a 4-batch smoke
+    # run -- but the same omission in a knob nothing validates would have run silently.
+    # `PHASE2_RUN_DEFAULTS` spreads this same dict, so the ladder and the campaign cannot
+    # disagree about what "the era" means.
+    from Optimization.config.whatif_config import ERA_RUN_DEFAULTS
+    g.update(ERA_RUN_DEFAULTS)
 
 
 def _one(skus: int, batches: int, arm: str, policy: str,
-         coverage: float, recv_crew: int) -> dict:
-    """One rung, one pole. Returns the drain wall plus the evaluator's own counts."""
+         coverage: float, recv_crew: int, coupled: bool = False,
+         min_catalogue: int | None = None) -> dict:
+    """One rung, one pole, IN THIS PROCESS. Returns the drain wall plus the evaluator's counts.
+
+    Callers should prefer `_one_isolated`.  This body mutates process-global `CONFIG` and
+    `run_fullfid` mutates it further, so two rungs in one interpreter share whatever the
+    previous one left behind.  That is not a hypothetical: a full-suite run this week failed
+    on exactly that shape -- `run_analysis._apply_run_shape` writes
+    `CONFIG['global']['sampler']` with no restore, and one e2e test then broke a unit test
+    twelve minutes later.
+    """
     _configure(policy, coverage, recv_crew)
 
     import Inbound.gain as gain
@@ -115,19 +132,80 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     rc.SiteReceiving.receive = recv
     try:
         t0 = time.perf_counter()
-        cs.run_fullfid(n_batches=batches, max_skus=skus, strategy=arm)
+        res = cs.run_fullfid(n_batches=batches, max_skus=skus, strategy=arm,
+                             coupled=coupled, min_catalogue=min_catalogue)
         stats['wall_s'] = time.perf_counter() - t0
     finally:
         gain.plan_order, gain._Evaluator.place_load, gain._Evaluator._make_pool = _po, _pl, _mp
         rc.SiteReceiving.receive = _recv
+
+    # RHO, the x axis. Read off the DERIVED block rather than recomputed: `staffing.derive`
+    # already solved `crew_size(load, S, rho_recv)` and `expected_utilization` for this pair,
+    # and a second implementation here would drift from the one the run actually sized on.
+    try:
+        from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS
+        _recv = ((res or {}).get('staffing') or {}).get('derived', {}).get('receiving', {})
+        _S = float((res or {}).get('shift_seconds') or DEFAULT_SHIFT_SECONDS)
+        stats['recv_crew'] = _recv.get('crew')
+        stats['recv_load_s'] = _recv.get('load_seconds_per_day')
+        stats['rho_recv'] = (stats['recv_load_s'] / (stats['recv_crew'] * _S)
+                             if stats['recv_crew'] and _S else None)
+    except Exception:
+        stats['recv_crew'] = stats['recv_load_s'] = stats['rho_recv'] = None
 
     e = stats['entries']
     r = stats['place_loads'] / e if e else 0.0
     stats['T'] = (-1 + math.sqrt(1 + 4 * r)) / 2 if r else 0.0
     stats['per_entry'] = r
     stats['max_depth'] = max(stats['depths']) if stats['depths'] else 0
+    stats['catalogue'] = (res or {}).get('catalogue')
+    stats['catalogue_skus'] = (res or {}).get('catalogue_skus')
+    stats['saturated'] = bool((res or {}).get('saturated'))
     stats['mean_depth'] = st.mean(stats['depths']) if stats['depths'] else 0.0
     return stats
+
+
+def _one_isolated(skus, batches, arm, policy, coverage, recv_crew, coupled,
+                  min_catalogue):
+    """One rung, one pole, in a FRESH INTERPRETER.
+
+    RUNGS MUST NOT SHARE A PROCESS.  `_configure` writes process-global `CONFIG`, and
+    `run_fullfid` writes more of it (`n_batches`, and the era derivation stamps `shared`).
+    Two rungs in one interpreter would therefore measure whatever the previous one left
+    behind -- and a ladder whose rungs contaminate each other reports a trend that is partly
+    its own history.
+
+    This is not a theoretical worry.  A full-suite run this week failed on exactly this
+    shape: `run_analysis._apply_run_shape` writes `CONFIG['global']['sampler']` with no
+    restore, so one e2e test broke a unit test twelve minutes later, and every tier passed
+    when run on its own.  A subprocess is the cheap, total fix -- the OS restores the global
+    state for free.
+    """
+    import subprocess
+    payload = json.dumps(dict(skus=skus, batches=batches, arm=arm, policy=policy,
+                              coverage=coverage, recv_crew=recv_crew, coupled=coupled,
+                              min_catalogue=min_catalogue))
+    out = subprocess.run(
+        [sys.executable, os.path.abspath(__file__), '--worker', payload],
+        capture_output=True, text=True, cwd=_REPO,
+        env=dict(os.environ, PYTHONIOENCODING='utf-8'))
+    for line in reversed(out.stdout.splitlines()):
+        if line.startswith('__RUNG__'):
+            return json.loads(line[len('__RUNG__'):])
+    raise RuntimeError(
+        'rung skus=%s pole=%s produced NO result line -- the subprocess ran and printed '
+        'nothing this tool could parse, which is the pool-run-swallows-dead-arms shape: '
+        'exit 0 and no data. stdout tail: %s || stderr tail: %s'
+        % (skus, policy, out.stdout[-1500:], out.stderr[-1500:]))
+
+
+def _fmt_rho(v) -> str:
+    """rho to 3 decimals, or "-" when the derived block did not carry it.
+
+    A missing rho must READ as missing. Printing 0.000 for "not derived" would put a
+    number in the one column the caveats tell the reader to fit against.
+    """
+    return f'{v:.3f}' if isinstance(v, (int, float)) else '-'
 
 
 def main() -> None:
@@ -144,8 +222,22 @@ def main() -> None:
                          'measurement is empty. fifo is uniform, tmin/tmax are merge.')
     ap.add_argument('--coverage', type=float, default=5.0)
     ap.add_argument('--recv-crew', type=int, default=4)
+    ap.add_argument('--coupled', action='store_true',
+                    help='run the SITE model (both leaves). The default takes '
+                         '_channel_runs[0], always the STORE -- the quieter half of the '
+                         'site: it binds 14-17 of 75 drains against fulfillment 46-60.')
+    ap.add_argument('--worker', default=None, help=argparse.SUPPRESS)
     ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args()
+
+    if a.worker:                     # the subprocess entry point
+        kw = json.loads(a.worker)
+        r = _one(kw['skus'], kw['batches'], kw['arm'], kw['policy'],
+                 kw['coverage'], kw['recv_crew'], kw['coupled'],
+                 kw.get('min_catalogue'))
+        r.pop('depths', None)        # keep the handoff small
+        print('__RUNG__' + json.dumps(r))
+        return
 
     if a.dry_run:
         print(f'rungs   : {a.rungs}')
@@ -154,18 +246,41 @@ def main() -> None:
         print(f'total   : {2 * len(a.rungs)} fullfid runs under the era')
         return
 
+    # ONE catalogue for the whole ladder, sized by the TOP rung.
+    #
+    # Per-rung selection would be worse than the bug it fixes. The catalogues under
+    # PROFILE_INPUT_DIR were generated months apart (40,000 on 2026-09-13, 400,000 on
+    # 2026-08-16) and the generator moved between them, so a ladder that picked per rung
+    # would change GENERATOR VINTAGE partway up and report the difference as growth.
+    # Sizing on the top rung binds one catalogue that can serve every rung, and every
+    # rung then truncates the SAME catalogue -- which is what makes the rungs comparable.
+    floor = max(a.rungs)
     print(f'{"skus":>8} {"pole":>10} {"drain_s":>9} {"wall_s":>8} {"entries":>8} '
-          f'{"place_ld":>9} {"pools":>9} {"T":>6} {"maxdep":>7} {"deadline":>9}')
+          f'{"place_ld":>9} {"pools":>9} {"T":>6} {"maxdep":>7} '
+          f'{"crew":>5} {"rho":>6} {"deadline":>9}')
     rows = []
+    _announced = False
     for n in a.rungs:
         rung = {}
         for pole, policy in (('unpriced', UNPRICED), ('priced', PRICED)):
-            s = _one(n, a.batches, a.arm, policy, a.coverage, a.recv_crew)
+            s = _one_isolated(n, a.batches, a.arm, policy, a.coverage,
+                              a.recv_crew, a.coupled, floor)
             rung[pole] = s
+            if not _announced and s.get('catalogue'):
+                print(f'catalogue: {s["catalogue"]} declares '
+                      f'{s["catalogue_skus"]:,} SKUs -- every rung truncates THIS one')
+                _announced = True
             print(f'{n:>8,} {pole:>10} {s["drain_s"]:>9.3f} {s["wall_s"]:>8.1f} '
                   f'{s["entries"]:>8,} {s["place_loads"]:>9,} {s["pools"]:>9,} '
-                  f'{s["T"]:>6.2f} {s["max_depth"]:>7} {str(s["deadline"]):>9}')
+                  f'{s["T"]:>6.2f} {s["max_depth"]:>7} '
+                  f'{str(s.get("recv_crew") or "-"):>5} '
+                  f'{_fmt_rho(s.get("rho_recv")):>6} '
+                  f'{str(s["deadline"]):>9}')
         rows.append((n, rung))
+        if rung['priced'].get('saturated'):
+            print(f'{"":>8} {"":>10} SATURATED -- rung {n:,} exceeds the bound '
+                  f'catalogue ({rung["priced"].get("catalogue_skus"):,}); this rung '
+                  f'RE-RUNS the one at the ceiling and is not a measurement.')
 
     print()
     print('TWO MULTIPLIERS, AND THEY ARE NOT THE SAME NUMBER — paired within each rung')
@@ -178,14 +293,15 @@ def main() -> None:
     print('           to that band is the denominator error this repo keeps paying for.')
     print()
     print(f'{"skus":>8} {"drain_u":>9} {"drain_p":>9} {"DRAINx":>8} '
-          f'{"run_u":>8} {"run_p":>8} {"RUNx":>7} {"T":>6}')
+          f'{"run_u":>8} {"run_p":>8} {"RUNx":>7} {"T":>6} {"rho":>6}')
     for n, rung in rows:
         u, p = rung['unpriced']['drain_s'], rung['priced']['drain_s']
         wu, wp = rung['unpriced']['wall_s'], rung['priced']['wall_s']
         dm = (p / u) if u > 0 else float('nan')
         rm = (wp / wu) if wu > 0 else float('nan')
         print(f'{n:>8,} {u:>9.3f} {p:>9.3f} {dm:>8.2f} '
-              f'{wu:>8.1f} {wp:>8.1f} {rm:>7.2f} {rung["priced"]["T"]:>6.2f}')
+              f'{wu:>8.1f} {wp:>8.1f} {rm:>7.2f} {rung["priced"]["T"]:>6.2f} '
+              f'{_fmt_rho(rung["priced"].get("rho_recv")):>6}')
 
     print()
     print("ticket 31 measured 1.6-1.9x PER COUPLED UNIT on ('fifo','tmin') -- the two adapters")
@@ -194,13 +310,18 @@ def main() -> None:
     print('a unit, and a ratio of two small numbers near timing resolution is unstable.')
     print()
     print('CAVEATS THIS LADDER CANNOT SHED:')
-    print('  * run_fullfid takes _channel_runs[0], always the STORE leaf. Store binds 14-17 of')
-    print('    75 drains against fulfillment 46-60, so this is the quieter half of the site.')
-    print('  * Uncoupled: PutawayPool, two-leaf compose_site_view and _unload_split door teams')
-    print('    are not exercised.')
-    print('  * rho is NOT controlled here. crew_size takes a ceil, so small rungs float the crew')
-    print('    far under target and rho(N) is a sawtooth. Read the multiplier against the')
-    print("    measured T, never against the rung's SKU count.")
+    if a.coupled:
+        print('  * COUPLED: both leaves ran, so PutawayPool, the two-leaf')
+        print('    compose_site_view and _unload_split door teams ARE exercised.')
+    else:
+        print('  * UNCOUPLED: run_fullfid took _channel_runs[0], always the STORE leaf,')
+        print('    which binds 14-17 of 75 drains against fulfillment 46-60 -- the quieter')
+        print('    half. PutawayPool, two-leaf compose_site_view and _unload_split door')
+        print('    teams were NOT exercised. Pass --coupled for the site model.')
+    print('  * rho is NOT controlled: crew_size takes a ceil, so small rungs float the')
+    print('    crew under target and rho(N) is a SAWTOOTH. Read the multiplier against')
+    print('    the measured rho and T, never against the rung SKU count.')
+    print('  * Scale: the campaign is 400,000 SKUs (MAX_SKUS = None) at 40 site days.')
 
 
 if __name__ == '__main__':

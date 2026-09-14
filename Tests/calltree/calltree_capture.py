@@ -60,6 +60,10 @@ def _meta(args, sizes: dict, overhead: float | None) -> dict:
         # A capture without its configuration is unreadable: `cfg=none` and `cfg=inbound_yard`
         # produce different trees from the same flags, and the difference is the whole point.
         'config': getattr(args, 'config', 'none'),
+        # Coupled and uncoupled are different EXPERIMENTS, not two runs of one -- see
+        # capture_fullfid's docstring. Recording it beside `config` for the same reason:
+        # a capture whose mode is not on the record is unreadable a week later.
+        'coupled': bool(getattr(args, 'coupled', False)),
         'seed': args.seed,
         'strategy': args.strategy,
         'sizes': sizes,
@@ -76,8 +80,8 @@ def _default_out(args) -> str:
     # `cfg` belongs in the FILENAME as well as the index tags, the way `calltree_growth` writes
     # `growth__cfg-<name>_knob-<knob>_...`.  Two captures of different configurations are not
     # comparable and must not be distinguishable only by opening them.
-    return archive_path('capture', cfg=getattr(args, 'config', 'none'),
-                        tier=args.tier, seed=args.seed)
+    mode = 'coupled' if getattr(args, 'coupled', False) else getattr(args, 'config', 'none')
+    return archive_path('capture', cfg=mode, tier=args.tier, seed=args.seed)
 
 
 # ── tiers ─────────────────────────────────────────────────────────────────────
@@ -150,11 +154,22 @@ def capture_inproc(args) -> dict:
 
 
 def capture_fullfid(args) -> dict:
-    """fullfid: trace sr._run_strategy_worker in-process; sections via SECTION_MAP."""
+    """fullfid: trace sr._run_strategy_worker in-process; sections via SECTION_MAP.
+
+    `--coupled` routes through `_prepare_site_run` so BOTH leaves run as one site unit.
+    It is not a variant of the same measurement: uncoupled takes `_channel_runs[0]`, which
+    workunits.py guarantees is the STORE, and the store leaf's yard barely stands (T
+    1.14-1.30 across the whole uncoupled ladder) while the coupled site's reaches 2.25 at
+    40k SKUs. Every cost that scales with yard depth -- `plan_order` is O(T^2) in it -- is
+    therefore invisible in an uncoupled tree, which is a demonstrated fact about this tier
+    rather than a caution. PutawayPool, the two-leaf compose_site_view and _unload_split's
+    door teams exist only on this path too.
+    """
     # pass 1 — untraced; the worker's own t_* totals are the section walls
     t0 = time.perf_counter()
     res_u = scenarios.run_fullfid(n_batches=args.batches, max_skus=args.skus,
-                                  strategy=args.strategy if args.strategy != 'auto' else None)
+                                  strategy=args.strategy if args.strategy != 'auto' else None,
+                                  coupled=args.coupled)
     wall_u = time.perf_counter() - t0
     worker = res_u.get('worker_result') or {}
     sections_wall = {s: float(worker.get(s, 0.0)) for s in SECTIONS
@@ -166,12 +181,14 @@ def capture_fullfid(args) -> dict:
     tr = CallTreeTracer(track_c_calls=not args.no_c_calls)
     t0 = time.perf_counter()
     scenarios.run_fullfid(tracer=tr, n_batches=args.batches, max_skus=args.skus,
-                          strategy=args.strategy if args.strategy != 'auto' else None)
+                          strategy=args.strategy if args.strategy != 'auto' else None,
+                          coupled=args.coupled)
     wall_t = time.perf_counter() - t0
     root = tr.tree()
 
     doc = to_capture_dict(root, meta=_meta(args, {'max_skus': args.skus,
-                                                  'arm': res_u.get('arm')},
+                                                  'arm': res_u.get('arm'),
+                                                  'coupled': bool(args.coupled)},
                                            wall_t / max(wall_u, 1e-9)),
                           sections_wall=sections_wall,
                           wall_untraced=wall_u, wall_traced=wall_t)
@@ -273,10 +290,18 @@ def main(argv=None) -> int:
     ap.add_argument('--run-log', default=None, help='macro: explicit run.log path')
     ap.add_argument('--no-c-calls', action='store_true',
                     help='skip <c>: leaf counting (lower overhead, fewer counts)')
+    ap.add_argument('--coupled', action='store_true',
+                    help='fullfid only: run BOTH leaves as one site unit via _prepare_site_run. '
+                         'The uncoupled default traces the STORE leaf, whose yard barely stands, '
+                         'so every yard-depth-driven cost is invisible without this.')
     ap.add_argument('--cprofile', action='store_true', help='also print tier-B cross-check')
     ap.add_argument('--speedscope', action='store_true')
     ap.add_argument('-o', '--out', default=None)
     args = ap.parse_args(argv)
+    if args.coupled and args.tier != 'fullfid':
+        # Silently ignoring it would archive an UNCOUPLED tree tagged coupled=True, and a
+        # tag value is permanent in out/index.json. A refusal costs one retype.
+        ap.error(f'--coupled is a fullfid-tier flag; --tier {args.tier} has no site unit')
 
     try:
         if args.tier in ('micro', 'meso'):
@@ -297,7 +322,8 @@ def main(argv=None) -> int:
         # that share a tag set merge in `out/index.json` forever, and a tag value is
         # permanent.  `calltree_growth` records the same lesson at its own archive site.
         record('capture', out, tags={'tier': args.tier, 'seed': args.seed,
-                                     'cfg': args.config},
+                                     'cfg': args.config,
+                                     'coupled': bool(args.coupled)},
                summary={'fingerprint': doc['counts_fingerprint'][:16],
                         'wall_untraced_s': doc['wall_s']['untraced'],
                         'sections': {s['name']: s['wall_s'] for s in doc['sections']

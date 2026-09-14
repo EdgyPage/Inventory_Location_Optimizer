@@ -513,8 +513,86 @@ def run_micro(assets: ScenarioAssets, *, n_batches: int = 5, seed: int = 42,
 
 # ── fullfid: the real worker, in-process ─────────────────────────────────────
 
+def _catalogue_skus(inv_db: str) -> int | None:
+    """How many SKUs this catalogue DECLARES, from its own run_metadata.
+
+    The generator stamps `num_skus` into `run_metadata.params_json`, so this reads the
+    declaration rather than counting rows. That matters beyond speed: the declaration is
+    what the catalogue was ASKED for, and a count would silently agree with a truncated or
+    half-written table. Falls back to a count only when the stamp is absent (pre-contract
+    catalogues), and to None when even that fails -- a None means "unknown", which callers
+    must not read as "big enough".
+    """
+    import json
+    import sqlite3
+    try:
+        con = sqlite3.connect('file:' + inv_db.replace(os.sep, '/') + '?mode=ro', uri=True)
+    except sqlite3.Error:
+        return None
+    try:
+        row = con.execute(
+            "select value from run_metadata where key = 'params_json'").fetchone()
+        if row:
+            n = (json.loads(row[0]) or {}).get('num_skus')
+            if isinstance(n, int) and n > 0:
+                return n
+        return con.execute('select count(distinct sku) from cartons').fetchone()[0]
+    except (sqlite3.Error, ValueError, TypeError, IndexError):
+        return None
+    finally:
+        con.close()
+
+
+def _pick_pair(rs, min_catalogue: int | None, log):
+    """(label, inv_db, aff_db, declared_skus) -- the pair a rung will actually bind.
+
+    `min_catalogue=None` is the historical behaviour EXACTLY: the latest profile run first
+    pair, whatever size it is. That keeps every existing caller byte-identical.
+
+    With a floor, the DECLARATION picks the fixture instead of the fixture truncating the
+    declaration. This was not a hypothetical: the latest catalogue holds 40,000 SKUs, and a
+    coupled ladder run at rungs 40k / 60k / 80k produced three runs identical to the row --
+    132 place_load calls, 1,282 pools, yard depth 2.25, drain within 3% -- and printed them
+    as three rungs of a growth ladder. `max_skus` above the catalogue is not an error and
+    not a warning; it simply takes everything, which is indistinguishable in the output from
+    a subsystem that stopped growing. Refusing is the only honest answer, and it is the same
+    rule the planner already applies to a bin cap that binds.
+
+    Runs are searched newest-first, so the smallest sufficient catalogue is NOT preferred --
+    the most RECENT sufficient one is. Size is a capability here, not the thing being
+    selected on, and silently reaching for an older catalogue would change the generator
+    vintage underneath a comparison.
+    """
+    from Schema.profile_resolver import ProfileTree
+    if min_catalogue is None:
+        pairs = rs.find_latest_db_pairs(rs._DEFAULT_PROFILES_DIR)
+        if not pairs:
+            raise ScenarioUnavailable('no generated profile DB pair under PROFILE_INPUT_DIR')
+        label, inv_db, aff_db = pairs[0]
+        return label, inv_db, aff_db, _catalogue_skus(inv_db)
+
+    pt = ProfileTree(rs._DEFAULT_PROFILES_DIR)
+    seen = []
+    for run in sorted(pt.runs(), reverse=True):
+        for label, inv_db, aff_db in pt.pairs(run) or []:
+            n = _catalogue_skus(inv_db)
+            seen.append((label, n))
+            if n is not None and n >= min_catalogue:
+                if log is not None:
+                    log.info('catalogue %s declares %s SKUs (rung floor %s)',
+                             label, n, min_catalogue)
+                return label, inv_db, aff_db, n
+    best = max((n for _l, n in seen if n is not None), default=None)
+    have = f'the largest declares {best:,}' if best else 'no catalogue declares a SKU count'
+    raise ScenarioUnavailable(
+        f'no catalogue under PROFILE_INPUT_DIR serves {min_catalogue:,} SKUs -- {have}. '
+        f'Generate one, or lower the top rung: a rung above the catalogue silently '
+        f're-runs the rung at it.')
+
+
 def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
-                strategy: str | None = None, log=None) -> dict:
+                strategy: str | None = None, coupled: bool = False,
+                min_catalogue: int | None = None, log=None) -> dict:
     """Trace sr._run_strategy_worker itself (coverage_e2e driver shape, one arm).
 
     Requires a generated (inventory.db, affinity.db) pair under PROFILE_INPUT_DIR;
@@ -527,15 +605,8 @@ def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
     from Optimization import run_simulation as rs
     from Optimization.simdriver import strategy_runner as sr
 
-    try:
-        pairs = rs.find_latest_db_pairs(rs._DEFAULT_PROFILES_DIR)
-    except Exception:
-        pairs = []
-    if not pairs:
-        raise ScenarioUnavailable('no generated profile DB pair under PROFILE_INPUT_DIR')
-
     rs.CONFIG['global']['n_batches'] = n_batches
-    label, inv_db, aff_db = pairs[0]
+    label, inv_db, aff_db, cat_skus = _pick_pair(rs, min_catalogue, log)
     base     = tempfile.mkdtemp(prefix='calltree_ff_')
     pair_dir = os.path.join(base, label)
     os.makedirs(pair_dir, exist_ok=True)
@@ -582,14 +653,43 @@ def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
         _channel_runs, _derived, _cal = _wu._derive_staffing_for_pair(
             shared, _channel_runs, _mixed, pair_dir, log)
         shared['staffing'] = {'derived': _derived, 'calibration': _cal}
-    ch, cfg = _channel_runs[0]
-    strategy_args, skeletons = rs._prepare_channel_run(ch, cfg, _mixed, shared, pair_dir, log)
-    if strategy is not None:
-        strategy_args = [a for a in strategy_args if a.get('strategy') == strategy] \
-            or strategy_args[:1]
+    if coupled:
+        # THE SITE MODEL, which is what the campaign actually runs: one dock, one receiving
+        # crew and one pool of putters over TWO channels.  `_prepare_site_run` returns the same
+        # shape `_prepare_channel_run` does, so nothing below changes -- what it adds is the
+        # pairing, the site crews lifted to unit scope, and both group keys on the unit.
+        #
+        # UNCOUPLED IS THE QUIETER HALF OF THE SITE, and that is why this option exists: the
+        # default path takes `_channel_runs[0]`, which `workunits.py:1256` guarantees is the
+        # STORE -- and store binds 14-17 of 75 drains against fulfillment's 46-60.  Every
+        # inbound number this tier produced before `coupled=True` existed described that half.
+        #
+        # Its refusals are loud and worth knowing: it needs exactly the store and fulfillment
+        # channels (so a single-channel catalogue raises), and exactly one config per channel --
+        # pairing two config SETS is an undecided question it will not answer with a `zip`.
+        from Optimization.simdriver import workunits as _wu
+        unit_args, skeletons = _wu._prepare_site_run(
+            _channel_runs, _mixed, shared, pair_dir, log)
+        if strategy is not None:
+            # Under coupling an arm is a PAIR and the leaves carry their own strategies, so
+            # match on either leaf; falling back to the first unit keeps the tier runnable
+            # rather than empty when a name does not appear.
+            unit_args = [u for u in unit_args
+                         if any(lf.get('strategy') == strategy
+                                for lf in (u.get('leaves') or [u]))] or unit_args[:1]
+        else:
+            unit_args = unit_args[:1]
+        a = unit_args[0]
     else:
-        strategy_args = strategy_args[:1]
-    a = strategy_args[0]
+        ch, cfg = _channel_runs[0]
+        strategy_args, skeletons = rs._prepare_channel_run(ch, cfg, _mixed, shared,
+                                                          pair_dir, log)
+        if strategy is not None:
+            strategy_args = [x for x in strategy_args
+                             if x.get('strategy') == strategy] or strategy_args[:1]
+        else:
+            strategy_args = strategy_args[:1]
+        a = strategy_args[0]
     a['log_queue'] = q
 
     if tracer is not None:
@@ -601,7 +701,21 @@ def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
             tracer.stop()
     for sk in skeletons:
         rs._finalize_config_run(sk)
-    return {'base': base, 'arm': a.get('strategy'), 'worker_result': result}
+    # THE DERIVED STAFFING BLOCK comes back with the result, because rho is the only honest
+    # x axis for an inbound ladder and it is not recoverable afterwards: `staffing.derive`
+    # solved `crew_size(load, S, rho_recv)` for THIS pair, the answer lives on `shared`, and
+    # `shared` dies with this call.  Recomputing it in the caller would be a second
+    # implementation of a derivation this repo already punishes drifting.
+    return {'base': base, 'arm': a.get('strategy'), 'worker_result': result,
+            'staffing': shared.get('staffing'),
+            'shift_seconds': rs.CONFIG['global'].get('shift_seconds')
+                             or rs.CONFIG['global'].get('work_day_seconds'),
+            'coupled': bool(coupled),
+            # The catalogue is part of the measurement, not the environment: a rung above
+            # it is a re-run of the rung at it, and nothing downstream can tell without
+            # these two.
+            'catalogue': label, 'catalogue_skus': cat_skus,
+            'saturated': bool(cat_skus is not None and max_skus > cat_skus)}
 
 
 # ── macro: a real run's own numbers ──────────────────────────────────────────
