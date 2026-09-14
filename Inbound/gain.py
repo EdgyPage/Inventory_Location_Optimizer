@@ -191,6 +191,206 @@ FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('fifo', 'tmin', 'tmax',
 # `_amp[aid][idx].append(...)`) exactly as they do against the live dicts.
 
 
+# ── copy-on-write, because the eager copy is ~40x larger than the pool needs ───────────
+#
+# MEASURED, on the real driver at 2,000 SKUs / 20 batches / one leaf, 5,534 pool opens:
+#
+#     live aisles in aisle_sku_sets  : 46
+#     aisles a pool can TOUCH        : mean 1.22, max 3   (1:4726  2:412  3:396)
+#     set entries copied per open    : mean 1,683
+#     total set entries copied       : 9,313,598
+#
+# A pool's candidates are the free bins of ONE BinKey, which live in one or two aisles; the
+# eager copy walks all forty-six.  The ratio is 37.8x and it is paid `entries x T x tiers`
+# times -- 12.59 pool opens per placement, against a yard depth that production never takes
+# above 6.  So this is the inbound evaluator's real cost, and it is NOT the O(T^2) candidate
+# loop it was assumed to be.
+#
+# The classes below preserve the purity rule exactly: a virtual placement still never
+# advances the live bookkeeping.  They only stop paying for aisles it never looks at.
+#
+# WHERE THE LAZINESS STOPS, deliberately.  `values()` and `items()` materialize EVERY aisle,
+# because a lazy one would hand out the LIVE container and the caller could mutate it -- the
+# precise failure the eager copy exists to prevent.  `_RankedAssignPool.__init__` builds
+# `set().union(*aisle_idx_sets.values())`, so `rank_random` (its only phase-2 user) gets
+# correctness and no win.  Every other ranked family reads by key and gets both.
+
+
+class _CowFloats:
+    """Copy-on-write over `{aisle: float}` -- and floats need NO copy at all.
+
+    A float is immutable, so a read can fall straight through to the live dict; only a write
+    needs an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write
+    lands here rather than on the manager's dict.
+
+    `__getitem__` on a miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the
+    shape this replaces -- so `len()` and iteration order are unchanged.
+    """
+
+    __slots__ = ('_live', '_over')
+
+    def __init__(self, live):
+        self._live = live
+        self._over = {}
+
+    def __getitem__(self, k):
+        o = self._over
+        if k in o:
+            return o[k]
+        v = self._live.get(k)
+        if v is None and k not in self._live:
+            o[k] = 0.0                      # defaultdict(float) creates on access
+            return 0.0
+        return v
+
+    def __setitem__(self, k, v):
+        self._over[k] = v
+
+    def get(self, k, default=None):
+        o = self._over
+        return o[k] if k in o else self._live.get(k, default)
+
+    def __contains__(self, k):
+        return k in self._over or k in self._live
+
+    def __iter__(self):
+        live = self._live
+        for k in live:
+            yield k
+        for k in self._over:
+            if k not in live:
+                yield k
+
+    def __len__(self):
+        return len(self._live) + sum(1 for k in self._over if k not in self._live)
+
+    def keys(self):
+        return list(self)
+
+    def items(self):
+        return [(k, self[k]) for k in self]
+
+    def values(self):
+        return [self[k] for k in self]
+
+
+class _CowSets:
+    """Copy-on-write over `{aisle: set}`.
+
+    Unlike floats, the value is MUTABLE and the caller does `d[aid].add(sku)` -- and
+    `__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an access
+    materializes that ONE aisle's set.  Bounded by the aisles a pool touches (measured 1.22),
+    not by the warehouse (46).
+    """
+
+    __slots__ = ('_live', '_over')
+
+    def __init__(self, live):
+        self._live = live
+        self._over = {}
+
+    def __getitem__(self, k):
+        o = self._over
+        got = o.get(k)
+        if got is None:
+            src = self._live.get(k)
+            got = o[k] = set(src) if src is not None else set()
+        return got
+
+    def __setitem__(self, k, v):
+        self._over[k] = v
+
+    def get(self, k, default=None):
+        o = self._over
+        if k in o:
+            return o[k]
+        v = self._live.get(k)
+        return default if v is None else v      # a READ-only fall-through; do not mutate it
+
+    def __contains__(self, k):
+        return k in self._over or k in self._live
+
+    def __iter__(self):
+        live = self._live
+        for k in live:
+            yield k
+        for k in self._over:
+            if k not in live:
+                yield k
+
+    def __len__(self):
+        return len(self._live) + sum(1 for k in self._over if k not in self._live)
+
+    def keys(self):
+        return list(self)
+
+    def items(self):
+        return [(k, self[k]) for k in self]     # materializes -- see the note above
+
+    def values(self):
+        return [self[k] for k in self]          # materializes -- see the note above
+
+
+class _CowListsByKey:
+    """Copy-on-write over `{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.
+
+    Two levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so a
+    shallow copy would hand the pool the live inner list.  An access materializes that one
+    aisle's whole inner mapping, which is still one of forty-six.
+    """
+
+    __slots__ = ('_live', '_over')
+
+    def __init__(self, live):
+        self._live = live
+        self._over = {}
+
+    def __getitem__(self, k):
+        o = self._over
+        got = o.get(k)
+        if got is None:
+            src = self._live.get(k)
+            inner = defaultdict(list)
+            if src is not None:
+                for ik, iv in src.items():
+                    inner[ik] = list(iv)
+            got = o[k] = inner
+        return got
+
+    def __setitem__(self, k, v):
+        self._over[k] = v
+
+    def get(self, k, default=None):
+        o = self._over
+        if k in o:
+            return o[k]
+        v = self._live.get(k)
+        return default if v is None else v      # READ-only fall-through
+
+    def __contains__(self, k):
+        return k in self._over or k in self._live
+
+    def __iter__(self):
+        live = self._live
+        for k in live:
+            yield k
+        for k in self._over:
+            if k not in live:
+                yield k
+
+    def __len__(self):
+        return len(self._live) + sum(1 for k in self._over if k not in self._live)
+
+    def keys(self):
+        return list(self)
+
+    def items(self):
+        return [(k, self[k]) for k in self]
+
+    def values(self):
+        return [self[k] for k in self]
+
+
 def _copy_of_sets(d):
     out = defaultdict(set)
     for a, v in d.items():
@@ -212,8 +412,10 @@ def _copy_of_lists_by_key(d):
     return out
 
 
-#: manager attribute -> how a virtual placement's copy of it is made.  The six aisle dicts
-#: the ranked pools commit to; a seventh arrives with its shape, not with a signature.
+#: manager attribute -> the EAGER copy of it.  Kept as the frozen reference the copy-on-write
+#: views are tested against (`Tests/unit/test_gain_cow_equivalence.py`), and as the fallback a
+#: caller can ask for explicitly.  Production no longer opens pools over these -- see
+#: `AISLE_VIEWS` below and the measurement in front of `_CowFloats`.
 AISLE_COPIERS = {
     'aisle_sku_sets':      _copy_of_sets,
     'aisle_idx_sets':      _copy_of_sets,
@@ -222,6 +424,29 @@ AISLE_COPIERS = {
     'aisle_vol_sum':       _copy_of_floats,
     'aisle_member_pos':    _copy_of_lists_by_key,
 }
+
+#: manager attribute -> how a virtual placement's VIEW of it is made.  Same six names, same
+#: shapes, same purity rule; the difference is that a view pays for the aisles the pool touches
+#: instead of every aisle in the warehouse.
+#:
+#: The two tables must cover each other exactly.  A name that has a copier and no view would
+#: silently fall back to the eager path and quietly cost 40x; a name with a view and no copier
+#: would have no oracle to be tested against.  Asserted immediately below, at import.
+AISLE_VIEWS = {
+    'aisle_sku_sets':      _CowSets,
+    'aisle_idx_sets':      _CowSets,
+    'aisle_demand_sum':    _CowFloats,
+    'aisle_pick_load_sum': _CowFloats,
+    'aisle_vol_sum':       _CowFloats,
+    'aisle_member_pos':    _CowListsByKey,
+}
+
+if set(AISLE_VIEWS) != set(AISLE_COPIERS):          # at import, not at the first drain
+    raise RuntimeError(
+        f'AISLE_VIEWS and AISLE_COPIERS name different dicts: '
+        f'{sorted(set(AISLE_COPIERS) ^ set(AISLE_VIEWS))}. Every aisle dict needs both -- the '
+        f'view is what production opens pools over, the copier is the oracle it is proven '
+        f'against.')
 
 
 class GainBundle:
@@ -927,14 +1152,22 @@ class _Evaluator:
         return self._cost_at(unit, ex, ey, ehm, wp, xk, yk)
 
     def _make_pool(self, cands, wp):
-        """The arm's own pool over COPIES of the aisle bookkeeping — the purity rule:
-        a virtual placement may never advance the live dicts.
+        """The arm's own pool over COPY-ON-WRITE VIEWS of the aisle bookkeeping — the purity
+        rule holds unchanged: a virtual placement may never advance the live dicts.
 
         One comprehension, per evaluation: the bundle's `aisle_state` says WHICH live
-        dicts this arm's pool commits to and `AISLE_COPIERS` says how each is copied, so
-        a family that touches more of them costs a driver branch and nothing here."""
+        dicts this arm's pool commits to and `AISLE_VIEWS` says how each is viewed, so
+        a family that touches more of them costs a driver branch and nothing here.
+
+        THIS IS THE PACKAGE'S HOTTEST LINE, and the reason is the TIER loop below rather than
+        anything about yard depth.  Measured on the real driver: 12.59 pool opens per
+        `place_load` against a mean of 2.8 candidate trailers, so the opens are driven by the
+        spill chain, not by the greedy.  The eager copy walked all 46 live aisles to serve a
+        pool that touches 1.22 of them -- 9.3 million set-element copies in twenty batches on
+        one leaf.  A view pays for what it reads.
+        """
         b = self.b
-        state = {n: AISLE_COPIERS[n](d) for n, d in b.aisle_state.items()}
+        state = {n: AISLE_VIEWS[n](d) for n, d in b.aisle_state.items()}
         return b.pool_factory(list(cands), state, wp)
 
     def _place_pool(self, gunits, chain, wp, xk, yk, excluded, predicted, cache):

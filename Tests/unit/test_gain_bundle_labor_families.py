@@ -167,7 +167,7 @@ def _plain(d):
 
 
 def _snapshot(mgr):
-    return {n: _plain(getattr(mgr, '_' + n)) for n in gain.AISLE_COPIERS}
+    return {n: _plain(getattr(mgr, '_' + n)) for n in gain.AISLE_VIEWS}
 
 
 def _where(b):
@@ -191,7 +191,9 @@ def test_the_bundles_pool_places_exactly_as_the_arms_own_pool(family):
 
     ev_mgr = _mgr(orders, aff)
     bundle = _bundle_for(family, ev_mgr, ctx)
-    state = {n: gain.AISLE_COPIERS[n](d) for n, d in bundle.aisle_state.items()}
+    # `AISLE_VIEWS`, not `AISLE_COPIERS`: the views are what `_make_pool` opens over, so
+    # this is the state the production evaluator actually hands the arm's pool.
+    state = {n: gain.AISLE_VIEWS[n](d) for n, d in bundle.aisle_state.items()}
     ev_pool = bundle.pool_factory(list(bins), state, _WP)
 
     ref = [(u.order.sku, _where(prod_pool.take(u)[0])) for u in prod_pool.order(list(units))]
@@ -235,7 +237,12 @@ def test_the_identity_copier_lets_the_virtual_placement_reach_the_warehouse(
     orders, aff, _bins, trailers, view = _scene()
     mgr = _mgr(orders, aff)
     bundle = OneOwnerBundle(_bundle_for(family, mgr, _ctx(orders, aff)))
-    monkeypatch.setitem(gain.AISLE_COPIERS, extra, lambda d: d)
+    # PATCH THE TABLE PRODUCTION READS.  This used to patch `AISLE_COPIERS`, and when
+    # `_make_pool` moved to the copy-on-write `AISLE_VIEWS` the sabotage silently stopped
+    # reaching the pool -- the identity was installed in a table nothing consulted, no live
+    # dict moved, and the test failed LOUDLY rather than passing vacuously, which is the
+    # only reason it was noticed. An identity is a legal view: it hands over the live dict.
+    monkeypatch.setitem(gain.AISLE_VIEWS, extra, lambda d: d)
     before = _plain(getattr(mgr, '_' + extra))
     plan_order(trailers, bundle, view, predicted=False)
     assert _plain(getattr(mgr, '_' + extra)) != before, (
