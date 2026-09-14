@@ -131,6 +131,23 @@ Concretely, the destination is reached when:
   whether the evaluator's O(T²) is trivial or enormous. A `skus` ladder at shallow depth would
   measure the warm-up and report the yard as trivial.
 
+- **[09] The `live` rebuild scanned 8.1M elements and removed none.** One guarded line, 8.9% of
+  the receive drain, byte-identical against ticket 07's committed digests. `used` is non-empty only
+  when a later BinKey group spills into a tier the same placement already drew from — measured
+  zero times in 7,426 opens.
+  → [09-the-live-rebuild-filtered-nothing.md](issues/09-the-live-rebuild-filtered-nothing.md)
+
+- **[10] The candidate slice: built, proven byte-identical, NOT landed.** The measured #1 target —
+  the pool opens over 1,094.8 bins to place a median of **3** units. Built, digests identical on all
+  four adapters, candidates 8,130,323 → 432,177 (18.8×). Reverted because it is a REGRESSION in the
+  middle of the range (+128% at 600 SKUs, +20.5% at 2,000, −48.1% at 6,000) and no gate removed the
+  regression without trading one scale against another. The transferable finding: **the win is
+  downstream in the pool's `__init__`, the price is local, so the separating variable is OPENS PER
+  TIER — not tier size or oversize ratio, which barely move while the sign flips.** A future attempt
+  should drop the memo and bucket in one pass, which needs a signature change in
+  `Assignment_Functions` and therefore touches the restock path this effort kept out of scope.
+  → [10-the-candidate-slice-was-built-and-not-landed.md](issues/10-the-candidate-slice-was-built-and-not-landed.md)
+
 ## Fog
 
 - **The recipe is being asked for two things that pull against each other**: a real fixture wants
