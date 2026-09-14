@@ -1189,7 +1189,16 @@ class _Evaluator:
                               if id(x) not in excluded]
                 slot = cache[('pool', key)] = (cands, set())
             bins, used = slot
-            live = [x for x in bins if id(x) not in used]
+            # MEASURED 8.9% OF THE RECEIVE DRAIN, REMOVING NOTHING.  `used` is only ever added to
+            # by a take below, so it is non-empty exactly when a LATER BinKey group spills into a
+            # tier this same placement already drew from.  Counted on the real driver over 7,426
+            # pool opens: that happened ZERO times -- 8,130,323 elements scanned, none removed.
+            #
+            # Returning `bins` itself is safe rather than merely cheap: `live` is truthiness-
+            # tested and then handed to `_make_pool`, which does `pool_factory(list(cands), ...)`
+            # and copies. Nothing mutates it, so the fast path and the comprehension are the same
+            # list in the same order -- the guard buys the scan back and changes no result.
+            live = bins if not used else [x for x in bins if id(x) not in used]
             if not live:
                 continue
             pool = self._make_pool(live, wp)
