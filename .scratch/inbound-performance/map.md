@@ -148,6 +148,16 @@ Concretely, the destination is reached when:
   `Assignment_Functions` and therefore touches the restock path this effort kept out of scope.
   → [10-the-candidate-slice-was-built-and-not-landed.md](issues/10-the-candidate-slice-was-built-and-not-landed.md)
 
+- **[11] THE LADDER ANSWERS THE CAMPAIGN QUESTION: a pool-adapter gain cell costs ~1.1x a RUN,
+  not 13x.** `calltree_inbound_ladder.py` runs the real driver twice per rung under the era —
+  `fifo/fifo` control against `gain_forecast` — paired within the rung. At 5k/10k/20k SKUs the
+  evaluator is **13-18x the unpriced DRAIN** but only **1.08-1.12x the whole RUN**, and both are
+  FLAT across a 4x catalogue range. It does not contradict ticket 31 (coupled, 40 days, different
+  arms and denominator); it establishes the shape ticket 31 explicitly could not — that a POOL
+  adapter, the family 8 of 12 phase-2 arm-slots use, does not blow the multiplier up. The worry
+  that started this effort is **not supported**.
+  → [11-the-ladder-answers-the-campaign-question.md](issues/11-the-ladder-answers-the-campaign-question.md)
+
 ## Fog
 
 - **The recipe is being asked for two things that pull against each other**: a real fixture wants

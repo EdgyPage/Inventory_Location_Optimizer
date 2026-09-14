@@ -57,6 +57,9 @@ def _meta(args, sizes: dict, overhead: float | None) -> dict:
     return {
         'scenario': f'{args.tier}',
         'tier': args.tier,
+        # A capture without its configuration is unreadable: `cfg=none` and `cfg=inbound_yard`
+        # produce different trees from the same flags, and the difference is the whole point.
+        'config': getattr(args, 'config', 'none'),
         'seed': args.seed,
         'strategy': args.strategy,
         'sizes': sizes,
@@ -70,33 +73,61 @@ def _meta(args, sizes: dict, overhead: float | None) -> dict:
 
 def _default_out(args) -> str:
     from calltree_store import archive_path
-    return archive_path('capture', tier=args.tier, seed=args.seed)
+    # `cfg` belongs in the FILENAME as well as the index tags, the way `calltree_growth` writes
+    # `growth__cfg-<name>_knob-<knob>_...`.  Two captures of different configurations are not
+    # comparable and must not be distinguishable only by opening them.
+    return archive_path('capture', cfg=getattr(args, 'config', 'none'),
+                        tier=args.tier, seed=args.seed)
 
 
 # ── tiers ─────────────────────────────────────────────────────────────────────
 
 def capture_inproc(args) -> dict:
-    """micro/meso: two-pass in-process capture."""
-    build = dict(n_skus=args.skus, bins_per_aisle=args.bins_per_aisle,
-                 n_pickers=args.pickers, seed=args.seed, strategy=args.strategy)
-    n_batches = args.batches if args.tier == 'meso' else min(args.batches, 5)
-    runner    = scenarios.run_meso if args.tier == 'meso' else scenarios.run_micro
+    """micro/meso: two-pass in-process capture.
+
+    `--config` names a `calltree_growth.CONFIGS` cell, the SAME registry the ladder uses, so a
+    capture and a ladder rung cannot drift on what a configuration means.  Without it this tier
+    could only ever capture `cfg=none`: `build_assets`'s put-away, receiving and inbound
+    parameters all default to off, so `SiteReceiving`, `YardTransit` and every symbol in
+    `Inbound/gain.py` were unreachable from a TREE -- the ladder could fit their exponents and
+    nothing could show where the time went.
+
+    The overlay is merged UNDER the CLI, matching `run_meso_ladder`: an explicit `--skus` owns
+    the axis it names, exactly as a rung does.
+    """
+    import calltree_growth as growth          # acyclic: growth imports scenarios, not capture
+
+    cfg = growth.CONFIGS[args.config]
+    merged = dict(cfg.overlay)
+    merged.update(dict(n_skus=args.skus, bins_per_aisle=args.bins_per_aisle,
+                       n_pickers=args.pickers, strategy=args.strategy,
+                       n_batches=args.batches))
+    build, run_kw, n_batches = growth._split_kwargs(merged, args.seed)
+    if args.tier != 'meso':
+        n_batches = min(n_batches, 5)
+    runner = scenarios.run_meso if args.tier == 'meso' else scenarios.run_micro
+    if run_kw and args.tier != 'meso':
+        run_kw = {}                            # run_micro takes no deadlines
 
     # pass 1 — untraced walls
     assets = scenarios.build_assets(**build)
     t0 = time.perf_counter()
-    r_u = runner(assets, n_batches=n_batches, seed=args.seed)
+    r_u = runner(assets, n_batches=n_batches, seed=args.seed, **run_kw)
     wall_u = time.perf_counter() - t0
-    if r_u.placements == 0:
+    if r_u.placements == 0 and not build.get('inbound'):
         raise SystemExit('scenario fired zero reorder placements — the measurement would '
                          'silently exclude every assignment function (see README)')
+    if build.get('inbound') and r_u.placements == 0 and getattr(r_u, 'drains', 0) == 0:
+        # An INBOUND cell may legitimately place little while trailers stand, but a cell that
+        # neither placed nor drained ran nothing at all, and that must not read as a result.
+        raise SystemExit('inbound cell fired zero placements AND zero drains — nothing ran')
 
     # pass 2 — traced tree, fresh assets, same seed
     assets = scenarios.build_assets(**build)
     tr = CallTreeTracer(track_c_calls=not args.no_c_calls)
     tr.start()
     t0 = time.perf_counter()
-    r_t = runner(assets, n_batches=n_batches, seed=args.seed, tracer=tr)
+    r_t = runner(assets, n_batches=n_batches, seed=args.seed, tracer=tr, **run_kw)
     wall_t = time.perf_counter() - t0
     tr.stop()
     root = tr.tree()
@@ -226,6 +257,13 @@ def to_speedscope(doc: dict) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description='two-pass call-tree capture')
     ap.add_argument('--tier', choices=('micro', 'meso', 'fullfid', 'macro'), default='meso')
+    # The SAME registry the ladder uses, so a capture and a rung cannot mean different
+    # things by one name.  Choices are read from it rather than restated.
+    import calltree_growth as _growth
+    ap.add_argument('--config', choices=tuple(_growth.CONFIGS), default='none',
+                    help='named scenario configuration, layered UNDER the flags below. '
+                         '"none" is the plain capture. Without this the inbound and '
+                         'put-away machinery never executes and the tree cannot show it.')
     ap.add_argument('--seed', type=int, default=42)
     ap.add_argument('--skus', type=int, default=2_000)
     ap.add_argument('--bins-per-aisle', type=int, default=100)
@@ -255,7 +293,11 @@ def main(argv=None) -> int:
     write_capture(doc, out)
     if args.out is None:                       # archived default -> index it
         from calltree_store import record
-        record('capture', out, tags={'tier': args.tier, 'seed': args.seed},
+        # `cfg` in the TAGS, not just in the doc: two captures of different configurations
+        # that share a tag set merge in `out/index.json` forever, and a tag value is
+        # permanent.  `calltree_growth` records the same lesson at its own archive site.
+        record('capture', out, tags={'tier': args.tier, 'seed': args.seed,
+                                     'cfg': args.config},
                summary={'fingerprint': doc['counts_fingerprint'][:16],
                         'wall_untraced_s': doc['wall_s']['untraced'],
                         'sections': {s['name']: s['wall_s'] for s in doc['sections']
