@@ -1,6 +1,6 @@
 ---
 name: inbound-pool-adapter-multiplier-is-not-13x
-description: "RETRACTED 2026-09-14: at campaign scale (400k SKUs) the pool-adapter RUN multiplier is 3.24x, not the ~1.1x this memory first reported; the method that found the error survives"
+description: "RETRACTED 2026-09-14: at campaign scale (400k SKUs) the pool-adapter RUN multiplier is ~3.15x (post-heap; was 3.24x), not the ~1.1x this memory first reported; campaign now ~13h at 4 workers, not ticket 31's 8.6-9.7h"
 metadata: 
   node_type: memory
   type: project
@@ -34,10 +34,19 @@ whose own driving variable (T) had stopped growing.
 **Why:** a multiplier is only as good as the range it was fit over; a flat-looking RUN ratio at
 5k-20k SKUs was a saturated knob, not a stable regime — see [[growth-ladder-saturates-silently]].
 
+**Update 2026-09-14 (commit bd29d2eb):** the `take` heap ([[pool-candidate-slice-was-built-not-landed]])
+took the drain -6.3% at campaign scale, carrying the RUN multiplier to **~3.15x** paired
+within-run (down from 3.24x). Campaign sizing is now restated: **~13h at 4 workers**, not ticket
+31's 8.6-9.7h — arm-slot weighted (8 of `PHASE2_PAIRS`' 12 arm-slots are pool adapters at 3.24x,
+4 keep 1.93x), ~12.5h after the heap. Recorded recommendation: run at 6 workers for ~9h, because
+ticket 31 measured that pricing costs TIME, not MEMORY, so the worker-count lever is unpriced.
+
 **How to apply:** before citing an inbound pool-adapter cost against a campaign estimate, confirm
 the ladder's top rung reaches the campaign's own scale (T, not SKU count, is the driving
 variable), and confirm the multiplier is still growing there before treating it as flat. Full
 record: `docs/design/INBOUND_PERF_FINDINGS.md` §1 and §6 (retraction at the top),
-`.scratch/inbound-performance/issues/12-*.md`, `13-*.md`, `.scratch/inbound-performance/map.md`
-tickets 11-13. Related: [[inbound-optimization-map-closed]], [[a-count-is-not-a-claim]],
-[[inbound-yard-is-a-stable-queue-under-the-era]].
+`.scratch/inbound-performance/issues/12-*.md`, `13-*.md`,
+`16-phase-2-restated-13-hours-not-8-6.md`, `.scratch/inbound-performance/map.md` tickets 11-13.
+Commit bd29d2eb (the heap), 86ac01de (the docs restatement). Related:
+[[inbound-optimization-map-closed]], [[a-count-is-not-a-claim]],
+[[inbound-yard-is-a-stable-queue-under-the-era]], [[pool-candidate-slice-was-built-not-landed]].

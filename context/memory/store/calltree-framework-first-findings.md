@@ -75,6 +75,21 @@ open conviction, corrected suspect list.
   trying to measure. Section timings (e.g. the drain column) survived the contention and
   reproduced to 3%; the run wall did not. Compare section-level instrumentation, not run wall,
   when a quiet host can't be guaranteed. See [[inbound-pool-adapter-multiplier-is-not-13x]].
+  Reusable control: the ladder's UNPRICED pole runs no evaluator, so if IT moves, the host was
+  busy — caught two contaminated runs (+53%, +21.6% on a quantity the change can't touch) on
+  2026-09-14 that would otherwise have been reported as a regression, then a fix.
+- **2026-09-14 (commit bd29d2eb): `_TravelBalancedPool.take` moved from a per-placement aisle
+  scan to a score-keyed heap, carrying dict insertion RANK as a second sort key alongside score.**
+  A heap replacing `for x in dict:` + strict-`<` argmin that drops the rank key silently changes
+  which of two equally-scored items wins — ties are not exotic for a load balancer, aisle loads
+  start equal. Proof method: `Tests/unit/test_travel_balanced_equivalence.py` runs THREE
+  implementations (a frozen in-file oracle, the untouched production closure
+  `_travel_balanced_impl`, and the pool) and compares the (unit, bin) sequence by identity plus
+  every mutated state dict — leaving the closure untouched keeps three independent references
+  instead of two. The oracle is frozen only in SHAPE: its `_D_map`/`per_pick`/
+  `height_multiplier`/`sec_per_inch` come from production, so a refactor of THOSE moves the
+  reference in lockstep and the test still passes. See
+  [[pool-candidate-slice-was-built-not-landed]] for what the heap did and didn't fix.
 
 **2026-08-19 six-phase campaign landed (commits 824375c, bdcd1c3, 10ecd39, f9979c3, f30cf41,
 126282c, 831571f, b91cf38, fix 1375cbb) — RESOLVES the two verdicts above; every phase

@@ -1,6 +1,6 @@
 ---
 name: pool-candidate-slice-was-built-not-landed
-description: "REFUTED at campaign scale 2026-09-14: the slice was byte-identical and 18.8x fewer candidates at 600-6,000 SKUs, but at 400,000 SKUs it is only 1.5x, would have been byte-DIFFERENT, and caps at 28.8% of the drain — the real target is take()'s aisle scan"
+description: "REFUTED at campaign scale 2026-09-14: the slice caps at 28.8% of the drain; its follow-on target (take()'s aisle scan) was itself RETRACTED the same day — the heap landed and the drain has no dominant term"
 metadata: 
   node_type: memory
   type: project
@@ -44,18 +44,26 @@ Compounded ceiling: 92s of a 962s drain — RUN 3.24x → 3.05x. Not worth a bui
 reproduce three load-bearing orderings that only hold below ~6,000 SKUs. **Do not re-attempt this
 slice; there is no scale left to test it at.**
 
-**The real target, found by the same instrumentation:** 71.2% of the drain is
-`_TravelBalancedPool.take` (`Warehouse/placement/Assignment_Functions.py`) scanning EVERY aisle on
-EVERY placement (`for aid in by_aisle:  # original order => original tie-breaks`), plus a full
-O(aisles × mults) rebuild of both caches at every SKU-run boundary. At 400,000 SKUs: takes
-4,852,858 (194.80/open × 24,912 opens) × 224 buckets/open = 1,087,040,102 inner iterations; drain
-minus init = 685s, i.e. 0.630µs/iteration (two dict reads and a compare, in Python). The slice
-cannot touch this: it trims bins WITHIN a bucket and keeps every bucket, so the scan width is
-exactly unchanged. `take` solves a SELECTION problem by SCANNING; the structural fix is a
-score-keyed heap (O(n) heapify at the run boundary, lazy-deleted push for the single winner) — the
-same shape that took `_admit_held` from k 1.84 to 0.94 ([[admit-held-was-quadratic]]). `take`'s
-aisle iteration order is load-bearing for tie-breaks in three documented places, so this is a
-SCOPE DECISION for the owner, not something to land quietly.
+**The follow-on target named here — `take`'s aisle scan at "71.2% / ~1.09B iterations" — is
+RETRACTED 2026-09-14 by measurement.** The heap was built and landed (commit bd29d2eb,
+`Warehouse/placement/Assignment_Functions.py`, carrying the dict insertion rank as a tie-break
+key alongside score — see [[calltree-framework-first-findings]] for why that second key is
+required). Removing the scan entirely moved the drain only **6.3%**, not 71.2%. Two errors
+produced the original number: (1) it used BUCKETS (224/open) as the scan width where `take`
+actually iterates AISLES (measured 159/open at 400k SKUs); (2) worse and more transferable, the
+per-iteration cost (0.630µs) was obtained by DIVIDING the very total it claimed to explain
+(685s / 1.087e9 iterations) — a division always closes to three digits wherever the time actually
+goes, it is not an attribution. The corrected numbers are independent of the total:
+4,852,858 takes × 159 aisles = 771.6M iterations, measured saving from removing them = 61.5s, i.e.
+**0.080µs/iteration** (two dict reads and a compare) — 0.630µs was 8x too high.
+
+**Corrected attribution: the drain has no dominant term at 400,000 SKUs coupled.** Pool
+construction 277.6s (30.8%); the aisle scan 61.5s (6.8%, now removed); everything else 562.2s
+(62.4%, unattributed — needs a tracer this tier cannot afford at ~40x wall).
+
+**Standing next candidate, deliberately not attempted so it stays attributable:** the SKU-run
+boundary rebuild computes 8,904 aisle scores per open to serve 194.8 placements — 45x more scores
+computed than placements made.
 
 **Why this is a memory and not just a closed ticket:** it is the rejected-alternative pattern —
 a real, measured, byte-identical-at-small-scale candidate that still isn't the right fix, with the
@@ -67,9 +75,9 @@ failure was that all three load-bearing premises were scale-dependent and the ti
 nowhere, so it read as a standing conclusion instead of a measurement at one point. See
 [[growth-ladder-saturates-silently]] for the pattern this belongs to.
 
-Full record: `docs/design/INBOUND_PERF_FINDINGS.md` §3 and "What this reopened, and then closed" /
-"The 71.2% is one billion iterations of a linear scan"; `.scratch/inbound-performance/issues/
+Full record: `docs/design/INBOUND_PERF_FINDINGS.md` §3; `.scratch/inbound-performance/issues/
 10-the-candidate-slice-was-built-and-not-landed.md`,
-`14-the-slice-is-refuted-the-target-is-takes-aisle-scan.md`. Related:
-[[pool-tier-loop-cost-class-before-count]], [[gpu-broker-dormant-not-for-placement]] (same
-pattern: built, measured, correctly not landed), [[inbound-pool-adapter-multiplier-is-not-13x]].
+`14-the-slice-is-refuted-the-target-is-takes-aisle-scan.md` (partly retracted),
+`15-the-take-heap-lands-and-the-drain-has-no-dominant-term.md`. Commit bd29d2eb (the heap).
+Related: [[pool-tier-loop-cost-class-before-count]], [[gpu-broker-dormant-not-for-placement]]
+(same pattern: built, measured, correctly not landed), [[inbound-pool-adapter-multiplier-is-not-13x]].
