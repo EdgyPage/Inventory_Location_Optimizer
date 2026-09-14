@@ -1,7 +1,31 @@
-# The candidate slice is refuted at campaign scale — the target is `take`'s aisle scan
+# The candidate slice is refuted at campaign scale
+
+> **PARTLY RETRACTED 2026-09-14 by ticket 15.** The slice refutation below STANDS --
+> every number in it was re-measured and holds. What is retracted is this ticket's
+> own replacement claim: that the remaining 71.2% **is** the aisle scan, "one billion
+> iterations". It is not. Building the heap and measuring it removed the scan
+> entirely and the drain fell **6.3%**, not 71%. The scan was ~9.9% of the
+> non-construction drain.
+>
+> **Two errors produced that claim, and the second is the one worth remembering.**
+> First, the arithmetic used BUCKETS (224 per open) as the scan width when `take`
+> iterates AISLES (measured: 159). Second, and worse, "4,852,858 x 224 x 0.63 us =
+> 685 s" was a DIVISION presented as an attribution -- the per-iteration cost was
+> derived by dividing the very total it then claimed to explain, so it closed to
+> three digits no matter where the time actually went. This ticket names that exact
+> trap two sections down ("That identity proves NOTHING -- it is the same total
+> divided two ways") and then commits it with a different pair of factors.
+>
+> The corrected attribution closes for the RIGHT reason, because both factors are
+> measured independently of the total: 4,852,858 takes x 159 aisles = 771.6M
+> iterations, and the measured saving from removing them is 61.5 s, i.e. **0.080 us**
+> per iteration -- two dict lookups and a float compare. 0.63 us was 8x too high.
+>
+> See ticket 15 for what the drain is actually made of, and for the run-boundary
+> rebuild, which does **45x more score computations than there are placements**.
 
 Type: research
-Status: resolved
+Status: resolved (replacement claim retracted -- see ticket 15)
 
 Ticket 13 said the slice's rejection "should be revisited at campaign scale" and that the version
 without a tuned constant was a scope decision worth taking to the owner. It was authorised, and the

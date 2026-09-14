@@ -103,6 +103,7 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     stats = {'entries': 0, 'place_loads': 0, 'pools': 0, 'drain_s': 0.0,
              'cands': 0, 'pool_init_s': 0.0, 'buckets': 0, 'takes': 0,
              'keep_k3': 0, 'keep_k5': 0, 'keep_at_k': 0, 'opens_scored': 0,
+             'run_bounds': 0, 'aisles': 0,
              'depths': [], 'deadline': None}
     _po = gain.plan_order
     _pl = gain._Evaluator.place_load
@@ -187,12 +188,26 @@ def _one(skus: int, batches: int, arm: str, policy: str,
         # Patch the CLASS, not the instance: every pool here defines __slots__, so an
         # instance assignment raises AttributeError -- and swallowing that gave a counter
         # that read 0.00 and looked like "no takes happened" rather than "not measured".
+        # AISLES, not buckets. `take` iterates `for aid in by_aisle`, so the SCAN WIDTH is
+        # the aisle count; the slice probe counts (aisle, mult) buckets, which is larger.
+        # Reporting buckets as the scan width overstates it -- and did, in ticket 14.
+        try:
+            stats['aisles'] += len(getattr(_p, '_by_aisle', ()) or ())
+        except Exception:
+            pass
         _cls = type(_p)
         if _cls not in _take_patched:
             _orig_take = _cls.take
 
             def _counting_take(pself, u, _o=_orig_take):
                 stats['takes'] += 1
+                # A run boundary is the pool rebuilding EVERY aisle cache. The heap does
+                # not touch that path, so R bounds what the heap can ever save.
+                try:
+                    if getattr(pself, '_run_sku', None) != u.order.sku:
+                        stats['run_bounds'] += 1
+                except Exception:
+                    pass
                 return _o(pself, u)
             _cls.take = _counting_take
             _take_patched[_cls] = _orig_take
@@ -245,6 +260,12 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     _po = stats['pools'] or 1
     stats['buckets_per_open'] = stats['buckets'] / _po
     stats['takes_per_open'] = stats['takes'] / _po
+    stats['aisles_per_open'] = stats['aisles'] / _po
+    stats['bounds_per_open'] = stats['run_bounds'] / _po
+    # The heap removes the per-placement scan (K x A) and leaves the run-boundary rebuild
+    # (R x A) untouched, so K / (K + R) is its ceiling as a share of the selection cost.
+    _k, _r = stats['takes'], stats['run_bounds']
+    stats['heap_ceiling'] = _k / (_k + _r) if (_k + _r) else 0.0
     stats['slice_x_k3'] = (stats['cands'] / stats['keep_k3']) if stats['keep_k3'] else 0.0
     stats['slice_x_k5'] = (stats['cands'] / stats['keep_k5']) if stats['keep_k5'] else 0.0
     stats['slice_x_real'] = ((stats['cands'] / stats['keep_at_k'])
@@ -391,7 +412,8 @@ def main() -> None:
         print('so the TIMING columns above are NOT readable on this run. The counts are exact')
         print('regardless -- that is why this is counted and not timed.')
         print()
-        print(f'{"skus":>8} {"cnd/open":>9} {"bkts/open":>10} {"takes/open":>11} '
+        print(f'{"skus":>8} {"cnd/open":>9} {"bkts/open":>10} {"aisl/open":>10} '
+              f'{"bnds/open":>10} {"heap ceil":>10} {"takes/open":>11} '
               f'{"slice x @k":>11} {"(@3 unsound)":>13}')
         for n, rung in rows:
             s = rung['priced']
@@ -399,6 +421,9 @@ def main() -> None:
                 continue
             print(f'{n:>8,} {s.get("cands_per_open", 0):>9,.0f} '
                   f'{s.get("buckets_per_open", 0):>10,.0f} '
+                  f'{s.get("aisles_per_open", 0):>10,.0f} '
+                  f'{s.get("bounds_per_open", 0):>10,.1f} '
+                  f'{s.get("heap_ceiling", 0) * 100:>9,.0f}% '
                   f'{s.get("takes_per_open", 0):>11,.2f} '
                   f'{s.get("slice_x_real", 0):>11,.1f} '
                   f'{s.get("slice_x_k3", 0):>13,.1f}')
@@ -417,15 +442,20 @@ def main() -> None:
     print('           to that band is the denominator error this repo keeps paying for.')
     print()
     print(f'{"skus":>8} {"drain_u":>9} {"drain_p":>9} {"DRAINx":>8} '
-          f'{"run_u":>8} {"run_p":>8} {"RUNx":>7} {"T":>6} {"rho":>6}')
+          f'{"run_u":>8} {"run_p":>8} {"RUNx":>7} {"T":>6} {"rho":>6} '
+          f'{"aisl/opn":>9} {"bnds/opn":>9} {"heapceil":>9}')
     for n, rung in rows:
         u, p = rung['unpriced']['drain_s'], rung['priced']['drain_s']
         wu, wp = rung['unpriced']['wall_s'], rung['priced']['wall_s']
         dm = (p / u) if u > 0 else float('nan')
         rm = (wp / wu) if wu > 0 else float('nan')
+        pr = rung['priced']
         print(f'{n:>8,} {u:>9.3f} {p:>9.3f} {dm:>8.2f} '
-              f'{wu:>8.1f} {wp:>8.1f} {rm:>7.2f} {rung["priced"]["T"]:>6.2f} '
-              f'{_fmt_rho(rung["priced"].get("rho_recv")):>6}')
+              f'{wu:>8.1f} {wp:>8.1f} {rm:>7.2f} {pr["T"]:>6.2f} '
+              f'{_fmt_rho(pr.get("rho_recv")):>6} '
+              f'{pr.get("aisles_per_open", 0):>9,.0f} '
+              f'{pr.get("bounds_per_open", 0):>9,.1f} '
+              f'{pr.get("heap_ceiling", 0) * 100:>8,.0f}%')
 
     print()
     print("ticket 31 measured 1.6-1.9x PER COUPLED UNIT on ('fifo','tmin') -- the two adapters")

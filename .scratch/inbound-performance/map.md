@@ -26,24 +26,32 @@ The lesson the effort paid for three times over, and the reason this map is wort
 ladder that stops growing its own driving variable reports "flat" and looks exactly like a
 subsystem that does not grow.
 
-Two things remain open, both now decisions rather than measurements:
+**BOTH DECISIONS TAKEN 2026-09-14**, and both produced a correction to this effort itself.
 
-1. **Whether to restate phase 2's hours.** 3.24x against the band's 1.75x midpoint suggests
-   ~16-18 h at 4 workers rather than 8.6-9.7 h — but that arithmetic assumes the ratio carries
-   across two differences the ladder does not span (10 batches vs 40 site days; one pool arm vs
-   twelve arm-slots). Ticket 13 states both.
-2. **Whether to widen scope for `take`'s aisle scan** -- NOT the candidate slice, which ticket
-   14 refutes. The slice's ceiling at campaign scale is 9.6% of the drain (it touches only the
-   28.8% that is construction, and saves only 1.5x within it, because a bucket holds 61
-   candidates while the pool pops 195). Ticket 10's k = 3 was the median GROUP size, not the
-   pops, which also makes its byte-identity argument unsound at this scale.
+1. **Phase 2 is restated at ~13 h at 4 workers, not 8.6-9.7 h** (ticket 16). Ticket 31's model
+   reproduces exactly from its own inputs as a control, and the only input changed is the
+   multiplier: 8 of `PHASE2_PAIRS`' 12 arm-slots are pool adapters and pay the measured 3.24x,
+   4 keep 1.93x. Recommendation: run at 6 workers for ~9 h, since ticket 31 measured that
+   pricing costs TIME not MEMORY, so the worker lever is unpriced.
 
-   The 71.2% is `_TravelBalancedPool.take` scanning every aisle on every placement: 4,852,858
-   takes x 224 buckets = **1.09 billion iterations at 0.63 us each**, which closes the 685 s to
-   three digits. It solves a SELECTION problem by SCANNING; a score-keyed heap is the shape
-   that took `_admit_held` from k 1.84 to 0.94. It sits in `Assignment_Functions` on the
-   restock path, and `take`'s aisle order is load-bearing for tie-breaks in three documented
-   places -- so it is a real scope decision, now with a measured 71.2% behind it.
+2. **Scope was widened to `Assignment_Functions` and the `take` heap landed** (ticket 15) --
+   byte-identical against a three-way oracle, -6.3% on the drain at campaign scale.
+
+   **And it disproved the claim that sent it there.** Ticket 14 said the remaining 71.2% WAS
+   the aisle scan, "one billion iterations". Removing the scan entirely moved the drain 6.3%.
+   The scan was ~9.9% of the non-construction drain, and ticket 14 is partly retracted: its
+   arithmetic used BUCKETS (224) where `take` iterates AISLES (159), and worse, it derived a
+   per-iteration cost by dividing the very total it then claimed to explain -- a division
+   dressed as an attribution, which is the trap that ticket names two sections into itself.
+
+   The corrected attribution closes because both factors are measured independently: 771.6M
+   iterations x 0.080 us = 61.5 s = the measured saving. **The drain has no dominant term**:
+   pool construction 30.8%, the scan 6.8%, everything else 62.4%.
+
+The standing next candidate is the SKU-run boundary rebuild: 56 boundaries x 159 aisles = 8,904
+score computations per open to serve 194.8 placements -- **45x more scores computed than
+placements made**. Not attempted, deliberately: landing two changes at once would make neither
+attributable, which is how this effort spent three of its four retractions.
 
 Concretely, the destination is reached when:
 

@@ -44,6 +44,11 @@ runs in. The store leaf never stands a yard (T 1.14-1.30); the coupled ladder th
 capped at **T = 2.25 by its catalogue**, not by the code (§4). The drain is **cubic in T**, and
 the campaign runs at **T = 12.97**.
 
+**Since measured, and now 3.15x**: the `take` heap (section 4) took the drain -6.3% at
+campaign scale, which carries the arm-slot-weighted campaign sizing to ~12.5 h at 4 workers
+against ticket 31's 8.6-9.7 h. The restatement is `.scratch/inbound-performance/issues/
+16-phase-2-restated-13-hours-not-8-6.md`.
+
 What survives, and it is the reason this was findable: **the method**. Two multipliers with
 different denominators, paired within a rung, with the commensurable one named. The DRAIN/RUN
 distinction in §1 is correct and is still how to read this tool. The error was concluding from
@@ -353,34 +358,49 @@ would have caught it, after the build.
 The two ceilings compound: the slice touches only construction (28.8%) and saves only 1.5x
 within it, so **92 s of 962 s — RUN x 3.24 -> 3.05**. Not worth three load-bearing orderings.
 
-### The 71.2% is one billion iterations of a linear scan
+### RETRACTED: "the 71.2% is one billion iterations of a linear scan"
 
-`_TravelBalancedPool.take` scans every aisle in the pool on every placement (`for aid in
-by_aisle:  # original order => original tie-breaks`), plus a full O(aisles x mults) cache
-rebuild at every SKU-run boundary. At 400,000 SKUs:
+That claim was written here, acted on, and disproved by acting on it. `take`'s aisle scan was
+replaced with a `(score, rank)` heap — byte-identical, proven against a three-way oracle — and
+the drain fell **6.3%**, not 71%. The scan was **9.9%** of the non-construction drain.
+
+Two errors, and the second is the one to carry:
+
+| | claimed | measured |
+|---|---|---|
+| scan width | 224 (buckets) | **159 (aisles)** — `take` iterates aisles |
+| iterations | 1.087 B | **771.6 M** |
+| per iteration | 0.630 us | **0.080 us** |
+| share of non-init drain | 100% | **9.9%** |
+
+**The 0.630 us was obtained by dividing the very total it then claimed to explain.** A division
+closes to three digits wherever the time actually goes, which is why this document warned
+against exactly that two sections earlier and then did it anyway. The corrected figure closes
+for the right reason: 771.6 M iterations (counted) x 0.080 us (saving / iterations, both
+measured independently) = 61.5 s = the measured saving.
+
+### What the drain is actually made of, and it has no dominant term
+
+At 400,000 SKUs, coupled, after the heap:
 
 ```
-takes                4,852,858      (194.80 per open x 24,912 opens)
-x buckets per open         224
-= inner iterations   1,087,040,102
-drain - init              685 s
-per iteration            0.630 us   <- two dict reads and a compare, in Python
+priced drain 901.3 s  =  pool construction  277.6 s  (30.8%)
+                      +  the aisle scan      61.5 s  ( 6.8%)   <- removed by the heap
+                      +  everything else    562.2 s  (62.4%)
 ```
 
-The arithmetic closes to three digits, which is what makes this an attribution rather than a
-division. And the slice cannot reach any of it: it trims bins WITHIN a bucket and keeps every
-bucket, so the scan width is exactly unchanged.
+Nothing here is a single lever. The candidate slice attacks the 30.8% and is refuted inside it;
+the heap took the 6.8% and is landed; the 62.4% is unattributed and would need a tracer, which
+this tier cannot afford at campaign scale (tracing costs ~40x wall — a traced 400k run is about
+fifteen hours).
 
-`take` solves a SELECTION problem by SCANNING. The structural fix is a score-keyed heap with an
-O(n) heapify at the run boundary and a lazy-deleted push for the single winner — the shape that
-took `_admit_held` from k 1.84 to 0.94. It sits in `Assignment_Functions` on the restock path
-this effort kept out of scope, and `take`'s aisle order is load-bearing for tie-breaks in three
-documented places. **That is the scope decision worth putting to the owner — not the slice.**
-
-Ticket 10 is not wrong about what it measured; every number in it holds at 600-6,000 SKUs. The
-failure is that its premises are scale-dependent and it does not say so, so it reads as a
-standing conclusion when it is a measurement at one point. Same shape as the retraction at the
-top of this document and as the catalogue ceiling: **the finding was not wrong, the range was.**
+**The one structural candidate that IS measured** is the SKU-run boundary rebuild. Per open at
+400,000 SKUs: 56.0 boundaries x 159 aisles = **8,904 score computations to serve 194.8
+placements** — 45x more scores computed than placements made. The heap cannot touch it (it is
+the `R x A` term, and `K / (K + R)` = 78% is the heap's structural ceiling on selection alone).
+Within it, `_aisle_best` calls `per_pick(m, intercept, var, 1, per_item)` once per (aisle,
+bracket) for a value that depends only on `m` and `var` — ~223 calls per boundary for ~1.4
+distinct values.
 
 ---
 
