@@ -488,9 +488,24 @@ def _flows(tree: dict, flat: dict[str, int]) -> dict[str, int]:
 
 
 def _levels(mgr) -> dict[str, int]:
-    """The backlog where it FINISHED.  A level -- never a statement about what ran."""
-    return {'queue_depth': mgr.queue_depth, 'dock_depth': mgr.dock_depth,
-            'held': len(mgr._held)}
+    """The backlog where it FINISHED.  A level -- never a statement about what ran.
+
+    THE YARD BELONGS HERE, and its absence was a hole in the traced/untraced divergence check
+    below: two passes that agreed on picks, placements and the put-side levels while differing
+    in the YARD would have passed silently, and the yard is the one quantity the inbound cells
+    exist to vary.  `getattr` throughout because a flag-off run binds a `BatchTransit`, which has
+    no yard at all, and because `dock_depth` REFUSES on a site-scoped leaf.
+    """
+    tr = getattr(mgr, 'transit', None)
+    out = {'queue_depth': mgr.queue_depth, 'held': len(mgr._held)}
+    try:
+        out['dock_depth'] = mgr.dock_depth
+    except Exception:                      # site-scoped leaf: the dock is the site's, not ours
+        out['dock_depth'] = -1
+    if getattr(tr, 'STANDING', False):
+        out['yard_depth'] = len(getattr(tr, '_yard', ()))
+        out['staged'] = len(getattr(tr, '_staged', ()))
+    return out
 
 
 def _split_kwargs(kwargs: dict, seed: int) -> tuple[dict, dict, int]:

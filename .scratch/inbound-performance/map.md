@@ -72,11 +72,40 @@ Concretely, the destination is reached when:
   trailer-type knobs this effort's plan proposed.
   → [04-revive-the-instrument.md](issues/04-revive-the-instrument.md)
 
+- **[05] The first yard ladder was mis-calibrated; its exponents are artifacts.** It reported
+  `_make_pool` at k=1.85, r²=1.00 — the convicted suspect at a textbook exponent with a perfect
+  fit — but its x axis moved 2.29 → 2.37, a **4% range**, so both numbers are noise dressed as a
+  law. Root cause: the whistle rungs were calibrated on the TIGHT put recipe, and under production
+  coverage the whistle cannot stand a yard at all (even 2 s reaches depth 12 against 59). The
+  binding constraint is the ARRIVAL rate, not the service rate — which inverts the prediction made
+  when the recipe was designed ("higher coverage helps twice"): at coverage 10 a SKU depletes ~80%
+  of its stock before reordering, so reorders are larger but far rarer, and over a short run rarity
+  wins. The archived artifact must not be cited.
+  → [05-the-first-yard-ladder-was-miscalibrated.md](issues/05-the-first-yard-ladder-was-miscalibrated.md)
+
+- **[06] PRODUCTION NEVER STANDS A YARD — the convicted quadratic is not phase 2's cost.**
+  Measured on the real driver, real catalogue, standing yard, `gain_forecast`: **T = 1.26, max 2**,
+  28 entry calls, 80 `place_load`s. `RECV_DAY_SECONDS = None` is the production default ("None = no
+  whistle"), it is not derived under the era, and `PHASE2_RUN_DEFAULTS` does not set it — so by
+  ticket 04's mechanism every freed door immediately pulls the next trailer and the yard empties
+  inside every drain. This RETRACTS the ordering of this effort's own refactor queue: the O(T²)
+  term is real, and at T=1.26 it costs six calls. It keeps its value as a standing risk with a
+  named trigger (anyone who sets a receiving day walks into it), but it is not what the campaign
+  pays for. The open contradiction: ticket 31 measured a gain cell at 1.6–1.9×, and 80 `place_load`
+  calls cannot cost 450 s — so the evaluator's cost is **per UNIT, not per candidate**, which
+  reorders the queue.
+  → [06-production-never-stands-a-yard.md](issues/06-production-never-stands-a-yard.md)
+
 ## Fog
 
-- How the whistle becomes a LADDER. It stands the yard, but it is a service-rate knob whose rungs
-  must be stated against the fixture's own uncapped receiving makespan, not as absolute seconds —
-  and it starves put-away as it bites, so the ladder needs an inbound-on control that does not stand.
+- **The recipe is being asked for two things that pull against each other**: a real fixture wants
+  HIGH coverage (Q > 1), a standing yard wants FREQUENT reorders. Low coverage buys the yard by
+  degrading the fixture, which is what this effort was told not to do. The candidate answer is
+  MORE BATCHES — a yard behind a binding whistle is an unstable queue, unlike the put queue the
+  `growth-ladder-use-the-skus-knob` memory measured — but that is under test, not settled.
+- Where the 1.6–1.9x pricing multiplier actually lives, now that the candidate loop is ruled out
+  at production scale. The per-UNIT hypothesis (entries x units_per_trailer x tiers) is stated in
+  ticket 06 and not yet measured.
 - Whether `_make_pool`'s per-placement aisle-dict copy can be made copy-on-write without the pool
   builders iterating a whole dict somewhere.
 - How much of a coupled priced run is currently in **no section at all** — the coupled leaf returns
