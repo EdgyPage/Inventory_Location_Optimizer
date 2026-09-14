@@ -40,3 +40,9 @@ test; a saturated knob and a genuinely flat subsystem are indistinguishable from
 drives — check that the intermediate counts differ between rungs, not just the requested input.
 Full record: `docs/design/INBOUND_PERF_FINDINGS.md`, `.scratch/inbound-performance/issues/
 13-*.md`, `.scratch/inbound-performance/map.md`.
+
+**Third instance in one effort (2026-09-14):** [[pool-candidate-slice-was-built-not-landed]]'s
+original rejection was also correct only over its tested range (600-6,000 SKUs) and read as a
+standing conclusion; a campaign-scale re-test found three of its premises scale-dependent. Same
+shape as this memory and the retracted [[inbound-pool-adapter-multiplier-is-not-13x]]: a finding
+is not wrong, the range it was measured over was never stated as a boundary.
