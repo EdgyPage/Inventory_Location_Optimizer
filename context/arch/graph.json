@@ -1253,7 +1253,42 @@
     {
       "dst": "Inbound/receiving.py::SiteReceiving._channel_of",
       "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._count_remainders"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._leaf_for",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._count_remainders"
+    },
+    {
+      "dst": "Warehouse/kernel/regime.py::regime_of",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._count_remainders"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._channel_of",
+      "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving._freeze_views"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._channel_of",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._hand_off"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._leaf_for",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._hand_off"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._owner_of",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._hand_off"
+    },
+    {
+      "dst": "Warehouse/kernel/regime.py::regime_of",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._hand_off"
     },
     {
       "dst": "Inbound/receiving.py::SiteReceiving._channel_of",
@@ -1274,6 +1309,11 @@
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving._partition"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._owner_of",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._plan_arrivals"
     },
     {
       "dst": "Inbound/receiving.py::SiteReceiving._channel_of",
@@ -1326,7 +1366,22 @@
       "src": "Inbound/receiving.py::SiteReceiving.note_records"
     },
     {
-      "dst": "Inbound/receiving.py::SiteReceiving._channel_of",
+      "dst": "Inbound/receiving.py::SiteReceiving._check_drain",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._count_remainders",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._drain_epoch",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._fill_doors",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.receive"
     },
@@ -1336,12 +1391,12 @@
       "src": "Inbound/receiving.py::SiteReceiving.receive"
     },
     {
-      "dst": "Inbound/receiving.py::SiteReceiving._leaf_for",
+      "dst": "Inbound/receiving.py::SiteReceiving._hand_off",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.receive"
     },
     {
-      "dst": "Inbound/receiving.py::SiteReceiving._owner_of",
+      "dst": "Inbound/receiving.py::SiteReceiving._plan_arrivals",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.receive"
     },
@@ -1357,11 +1412,6 @@
     },
     {
       "dst": "Inbound/site_space.py::compose_site_view",
-      "kind": "calls",
-      "src": "Inbound/receiving.py::SiteReceiving.receive"
-    },
-    {
-      "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.receive"
     },
@@ -9751,6 +9801,41 @@
       "src": "Optimization/run_simulation.py"
     },
     {
+      "dst": "Optimization/run_simulation.py::_free_share",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::_build_parser"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_futuresight_window",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::_build_parser"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_nonneg_float",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::_build_parser"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_nonneg_int",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::_build_parser"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_positive_float",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::_build_parser"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_positive_int",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::_build_parser"
+    },
+    {
+      "dst": "Optimization/run_simulation.py::_unit_fraction",
+      "kind": "ref",
+      "src": "Optimization/run_simulation.py::_build_parser"
+    },
+    {
       "dst": "Optimization/analyze_run.py::analyze_run",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
@@ -9791,43 +9876,13 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
-      "dst": "Optimization/run_simulation.py::_check_era_flags",
+      "dst": "Optimization/run_simulation.py::_build_parser",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
     {
-      "dst": "Optimization/run_simulation.py::_free_share",
-      "kind": "ref",
-      "src": "Optimization/run_simulation.py::main"
-    },
-    {
-      "dst": "Optimization/run_simulation.py::_futuresight_window",
-      "kind": "ref",
-      "src": "Optimization/run_simulation.py::main"
-    },
-    {
-      "dst": "Optimization/run_simulation.py::_nonneg_float",
-      "kind": "ref",
-      "src": "Optimization/run_simulation.py::main"
-    },
-    {
-      "dst": "Optimization/run_simulation.py::_nonneg_int",
-      "kind": "ref",
-      "src": "Optimization/run_simulation.py::main"
-    },
-    {
-      "dst": "Optimization/run_simulation.py::_positive_float",
-      "kind": "ref",
-      "src": "Optimization/run_simulation.py::main"
-    },
-    {
-      "dst": "Optimization/run_simulation.py::_positive_int",
-      "kind": "ref",
-      "src": "Optimization/run_simulation.py::main"
-    },
-    {
-      "dst": "Optimization/run_simulation.py::_unit_fraction",
-      "kind": "ref",
+      "dst": "Optimization/run_simulation.py::_check_era_flags",
+      "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
     {
@@ -13201,6 +13256,16 @@
       "src": "Optimization/simdriver/scenario.py::_warn_blank_arms"
     },
     {
+      "dst": "Optimization/simdriver/section_timers.py::SectionTimers.total",
+      "kind": "calls",
+      "src": "Optimization/simdriver/section_timers.py::SectionTimers.__repr__"
+    },
+    {
+      "dst": "Optimization/simdriver/section_timers.py::SectionTimers.total",
+      "kind": "calls",
+      "src": "Optimization/simdriver/section_timers.py::SectionTimers.totals"
+    },
+    {
       "dst": "Optimization/config/sim_config.py",
       "kind": "imports",
       "src": "Optimization/simdriver/sim_assets.py"
@@ -13481,6 +13546,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/simdriver/section_timers.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/simdriver/sim_assets.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -13686,6 +13756,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
     {
+      "dst": "Optimization/simdriver/section_timers.py::SectionTimers",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
       "dst": "Optimization/simdriver/sim_assets.py::load_run_inventory",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
@@ -13756,11 +13831,6 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
@@ -13792,6 +13862,11 @@
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin.configure_zoning",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
@@ -18071,6 +18146,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py"
     },
     {
+      "dst": "Warehouse/inventory/inventory_zoning.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/Inventory_Management.py"
+    },
+    {
       "dst": "Warehouse/inventory/put_policy.py",
       "kind": "imports",
       "src": "Warehouse/inventory/Inventory_Management.py"
@@ -18146,32 +18226,12 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._admit"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_pick"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._spill_bands",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_pick"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::_apportion",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_abc_bands"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_abc_bands"
-    },
-    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates_raw",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._zone_filter",
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._zone_filter",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates"
     },
@@ -18219,16 +18279,6 @@
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._cost_putaway",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_topup"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._group_key"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._group_key"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._key",
@@ -18281,11 +18331,6 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_pick",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
@@ -18312,6 +18357,11 @@
     },
     {
       "dst": "Warehouse/inventory/inventory_common.py::_max_qty_fitting_size",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_pick",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
     },
@@ -18351,11 +18401,6 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._group_key",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
-    },
-    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
@@ -18372,6 +18417,11 @@
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::_ranked_by_score",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._group_key",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
@@ -18399,31 +18449,6 @@
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._zone_filter"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._spill_bands",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._zone_filter"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_abc_bands",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_band_index",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._refuse_site_scope",
@@ -19019,6 +19044,71 @@
       "dst": "Warehouse/inventory/inventory_common.py::UndeclaredStock",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::_undeclared_stock"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/inventory_zoning.py"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/inventory_zoning.py"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_of_unit",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_pick"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._spill_bands",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_pick"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._build_abc_bands"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::_apportion",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._build_abc_bands"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._group_key"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_of_unit",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._group_key"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_of_unit",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._zone_filter"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._spill_bands",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._zone_filter"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::binkey_of",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin.configure_zoning"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._build_abc_bands",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin.configure_zoning"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._build_band_index",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_zoning.py::ZoningMixin.configure_zoning"
     },
     {
       "dst": "Warehouse/inventory/put_policy.py::_fifo",
@@ -22233,14 +22323,6 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.__contains__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__contains__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_CowFloats.__getitem__",
       "kind": "function",
       "module": "Inbound/gain.py",
@@ -22249,82 +22331,10 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.__init__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__init__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.__iter__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__iter__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.__len__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__len__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.__setitem__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__setitem__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.get",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "get",
-      "public": true
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.items",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "items",
-      "public": true
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.keys",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "keys",
-      "public": true
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowFloats.values",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "values",
-      "public": true
-    },
-    {
-      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_CowListsByKey",
       "kind": "class",
       "module": "Inbound/gain.py",
       "name": "_CowListsByKey",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.__contains__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__contains__",
       "public": false
     },
     {
@@ -22337,82 +22347,10 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.__init__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__init__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.__iter__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__iter__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.__len__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__len__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.__setitem__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__setitem__",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.get",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "get",
-      "public": true
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.items",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "items",
-      "public": true
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.keys",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "keys",
-      "public": true
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowListsByKey.values",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "values",
-      "public": true
-    },
-    {
-      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_CowSets",
       "kind": "class",
       "module": "Inbound/gain.py",
       "name": "_CowSets",
-      "public": false
-    },
-    {
-      "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.__contains__",
-      "kind": "function",
-      "module": "Inbound/gain.py",
-      "name": "__contains__",
       "public": false
     },
     {
@@ -22425,7 +22363,31 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.__init__",
+      "id": "Inbound/gain.py::_CowView",
+      "kind": "class",
+      "module": "Inbound/gain.py",
+      "name": "_CowView",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowView.__contains__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__contains__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowView.__getitem__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowView.__init__",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "__init__",
@@ -22433,7 +22395,7 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.__iter__",
+      "id": "Inbound/gain.py::_CowView.__iter__",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "__iter__",
@@ -22441,7 +22403,7 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.__len__",
+      "id": "Inbound/gain.py::_CowView.__len__",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "__len__",
@@ -22449,7 +22411,7 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.__setitem__",
+      "id": "Inbound/gain.py::_CowView.__setitem__",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "__setitem__",
@@ -22457,7 +22419,7 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.get",
+      "id": "Inbound/gain.py::_CowView.get",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "get",
@@ -22465,7 +22427,7 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.items",
+      "id": "Inbound/gain.py::_CowView.items",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "items",
@@ -22473,7 +22435,7 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.keys",
+      "id": "Inbound/gain.py::_CowView.keys",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "keys",
@@ -22481,7 +22443,7 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::_CowSets.values",
+      "id": "Inbound/gain.py::_CowView.values",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "values",
@@ -23113,10 +23075,50 @@
     },
     {
       "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._check_drain",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_check_drain",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._count_remainders",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_count_remainders",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._drain_epoch",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_drain_epoch",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._fill_doors",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_fill_doors",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
       "id": "Inbound/receiving.py::SiteReceiving._freeze_views",
       "kind": "function",
       "module": "Inbound/receiving.py",
       "name": "_freeze_views",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._hand_off",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_hand_off",
       "public": false
     },
     {
@@ -23141,6 +23143,14 @@
       "kind": "function",
       "module": "Inbound/receiving.py",
       "name": "_partition",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._plan_arrivals",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_plan_arrivals",
       "public": false
     },
     {
@@ -33721,6 +33731,14 @@
     },
     {
       "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_build_parser",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_build_parser",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
       "id": "Optimization/run_simulation.py::_check_era_flags",
       "kind": "function",
       "module": "Optimization/run_simulation.py",
@@ -37438,6 +37456,78 @@
       "module": "Optimization/simdriver/scenario.py",
       "name": "_warn_blank_arms",
       "public": false
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "Optimization.simdriver.section_timers",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers",
+      "kind": "class",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "SectionTimers",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.__repr__",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.add",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "add",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.roll",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "roll",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.total",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "total",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.totals",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "totals",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.window",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "window",
+      "public": true
     },
     {
       "file": "Optimization/simdriver/sim_assets.py",
@@ -42641,42 +42731,10 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "_band_of_unit",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_pick",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "_band_pick",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._bind_put_crews",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "_bind_put_crews",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_abc_bands",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "_build_abc_bands",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_band_index",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "_build_band_index",
       "public": false
     },
     {
@@ -42725,14 +42783,6 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "_execute_topup",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._group_key",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "_group_key",
       "public": false
     },
     {
@@ -42809,14 +42859,6 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._spill_bands",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "_spill_bands",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stamp",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -42881,14 +42923,6 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._zone_filter",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "_zone_filter",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.assigned_bins",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -42909,14 +42943,6 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "carryover_rows",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "configure_zoning",
       "public": true
     },
     {
@@ -43245,14 +43271,6 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "__repr__",
-      "public": false
-    },
-    {
-      "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::_apportion",
-      "kind": "function",
-      "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "_apportion",
       "public": false
     },
     {
@@ -44173,6 +44191,94 @@
       "kind": "function",
       "module": "Warehouse/inventory/inventory_reorder.py",
       "name": "_undeclared_stock",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py",
+      "kind": "module",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "Warehouse.inventory.inventory_zoning",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin",
+      "kind": "class",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "ZoningMixin",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_of_unit",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "_band_of_unit",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_pick",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "_band_pick",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._build_abc_bands",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "_build_abc_bands",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._build_band_index",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "_build_band_index",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._group_key",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "_group_key",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._spill_bands",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "_spill_bands",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._zone_filter",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "_zone_filter",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::ZoningMixin.configure_zoning",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "configure_zoning",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_zoning.py",
+      "id": "Warehouse/inventory/inventory_zoning.py::_apportion",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_zoning.py",
+      "name": "_apportion",
       "public": false
     },
     {

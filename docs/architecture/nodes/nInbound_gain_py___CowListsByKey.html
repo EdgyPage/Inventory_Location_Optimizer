@@ -14,11 +14,11 @@
 <h1><span class="kind kind-class">class</span> <code>_CowListsByKey</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
-<pre class="sig"><code>class _CowListsByKey</code></pre>
-<section class="doc">Copy-on-write over `{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.
+<pre class="sig"><code>class _CowListsByKey(_CowView)</code></pre>
+<section class="doc">`{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.
 
-Two levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so a
-shallow copy would hand the pool the live inner list.  An access materializes that one
+Two levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so
+a shallow copy would hand the pool the live inner list.  An access materializes that one
 aisle&#x27;s whole inner mapping, which is still one of forty-six.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___CowListsByKey">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=class%20_CowListsByKey">Source ↗</a></p>

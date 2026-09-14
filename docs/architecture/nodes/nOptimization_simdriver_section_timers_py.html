@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simdriver.section_timers · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_section_timers_py" data-id="Optimization/simdriver/section_timers.py">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <span class="here"><code>Optimization/simdriver/section_timers.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simdriver.section_timers</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_section_timers_py.html"><code>Optimization/simdriver/section_timers.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simdriver.section_timers</code></pre>
+<section class="doc">section_timers.py — the per-section wall accumulator an arm keeps while it runs.
+
+WHAT IT REPLACES.  `strategy_runner._build_leaf` carried this as twenty-three closure
+variables: eleven `t_*_ckpt` / `p*_sum_ckpt` window accumulators, the eleven `t_*_run` /
+`p*_run` whole-arm totals they fold into, and `t_save_run`, which never had a window
+because a checkpoint&#x27;s DB write is timed inside the checkpoint block itself.  Three sites
+had to name every section and stay in step — the declaration block, the checkpoint
+fold-and-reset, and `_finish`&#x27;s fold of the final unflushed window.
+
+# ── the one design decision ───────────────────────────────────────────────────────
+
+**A TOTAL ALWAYS INCLUDES THE OPEN WINDOW.**  `roll()` closes the window; it does not
+move a number anybody is waiting on.  That is the whole point, and it is chosen against a
+recorded defect rather than for tidiness: a run-end fold that sits behind a condition
+(`if pb:` — true only when an unflushed batch window exists, i.e. NOT when `n_batches`
+divides the checkpoint cadence) discards the final window in silence, and the same class
+of loss is on record against the `p1`/`p2` split, whose last window went unwritten until
+the runtime_metrics column add.  Here there is nothing to forget: the total is right
+before the first roll and after the last one.
+
+`roll()` therefore exists for ONE reader — the per-checkpoint log line, which reports the
+window rather than the arm — and is an observability operation, not a correctness one.
+
+# ── float discipline ──────────────────────────────────────────────────────────────
+
+The old code was a chain of `+=`, and an archived `runtime_metrics` row has to keep
+reproducing, so the association is preserved exactly rather than approximately:
+
+    window  = running sum of this window&#x27;s deltas          (one add per `add`)
+    base    = running sum of the CLOSED windows            (one add per `roll`)
+    total   = base + window                                (one add, at read time)
+
+Nothing sums a list, nothing re-associates, and `roll()` on an empty window adds 0.0 —
+which is an exact identity for every float a timer can hold.  `Tests/unit/
+test_section_timers.py` pins all three against a plain running sum.
+
+# ── the vocabulary is a contract ──────────────────────────────────────────────────
+
+`SECTIONS` names the twelve spans `runtime_metrics` has columns for, and the checkpoint
+log line prints the same words.  `Tests/calltree/test_calltree_anchors.py` pins that
+vocabulary from the other side (`SECTION_MAP` against the log line), so renaming a section
+here without renaming it there fails a gate instead of silently re-labelling an archived
+column.  `COLUMNS` holds the two that are not simply `t_&lt;name&gt;`: the fast_pick phase split
+kept its `p1_s` / `p2_s` names when it was promoted from per-checkpoint to whole-arm.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers.html"><code>SectionTimers</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers___repr__.html"><code>__repr__</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_add.html"><code>add</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_roll.html"><code>roll</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_total.html"><code>total</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_totals.html"><code>totals</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_window.html"><code>window</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_section_timers_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/section_timers.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

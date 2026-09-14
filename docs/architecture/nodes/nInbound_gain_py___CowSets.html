@@ -14,13 +14,13 @@
 <h1><span class="kind kind-class">class</span> <code>_CowSets</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
-<pre class="sig"><code>class _CowSets</code></pre>
-<section class="doc">Copy-on-write over `{aisle: set}`.
+<pre class="sig"><code>class _CowSets(_CowView)</code></pre>
+<section class="doc">`{aisle: set}`.
 
-Unlike floats, the value is MUTABLE and the caller does `d[aid].add(sku)` -- and
-`__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an access
-materializes that ONE aisle&#x27;s set.  Bounded by the aisles a pool touches (measured 1.22),
-not by the warehouse (46).</section>
+Unlike floats the value is MUTABLE and the caller does `d[aid].add(sku)` -- and
+`__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an
+access materializes that ONE aisle&#x27;s set.  Bounded by the aisles a pool touches
+(measured 1.22), not by the warehouse (46).</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___CowSets">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=class%20_CowSets">Source ↗</a></p>
 </article>

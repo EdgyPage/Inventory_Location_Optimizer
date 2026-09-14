@@ -1003,16 +1003,9 @@
     },
     "Inbound/gain.py::_CowFloats": {
       "decorators": [],
-      "doc": "Copy-on-write over `{aisle: float}` -- and floats need NO copy at all.\n\nA float is immutable, so a read can fall straight through to the live dict; only a write\nneeds an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write\nlands here rather than on the manager's dict.\n\n`__getitem__` on a miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the\nshape this replaces -- so `len()` and iteration order are unchanged.",
+      "doc": "`{aisle: float}` -- and floats need NO copy at all.\n\nA float is immutable, so a read falls straight through to the live dict; only a write\nneeds an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write\nlands in the overlay rather than on the manager's dict.\n\nA miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the shape this\nreplaces -- so `len()` and iteration order are unchanged.",
       "kind": "class",
-      "signature": ""
-    },
-    "Inbound/gain.py::_CowFloats.__contains__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k)"
+      "signature": "(_CowView)"
     },
     "Inbound/gain.py::_CowFloats.__getitem__": {
       "decorators": [],
@@ -1021,74 +1014,11 @@
       "kind": "function",
       "signature": "(self, k)"
     },
-    "Inbound/gain.py::_CowFloats.__init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, live)"
-    },
-    "Inbound/gain.py::_CowFloats.__iter__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowFloats.__len__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowFloats.__setitem__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k, v)"
-    },
-    "Inbound/gain.py::_CowFloats.get": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k, default=None)"
-    },
-    "Inbound/gain.py::_CowFloats.items": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowFloats.keys": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowFloats.values": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
     "Inbound/gain.py::_CowListsByKey": {
       "decorators": [],
-      "doc": "Copy-on-write over `{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.\n\nTwo levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so a\nshallow copy would hand the pool the live inner list.  An access materializes that one\naisle's whole inner mapping, which is still one of forty-six.",
+      "doc": "`{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.\n\nTwo levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so\na shallow copy would hand the pool the live inner list.  An access materializes that one\naisle's whole inner mapping, which is still one of forty-six.",
       "kind": "class",
-      "signature": ""
-    },
-    "Inbound/gain.py::_CowListsByKey.__contains__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k)"
+      "signature": "(_CowView)"
     },
     "Inbound/gain.py::_CowListsByKey.__getitem__": {
       "decorators": [],
@@ -1097,74 +1027,11 @@
       "kind": "function",
       "signature": "(self, k)"
     },
-    "Inbound/gain.py::_CowListsByKey.__init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, live)"
-    },
-    "Inbound/gain.py::_CowListsByKey.__iter__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowListsByKey.__len__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowListsByKey.__setitem__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k, v)"
-    },
-    "Inbound/gain.py::_CowListsByKey.get": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k, default=None)"
-    },
-    "Inbound/gain.py::_CowListsByKey.items": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowListsByKey.keys": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowListsByKey.values": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
     "Inbound/gain.py::_CowSets": {
       "decorators": [],
-      "doc": "Copy-on-write over `{aisle: set}`.\n\nUnlike floats, the value is MUTABLE and the caller does `d[aid].add(sku)` -- and\n`__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an access\nmaterializes that ONE aisle's set.  Bounded by the aisles a pool touches (measured 1.22),\nnot by the warehouse (46).",
+      "doc": "`{aisle: set}`.\n\nUnlike floats the value is MUTABLE and the caller does `d[aid].add(sku)` -- and\n`__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an\naccess materializes that ONE aisle's set.  Bounded by the aisles a pool touches\n(measured 1.22), not by the warehouse (46).",
       "kind": "class",
-      "signature": ""
-    },
-    "Inbound/gain.py::_CowSets.__contains__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k)"
+      "signature": "(_CowView)"
     },
     "Inbound/gain.py::_CowSets.__getitem__": {
       "decorators": [],
@@ -1173,56 +1040,76 @@
       "kind": "function",
       "signature": "(self, k)"
     },
-    "Inbound/gain.py::_CowSets.__init__": {
+    "Inbound/gain.py::_CowView": {
+      "decorators": [],
+      "doc": "Copy-on-write over one of the manager's `{aisle: ...}` dicts.\n\nA virtual placement must never advance the live bookkeeping, and the original way to\nguarantee that was to hand the pool an EAGER copy of the whole dict.  The measurement in\nfront of this block is why that stopped: a pool's candidates are the free bins of ONE\nBinKey, living in one or two aisles, while the copy walked all forty-six -- 9.3M set\nentries copied per run, at 12.59 pool opens per placement.\n\nA view pays for the aisles the pool actually touches instead.  Reads fall through to the\nlive dict; the first access to an aisle whose value is MUTABLE materializes that one\naisle into an overlay, and every write lands in the overlay.  The purity rule is\nunchanged -- it is the price that moved.\n\n# -- what a subclass owns, and what it does not --------------------------------------\n\n`__getitem__` ONLY.  How a miss materializes IS the difference between the shapes: a\nfloat needs no copy at all (it is immutable, so a read can fall straight through), a set\nneeds its own set, and the minlabor shape needs a whole inner mapping.  The remaining\neight methods never differed, and were three byte-identical copies until this base\nexisted; `Tests/unit/test_gain_cow_protocol.py` asserts they stay one implementation and\nthat `__getitem__` stays three.\n\n# -- where the laziness stops, deliberately -------------------------------------------\n\n`values()` and `items()` materialize EVERY aisle, because a lazy one would hand out the\nLIVE container and the caller could mutate it -- the precise failure the eager copy\nexisted to prevent.  `_RankedAssignPool.__init__` builds\n`set().union(*aisle_idx_sets.values())`, so `rank_random` (its only phase-2 user) gets\ncorrectness and no win.  Every other ranked family reads by key and gets both.\n\nSlotted, and the subclasses re-declare `__slots__ = ()` to stay that way: a view is\nopened per pool, and a stray attribute would be per-pool heap nobody frees.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain.py::_CowView.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain.py::_CowView.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain.py::_CowView.__init__": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(self, live)"
     },
-    "Inbound/gain.py::_CowSets.__iter__": {
+    "Inbound/gain.py::_CowView.__iter__": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
     },
-    "Inbound/gain.py::_CowSets.__len__": {
+    "Inbound/gain.py::_CowView.__len__": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
     },
-    "Inbound/gain.py::_CowSets.__setitem__": {
+    "Inbound/gain.py::_CowView.__setitem__": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(self, k, v)"
     },
-    "Inbound/gain.py::_CowSets.get": {
+    "Inbound/gain.py::_CowView.get": {
       "decorators": [],
-      "doc": null,
+      "doc": "Read WITHOUT materializing -- which is the whole reason a pool ever calls it.\n\nThe fall-through hands back the LIVE value for a key the overlay has not taken.\nThat is read-only by contract: a caller that mutates what `get` returned writes\ninto the manager's own dict.  Callers that intend to write use `__getitem__`.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, k, default=None)"
     },
-    "Inbound/gain.py::_CowSets.items": {
+    "Inbound/gain.py::_CowView.items": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
     },
-    "Inbound/gain.py::_CowSets.keys": {
+    "Inbound/gain.py::_CowView.keys": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
     },
-    "Inbound/gain.py::_CowSets.values": {
+    "Inbound/gain.py::_CowView.values": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -1755,7 +1642,7 @@
     },
     "Inbound/receiving.py": {
       "decorators": [],
-      "doc": "receiving \u2014 the site's receiving coordinator: one dock, one yard, N leaves.\n\n`SiteReceiving` owns every DECISION of a standing drain and holds no merchandise.  It\nsits ABOVE the inventory managers rather than inside one, which is what lets one dock\nserve two channels without either manager knowing the other exists.\n\n# \u2500\u2500 why it lives here, and cannot live anywhere else \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`wh_operations -> wh_inventory` is forbidden (`context/architecture.yml:88`), so the\npackage where crews live cannot drive a manager's drain; `warehouse_core -> inbound` and\n`wh_inventory -> inbound` are forbidden in BOTH directions (`:102-103`).  `Inbound/` is\ntherefore the only package that may sit above two managers, which is why the put pool\nlands here too.\n\nThe consequence is that this module can never import a manager.  It DUCK-TYPES its\nleaves and reaches each one through exactly three public ports:\n\n    leaf.plan_lot(sku, qty, source) -> (plans, items)\n        Step 1's per-lot body: resolve `_originals`, apply `inbound_split`, pack, stamp,\n        and debit the pack shortfall against the remainder ledger.\n    leaf.accept(item, dur) -> None\n        Step 4's per-unit body: the deferred->queued flip, `_recv_seconds`, `_queue`.\n    leaf.owned_skus() -> iterable[int]\n        The catalogue partition this leaf is responsible for.  Read ONCE, at bind time,\n        to build the `{sku: leaf}` owner dict \u2014 never during a drain.\n\nEverything else a drain touches is the coordinator's own: the `Dock`, the `YardTransit`,\nthe ctx freeze, the door fill, the unload and the handoff ORDER.\n\nHOW A MIXED TRAILER FINDS ITS WAY HOME \u2014 two routes, because they answer two different\nquestions:\n\n  * STEP 1 holds a bare `(sku, qty)` lot; no unit exists yet, so it resolves the owner\n    from the `{sku: leaf}` dict built at bind time.  An overlapping sku is REFUSED there:\n    it would mean the channel filter let one order into both leaves, and the symptom\n    would be merchandise silently delivered to the wrong warehouse.\n  * STEP 4 holds a `PutawayItem`, so it asks `regime_of(item.unit)` (wh_kernel,\n    dependency-free, single-valued per entity).  No owner field is carried, stamped or\n    mapped at the unit level \u2014 `regime_of` already answers it.\n\nThe two are CROSS-CHECKED at the handoff.  A unit whose regime names one leaf while the\nowner dict names another is the only way the catalogue partition and the regime tagging\ncan disagree, and a run that routes by one while the other is true is a run whose ledgers\nbalance in the wrong warehouse.\n\n# \u2500\u2500 what is NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe DRIVER wiring of a two-leaf standing run.  Three things a live coupled run needs are\nnamed out of scope by this build's ticket, and each is somebody else's decision: the\nsite-scoped yard rows (`yard_trailers`, `yard_drains`) have no declared artifact until\n`<pair>/_site/` lands with its contract bump (\"Design the site scope in the run tree\",\nADR-0005); the shared transit carries ONE `gain_bundle` slot for two owners (\"Design the\ncomposite gain bundle\"); and one dock has one `UnloadCost` while the two channels price at\ntwo (\"One unload price for the site dock\", the site-dock map's open question).  So the\ncoordinator is complete and the run that fields it is the next ticket's \u2014 the same\nseam-before-consumer order this map has used throughout.  `site_rows` below is where a\ncoupled drain's yard rows wait for that artifact, and `drain_site_rows` is its accessor.\n\nWithin-day interleaving.  One batch is one site day and the drain stays drain-quantized;\nan event-driven cadence is out of scope, inherited.",
+      "doc": "receiving \u2014 the site's receiving coordinator: one dock, one yard, N leaves.\n\n`SiteReceiving` owns every DECISION of a standing drain and holds no merchandise.  It\nsits ABOVE the inventory managers rather than inside one, which is what lets one dock\nserve two channels without either manager knowing the other exists.\n\n# \u2500\u2500 why it lives here, and cannot live anywhere else \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`wh_operations -> wh_inventory` is forbidden (`context/architecture.yml:88`), so the\npackage where crews live cannot drive a manager's drain; `warehouse_core -> inbound` and\n`wh_inventory -> inbound` are forbidden in BOTH directions (`:102-103`).  `Inbound/` is\ntherefore the only package that may sit above two managers, which is why the put pool\nlands here too.\n\nThe consequence is that this module can never import a manager.  It DUCK-TYPES its\nleaves and reaches each one through exactly three public ports:\n\n    leaf.plan_lot(sku, qty, source) -> (plans, items)\n        Step 1's per-lot body: resolve `_originals`, apply `inbound_split`, pack, stamp,\n        and debit the pack shortfall against the remainder ledger.\n    leaf.accept(item, dur) -> None\n        Step 4's per-unit body: the deferred->queued flip, `_recv_seconds`, `_queue`.\n    leaf.owned_skus() -> iterable[int]\n        The catalogue partition this leaf is responsible for.  Read ONCE, at bind time,\n        to build the `{sku: leaf}` owner dict \u2014 never during a drain.\n\nEverything else a drain touches is the coordinator's own: the `Dock`, the `YardTransit`,\nthe ctx freeze, the door fill, the unload and the handoff ORDER.\n\n`receive` is the composition of those, and each step is a method rather than a comment\nbanner inside one \u2014 the order is the design, so it is worth being able to read the order\non its own:\n\n    _check_drain        the three refusals: no leaf, a partial site drain, the wrong day\n    _drain_epoch        ONE DRAIN IS ONE INSTANT -- the site epoch every decision reads\n    _plan_arrivals      STEP 1  plans-at-arrival, per contiguous lot, by the lot's owner\n    _fill_doors         STEP 2  the door fill (NOT budget-gated) + the frozen dock ranking\n    _unload_merged      STEP 3  the pooled gang -- v1's physics, the lockstep pin\n    _unload_split       STEP 3  the dealt door teams -- the standing model's own physics\n    _hand_off           STEP 4  the canonical handoff + the per-unit ledger flip\n    _count_remainders   what the whistle cost, in storage units, counted once\n\nHOW A MIXED TRAILER FINDS ITS WAY HOME \u2014 two routes, because they answer two different\nquestions:\n\n  * STEP 1 holds a bare `(sku, qty)` lot; no unit exists yet, so it resolves the owner\n    from the `{sku: leaf}` dict built at bind time.  An overlapping sku is REFUSED there:\n    it would mean the channel filter let one order into both leaves, and the symptom\n    would be merchandise silently delivered to the wrong warehouse.\n  * STEP 4 holds a `PutawayItem`, so it asks `regime_of(item.unit)` (wh_kernel,\n    dependency-free, single-valued per entity).  No owner field is carried, stamped or\n    mapped at the unit level \u2014 `regime_of` already answers it.\n\nThe two are CROSS-CHECKED at the handoff.  A unit whose regime names one leaf while the\nowner dict names another is the only way the catalogue partition and the regime tagging\ncan disagree, and a run that routes by one while the other is true is a run whose ledgers\nbalance in the wrong warehouse.\n\n# \u2500\u2500 what is NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe DRIVER wiring of a two-leaf standing run.  Three things a live coupled run needs are\nnamed out of scope by this build's ticket, and each is somebody else's decision: the\nsite-scoped yard rows (`yard_trailers`, `yard_drains`) have no declared artifact until\n`<pair>/_site/` lands with its contract bump (\"Design the site scope in the run tree\",\nADR-0005); the shared transit carries ONE `gain_bundle` slot for two owners (\"Design the\ncomposite gain bundle\"); and one dock has one `UnloadCost` while the two channels price at\ntwo (\"One unload price for the site dock\", the site-dock map's open question).  So the\ncoordinator is complete and the run that fields it is the next ticket's \u2014 the same\nseam-before-consumer order this map has used throughout.  `site_rows` below is where a\ncoupled drain's yard rows wait for that artifact, and `drain_site_rows` is its accessor.\n\nWithin-day interleaving.  One batch is one site day and the drain stays drain-quantized;\nan event-driven cadence is out of scope, inherited.",
       "kind": "module",
       "signature": null
     },
@@ -1786,12 +1673,47 @@
       "kind": "function",
       "signature": "(self, leaf) -> str"
     },
+    "Inbound/receiving.py::SiteReceiving._check_drain": {
+      "decorators": [],
+      "doc": "THE THREE REFUSALS: no leaf, a partial site drain, and the wrong day.\n\nTogether they are one rule -- a drain of the site dock names every leaf the\ncoordinator serves, at the day its clocks are running on -- stated from the three\nsides it can be broken from.  Hoisted out of `receive` so the four steps below\nread as the four steps; nothing here is reordered or relaxed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaves, deadline: float | None) -> None"
+    },
+    "Inbound/receiving.py::SiteReceiving._count_remainders": {
+      "decorators": [],
+      "doc": "What the whistle cost: the remainders standing on STAGED trailers, counted once.\n\nReturns `left` in storage units.  Computed above the whistle test, not inside it: a\ndrain that ran out of WORK leaves the same remainder as one that ran out of DAY,\nand only one of those is a cut -- the level says what was standing either way.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, transit, dock, deadline: float | None, solo) -> int"
+    },
+    "Inbound/receiving.py::SiteReceiving._drain_epoch": {
+      "decorators": [],
+      "doc": "ONE DRAIN IS ONE INSTANT: the site epoch every decision in this drain reads.\n\nReturns the leaves' shared `_now_s`, or 0.0 when none of them carries one.  The\nagreement check is the point and it is stated in the block below.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, leaves) -> float"
+    },
+    "Inbound/receiving.py::SiteReceiving._fill_doors": {
+      "decorators": [],
+      "doc": "STEP 2: THE DOOR FILL -- NOT budget-gated -- and the drain-frozen dock ranking.\n\nReturns `(work_order, yard_next)`: the ranking the allocation and the handoff both\nread, and the queue a freed door pulls its replacement from.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, transit, ctx, epoch: float) -> tuple"
+    },
     "Inbound/receiving.py::SiteReceiving._freeze_views": {
       "decorators": [],
       "doc": "`[(regime, view)]` \u2014 one frozen space view per leaf that runs a timeline.\n\nONE LEAF IS CONTRIBUTED UNTAGGED and more than one is TAGGED, and the asymmetry is\nthe design rather than a shortcut.  A composition of one partitions nothing, so a\ntag there would decide nothing \u2014 and `compose_site_view` returns a lone\ncontribution BY IDENTITY, which is what keeps every standing-yard run already on\ndisk byte-identical (filtering one leaf's `empties` would remove a phantom that\nbelongs to the UNCOUPLED model).  With two, the tag is what partitions `empties` so\na mixed trailer's store units rank against store bins, and the composer REFUSES an\nuntagged contribution the moment there are two (\"Design the site space view\").\n\nThe tag is the channel the leaf BOUND under, which is the same knowledge the\n`{sku: leaf}` owner dict is built from \u2014 not `regime_of` on anything, because the\ncoordinator is the one object that holds both managers and knows which is which.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, leaves, epoch: float) -> list"
+    },
+    "Inbound/receiving.py::SiteReceiving._hand_off": {
+      "decorators": [],
+      "doc": "STEP 4: THE CANONICAL HANDOFF, with the per-unit ledger flip.\n\nWhatever the crew allocation, unloaded units reach `_queue` in MERGED order --\ntrailers by dock rank, units by local rank -- never in labor-completion order.\nThat is the containment property: crew allocation moves labor stamps and makespans\nONLY, never placement physics.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, dock, done, solo) -> None"
     },
     "Inbound/receiving.py::SiteReceiving._leaf_for": {
       "decorators": [],
@@ -1813,6 +1735,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> dict"
+    },
+    "Inbound/receiving.py::SiteReceiving._plan_arrivals": {
+      "decorators": [],
+      "doc": "STEP 1: PLANS-AT-ARRIVAL -- every trailer that joined the yard is packed NOW.\n\nStamps the units immediately, so a pallet that stands three batches in the yard is\nthree batches old when it finally reaches floor space.  The merchandise stays in\n`_deferred_qty`: nothing is queued until a crew actually pulls it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, dock, transit, ctx, epoch: float, source: str, solo) -> None"
     },
     "Inbound/receiving.py::SiteReceiving._take": {
       "decorators": [],
@@ -11128,6 +11057,13 @@
       "kind": "function",
       "signature": "(args, spec, explicit)"
     },
+    "Optimization/run_simulation.py::_build_parser": {
+      "decorators": [],
+      "doc": "Every flag `run_simulation` accepts, and nothing else.\n\nSplit out of `main`, which was 875 lines holding four unrelated things: this parser, the\nCONFIG override loop, the two contract prechecks, and the run.  Only the last three have\nanything to do with each other.\n\nDEFAULTS COME FROM `CONFIG`, NEVER FROM A LITERAL.  That is the invariant the whole\nfive-seam chain rests on -- a flag whose default were written out here would disagree\nwith `settings.py` the moment the setting moved, and the run would be shaped by\nwhichever of the two the reader happened to trust.  `Tests/unit/test_cli_surface.py`\nchecks the pairs against the live CONFIG rather than against this file's text.\n\nReads CONFIG; never writes it.  A parser can therefore be built by a test without\nreshaping the run that follows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> argparse.ArgumentParser"
+    },
     "Optimization/run_simulation.py::_check_era_flags": {
       "decorators": [],
       "doc": "Enforce and complete the calibrated era's regime on the parsed args.\n\nUnder `--shift-drain-or-cap` (\".scratch/department-calibration\", \"Define the calibrated\nera\"):\n  * the legacy crew flags (`_ERA_DERIVED_FLAGS`) typed explicitly are an ERROR -- the\n    put and receiving crews are derived from the pickers, never declared;\n  * `--put-queue-split` is an error -- single queue only for this map; per-stream sizing\n    is the out-of-scope swept-axis effort;\n  * a nonzero `--put-swap-coef` is an error -- the put crew is sized by a closed form\n    with no cart-swap term (`staffing.implied_reorders`), and the single queue the era\n    runs never reads the coefficient anyway, so accepting it would record a knob the\n    run ignores and the derivation cannot price;\n  * the cadence is pinned at ONE release per day: an unset `--releases-per-day` is\n    completed to 1 (with a note), an explicit other value is an error, because the\n    derivation makes one batch one day's demand;\n  * the roll-over and the cut are completed to on (with a note): a day that reads\n    \"drained\" because cut demand was dropped is not equilibrium, and the worker forces\n    the cut anyway -- the record should say what ran.\nRaises `SystemExit` with the reason; returns the completion notes otherwise.\nModule-level so a test can hand it a Namespace.",
@@ -14389,6 +14325,67 @@
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, log: logging.Logger) -> list"
+    },
+    "Optimization/simdriver/section_timers.py": {
+      "decorators": [],
+      "doc": "section_timers.py \u2014 the per-section wall accumulator an arm keeps while it runs.\n\nWHAT IT REPLACES.  `strategy_runner._build_leaf` carried this as twenty-three closure\nvariables: eleven `t_*_ckpt` / `p*_sum_ckpt` window accumulators, the eleven `t_*_run` /\n`p*_run` whole-arm totals they fold into, and `t_save_run`, which never had a window\nbecause a checkpoint's DB write is timed inside the checkpoint block itself.  Three sites\nhad to name every section and stay in step \u2014 the declaration block, the checkpoint\nfold-and-reset, and `_finish`'s fold of the final unflushed window.\n\n# \u2500\u2500 the one design decision \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n**A TOTAL ALWAYS INCLUDES THE OPEN WINDOW.**  `roll()` closes the window; it does not\nmove a number anybody is waiting on.  That is the whole point, and it is chosen against a\nrecorded defect rather than for tidiness: a run-end fold that sits behind a condition\n(`if pb:` \u2014 true only when an unflushed batch window exists, i.e. NOT when `n_batches`\ndivides the checkpoint cadence) discards the final window in silence, and the same class\nof loss is on record against the `p1`/`p2` split, whose last window went unwritten until\nthe runtime_metrics column add.  Here there is nothing to forget: the total is right\nbefore the first roll and after the last one.\n\n`roll()` therefore exists for ONE reader \u2014 the per-checkpoint log line, which reports the\nwindow rather than the arm \u2014 and is an observability operation, not a correctness one.\n\n# \u2500\u2500 float discipline \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe old code was a chain of `+=`, and an archived `runtime_metrics` row has to keep\nreproducing, so the association is preserved exactly rather than approximately:\n\n    window  = running sum of this window's deltas          (one add per `add`)\n    base    = running sum of the CLOSED windows            (one add per `roll`)\n    total   = base + window                                (one add, at read time)\n\nNothing sums a list, nothing re-associates, and `roll()` on an empty window adds 0.0 \u2014\nwhich is an exact identity for every float a timer can hold.  `Tests/unit/\ntest_section_timers.py` pins all three against a plain running sum.\n\n# \u2500\u2500 the vocabulary is a contract \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`SECTIONS` names the twelve spans `runtime_metrics` has columns for, and the checkpoint\nlog line prints the same words.  `Tests/calltree/test_calltree_anchors.py` pins that\nvocabulary from the other side (`SECTION_MAP` against the log line), so renaming a section\nhere without renaming it there fails a gate instead of silently re-labelling an archived\ncolumn.  `COLUMNS` holds the two that are not simply `t_<name>`: the fast_pick phase split\nkept its `p1_s` / `p2_s` names when it was promoted from per-checkpoint to whole-arm.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers": {
+      "decorators": [],
+      "doc": "Two-level accumulator: an open window, and the whole-arm total that contains it.\n\n    st = SectionTimers()\n    st.add('sim', dt)          # inside the batch loop\n    st.window('sim')           # the checkpoint log line's number\n    st.roll()                  # at a checkpoint: close the window\n    st.totals()                # at run end: the runtime_metrics payload\n\nSlotted, so a mistyped attribute raises instead of shadowing a section, and picklable,\nbecause the leaf that owns one is built inside a spawned worker.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.add": {
+      "decorators": [],
+      "doc": "Add one measured span to the open window.  An undeclared section is a KeyError.\n\nRefused rather than created: a typo that opened a thirteenth section would\naccumulate seconds nothing ever reads and subtract them from nothing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, section: str, seconds: float) -> None"
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.roll": {
+      "decorators": [],
+      "doc": "Close the open window: fold it into the base and zero it for the next one.\n\nNothing depends on this having happened \u2014 `total()` already counted the window.\nRolling an empty window is an exact no-op (`x + 0.0 is x` for every float a timer\nholds), so an extra roll cannot perturb a total.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.total": {
+      "decorators": [],
+      "doc": "Whole-arm seconds, **open window included**.  Correct at every instant.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, section: str) -> float"
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.totals": {
+      "decorators": [],
+      "doc": "The `runtime_metrics` half of the worker's result dict.\n\nA plain `dict` of plain `float`s: it crosses the process boundary in the worker\nresult, so no views, no defaultdicts, nothing that needs the class to unpickle.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.window": {
+      "decorators": [],
+      "doc": "This checkpoint window's seconds \u2014 the number the per-batch log line prints.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, section: str) -> float"
     },
     "Optimization/simdriver/sim_assets.py": {
       "decorators": [],
@@ -18907,7 +18904,7 @@
       "decorators": [],
       "doc": null,
       "kind": "class",
-      "signature": "(PlanningMixin, OptimalLayoutMixin, ReorderMixin)"
+      "signature": "(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningMixin)"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.__init__": {
       "decorators": [],
@@ -18930,37 +18927,9 @@
       "kind": "function",
       "signature": "(self) -> int"
     },
-    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_of_unit": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, unit: StorageUnit) -> int"
-    },
-    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._band_pick": {
-      "decorators": [],
-      "doc": "O(#bands) equivalent of _zone_filter via the maintained per-band sub-index: the first\nnon-empty band bucket in spill order.  `key` is the tier BinKey from _candidates_raw; the\ncaller guarantees the tier is non-empty, so some bucket is non-empty (the fallback to the\nraw tier list is unreachable defensive cover).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, unit: StorageUnit, key) -> list"
-    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._bind_put_crews": {
       "decorators": [],
       "doc": "Give every queue a crew: its own `spec.crew` if it has one, else the manager's\ndefault from `enable_putaway_timing`.\n\nA crew per STREAM, because that is what a crew is: a forklift crew's clock has\nnothing to do with a cart crew's, and two streams working in parallel must not\nserialise onto one clock -- which is exactly what a single manager-level\n`_put_clocks` did.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> None"
-    },
-    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_abc_bands": {
-      "decorators": [],
-      "doc": "Manual A/B/C bands: SKUs cut at cumulative demand-mass thresholds; aisles allocated per\nBinKey by each band's SKU footprint (few hot SKUs \u21d2 few hot aisles).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, orders: Any, n: int, abc: dict | None) -> None"
-    },
-    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._build_band_index": {
-      "decorators": [],
-      "doc": "Partition each free-bin tier list into per-band buckets, once, after the band maps are\nset.  Anchors the O(#bands) `_band_pick` fast path; maintained incrementally thereafter by\n`_index_add`/`_index_remove`.  Re-derives `_band_pos` from scratch, so it is correct\nregardless of whether bins were registered before or after zoning was enabled.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
@@ -19006,13 +18975,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, order: Order, bin_: Aisle.Bin, n: int, *, source: str | None=None, queue=None) -> None"
-    },
-    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._group_key": {
-      "decorators": [],
-      "doc": "Ranked-wave grouping key.  With zoning, sub-group by (BinKey, band) so each sub-wave\nis a single band (the once-per-wave candidate fetch is then band-correct); OFF \u21d2 BinKey\nonly (byte-identical).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, unit: StorageUnit)"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._index_add": {
       "decorators": [],
@@ -19072,13 +19034,6 @@
       "kind": "function",
       "signature": "(self, sku: int, bin_: Aisle.Bin) -> float"
     },
-    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._spill_bands": {
-      "decorators": [],
-      "doc": "Band visit order for zoning spill: the unit's band, then COLDER (downgrade to the next\nhotness), then HOTTER (upgrade) \u2014 the single source shared by _zone_filter and _band_pick.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, target: int)"
-    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stamp": {
       "decorators": [],
       "doc": "Wrap one unit as a stamped `PutawayItem` -- the ONE place the age stamp is\ntaken.  Split out of `_admit` for the standing yard, whose units are stamped at\nYARD ARRIVAL (their age is the trailer's, not the unload's) but enter no queue\nuntil the crew pulls them -- `_admit` routes as well as stamps, and routing a\ndeferred unit would put it away for free.  Every stamp still comes from here, so\nno producer can invent its own and quietly enter as age -1.",
@@ -19130,13 +19085,6 @@
       "kind": "function",
       "signature": "(self, queue) -> int | None"
     },
-    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._zone_filter": {
-      "decorators": [],
-      "doc": "Restrict *bins* to the unit's velocity band, spilling COLDER-first then HOTTER-fallback:\na hot item whose band is full drops to the next available (colder) aisle; a cold item whose\nband is full UPGRADES toward hotter aisles until it is placed.  Never returns empty.\n\nThe O(len(bins)) partition path used by the ranked wave (once per wave) and the direct unit\ntests; the per-unit path uses the O(#bands) _band_pick over the maintained sub-index.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, unit: StorageUnit, bins: list) -> list"
-    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.assigned_bins": {
       "decorators": [
         "property"
@@ -19161,13 +19109,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, batch_id: int) -> list[tuple]"
-    },
-    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.configure_zoning": {
-      "decorators": [],
-      "doc": "Enable/disable velocity zoning and precompute the band maps (once, before stocking).\n\nmode='equal' (default): SKUs and aisles sliced into n_bands EQUAL-COUNT groups (hottest /\nshallowest = band 0).  mode='abc': SKUs banded by cumulative demand-MASS thresholds\n(abc['mass_thresholds'], manual A/B/C), and aisles allocated per BinKey PROPORTIONAL to each\nband's SKU footprint \u2014 so the hot A-band is a SMALL aisle fraction and the cold C-band is\nmany rarely-visited aisles (batches skip them).  Disabled \u21d2 maps cleared (byte-identical).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, enabled: bool, n_bands: int=3, orders: Any=None, *, mode: str='equal', abc: dict | None=None) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.count_put_cut": {
       "decorators": [],
@@ -19469,13 +19410,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
-    },
-    "Warehouse/inventory/Inventory_Management.py::_apportion": {
-      "decorators": [],
-      "doc": "Allocate `m` aisles across `n` bands proportional to `weights`, with a floor of 1 per band\nwhen `m >= n` (so every band is reachable for the zone-filter spill).  When `m < n`, the first\n`m` (hottest) bands get 1 each and the rest 0 (spill covers the empties).  Largest-remainder.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(m: int, weights: list, n: int) -> list"
     },
     "Warehouse/inventory/Inventory_Management.py::_ranked_by_score": {
       "decorators": [],
@@ -20286,6 +20220,81 @@
       "is_async": false,
       "kind": "function",
       "signature": "(order) -> NoReturn"
+    },
+    "Warehouse/inventory/inventory_zoning.py": {
+      "decorators": [],
+      "doc": "inventory_zoning.py \u2014 velocity zoning: the per-regime \"like-with-like\" candidate layer.\n\n`ZoningMixin` holds the whole cluster: the band MAPS (`_sku_band`, `_aisle_band`), the\nper-band free-bin sub-index (`_band_index`, `_band_pos`), the spill order, the two filters\nand the ranked-wave group key.  Mixed into `Inventory_Manager` beside `PlanningMixin`,\n`OptimalLayoutMixin` and `ReorderMixin`, so the public API (`configure_zoning`) and every\ninternal caller are unchanged.\n\nOFF is the identity: `configure_zoning(False)` clears every map, `_group_key` falls back to\nthe bare `BinKey`, and `_candidates` never calls `_band_pick` -- so a run with zoning off is\nbyte-identical to one from before zoning existed.\n\n# \u2500\u2500 why a mixin and not a collaborator object \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`Inventory_Manager._index_add` / `._index_remove` mirror EVERY bin mutation into the\nper-band sub-index, and they are the hottest path in the system.  A mixin method resolves\nexactly as a method defined on the class does; a `self._zoning.` hop would add an attribute\nlookup per bin moved, for no reader's benefit.  So the two mirror sites stay inline on the\nmanager, and `Tests/unit/test_velocity_zoning.py` asserts they stay there.\n\nAll instance state is provided by `Inventory_Manager.__init__` -- this module constructs no\nmanager and imports none, which is what keeps the split a split rather than a cycle.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin": {
+      "decorators": [],
+      "doc": null,
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_of_unit": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit) -> int"
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_pick": {
+      "decorators": [],
+      "doc": "O(#bands) equivalent of _zone_filter via the maintained per-band sub-index: the first\nnon-empty band bucket in spill order.  `key` is the tier BinKey from _candidates_raw; the\ncaller guarantees the tier is non-empty, so some bucket is non-empty (the fallback to the\nraw tier list is unreachable defensive cover).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, key) -> list"
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin._build_abc_bands": {
+      "decorators": [],
+      "doc": "Manual A/B/C bands: SKUs cut at cumulative demand-mass thresholds; aisles allocated per\nBinKey by each band's SKU footprint (few hot SKUs \u21d2 few hot aisles).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, orders: Any, n: int, abc: dict | None) -> None"
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin._build_band_index": {
+      "decorators": [],
+      "doc": "Partition each free-bin tier list into per-band buckets, once, after the band maps are\nset.  Anchors the O(#bands) `_band_pick` fast path; maintained incrementally thereafter by\n`_index_add`/`_index_remove`.  Re-derives `_band_pos` from scratch, so it is correct\nregardless of whether bins were registered before or after zoning was enabled.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin._group_key": {
+      "decorators": [],
+      "doc": "Ranked-wave grouping key.  With zoning, sub-group by (BinKey, band) so each sub-wave\nis a single band (the once-per-wave candidate fetch is then band-correct); OFF \u21d2 BinKey\nonly (byte-identical).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit)"
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin._spill_bands": {
+      "decorators": [],
+      "doc": "Band visit order for zoning spill: the unit's band, then COLDER (downgrade to the next\nhotness), then HOTTER (upgrade) \u2014 the single source shared by _zone_filter and _band_pick.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, target: int)"
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin._zone_filter": {
+      "decorators": [],
+      "doc": "Restrict *bins* to the unit's velocity band, spilling COLDER-first then HOTTER-fallback:\na hot item whose band is full drops to the next available (colder) aisle; a cold item whose\nband is full UPGRADES toward hotter aisles until it is placed.  Never returns empty.\n\nThe O(len(bins)) partition path used by the ranked wave (once per wave) and the direct unit\ntests; the per-unit path uses the O(#bands) _band_pick over the maintained sub-index.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, bins: list) -> list"
+    },
+    "Warehouse/inventory/inventory_zoning.py::ZoningMixin.configure_zoning": {
+      "decorators": [],
+      "doc": "Enable/disable velocity zoning and precompute the band maps (once, before stocking).\n\nmode='equal' (default): SKUs and aisles sliced into n_bands EQUAL-COUNT groups (hottest /\nshallowest = band 0).  mode='abc': SKUs banded by cumulative demand-MASS thresholds\n(abc['mass_thresholds'], manual A/B/C), and aisles allocated per BinKey PROPORTIONAL to each\nband's SKU footprint \u2014 so the hot A-band is a SMALL aisle fraction and the cold C-band is\nmany rarely-visited aisles (batches skip them).  Disabled \u21d2 maps cleared (byte-identical).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, enabled: bool, n_bands: int=3, orders: Any=None, *, mode: str='equal', abc: dict | None=None) -> None"
+    },
+    "Warehouse/inventory/inventory_zoning.py::_apportion": {
+      "decorators": [],
+      "doc": "Allocate `m` aisles across `n` bands proportional to `weights`, with a floor of 1 per band\nwhen `m >= n` (so every band is reachable for the zone-filter spill).  When `m < n`, the first\n`m` (hottest) bands get 1 each and the rest 0 (spill covers the empties).  Largest-remainder.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(m: int, weights: list, n: int) -> list"
     },
     "Warehouse/inventory/put_policy.py": {
       "decorators": [],

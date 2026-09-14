@@ -14,15 +14,15 @@
 <h1><span class="kind kind-class">class</span> <code>_CowFloats</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
-<pre class="sig"><code>class _CowFloats</code></pre>
-<section class="doc">Copy-on-write over `{aisle: float}` -- and floats need NO copy at all.
+<pre class="sig"><code>class _CowFloats(_CowView)</code></pre>
+<section class="doc">`{aisle: float}` -- and floats need NO copy at all.
 
-A float is immutable, so a read can fall straight through to the live dict; only a write
+A float is immutable, so a read falls straight through to the live dict; only a write
 needs an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write
-lands here rather than on the manager&#x27;s dict.
+lands in the overlay rather than on the manager&#x27;s dict.
 
-`__getitem__` on a miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the
-shape this replaces -- so `len()` and iteration order are unchanged.</section>
+A miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the shape this
+replaces -- so `len()` and iteration order are unchanged.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___CowFloats">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=class%20_CowFloats">Source ↗</a></p>
 </article>
