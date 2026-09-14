@@ -27,6 +27,19 @@ leaves and reaches each one through exactly three public ports:
 Everything else a drain touches is the coordinator's own: the `Dock`, the `YardTransit`,
 the ctx freeze, the door fill, the unload and the handoff ORDER.
 
+`receive` is the composition of those, and each step is a method rather than a comment
+banner inside one — the order is the design, so it is worth being able to read the order
+on its own:
+
+    _check_drain        the three refusals: no leaf, a partial site drain, the wrong day
+    _drain_epoch        ONE DRAIN IS ONE INSTANT -- the site epoch every decision reads
+    _plan_arrivals      STEP 1  plans-at-arrival, per contiguous lot, by the lot's owner
+    _fill_doors         STEP 2  the door fill (NOT budget-gated) + the frozen dock ranking
+    _unload_merged      STEP 3  the pooled gang -- v1's physics, the lockstep pin
+    _unload_split       STEP 3  the dealt door teams -- the standing model's own physics
+    _hand_off           STEP 4  the canonical handoff + the per-unit ledger flip
+    _count_remainders   what the whistle cost, in storage units, counted once
+
 HOW A MIXED TRAILER FINDS ITS WAY HOME — two routes, because they answer two different
 questions:
 
@@ -687,6 +700,83 @@ class SiteReceiving:
         """
         dock, transit = self.dock, self.transit
         leaves = tuple(leaves)
+        self._check_drain(leaves, deadline)
+        epoch = self._drain_epoch(leaves)
+        source = getattr(transit, 'SOURCE', 'reorder')
+        ctx = transit.freeze_ctx()
+        # CTX-FREEZE IS VIEW-FREEZE: one space projection per drain serves every decision
+        # in it (no per-decision rescans).  `ctx.space` is the named-view arrival point
+        # the priority seams reserved; every seeded 'fifo' key ignores it, so with both
+        # policies 'fifo' the view is pure data -- neutrality rides the degenerate
+        # lockstep (test_space_timeline).
+        #
+        # THE FREEZE STAYS THE LEAF'S AND THE COMPOSITION IS THE SITE'S.  `freeze` keeps
+        # its single-manager signature and its purity pin; `compose_site_view` is a pure
+        # function over already-frozen data, and it is reached through here TODAY with one
+        # contribution -- which it returns BY IDENTITY, so this line is what it always was.
+        # With two leaves it becomes two contributions, each tagged with its channel, and
+        # the tag is what partitions `empties` so a mixed trailer's store units rank
+        # against store bins ("Design the site space view").
+        views = self._freeze_views(leaves, epoch)
+        if views:
+            ctx.space = compose_site_view(views)
+
+        # THE OWNER ROUTE FOR STEP 1, and ONE threshold decides it.  The site is "real"
+        # from the SECOND leaf -- the same fact `bind` stamps `site_scoped` on and
+        # `_freeze_views` tags its contributions on -- so a coordinator serving at most one
+        # leaf keeps the historical behaviour: the single leaf the drain was handed packs
+        # everything and takes everything.  Keyed on the LEAVES SERVED and not on whether
+        # the owner dict happens to be populated, because "I bound one leaf to get the site
+        # clock" does not mean "route me as a site", and three spellings of the same
+        # threshold in one file is three things to keep in step.
+        _solo = leaves[0] if len(self._leaves) <= 1 else None
+
+        self._plan_arrivals(dock, transit, ctx, epoch, source, _solo)
+        work_order, yard_next = self._fill_doors(transit, ctx, epoch)
+        # 3. the unload, per the allocation mode.  The DOOR-TEAM CAP is trailer physics
+        #    (at most `cap` receivers can support one trailer's unload and pack at once),
+        #    so it is read here once and applies in BOTH modes; None is today's uncapped
+        #    dealing, byte-identically.  Only the standing transit carries it -- the v1
+        #    path never reaches this method and never reads the knob.
+        cap = getattr(transit, 'door_team', None)
+        if getattr(transit, 'allocation', 'merged') == 'split':
+            done = self._unload_split(dock, transit, deadline, epoch,
+                                      work_order, yard_next, cap)
+        else:
+            done = self._unload_merged(dock, transit, deadline, epoch,
+                                       work_order, yard_next, cap)
+
+        self._hand_off(dock, done, _solo)
+        left = self._count_remainders(transit, dock, deadline, _solo)
+        # THE DRAIN'S ROW.  Two pairs, and they answer two different questions.  The START
+        # pair is CONTENTION — standing trailers against free doors at freeze, which is
+        # what "did the yard bind" means before anything was served.  The END pair is the
+        # BINDING CUT — trailers this drain never reached and units it left on a door.
+        # Both are LEVELS: they are re-measured every drain and summing either across
+        # drains restates the same standing trailers once per batch (the `recv_cut` scar).
+        # `left` is computed above the whistle test, not inside it: a drain that ran out of
+        # WORK leaves the same remainder as one that ran out of DAY, and only one of those
+        # is a cut — the level says what was standing either way.
+        row = (ctx.yard_depth, ctx.free_doors, transit.yard_depth, left)
+        if _solo is not None:
+            return row
+        # SITE-SCOPED, so no leaf is handed it.  Same threshold as the routing above, for
+        # the same reason: a row parked here while the caller still expected one back is a
+        # yard row nothing ever writes.  See `drain_site_rows`.
+        self.site_rows.append(row)
+        return None
+
+
+    # ── the drain, step by step ───────────────────────────────────────────────────
+
+    def _check_drain(self, leaves, deadline: float | None) -> None:
+        """THE THREE REFUSALS: no leaf, a partial site drain, and the wrong day.
+
+        Together they are one rule -- a drain of the site dock names every leaf the
+        coordinator serves, at the day its clocks are running on -- stated from the three
+        sides it can be broken from.  Hoisted out of `receive` so the four steps below
+        read as the four steps; nothing here is reordered or relaxed.
+        """
         if not leaves:
             raise ValueError('a drain with no leaf has nobody to pack for and nobody to '
                              'hand merchandise to')
@@ -722,6 +812,13 @@ class SiteReceiving:
         # release at different instants inside one site day, and it is the DRIVER's job to
         # hand the site epoch down -- silently taking leaf[0]'s would make that a detail
         # nobody could see was wrong.
+
+    def _drain_epoch(self, leaves) -> float:
+        """ONE DRAIN IS ONE INSTANT: the site epoch every decision in this drain reads.
+
+        Returns the leaves' shared `_now_s`, or 0.0 when none of them carries one.  The
+        agreement check is the point and it is stated in the block below.
+        """
         stamps = [lf._now_s for lf in leaves]
         if any(t is None for t in stamps) and any(t is not None for t in stamps):
             raise ValueError(
@@ -735,35 +832,15 @@ class SiteReceiving:
                 f'one dock drains at one instant, and two would rank the same yard against '
                 f'two different "now"s')
         epoch = _known[0] if _known else 0.0
-        source = getattr(transit, 'SOURCE', 'reorder')
-        ctx = transit.freeze_ctx()
-        # CTX-FREEZE IS VIEW-FREEZE: one space projection per drain serves every decision
-        # in it (no per-decision rescans).  `ctx.space` is the named-view arrival point
-        # the priority seams reserved; every seeded 'fifo' key ignores it, so with both
-        # policies 'fifo' the view is pure data -- neutrality rides the degenerate
-        # lockstep (test_space_timeline).
-        #
-        # THE FREEZE STAYS THE LEAF'S AND THE COMPOSITION IS THE SITE'S.  `freeze` keeps
-        # its single-manager signature and its purity pin; `compose_site_view` is a pure
-        # function over already-frozen data, and it is reached through here TODAY with one
-        # contribution -- which it returns BY IDENTITY, so this line is what it always was.
-        # With two leaves it becomes two contributions, each tagged with its channel, and
-        # the tag is what partitions `empties` so a mixed trailer's store units rank
-        # against store bins ("Design the site space view").
-        views = self._freeze_views(leaves, epoch)
-        if views:
-            ctx.space = compose_site_view(views)
+        return epoch
 
-        # THE OWNER ROUTE FOR STEP 1, and ONE threshold decides it.  The site is "real"
-        # from the SECOND leaf -- the same fact `bind` stamps `site_scoped` on and
-        # `_freeze_views` tags its contributions on -- so a coordinator serving at most one
-        # leaf keeps the historical behaviour: the single leaf the drain was handed packs
-        # everything and takes everything.  Keyed on the LEAVES SERVED and not on whether
-        # the owner dict happens to be populated, because "I bound one leaf to get the site
-        # clock" does not mean "route me as a site", and three spellings of the same
-        # threshold in one file is three things to keep in step.
-        _solo = leaves[0] if len(self._leaves) <= 1 else None
+    def _plan_arrivals(self, dock, transit, ctx, epoch: float, source: str, solo) -> None:
+        """STEP 1: PLANS-AT-ARRIVAL -- every trailer that joined the yard is packed NOW.
 
+        Stamps the units immediately, so a pallet that stands three batches in the yard is
+        three batches old when it finally reaches floor space.  The merchandise stays in
+        `_deferred_qty`: nothing is queued until a crew actually pulls it.
+        """
         # 1. plans-at-arrival (leaf-side: the transit can reach neither _originals nor
         #    the packer).  Stamped in yard order, so ages are monotone with arrival.
         #    Each lot is packed by ITS OWNER -- `_originals`, `inbound_split`, the packer
@@ -776,7 +853,7 @@ class SiteReceiving:
             items: list = []
             tplans: list = []
             for sku, qty in transit.planned_lots(trailer, ctx):
-                owner = _solo if _solo is not None else self._owner_of(sku)
+                owner = solo if solo is not None else self._owner_of(sku)
                 lot_plans, lot_items = owner.plan_lot(sku, qty, source)
                 tplans.extend(lot_plans)
                 items.extend(lot_items)
@@ -789,6 +866,12 @@ class SiteReceiving:
                 transit.discard(trailer, epoch)
         dock.note_arrivals(plans_new)
 
+    def _fill_doors(self, transit, ctx, epoch: float) -> tuple:
+        """STEP 2: THE DOOR FILL -- NOT budget-gated -- and the drain-frozen dock ranking.
+
+        Returns `(work_order, yard_next)`: the ranking the allocation and the handoff both
+        read, and the queue a freed door pulls its replacement from.
+        """
         # 2. the door fill — NOT budget-gated (yard-jockey work, not crew labour).
         yard_next = deque(transit.yard_order(ctx))
         while transit.free_doors > 0 and yard_next:
@@ -797,19 +880,16 @@ class SiteReceiving:
         # and fresh stagings alike): the allocation preference and the handoff order.
         work_order = transit.dock_order(ctx)
 
-        # 3. the unload, per the allocation mode.  The DOOR-TEAM CAP is trailer physics
-        #    (at most `cap` receivers can support one trailer's unload and pack at once),
-        #    so it is read here once and applies in BOTH modes; None is today's uncapped
-        #    dealing, byte-identically.  Only the standing transit carries it -- the v1
-        #    path never reaches this method and never reads the knob.
-        cap = getattr(transit, 'door_team', None)
-        if getattr(transit, 'allocation', 'merged') == 'split':
-            done = self._unload_split(dock, transit, deadline, epoch,
-                                      work_order, yard_next, cap)
-        else:
-            done = self._unload_merged(dock, transit, deadline, epoch,
-                                       work_order, yard_next, cap)
+        return work_order, yard_next
 
+    def _hand_off(self, dock, done, solo) -> None:
+        """STEP 4: THE CANONICAL HANDOFF, with the per-unit ledger flip.
+
+        Whatever the crew allocation, unloaded units reach `_queue` in MERGED order --
+        trailers by dock rank, units by local rank -- never in labor-completion order.
+        That is the containment property: crew allocation moves labor stamps and makespans
+        ONLY, never placement physics.
+        """
         # 4. the canonical handoff, with the per-unit ledger flip.  `dock.seconds`
         #    accrues HERE, in canonical order, for both allocation modes: summed in
         #    charge order instead, split's float association differs from merged's by
@@ -834,8 +914,8 @@ class SiteReceiving:
         for trailer, recs in done:
             for item, t0, dur, w in recs:
                 unit = item.unit
-                if _solo is not None:
-                    taker, _ch = _solo, None
+                if solo is not None:
+                    taker, _ch = solo, None
                 else:
                     sku = unit.order.sku
                     taker, _ch = _takers.get(sku, (None, None))
@@ -860,6 +940,13 @@ class SiteReceiving:
                 if _ch is not None:
                     self._unloaded[_ch] = self._unloaded.get(_ch, 0) + 1
 
+    def _count_remainders(self, transit, dock, deadline: float | None, solo) -> int:
+        """What the whistle cost: the remainders standing on STAGED trailers, counted once.
+
+        Returns `left` in storage units.  Computed above the whistle test, not inside it: a
+        drain that ran out of WORK leaves the same remainder as one that ran out of DAY,
+        and only one of those is a cut -- the level says what was standing either way.
+        """
         # What the whistle cost: the remainders standing on STAGED trailers, in storage
         # units, counted once.  The yard is never cut — waiting there is calendar, the
         # fee proxy's domain, not a labour boundary's.
@@ -869,7 +956,7 @@ class SiteReceiving:
             if t.pending is None:
                 continue
             left += len(t.pending) - t.taken
-            if _solo is None:
+            if solo is None:
                 # A remainder is merchandise, so it has an owner exactly as an unloaded
                 # unit does.  Counted here rather than derived later: `pending` is consumed
                 # by the next drain, so this is the last instant the split is knowable.
@@ -881,23 +968,7 @@ class SiteReceiving:
             for _c, _n in by_owner.items():
                 self._cut[_c] = self._cut.get(_c, 0) + _n
 
-        # THE DRAIN'S ROW.  Two pairs, and they answer two different questions.  The START
-        # pair is CONTENTION — standing trailers against free doors at freeze, which is
-        # what "did the yard bind" means before anything was served.  The END pair is the
-        # BINDING CUT — trailers this drain never reached and units it left on a door.
-        # Both are LEVELS: they are re-measured every drain and summing either across
-        # drains restates the same standing trailers once per batch (the `recv_cut` scar).
-        # `left` is computed above the whistle test, not inside it: a drain that ran out of
-        # WORK leaves the same remainder as one that ran out of DAY, and only one of those
-        # is a cut — the level says what was standing either way.
-        row = (ctx.yard_depth, ctx.free_doors, transit.yard_depth, left)
-        if _solo is not None:
-            return row
-        # SITE-SCOPED, so no leaf is handed it.  Same threshold as the routing above, for
-        # the same reason: a row parked here while the caller still expected one back is a
-        # yard row nothing ever writes.  See `drain_site_rows`.
-        self.site_rows.append(row)
-        return None
+        return left
 
     # ── the phase composition ─────────────────────────────────────────────────────
 
