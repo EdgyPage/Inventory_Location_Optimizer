@@ -1556,7 +1556,7 @@ class _TravelBalancedPool(_Pool):
     __slots__ = ('_ass', '_ais', '_ads', '_apl', '_splp', '_fbs', '_qbs', '_s2i',
                  '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
-                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_score_cache')
+                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_rank', '_sel')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
@@ -1636,6 +1636,15 @@ class _TravelBalancedPool(_Pool):
             for lst in groups.values():
                 heapq.heapify(lst)
         self._by_aisle = by_aisle
+        # THE AISLE'S FIRST-APPEARANCE RANK, and it is what makes the selection heap in `take`
+        # byte-identical rather than merely equivalent.  The scan it replaces was
+        # `for aid in by_aisle: if score < best_score` -- a strict `<` over a dict in insertion
+        # order, so among EQUAL scores the earliest-inserted aisle wins.  A heap is not stable
+        # on equal keys, so ordering it by `score` alone would pick an arbitrary one of the
+        # tied aisles.  Ordering by `(score, rank)` restores the scan's rule exactly: an equal
+        # score falls through to the smaller rank, which is the earlier insertion, which is the
+        # aisle the scan kept.  Ranks are unique, so the pair is a strict total order.
+        self._rank = {aid: i for i, aid in enumerate(by_aisle)}
         # running per-aisle total (handling+travel) labor, seeded from the maintained sum
         self._load = {aid: float(aisle_pick_load_sum.get(aid, 0.0)) for aid in by_aisle}
         # running per-aisle expected picked-volume mass (raw f*q*vol), seeded likewise
@@ -1645,7 +1654,7 @@ class _TravelBalancedPool(_Pool):
         self._run_sku = _NO_RUN_SKU
         self._var = self._fq = self._m_s = 0.0
         self._ab_cache: dict = {}
-        self._score_cache: dict = {}
+        self._sel: list = []          # (score, rank, aid) min-heap; see `take`
 
     def __len__(self):
         return sum(len(h) for g in self._by_aisle.values() for h in g.values())
@@ -1709,26 +1718,47 @@ class _TravelBalancedPool(_Pool):
             self._fq = fq = self._fbs.get(sku, 0.0) * self._qbs.get(sku, 0.0)
             self._m_s = m_s = self._svp.get(sku, 0.0) if self._cart_on else 0.0
             self._ab_cache.clear()
-            self._score_cache.clear()
+            rank = self._rank
+            sel = []
             for aid in by_aisle:
                 ab = self._aisle_best(aid, var)
                 self._ab_cache[aid] = ab
                 if ab is not None:
-                    self._score_cache[aid] = self._score_of(aid, ab, sku, fq, m_s)
+                    sc = self._score_of(aid, ab, sku, fq, m_s)
+                    sel.append((sc, rank[aid], aid))
+            heapq.heapify(sel)                   # O(A) at C level, same as the old rebuild
+            self._sel = sel
         else:
             var, fq, m_s = self._var, self._fq, self._m_s
 
-        best_aid = best_choice = None
-        best_score = None
-        for aid in by_aisle:                     # original order => original tie-breaks
-            ab = self._ab_cache[aid]
-            if ab is None:
-                continue
-            score = self._score_cache[aid]
-            if best_score is None or score < best_score:
-                best_score, best_aid, best_choice = score, aid, ab
-        if best_aid is None:
+        # ── the argmin, as a SELECTION rather than a SCAN ──────────────────────────
+        # This was `for aid in by_aisle:` over every aisle, on every placement -- an O(A)
+        # linear scan solving a selection problem, and at campaign scale it was the single
+        # largest cost in the inbound gain evaluator: 4,852,858 takes x 224 aisles =
+        # 1.09 BILLION iterations, 71.2% of the receive drain (the candidate slice that was
+        # built to attack the other 28.8% could not touch one iteration of it).
+        #
+        # A heap is correct here for the reason the class docstring already states about the
+        # caches: within a SKU run every input a NON-winning aisle's score reads is frozen --
+        # `fq`/`var`/`m_s` are per-SKU constants, and `load`/`vol_load`/`aisle_sku_sets` and
+        # the deque heads all move for the WINNING aisle only.  So exactly one entry changes
+        # per placement, which is precisely the update a heap does cheaply.
+        #
+        # NO LAZY DELETION, and that is worth stating because it is the usual cost of this
+        # pattern: the heap holds exactly ONE entry per live aisle at all times.  The run
+        # boundary seeds one per aisle; each placement pops the winner and pushes back at most
+        # one refreshed entry; a non-winner is never touched.  So the top of the heap is always
+        # current and there is nothing stale to skip.
+        #
+        # Ordering is `(score, rank)` -- see `_rank` in `__init__` for why the rank is what
+        # keeps this byte-identical on a score tie rather than merely equivalent.
+        sel = self._sel
+        if not sel:
             return None, None
+        _sc, _rk, best_aid = heapq.heappop(sel)   # score and rank ordered the pop, nothing more
+        # Non-None by construction: only aisles with a non-None `_aisle_best` are ever pushed,
+        # at the run boundary and on refresh alike, so the popped aisle always has a choice.
+        best_choice = self._ab_cache[best_aid]
         cost, m, chosen = best_choice
         marginal = fq * cost
         self._load[best_aid] += marginal
@@ -1751,10 +1781,13 @@ class _TravelBalancedPool(_Pool):
         # like the original `continue`.
         ab = self._aisle_best(best_aid, var)
         self._ab_cache[best_aid] = ab
+        # An exhausted aisle is simply NOT pushed back -- that is how it leaves the heap, and it
+        # is exactly the `continue` the old scan did on a None `_aisle_best`.  It cannot come
+        # back, because bins only ever leave a pool; `by_aisle` keeps the (now empty) key, which
+        # is why the scan needed the None check at all and the heap does not.
         if ab is not None:
-            self._score_cache[best_aid] = self._score_of(best_aid, ab, sku, fq, m_s)
-        else:
-            self._score_cache.pop(best_aid, None)
+            sc = self._score_of(best_aid, ab, sku, fq, m_s)
+            heapq.heappush(sel, (sc, self._rank[best_aid], best_aid))
         return chosen, marginal
 
 
