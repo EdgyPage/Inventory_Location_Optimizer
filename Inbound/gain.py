@@ -216,15 +216,39 @@ FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('fifo', 'tmin', 'tmax',
 # correctness and no win.  Every other ranked family reads by key and gets both.
 
 
-class _CowFloats:
-    """Copy-on-write over `{aisle: float}` -- and floats need NO copy at all.
+class _CowView:
+    """Copy-on-write over one of the manager's `{aisle: ...}` dicts.
 
-    A float is immutable, so a read can fall straight through to the live dict; only a write
-    needs an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write
-    lands here rather than on the manager's dict.
+    A virtual placement must never advance the live bookkeeping, and the original way to
+    guarantee that was to hand the pool an EAGER copy of the whole dict.  The measurement in
+    front of this block is why that stopped: a pool's candidates are the free bins of ONE
+    BinKey, living in one or two aisles, while the copy walked all forty-six -- 9.3M set
+    entries copied per run, at 12.59 pool opens per placement.
 
-    `__getitem__` on a miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the
-    shape this replaces -- so `len()` and iteration order are unchanged.
+    A view pays for the aisles the pool actually touches instead.  Reads fall through to the
+    live dict; the first access to an aisle whose value is MUTABLE materializes that one
+    aisle into an overlay, and every write lands in the overlay.  The purity rule is
+    unchanged -- it is the price that moved.
+
+    # -- what a subclass owns, and what it does not --------------------------------------
+
+    `__getitem__` ONLY.  How a miss materializes IS the difference between the shapes: a
+    float needs no copy at all (it is immutable, so a read can fall straight through), a set
+    needs its own set, and the minlabor shape needs a whole inner mapping.  The remaining
+    eight methods never differed, and were three byte-identical copies until this base
+    existed; `Tests/unit/test_gain_cow_protocol.py` asserts they stay one implementation and
+    that `__getitem__` stays three.
+
+    # -- where the laziness stops, deliberately -------------------------------------------
+
+    `values()` and `items()` materialize EVERY aisle, because a lazy one would hand out the
+    LIVE container and the caller could mutate it -- the precise failure the eager copy
+    existed to prevent.  `_RankedAssignPool.__init__` builds
+    `set().union(*aisle_idx_sets.values())`, so `rank_random` (its only phase-2 user) gets
+    correctness and no win.  Every other ranked family reads by key and gets both.
+
+    Slotted, and the subclasses re-declare `__slots__ = ()` to stay that way: a view is
+    opened per pool, and a stray attribute would be per-pool heap nobody frees.
     """
 
     __slots__ = ('_live', '_over')
@@ -234,19 +258,18 @@ class _CowFloats:
         self._over = {}
 
     def __getitem__(self, k):
-        o = self._over
-        if k in o:
-            return o[k]
-        v = self._live.get(k)
-        if v is None and k not in self._live:
-            o[k] = 0.0                      # defaultdict(float) creates on access
-            return 0.0
-        return v
+        raise NotImplementedError('a CoW view subclass owns how a miss materializes')
 
     def __setitem__(self, k, v):
         self._over[k] = v
 
     def get(self, k, default=None):
+        """Read WITHOUT materializing -- which is the whole reason a pool ever calls it.
+
+        The fall-through hands back the LIVE value for a key the overlay has not taken.
+        That is read-only by contract: a caller that mutates what `get` returned writes
+        into the manager's own dict.  Callers that intend to write use `__getitem__`.
+        """
         o = self._over
         return o[k] if k in o else self._live.get(k, default)
 
@@ -268,26 +291,46 @@ class _CowFloats:
         return list(self)
 
     def items(self):
-        return [(k, self[k]) for k in self]
+        return [(k, self[k]) for k in self]     # materializes -- see the class docstring
 
     def values(self):
-        return [self[k] for k in self]
+        return [self[k] for k in self]          # materializes -- see the class docstring
 
 
-class _CowSets:
-    """Copy-on-write over `{aisle: set}`.
+class _CowFloats(_CowView):
+    """`{aisle: float}` -- and floats need NO copy at all.
 
-    Unlike floats, the value is MUTABLE and the caller does `d[aid].add(sku)` -- and
-    `__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an access
-    materializes that ONE aisle's set.  Bounded by the aisles a pool touches (measured 1.22),
-    not by the warehouse (46).
+    A float is immutable, so a read falls straight through to the live dict; only a write
+    needs an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write
+    lands in the overlay rather than on the manager's dict.
+
+    A miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the shape this
+    replaces -- so `len()` and iteration order are unchanged.
     """
 
-    __slots__ = ('_live', '_over')
+    __slots__ = ()
 
-    def __init__(self, live):
-        self._live = live
-        self._over = {}
+    def __getitem__(self, k):
+        o = self._over
+        if k in o:
+            return o[k]
+        v = self._live.get(k)
+        if v is None and k not in self._live:
+            o[k] = 0.0                      # defaultdict(float) creates on access
+            return 0.0
+        return v
+
+
+class _CowSets(_CowView):
+    """`{aisle: set}`.
+
+    Unlike floats the value is MUTABLE and the caller does `d[aid].add(sku)` -- and
+    `__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an
+    access materializes that ONE aisle's set.  Bounded by the aisles a pool touches
+    (measured 1.22), not by the warehouse (46).
+    """
+
+    __slots__ = ()
 
     def __getitem__(self, k):
         o = self._over
@@ -297,53 +340,16 @@ class _CowSets:
             got = o[k] = set(src) if src is not None else set()
         return got
 
-    def __setitem__(self, k, v):
-        self._over[k] = v
 
-    def get(self, k, default=None):
-        o = self._over
-        if k in o:
-            return o[k]
-        v = self._live.get(k)
-        return default if v is None else v      # a READ-only fall-through; do not mutate it
+class _CowListsByKey(_CowView):
+    """`{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.
 
-    def __contains__(self, k):
-        return k in self._over or k in self._live
-
-    def __iter__(self):
-        live = self._live
-        for k in live:
-            yield k
-        for k in self._over:
-            if k not in live:
-                yield k
-
-    def __len__(self):
-        return len(self._live) + sum(1 for k in self._over if k not in self._live)
-
-    def keys(self):
-        return list(self)
-
-    def items(self):
-        return [(k, self[k]) for k in self]     # materializes -- see the note above
-
-    def values(self):
-        return [self[k] for k in self]          # materializes -- see the note above
-
-
-class _CowListsByKey:
-    """Copy-on-write over `{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.
-
-    Two levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so a
-    shallow copy would hand the pool the live inner list.  An access materializes that one
+    Two levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so
+    a shallow copy would hand the pool the live inner list.  An access materializes that one
     aisle's whole inner mapping, which is still one of forty-six.
     """
 
-    __slots__ = ('_live', '_over')
-
-    def __init__(self, live):
-        self._live = live
-        self._over = {}
+    __slots__ = ()
 
     def __getitem__(self, k):
         o = self._over
@@ -356,39 +362,6 @@ class _CowListsByKey:
                     inner[ik] = list(iv)
             got = o[k] = inner
         return got
-
-    def __setitem__(self, k, v):
-        self._over[k] = v
-
-    def get(self, k, default=None):
-        o = self._over
-        if k in o:
-            return o[k]
-        v = self._live.get(k)
-        return default if v is None else v      # READ-only fall-through
-
-    def __contains__(self, k):
-        return k in self._over or k in self._live
-
-    def __iter__(self):
-        live = self._live
-        for k in live:
-            yield k
-        for k in self._over:
-            if k not in live:
-                yield k
-
-    def __len__(self):
-        return len(self._live) + sum(1 for k in self._over if k not in self._live)
-
-    def keys(self):
-        return list(self)
-
-    def items(self):
-        return [(k, self[k]) for k in self]
-
-    def values(self):
-        return [self[k] for k in self]
 
 
 def _copy_of_sets(d):
