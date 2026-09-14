@@ -63,6 +63,8 @@ files:
     purpose: "the unload-plan evaluator: EXPECTED FUTURE WORK, faithful-to-arm."
     layer: "inbound"
     key_symbols:
+      - {name: "AISLE_COPIERS", file: "Inbound/gain.py", kind: "const"}
+      - {name: "AISLE_VIEWS", file: "Inbound/gain.py", kind: "const"}
       - {name: "GainBundle", file: "Inbound/gain.py", kind: "class"}
       - {name: "OneOwnerBundle", file: "Inbound/gain.py", kind: "class"}
       - {name: "SiteGainBundle", file: "Inbound/gain.py", kind: "class"}
@@ -2171,6 +2173,13 @@ files:
       - {name: "fit_report", file: "Tests/calltree/calltree_growth.py", kind: "function"}
       - {name: "main", file: "Tests/calltree/calltree_growth.py", kind: "function"}
     notes: ""
+  "Tests/calltree/calltree_inbound_ladder.py":
+    purpose: "hand-run ladder pricing the inbound evaluator's paired priced/unpriced drain cost across catalogue sizes under the era."
+    layer: "tests"
+    key_symbols:
+      - {name: "DEFAULT_RUNGS", file: "Tests/calltree/calltree_inbound_ladder.py", kind: "const"}
+      - {name: "main", file: "Tests/calltree/calltree_inbound_ladder.py", kind: "function"}
+    notes: ""
   "Tests/calltree/calltree_memory.py":
     purpose: "the memory dimension: per-section allocation peaks, retained growth,"
     layer: "tests"
@@ -2221,6 +2230,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "SECTIONS", file: "Tests/calltree/calltree_tracer.py", kind: "const"}
+      - {name: "CARVE_SECTIONS", file: "Tests/calltree/calltree_tracer.py", kind: "const"}
       - {name: "Node", file: "Tests/calltree/calltree_tracer.py", kind: "class"}
       - {name: "CallTreeTracer", file: "Tests/calltree/calltree_tracer.py", kind: "class"}
       - {name: "attribute_sections", file: "Tests/calltree/calltree_tracer.py", kind: "function"}
@@ -2232,11 +2242,15 @@ files:
     purpose: "drift gate: the framework's anchors into product code hold."
     layer: "tests"
     key_symbols:
+      - {name: "test_carve_map_symbols_resolve", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_a_carve_section_is_not_in_the_runner_vocabulary", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_the_carve_is_a_partition_and_is_inert_when_empty", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_section_map_symbols_resolve", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_section_vocabulary_matches_strategy_runner", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_production_engine_identity", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_scenario_reorders_actually_fire", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_default_strategy_still_registered", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_every_flow_anchor_that_should_fire_does_fire", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_flow_anchors_resolve", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_every_named_config_is_buildable", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
     notes: ""
@@ -3975,10 +3989,12 @@ files:
     purpose: "Pins the phase-2 funnel spec as ordered RULE PAIRS: the derived per-channel columns reproduce today's curated install, rank order survives to the zip, the driver installs what the derivation says, and every shape a spec cannot mean is refused before a run directory exists."
     layer: "tests"
     key_symbols:
+      - {name: "test_the_registry_splits_into_flat_and_pair_specs_and_neither_side_is_empty", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_derived_channel_restocks_reproduce_the_committed_install", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_committed_channel_restocks_survive_a_spec_that_declares_nothing", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_a_rule_pair_list_derives_the_arm_set_it_came_from", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_an_asymmetric_pairing_derives_two_different_columns_in_rank_order", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_a_committed_pair_specs_columns_are_its_own_pairing_sliced", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_derived_columns_zip_back_to_the_pairing", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_a_rule_pair_spec_refuses_a_single_channel_run", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_descriptors_arm_field_is_unchanged_for_every_committed_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
@@ -3991,7 +4007,7 @@ files:
       - {name: "test_declaring_both_arms_and_rule_pairs_is_refused", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_rule_pairs_without_declared_coupling_are_refused", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_an_inbound_matrix_with_no_arm_set_is_refused_at_get_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
-      - {name: "test_every_other_registered_spec_passes_its_own_shape_check", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_every_registered_spec_passes_its_own_shape_check", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_campaign_spec_declares_coupling_and_the_era", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_strategies_for_is_unchanged_for_every_grid_ordered_arm_set", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_no_committed_spec_moves_an_arm", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
@@ -4024,6 +4040,31 @@ files:
       - {name: "test_the_pin_tolerates_a_float_wobble_below_its_declared_precision", file: "Tests/unit/test_funnel_window.py", kind: "function"}
       - {name: "test_a_phase_two_spec_without_a_pin_is_refused_at_spec_build", file: "Tests/unit/test_funnel_window.py", kind: "function"}
       - {name: "test_the_run_refuses_the_pair_whose_derivation_moved", file: "Tests/unit/test_funnel_window.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_gain_bundle_labor_families.py":
+    purpose: "pins rank_labor/rank_cartlabor/rank_minlabor faithful-to-arm and pure over the whole aisle_state surface, with the arm-level hoists and the seam's own refusals."
+    layer: "tests"
+    key_symbols:
+      - {name: "FAMILIES", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "const"}
+      - {name: "RANKED3", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "const"}
+      - {name: "EXTRAS", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "const"}
+      - {name: "test_the_bundles_pool_places_exactly_as_the_arms_own_pool", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
+      - {name: "test_a_real_plan_leaves_every_live_aisle_dict_untouched", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
+      - {name: "test_the_identity_copier_lets_the_virtual_placement_reach_the_warehouse", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
+      - {name: "test_each_family_arrives_on_the_pool_adapter_over_the_live_dicts", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
+      - {name: "test_the_arm_level_values_are_hoisted_out_of_the_per_evaluation_path", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
+      - {name: "test_an_aisle_state_name_with_no_copier_is_refused", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
+      - {name: "test_aisle_state_on_an_adapter_that_opens_no_pool_is_refused", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_gain_cow_equivalence.py":
+    purpose: "proves AISLE_VIEWS reproduces AISLE_COPIERS exactly (equivalence, purity, saving, sabotage-caught)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_two_tables_cover_each_other", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
+      - {name: "test_each_view_leaves_its_live_dict_untouched", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
+      - {name: "test_a_view_that_shares_the_live_container_is_caught", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
+      - {name: "test_the_view_copies_strictly_less_than_the_copy", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
+      - {name: "test_every_view_shape_reproduces_the_eager_copy_exactly", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_gain_plan.py":
     purpose: "the gain-family ordering entries and their evaluator."

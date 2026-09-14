@@ -946,6 +946,21 @@
       "src": "Inbound/gain.py"
     },
     {
+      "dst": "Inbound/gain.py::_copy_of_floats",
+      "kind": "ref",
+      "src": "Inbound/gain.py::AISLE_COPIERS"
+    },
+    {
+      "dst": "Inbound/gain.py::_copy_of_lists_by_key",
+      "kind": "ref",
+      "src": "Inbound/gain.py::AISLE_COPIERS"
+    },
+    {
+      "dst": "Inbound/gain.py::_copy_of_sets",
+      "kind": "ref",
+      "src": "Inbound/gain.py::AISLE_COPIERS"
+    },
+    {
       "dst": "Inbound/gain.py::_site_wide_disagreement",
       "kind": "calls",
       "src": "Inbound/gain.py::SiteGainBundle.bind"
@@ -14176,6 +14191,21 @@
       "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_pool_fn",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_pool_fn",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
@@ -22059,6 +22089,22 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::AISLE_COPIERS",
+      "kind": "const",
+      "module": "Inbound/gain.py",
+      "name": "AISLE_COPIERS",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::AISLE_VIEWS",
+      "kind": "const",
+      "module": "Inbound/gain.py",
+      "name": "AISLE_VIEWS",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::GainBundle",
       "kind": "class",
       "module": "Inbound/gain.py",
@@ -22175,6 +22221,270 @@
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "urgency_horizon_days",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats",
+      "kind": "class",
+      "module": "Inbound/gain.py",
+      "name": "_CowFloats",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.__contains__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__contains__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.__getitem__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.__init__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.__iter__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.__len__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.__setitem__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__setitem__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.get",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "get",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.items",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "items",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.keys",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "keys",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowFloats.values",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "values",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey",
+      "kind": "class",
+      "module": "Inbound/gain.py",
+      "name": "_CowListsByKey",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.__contains__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__contains__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.__getitem__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.__init__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.__iter__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.__len__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.__setitem__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__setitem__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.get",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "get",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.items",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "items",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.keys",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "keys",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowListsByKey.values",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "values",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets",
+      "kind": "class",
+      "module": "Inbound/gain.py",
+      "name": "_CowSets",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.__contains__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__contains__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.__getitem__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.__init__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.__iter__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.__len__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.__setitem__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__setitem__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.get",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "get",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.items",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "items",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.keys",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "keys",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_CowSets.values",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "values",
       "public": true
     },
     {
@@ -22320,6 +22630,30 @@
       "module": "Inbound/gain.py",
       "name": "place_load",
       "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_copy_of_floats",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_copy_of_floats",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_copy_of_lists_by_key",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_copy_of_lists_by_key",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_copy_of_sets",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_copy_of_sets",
+      "public": false
     },
     {
       "file": "Inbound/gain.py",
@@ -37391,6 +37725,22 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_gain_bundle_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_factory",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_factory",
       "public": false
     },
     {

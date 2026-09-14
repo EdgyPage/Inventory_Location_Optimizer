@@ -875,9 +875,23 @@
       "kind": "module",
       "signature": null
     },
+    "Inbound/gain.py::AISLE_COPIERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'aisle_sku_sets': _copy_of_sets, 'aisle_idx_sets': _copy_of_sets, 'aisle_demand_sum': _copy_of_floats, 'aisle_pick_load_sum': _copy_of_floats, 'aisle_vol_sum': _copy_of_floats, 'aisle_member_pos':..."
+    },
+    "Inbound/gain.py::AISLE_VIEWS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'aisle_sku_sets': _CowSets, 'aisle_idx_sets': _CowSets, 'aisle_demand_sum': _CowFloats, 'aisle_pick_load_sum': _CowFloats, 'aisle_vol_sum': _CowFloats, 'aisle_member_pos': _CowListsByKey}"
+    },
     "Inbound/gain.py::GainBundle": {
       "decorators": [],
-      "doc": "Everything arm-specific the evaluator needs, injected by the driver.\n\nThree adapters, and the bundle picks exactly one.  `uniform` selects the uniform\nadapter (`fifo`: no pool, no direction \u2014 the tier's mean and a seat count).  Else\n`pool_factory` None selects the merge adapter (extremal-D family, direction\n`minimize`); otherwise the pool adapter calls\n`pool_factory(candidates, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, wp)`\nwith FRESH copies of the three aisle dicts per evaluation.  `expect_heads` prices\neach unit at the mean over `heads_of(pool)` before consuming (rank_random's no-RNG\nexpectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because\ntheir home (`wh_inventory`) is a forbidden import \u2014 the broker rule.\n\n`minimize` is INERT under `uniform`: a uniform draw has no extremal direction to\nsort a tier by, so nothing reads it.  It is left at its default rather than\nrefused, because the merge adapter's default is the same value.\n\nThe two days-denominated knobs ride here because the gate entry has no other\nchannel to CONFIG (`inbound_spec()` -> driver -> bundle, the five-seam path).",
+      "doc": "Everything arm-specific the evaluator needs, injected by the driver.\n\nThree adapters, and the bundle picks exactly one.  `uniform` selects the uniform\nadapter (`fifo`: no pool, no direction \u2014 the tier's mean and a seat count).  Else\n`pool_factory` None selects the merge adapter (extremal-D family, direction\n`minimize`); otherwise the pool adapter calls `pool_factory(candidates, state, wp)`,\nwhere `state` is a FRESH copy per evaluation of every live aisle dict the arm's pool\ncommits to: `aisle_state` names them (manager attribute -> the live dict) and\n`AISLE_COPIERS` above says how each is copied.  Those names are the seam's whole\nvocabulary, which is what keeps it fixed -- a family that commits to one more dict is\na driver branch plus one more name, never a wider signature here.  `expect_heads` prices\neach unit at the mean over `heads_of(pool)` before consuming (rank_random's no-RNG\nexpectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because\ntheir home (`wh_inventory`) is a forbidden import \u2014 the broker rule.\n\n`minimize` is INERT under `uniform`: a uniform draw has no extremal direction to\nsort a tier by, so nothing reads it.  It is left at its default rather than\nrefused, because the merge adapter's default is the same value.\n\nThe two days-denominated knobs ride here because the gate entry has no other\nchannel to CONFIG (`inbound_spec()` -> driver -> bundle, the five-seam path).",
       "kind": "class",
       "signature": ""
     },
@@ -886,7 +900,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_sku_sets=None, aisle_idx_sets=None, aisle_demand_sum=None, fee_threshold_days: float=2.0, urgency_horizon_days: float=0.0)"
+      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_state=None, fee_threshold_days: float=2.0, urgency_horizon_days: float=0.0)"
     },
     "Inbound/gain.py::OneOwnerBundle": {
       "decorators": [],
@@ -987,6 +1001,234 @@
       "kind": "function",
       "signature": "(self) -> float"
     },
+    "Inbound/gain.py::_CowFloats": {
+      "decorators": [],
+      "doc": "Copy-on-write over `{aisle: float}` -- and floats need NO copy at all.\n\nA float is immutable, so a read can fall straight through to the live dict; only a write\nneeds an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write\nlands here rather than on the manager's dict.\n\n`__getitem__` on a miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the\nshape this replaces -- so `len()` and iteration order are unchanged.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain.py::_CowFloats.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain.py::_CowFloats.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain.py::_CowFloats.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, live)"
+    },
+    "Inbound/gain.py::_CowFloats.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowFloats.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowFloats.__setitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k, v)"
+    },
+    "Inbound/gain.py::_CowFloats.get": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k, default=None)"
+    },
+    "Inbound/gain.py::_CowFloats.items": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowFloats.keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowFloats.values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowListsByKey": {
+      "decorators": [],
+      "doc": "Copy-on-write over `{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.\n\nTwo levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so a\nshallow copy would hand the pool the live inner list.  An access materializes that one\naisle's whole inner mapping, which is still one of forty-six.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain.py::_CowListsByKey.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain.py::_CowListsByKey.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain.py::_CowListsByKey.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, live)"
+    },
+    "Inbound/gain.py::_CowListsByKey.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowListsByKey.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowListsByKey.__setitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k, v)"
+    },
+    "Inbound/gain.py::_CowListsByKey.get": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k, default=None)"
+    },
+    "Inbound/gain.py::_CowListsByKey.items": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowListsByKey.keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowListsByKey.values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowSets": {
+      "decorators": [],
+      "doc": "Copy-on-write over `{aisle: set}`.\n\nUnlike floats, the value is MUTABLE and the caller does `d[aid].add(sku)` -- and\n`__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an access\nmaterializes that ONE aisle's set.  Bounded by the aisles a pool touches (measured 1.22),\nnot by the warehouse (46).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain.py::_CowSets.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain.py::_CowSets.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain.py::_CowSets.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, live)"
+    },
+    "Inbound/gain.py::_CowSets.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowSets.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowSets.__setitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k, v)"
+    },
+    "Inbound/gain.py::_CowSets.get": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k, default=None)"
+    },
+    "Inbound/gain.py::_CowSets.items": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowSets.keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain.py::_CowSets.values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
     "Inbound/gain.py::_Evaluator": {
       "decorators": [],
       "doc": "One plan's virtual placement state \u2014 built per entry call, dies with it.\n\nOwns the sort-once structures (per-key bins in arm-D order, computed lazily the\nfirst time a key is touched and NEVER rebuilt \u2014 the structure the Tier-1 sabotage\ntest perturbs), the consumed-bin set the greedy advances, and the pricing.  Reads\nthe frozen `SpaceView` and the bundle provider; its only writes are its own\nbookkeeping.\n\n# \u2500\u2500 the owner cursor, and why ONE evaluator can serve two leaves \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`b` is not a field: it resolves `provider.for_key(self._key)`, and `_key` is set in\n`_params` \u2014 which `place_load` calls exactly once per BinKey group, before it\nbranches on the adapter, so every read that follows a group's `_params` sees that\ngroup's arm.  Under `OneOwnerBundle` that is one instance for every key and the\nindirection is inert; under `SiteGainBundle` it is the WHOLE dispatch, at the\ngranularity the loop already has.\n\nThe property this rests on: **a spill chain never crosses regimes.**  `_chain`\nvaries only `size`, holding `handling` / `category` / `unit_category` fixed, and\nregime is read off exactly those three (`inventory_common`: regime is itself a\nBinKey component).  Every other cache here \u2014 `_sorted_now`, `_sorted_pred`, `_wp`,\n`_chain_cache`, `_worst`, `_mom`, `taken` \u2014 is BinKey- or bin-id-keyed.  So two\nowners share this object with zero cross-talk, and nothing here needs to know which\nof them it is serving.  Take that property away and the caches, not the cursor, are\nwhat goes wrong.\n\nOne read precedes any cursor: `place_load` calls `self.b.binkey_of(u)` to key the\ngroups in the first place, with `_key` still None.  That is lawful because the\nthree site-wide fields (`binkey_of`, `tier_ranks_for`, `put_speed`) are the same\nobject for every owner \u2014 a provider that made THEM vary per key would be answering\na different question than this evaluator asks.",
@@ -1023,7 +1265,7 @@
     },
     "Inbound/gain.py::_Evaluator._make_pool": {
       "decorators": [],
-      "doc": "The arm's own pool over COPIES of the aisle bookkeeping \u2014 the purity rule:\na virtual placement may never advance the live dicts.",
+      "doc": "The arm's own pool over COPY-ON-WRITE VIEWS of the aisle bookkeeping \u2014 the purity\nrule holds unchanged: a virtual placement may never advance the live dicts.\n\nOne comprehension, per evaluation: the bundle's `aisle_state` says WHICH live\ndicts this arm's pool commits to and `AISLE_VIEWS` says how each is viewed, so\na family that touches more of them costs a driver branch and nothing here.\n\nTHIS IS THE PACKAGE'S HOTTEST LINE, and the reason is the TIER loop below rather than\nanything about yard depth.  Measured on the real driver: 12.59 pool opens per\n`place_load` against a mean of 2.8 candidate trailers, so the opens are driven by the\nspill chain, not by the greedy.  The eager copy walked all 46 live aisles to serve a\npool that touches 1.22 of them -- 9.3 million set-element copies in twenty batches on\none leaf.  A view pays for what it reads.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, cands, wp)"
@@ -1113,6 +1355,27 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, units, excluded, predicted: bool, *, alloc=None)"
+    },
+    "Inbound/gain.py::_copy_of_floats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d)"
+    },
+    "Inbound/gain.py::_copy_of_lists_by_key": {
+      "decorators": [],
+      "doc": "Two levels down: {aisle: {sku_idx: [x_phys, ...]}}, and the lists are appended to.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d)"
+    },
+    "Inbound/gain.py::_copy_of_sets": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d)"
     },
     "Inbound/gain.py::_load_units": {
       "decorators": [],
@@ -8276,7 +8539,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "None"
+      "value_preview": "[('rank_cartlabor', 'rank_minlabor'), ('rank_minlabor', 'tmin'), ('rank_labor', 'rank_labor'), ('tmin', 'rank_cartlabor'), ('rank_random', 'rank_popularity'), ('fifo', 'fifo')]"
     },
     "Optimization/config/whatif_config.py::PHASE2_RECV_CREW_SIZE": {
       "decorators": [],
@@ -8311,7 +8574,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "None"
+      "value_preview": "{'mixed_20260816_131535__mixed_realistic_bell_lt0': '0ed2dd1582af'}"
     },
     "Optimization/config/whatif_config.py::PHASE2_THRESHOLD_DAYS": {
       "decorators": [],
@@ -14372,7 +14635,7 @@
     },
     "Optimization/simdriver/strategy_runner.py::_gain_bundle_for": {
       "decorators": [],
-      "doc": "The gain evaluator's faithful-to-arm bundle \u2014 driver-built, driver-injected\n(`mgr.transit.gain_bundle`), because `Inbound -> wh_inventory / wh_placement` are\nforbidden edges: the broker holds what it is handed (the `drain_sku` precedent).\n\nThe fidelity seam per arm FAMILY (prototype ticket 04): tmin/tmax ride the proven\nk-cheapest merge; rank_popularity gets its own pool rebuilt over aisle-state\ncopies (its selector must read the COPY of aisle_demand_sum, not the live dict);\nrank_random gets the pool with a deterministic stand-in selector and expectation\npricing over the aisle heads (an ordering entry may consume no RNG \u2014 the decided\ndeviation 04 recorded); fifo gets the uniform adapter, which needs nothing from\nhere at all.  Any other placement family FAILS LOUDLY: an evaluator that cannot\nrebuild the arm's pool over copies would price a fiction under that arm's name,\nand phase 2's top-k should extend this map consciously, not silently.",
+      "doc": "The gain evaluator's faithful-to-arm bundle \u2014 driver-built, driver-injected\n(`mgr.transit.gain_bundle`), because `Inbound -> wh_inventory / wh_placement` are\nforbidden edges: the broker holds what it is handed (the `drain_sku` precedent).\n\nThe fidelity seam per arm FAMILY (prototype ticket 04): tmin/tmax ride the proven\nk-cheapest merge; rank_popularity gets its own pool rebuilt over aisle-state\ncopies (its selector must read the COPY of aisle_demand_sum, not the live dict);\nrank_random gets the pool with a deterministic stand-in selector and expectation\npricing over the aisle heads (an ordering entry may consume no RNG \u2014 the decided\ndeviation 04 recorded); fifo gets the uniform adapter, which needs nothing from\nhere at all.  Any other placement family FAILS LOUDLY: an evaluator that cannot\nrebuild the arm's pool over copies would price a fiction under that arm's name,\nand phase 2's top-k should extend this map consciously, not silently.\n\nWhich is what the last three branches are (ticket 20).  Phase 1 ranked, and\n`rank_minlabor` / `rank_labor` / `rank_cartlabor` are the families its top five\nnamed that this map did not already serve -- 08's cap of three, exactly consumed.\nThey arrive on the SAME pool adapter as rank_popularity and through their own\nbuilders, so nothing about fidelity is new; what IS new is that their pools commit\nto live aisle bookkeeping beyond the three dicts the older families touch, and\n`aisle_state` is where each declares its own.  A dict left off that list is not a\nrefusal, it is a virtual placement advancing the REAL warehouse -- so the list is\nread off the pool's `take`, not off the builder's signature (`_sku_pick_load_product`\nand `_sku_vol_product` are handed over LIVE below precisely because `take` only\nreads them).\n\nThe two arm-level values hoisted out of the per-evaluation path belong to the same\nreading.  `_make_pool` rebuilds the policy for every virtual placement, so anything\nthe builder computes ONCE per arm would be recomputed O(yard^2) times per drain: the\ntravel-balanced geometry memo, and rank_cartlabor's `total_freq`, whose own docstring\nforbids moving it into the pool.  Both ride optional builder keywords that every\nproduction call leaves at None.",
       "is_async": false,
       "kind": "function",
       "signature": "(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle'"
@@ -14382,7 +14645,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(cands, ass, ais, ads, wp_local)"
+      "signature": "(cands, state, wp_local)"
     },
     "Optimization/simdriver/strategy_runner.py::_gc_cb": {
       "decorators": [],
@@ -22417,7 +22680,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)"
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None, geo_memos=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn.open_pool": {
       "decorators": [],
@@ -22777,10 +23040,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn": {
       "decorators": [],
-      "doc": "Pool twin of build_ranked_cartlabor_fn \u2014 same signature.\n\n`total_freq` is summed HERE, once when the policy is built, exactly as the wave builder\ndoes it: a per-pool sum over the same dict would be the same value today but would make\na dict-order change silently repricing every cart penalty.",
+      "doc": "Pool twin of build_ranked_cartlabor_fn \u2014 same signature.\n\n`total_freq` is summed HERE, once when the policy is built, exactly as the wave builder\ndoes it: a per-pool sum over the same dict would be the same value today but would make\na dict-order change silently repricing every cart penalty.\n\nWhich is the whole reason it can be passed IN.  A caller that rebuilds this policy per\nevaluation rather than per arm -- there is one, the inbound gain evaluator -- would turn\n\"once when the policy is built\" into once per pool open, an O(catalogue) sum in an\nO(yard^2)-per-drain loop, and would re-expose exactly the dict-order hazard the\nparagraph above closes.  Such a caller hoists the sum to its own arm scope and hands it\ndown; it must be `sum(freq_by_sku.values())` over this same dict and nothing else.\nNone -- every production call -- sums here as before.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product, expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product, expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, total_freq=None, geo_memos=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_fn": {
       "decorators": [],
@@ -22798,10 +23061,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_pool_fn": {
       "decorators": [],
-      "doc": "Pool twin of build_ranked_labor_fn \u2014 same signature.",
+      "doc": "Pool twin of build_ranked_labor_fn \u2014 same signature, plus the optional caller-owned\ngeometry memo (`_build_travel_balanced_pool_fn`, which carries the whole argument).\nOmitted, as every production call omits it, this is the builder it always was.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, geo_memos=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_assignment_fn": {
       "decorators": [],

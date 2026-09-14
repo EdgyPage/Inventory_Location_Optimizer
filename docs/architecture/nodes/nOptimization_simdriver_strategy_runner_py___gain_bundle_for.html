@@ -27,7 +27,26 @@ pricing over the aisle heads (an ordering entry may consume no RNG — the decid
 deviation 04 recorded); fifo gets the uniform adapter, which needs nothing from
 here at all.  Any other placement family FAILS LOUDLY: an evaluator that cannot
 rebuild the arm&#x27;s pool over copies would price a fiction under that arm&#x27;s name,
-and phase 2&#x27;s top-k should extend this map consciously, not silently.</section>
+and phase 2&#x27;s top-k should extend this map consciously, not silently.
+
+Which is what the last three branches are (ticket 20).  Phase 1 ranked, and
+`rank_minlabor` / `rank_labor` / `rank_cartlabor` are the families its top five
+named that this map did not already serve -- 08&#x27;s cap of three, exactly consumed.
+They arrive on the SAME pool adapter as rank_popularity and through their own
+builders, so nothing about fidelity is new; what IS new is that their pools commit
+to live aisle bookkeeping beyond the three dicts the older families touch, and
+`aisle_state` is where each declares its own.  A dict left off that list is not a
+refusal, it is a virtual placement advancing the REAL warehouse -- so the list is
+read off the pool&#x27;s `take`, not off the builder&#x27;s signature (`_sku_pick_load_product`
+and `_sku_vol_product` are handed over LIVE below precisely because `take` only
+reads them).
+
+The two arm-level values hoisted out of the per-evaluation path belong to the same
+reading.  `_make_pool` rebuilds the policy for every virtual placement, so anything
+the builder computes ONCE per arm would be recomputed O(yard^2) times per drain: the
+travel-balanced geometry memo, and rank_cartlabor&#x27;s `total_freq`, whose own docstring
+forbids moving it into the pool.  Both ride optional builder keywords that every
+production call leaves at None.</section>
 <section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_gain_py__GainBundle.html"><code>GainBundle</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py___wp_for.html"><code>_wp_for</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py__binkey_of.html"><code>binkey_of</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li><li><a href="nWarehouse_inventory_inventory_common_py__tier_ranks_for.html"><code>tier_ranks_for</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf.html"><code>_build_leaf</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___gain_bundle_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_gain_bundle_for">Source ↗</a></p>
 </article>

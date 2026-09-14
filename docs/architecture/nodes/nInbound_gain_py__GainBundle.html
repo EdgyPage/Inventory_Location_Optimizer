@@ -20,9 +20,12 @@
 Three adapters, and the bundle picks exactly one.  `uniform` selects the uniform
 adapter (`fifo`: no pool, no direction — the tier&#x27;s mean and a seat count).  Else
 `pool_factory` None selects the merge adapter (extremal-D family, direction
-`minimize`); otherwise the pool adapter calls
-`pool_factory(candidates, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, wp)`
-with FRESH copies of the three aisle dicts per evaluation.  `expect_heads` prices
+`minimize`); otherwise the pool adapter calls `pool_factory(candidates, state, wp)`,
+where `state` is a FRESH copy per evaluation of every live aisle dict the arm&#x27;s pool
+commits to: `aisle_state` names them (manager attribute -&gt; the live dict) and
+`AISLE_COPIERS` above says how each is copied.  Those names are the seam&#x27;s whole
+vocabulary, which is what keeps it fixed -- a family that commits to one more dict is
+a driver branch plus one more name, never a wider signature here.  `expect_heads` prices
 each unit at the mean over `heads_of(pool)` before consuming (rank_random&#x27;s no-RNG
 expectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because
 their home (`wh_inventory`) is a forbidden import — the broker rule.

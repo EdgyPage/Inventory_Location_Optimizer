@@ -15,8 +15,19 @@
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
 <pre class="sig"><code>def _make_pool(self, cands, wp)</code></pre>
-<section class="doc">The arm&#x27;s own pool over COPIES of the aisle bookkeeping — the purity rule:
-a virtual placement may never advance the live dicts.</section>
+<section class="doc">The arm&#x27;s own pool over COPY-ON-WRITE VIEWS of the aisle bookkeeping — the purity
+rule holds unchanged: a virtual placement may never advance the live dicts.
+
+One comprehension, per evaluation: the bundle&#x27;s `aisle_state` says WHICH live
+dicts this arm&#x27;s pool commits to and `AISLE_VIEWS` says how each is viewed, so
+a family that touches more of them costs a driver branch and nothing here.
+
+THIS IS THE PACKAGE&#x27;S HOTTEST LINE, and the reason is the TIER loop below rather than
+anything about yard depth.  Measured on the real driver: 12.59 pool opens per
+`place_load` against a mean of 2.8 candidate trailers, so the opens are driven by the
+spill chain, not by the greedy.  The eager copy walked all 46 live aisles to serve a
+pool that touches 1.22 of them -- 9.3 million set-element copies in twenty batches on
+one leaf.  A view pays for what it reads.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__place_pool.html"><code>_place_pool</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator__make_pool">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20_make_pool">Source ↗</a></p>
 </article>
