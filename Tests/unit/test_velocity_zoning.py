@@ -333,3 +333,72 @@ def test_stock_per_unit_zoning_routes_each_unit_to_its_target_band():
     assert 0 in matched_bands and (_ZONE_BANDS - 1) in matched_bands, (
         f'expected target-band matches spanning hot band 0 .. cold band {_ZONE_BANDS - 1}, '
         f'got matches only in bands {sorted(matched_bands)}')
+
+
+# ── the composition ──────────────────────────────────────────────────────────────────
+# Zoning is a CLUSTER: six fields and eight methods that nothing outside zoning reads.
+# `Inventory_Manager` was a 72-method class carrying it inline; the repo's own answer to
+# that shape is already in the file's first line — the manager is composed of
+# `PlanningMixin`, `OptimalLayoutMixin` and `ReorderMixin`, each in its own module. Zoning
+# becomes the fourth, for the same reason and by the same mechanism.
+#
+# A MIXIN AND NOT A COLLABORATOR OBJECT, deliberately. `_index_add` / `_index_remove`
+# mirror every bin mutation into the per-band sub-index, and they are the hottest path in
+# the system. A mixin method resolves exactly as a method on the class does; a
+# `self._zoning.` hop would put an extra attribute lookup on every bin that ever moves.
+
+
+def test_zoning_lives_in_its_own_module():
+    from Warehouse.inventory.inventory_zoning import ZoningMixin
+    assert ZoningMixin.__module__ == 'Warehouse.inventory.inventory_zoning'
+
+
+def test_the_manager_is_composed_of_the_zoning_mixin():
+    from Warehouse.inventory.inventory_zoning import ZoningMixin
+    assert issubclass(Inventory_Manager, ZoningMixin), (
+        'Inventory_Manager must inherit zoning rather than define it inline')
+
+
+def test_every_zoning_method_comes_from_the_mixin_not_the_manager():
+    """The cluster MOVED; it was not copied. A method still defined on the manager would
+    shadow the mixin's silently, and the two would drift."""
+    from Warehouse.inventory.inventory_zoning import ZoningMixin
+    cluster = ('configure_zoning', '_build_band_index', '_build_abc_bands', '_band_of_unit',
+               '_spill_bands', '_zone_filter', '_band_pick', '_group_key')
+    for name in cluster:
+        assert name in vars(ZoningMixin), f'{name} is not defined on ZoningMixin'
+        assert name not in vars(Inventory_Manager), (
+            f'{name} is still defined on Inventory_Manager and shadows the mixin')
+
+
+def test_the_mixin_does_not_import_the_manager():
+    """A mixin that imports its host is a cycle and stops being separable."""
+    import inspect
+    from Warehouse.inventory import inventory_zoning
+    src = inspect.getsource(inventory_zoning)
+    assert 'Inventory_Management' not in src, \
+        'inventory_zoning imports its host module — that is a cycle, not a split'
+
+
+def test_apportion_is_still_reachable_where_it_always_was():
+    """A compatibility re-export: `_apportion` moved WITH `_build_abc_bands`, its only
+    caller, but `from ...Inventory_Management import _apportion` is an existing import and
+    a refactor is not the place to break one."""
+    from Warehouse.inventory.Inventory_Management import _apportion as viaManager
+    from Warehouse.inventory.inventory_zoning import _apportion as viaMixin
+    assert viaManager is viaMixin
+
+
+def test_the_index_mirrors_stayed_on_the_manager():
+    """The two hot-path mirror sites must NOT have become mixin calls.
+
+    `_index_add` / `_index_remove` run once per bin mutation. Their band-mirror bodies stay
+    inline exactly where they were; moving them behind a call would be a per-bin cost for a
+    tidiness that nothing reads.
+    """
+    import inspect
+    for name in ('_index_add', '_index_remove'):
+        assert name in vars(Inventory_Manager), f'{name} left the manager'
+        body = inspect.getsource(vars(Inventory_Manager)[name])
+        assert '_band_index' in body and '_band_pos' in body, (
+            f'{name} no longer maintains the per-band sub-index inline')
