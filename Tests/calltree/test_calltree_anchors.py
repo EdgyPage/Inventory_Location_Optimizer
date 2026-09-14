@@ -230,13 +230,72 @@ _FLOW_HOME = {
 }
 
 
+#: Flow keys that MUST be non-zero in a small inbound cell. Declared explicitly rather than
+#: asserted blanket-wise, because several anchors are legitimately zero in this configuration
+#: (`window_aggs` needs futuresight, `tier_sorts`/`avail_builds` belong to the merge adapter,
+#: `held_appends` needs a staging floor) and a blanket assertion would have to be weakened until
+#: it proved nothing.
+_FLOWS_LIVE_IN_AN_INBOUND_CELL = (
+    'drains', 'freezes', 'view_composes', 'trailer_plans', 'unload_prices',
+    'plan_orders', 'yard_plans', 'dock_plans', 'place_loads', 'pool_rebuilds',
+)
+
+
+def test_every_flow_anchor_that_should_fire_does_fire():
+    """The gate `test_flow_anchors_resolve` STRUCTURALLY cannot be.
+
+    That test resolves each anchor's symbol against its module, which catches a rename. It never
+    looks at a TREE, so it cannot catch a wrong RELATIONSHIP — and a parent-form anchor whose
+    parent is real, whose name is real, and whose relationship is wrong reports 0. Zero reads as
+    "the path never ran", which is the exact misreading the flow table exists to prevent.
+
+    It has already happened here. `yard_plans` and `dock_plans` were declared as
+    `('gain:plan_order', 'transit:YardTransit.yard_order')` — direct-child form — while the real
+    chain runs `yard_order -> priorities.bounded_order -> <the arm's registry entry> ->
+    plan_order`. Both symbols were in the tree (4 calls each) and both flows read 0 for their
+    whole life. Only a tree could tell.
+    """
+    import calltree_growth as cg
+    from calltree_tracer import CallTreeTracer
+
+    assets = scenarios.build_assets(
+        n_skus=200, bins_per_aisle=100, coverage=10.0, safety=2.0, seed=11,
+        strategy='uni_rank_labor_norsl', put_timing=True, recv_crew=2,
+        inbound=True, trailer_type='53', dock_doors=4,
+        yard_policy='gain_forecast', dock_policy='gain_forecast')
+    tr = CallTreeTracer(track_c_calls=False)
+    tr.start()
+    scenarios.run_meso(assets, n_batches=3, seed=11, recv_deadline=20.0)
+    tr.stop()
+    tree = tr.tree().to_dict()
+    flows = cg._flows(tree, cg._flat_counts(tree))
+
+    dead = [k for k in _FLOWS_LIVE_IN_AN_INBOUND_CELL if not flows.get(k)]
+    assert not dead, (
+        f'flow anchor(s) {dead} read ZERO in a cell that exercises them — the symbol resolves '
+        f'(test_flow_anchors_resolve passes) but the anchor does not match the tree. A '
+        f'parent-form anchor reached through a dispatcher needs the DEEP form: a 3-tuple '
+        f'`(name, parent, True)`. Flows measured: '
+        f'{ {k: flows.get(k) for k in _FLOWS_LIVE_IN_AN_INBOUND_CELL} }')
+
+    # NON-VACUITY: the assertion above is only meaningful if this cell can produce a zero at all.
+    assert flows.get('window_aggs') == 0, (
+        'window_aggs fired in a cell with no futuresight arm — either the cell changed or the '
+        'anchor now matches something it should not, and either way the check above no longer '
+        'distinguishes a live anchor from a dead one')
+
+
 def test_flow_anchors_resolve():
     """Every `_FLOW_COUNTS` name must still name a real callable."""
     import calltree_growth as cg
 
     assert len(cg._FLOW_COUNTS) >= 5, 'the flow table shrank; was it gutted rather than fixed?'
 
-    for key, (name, parent) in cg._FLOW_COUNTS.items():
+    # A 3-tuple `(name, parent, True)` is the DEEP form -- the anchor is a descendant of its
+    # parent rather than a direct child. It resolves the same two symbols, so this gate is
+    # unchanged by it; what the deep form needs is a TREE, which the test below supplies.
+    for key, spec in cg._FLOW_COUNTS.items():
+        name, parent = spec[0], spec[1]
         for tree_name in (name, parent):
             if tree_name is None:
                 continue

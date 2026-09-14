@@ -155,6 +155,49 @@ def _counts_under(tree: dict, parent: str) -> dict[str, int]:
     return out
 
 
+def _counts_anywhere_under(tree: dict, parent: str) -> dict[str, int]:
+    """name -> calls, over every DESCENDANT of every node named `parent`.
+
+    `_counts_under` above walks DIRECT children, which is right for the put-away flows it was
+    written for: `PutQueue.admit` really is called straight from `_admit_held`.  It is wrong
+    for anything reached through a dispatcher, and the inbound entry calls are all reached
+    through one -- the real chain is
+
+        YardTransit.yard_order -> priorities.bounded_order -> gain_forecast -> gain.plan_order
+
+    so a direct-child lookup for `plan_order` under `yard_order` matches nothing and reports
+    ZERO, which reads as "the yard ranking never ran".  Both anchors were in the tree the whole
+    time (`gain:plan_order` 4 calls, `transit:YardTransit.yard_order` 4 calls); only the
+    RELATIONSHIP was wrong, and `test_flow_anchors_resolve` cannot see a relationship because it
+    resolves symbols against modules and never looks at a tree.
+
+    A separate function rather than a parameter on the old one, so no existing flow can change
+    value: `route_calls` and `held_retry_touches` are archived series.
+
+    A descendant is counted once, under the NEAREST enclosing `parent` -- recursion stops at a
+    nested `parent`, so two dispatchers cannot double-count the same subtree.
+    """
+    out: dict[str, int] = {}
+
+    def collect(node: dict) -> None:
+        for c in node.get('children', []):
+            if c.get('kind') == 'ext' or c['name'] == parent:
+                continue                      # a nested parent owns its own subtree
+            out[c['name']] = out.get(c['name'], 0) + c['calls']
+            collect(c)
+
+    def walk(node: dict) -> None:
+        for c in node.get('children', []):
+            if c.get('kind') == 'ext':
+                continue
+            if c['name'] == parent:
+                collect(c)
+            walk(c)
+
+    walk(tree)
+    return out
+
+
 #: A single step whose local exponent exceeds the median of the earlier steps by this much
 #: is a KNEE.  Tuned against the one real instance: `save_s` went +0.37, +0.56, +3.62 per
 #: doubling, so the last step clears the earlier median by 3.15.  Set well below that -- the
@@ -428,8 +471,11 @@ _FLOW_COUNTS: dict[str, tuple[str, str | None]] = {
     # name, so `plan_order` runs twice per drain -- but over DIFFERENT candidate sets: the yard
     # (unbounded) and the staged set (bounded by `doors`).  Splitting them by parent is the only
     # way to tell an O(T_yard^2) term from an O(doors^2) one; the totals cannot.
-    'yard_plans'        : ('gain:plan_order', 'transit:YardTransit.yard_order'),
-    'dock_plans'        : ('gain:plan_order', 'transit:YardTransit.dock_order'),
+    # DEEP, and it has to be: the entry is reached through `priorities.bounded_order` and the
+    # arm's registry entry, so `plan_order` is a GRANDCHILD of the ranking call, never a direct
+    # child.  Declared direct, both of these read 0 for their whole life.
+    'yard_plans'        : ('gain:plan_order', 'transit:YardTransit.yard_order', True),
+    'dock_plans'        : ('gain:plan_order', 'transit:YardTransit.dock_order', True),
     'plan_orders'       : ('gain:plan_order', None),
     # The greedy's fan-out.  `plan_order` costs exactly T(T+1) `place_load` calls, so
     # `place_loads / plan_orders` IS the measured T^2 -- the sharpest number this ladder can
@@ -477,9 +523,16 @@ def _flows(tree: dict, flat: dict[str, int]) -> dict[str, int]:
     """Every `_FLOW_COUNTS` entry, resolved against one traced tree."""
     under: dict[str, dict[str, int]] = {}
     out: dict[str, int] = {}
-    for key, (name, parent) in _FLOW_COUNTS.items():
+    deep: dict[str, dict[str, int]] = {}
+    for key, spec in _FLOW_COUNTS.items():
+        name, parent = spec[0], spec[1]
+        want_deep = len(spec) > 2 and spec[2]
         if parent is None:
             out[key] = flat.get(name, 0)
+        elif want_deep:
+            if parent not in deep:
+                deep[parent] = _counts_anywhere_under(tree, parent)
+            out[key] = deep[parent].get(name, 0)
         else:
             if parent not in under:
                 under[parent] = _counts_under(tree, parent)
