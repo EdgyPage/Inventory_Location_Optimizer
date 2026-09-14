@@ -65,28 +65,44 @@ class Profile:
 
 
 PROFILES = {
+    # NO `--s-max-bins` / `--ff-max-bins` IN ANY PROFILE, and the reason is load-bearing.
+    #
+    # All three carried them until 2026-09-14, and all three had been DEAD since levels became
+    # a declaration: a cap that binds below what the declared levels need makes `plan_warehouse`
+    # raise `UnfieldableRequirement` rather than field less, so `simulate` exited 1 in three
+    # seconds and this gate could not run at all. Nothing reported it, because nothing runs this
+    # file automatically.
+    #
+    # AND NO CAP VALUE WOULD HAVE SAVED IT. The line floor sets a MINIMUM the cap cannot go
+    # under -- at 20,000 SKUs one fulfillment bucket alone needed 213,819 bins against a 27,000
+    # cap. That is the whole content of "a bin cap is self-defeating": a smaller warehouse raises
+    # lines/day, which grows the levels, which needs more bins. `--coverage-days` shrinks the
+    # DECLARATION itself and is therefore the only lever that actually makes a run smaller.
+    #
+    # `--max-tasks-per-child 1` everywhere, also deliberate: values above 1 deadlocked the pool
+    # at a cell boundary and the setting is pinned at 1 by decision. `tiny` and `smoke` carried
+    # 6 and 4, which predates that decision and is a latent hang, not a tuning choice.
+
     # The pipeline-shakeout size: every structural feature of a real run (2 cells, both channels,
-    # all 34 arms, the _frozen level, the what-if outputs) at the smallest scale that still produces
-    # them. For troubleshooting the chain end to end, not for measuring anything.
+    # all 34 arms, the _frozen level, the what-if outputs) at the smallest scale that still
+    # produces them. For troubleshooting the chain end to end, not for measuring anything.
     'tiny': Profile('tiny', ('--spec', 'scheduler_ab', '--n-batches', '6',
                              '--keyframe-interval', '3',
-                             '--max-skus', '8000',
-                             '--s-max-bins', '9000', '--ff-max-bins', '12000',
-                             '--max-tasks-per-child', '6'),
+                             '--max-skus', '8000', '--coverage-days', '1',
+                             '--max-tasks-per-child', '1'),
                     timeout_s=3600, free_gb=15, note='pipeline shakeout; target < 20 min'),
 
-    # ~13% scale. The first 20k SKUs are ~40% fulfillment (SKU ids interleave the families), so the
-    # catalogue stays MIXED and the optional <channel> level still appears. A cap that produced a
-    # store-only catalogue would silently stop testing the thing this exists to test.
+    # The first 20k SKUs are ~40% fulfillment (SKU ids interleave the families), so the catalogue
+    # stays MIXED and the optional <channel> level still appears. A sizing that produced a
+    # store-only catalogue would silently stop testing the thing this exists to test -- which is
+    # why the SKU count is held and `--coverage-days` does the shrinking.
     'smoke': Profile('smoke', _COMMON + (
-        '--max-skus', '20000',
-        '--s-max-bins', '20000', '--ff-max-bins', '27000',
-        '--max-tasks-per-child', '4',
-    ), timeout_s=3600, free_gb=40, note='capped; routine reuse'),
+        '--max-skus', '20000', '--coverage-days', '2',
+        '--max-tasks-per-child', '1',
+    ), timeout_s=5400, free_gb=40, note='coverage-shrunk; routine reuse'),
 
-    # Sizing verbatim from the last real production run's run_spec.json.
+    # Sizing verbatim from the last real production run's run_spec.json, minus the caps.
     'full': Profile('full', _COMMON + (
-        '--s-max-bins', '150000', '--ff-max-bins', '200000',
         '--max-tasks-per-child', '1',
     ), timeout_s=14400, free_gb=250, note='production scale, 10 batches'),
 }
@@ -366,7 +382,11 @@ def _stage_analyze(ctx: _Ctx) -> StageResult:
 _SWEEP_ONLY = ('frozen_inventory_db', 'frozen_warehouse_db', 'whatif_delta_csv',
                'whatif_delta_json', 'whatif_delta_png', 'whatif_labor_csv',
                'whatif_labor_json', 'whatif_labor_pngs', 'whatif_volume_csv',
-               'whatif_volume_json')
+               'whatif_volume_json',
+               # The dossier's census is a SAME-RULE comparison, so it needs a second
+               # cell to compare against -- the contract states it as the same rule as
+               # the whatif group above, and it belongs to the group for that reason.
+               'comparison_census_json')
 # Written by the flat stats fork only; the default BY_INITIAL preset runs the by-initial
 # fork (`tables.by_initial` / `sig.by_initial` / the aggregate by-initial params) and
 # writes its own artifacts instead, so NONE of these appear.
@@ -375,8 +395,68 @@ _FLAT_STATS_ONLY = ('stats_summary_csv', 'stats_tests_json',
                     'aggregate_stats_summary_csv', 'aggregate_stats_tests_json')
 # Present only while an arm/config is in flight; removed on finalize.
 _IN_FLIGHT_ONLY = ('resume_pkl', 'checkpoint_pkl')
-# Not file templates: a directory entry and a resolves_via alias. Checked via the resolver instead.
-_NOT_TEMPLATES = ('aggregate_dir', 'planned_inventory')
+# Not file templates: directory entries and a resolves_via alias, none of which
+# `_declared_templates` can see -- so each is checked through the RESOLVER in `_leaf_checks`
+# instead, and putting one here without a check there would classify it into silence.
+# `dossier_dir` and `site_dir` are the run- and pair-scope stage roots.
+_NOT_TEMPLATES = ('aggregate_dir', 'planned_inventory', 'dossier_dir', 'site_dir')
+# -- the run-scope dossier ------------------------------------------------------------------
+# Required, not optional-in-practice, and the reasoning is worth stating because
+# `optional: true` in schema.py invites the opposite reading.  `arts` is THIS RUN'S OWN
+# contract, so a dossier artifact can only appear here when the run was written under a
+# contract that declares it -- and every such contract postdates 244c175a, where the run
+# scope and its writers landed together.  A run analyzed before the run scope existed
+# therefore never reaches this list at all; it drops out one level up.  What remains, and
+# what the flag is really for, is the tree whose analysis HALF-finished -- precisely what
+# this file exists to catch, since analyze_run logs and swallows and still exits 0.
+# `runtime_metrics_db` (the precondition four of these state) is itself non-optional, so it
+# is already in `required` and can never be the reason one of these is absent.
+_DOSSIER = ('dossier_json', 'dossier_tables_csv', 'dossier_cost_pngs',
+            'held_fixed_json', 'inventory_model_json', 'rule_catalog_json')
+
+# -- coupled-only, and yard-only ------------------------------------------------------------
+# Two run-shape conditions the stage did not previously read, both DECLARED by the run
+# itself: `coupled` in run_layout.json, and the standing yard in run_spec.json (or a cell
+# inbound axis, which can turn it on for one cell while the run-level flag is off).
+#
+# On a run WITHOUT the shape these are must_absent, which is the strong assertion -- a site
+# tree on an uncoupled run means a worker wrote outside its own leaves.  On a run WITH it
+# they are only ALLOWED, because each carries a second condition this stage cannot evaluate
+# from the tree: site_inbound_db needs the dock to have actually received something, and the
+# yard figures need an arm with trailer rows (the yard request is DENIED, not emptied, when
+# no arm has any).
+_COUPLED_ONLY = ('site_inbound_db', 'figures_site_yard_pngs')
+_YARD_ONLY = ('figures_yard_pngs',)
+
+
+def _run_shape(rt) -> dict:
+    """{coupled, yard} for THIS run, from its own descriptors -- never from the tree.
+
+    Reading the shape off the tree would make every conditional check circular: "the site dir
+    is allowed because a site dir is present" can never fail.  run_layout.json and
+    run_spec.json are written BEFORE the work, so they are a declaration to judge the tree
+    against.
+
+    The yard is two-sourced on purpose.  A run-level `--inbound-standing-yard` is the common
+    case, but phase 2's inbound axis carries `standing_yard` per CELL (`Cell.inbound`, the
+    same keys without the `inbound_` prefix), so a matrix run can have nine yard cells and
+    one without while the run-level flag reads False.  Either source turning it on makes the
+    yard figures legitimate somewhere in the tree, which is the granularity this stage
+    checks at.
+    """
+    coupled = bool(rt.layout.get('coupled'))
+    cells = rt.layout.get('cells') or []
+    yard = any((c.get('inbound') or {}).get('standing_yard') for c in cells)
+    try:
+        with open(rt.run_spec_json(), encoding='utf-8') as fh:
+            spec = json.load(fh)
+        coupled = coupled or bool(spec.get('couple_channels'))
+        yard = yard or bool(spec.get('inbound_standing_yard'))
+    except (OSError, ValueError):
+        pass                              # a legacy run has no run_spec; the layout stands
+    return {'coupled': coupled, 'yard': yard}
+
+
 # Genuinely optional: legitimately present OR absent on a correct run, and this stage cannot tell
 # which from the tree alone, so neither presence nor absence is evidence of anything.
 #   batches_cache — written only when the batch-precompute dedup fires; a channel that samples
@@ -395,8 +475,13 @@ _NOT_TEMPLATES = ('aggregate_dir', 'planned_inventory')
 #   vs_baseline_csv — needs 3+ batches shared with the baseline arm. Every real run has
 #                   them, but a 2-batch smoke tree does not, and this stage cannot tell a
 #                   short run from a missing writer.
+#   restock_selection_json - written only by `run_restock_selection`, which a PERSON
+#                   invokes on a phase-1 funnel root after its analysis. A fresh smoketest
+#                   run never has one; a --reuse-run pointed at a funnel root legitimately
+#                   does. Same trap as analysis_log above: must_absent would look right
+#                   here and then fire on a correct tree.
 _EITHER_WAY = ('batches_cache', 'analysis_log', 'cell_analysis_log', 'viz_cache_db',
-               'figures_significance_pngs', 'vs_baseline_csv')
+               'figures_significance_pngs', 'vs_baseline_csv', 'restock_selection_json')
 
 
 def _stage_verify_tree(ctx: _Ctx) -> StageResult:
@@ -425,16 +510,28 @@ def _stage_verify_tree(ctx: _Ctx) -> StageResult:
     kf_on = int((rt.layout.get('keyframe_interval') or 5)) > 0
     required = {k for k, v in arts.items() if not v.get('optional') and k not in _NOT_TEMPLATES}
     cond_req = set()
+    allowed = set()                 # classified, asserted neither present nor absent
     if rt.is_sweep:
         cond_req |= set(_SWEEP_ONLY)
     if kf_on:
         cond_req.add('keyframes_db')
+    cond_req |= set(_DOSSIER)
     must_absent = set(_FLAT_STATS_ONLY) | set(_IN_FLIGHT_ONLY)
     if rt.is_sweep:
         must_absent.add('planned_inventory_db')     # the frozen copy is shared instead
 
+    shape = _run_shape(rt)
+    ev['run_shape'] = shape
+    # Allowed when the shape is there, FORBIDDEN when it is not. See _COUPLED_ONLY above.
+    for on, names in ((shape['coupled'], _COUPLED_ONLY), (shape['yard'], _YARD_ONLY)):
+        if on:
+            allowed |= set(names)
+        else:
+            must_absent |= set(names)
+
     # Force a new artifact in schema.py to be classified here rather than silently ignored.
-    classified = required | cond_req | must_absent | set(_NOT_TEMPLATES) | set(_EITHER_WAY)
+    classified = (required | cond_req | must_absent | allowed
+                  | set(_NOT_TEMPLATES) | set(_EITHER_WAY))
     unclassified = sorted(set(arts) - classified)
     ev['unclassified_artifacts'] = unclassified
 
@@ -460,7 +557,7 @@ def _stage_verify_tree(ctx: _Ctx) -> StageResult:
     ev['undeclared'] = undeclared
     ev['postdates_run_schema'] = postdates
 
-    counts, problems = _leaf_checks(rt, ctx, kf_on)
+    counts, problems = _leaf_checks(rt, ctx, kf_on, shape)
     ev['counts'] = counts
     ev['leaf_problems'] = problems[:30]
     ev['non_vacuity'] = _negative_control(doc, obs, preflight)
@@ -501,7 +598,7 @@ def _stage_verify_tree(ctx: _Ctx) -> StageResult:
     return r
 
 
-def _leaf_checks(rt, ctx: _Ctx, kf_on: bool) -> tuple[dict, list]:
+def _leaf_checks(rt, ctx: _Ctx, kf_on: bool, shape: dict) -> tuple[dict, list]:
     """Per-leaf existence + count checks, driven entirely through the resolver."""
     from collections import defaultdict
     problems: list = []
@@ -572,6 +669,26 @@ def _leaf_checks(rt, ctx: _Ctx, kf_on: bool) -> tuple[dict, list]:
     if pi_via and pi_via != {want_via}:
         problems.append(f'planned_inventory resolved via {sorted(pi_via)}, expected {want_via}')
 
+    # The two STAGE ROOTS. Directory entries, so `_declared_templates` never sees them and the
+    # contract check above cannot speak for them at all -- this is the whole check they get.
+    #
+    # `_dossier` is required: it is wiped and recreated on every analysis pass, so its absence
+    # on a run whose contract declares it means the run-scope stage did not complete.
+    dossier_ok = os.path.isdir(rt.dossier_dir())
+    if not dossier_ok:
+        problems.append('_dossier missing -- the run-scope analysis stage did not complete')
+
+    # `_site` is the pair-scope twin, and its check runs in BOTH directions: present on every
+    # pair of a coupled run, and present on NO pair of an uncoupled one. The second half is the
+    # one worth having -- a site tree on an uncoupled run means a worker wrote outside its own
+    # leaves, and nothing else here would notice.
+    site_dirs = [(cell, pair) for cell in cells for pair in pairs
+                 if os.path.isdir(rt.site_dir(cell, pair))]
+    want_sites = len(cells) * len(pairs) if shape['coupled'] else 0
+    if len(site_dirs) != want_sites:
+        problems.append(f'_site dirs: {len(site_dirs)} present, expected {want_sites} '
+                        f'(coupled={shape["coupled"]})')
+
     wf = rt.whatif_outputs()
     if rt.is_sweep and len(wf) < 6:
         problems.append(f'sweep run but only {len(wf)} what-if output(s) exist')
@@ -587,6 +704,8 @@ def _leaf_checks(rt, ctx: _Ctx, kf_on: bool) -> tuple[dict, list]:
         'aggregate_dirs': {'expected': len(agg_dirs), 'found': agg_found},
         'whatif_outputs': len(wf),
         'planned_inventory': {'checked': pi_checked, 'via': sorted(pi_via)},
+        'dossier_stage_root': dossier_ok,
+        'site_stage_roots': {'expected': want_sites, 'found': len(site_dirs)},
     }
     if exp_leaves and len(leaves) != exp_leaves:
         problems.insert(0, f'channel-run count {len(leaves)} != expected {exp_leaves}')
