@@ -57,13 +57,24 @@ from Warehouse.picking.Pick import PickConfig
 from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
+# The standing-yard construction set.  Imported at module level rather than lazily because
+# `Inbound/__init__.py` already imports `gain` for its registration side effect, so the cost is
+# paid by the first `import Inbound.dock` above regardless -- a lazy import here would buy
+# nothing and hide the dependency.  `Tests/` may import `Inbound/` freely; the architecture rule
+# runs the other way (no Warehouse module may import Inbound).
+from Inbound.gain import GAIN_POLICIES as _GAIN_POLICIES, OneOwnerBundle as _OneOwnerBundle
+from Inbound.pack import packer as _inbound_packer
+from Inbound.receiving import SiteReceiving as _SiteReceiving
+from Inbound.space import SpaceTimeline as _SpaceTimeline
+from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
+from Inbound.transit import YardTransit as _YardTransit
 from Warehouse.inventory.put_queue import (
     PutQueueSet as _PutQueueSet, PutQueueSpec as _PutQueueSpec,
     store_and_fulfillment as _store_and_fulfillment)
 from Warehouse.kernel.cost_model import SpeedProfile as _SpeedProfile
 from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
-from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
+from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task, drain_sku as _drain_sku
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Optimization.metrics.Simulation_Analytics import (
     fused_pre_snapshot, extract_batch_stats, extract_picker_events, extract_picks,
@@ -180,7 +191,14 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
                  coverage: float = 10.0, safety: float = 2.0,
                  put_timing: bool = False, put_split: bool = False,
                  put_staging: int | None = None, put_crew: int = 1,
-                 recv_crew: int = 0) -> ScenarioAssets:
+                 recv_crew: int = 0,
+                 inbound: bool = False, trailer_type: str = '53', dock_doors: int = 4,
+                 lead_minutes: float = 0.0, lead_spread: float = 0.0, lead_seed: int = 0,
+                 yard_policy: str = 'fifo', dock_policy: str = 'fifo',
+                 local_policy: str = 'fifo', trailer_bound: int | None = None,
+                 crew_allocation: str = 'split', door_team: int | None = None,
+                 fee_threshold_days: float = 2.0,
+                 urgency_horizon_days: float = 0.0) -> ScenarioAssets:
     """Deterministic single-arm assets with production placement wiring.
 
     Mirrors Diagnostics/trace_lifecycle.py's recipe (plan_warehouse to a target fill,
@@ -275,7 +293,62 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
         # make the held list and the refill loop execute at all.
         mgr.put_queues = _PutQueueSet([_PutQueueSpec('all', staging=put_staging)])
     if recv_crew:
-        mgr.enable_receiving(_Dock(_DockSpec(size=recv_crew)))
+        # `sources` matters once a trailer pipeline is bound: the driver widens it to
+        # ('reorder', 'trailer') whenever an inbound spec exists (strategy_runner.py:1646),
+        # and the default ('reorder',) would leave trailer-sourced items uncaught.
+        mgr.enable_receiving(_Dock(_DockSpec(
+            size=recv_crew,
+            sources=('reorder', 'trailer') if inbound else ('reorder',))))
+
+    # ── the STANDING YARD, off by default ─────────────────────────────────────────
+    # Mirrors the driver's own single-leaf construction site (strategy_runner.py:1703-1791)
+    # rather than paraphrasing it: transit, timeline, packer, coordinator, and the gain bundle
+    # only when a gain policy is actually named.  The off state is "none of this was built",
+    # the same structural no-op the put-away block above uses.
+    #
+    # WHY THIS REACHES ANYTHING AT ALL: `_receive` reroutes to the coordinator whenever the
+    # bound transit carries `STANDING` (inventory_reorder.py:675), and that branch takes ONE
+    # leaf -- `self.receiving.receive((self,), deadline)`.  So a single uncoupled manager
+    # driving `check_reorders` executes the whole standing drain: plans-at-arrival, the ctx
+    # freeze, the yard and dock rankings, `plan_order`, the unload and the handoff.  No
+    # coupling, no `bind`, so `site_scoped` stays False and the per-batch accessors the meso
+    # loop calls keep working.
+    if inbound:
+        if not recv_crew:
+            raise ValueError(
+                'inbound=True needs a receiving crew: a standing yard nobody can unload '
+                'stands merchandise forever, the run completes, and nothing raises. '
+                '`sim_config.inbound_spec` refuses the same combination for the same reason')
+        if lead_spread > 0.0 and lead_minutes <= 0.0:
+            raise ValueError(
+                'lead_spread > 0 with lead_minutes == 0 is SILENTLY INERT: the draw is '
+                'median * exp(sigma*Z) and 0 * anything is 0, so the spread would be '
+                'configured and never observable (run_simulation.py:819 refuses it too)')
+        mgr.transit = _YardTransit(
+            _TRAILER_TYPES[trailer_type],
+            lead_s=lead_minutes * 60.0,      # authored in MINUTES, stored in SECONDS, once
+            lead_sigma=lead_spread, lead_seed=lead_seed,
+            doors=dock_doors, yard_policy=yard_policy, dock_policy=dock_policy,
+            local_policy=local_policy, bound=trailer_bound,
+            allocation=crew_allocation, door_team=door_team)
+        # The timeline rides the yard unconditionally, as it does in the driver: every drain's
+        # DockContext carries a frozen SpaceView even under fifo/fifo, which is what keeps a
+        # policy comparison a comparison of POLICIES.  The drain rule is injected because the
+        # import edge Inbound -> wh_picking is forbidden.
+        _SpaceTimeline(_drain_sku).attach(mgr)
+        mgr.packer = _inbound_packer
+        mgr.receiving = _SiteReceiving(mgr._dock, mgr.transit)
+        # The gain bundle only when an arm consumes it -- the seeded fifo/lifo keys never read
+        # it, so building it unconditionally would be unconsumed infra.  `_gain_bundle_for` is
+        # the DRIVER's builder, imported rather than reimplemented: a second implementation
+        # would drift from the arm it claims to be faithful to, which is the whole premise of
+        # the gain family.  It reads only these two keys off its spec argument.
+        if {yard_policy, dock_policy} & _GAIN_POLICIES:
+            from Optimization.simdriver.strategy_runner import _gain_bundle_for
+            mgr.transit.gain_bundle = _OneOwnerBundle(_gain_bundle_for(
+                strat, mgr, ctx, wp, _SpeedProfile(2.0, 4.0),
+                {'fee_threshold_days': fee_threshold_days,
+                 'urgency_horizon_days': urgency_horizon_days}))
 
     return ScenarioAssets(
         inventory=inventory, affinity=affinity, warehouse=warehouse, mgr=mgr,
@@ -284,6 +357,14 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
                'bins_per_aisle': bins_per_aisle, 'n_bins': len(warehouse.bins),
                'n_aisles': len(warehouse.aisles), 'n_pickers': n_pickers,
                'target_fill': target_fill,
+               'inbound': bool(inbound), 'trailer_type': trailer_type if inbound else None,
+               'dock_doors': dock_doors if inbound else None,
+               'yard_policy': yard_policy if inbound else None,
+               'dock_policy': dock_policy if inbound else None,
+               # Recorded because a bound makes `plan_order` CONSTANT-TIME (priorities.py:208
+               # slices the candidates), so a ladder run under one measures the bound and not
+               # the greedy.  A reader of an archived artifact has to be able to tell.
+               'trailer_bound': trailer_bound if inbound else None,
                'put_timing': bool(put_timing or put_split or recv_crew),
                'put_split': put_split, 'put_staging': put_staging,
                'put_crew': put_crew, 'recv_crew': recv_crew})
@@ -330,11 +411,31 @@ def run_meso(assets: ScenarioAssets, *, n_batches: int = 20, seed: int = 42,
     lift_cache: dict = {}
     picks_total = placements_total = reorders_total = skipped = 0
     rng_batches = seed + 1000
+    # THE ABSOLUTE CLOCK, and it is a CORRECTNESS requirement, not a nicety.
+    #
+    # `check_reorders` assigns `self._now_s = now_s` unconditionally (inventory_reorder.py:876)
+    # and `now_s` defaults to None.  This loop used to omit it, so `mgr._now_s` was None on every
+    # drain — which is harmless while the bound transit is a `BatchTransit`, and silently fatal
+    # the moment a trailer pipeline is bound:
+    #   * `Trailer.arrived` returns False whenever `now_s is None` (trailer.py:193), so a trailer
+    #     with ANY positive lead NEVER arrives.  Measured before this fix: 73 trailers stuck in
+    #     `_in_transit` over 10 batches, zero unloads, and a ladder that reported no cost at all.
+    #   * a lead-0 trailer does arrive, but stamps `arrived_s = None` — and every standing
+    #     priority key reads that stamp.  `_fifo_standing` / `_lifo_standing` (priorities.py:93,
+    #     :105) both degenerate to a constant, making fifo and lifo a byte-identical unload
+    #     stream, and `gain_gated`'s urgency filter `t.arrived_s is not None` (gain.py:1121)
+    #     admits nobody at any threshold.
+    # Either way the fixture looks healthy and measures nothing, which is this repo's documented
+    # worst failure mode.  Advancing by the batch makespan mirrors the driver closely enough for
+    # arrival ordering; it is NOT a release schedule, so absolute-day quantities (the yard fee)
+    # are not answerable from this loop.
+    arm_clock = 0.0
 
     for i in range(n_batches):
         with sec('t_reord'):
             triggered = mgr.check_reorders(put_deadline=put_deadline,
-                                           recv_deadline=recv_deadline)
+                                           recv_deadline=recv_deadline,
+                                           now_s=arm_clock)
             _rm, batch_rp = mgr.pop_churn()
             # THE FOUR PER-BATCH SURFACES the runner calls inside its own `t_reord`, and
             # the reason this loop can measure the put-away/receiving work at all. Three of
@@ -378,13 +479,19 @@ def run_meso(assets: ScenarioAssets, *, n_batches: int = 20, seed: int = 42,
             events = sim.run()
 
         with sec('t_extract'):
-            extract_batch_stats(events, batch_id=i, k_pickers=assets.pick_cfg.num_pickers,
-                                run_id='calltree')
+            bs = extract_batch_stats(events, batch_id=i,
+                                     k_pickers=assets.pick_cfg.num_pickers,
+                                     run_id='calltree')
             extract_task_stats(events, tasks, batch_id=i, affinity=assets.affinity,
                                wp=assets.wp, run_id='calltree', lift_cache=lift_cache)
             extract_picker_events(events, batch_id=i, run_id='calltree')
             picks_b = extract_picks(events, batch_id=i, run_id='calltree')
         picks_total += sum(p.quantity for p in picks_b)
+        # `duration` is the batch MAKESPAN (first picker starting to last finishing), which is
+        # the span this batch actually occupied.  Advancing by it is what lets the next drain's
+        # arrivals be ordered against the previous one.  A skipped batch (`continue` above)
+        # advances nothing, which is right: no work happened.
+        arm_clock += float(bs.duration or 0.0)
 
     if tracer is not None:
         # Section walls belong to the untraced pass; report zeros here so nobody
@@ -434,8 +541,18 @@ def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
     os.makedirs(pair_dir, exist_ok=True)
     log = log or logging.getLogger('calltree.fullfid')
 
+    # NO `max_bins` / `min_bins`.  A cap that binds below what the run's DECLARED levels need
+    # REFUSES the plan (`UnfieldableRequirement`) rather than fielding less — the same edit the
+    # e2e fixtures took when levels became a declaration.  This tier carried `max_bins=20000`
+    # and had therefore been DEAD since that change, silently, because nothing gates it.
+    #
+    # And no cap value would have saved it.  `era_coverage.fixed_point` (sim_assets.py:190)
+    # declares before it converges, and its SEED round sizes ~11x the plan it settles on —
+    # 898,700 bins before settling at 77,500 at max_skus=300 — so any cap under ~900k refuses on
+    # round 1 whatever the final warehouse costs.  `coverage_days` and `max_skus` are the size
+    # knobs here; a bin cap is not one.
     shared = rs.build_shared_assets(
-        inv_db, aff_db, log, max_skus=max_skus, max_bins=20000, min_bins=5000,
+        inv_db, aff_db, log, max_skus=max_skus,
         keyframe_interval=0,
         warehouse_db_path=os.path.join(pair_dir, 'warehouse.db'))
 

@@ -65,6 +65,34 @@ _MESO_LADDERS: dict[str, list[dict]] = {
     'bins':    [dict(n_skus=2_000, bins_per_aisle=b) for b in (40, 60, 100, 160, 240)],
     'batches': [dict(n_skus=1_000, n_batches=n) for n in (5, 10, 20, 40, 80)],
     'pickers': [dict(n_skus=1_000, n_pickers=k) for k in (4, 8, 12, 16, 20)],
+    # THE YARD KNOB: tighten the receiving whistle at a FIXED catalogue, so the only thing that
+    # moves is yard depth.
+    #
+    # Why not `skus` for the inbound cells.  `plan_order` is O(T^2) in yard depth T, and the skus
+    # knob moves four things at once: catalogue size, units per trailer, trailer count, AND the
+    # warehouse (`plan_warehouse` sizes to the catalogue, so every tier the evaluator scans grows
+    # too).  An exponent fitted against `skus` cannot separate "more trailers" from "bigger
+    # loads" from "bigger tiers" -- the same conflation `_PER_PLACEMENT`'s docstring records
+    # costing a round of the 2026-08 work.  Holding the catalogue fixed and starving only the
+    # service side isolates T.
+    #
+    # Why the whistle and not doors/crew/trailer type: it is the ONLY lever that stands a yard at
+    # all.  `_unload_split` has exactly one exit that is not "nothing workable anywhere"
+    # (receiving.py:1078), so with no whistle every freed door immediately pulls the next yard
+    # trailer and the yard empties inside every drain.  A doors x crew x trailer-type sweep moved
+    # final yard depth not at all; the whistle took it 0 -> 2 -> 38 -> 59.
+    #
+    # FIT AGAINST MEASURED DEPTH, NOT AGAINST THE KNOB.  The whistle-to-depth map is nonlinear
+    # and saturating; the depth-to-cost map is the one under test.  `place_loads / plan_orders`
+    # inverts to T directly (it is exactly T(T+1)), so the rung's own x is available without a
+    # separate instrument -- and if the inverted T disagrees with the observed yard depth, the
+    # ladder is measuring something other than the greedy.
+    #
+    # Seconds are absolute and therefore CATALOGUE-SPECIFIC: these are calibrated for n_skus=600
+    # on `_INBOUND_RECIPE`. A different catalogue size needs re-calibration, because what matters
+    # is the whistle as a fraction of that rung's own uncapped receiving makespan.
+    'yard':    [dict(n_skus=600, n_batches=10, recv_deadline=d)
+                for d in (400.0, 200.0, 120.0, 80.0, 50.0)],
 }
 _DEEP_LADDER = [   # run_simulation args per rung; sized so 5 rungs fit ~an hour at 18 workers
     dict(max_skus=10_000, s_max_bins=15_000, ff_max_bins=20_000, n_batches=15),
@@ -190,7 +218,10 @@ def _flat_counts(tree: dict) -> dict[str, int]:
 #: `build_assets` rather than being silently dropped, which is what used to happen to every
 #: key this function did not name.
 _BUILD_KEYS = ('put_timing', 'put_split', 'put_staging', 'put_crew', 'recv_crew',
-               'strategy', 'coverage', 'safety', 'target_fill')
+               'strategy', 'coverage', 'safety', 'target_fill',
+               'inbound', 'trailer_type', 'dock_doors', 'lead_minutes', 'lead_spread',
+               'lead_seed', 'yard_policy', 'dock_policy', 'local_policy', 'trailer_bound',
+               'crew_allocation', 'door_team', 'fee_threshold_days', 'urgency_horizon_days')
 #: ...and the two whistles, which go to `run_meso` rather than `build_assets`. These are what
 #: make a level GROW, and a level that never grows hides every cost proportional to it.
 _RUN_KEYS = ('put_deadline', 'recv_deadline')
@@ -223,6 +254,31 @@ _PUT_RECIPE = dict(bins_per_aisle=40, coverage=2.0, safety=0.4)
 #: the exact sizes the archived `cfg-*` artifacts used.  Comparability with them is the only
 #: external check a reproduction of those numbers has.
 _PUT_RUNGS  = {'skus': [dict(n_skus=n) for n in (300, 600, 1_200, 2_400)]}
+
+#: The INBOUND recipe.  Deliberately NOT `_PUT_RECIPE`, and the difference is the point.
+#:
+#: `_PUT_RECIPE` buys its backpressure by starving the WAREHOUSE (`bins_per_aisle=40`,
+#: `coverage=2.0`) — a tight warehouse that refuses placements.  Inbound pressure is a different
+#: thing: an arrival/service imbalance at the dock.  Starving the warehouse here would hide the
+#: yard behind a put-away backlog, so the warehouse stays roomy and the pressure comes from the
+#: receiving whistle instead.
+#:
+#: Coverage stays at PRODUCTION (10/2).  Measured on this builder at 600 SKUs: coverage 2.0 gives
+#: Q median 8 with 12.8% of SKUs at Q=1; coverage 10 gives Q median 39 with 2.5% at Q=1.  Higher
+#: coverage also makes every reorder bigger, so it raises the arrival rate — it helps twice, and
+#: it is the opposite of what `_PUT_RECIPE` wants.
+#:
+#: What it CANNOT fix is units-per-bin: `Order.__init__` samples dimensions triangular(3,48,48),
+#: mode AT the pallet footprint, so 46% of synthetic SKUs fit exactly one unit per pallet
+#: position at EVERY coverage.  That is a property of the synthetic builder, not of the levels.
+#: The production generator's own creation plan does not have it (median 4 per pallet, 14.5% at
+#: one) — see ticket 02 — which is why the real fix is a generated catalogue, not a knob here.
+_INBOUND_RECIPE = dict(bins_per_aisle=100, coverage=10.0, safety=2.0,
+                       inbound=True, trailer_type='53', dock_doors=4, recv_crew=2,
+                       put_timing=True, trailer_bound=None)
+#: Smaller rungs than the put ladder: a standing yard makes every rung far more expensive, and
+#: the affordable ladder is part of the configuration (`LadderConfig.rungs` exists for this).
+_INBOUND_RUNGS = {'skus': [dict(n_skus=n) for n in (300, 600, 1_200, 2_400)]}
 
 #: Named scenario configurations.  Public: `calltree_memory` imports this.
 #:
@@ -260,6 +316,60 @@ CONFIGS: dict[str, LadderConfig] = {
         overlay=dict(_PUT_RECIPE, put_timing=True, put_split=True, put_staging=8,
                      recv_crew=1, put_deadline=2_000.0, recv_deadline=30.0),
         rungs=_PUT_RUNGS),
+
+    # ── the INBOUND cells ─────────────────────────────────────────────────────────────
+    # Each adds exactly ONE mechanism to the one above it, so an exponent is attributable.
+    # Two things are load-bearing across all of them:
+    #
+    #   `trailer_bound=None`.  `bounded_order` slices the candidate list to `bound` before the
+    #   entry sees it (priorities.py:208), which makes `plan_order` CONSTANT-TIME.  A ladder run
+    #   under a bound measures the bound, not the greedy.  It is the production DEFAULT, so this
+    #   is also the one knob a reader must check before believing any archived inbound artifact.
+    #
+    #   `recv_deadline`.  The receiving whistle is the ONLY thing that stands a yard.
+    #   `_unload_split`'s loop has exactly one exit that is not "nothing workable anywhere"
+    #   (receiving.py:1078), so with no whistle every freed door immediately pulls the next yard
+    #   trailer and the yard empties inside every drain -- regardless of doors, crew size or
+    #   trailer type.  Measured across a doors x crew x trailer-type sweep: all three are
+    #   NON-LEVERS without it.  The values below are calibrated for `_INBOUND_RUNGS`' sizes; a
+    #   different rung size needs a different whistle, because the quantity that matters is the
+    #   whistle as a FRACTION of that rung's uncapped receiving makespan, not its absolute
+    #   seconds.  Re-calibrate before trusting a new rung, and see ticket 05.
+    # NOT called `inbound_v1`.  `build_assets` wires the STANDING transit (`YardTransit`) only;
+    # v1's drain-everything `TrailerTransit` has no scenario support, so a cell claiming to be v1
+    # would be a dock and no trailers at all -- a name promising more than the cell delivers,
+    # which is the same class of error as a flow anchor that silently reads 0.  This is the
+    # roomy-warehouse CONTROL: everything `inbound_yard` has except the yard itself.
+    'inbound_off': LadderConfig(
+        why='the inbound-OFF control on the inbound recipe: a dock and a put crew, no trailers '
+            'and no yard -- the baseline every inbound cell is read against',
+        overlay=dict(_INBOUND_RECIPE, inbound=False, trailer_bound=None),
+        rungs=_INBOUND_RUNGS),
+    'inbound_yard': LadderConfig(
+        why='the standing yard under fifo/fifo -- real doors and the space timeline, no gain arm',
+        overlay=dict(_INBOUND_RECIPE, recv_deadline=80.0),
+        rungs=_INBOUND_RUNGS),
+    'inbound_gain_pool': LadderConfig(
+        why='THE HEADLINE CELL: gain_forecast on both knobs over a POOL adapter, so every '
+            'virtual placement pays _make_pool -- the O(T^2) greedy with the aisle-dict copy',
+        overlay=dict(_INBOUND_RECIPE, recv_deadline=80.0,
+                     yard_policy='gain_forecast', dock_policy='gain_forecast',
+                     strategy='uni_rank_labor_norsl'),
+        rungs=_INBOUND_RUNGS),
+    'inbound_gain_merge': LadderConfig(
+        why='the same arm set over the MERGE adapter (tmin), which opens no pool -- the control '
+            'that separates _make_pool cost from the rest of the evaluator',
+        overlay=dict(_INBOUND_RECIPE, recv_deadline=80.0,
+                     yard_policy='gain_forecast', dock_policy='gain_forecast',
+                     strategy='uni_tmin_norsl'),
+        rungs=_INBOUND_RUNGS),
+    'inbound_gain_bounded': LadderConfig(
+        why='inbound_gain_pool WITH a trailer bound -- prices what the existing production knob '
+            'already buys, since a bound makes plan_order constant-time',
+        overlay=dict(_INBOUND_RECIPE, recv_deadline=80.0,
+                     yard_policy='gain_forecast', dock_policy='gain_forecast',
+                     strategy='uni_rank_labor_norsl', trailer_bound=8),
+        rungs=_INBOUND_RUNGS),
 }
 
 for _name, _cfg in CONFIGS.items():      # at import: a typo fails on --help, not mid-ladder
@@ -306,6 +416,34 @@ _FLOW_COUNTS: dict[str, tuple[str, str | None]] = {
     # quantity: `pool_opens x |free list|`, and the free list is not traceable either.
     # If it ever needs measuring again, measure it deliberately; do not reach for
     # `_TravelBalancedPool.__init__`, which counts OPENS and would silently read as bins.
+
+    # ── THE INBOUND PATH ──────────────────────────────────────────────────────────────
+    # Countable for the first time: until `build_assets(inbound=True)` existed, every symbol
+    # below was structurally dead in every runnable rung, so a ladder reported the whole
+    # subsystem as costless and was believed.
+    'drains'            : ('receiving:SiteReceiving.receive', None),
+    'freezes'           : ('space:SpaceTimeline.freeze', None),
+    'view_composes'     : ('site_space:compose_site_view', None),
+    # THE ENTRY CALL, and it is the ladder's denominator.  A gain arm sets BOTH knobs to one
+    # name, so `plan_order` runs twice per drain -- but over DIFFERENT candidate sets: the yard
+    # (unbounded) and the staged set (bounded by `doors`).  Splitting them by parent is the only
+    # way to tell an O(T_yard^2) term from an O(doors^2) one; the totals cannot.
+    'yard_plans'        : ('gain:plan_order', 'transit:YardTransit.yard_order'),
+    'dock_plans'        : ('gain:plan_order', 'transit:YardTransit.dock_order'),
+    'plan_orders'       : ('gain:plan_order', None),
+    # The greedy's fan-out.  `plan_order` costs exactly T(T+1) `place_load` calls, so
+    # `place_loads / plan_orders` IS the measured T^2 -- the sharpest number this ladder can
+    # produce, and one that needs no fitting to read.
+    'place_loads'       : ('gain:_Evaluator.place_load', None),
+    # The suspect.  Each open copies up to six whole-warehouse aisle dicts (`AISLE_COPIERS`);
+    # measured at ~5 opens per `place_load`, so opens run at roughly 5*T^2 per entry call.
+    'pool_rebuilds'     : ('gain:_Evaluator._make_pool', None),
+    'tier_sorts'        : ('gain:_Evaluator._tier_sorted', None),
+    'avail_builds'      : ('gain:_Evaluator._avail', None),
+    'window_aggs'       : ('gain:_window_rates', None),
+    'unload_prices'     : ('dock:Dock.unload_seconds', None),
+    'team_probes'       : ('dock:Dock.team_next_free', None),
+    'trailer_plans'     : ('transit:YardTransit.planned_lots', None),
 }
 
 #: FLOWS worth reporting PER PLACEMENT as well as absolutely.
@@ -318,6 +456,21 @@ _FLOW_COUNTS: dict[str, tuple[str, str | None]] = {
 #: and the prologue was simply being re-paid.  A denominator turns a number into a claim.
 _PER_PLACEMENT = ('pool_opens', 'pool_takes', 'refill_passes',
                   'held_retry_touches', 'held_appends')
+
+#: FLOWS reported PER ENTRY CALL, denominated on `plan_orders`.
+#:
+#: Placements are the wrong denominator for the inbound evaluator, and using them would repeat
+#: exactly the mistake `_PER_PLACEMENT` exists to prevent.  `plan_order` is a RANKING: its cost is
+#: set by how many trailers it ranks, not by how many units eventually get binned -- and the two
+#: move in OPPOSITE directions once the yard stands.  Measured at 600 SKUs over a whistle sweep:
+#: pool opens rose 8,496 -> 65,496 while placements FELL 8,519 -> 5,230, so a per-placement ratio
+#: would have read as a 12x blow-up made of two different effects stacked on each other.
+#:
+#: `place_loads / plan_orders` is the sharpest number this ladder produces and needs no fitting to
+#: read: `plan_order` costs exactly T(T+1) `place_load` calls, so the ratio IS the measured T^2.
+#: Invert it (`T = (-1 + sqrt(1 + 4r)) / 2`) and compare against the yard depth the rung actually
+#: reached -- if they disagree, the ladder is measuring something other than the greedy.
+_PER_ENTRY = ('place_loads', 'pool_rebuilds', 'tier_sorts', 'avail_builds', 'window_aggs')
 
 
 def _flows(tree: dict, flat: dict[str, int]) -> dict[str, int]:
@@ -365,8 +518,13 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
 
         # untraced walls
         assets = scenarios.build_assets(**build)
+        # The `yard` knob's x is PROVISIONAL here and is replaced below by the measured yard
+        # depth, once the traced pass has produced the flows to derive it from.  The whistle is
+        # only the dial; depth is the quantity the cost actually scales with, and the map between
+        # them is nonlinear and saturating.
         x = {'skus': assets.sizes['n_skus_sampled'], 'bins': assets.sizes['n_bins'],
-             'batches': n_batches, 'pickers': build['n_pickers']}[knob]
+             'batches': n_batches, 'pickers': build['n_pickers'],
+             'yard': run_kw.get('recv_deadline') or 0.0}[knob]
         t0 = time.perf_counter()
         r_u = scenarios.run_meso(assets, n_batches=n_batches, seed=seed, **run_kw)
         wall = time.perf_counter() - t0
@@ -399,10 +557,26 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
 
         per_pl = ({k: flows[k] / r_u.placements for k in _PER_PLACEMENT if flows.get(k)}
                   if r_u.placements else {})
+        _entries = flows.get('plan_orders', 0)
+        per_en = ({k: flows[k] / _entries for k in _PER_ENTRY if flows.get(k)}
+                  if _entries else {})
+        if knob == 'yard':
+            # FIT AGAINST MEASURED DEPTH.  `plan_order` costs exactly T(T+1) `place_load` calls,
+            # so inverting the ratio recovers the mean T the greedy actually faced -- the one
+            # quantity whose relationship to cost is under test.  Fall back to the whistle only
+            # when the arm opened no evaluator at all (a fifo/fifo cell), where there is no T.
+            _r = per_en.get('place_loads')
+            if _r:
+                x = (-1.0 + math.sqrt(1.0 + 4.0 * _r)) / 2.0
+                print(f'      yard knob: whistle={run_kw.get("recv_deadline")}s -> '
+                      f'measured T={x:.2f} (from {_entries:,} entry calls); '
+                      f'final yard depth={levels_u.get("yard_depth", "n/a")}')
+
         results.append({'x': x, 'kwargs': kwargs, 'wall_s': wall,
                         'sections': r_u.sections, 'picks': r_u.picks,
                         'placements': r_u.placements, 'counts': counts,
                         'flows': flows, 'flows_per_placement': per_pl,
+                        'flows_per_entry': per_en,
                         'levels': levels_u, 'levels_traced': levels_t})
 
         _fl = ' '.join(f'{k}={v:,}' for k, v in flows.items() if v)
@@ -410,6 +584,14 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
               f'placements={r_u.placements:,} fns={len(counts)}')
         if _fl:
             print(f'      flows (traced, cumulative): {_fl}')
+        if per_en:
+            import math as _math
+            _r = per_en.get('place_loads')
+            _t = (-1 + _math.sqrt(1 + 4 * _r)) / 2 if _r else None
+            print('      per ENTRY CALL (n=%d): %s%s' % (
+                _entries,
+                ' '.join(f'{k}={v:,.1f}' for k, v in per_en.items()),
+                f'   -> implied T from T(T+1)={_t:.1f}' if _t else ''))
             if per_pl:
                 print('      per placement: '
                       + ' '.join(f'{k}={v:.2f}' for k, v in sorted(per_pl.items())))

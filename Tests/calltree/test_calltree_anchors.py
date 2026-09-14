@@ -48,6 +48,84 @@ _SECTION_MAP_HOME = {
 }
 
 
+# Where each CARVE_MAP qualname lives. Same split, same reason — and this gate matters for the
+# same reason the flow gate below does: a broken carve anchor does not raise, it makes
+# `t_inbound` read 0.0, and 0.0 reads as "the inbound drain never ran".
+_CARVE_MAP_HOME = {
+    'ReorderMixin._receive'  : 'Warehouse.inventory.inventory_reorder',
+    'SiteReceiving.drain'    : 'Inbound.receiving',
+    'PutawayPool.drain'      : 'Inbound.putaway_pool',
+}
+
+
+def test_carve_map_symbols_resolve():
+    # NON-VACUITY: the two maps must cover each other exactly, and be non-trivial.
+    assert set(_CARVE_MAP_HOME) == set(ct.CARVE_MAP), \
+        'CARVE_MAP and its home table diverged — update both together'
+    assert len(ct.CARVE_MAP) >= 3
+
+    for qualname, module_name in _CARVE_MAP_HOME.items():
+        mod = importlib.import_module(module_name)
+        obj = mod
+        for part in qualname.split('.'):
+            assert hasattr(obj, part), \
+                f'CARVE_MAP anchor {qualname!r} broke: {module_name} has no {part!r}'
+            obj = getattr(obj, part)
+        assert callable(obj), f'{qualname} resolved to a non-callable'
+        fn = inspect.unwrap(obj)
+        real = getattr(fn, '__qualname__', qualname)
+        assert real == qualname, \
+            f'qualname drift: CARVE_MAP says {qualname!r}, code says {real!r}'
+
+
+def test_a_carve_section_is_not_in_the_runner_vocabulary():
+    """`CARVE_SECTIONS` must stay OUT of `SECTIONS`.
+
+    `SECTIONS` is strategy_runner's own `t_*` vocabulary and
+    `test_section_vocabulary_matches_strategy_runner` pins it against the source. A carve is a
+    read-side regrouping with no worker accumulator behind it, so putting one in `SECTIONS`
+    would fail that gate — and, worse, would invite someone to add a `t_inbound` column to
+    `runtime_metrics.SECTIONS`, which is a PARTITION for the stacked graph and would then
+    double-count.
+    """
+    assert not set(ct.CARVE_SECTIONS) & set(ct.SECTIONS), \
+        'a carve section leaked into SECTIONS — see attribute_sections for why they differ'
+
+
+def test_the_carve_is_a_partition_and_is_inert_when_empty():
+    """The two properties the carve has to have, asserted on a tree shaped like a real one.
+
+    Non-vacuity is the second half: with an empty CARVE_MAP the function must reproduce the
+    pre-carve attribution exactly, or every archived capture silently re-attributes.
+    """
+    def node(name, cum, kind='fn', children=()):
+        n = ct.Node(name, '', kind)
+        n.cum_s = cum
+        for c in children:
+            n.children[c.name] = c
+        return n
+
+    inbound = node('inventory_reorder:ReorderMixin._receive', 0.30)
+    reord   = node('t_reord', 1.00, 'section', [
+        node('Inventory_Management:ReorderMixin.check_reorders', 0.90, 'fn', [inbound])])
+    root    = node('root', 3.00, 'fn', [reord, node('t_sim', 2.00, 'section')])
+
+    got = ct.attribute_sections(root)
+    assert abs(got['t_inbound'] - 0.30) < 1e-12, got['t_inbound']
+    assert abs(got['t_reord'] - 0.70) < 1e-12, got['t_reord']
+    assert abs(sum(got.values()) - 3.00) < 1e-12, \
+        f'the carve broke the partition: {sum(got.values())} != 3.00'
+
+    saved = dict(ct.CARVE_MAP)
+    ct.CARVE_MAP.clear()
+    try:
+        inert = ct.attribute_sections(root)
+    finally:
+        ct.CARVE_MAP.update(saved)
+    assert abs(inert['t_reord'] - 1.00) < 1e-12 and inert['t_inbound'] == 0.0, \
+        'an empty CARVE_MAP must leave attribution exactly as it was before carves existed'
+
+
 def test_section_map_symbols_resolve():
     # NON-VACUITY: the two maps must cover each other exactly, and be non-trivial.
     assert set(_SECTION_MAP_HOME) == set(ct.SECTION_MAP), \
@@ -142,6 +220,13 @@ _FLOW_HOME = {
     'Inventory_Management': 'Warehouse.inventory.Inventory_Management',
     'put_queue'           : 'Warehouse.inventory.put_queue',
     'dock'                : 'Inbound.dock',
+    # The inbound path. Every one of these was structurally dead in every runnable rung until
+    # `build_assets(inbound=True)` existed, so the ladder reported the subsystem as costless.
+    'receiving'           : 'Inbound.receiving',
+    'space'               : 'Inbound.space',
+    'site_space'          : 'Inbound.site_space',
+    'transit'             : 'Inbound.transit',
+    'gain'                : 'Inbound.gain',
 }
 
 

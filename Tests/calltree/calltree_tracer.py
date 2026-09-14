@@ -79,6 +79,28 @@ SECTION_MAP: dict[str, str] = {
     'save_worker_checkpoint'          : 't_save',
 }
 
+#: Sections CARVED OUT of an enclosing section rather than laid over it.
+#:
+#: Deliberately NOT in `SECTIONS`: that tuple is strategy_runner's own `t_*` vocabulary and
+#: nothing else -- `test_calltree_anchors` pins it against the source, and the worker keeps no
+#: `t_inbound_ckpt` accumulator for it to align with.  A carve is a READ-SIDE regrouping of
+#: seconds the tree already holds, so it needs its own name and its own table.
+CARVE_SECTIONS = ('t_inbound',)
+
+#: qualname -> carve section.  See `attribute_sections` for why these cannot be SECTION_MAP
+#: entries: a carve root sits INSIDE a section, and both of that function's branches stop at the
+#: topmost match, so a SECTION_MAP entry here would report 0.0 forever.
+#:
+#: `ReorderMixin._receive` is the anchor because it is phase 4 of `check_reorders` and owns BOTH
+#: inbound shapes: the v1 dock-deque drain, and the standing-yard reroute to
+#: `SiteReceiving.receive` (inventory_reorder.py:675).  One anchor, both paths -- and it is one
+#: level below any seam a harness could bracket from outside, which is why the carve exists.
+CARVE_MAP: dict[str, str] = {
+    'ReorderMixin._receive'  : 't_inbound',
+    'SiteReceiving.drain'    : 't_inbound',   # the COUPLED entry, which bypasses check_reorders
+    'PutawayPool.drain'      : 't_inbound',
+}
+
 _DEFAULT_PREFIXES = ('Warehouse', 'Inbound', 'Optimization', 'Schema')
 
 
@@ -295,18 +317,54 @@ def _finalize(node: Node) -> None:
 
 
 def attribute_sections(root: Node) -> dict[str, float]:
-    """Section -> cum_s. Section-kind children win; else SECTION_MAP on topmost match."""
+    """Section -> cum_s, and the result stays a PARTITION.
+
+    TWO vocabularies, and the difference between them is the whole point:
+
+      SECTION_MAP  a subtree root that IS a section.  The topmost match wins and the walk
+                   STOPS -- everything below is already inside that section's cum_s.
+      CARVE_MAP    a subtree root that sits INSIDE a section.  It is found by descending
+                   into an already-attributed subtree; its cum_s is ADDED to its carve
+                   section and SUBTRACTED from the section containing it.
+
+    Why a second table rather than another SECTION_MAP entry: both of the branches below
+    are "attribute and stop", which is correct for a partition but means SECTION_MAP can
+    only ever name a subtree ROOT, never a span inside one.  The inbound drain is inside
+    one twice over -- `ReorderMixin._receive` runs within `check_reorders`, which is
+    already mapped to `t_reord`, and on a meso tree `t_reord` is additionally a
+    `section`-kind node that short-circuits even earlier.  A SECTION_MAP entry for an
+    inbound symbol therefore reports 0.0 in BOTH tree shapes, and 0.0 reads as "inbound
+    never ran" -- the exact failure this framework exists to prevent.
+
+    A carve root reached OUTSIDE any section is deliberately not counted: it belongs to no
+    partition, so adding it without an owner to debit would break the invariant this
+    function's callers rely on.
+    """
     out = {s: 0.0 for s in SECTIONS}
+    out.update({s: 0.0 for s in CARVE_SECTIONS})
+
+    def carve(node: Node, owner: str) -> None:
+        """Move carve roots out of `owner`, which already holds their seconds."""
+        for c in node.children.values():
+            qual = c.name.split(':', 1)[-1]
+            cs   = CARVE_MAP.get(qual)
+            if cs is not None:
+                out[cs]    += c.cum_s
+                out[owner] -= c.cum_s          # the debit is what keeps the sum a partition
+                continue                       # topmost carve wins; a nested one is inside it
+            carve(c, owner)
 
     def walk(node: Node) -> None:
         for c in node.children.values():
             if c.kind == 'section' and c.name in out:
                 out[c.name] += c.cum_s
+                carve(c, c.name)               # ...then take back what is inbound's
                 continue                       # everything below is already attributed
             qual = c.name.split(':', 1)[-1]
             sec  = SECTION_MAP.get(qual)
             if sec is not None:
                 out[sec] += c.cum_s
+                carve(c, sec)
                 continue                       # topmost match wins; don't descend
             walk(c)
 

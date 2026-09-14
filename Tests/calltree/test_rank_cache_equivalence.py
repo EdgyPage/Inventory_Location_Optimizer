@@ -54,6 +54,28 @@ def _oracle_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_
 
 
 # ── frozen oracle 2: _ranked_minlabor_impl as of commit 831571f, verbatim ─────────────
+#
+# VERBATIM EXCEPT FOR THE AT-LOCATION PRICE, and that exception is the whole point of this
+# note.  `fc7a46a5` (ADR-0001) gave the pick model a per-item charge and re-priced all four
+# production minlabor sites to `per_pick(m, intercept, var, 1, per_item)`.  It updated the
+# SIBLING oracle in `Tests/unit/test_travel_balanced_equivalence.py` in the same commit --
+# and missed these two, because this file is hand-run and in none of the nine gates.  The
+# result stood red: the two sides of the comparison were running different cost formulas, so
+# the test reported the CACHE as diverged when the cache was correct and the oracle was stale.
+#
+# Re-priced 2026-09-13.  Proof it is the right fix and not a green-making one: with only these
+# four calls changed, the frozen oracle reproduces production's end state byte for byte -- all
+# four tuple elements, digest 0d04c80f5298b084890ec1565cc2bd7806450a7c071ab8fe777e3052f33f58e0.
+# The charge is NOT a constant offset that argmin would ignore: `per_pick` returns
+# `mult*(intercept + qty*per_item + qty*var)`, so the added term is scaled by the height
+# bracket, and this scenario spans multipliers {1.0, 1.2, 1.4} at per_item 0.5 -- enough to flip
+# which bracket end wins inside an aisle and, through the lift trade-off, which aisle wins.
+#
+# A FROZEN ORACLE IS FROZEN AGAINST THE ALGORITHM, NEVER AGAINST THE PRICE LIST.  The thing
+# under test is the SKU-run cache; the cost model is shared ground both sides must stand on.
+# When a commit re-prices production it re-prices every oracle in the same change -- and
+# `_unrefreshed_ranked_minlabor_impl` below is an oracle too, so it moves with this one or the
+# mutation canary passes vacuously (checked: it still fires after both were corrected).
 
 def _oracle_ranked_minlabor_impl(units, candidates_fn, affinity, wp,
                                  aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
@@ -62,6 +84,7 @@ def _oracle_ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     wp = _wp_for(wp, units[0]) if units else wp
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)
     intercept = wp.pick_intercept
+    per_item  = wp.pick_per_item          # ADR-0001: the oracle prices what the pool prices
     brackets  = getattr(wp, 'height_brackets', ())
     sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
     if not sorted_units:
@@ -93,7 +116,7 @@ def _oracle_ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         for m, dq in by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = per_pick(m, intercept, var) + D_of[id(_rep(dq))]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(_rep(dq))]
             if best is None or _better(cost, best):
                 best = cost
         return best
@@ -157,7 +180,7 @@ def _oracle_ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = _rep(dq)
-            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
             if cx is not None:
                 cost += x_pace * abs(b.x_phys - cx)
             if cbest is None or _better(cost, cbest):
@@ -187,6 +210,7 @@ def _unrefreshed_ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     wp = _wp_for(wp, units[0]) if units else wp
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)
     intercept = wp.pick_intercept
+    per_item  = wp.pick_per_item          # ADR-0001: the oracle prices what the pool prices
     brackets  = getattr(wp, 'height_brackets', ())
     sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
     if not sorted_units:
@@ -216,7 +240,7 @@ def _unrefreshed_ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         for m, dq in by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = per_pick(m, intercept, var) + D_of[id(_rep(dq))]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(_rep(dq))]
             if best is None or _better(cost, best):
                 best = cost
         return best
@@ -283,7 +307,7 @@ def _unrefreshed_ranked_minlabor_impl(units, candidates_fn, affinity, wp,
             if not dq:
                 continue
             b = _rep(dq)
-            cost = per_pick(m, intercept, var) + D_of[id(b)]
+            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
             if cx is not None:
                 cost += x_pace * abs(b.x_phys - cx)
             if cbest is None or _better(cost, cbest):
