@@ -4,8 +4,22 @@ Label: wayfinder:map
 
 ## Destination
 
-The `Inbound/` package is **measurable**, its growth is **fitted**, what the instrument convicts is
-**refactored**, and phase 2's sizing is restated on the arms it will actually run.
+**REACHED 2026-09-14**, with one of the three clauses answered differently than it was asked.
+
+The `Inbound/` package is **measurable**, its growth is **fitted**, what the instrument convicted is
+**refactored or recorded**, and phase 2's sizing is restated on the arms it will actually run.
+
+The third clause resolved by REFUTING its own premise. This effort began because ticket 31 sized
+the campaign from `('fifo','tmin')` -- the only two adapters that open no pool -- while 8 of
+`PHASE2_PAIRS`' 12 arm-slots are pool adapters, so the 8.6-9.7 h could be badly low. Measured
+(ticket 11): a pool-adapter gain cell costs **1.08-1.12x a RUN**, flat across a 4x catalogue range.
+The worry is not supported. What IS large is the drain multiplier, 13-18x -- and that is the cost
+the two landed refactors attack.
+
+Two things the effort did not close, both now commands rather than builds: the same ladder run
+COUPLED at rungs reaching rho ~ 0.82 (first around 160k SKUs), and the candidate slice, whose
+measured shape and rejection are recorded in ticket 10 so the next attempt starts from the
+mechanism rather than the idea.
 
 Concretely, the destination is reached when:
 
