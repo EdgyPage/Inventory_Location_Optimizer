@@ -16,6 +16,41 @@ python Tests/unit/test_gain_cow_equivalence.py                                  
 
 ---
 
+---
+
+## THE HEADLINE RETRACTION — read this before citing any multiplier here
+
+**RETRACTED: "a pool-adapter gain cell costs ~1.1x a run, and the worry that chartered this
+effort is not supported."** That was §1 and the map's destination clause. It is wrong.
+
+Measured on the campaign's own catalogue (`mixed_20260816_131535`, 400,000 SKUs), coupled, on
+a pool adapter, at **rho = 0.837** against the campaign's projected 0.819:
+
+| skus | drain_p | **DRAIN x** | run_u | run_p | **RUN x** | **T** | pools | rho |
+|---|---|---|---|---|---|---|---|---|
+| 25,000 | 1.48 | 9.83 | 62.6 | 58.7 | 0.94 | 1.61 | 792 | — |
+| 50,000 | 5.96 | 19.22 | 79.2 | 89.4 | 1.13 | 2.74 | 1,860 | — |
+| 100,000 | 25.43 | 41.22 | 122.4 | 148.3 | 1.21 | 4.36 | 4,988 | — |
+| 200,000 | 118.26 | 84.62 | 217.3 | 333.1 | 1.53 | 6.90 | 9,580 | 0.836 |
+| 200,000 *(repeat)* | 118.79 | 84.38 | 223.9 | 333.5 | **1.49** | 6.90 | 9,580 | 0.836 |
+| **400,000** | **956.17** | **349.07** | 423.4 | **1372.9** | **3.24** | **12.97** | 24,912 | **0.837** |
+
+**3.24x, not 1.1x** — against the 1.63-1.93x that phase 2's 8.6-9.7 h sizing rests on. The top
+rung repeats (200,000 run twice in separate invocations: 118.26 vs 118.79 s, 0.45% apart), so
+this is not the single-data-point trap that cost this effort a knee finding and cost it §1.
+
+Every earlier number here was measured on a ladder that could not reach the regime the campaign
+runs in. The store leaf never stands a yard (T 1.14-1.30); the coupled ladder that followed was
+capped at **T = 2.25 by its catalogue**, not by the code (§4). The drain is **cubic in T**, and
+the campaign runs at **T = 12.97**.
+
+What survives, and it is the reason this was findable: **the method**. Two multipliers with
+different denominators, paired within a rung, with the commensurable one named. The DRAIN/RUN
+distinction in §1 is correct and is still how to read this tool. The error was concluding from
+a flat RUN column that the cost does not grow, when the ladder had simply stopped growing T.
+
+---
+
 ## 0. The instrument did not exist, and two tiers were dead
 
 Every symbol in `Inbound/` was **structurally unreachable from every runnable rung**. `build_assets`
@@ -191,6 +226,125 @@ projected 0.446, 0.647, 0.525, 0.619, 0.694, 0.837, 0.819 at N = 5k..400k. **Fit
 catalogue size is not a fit at all.** A ladder must fit against measured ρ and must reach ρ ≈ 0.82,
 which first happens near 160k SKUs. Separately: below ~100k the warehouse is the per-bucket **aisle
 floor**, not the catalogue, so a ladder topping out at 40k fits the floor.
+
+---
+
+### The coupled ladder ran — and its first four rungs were not four rungs
+
+The consequence above was written before the coupled ladder existed, and it called both
+shots. The ladder ran `--coupled --rungs 5000 10000 20000 40000` on a quiet host:
+
+| skus | drain_u | drain_p | **DRAIN x** | run_u | run_p | **RUN x** | T |
+|---|---|---|---|---|---|---|---|
+| 5,000 | 0.052 | 0.203 | 3.89 | 18.2 | 17.8 | 0.97 | 1.00 |
+| 10,000 | 0.103 | 0.391 | 3.78 | 27.8 | 26.1 | 0.94 | 1.00 |
+| 20,000 | 0.132 | 1.069 | 8.10 | 35.4 | 37.0 | 1.05 | 1.27 |
+| 40,000 | 0.265 | 4.389 | **16.59** | 57.6 | 77.3 | **1.34** | **2.25** |
+
+Read as a trend that says the run-level multiplier tracks yard depth, and that the uncoupled
+store-leaf ladder reported flat 1.08-1.12 only because the store leaf never stands a yard.
+It was read that way. Then the top rung was repeated, which is the whole reason a top rung
+gets repeated:
+
+| skus | drain_p | place_ld | pools | T | maxdep | DRAIN x | run_u | run_p | RUN x |
+|---|---|---|---|---|---|---|---|---|---|
+| 40,000 | 6.184 | 132 | 1,282 | 2.25 | 3 | 16.19 | 72.1 | 96.1 | 1.33 |
+| 60,000 | 6.044 | 132 | 1,282 | 2.25 | 3 | 15.95 | 91.4 | 90.8 | 0.99 |
+| 80,000 | 6.001 | 132 | 1,282 | 2.25 | 3 | 16.66 | 81.4 | 82.8 | 1.02 |
+
+**Every priced quantity is identical at all three rungs** — same `place_load` count, same
+pool count, same yard depth, same max depth, drain within 3%. They are one run measured three
+times, and identical pricing cannot produce RUN x of 1.33, 0.99 and 1.02.
+
+**The catalogue was the ceiling.** `run_fullfid` took `pairs[0]` of `find_latest_db_pairs`,
+and the latest catalogue declares **40,000 SKUs**; 150,000 and 400,000 ones were sitting
+beside it unused. `--max-skus` above the catalogue is not an error and not a warning — it
+takes everything, which in the output is indistinguishable from a subsystem that stopped
+growing. This is [a bin cap is self-defeating] inverted: there a cap **below** the
+declaration refuses loudly; here a declaration **above** the fixture was truncated in
+silence. Fixed by letting the declaration pick the fixture —
+`run_fullfid(min_catalogue=N)` binds the most recent catalogue DECLARING at least N SKUs
+(read from `run_metadata.params_json['num_skus']`, not counted, so a truncated table cannot
+agree with itself), the ladder sizes that floor on its **top rung** so one catalogue serves
+every rung, and a rung that still exceeds its catalogue prints `SATURATED`. Binding per rung
+would have been worse than the bug: the catalogues are months apart in generator vintage
+(40,000 is 2026-09-13, 400,000 is 2026-08-16) and the ladder would report that as growth.
+
+**And the RUN column needs a quiet host, which the repeat did not have** — it ran alongside a
+13-minute CPU-bound pytest. The DRAIN column survived (it measures a section, and reproduced
+to 3%); the wall did not, reading 72.1 / 91.4 / 81.4 s for identical unpriced work. Four
+samples of the same quantity gave run differences of +19.7, +24.0, -0.6 and +1.4 seconds.
+
+> **RUN x is not resolvable by this instrument at this scale.** The pricing costs ~5.8 s of
+> drain; the run wall varies by more than that between otherwise-identical invocations.
+> Ticket 31 section 5 already recorded that no absolute wall survives a comparison across runs
+> here, and pairing within a rung does not rescue it when the two poles are sequential
+> subprocesses and the host is busy.
+
+**What survives, and it is not nothing:**
+
+1. **DRAIN x rises with yard depth**, reproducibly — 3.89 and 3.78 at T = 1.00, 8.10 at
+   T = 1.27, and 16.59 / 16.19 / 15.95 / 16.66 at T = 2.25. Four independent measurements of
+   the T = 2.25 point agree to 4%.
+2. **`entries` is constant at 18 across every rung.** Drains do not multiply with the
+   catalogue; the work per drain grows. An exponent on drain seconds alone would have said
+   "receiving got more expensive" when the true statement is "each drain did".
+3. **Section 1 stands, with a better reason** — not "the multiplier is flat" but "the pricing
+   is a few seconds of drain against a wall whose own variance exceeds it".
+
+Both halves of the consequence above are now load-bearing rather than predictive: a ladder
+topping out at 40,000 fits the **aisle floor**, not the catalogue, and it never reaches the
+campaign rho of 0.82.
+
+---
+
+### The mechanism: the drain is cubic in yard depth, and the cube decomposes
+
+Fitted over a 16x span on one catalogue, five rungs:
+
+| quantity | vs | k | r^2 |
+|---|---|---|---|
+| drain seconds (priced) | skus | 2.30 | 0.993 |
+| yard depth T | skus | 0.74 | 0.997 |
+| **drain seconds (priced)** | **T** | **3.13** | **0.998** |
+| `_make_pool` calls | T | 1.67 | 0.996 |
+| seconds per pool open | T | 1.46 | 0.976 |
+| `place_load` per entry | T | 1.81 | 0.999 |
+| run wall (unpriced) | skus | 0.70 | 0.970 |
+
+pools ~ T^1.67 times seconds-per-open ~ T^1.46 is T^3.13 — the fitted value to two decimals.
+The three factors are separable and each names a different piece of code:
+
+1. **`place_load` per entry ~ T^1.81** is `plan_order`'s O(T^2) greedy over yard depth. It is
+   doing what it was written to do; the yard simply got deep.
+2. **pools per `place_load` is flat at ~10** across the whole range — the tier loop is not the
+   growth term, which is what ticket 03's decomposition correction already established.
+3. **seconds per pool open ~ T^1.46** is the term still on the table. Copy-on-write (§2) took
+   the aisle-dict copy out of it; what remains is the candidate scan, which is exactly what
+   ticket 10's slice attacks.
+
+**`entries` is constant at 18 at every rung.** Drains do not multiply with the catalogue — all
+of this is work per drain. An exponent on drain seconds alone would have said "receiving got
+more expensive" when the true statement is "each drain did" ([a count is not a claim]).
+
+**And above 100k the drain IS the run.** Run delta against drain delta: -34%, 55%, 96%, 101%,
+100% at 25k / 50k / 100k / 200k / 400k. At 400,000 the receive drain is **956 s of a 1,373 s
+run**. The small-rung noise that made an earlier repeat conclude "RUN x is not resolvable" was
+real and is now beside the point: the signal is 950 s against a ~20 s wall variance.
+
+### What this reopens
+
+Ticket 10 rejected the candidate slice because it regressed the middle of a range topping out
+at 6,000 SKUs / 5,878 opens — where it was already **-48.1%**. The separating variable it
+identified is OPENS. This ladder runs **24,912 opens at 400,000**, 4.2x past that, and the
+regression band (600-2,000 SKUs) is far below anything the campaign touches. The rejection was
+made on the same too-small range as everything else here.
+
+Ticket 10 also names the version with no constant to tune — bucket and select in ONE pass per
+open, no memo — and why it was not taken: it needs the pool to accept pre-bucketed input, a
+signature change in `Assignment_Functions` that touches the restock path this effort kept out
+of scope. **That is a scope decision for the owner, not a technical one**, and the T^1.46
+per-open term is the reason to put it in front of them.
 
 ---
 

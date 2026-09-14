@@ -1,7 +1,23 @@
-# The ladder: a pool-adapter gain cell costs ~1.1x a run, not 13x
+# RETRACTED: "a pool-adapter gain cell costs ~1.1x a run"
+
+> **RETRACTED 2026-09-14 by ticket 13.** At the campaign catalogue size and rho the
+> same measurement reads **3.24x**, not 1.1x. Everything below was measured on a
+> ladder that could not reach that regime: the store leaf never stands a yard
+> (T 1.14-1.30), and the coupled ladder that followed was capped at T = 2.25 by its
+> catalogue (ticket 12). The campaign runs at **T = 12.97**, and the drain is cubic
+> in T.
+>
+> **What survives is the METHOD, and it is the reason the error was findable:** two
+> multipliers with different denominators, paired within a rung, with the
+> commensurable one named. The DRAIN/RUN distinction below is correct and still the
+> way to read this tool. What was wrong was concluding from a flat RUN column that
+> the cost does not grow, when the ladder had simply stopped growing T.
+>
+> The "honest next step" this ticket ends on was the right one, and running it is
+> what produced the retraction.
 
 Type: research
-Status: resolved
+Status: resolved (retracted -- see ticket 13)
 
 The user's direction was "measuring growth on multiple smaller inventories should give you the
 information you need without a complete run". This is that measurement, and it lands on a number

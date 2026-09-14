@@ -4,22 +4,38 @@ Label: wayfinder:map
 
 ## Destination
 
-**REACHED 2026-09-14**, with one of the three clauses answered differently than it was asked.
+**REACHED 2026-09-14**, and then REOPENED and reached again the same day — the third clause
+resolved TWICE, in opposite directions, and the second answer is the one that stands.
 
-The `Inbound/` package is **measurable**, its growth is **fitted**, what the instrument convicted is
-**refactored or recorded**, and phase 2's sizing is restated on the arms it will actually run.
+The `Inbound/` package is **measurable**, its growth is **fitted**, what the instrument
+convicted is **refactored or recorded**, and phase 2's sizing is restated on the arms it will
+actually run.
 
-The third clause resolved by REFUTING its own premise. This effort began because ticket 31 sized
-the campaign from `('fifo','tmin')` -- the only two adapters that open no pool -- while 8 of
-`PHASE2_PAIRS`' 12 arm-slots are pool adapters, so the 8.6-9.7 h could be badly low. Measured
-(ticket 11): a pool-adapter gain cell costs **1.08-1.12x a RUN**, flat across a 4x catalogue range.
-The worry is not supported. What IS large is the drain multiplier, 13-18x -- and that is the cost
-the two landed refactors attack.
+**The third clause: the worry IS supported.** This effort began because ticket 31 sized the
+campaign from `('fifo','tmin')` — the only two adapters that open no pool — while 8 of
+`PHASE2_PAIRS`' 12 arm-slots are pool adapters, so the 8.6-9.7 h could be badly low.
 
-Two things the effort did not close, both now commands rather than builds: the same ladder run
-COUPLED at rungs reaching rho ~ 0.82 (first around 160k SKUs), and the candidate slice, whose
-measured shape and rejection are recorded in ticket 10 so the next attempt starts from the
-mechanism rather than the idea.
+Ticket 11 measured **1.08-1.12x a RUN** and concluded the worry was not supported. Ticket 13
+measured **3.24x** on the campaign's own catalogue at **rho = 0.837**, and ticket 11 is
+retracted. The difference is not the code and not the method — it is that every earlier ladder
+stopped at **T = 2.25**, capped by its CATALOGUE rather than by anything real (ticket 12), and
+the campaign runs at **T = 12.97**. The drain is **cubic in T** (k = 3.13, r^2 = 0.998 over a
+16x span) and at 400,000 SKUs it is **70% of the whole run**.
+
+The lesson the effort paid for three times over, and the reason this map is worth reading: a
+ladder that stops growing its own driving variable reports "flat" and looks exactly like a
+subsystem that does not grow.
+
+Two things remain open, both now decisions rather than measurements:
+
+1. **Whether to restate phase 2's hours.** 3.24x against the band's 1.75x midpoint suggests
+   ~16-18 h at 4 workers rather than 8.6-9.7 h — but that arithmetic assumes the ratio carries
+   across two differences the ladder does not span (10 batches vs 40 site days; one pool arm vs
+   twelve arm-slots). Ticket 13 states both.
+2. **Whether to widen scope to land the candidate slice.** Ticket 10 rejected it on a range
+   topping out at 6,000 SKUs where it was already -48.1%; the campaign runs 24,912 opens, 4.2x
+   past that. The version with no tuned constant needs a signature change in
+   `Assignment_Functions`, which touches the restock path this effort kept out of scope.
 
 Concretely, the destination is reached when:
 
@@ -169,8 +185,19 @@ Concretely, the destination is reached when:
   FLAT across a 4x catalogue range. It does not contradict ticket 31 (coupled, 40 days, different
   arms and denominator); it establishes the shape ticket 31 explicitly could not — that a POOL
   adapter, the family 8 of 12 phase-2 arm-slots use, does not blow the multiplier up. The worry
-  that started this effort is **not supported**.
+  that started this effort is **not supported**. — **RETRACTED, see the landmark below.**
   → [11-the-ladder-answers-the-campaign-question.md](issues/11-the-ladder-answers-the-campaign-question.md)
+- **The ladder saturated at its catalogue, and printed the saturation as data.** Three
+  "rungs" at 40k/60k/80k were one run measured three times: the bound catalogue declares
+  40,000 SKUs and `max_skus` above it silently takes everything. Fixed by letting the
+  DECLARATION pick the fixture (`min_catalogue`), sized on the top rung so one catalogue
+  serves every rung.
+  → [12-the-ladder-saturated-at-the-catalogue-ceiling.md](issues/12-the-ladder-saturated-at-the-catalogue-ceiling.md)
+- **At campaign scale the pool-adapter multiplier is 3.24x**, not 1.1x — measured on the
+  campaign's own 400,000-SKU catalogue at rho = 0.837, top rung repeated. The drain is
+  cubic in yard depth (k = 3.13, r^2 = 0.998) and is 70% of the whole run at 400k. The
+  worry that started this effort **is supported**.
+  → [13-at-campaign-scale-the-multiplier-is-3-2x.md](issues/13-at-campaign-scale-the-multiplier-is-3-2x.md)
 
 ## Fog
 
@@ -179,12 +206,15 @@ Concretely, the destination is reached when:
   degrading the fixture, which is what this effort was told not to do. The candidate answer is
   MORE BATCHES — a yard behind a binding whistle is an unstable queue, unlike the put queue the
   `growth-ladder-use-the-skus-knob` memory measured — but that is under test, not settled.
-- Where the 1.6–1.9x pricing multiplier actually lives, now that the candidate loop is ruled out
-  at production scale. The per-UNIT hypothesis (entries x units_per_trailer x tiers) is stated in
-  ticket 06 and not yet measured.
-- **Whether the campaign's 1.6–1.9x priced/unpriced multiplier moves.** The drain is 45–78% cheaper
-  at meso scale, but that ratio is what actually restates phase 2's 8.6–9.7 h sizing, and it needs a
-  same-day priced-vs-unpriced control at campaign shape.
+- ~~Where the 1.6–1.9x pricing multiplier actually lives.~~ **ANSWERED by ticket 13:** in
+  `plan_order` over yard depth. The drain is cubic in T and decomposes as pools ~ T^1.67
+  times seconds-per-open ~ T^1.46; `entries` is CONSTANT at 18, so none of it is more
+  drains. The per-UNIT hypothesis from ticket 06 is not what it turned out to be.
+- ~~**Whether the campaign's 1.6–1.9x priced/unpriced multiplier moves.**~~ **ANSWERED by
+  ticket 13: it moves, to 3.24x.** What remains is a DECISION rather than a measurement —
+  whether to restate phase 2's hours on it. The ratio implies ~16-18 h at 4 workers, but
+  that carries the ladder's ratio across two gaps it does not span (10 batches vs 40 site
+  days; one pool arm vs twelve arm-slots).
 - How much of a coupled priced run is currently in **no section at all** — the coupled leaf returns
   before `check_reorders`, so the drain may be entirely unattributed.
 
