@@ -32,10 +32,18 @@ Two things remain open, both now decisions rather than measurements:
    ~16-18 h at 4 workers rather than 8.6-9.7 h — but that arithmetic assumes the ratio carries
    across two differences the ladder does not span (10 batches vs 40 site days; one pool arm vs
    twelve arm-slots). Ticket 13 states both.
-2. **Whether to widen scope to land the candidate slice.** Ticket 10 rejected it on a range
-   topping out at 6,000 SKUs where it was already -48.1%; the campaign runs 24,912 opens, 4.2x
-   past that. The version with no tuned constant needs a signature change in
-   `Assignment_Functions`, which touches the restock path this effort kept out of scope.
+2. **Whether to widen scope for `take`'s aisle scan** -- NOT the candidate slice, which ticket
+   14 refutes. The slice's ceiling at campaign scale is 9.6% of the drain (it touches only the
+   28.8% that is construction, and saves only 1.5x within it, because a bucket holds 61
+   candidates while the pool pops 195). Ticket 10's k = 3 was the median GROUP size, not the
+   pops, which also makes its byte-identity argument unsound at this scale.
+
+   The 71.2% is `_TravelBalancedPool.take` scanning every aisle on every placement: 4,852,858
+   takes x 224 buckets = **1.09 billion iterations at 0.63 us each**, which closes the 685 s to
+   three digits. It solves a SELECTION problem by SCANNING; a score-keyed heap is the shape
+   that took `_admit_held` from k 1.84 to 0.94. It sits in `Assignment_Functions` on the
+   restock path, and `take`'s aisle order is load-bearing for tie-breaks in three documented
+   places -- so it is a real scope decision, now with a measured 71.2% behind it.
 
 Concretely, the destination is reached when:
 
@@ -198,6 +206,12 @@ Concretely, the destination is reached when:
   cubic in yard depth (k = 3.13, r^2 = 0.998) and is 70% of the whole run at 400k. The
   worry that started this effort **is supported**.
   → [13-at-campaign-scale-the-multiplier-is-3-2x.md](issues/13-at-campaign-scale-the-multiplier-is-3-2x.md)
+- **The candidate slice is refuted, and the target is `take`'s aisle scan.** Three of ticket
+  10's premises are scale-dependent and it does not say so: `__init__` is 28.8% of the drain
+  not 59%, the pool pops 195 units per open not 3, and the slice reduces candidates 1.5x not
+  18.8x. Its best case is 92 s of 962 s. The 71.2% is one billion iterations of a linear aisle
+  scan inside `take`.
+  → [14-the-slice-is-refuted-the-target-is-takes-aisle-scan.md](issues/14-the-slice-is-refuted-the-target-is-takes-aisle-scan.md)
 
 ## Fog
 

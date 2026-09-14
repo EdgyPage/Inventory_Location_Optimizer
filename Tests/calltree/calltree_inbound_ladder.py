@@ -84,7 +84,7 @@ def _configure(policy: str, coverage: float, recv_crew: int) -> None:
 
 def _one(skus: int, batches: int, arm: str, policy: str,
          coverage: float, recv_crew: int, coupled: bool = False,
-         min_catalogue: int | None = None) -> dict:
+         min_catalogue: int | None = None, slice_probe: bool = False) -> dict:
     """One rung, one pole, IN THIS PROCESS. Returns the drain wall plus the evaluator's counts.
 
     Callers should prefer `_one_isolated`.  This body mutates process-global `CONFIG` and
@@ -101,7 +101,9 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     import calltree_scenarios as cs
 
     stats = {'entries': 0, 'place_loads': 0, 'pools': 0, 'drain_s': 0.0,
-             'cands': 0, 'depths': [], 'deadline': None}
+             'cands': 0, 'pool_init_s': 0.0, 'buckets': 0, 'takes': 0,
+             'keep_k3': 0, 'keep_k5': 0, 'keep_at_k': 0, 'opens_scored': 0,
+             'depths': [], 'deadline': None}
     _po = gain.plan_order
     _pl = gain._Evaluator.place_load
     _mp = gain._Evaluator._make_pool
@@ -116,7 +118,33 @@ def _one(skus: int, batches: int, arm: str, policy: str,
         stats['place_loads'] += 1
         return _pl(self, *a, **k)
 
+    wp_of = []
+    _take_patched: dict = {}      # {pool class: its original take}, restored below
+    # (bucket sizes, take count at that open start) for the open still in flight. Scored
+    # when the NEXT open begins, because k is only known once the open has finished.
+    _pending: list = []
+
+    def _score_pending():
+        """Score the last open against the number of units it actually seated.
+
+        The slice keeps at most k per bucket where k is what the pool pops, so its
+        reduction is sum(min(k, bucket)) / sum(bucket) -- and k must be the OBSERVED
+        take count for that open, not a constant. Using a k smaller than the real one
+        would not just overstate the win, it would describe an UNSOUND slice: the
+        (k+1)-th entry of a bucket is reachable as soon as the pool pops k+1 times.
+        """
+        if not _pending:
+            return
+        sizes, at_start = _pending[0], _pending[1]
+        kk = stats['takes'] - at_start
+        if kk <= 0:
+            kk = 1                 # an open that seated nothing still needs one head
+        stats['keep_at_k'] += sum(kk if n > kk else n for n in sizes)
+        stats['opens_scored'] += 1
+
     def mp(self, cands, *a, **k):
+        if not wp_of and a:
+            wp_of.append(a[0])            # _make_pool(self, cands, wp)
         stats['pools'] += 1
         # What a pool open COSTS is what its candidate list costs: `_make_pool` hands
         # `cands` straight to `pool_factory(list(cands), ...)`, which copies, buckets and
@@ -125,7 +153,50 @@ def _one(skus: int, batches: int, arm: str, policy: str,
         # copy-on-write change. So this counter prices the candidate slice (ticket 10) at
         # any scale without rebuilding it.
         stats['cands'] += len(cands)
-        return _mp(self, cands, *a, **k)
+        # THE SLICE PROBE, and it is OFF by default for a reason: bucketing every candidate
+        # here is the same work the pool's own `__init__` does, so it roughly DOUBLES pool
+        # construction and inflates the drain. Leaving it always-on would hand the next
+        # reader a timing column that is wrong for a reason nothing in the output explains
+        # -- the contamination this tool warns about everywhere else.
+        #
+        # Bucketed EXACTLY as _TravelBalancedPool buckets -- (aisle, height_mult) -- so the
+        # distribution is the real one and not a proxy for it.
+        if slice_probe:
+            try:
+                from Warehouse.kernel.cost_model import height_multiplier as _hm
+                _br = getattr(wp_of[0], 'height_brackets', ()) if wp_of else ()
+                _bk = {}
+                for _b in cands:
+                    _key = (_b.location[0], _hm(_br, _b.y_phys))
+                    _bk[_key] = _bk.get(_key, 0) + 1
+                stats['buckets'] += len(_bk)
+                stats['keep_k3'] += sum(3 if _n > 3 else _n for _n in _bk.values())
+                stats['keep_k5'] += sum(5 if _n > 5 else _n for _n in _bk.values())
+                _score_pending()
+                _pending[:] = [tuple(_bk.values()), stats['takes']]
+            except Exception:
+                pass
+        # The pool CONSTRUCTION wall, against the drain it sits in. This is the number
+        # that decides whether the candidate slice is worth building: the slice makes
+        # `__init__` cheaper and nothing else, so `pool_init_s / drain_s` is its ceiling.
+        t = time.perf_counter()
+        try:
+            _p = _mp(self, cands, *a, **k)
+        finally:
+            stats['pool_init_s'] += time.perf_counter() - t
+        # Patch the CLASS, not the instance: every pool here defines __slots__, so an
+        # instance assignment raises AttributeError -- and swallowing that gave a counter
+        # that read 0.00 and looked like "no takes happened" rather than "not measured".
+        _cls = type(_p)
+        if _cls not in _take_patched:
+            _orig_take = _cls.take
+
+            def _counting_take(pself, u, _o=_orig_take):
+                stats['takes'] += 1
+                return _o(pself, u)
+            _cls.take = _counting_take
+            _take_patched[_cls] = _orig_take
+        return _p
 
     def recv(self, leaves, deadline=None, *a, **k):
         stats['deadline'] = deadline
@@ -145,6 +216,8 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     finally:
         gain.plan_order, gain._Evaluator.place_load, gain._Evaluator._make_pool = _po, _pl, _mp
         rc.SiteReceiving.receive = _recv
+        for _c, _t in _take_patched.items():
+            _c.take = _t          # a patched CLASS outlives the rung if left alone
 
     # RHO, the x axis. Read off the DERIVED block rather than recomputed: `staffing.derive`
     # already solved `crew_size(load, S, rho_recv)` and `expected_utilization` for this pair,
@@ -166,6 +239,16 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     stats['per_entry'] = r
     stats['max_depth'] = max(stats['depths']) if stats['depths'] else 0
     stats['cands_per_open'] = (stats['cands'] / stats['pools']) if stats['pools'] else 0.0
+    stats['init_share'] = (stats['pool_init_s'] / stats['drain_s']
+                           if stats['drain_s'] > 0 else 0.0)
+    _score_pending()               # the last open has no successor to trigger it
+    _po = stats['pools'] or 1
+    stats['buckets_per_open'] = stats['buckets'] / _po
+    stats['takes_per_open'] = stats['takes'] / _po
+    stats['slice_x_k3'] = (stats['cands'] / stats['keep_k3']) if stats['keep_k3'] else 0.0
+    stats['slice_x_k5'] = (stats['cands'] / stats['keep_k5']) if stats['keep_k5'] else 0.0
+    stats['slice_x_real'] = ((stats['cands'] / stats['keep_at_k'])
+                             if stats['keep_at_k'] else 0.0)
     stats['catalogue'] = (res or {}).get('catalogue')
     stats['catalogue_skus'] = (res or {}).get('catalogue_skus')
     stats['saturated'] = bool((res or {}).get('saturated'))
@@ -174,7 +257,7 @@ def _one(skus: int, batches: int, arm: str, policy: str,
 
 
 def _one_isolated(skus, batches, arm, policy, coverage, recv_crew, coupled,
-                  min_catalogue):
+                  min_catalogue, slice_probe=False):
     """One rung, one pole, in a FRESH INTERPRETER.
 
     RUNGS MUST NOT SHARE A PROCESS.  `_configure` writes process-global `CONFIG`, and
@@ -192,7 +275,7 @@ def _one_isolated(skus, batches, arm, policy, coverage, recv_crew, coupled,
     import subprocess
     payload = json.dumps(dict(skus=skus, batches=batches, arm=arm, policy=policy,
                               coverage=coverage, recv_crew=recv_crew, coupled=coupled,
-                              min_catalogue=min_catalogue))
+                              min_catalogue=min_catalogue, slice_probe=slice_probe))
     out = subprocess.run(
         [sys.executable, os.path.abspath(__file__), '--worker', payload],
         capture_output=True, text=True, cwd=_REPO,
@@ -230,6 +313,11 @@ def main() -> None:
                          'measurement is empty. fifo is uniform, tmin/tmax are merge.')
     ap.add_argument('--coverage', type=float, default=5.0)
     ap.add_argument('--recv-crew', type=int, default=4)
+    ap.add_argument('--slice-probe', action='store_true',
+                    help='count what a per-bucket candidate slice WOULD keep. Buckets '
+                         'every candidate in-process, roughly DOUBLING pool construction, '
+                         'so the timing columns are NOT readable on a run carrying it. The '
+                         'counts are exact regardless, which is the point. Off by default.')
     ap.add_argument('--coupled', action='store_true',
                     help='run the SITE model (both leaves). The default takes '
                          '_channel_runs[0], always the STORE -- the quieter half of the '
@@ -242,7 +330,7 @@ def main() -> None:
         kw = json.loads(a.worker)
         r = _one(kw['skus'], kw['batches'], kw['arm'], kw['policy'],
                  kw['coverage'], kw['recv_crew'], kw['coupled'],
-                 kw.get('min_catalogue'))
+                 kw.get('min_catalogue'), kw.get('slice_probe', False))
         r.pop('depths', None)        # keep the handoff small
         print('__RUNG__' + json.dumps(r))
         return
@@ -264,15 +352,15 @@ def main() -> None:
     # rung then truncates the SAME catalogue -- which is what makes the rungs comparable.
     floor = max(a.rungs)
     print(f'{"skus":>8} {"pole":>10} {"drain_s":>9} {"wall_s":>8} {"entries":>8} '
-          f'{"place_ld":>9} {"pools":>9} {"cnd/open":>9} {"T":>6} {"maxdep":>7} '
-          f'{"crew":>5} {"rho":>6} {"deadline":>9}')
+          f'{"place_ld":>9} {"pools":>9} {"cnd/open":>9} {"init_s":>8} {"init%":>6} '
+          f'{"T":>6} {"maxdep":>7} {"crew":>5} {"rho":>6} {"deadline":>9}')
     rows = []
     _announced = False
     for n in a.rungs:
         rung = {}
         for pole, policy in (('unpriced', UNPRICED), ('priced', PRICED)):
             s = _one_isolated(n, a.batches, a.arm, policy, a.coverage,
-                              a.recv_crew, a.coupled, floor)
+                              a.recv_crew, a.coupled, floor, a.slice_probe)
             rung[pole] = s
             if not _announced and s.get('catalogue'):
                 print(f'catalogue: {s["catalogue"]} declares '
@@ -281,6 +369,8 @@ def main() -> None:
             print(f'{n:>8,} {pole:>10} {s["drain_s"]:>9.3f} {s["wall_s"]:>8.1f} '
                   f'{s["entries"]:>8,} {s["place_loads"]:>9,} {s["pools"]:>9,} '
                   f'{s.get("cands_per_open", 0.0):>9,.0f} '
+                  f'{s.get("pool_init_s", 0.0):>8.2f} '
+                  f'{s.get("init_share", 0.0) * 100:>5.1f}% '
                   f'{s["T"]:>6.2f} {s["max_depth"]:>7} '
                   f'{str(s.get("recv_crew") or "-"):>5} '
                   f'{_fmt_rho(s.get("rho_recv")):>6} '
@@ -291,6 +381,31 @@ def main() -> None:
                   f'catalogue ({rung["priced"].get("catalogue_skus"):,}); this rung '
                   f'RE-RUNS the one at the ceiling and is not a measurement.')
 
+    # Printed ONLY when the probe ran. Without it every column below is zero, and a table of
+    # zeros reads as "the slice would keep nothing" -- the most flattering possible answer, and
+    # the exact "reads zero, means not measured" failure this effort found three times.
+    if a.slice_probe:
+        print()
+        print('WHAT THE CANDIDATE SLICE WOULD KEEP -- COUNTS ONLY.')
+        print('The bucketing runs inside the wrapper and roughly doubles pool construction,')
+        print('so the TIMING columns above are NOT readable on this run. The counts are exact')
+        print('regardless -- that is why this is counted and not timed.')
+        print()
+        print(f'{"skus":>8} {"cnd/open":>9} {"bkts/open":>10} {"takes/open":>11} '
+              f'{"slice x @k":>11} {"(@3 unsound)":>13}')
+        for n, rung in rows:
+            s = rung['priced']
+            if not s.get('pools'):
+                continue
+            print(f'{n:>8,} {s.get("cands_per_open", 0):>9,.0f} '
+                  f'{s.get("buckets_per_open", 0):>10,.0f} '
+                  f'{s.get("takes_per_open", 0):>11,.2f} '
+                  f'{s.get("slice_x_real", 0):>11,.1f} '
+                  f'{s.get("slice_x_k3", 0):>13,.1f}')
+        print()
+        print('  slice x @k uses the OBSERVED takes per open. The @3 column is what ticket 10s')
+        print('  "median k = 3" would have predicted -- that 3 is the median GROUP size, not the')
+        print('  pops, and a slice built on it would be byte-DIFFERENT, not merely optimistic.')
     print()
     print('TWO MULTIPLIERS, AND THEY ARE NOT THE SAME NUMBER — paired within each rung')
     print()

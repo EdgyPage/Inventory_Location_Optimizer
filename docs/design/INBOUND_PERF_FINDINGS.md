@@ -332,19 +332,55 @@ more expensive" when the true statement is "each drain did" ([a count is not a c
 run**. The small-rung noise that made an earlier repeat conclude "RUN x is not resolvable" was
 real and is now beside the point: the signal is 950 s against a ~20 s wall variance.
 
-### What this reopens
+### What this reopened, and then closed
 
-Ticket 10 rejected the candidate slice because it regressed the middle of a range topping out
-at 6,000 SKUs / 5,878 opens — where it was already **-48.1%**. The separating variable it
-identified is OPENS. This ladder runs **24,912 opens at 400,000**, 4.2x past that, and the
-regression band (600-2,000 SKUs) is far below anything the campaign touches. The rejection was
-made on the same too-small range as everything else here.
+The T^1.46 per-open term pointed straight at ticket 10's candidate slice, which was rejected
+on a range topping out at 6,000 SKUs. Measuring it at campaign scale **refutes it**, and three
+of ticket 10's premises are scale-dependent in a way the ticket does not say:
 
-Ticket 10 also names the version with no constant to tune — bucket and select in ONE pass per
-open, no memo — and why it was not taken: it needs the pool to accept pre-bucketed input, a
-signature change in `Assignment_Functions` that touches the restock path this effort kept out
-of scope. **That is a scope decision for the owner, not a technical one**, and the T^1.46
-per-open term is the reason to put it in front of them.
+| ticket 10 | at 400,000 SKUs |
+|---|---|
+| `__init__` is **59%** of the drain | **28.8%** (57.2% at 3,000 — the figure reproduces, it just does not carry) |
+| median **k = 3** units per open | **194.80** takes per open |
+| **18.8x** fewer candidates | **1.5x** at the real k |
+
+The k correction is the serious one. Ticket 10's byte-identity argument is "a pool asked to
+seat k units performs at most k pops, so the (k+1)-th entry of any bucket is unreachable" —
+true, and the whole reason a slice can be byte-identical. At k = 195 entries 4 through 195 are
+reachable, so a slice keeping 3 per bucket would have been byte-DIFFERENT. The recorded digests
+would have caught it, after the build.
+
+The two ceilings compound: the slice touches only construction (28.8%) and saves only 1.5x
+within it, so **92 s of 962 s — RUN x 3.24 -> 3.05**. Not worth three load-bearing orderings.
+
+### The 71.2% is one billion iterations of a linear scan
+
+`_TravelBalancedPool.take` scans every aisle in the pool on every placement (`for aid in
+by_aisle:  # original order => original tie-breaks`), plus a full O(aisles x mults) cache
+rebuild at every SKU-run boundary. At 400,000 SKUs:
+
+```
+takes                4,852,858      (194.80 per open x 24,912 opens)
+x buckets per open         224
+= inner iterations   1,087,040,102
+drain - init              685 s
+per iteration            0.630 us   <- two dict reads and a compare, in Python
+```
+
+The arithmetic closes to three digits, which is what makes this an attribution rather than a
+division. And the slice cannot reach any of it: it trims bins WITHIN a bucket and keeps every
+bucket, so the scan width is exactly unchanged.
+
+`take` solves a SELECTION problem by SCANNING. The structural fix is a score-keyed heap with an
+O(n) heapify at the run boundary and a lazy-deleted push for the single winner — the shape that
+took `_admit_held` from k 1.84 to 0.94. It sits in `Assignment_Functions` on the restock path
+this effort kept out of scope, and `take`'s aisle order is load-bearing for tie-breaks in three
+documented places. **That is the scope decision worth putting to the owner — not the slice.**
+
+Ticket 10 is not wrong about what it measured; every number in it holds at 600-6,000 SKUs. The
+failure is that its premises are scale-dependent and it does not say so, so it reads as a
+standing conclusion when it is a measurement at one point. Same shape as the retraction at the
+top of this document and as the catalogue ceiling: **the finding was not wrong, the range was.**
 
 ---
 
