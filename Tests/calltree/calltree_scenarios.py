@@ -558,6 +558,30 @@ def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
 
     q = _queue.Queue()
     _mixed, _channel_runs = rs._channel_runs_for(shared['inventory'])
+    # THE CALIBRATED ERA, STAGE B.  `build_shared_assets` above already runs stage A — the
+    # coverage fixed point — in every mode, which is why the era LOOKED reachable from this
+    # tier.  It is not: the crews are derived separately, and `_build_work_units` does it right
+    # here (workunits.py:1360-1363).  This tier calls `_prepare_channel_run` directly and so
+    # skipped the block entirely, leaving `shared['staffing']` without a derived block; the
+    # worker's `_check_declared_crew` then asked `channel_crew` for a crew that is in neither
+    # the derived block nor the declared key, and `staffing.py:383` refused every era arm with
+    #     KeyError: the staffing record carries no picking crew for channel 'store'
+    #
+    # WHY THIS MATTERS ENOUGH TO MIRROR THE DRIVER RATHER THAN SKIP THE ERA: the era is what
+    # supplies the RECEIVING DAY.  `strategy_runner.py:1676-1682` takes
+    # `_recv_day = _WorkDay(length=_wd['seconds'] or _shift_seconds)` on the `_drain_or_cap`
+    # branch and never consults `RECV_DAY_SECONDS` — so without stage B there is no whistle,
+    # and without a whistle `_unload_split`'s single non-exhaustion exit empties the yard
+    # inside every drain.  Every yard depth this tier reported before this line existed was a
+    # NO-WHISTLE FLOOR, not a measurement of the configuration the campaign runs.
+    #
+    # Called, not paraphrased: a second implementation of a staffing derivation is the exact
+    # drift this repo punishes, and the crews are site totals over BOTH channels' scripts.
+    if rs.era_on():
+        from Optimization.simdriver import workunits as _wu
+        _channel_runs, _derived, _cal = _wu._derive_staffing_for_pair(
+            shared, _channel_runs, _mixed, pair_dir, log)
+        shared['staffing'] = {'derived': _derived, 'calibration': _cal}
     ch, cfg = _channel_runs[0]
     strategy_args, skeletons = rs._prepare_channel_run(ch, cfg, _mixed, shared, pair_dir, log)
     if strategy is not None:

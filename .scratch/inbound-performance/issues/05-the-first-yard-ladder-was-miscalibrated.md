@@ -151,3 +151,50 @@ regime ticket 07's fix was built for, arrived at from the other direction.
 Batch count belongs on the ladder as a first-class axis alongside catalogue size. A `skus` ladder
 run at a fixed shallow depth would report the yard as trivial and would be measuring the warm-up,
 not the operating point.
+
+---
+
+## CORRECTION: "unstable" is a statement about rho, not about the campaign
+
+The section above is right about the regime it measured and was over-generalized in the sentence
+that mattered most. It said: *"whenever the whistle binds AT ALL, depth compounds with batch count
+rather than settling"*. That is false, and the distinction is the standard one.
+
+**A queue compounds when rho >= 1 and settles when rho < 1.** The 10-20 second whistles that
+produced yard depth 391 put the receiving crew at rho far above 1 -- the crew could not clear a
+day's arrivals in twenty seconds, so every day added to the backlog and forty days compounded.
+That is an unstable queue, correctly measured. It says nothing about a stable one.
+
+**Under the era the whistle binds and the yard still clears.** Measured on the real driver once
+`run_fullfid` could reach the era (the `_derive_staffing_for_pair` fix, this ticket's successor):
+
+* `recv_deadline = 28800.0` at every drain -- the site shift, on the `_drain_or_cap` branch, never
+  consulting `RECV_DAY_SECONDS`. Flag-off the same probe reports `None` on every drain.
+* The whistle **binds**: drain load / (crew x 28,800 s) reaches 1.000-1.008 on 6 of 40 drains.
+  The flag-off control reaches 13.04 -- unbounded, which is the no-whistle signature.
+* And the yard **clears to 0 after all 200 instrumented drains**. What survives a drain is a
+  trailer AT A DOOR (staged), on 6 of 40 drains at 40k SKUs.
+* Coupled site, 40 site days, campaign policies: drain-start yard depth max 2 / 2 / 4 / 5 and
+  candidates per entry 1.37 / 1.39 / 1.71 / 2.33 at 5k / 10k / 20k / 40k SKUs.
+* At 2,000 SKUs uncoupled the histogram is `{1: 18}` -- T = 1.00, every drain ranking exactly one
+  trailer.
+
+**Why rho is low at these sizes, and it is not the whistle.** `crew_size` takes a `ceil`
+(`staffing.py:652`), so a small catalogue floors the receiving crew at 1 and runs it far under
+target: measured rho_recv 0.044 / 0.095 / 0.211 / 0.427 / 0.445 / 0.619 at N = 1k..40k. The
+campaign's projected rho_recv is **0.819** -- high, and still below 1.
+
+So the campaign's yard is a STABLE queue with a finite mean depth, not a compounding one. Forty
+days of it is not forty days of accumulation.
+
+**What survives from the section above:** the measurement (depth 391 at rho >> 1), the refutation
+of `growth-ladder-use-the-skus-knob` for this queue, and the reason batch count still belongs on a
+ladder -- a shallow run measures the warm-up. What does not survive is the inference to the
+campaign.
+
+**And it changes the ladder's x-axis, which is the practically important part.** T is a queueing
+quantity in rho, and rho(N) is a non-monotone SAWTOOTH because of the same `ceil`: projected
+0.446, 0.647, 0.525, 0.619, 0.694, 0.837, 0.819 at N = 5k..400k. **Fitting T against catalogue
+size is therefore not a fit at all** -- the series it would fit is not monotone. The ladder must
+fit against measured rho, and reach rho ~ 0.82 to say anything about the campaign, which first
+happens around 160k SKUs.
