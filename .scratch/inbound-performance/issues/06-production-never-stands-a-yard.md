@@ -146,3 +146,73 @@ The 1.6-1.9x multiplier itself is not yet reproduced from these counts — 7,426
 batches on one leaf is a number, not a wall. Converting it needs either a traced capture with
 `t_inbound` carved (the instrument now supports it) or a same-day priced-vs-unpriced control at
 this scale. Until then the ATTRIBUTION above is measured and the MAGNITUDE is not.
+
+---
+
+# CORRECTION 2026-09-14: the title is wrong, and the structural half is retracted
+
+Found by re-reading the campaign's own run defaults before asking the user to rule on them. The
+measurement stands; the inference drawn from it does not.
+
+## What was claimed, and why it was wrong
+
+The claim was: `RECV_DAY_SECONDS = None` is the production default, nothing derives it, and
+`PHASE2_RUN_DEFAULTS` does not set it -- therefore the campaign has no receiving whistle and its
+yard structurally cannot stand.
+
+Every clause of that is true and the conclusion still does not follow, because
+`RECV_DAY_SECONDS` is not the only path to a receiving day. `strategy_runner.py:1676-1682`:
+
+```python
+if _drain_or_cap:
+    # ONE site-wide shift: the receiving crew shares the cap.  Its own
+    # day knobs are the flag-off configuration, by decision.
+    _recv_day = _WorkDay(length=_wd.get('seconds') or _shift_seconds)
+elif _recv_spec['day_seconds'] is not None:
+    _recv_day = _WorkDay(length=_recv_spec['day_seconds'], origin=_recv_spec['day_origin'])
+```
+
+`_drain_or_cap` is `work_day_spec()['drain_or_cap']`, i.e. `SHIFT_DRAIN_OR_CAP` — and
+`ERA_RUN_DEFAULTS` sets `'shift_drain_or_cap': True`, which `PHASE2_RUN_DEFAULTS` inherits by
+spread. **So the campaign DOES bound the receiving day: from the site-wide shift, on the FIRST
+branch, which does not consult `RECV_DAY_SECONDS` at all.** The comment beside it says so in as
+many words, and the `elif` is the giveaway that was read past.
+
+## Why the measurement did not show it
+
+The probe set the inbound keys and the coverage but not `shift_drain_or_cap`, so it took the
+`elif`, found `day_seconds` None, and ran with `_recv_day = None` — no whistle. T = 1.26 and 3.04
+are therefore **a no-whistle floor**, not the campaign's operating point.
+
+## What the campaign's yard actually looks like
+
+Not "never stands", and not "stands deep" either. `RHO_RECV = 0.85`
+(`Optimization/config/settings.py:338`) and `recv_crew = crew_size(recv_load_s, S, rho_recv)`
+(`staffing.py:813`): the receiving crew is DERIVED to be ~85% utilized against the shift. A crew
+sized that way clears an average day with slack and overruns a heavy one, so the yard stands **at
+the tail, not at the median** — which is what a well-sized dock should look like, and is a
+different statement from either of the two this ticket has now made.
+
+## What survives, and what does not
+
+* **RETRACTED**: "the campaign's yard structurally cannot stand", and the claim that the quadratic
+  is about a regime that does not occur. The regime occurs on heavy days; its frequency is
+  unmeasured.
+* **STANDS**: the measured T values, correctly labelled as a no-whistle floor. The mechanism
+  (`_unload_split`'s single non-exhaustion exit) is unchanged — it is what makes the whistle the
+  operative lever, whichever branch supplies it.
+* **STANDS, and is untouched by all of this**: ticket 07's refactor. The copy-on-write win is
+  driven by the TIER loop (12.59 pool opens per `place_load`), which is independent of T. It would
+  be the same win at T = 1 or T = 60.
+* **NEW LIMIT**: `run_fullfid` cannot reach the era configuration at all. Setting
+  `shift_drain_or_cap` makes `_check_declared_crew` refuse — `KeyError: the staffing record
+  carries no picking crew for channel 'store': neither a derived block (under the era) nor the
+  declared 'store_pickers'` — because the tier builds no derived staffing block. So production T
+  UNDER THE ERA is still unmeasured, and measuring it needs a real `run_simulation`, not this tier.
+
+## The lesson worth keeping
+
+A default read in isolation is not a configuration. `RECV_DAY_SECONDS = None` was read as the
+whole answer when it is the second branch of two, and the first branch is the one the campaign
+takes. The check that would have caught it immediately — and is now the rule for this effort — is
+to trace the value the RUNNER computes, not the constant the settings file declares.

@@ -83,7 +83,18 @@ Concretely, the destination is reached when:
   wins. The archived artifact must not be cited.
   → [05-the-first-yard-ladder-was-miscalibrated.md](issues/05-the-first-yard-ladder-was-miscalibrated.md)
 
-- **[06] PRODUCTION NEVER STANDS A YARD — the convicted quadratic is not phase 2's cost.**
+- **[06] CORRECTED — production's yard stands at the TAIL, not never.** (The original claim,
+  "production never stands a yard", is retracted in the ticket; the title is kept so the commit it
+  was published under stays findable.) The measured T = 1.26 / 3.04 is a **no-whistle floor**: the
+  probe omitted `shift_drain_or_cap`, and under the era that flag supplies `_recv_day` from the
+  SITE SHIFT on a branch that never consults `RECV_DAY_SECONDS`. The crew is then derived to
+  `RHO_RECV = 0.85` against that shift, so the yard clears an average day and stands on a heavy
+  one. What still stands: the T values as a floor, the mechanism, and — untouched by any of it —
+  ticket 07's refactor, whose win is driven by the TIER loop and is the same at T=1 or T=60.
+  New limit: `run_fullfid` cannot reach the era config at all (the staffing derivation refuses),
+  so production T under the era remains unmeasured.
+
+- **[06, as originally written] PRODUCTION NEVER STANDS A YARD — the convicted quadratic is not phase 2's cost.**
   Measured on the real driver, real catalogue, standing yard, `gain_forecast`: **T = 1.26, max 2**,
   28 entry calls, 80 `place_load`s. `RECV_DAY_SECONDS = None` is the production default ("None = no
   whistle"), it is not derived under the era, and `PHASE2_RUN_DEFAULTS` does not set it — so by
