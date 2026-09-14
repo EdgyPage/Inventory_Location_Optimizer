@@ -101,9 +101,38 @@ noticed; repaired by pointing it at the table production reads, not by weakening
 * `Tests/unit/test_gain_bundle_labor_families.py` — 17 passed with the sabotage live again.
 * `Tests/unit/test_gain_cow_equivalence.py` — 5 passed.
 
-## What this does NOT claim
+## And the count IS a wall: -45% to -78% on the receive drain
 
-A count is not a wall. 9.3 million fewer element copies is an exact number and a real saving, but
-this ticket does not convert it into seconds, and the 1.6-1.9x pricing multiplier is not yet
-re-measured. The honest next step is a same-day priced-vs-unpriced control at production scale, or
-a traced capture with `t_inbound` carved — the instrument now supports both.
+Measured after the fact, because a count is not a wall until someone converts it. PAIRED within one
+process, alternating eager and view so host drift cancels -- the only kind of wall comparison this
+repo trusts, since an identical command has run 3.4x apart on two occasions
+(`inbound-optimization` ticket 31 section 5). Timing `SiteReceiving.receive` only, so pick and
+put-away work cannot dilute the signal.
+
+| arm | eager drain | view drain | paired median delta | n |
+|---|---|---|---|---|
+| `rank_labor` | 0.069 s | 0.042 s | **-45.5%** | 4 |
+| `rank_cartlabor` | 0.058 s | 0.027 s | **-49.3%** | 5 |
+| `rank_minlabor` | 0.353 s | 0.090 s | **-77.7%** | 5 |
+
+Every individual pair was negative, not just the medians.
+
+**`rank_minlabor` is the headline, and it is the arm that matters most.** Its eager drain was FIVE
+TIMES the other two -- `_copy_of_lists_by_key` walks a dict of dicts of lists, the most expensive
+of the three shapes -- and after the fix it sits alongside them. It is also fulfillment's **#1**
+arm and store's **#2** in `PHASE2_PAIRS`, so the campaign runs it on both channels.
+
+Read the -45% and -49% as FLOORS rather than estimates: the timed span includes
+`SpaceTimeline.freeze` and `compose_site_view`, which this change does not touch, so the
+evaluator's own share improved by more than the drain did.
+
+## What this STILL does not claim
+
+* **Scale.** 600 SKUs, 8 batches, meso fixture. The absolute drains are tens of milliseconds, near
+  the edge of timing resolution, and the eager spread is wide (0.050-0.078 s on `rank_labor`). The
+  direction and rough magnitude are established; the production-scale number is not.
+* **The campaign multiplier.** The 1.6-1.9x priced/unpriced ratio is not re-measured. That needs a
+  same-day priced-vs-unpriced control at campaign shape, and it is the number that would actually
+  restate phase 2's 8.6-9.7 h sizing.
+* **`rank_random`** gets correctness and no win, by construction -- it unions
+  `aisle_idx_sets.values()`, which materializes. Unchanged and expected.
