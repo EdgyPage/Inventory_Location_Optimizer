@@ -90,6 +90,62 @@ campaign scale the signal is 950 s against a ~20 s wall variance.
   sizing is low by roughly 1.85x, i.e. ~16-18 h at 4 workers — but that arithmetic assumes the
   ratio transfers across the two differences above, and that assumption is not measured.
 
+## The per-open cost IS the candidate list, and it is measured
+
+The fit says seconds-per-open ~ T^1.46. That could have been the candidate list, the view
+construction, or something else in `pool_factory`. Counting the candidates handed to each
+`_make_pool` settles it without a tracer (tracing costs ~40x wall; a traced 400k run would be
+about fifteen hours):
+
+| skus | cands per open | T |
+|---|---|---|
+| 3,000 | 864 | 1.00 |
+| 100,000 | 3,166 | 4.36 |
+| 400,000 | **13,621** | 12.97 |
+
+Candidates-per-open grows as **T^1.34**, against a measured seconds-per-open of **T^1.46**.
+The two agree closely enough that the candidate list is the cost: `_make_pool` hands `cands`
+straight to `pool_factory(list(cands), ...)`, which copies, buckets and heapifies every
+element, and the copy-on-write change already made the view construction O(touched aisles).
+
+An arithmetic warning, because it nearly went in the other direction here: 24,912 opens over
+3,262 `place_load` calls is 7.64 opens each, and 948.8 s / 24,912 is 38.4 ms per open, and
+7.64 x 38.4 ms reproduces 291 ms per `place_load` exactly. That identity proves NOTHING -- it
+is the same total divided two ways, and it would hold whether or not a single millisecond were
+spent inside an open. The candidate count is the evidence; the identity is not.
+
+**The oversize is ~4,500x.** A pool opens over 13,621 candidates to seat a median of 3 units
+(ticket 10 measured the median k, and it does not grow with the catalogue -- what grows is the
+tier it is drawn from).
+
+**This run also reproduced the top rung a THIRD time**, and did so while an unrelated
+architecture rebuild had the host: drain 948.829 s against 956.165 s (0.8% apart), with every
+count identical -- 3,262 `place_load`, 24,912 pools, T = 12.97, max depth 23. Counts are
+deterministic and immune to contention, which is what makes them safe to collect on a busy
+host when a wall is not.
+
+## Two ways to take the per-open term, and only one of them needs a scope decision
+
+Ticket 10 built the candidate slice, proved it byte-identical on all four pool adapters, and
+reverted it. Re-reading that ticket against these numbers, there are two distinct options and
+they were somewhat conflated:
+
+**(a) The slice AS BUILT, memo and all, lives entirely inside `Inbound/gain.py`.** It needs NO
+scope change. It was rejected for regressing 600 SKUs (+128.3%) and 2,000 SKUs (+20.5%) while
+winning at 6,000 (-48.1%) -- and nothing in production or in the campaign runs at 600-2,000
+SKUs. What lives there is test fixtures and the meso calltree ladder, so the cost of landing it
+is a slower small-fixture tier, not a slower run.
+
+**(b) The one-pass version, bucket-and-select with no memo,** is the one ticket 10 calls "a win
+at every scale, with no constant to tune" -- and the one that needs the pool to accept
+pre-bucketed input, a signature change in `Assignment_Functions` touching the restock path this
+effort kept out of scope.
+
+**Neither should be landed on this ticket's evidence alone.** What is measured here is the
+candidate COUNT and its exponent. What the slice would actually save at 400,000 is not measured
+-- ticket 10's 18.8x candidate reduction was measured at meso scale, and its effect on the WALL
+flipped sign twice across one 10x range. The honest next step is to rebuild (a), which is
+self-contained, and measure it at 100k and 400k on this ladder before anyone argues about (b).
 ## Consequence for ticket 10
 
 The candidate slice was rejected on a range topping out at 6,000 SKUs / 5,878 opens, where it was

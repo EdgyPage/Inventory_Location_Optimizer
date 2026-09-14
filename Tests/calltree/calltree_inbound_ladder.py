@@ -101,7 +101,7 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     import calltree_scenarios as cs
 
     stats = {'entries': 0, 'place_loads': 0, 'pools': 0, 'drain_s': 0.0,
-             'depths': [], 'deadline': None}
+             'cands': 0, 'depths': [], 'deadline': None}
     _po = gain.plan_order
     _pl = gain._Evaluator.place_load
     _mp = gain._Evaluator._make_pool
@@ -116,9 +116,16 @@ def _one(skus: int, batches: int, arm: str, policy: str,
         stats['place_loads'] += 1
         return _pl(self, *a, **k)
 
-    def mp(self, *a, **k):
+    def mp(self, cands, *a, **k):
         stats['pools'] += 1
-        return _mp(self, *a, **k)
+        # What a pool open COSTS is what its candidate list costs: `_make_pool` hands
+        # `cands` straight to `pool_factory(list(cands), ...)`, which copies, buckets and
+        # heapifies every element. The fitted seconds-per-open ~ T^1.46 has to live here
+        # or in the view construction, and the views are O(touched aisles) since the
+        # copy-on-write change. So this counter prices the candidate slice (ticket 10) at
+        # any scale without rebuilding it.
+        stats['cands'] += len(cands)
+        return _mp(self, cands, *a, **k)
 
     def recv(self, leaves, deadline=None, *a, **k):
         stats['deadline'] = deadline
@@ -158,6 +165,7 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     stats['T'] = (-1 + math.sqrt(1 + 4 * r)) / 2 if r else 0.0
     stats['per_entry'] = r
     stats['max_depth'] = max(stats['depths']) if stats['depths'] else 0
+    stats['cands_per_open'] = (stats['cands'] / stats['pools']) if stats['pools'] else 0.0
     stats['catalogue'] = (res or {}).get('catalogue')
     stats['catalogue_skus'] = (res or {}).get('catalogue_skus')
     stats['saturated'] = bool((res or {}).get('saturated'))
@@ -256,7 +264,7 @@ def main() -> None:
     # rung then truncates the SAME catalogue -- which is what makes the rungs comparable.
     floor = max(a.rungs)
     print(f'{"skus":>8} {"pole":>10} {"drain_s":>9} {"wall_s":>8} {"entries":>8} '
-          f'{"place_ld":>9} {"pools":>9} {"T":>6} {"maxdep":>7} '
+          f'{"place_ld":>9} {"pools":>9} {"cnd/open":>9} {"T":>6} {"maxdep":>7} '
           f'{"crew":>5} {"rho":>6} {"deadline":>9}')
     rows = []
     _announced = False
@@ -272,6 +280,7 @@ def main() -> None:
                 _announced = True
             print(f'{n:>8,} {pole:>10} {s["drain_s"]:>9.3f} {s["wall_s"]:>8.1f} '
                   f'{s["entries"]:>8,} {s["place_loads"]:>9,} {s["pools"]:>9,} '
+                  f'{s.get("cands_per_open", 0.0):>9,.0f} '
                   f'{s["T"]:>6.2f} {s["max_depth"]:>7} '
                   f'{str(s.get("recv_crew") or "-"):>5} '
                   f'{_fmt_rho(s.get("rho_recv")):>6} '
