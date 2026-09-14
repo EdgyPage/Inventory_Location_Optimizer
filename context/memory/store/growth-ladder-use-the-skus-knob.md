@@ -37,3 +37,14 @@ Two things the re-measurement added. The **floor**, not the split, is what creat
 localized to the PLACEMENT path (`height_multiplier` k=1.68, `Aisle.Bin.y_phys` k=1.67), not the
 held list. That is a separate, unverified finding. Full detail in `docs/design/STRESS_TEST_FINDINGS.md`. Related: [[calltree-framework-first-findings]],
 [[hand-run-test-tiers-rot-silently]].
+
+**AMENDED 2026-09-14 — this is right about the PUT queue and does NOT cover the receiving yard.**
+`inbound-performance` measured the yard (`Inbound/`) as an **unstable** queue on the `batches`
+knob at a non-campaign whistle setting: 10→40 batches took yard depth 3→391 and pool opens
+584→3.48 million, no saturation at all. The resolution is not "use `skus` instead" — it's that T
+(the yard's growth quantity) is a queueing quantity in ρ (drain load ÷ crew capacity), and ρ(N) is
+a **non-monotone sawtooth** driven by `crew_size`'s `ceil` (`Optimization/simconfig/staffing.py`),
+not a function you can grow smoothly on either knob. Fitting T against catalogue size, or against
+batch count outside its stable regime, is not a fit. See
+`docs/design/INBOUND_PERF_FINDINGS.md` §4 for the full mechanism and the campaign's measured
+ρ_recv = 0.819 (stable, first reaching that band near 160k SKUs).

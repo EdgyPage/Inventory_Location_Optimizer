@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 36cab001-d78e-4fed-b3d8-2a90d4dde5c3
-  modified: 2026-08-20T23:12:13.326Z
+  modified: 2026-09-14T14:22:16.123Z
 ---
 
 Tests/calltree/ (2026-08-18) is the runtime measurement framework: deterministic tracer
@@ -69,6 +69,12 @@ open conviction, corrected suspect list.
   tracked objects = cheaper gen2 walks).
 - Instrumentation cost calibration: clean tiny samples span 412-428s across a day (±2%);
   never compare cross-day walls without a same-day control.
+- **2026-09-14: host contention, not just day, corrupts wall comparisons.** A repeat
+  `calltree_inbound_ladder.py` run concurrent with a 13-minute CPU-bound pytest read
+  72.1/91.4/81.4s for identical unpriced work — bigger than the ~5.8s pricing cost the run was
+  trying to measure. Section timings (e.g. the drain column) survived the contention and
+  reproduced to 3%; the run wall did not. Compare section-level instrumentation, not run wall,
+  when a quiet host can't be guaranteed. See [[inbound-pool-adapter-multiplier-is-not-13x]].
 
 **2026-08-19 six-phase campaign landed (commits 824375c, bdcd1c3, 10ecd39, f9979c3, f30cf41,
 126282c, 831571f, b91cf38, fix 1375cbb) — RESOLVES the two verdicts above; every phase
