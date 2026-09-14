@@ -83,6 +83,7 @@ from Warehouse.layout.Storage_Primitive import (
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
+from Optimization.simdriver.section_timers import SectionTimers
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
 # The ONE definition of a drained day (labour-only); the ledger's `drained` is written with it.
 from Optimization.simconfig.equilibrium import is_drained as _is_drained
@@ -1892,17 +1893,24 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     placed_ckpt        = 0   # units placed this window (P = reorder placements)
     dur_sum_ckpt   = 0.0
     dur_count_ckpt = 0
-    p1_sum_ckpt    = 0.0
-    p2_sum_ckpt    = 0.0
     # ── per-section wall timers (diagnostic): where each checkpoint's wall goes ──
-    t_reord_ckpt   = 0.0   # reloader.reload + check_reorders + pop_churn + tracked_sigma_fd
-    t_build_ckpt   = 0.0   # Batch(...) + Task.from_batch(...)  (= smpl + task below)
-    t_sample_ckpt  = 0.0   # Batch(...) order-sampling only (the precompute/dedup target)
-    t_task_ckpt    = 0.0   # Task.from_batch(...) only (sequential — reads live placement)
-    t_pre_ckpt     = 0.0   # fused_pre_snapshot + snapshot_aisle_metrics + keyframe write
-    t_sim_ckpt     = 0.0   # DeferredPickSimulation construct + run (p1/p2 = internal split)
-    t_extract_ckpt = 0.0   # extract_batch/task/picker/picks
-    t_inv_ckpt     = 0.0   # bin accounting: the conservation ledger (was: snapshot_bin_inventory)
+    # ONE object, not twenty-three closure variables.  `timers.add(section, dt)` inside
+    # the loop, `timers.window(s)` for the checkpoint log line, `timers.roll()` to close
+    # a window, `timers.totals()` for the result payload.  A total ALWAYS includes the
+    # open window, so the final one cannot be lost by a fold that never runs -- the
+    # defect this shape retires.  Sections, in log-line order:
+    #   reord   reloader.reload + check_reorders + pop_churn + tracked_sigma_fd
+    #   build   Batch(...) + Task.from_batch(...)  (= sample + task)
+    #   sample  Batch(...) order-sampling only (the precompute/dedup target)
+    #   task    Task.from_batch(...) only (sequential — reads live placement)
+    #   kf      the keyframe sqlite write (a sub-span of pre, not a partition member)
+    #   pre     fused_pre_snapshot + snapshot_aisle_metrics + keyframe write
+    #   sim     DeferredPickSimulation construct + run (p1/p2 = its internal split)
+    #   extract extract_batch/task/picker/picks
+    #   inv     bin accounting: the conservation ledger (was: snapshot_bin_inventory)
+    #   save    the checkpoint DB write -- timed inside the checkpoint block, so it is
+    #           the one section on which no window is ever opened
+    timers = SectionTimers()
 
     # ── conservation ledger ───────────────────────────────────────────────────
     # The runtime proof that the bin-mutation log is complete.  Over the whole arm,
@@ -1924,13 +1932,6 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     # Whole-arm section totals (never reset) → returned so the PARENT writes the runtime-metrics DB
     # (single writer, no SQLite contention).  These pinpoint hot sections (e.g. a reorder/reslot
     # dominance = the recurring valid-aisle recompute suspicion).
-    t_reord_run = t_build_run = t_pre_run = t_sim_run = t_extract_run = t_inv_run = t_save_run = 0.0
-    # Finer whole-arm splits, persisted since the runtime_metrics column add: the build
-    # sub-split (smpl/task), the keyframe write (a sub-span of t_pre — overlay, not a new
-    # partition member), and fast_pick's phase split (previously per-checkpoint only, the
-    # final unflushed window silently discarded).
-    t_sample_run = t_task_run = t_kf_run = p1_run = p2_run = 0.0
-    t_kf_ckpt = 0.0
     last_dur       = 0.0
 
     # ── freeze the startup graph out of every future collection ──────────────
@@ -2092,12 +2093,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         enclosing setup scope exactly as it was between iterations."""
         nonlocal _d, _pending, _q, _shift_cut_today, _shift_last_finish, _shift_prev_day
         nonlocal _shift_standing, arm_clock, cons_breaks, cons_picked, cons_residual
-        nonlocal demand_breaks, dur_count_ckpt, dur_sum_ckpt, last_dur, p1_run, p1_sum_ckpt
-        nonlocal p2_run, p2_sum_ckpt, placed_ckpt, put_clock, recv_clock, reorders_ckpt, skipped
-        nonlocal t_build_ckpt, t_build_run, t_ckpt, t_extract_ckpt, t_extract_run, t_inv_ckpt
-        nonlocal t_inv_run, t_kf_ckpt, t_kf_run, t_pre_ckpt, t_pre_run, t_reord_ckpt
-        nonlocal t_reord_run, t_sample_ckpt, t_sample_run, t_save_run, t_sim_ckpt, t_sim_run
-        nonlocal t_task_ckpt, t_task_run, units_ordered_ckpt
+        nonlocal demand_breaks, dur_count_ckpt, dur_sum_ckpt, last_dur, placed_ckpt
+        nonlocal put_clock, recv_clock, reorders_ckpt, skipped, t_ckpt, units_ordered_ckpt
         # The six the replenishment half bound; see the seeds above `_replenish`.
         nonlocal _batch_early, _day_end, _late, _put_base, _t, triggered
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
@@ -2247,7 +2244,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 # as an unpooled leaf leaves `recv_clock` alone.
                 site.coord.note_records(
                     mgr, recv_clock if (_recv_recs or _repack_recs) else None)
-        _now = time.perf_counter(); t_reord_ckpt += _now - _t; _t = _now
+        _now = time.perf_counter(); timers.add('reord', _now - _t); _t = _now
 
         # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of
         # this warehouse family sees the identical sequence.  It is precomputed ONCE per family and
@@ -2259,7 +2256,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                     else batches[i] if batches is not None
                     else Batch(batch_cfg, inventory, affinity=affinity,
                                rng=random.Random(seed_batches + i)))
-        _now = time.perf_counter(); _dt = _now - _t; t_sample_ckpt += _dt; t_build_ckpt += _dt; _t = _now
+        _now = time.perf_counter(); _dt = _now - _t
+        timers.add('sample', _dt); timers.add('build', _dt); _t = _now
         # `_shortfall` is demand NO BIN could satisfy -- the pre-simulation cause, and the
         # only one knowable before the sim runs.  It rolls over with the other two below.
         # EFFECTIVE demand.  `batches[i]` is a SHARED pickle across every arm of the
@@ -2275,7 +2273,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             _eff_batch = batch
         tasks, _shortfall = Task.from_batch_with_shortfall(
             _eff_batch, warehouse, manager=mgr, cart=pick_cfg.cart)
-        _now = time.perf_counter(); _dt = _now - _t; t_task_ckpt += _dt; t_build_ckpt += _dt; _t = _now
+        _now = time.perf_counter(); _dt = _now - _t
+        timers.add('task', _dt); timers.add('build', _dt); _t = _now
 
         # One fused pass over the occupied bins (bin qtys before picks): the occupancy
         # term for the conservation ledger below always, keyframe row dicts only when
@@ -2297,8 +2296,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         if _want_kf:
             _k0 = time.perf_counter()
             save_bin_keyframe(kf_db, run_id, i, kf_rows)
-            t_kf_ckpt += time.perf_counter() - _k0
-        _now = time.perf_counter(); t_pre_ckpt += _now - _t; _t = _now
+            timers.add('kf', time.perf_counter() - _k0)
+        _now = time.perf_counter(); timers.add('pre', _now - _t); _t = _now
 
         # ── conservation ledger ────────────────────────────────────────────────
         # Σplaced − Σevicted − Σpicked must equal the units actually in bins.  `occupancy`
@@ -2332,7 +2331,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 f'reconstruction for this arm is no longer exact — see '
                 f'Optimization/metrics/bin_recorder.py.')
             cons_residual = residual
-        _now = time.perf_counter(); t_inv_ckpt += _now - _t; _t = _now
+        _now = time.perf_counter(); timers.add('inv', _now - _t); _t = _now
 
         if not tasks:
             # A batch that produced no tasks still HAPPENED: `check_reorders` ran above and
@@ -2439,9 +2438,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                                                  start_times=[arm_clock] * k_pickers,
                                                  day_end=_day_end)
         events          = sim.run()
-        p1_sum_ckpt    += sim.phase1_time
-        p2_sum_ckpt    += sim.phase2_time
-        _now = time.perf_counter(); t_sim_ckpt += _now - _t; _t = _now
+        timers.add('p1', sim.phase1_time)
+        timers.add('p2', sim.phase2_time)
+        _now = time.perf_counter(); timers.add('sim', _now - _t); _t = _now
 
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
         bs.sigma_fd           = batch_sigma
@@ -2534,13 +2533,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                                  run_id=run_id, lift_cache=lift_cache)
         pev = extract_picker_events(events, batch_id=i, run_id=run_id)
         picks_b = extract_picks(events, batch_id=i, run_id=run_id)
-        _now = time.perf_counter(); t_extract_ckpt += _now - _t; _t = _now
+        _now = time.perf_counter(); timers.add('extract', _now - _t); _t = _now
 
         # Close this batch's pick term.  `picks_b` is what the DB receives, so the ledger
         # audits the LOG rather than the manager's private counters — a pick the record
         # over- or under-states shows up here even though the sim itself is self-consistent.
         cons_picked += sum(p.quantity for p in picks_b)
-        _now = time.perf_counter(); t_inv_ckpt += _now - _t
+        _now = time.perf_counter(); timers.add('inv', _now - _t)
         pb.append(bs)
         pt.extend(ts)
         pe.extend(pev)
@@ -2651,7 +2650,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             ckpt_rate = dur_count_ckpt / ckpt_wall
             avg_dur   = dur_sum_ckpt / dur_count_ckpt if dur_count_ckpt else 0.0
             cur_fill  = len(mgr._unavailable) / max(denom, 1)   # denom = THIS channel's regime bins
-            p1_frac   = p1_sum_ckpt / (p1_sum_ckpt + p2_sum_ckpt + 1e-9) * 100
+            _p1w, _p2w = timers.window('p1'), timers.window('p2')
+            p1_frac   = _p1w / (_p1w + _p2w + 1e-9) * 100
 
             log.info(
                 f'  Batch {i+1:4d}/{n_batches}'
@@ -2663,33 +2663,23 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 f'  reorder={reorders_ckpt}sku {units_ordered_ckpt}u ord {placed_ckpt}u plc'
                 f'  lead_q={mgr.lead_queue_depth if site is None else _tx_depth}'
                 f'({mgr.in_transit_qty if site is None else _tx_qty}u)'
-                f'  p1={p1_sum_ckpt:.2f}s ({p1_frac:.0f}%)'
-                f'  p2={p2_sum_ckpt:.2f}s'
+                f'  p1={_p1w:.2f}s ({p1_frac:.0f}%)'
+                f'  p2={_p2w:.2f}s'
                 f'  wall={wall:.0f}s'
                 f'  db={t_save:.2f}s'
                 # per-section breakdown of this checkpoint's batch-loop wall
-                f'  | reord={t_reord_ckpt:.1f}s build={t_build_ckpt:.1f}s'
-                f' (smpl={t_sample_ckpt:.1f}s task={t_task_ckpt:.1f}s)'
-                f' pre={t_pre_ckpt:.1f}s sim={t_sim_ckpt:.1f}s'
-                f' extr={t_extract_ckpt:.1f}s cons={t_inv_ckpt:.1f}s'
+                f'  | reord={timers.window("reord"):.1f}s build={timers.window("build"):.1f}s'
+                f' (smpl={timers.window("sample"):.1f}s task={timers.window("task"):.1f}s)'
+                f' pre={timers.window("pre"):.1f}s sim={timers.window("sim"):.1f}s'
+                f' extr={timers.window("extract"):.1f}s cons={timers.window("inv"):.1f}s'
                 # overlay metrics (kf ⊂ pre; gc overlaps every section) — appended AFTER
                 # the partition tokens so bench_sections' unanchored _SEC_RE still matches
-                f' kf={t_kf_ckpt:.1f}s gc={_GC_STATE["pause_s"]:.2f}s'
+                f' kf={timers.window("kf"):.1f}s gc={_GC_STATE["pause_s"]:.2f}s'
             )
 
-            # fold this checkpoint window's section times into the whole-arm totals before reset
-            t_reord_run   += t_reord_ckpt
-            t_build_run   += t_build_ckpt
-            t_pre_run     += t_pre_ckpt
-            t_sim_run     += t_sim_ckpt
-            t_extract_run += t_extract_ckpt
-            t_inv_run     += t_inv_ckpt
-            t_save_run    += t_save
-            t_sample_run  += t_sample_ckpt
-            t_task_run    += t_task_ckpt
-            t_kf_run      += t_kf_ckpt
-            p1_run        += p1_sum_ckpt
-            p2_run        += p2_sum_ckpt
+            # The DB write has no window of its own (it is timed here, inside the
+            # checkpoint block), so it is added straight to the section about to close.
+            timers.add('save', t_save)
 
             pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
             pqs.clear(); cov.clear()
@@ -2700,17 +2690,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             placed_ckpt        = 0
             dur_sum_ckpt   = 0.0
             dur_count_ckpt = 0
-            p1_sum_ckpt    = 0.0
-            p2_sum_ckpt    = 0.0
-            t_reord_ckpt   = 0.0
-            t_build_ckpt   = 0.0
-            t_sample_ckpt  = 0.0
-            t_task_ckpt    = 0.0
-            t_kf_ckpt      = 0.0
-            t_pre_ckpt     = 0.0
-            t_sim_ckpt     = 0.0
-            t_extract_ckpt = 0.0
-            t_inv_ckpt     = 0.0
+            # Close the window for the next log line.  The whole-arm totals already
+            # contain it -- `roll` moves no number anybody is waiting on.
+            timers.roll()
             t_ckpt         = time.perf_counter()
 
 
@@ -2718,21 +2700,10 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         """The run-end half: flush the unflushed window, close the last day, censor the
         standing yard, release the graph, and return this leaf's result dict."""
         nonlocal affinity, batches, bin_rec, ctx, freq_by_idx, freq_by_sku, inventory, mgr
-        nonlocal p1_run, p2_run, qty_by_sku, reloader, t_build_run, t_extract_run, t_inv_run
-        nonlocal t_kf_run, t_pre_run, t_reord_run, t_sample_run, t_save_run, t_sim_run
-        nonlocal t_task_run, warehouse
-        # fold the final (unflushed) window's section times into the whole-arm totals
-        t_reord_run   += t_reord_ckpt
-        t_build_run   += t_build_ckpt
-        t_pre_run     += t_pre_ckpt
-        t_sim_run     += t_sim_ckpt
-        t_extract_run += t_extract_ckpt
-        t_inv_run     += t_inv_ckpt
-        t_sample_run  += t_sample_ckpt
-        t_task_run    += t_task_ckpt
-        t_kf_run      += t_kf_ckpt
-        p1_run        += p1_sum_ckpt
-        p2_run        += p2_sum_ckpt
+        nonlocal qty_by_sku, reloader, warehouse
+        # NO FOLD HERE.  The final unflushed window is already in every total (that is
+        # `SectionTimers`' one design decision), so this run-end writer has nothing to
+        # forget -- which is exactly the defect the hand-kept form kept re-introducing.
         if pb:
             log.info(f'  Flushing final {len(pb)} batches to DB...')
             _ts_final = time.perf_counter()
@@ -2744,7 +2715,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 aisle_metrics=pm, reorder_queue=pq, work_events=we,
                 put_queue_state=pqs, carryover=cov,
                 yard_trailers=yt, yard_drains=yd, shift_days=sd, free_index=fi)
-            t_save_run += time.perf_counter() - _ts_final
+            timers.add('save', time.perf_counter() - _ts_final)
 
         # THE FINAL DAY'S CLOSE-OUT, deliberately OUTSIDE the `if pb:` above (same reasoning as
         # the censored yard tail below).  The ledger closes a day at the first batch of the NEXT
@@ -2866,28 +2837,17 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             't_precompute': t_precompute,   # strat.build(): the map family's offline solve
             'map_lap_pct' : map_lap_pct,    # None on every non-map arm
             'expected_pick': expected_pick, # the arm's expected day (era only; None flag-off)
-            't_reord'   : t_reord_run,
-            't_build'   : t_build_run,
-            't_sample'  : t_sample_run,     # build sub-split: batch sampling
-            't_task'    : t_task_run,       # build sub-split: task construction
-            't_kf'      : t_kf_run,         # sub-span of t_pre: the keyframe sqlite write
-            't_pre'     : t_pre_run,
-            't_sim'     : t_sim_run,
-            'p1_s'      : p1_run,           # fast_pick phase 1 (threaded picker compute)
-            'p2_s'      : p2_run,           # fast_pick phase 2 (sequential mutation apply)
-            't_extract' : t_extract_run,
+            # Every section's whole-arm total, under its runtime_metrics column name:
+            # t_reord/t_build/t_sample/t_task/t_kf/t_pre/t_sim/t_extract/t_inv/t_save
+            # plus the fast_pick phase split p1_s/p2_s.  One expansion rather than
+            # twelve lines that had to agree with three other places.
+            **timers.totals(),
             # end-of-arm memory observability (see the log line above; pause/census are
             # SIM_GC_DETAIL-gated — 0.0/None on a default run, by design)
             'gc_pause_s'  : _GC_STATE['pause_s'],
             'gc_gen2'     : gc_gen2,
             'peak_rss_mib': peak_rss_mib,
             'live_objects': live_objects,
-            # runtime_metrics.inv_s.  Pre-log arms spent this on the bin_inventory snapshot; from
-            # here on it is the conservation ledger, which is ~1000x cheaper.  The column keeps its
-            # name so archived rows stay comparable to themselves — a renamed column would move the
-            # runtime_metrics schema id for a relabelling.
-            't_inv'     : t_inv_run,
-            't_save'    : t_save_run,
         }
 
 

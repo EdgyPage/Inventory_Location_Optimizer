@@ -151,14 +151,34 @@ def test_section_vocabulary_matches_strategy_runner():
     with open(src_path, encoding='utf-8') as fh:
         src = fh.read()
 
-    # Every t_* accumulator the worker keeps maps into our SECTIONS vocabulary
-    # (t_build is the derived sum of t_sample + t_task and deliberately not a section).
-    accs = set(re.findall(r't_(reord|build|sample|task|pre|sim|extract|inv)_ckpt', src))
-    assert accs, 'no section accumulators found in strategy_runner — regex or code moved'
-    expected = {name[2:] for name in ct.SECTIONS} | {'build'}
-    assert accs <= expected, f'strategy_runner grew unknown sections: {accs - expected}'
-    missing = (expected - {'build', 'save'}) - accs
-    assert not missing, f'strategy_runner lost sections the framework still maps: {missing}'
+    # The worker's vocabulary is a SYMBOL now, not twenty-three closure variables a regex
+    # had to recognise: `SectionTimers.SECTIONS`.  Resolved rather than scraped, so a
+    # section renamed in the product is a mismatch here instead of an empty regex match
+    # that used to read as "the code moved" and could just as easily have read as "no
+    # sections exist".
+    from Optimization.simdriver.section_timers import SectionTimers
+    accs = set(SectionTimers.SECTIONS)
+    assert accs, 'SectionTimers declares no sections'
+
+    traced = {name[2:] for name in ct.SECTIONS}       # the tracer's names, minus the t_
+    # Sections the WORKER keeps that the tracer deliberately does not map: t_build is the
+    # derived sum of sample + task; kf is a sub-span of pre (an overlay, not a partition
+    # member); p1/p2 are fast_pick's internal phase split, which the tracer sees inside
+    # t_sim rather than beside it.
+    OVERLAY = {'build', 'kf', 'p1', 'p2'}
+    assert traced <= accs, \
+        f'the framework maps sections the worker no longer keeps: {sorted(traced - accs)}'
+    assert accs - traced <= OVERLAY, \
+        f'strategy_runner grew unknown sections: {sorted(accs - traced - OVERLAY)}'
+
+    # RESOLVING THE NAME IS NOT ENOUGH -- the relationship has to hold.  A vocabulary the
+    # worker imports and never accumulates into would satisfy every assertion above while
+    # measuring nothing, which is the exact shape of defect this repo keeps finding in
+    # gates that only check that symbols exist.  So: every declared section must have a
+    # real `timers.add(...)` site in the batch loop.
+    for name in SectionTimers.SECTIONS:
+        assert f"timers.add('{name}'" in src, \
+            f'section {name!r} is declared but strategy_runner never accumulates into it'
 
     # The checkpoint log line still carries the tokens bench_sections/macro parse.
     # (t_inv logs as 'cons=' — the conservation ledger; bench_sections accepts both
