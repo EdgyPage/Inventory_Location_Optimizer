@@ -38,18 +38,41 @@ from Optimization.config.sim_config import CONFIG, INBOUND_KEYS, inbound_spec
 
 @pytest.fixture()
 def restore():
-    """CONFIG is mutated in place and shared; put it back however the test exits."""
-    before = {k: CONFIG['global'][k] for k in INBOUND_KEYS}
+    """CONFIG is mutated in place and shared; put it back however the test exits.
+
+    THE WHOLE GLOBAL BLOCK, not just `INBOUND_KEYS`.  The two tests that use this fixture
+    drive `run_analysis._apply_run_shape`, which restores a WHOLE recorded run shape — and a
+    spec that predates a key leaves that key `None`.  Restoring only the inbound family
+    therefore handed the rest of the session a CONFIG with 37 keys silently blanked
+    (`store_demand`, `coverage_days`, `first_time_confidence`, `put_crew_size`, every
+    `rho_*`/`s_*`/`f_*` …).
+
+    Nothing failed from it because `test_cli_surface` sorts before `test_inbound_params` and
+    the suite runs alphabetically — which is to say it was a landmine, not a bug, and the
+    difference was collection order.  `run_simulation._build_parser` reads CONFIG for its
+    defaults and raises `TypeError: unsupported format string passed to NoneType.__format__`
+    on a blanked key, so any later test that builds a parser would have hit it.
+    """
+    before = dict(CONFIG['global'])
     yield CONFIG['global']
+    CONFIG['global'].clear()
     CONFIG['global'].update(before)
 
 
 def _main_tree():
-    """`run_simulation.main` as an AST — the parser is built inline there."""
+    """`run_simulation._build_parser` as an AST — where the flags are registered.
+
+    This used to read `main`, which built the parser inline among 400 other lines.  The
+    parser is now its own function; the AST query is otherwise unchanged, and so is what it
+    finds.  (`Tests/unit/test_cli_surface.py` asks the built parser OBJECT the same kind of
+    question and is the stronger form where a keyword EXPRESSION is not what matters — here
+    it is: `default=CONFIG['global'][...]` is the invariant being checked, and the expression
+    is only visible in the source.)
+    """
     import Optimization.run_simulation as rs
     tree = ast.parse(inspect.getsource(rs))
     return next(n for n in ast.walk(tree)
-                if isinstance(n, ast.FunctionDef) and n.name == 'main')
+                if isinstance(n, ast.FunctionDef) and n.name == '_build_parser')
 
 
 def _add_arguments(fn):

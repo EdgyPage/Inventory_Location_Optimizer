@@ -450,16 +450,22 @@ def _check_era_flags(args, explicit: set) -> list[str]:
     return notes
 
 
-def main():
-    # FIRST statement in main, before the parser exists: `--help` is printed and exited from
-    # INSIDE parse_args, so anything placed after it never runs on that path.  U+2192 (in
-    # --s-composition's help) has no cp1252 mapping — unlike the em/en dashes and ellipses
-    # elsewhere here — so `--help` on a legacy console died with UnicodeEncodeError.
-    try:
-        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
-    except Exception:
-        pass
+def _build_parser() -> argparse.ArgumentParser:
+    """Every flag `run_simulation` accepts, and nothing else.
 
+    Split out of `main`, which was 875 lines holding four unrelated things: this parser, the
+    CONFIG override loop, the two contract prechecks, and the run.  Only the last three have
+    anything to do with each other.
+
+    DEFAULTS COME FROM `CONFIG`, NEVER FROM A LITERAL.  That is the invariant the whole
+    five-seam chain rests on -- a flag whose default were written out here would disagree
+    with `settings.py` the moment the setting moved, and the run would be shaped by
+    whichever of the two the reader happened to trust.  `Tests/unit/test_cli_surface.py`
+    checks the pairs against the live CONFIG rather than against this file's text.
+
+    Reads CONFIG; never writes it.  A parser can therefore be built by a test without
+    reshaping the run that follows.
+    """
     parser = argparse.ArgumentParser(
         description='Warehouse assignment comparison — uses the newest generated inventory+affinity pair.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -931,6 +937,21 @@ def main():
                              '(default) restarts it from batch 0 (bit-identical to an uncrashed run, '
                              "comparison-safe); 'batch' continues from its last checkpoint (faster, "
                              'but NOT bit-identical — un-replayed cumulative physical state).')
+    return parser
+
+
+
+def main():
+    # FIRST statement in main, before the parser exists: `--help` is printed and exited from
+    # INSIDE parse_args, so anything placed after it never runs on that path.  U+2192 (in
+    # --s-composition's help) has no cp1252 mapping — unlike the em/en dashes and ellipses
+    # elsewhere here — so `--help` on a legacy console died with UnicodeEncodeError.
+    try:
+        sys.stdout.reconfigure(errors='replace')   # tolerate non-utf-8 consoles (e.g. cp1252 → arrows)
+    except Exception:
+        pass
+
+    parser = _build_parser()
     args = parser.parse_args()
     # Flags the user explicitly typed (used so a saved run_spec is the base but an explicit
     # flag on a resume command still wins).
