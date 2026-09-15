@@ -20,15 +20,12 @@ to replace: `_copy_of_floats`, `_copy_of_sets`, `_copy_of_lists_by_key` produce 
 copy of the SAME live dict, so nothing here recomputes an expected value the way the code
 under test does.
 """
-import os
-import sys
 
+#: NO sys.path bootstrap here: `Tests/conftest.py` puts the repo root on the path for
+#: the whole suite, and CLAUDE.md names it and entry-script bootstraps as the only
+#: legal `sys.path.insert` sites.
 import pytest
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(os.path.dirname(_HERE))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
 
 from Inbound import gain
 

@@ -24,16 +24,13 @@ Those are the same number.  Old `t_x_ckpt` was the open window; new `window(x)` 
 window.  Also the same.  `test_the_totals_survive_a_forgotten_final_roll` is the one that
 would have failed on the old shape.
 """
+#: NO sys.path bootstrap here: `Tests/conftest.py` puts the repo root on the path for
+#: the whole suite, and CLAUDE.md names it and entry-script bootstraps as the only
+#: legal `sys.path.insert` sites.
 import math
-import os
-import sys
 
 import pytest
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(os.path.dirname(_HERE))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
 
 from Optimization.simdriver.section_timers import SectionTimers
 
@@ -203,15 +200,39 @@ def test_within_window_accumulation_also_matches_a_running_sum():
 def test_a_rolled_total_is_the_running_sum_of_windows_not_of_deltas():
     """The fold is (base + window), exactly as `t_x_run += t_x_ckpt` was — one add per roll.
 
-    Summing the individual deltas into the total instead would be a different association
-    and could differ in the last ulp.
+    TWO WINDOWS, NOT ONE, and that is the whole point of the test.  With a single window the
+    two candidate associations are ARITHMETICALLY IDENTICAL — folding the window gives
+    `0.0 + (a+b+c)` and summing the deltas gives `((0+a)+b)+c`, which is the same float — so
+    a one-window version of this test passes under either implementation and proves nothing.
+    It takes a second window for them to diverge.
+
+    The values below are chosen so they actually do diverge:
+
+        fold-windows : (0.0 + (1e-16 + 1.0)) + (-1.0 + 1e-16) == 1.1102230246251565e-16
+        sum-deltas   : (((0.0 + 1e-16) + 1.0) + -1.0) + 1e-16 == 1e-16
+
+    Asserted with `==`, deliberately, against this repo's "floats compare with a tolerance"
+    rule: the quantity under test IS the last-ulp behaviour, and a tolerance would admit
+    exactly the drift the test exists to forbid.  An archived `runtime_metrics` row has to
+    keep reproducing bit for bit.
     """
+    a, b, c, d = 1e-16, 1.0, -1.0, 1e-16
+
     st = SectionTimers()
-    a, b, c = 1e-16, 1.0, 1e-16
-    st.add('kf', a); st.add('kf', b); st.add('kf', c)
-    window = st.window('kf')
+    st.add('kf', a); st.add('kf', b)
+    w1 = st.window('kf')
     st.roll()
-    assert st.total('kf') == 0.0 + window
+    st.add('kf', c); st.add('kf', d)
+    w2 = st.window('kf')
+    st.roll()
+
+    fold_windows = (0.0 + w1) + w2
+    sum_deltas = (((0.0 + a) + b) + c) + d
+    assert fold_windows != sum_deltas, (
+        'the chosen values no longer distinguish the two associations, so this test cannot '
+        'tell them apart — pick values where they diverge')
+    assert st.total('kf') == fold_windows
+    assert st.total('kf') != sum_deltas
 
 
 # ── the object itself ─────────────────────────────────────────────────────────────

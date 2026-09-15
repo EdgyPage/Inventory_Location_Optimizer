@@ -26,17 +26,14 @@ flags exist and what they default to.  The existing files are left alone (each s
 something specific about its own knob, and rewriting seven of them is a different change);
 this one demonstrates the stronger form and pins the invariants that hold for all of them.
 """
+#: NO sys.path bootstrap here: `Tests/conftest.py` puts the repo root on the path for
+#: the whole suite, and CLAUDE.md names it and entry-script bootstraps as the only
+#: legal `sys.path.insert` sites.
 import argparse
 import inspect
-import os
-import sys
 
 import pytest
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(os.path.dirname(_HERE))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
 
 from Optimization import run_simulation as rs
 from Optimization.config.sim_config import CONFIG
