@@ -388,7 +388,7 @@ def _copy_of_lists_by_key(d):
 #: manager attribute -> the EAGER copy of it.  Kept as the frozen reference the copy-on-write
 #: views are tested against (`Tests/unit/test_gain_cow_equivalence.py`), and as the fallback a
 #: caller can ask for explicitly.  Production no longer opens pools over these -- see
-#: `AISLE_VIEWS` below and the measurement in front of `_CowFloats`.
+#: `AISLE_VIEWS` below and the measurement in front of `_CowView`.
 AISLE_COPIERS = {
     'aisle_sku_sets':      _copy_of_sets,
     'aisle_idx_sets':      _copy_of_sets,

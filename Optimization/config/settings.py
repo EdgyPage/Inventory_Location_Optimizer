@@ -39,8 +39,21 @@ for five more that were caught before they could.
 
 Adding a setting: declare it here, thread it into `CONFIG` below, and — if it changes
 results — give it a CLI flag, record it in the run spec, and restore it in both
-`_apply_run_spec` and `run_analysis._apply_run_shape`. Miss one of those four and the flag
-is accepted and then silently ignored; `Tests/unit/test_run_shaping_params.py` is the guard.
+`_apply_run_spec` and `run_analysis._apply_run_shape`.
+
+**And then the FIFTH seam, which this list used to omit:** carry the value in
+`workunits._shared`, the picklable payload a spawned worker actually receives. A worker
+re-imports this module and gets the PRISTINE defaults above — it never sees the parent's
+mutated `CONFIG` — so a setting that reaches all four sites and not the payload is accepted
+on the command line and then silently ignored for the whole run. That is not hypothetical:
+it is why the working day, the two crews, the crew price and the staffing record are each
+carried as an explicit payload key rather than re-derived worker-side.
+
+Miss any one of those five and the flag is accepted and then silently ignored.
+`Tests/unit/test_run_shaping_params.py` guards the first four per knob;
+`Tests/unit/test_config_reaches_the_worker.py` guards the fifth generically — it proves a
+worker cannot import this package at all, so a value it uses must have arrived in the
+payload.
 """
 from __future__ import annotations
 

@@ -806,18 +806,22 @@ class SiteReceiving:
                 f'the site dock drained against a deadline of {deadline!r} but site day '
                 f'{self._open} has {self._deadline!r} left; one crew on one dock works one '
                 f'day, and the base its rows are stamped from is that day start')
-        # ONE DRAIN IS ONE INSTANT.  The yard's calendar is the SITE's, so a drain stamped
-        # with two epochs would be two arrival calendars over one set of doors.  Checked
-        # rather than picked from the first leaf: the two leaves' pick crews genuinely
-        # release at different instants inside one site day, and it is the DRIVER's job to
-        # hand the site epoch down -- silently taking leaf[0]'s would make that a detail
-        # nobody could see was wrong.
 
     def _drain_epoch(self, leaves) -> float:
         """ONE DRAIN IS ONE INSTANT: the site epoch every decision in this drain reads.
 
-        Returns the leaves' shared `_now_s`, or 0.0 when none of them carries one.  The
-        agreement check is the point and it is stated in the block below.
+        Returns the leaves' shared `_now_s`, or 0.0 when none of them carries one.
+
+        The yard's calendar is the SITE's, so a drain stamped with two epochs would be two
+        arrival calendars over one set of doors.  CHECKED rather than picked from the first
+        leaf: the two leaves' pick crews genuinely release at different instants inside one
+        site day, and it is the DRIVER's job to hand the site epoch down -- silently taking
+        leaf[0]'s would make that a detail nobody could see was wrong.
+
+        The two refusals below are the same rule from both sides.  A leaf carrying no epoch
+        beside one that does is not "the same instant as the others", it is a leaf the driver
+        forgot; and two leaves whose epochs differ by more than `_EPOCH_TOL` would rank the
+        same yard against two different "now"s.
         """
         stamps = [lf._now_s for lf in leaves]
         if any(t is None for t in stamps) and any(t is not None for t in stamps):

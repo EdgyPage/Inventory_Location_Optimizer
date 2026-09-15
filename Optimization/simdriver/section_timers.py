@@ -36,18 +36,34 @@ test_section_timers.py` pins all three against a plain running sum.
 
 # ── the vocabulary is a contract ──────────────────────────────────────────────────
 
-`SECTIONS` names the twelve spans `runtime_metrics` has columns for, and the checkpoint
-log line prints the same words.  `Tests/calltree/test_calltree_anchors.py` pins that
-vocabulary from the other side (`SECTION_MAP` against the log line), so renaming a section
-here without renaming it there fails a gate instead of silently re-labelling an archived
-column.  `COLUMNS` holds the two that are not simply `t_<name>`: the fast_pick phase split
-kept its `p1_s` / `p2_s` names when it was promoted from per-checkpoint to whole-arm.
+`SECTIONS` names the twelve spans `runtime_metrics` has columns for.  It is NOT the
+checkpoint log line's vocabulary and NOT its order: that line prints `smpl=`, `extr=` and
+`cons=` for `sample`, `extract` and `inv`, and it puts `kf=` last where this tuple has it
+fifth.  Three spellings of the same span therefore coexist on purpose — the accumulator's
+key, the log line's token, and the DB column — and only two of the three are contracts.
+
+The DB column is the one that must never move: `COLUMNS` holds the two that are not simply
+`t_<name>` (the fast_pick phase split kept its `p1_s` / `p2_s` names when it was promoted
+from per-checkpoint to whole-arm), and a renamed column would move the `runtime_metrics`
+schema id for a relabelling, breaking archived rows' comparability with themselves.
+
+`Tests/calltree/test_calltree_anchors.py` pins the vocabulary from the other side —
+`SECTION_MAP` against this tuple, plus a check that every declared section has a real
+`timers.add(...)` site — so renaming a section here without renaming it there fails a gate
+rather than silently re-labelling an archived column.
 """
 from __future__ import annotations
 
-#: The twelve spans, in the order the checkpoint log line prints them.  `save` is here
-#: even though the caller never opens a window on it (see the module docstring), so the
-#: result payload is one loop instead of eleven sections plus a special case.
+#: The twelve spans.  The order is this tuple's own and matches NEITHER the checkpoint log
+#: line nor `runtime_metrics`' column order — the log line prints reord, build, smpl, task,
+#: pre, sim, extr, cons and puts kf last (p1/p2/db come earlier still), so do not read this
+#: as a rendering order.  The NAMES are not the log line's words either: `sample`, `extract`
+#: and `inv` print as `smpl=`, `extr=` and `cons=`.  These are the accumulator's own keys,
+#: and the only contract on them is that `COLUMNS`/`t_<name>` maps each to its
+#: `runtime_metrics` column (`Tests/unit/test_section_timers.py` pins the mapping, and
+#: `Tests/calltree/test_calltree_anchors.py` pins them against the tracer's vocabulary).
+#: `save` is here even though the caller never opens a window on it (see the module
+#: docstring), so the result payload is one loop instead of eleven sections plus a case.
 SECTIONS: tuple = ('reord', 'build', 'sample', 'task', 'kf', 'pre', 'sim',
                    'extract', 'inv', 'save', 'p1', 'p2')
 

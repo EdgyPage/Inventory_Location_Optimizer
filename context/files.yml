@@ -3542,10 +3542,14 @@ files:
     key_symbols:
       - {name: "PARENT_ONLY", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "const"}
       - {name: "GATE_ON", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "const"}
+      - {name: "pristine_config", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_worker_module_cannot_reach_sim_config", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_probe_would_notice_a_leak", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_domain_packages_never_read_config", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
+      - {name: "test_the_domain_guard_catches_all_three_import_spellings", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_every_spec_accessor_is_either_in_the_payload_or_declared_parent_only", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
+      - {name: "test_the_payload_check_reads_the_payload_and_not_the_whole_module", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
+      - {name: "test_the_payload_check_refuses_a_module_with_no_payload", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_parent_only_names_real_accessors_with_real_reasons", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_payload_is_picklable_because_a_worker_is_spawned_not_forked", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_accessor_reads_config_at_call_time", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
@@ -6065,7 +6069,7 @@ files:
     key_symbols: []
     notes: ""
   "Warehouse/inventory/Inventory_Management.py":
-    purpose: "the Inventory_Manager placement engine: assignment-driven bin placement composed from the planning/optimal/reorder mixins."
+    purpose: "the Inventory_Manager placement engine: assignment-driven bin placement, composed from the planning/optimal/reorder/zoning mixins. The two per-band index mirrors (_index_add/_index_remove) stay inline here rather than in ZoningMixin because they run once per bin mutation."
     layer: "wh_inventory"
     key_symbols:
       - {name: "Inventory_Manager", file: "Warehouse/inventory/Inventory_Management.py", kind: "class"}
