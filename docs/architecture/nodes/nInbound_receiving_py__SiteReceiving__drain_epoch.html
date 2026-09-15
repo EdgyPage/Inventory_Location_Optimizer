@@ -17,8 +17,18 @@
 <pre class="sig"><code>def _drain_epoch(self, leaves) -&gt; float</code></pre>
 <section class="doc">ONE DRAIN IS ONE INSTANT: the site epoch every decision in this drain reads.
 
-Returns the leaves&#x27; shared `_now_s`, or 0.0 when none of them carries one.  The
-agreement check is the point and it is stated in the block below.</section>
+Returns the leaves&#x27; shared `_now_s`, or 0.0 when none of them carries one.
+
+The yard&#x27;s calendar is the SITE&#x27;s, so a drain stamped with two epochs would be two
+arrival calendars over one set of doors.  CHECKED rather than picked from the first
+leaf: the two leaves&#x27; pick crews genuinely release at different instants inside one
+site day, and it is the DRIVER&#x27;s job to hand the site epoch down -- silently taking
+leaf[0]&#x27;s would make that a detail nobody could see was wrong.
+
+The two refusals below are the same rule from both sides.  A leaf carrying no epoch
+beside one that does is not &quot;the same instant as the others&quot;, it is a leaf the driver
+forgot; and two leaves whose epochs differ by more than `_EPOCH_TOL` would rank the
+same yard against two different &quot;now&quot;s.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving__drain_epoch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20_drain_epoch">Source ↗</a></p>
 </article>
