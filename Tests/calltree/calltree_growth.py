@@ -409,6 +409,26 @@ CONFIGS: dict[str, LadderConfig] = {
     'none': LadderConfig(
         why='plain size ladder; the put-away and receiving machinery never executes',
         overlay={}),
+
+    # -- the ASSIGNMENT-FAMILY cells ------------------------------------------------
+    # Every other config here runs `DEFAULT_STRATEGY` ('uni_rank_labor_norsl'), which is a
+    # TRAVEL-BALANCED arm.  So `_RankedAssignPool` -- the pool behind tmin, tmax,
+    # rank_random and rank_popularity -- was structurally unreachable from every rung, and
+    # its per-placement `min(head_D, key=...)` scan over every aisle appeared in no offender
+    # table at all.  That is not evidence it is cheap; it is the same blind spot that let a
+    # quadratic live in `_admit_held` through every release until `--config` existed.
+    #
+    # Two cells because the two selectors are different problems: `tmin` uses the plain
+    # min/max over head D, `rank_popularity` keys on the LIVE `aisle_demand_sum` that
+    # `take` itself increments.
+    'ranked_tmin': LadderConfig(
+        why='tmin over _RankedAssignPool -- the plain min/max aisle selector, which no '
+            'other config reaches',
+        overlay=dict(strategy='uni_tmin_norsl')),
+    'ranked_popularity': LadderConfig(
+        why='rank_popularity over _RankedAssignPool -- the selector that reads the live '
+            'aisle_demand_sum its own takes mutate',
+        overlay=dict(strategy='uni_rank_popularity_norsl')),
     'baseline_put': LadderConfig(
         why='timed put-away, unbounded floor -- the 2x2 origin cell',
         overlay=dict(_PUT_RECIPE, put_timing=True), rungs=_PUT_RUNGS),
