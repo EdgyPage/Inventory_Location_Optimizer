@@ -8,10 +8,16 @@ path. THREE files here are collected by pytest (`test_*`), and they are not all 
 reorder-time placement actually fires, which is the entire reason this package exists.
 Everything else is a hand-run tool for the occasional rigorous session.
 
-Nothing here is in a CI gate. That is a standing risk, not an oversight to route around:
-three dead frozen-oracle tests and a never-executed feature were both found rotting in this
-directory in 2026-08. Run `python -m pytest Tests/calltree -q` and read the result before
-trusting any number produced from this package.
+Since 2026-09-16 the two SECONDS-long files here are the tenth gate in CLAUDE.md section 1
+(`test_calltree_smoke.py` + `test_calltree_anchors.py`, alongside
+`Tests/architecture/test_digest_surface.py`). The rest is still hand-run, and
+`test_rank_cache_equivalence.py` is deliberately NOT gated -- 7-13 minutes is a pre-merge
+cost, not a per-change one.
+
+That gap is a standing risk, not an oversight to route around: three dead frozen-oracle
+tests and a never-executed feature were found rotting in this directory in 2026-08, during
+the period when NONE of it was gated. Run `python -m pytest Tests/calltree -q` and read the
+result before trusting any number produced from this package.
 
 | File | What it is |
 |---|---|

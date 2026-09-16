@@ -15,8 +15,8 @@ verified anchors in `context/` — see the last section before adding anything h
 
 ## 1. Commands that actually work
 
-The nine gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
-`runschema` CLIs run as modules:
+The ten gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
+`runschema` CLIs run as modules, and the last one is a pytest selection:
 
 ```bash
 python context/verify_context.py                      # flow/artifact anchors exist
@@ -28,7 +28,16 @@ python -m Schema.profile_tree --check                 # profiles-tree (catalogue
 python context/memory/verify_memory.py                # memory mirror + anchors still true
 python context/guards/path_guard.py --scan            # no machine-local paths in tracked files
 python context/guards/docref_guard.py --scan          # "<doc>.md section N" refs still resolve
+python -m pytest Tests/calltree/test_calltree_smoke.py \n                Tests/calltree/test_calltree_anchors.py \n                Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
+
+The tenth gate is ~20 s and exists because the two instruments it covers are the ones that
+fail SILENTLY and in the direction of looking healthy. `Tests/calltree/` was in no gate at
+all until 2026-09-16, and three dead frozen oracles plus a never-executed feature were found
+rotting in it; `run_digest.py`, the byte-identity tool, was dead twice for the same reason
+(`test_digest_surface.py` is what now notices). It deliberately does NOT include
+`test_rank_cache_equivalence.py` — that one is 7-13 minutes and is a pre-merge cost, not a
+per-change one.
 
 Tests. **There is no pytest config file anywhere** — no `pytest.ini`, no `pyproject.toml`, no
 markers, no `addopts`. `-k "not gpu"` is a hand-typed convention, not a default:
@@ -101,10 +110,13 @@ Or hand the whole chain to the `architecture-maintainer` agent.
   plus a counter, so nothing raises. The legacy files that did this were converted to real
   `assert`s; the pattern is **gone from `Tests/` and must not return**. Same failure mode, same
   silence: a test module with no `def test_` function at all collects nothing and reports success.
-- **Without pyyaml, 6 of the 13 `Tests/architecture/*` files `importorskip` and vanish** — and they
-  are exactly the sync gates (architecture, HTML site, graph extract, coverage, files-catalog,
-  context). The other seven still run, so the suite looks healthy while the generated docs and the
-  `context/` anchors rot unchecked.
+- **Without pyyaml, 7 of the 31 `Tests/architecture/*` files `importorskip` and vanish** — and
+  they are exactly the sync gates (architecture, HTML site, graph extract, files-catalog,
+  context, column-semantics, figure-registry); an eighth needs `coverage`. The other
+  twenty-three still run, so the suite looks healthy while the generated docs and the
+  `context/` anchors rot unchecked. (This line read "6 of the 13" until 2026-09-16 — the
+  directory had more than doubled, which is its own argument for not trusting a count in
+  prose.)
 - **`nbstripout` is a git filter whose command lives in uncommitted `.git/config`.** A fresh clone
   needs `pip install nbstripout && nbstripout --install` or notebook checkout fails.
 - **`run_analysis.py` takes a CELL directory; handed a run root it does nothing and exits 0.**
