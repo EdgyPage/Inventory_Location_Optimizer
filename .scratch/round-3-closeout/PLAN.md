@@ -52,7 +52,7 @@ The complete list. Nothing else in this plan touches the machine for more than a
 | R1 | `pytest Tests/ -q -k "not gpu"` | **40–50 min**, 1 core | no | A1 — does the `conftest` fixture hold at suite scale |
 | R2 | meso ladder, `--config cluster_map` | ~13 min, 1 core | **no** (call counts) | B1 — is `_ClusterMapPool` superlinear |
 | R3 | meso ladder, `--config cmin` | ~13 min, 1 core | **no** (call counts) | B1 — is `_CoDemandPool` superlinear |
-| R4 | deep ladder, `--workers 18` | **~1 h 45 m**, whole box | **YES — exclusive** | C2 — the `_aisle_best` rebuild count at deep scale |
+| R4 | deep ladder, `--workers 18` | **~1 h 45 m**, whole box | **YES — exclusive** | B **and** C2 — per-arm growth isolates the cluster family AND the travel-balanced arms |
 | R5 | `pytest Tests/calltree/test_rank_cache_equivalence.py` | 7–13 min, 1 core | no | pre-merge byte-identity, only if B convicts |
 
 **On contention.** R2 and R3 are safe beside R1 because the answer they produce is a **call count**,
@@ -130,14 +130,33 @@ whose local exponent rises** (1.62 → 1.77). Its `take` scan was fixed this rou
 is the run-boundary rebuild, priced at 2.66 % of a rung, whose `R × A` decomposition the deep ladder
 explicitly refused to corroborate (§2.3 — *"do not quote the 74 %"*).
 
-**C1** *(zero-CPU, can be written before any approval)*. The deep tier carries **no function counts
-at all**, so the one instrument that reaches deep scale cannot see the rebuild. Add a `_FLOW_COUNTS`
-entry for it — a count, not a wall, so it survives the 40× tracing distortion that makes deep-tier
-seconds unquotable.
+**C1 — CORRECTED 2026-09-16, before R4 was run.** The plan originally said "add a `_FLOW_COUNTS`
+entry". **That does not work**, and finding out after R4 would have wasted the run:
 
-**C2** (R4). Read the rebuild's count per rung against placements. If `R × A` holds at deep scale
-the attribution stands; if not, §2.3's retraction becomes permanent and the candidate closes at
-2.66 %.
+- `_FLOW_COUNTS` is resolved by `_flows(tree, flat)` against a **traced** call tree. The deep tier
+  never traces — it shells out to `run_simulation` and parses what comes back, and its rungs carry
+  `'counts': {}` literally.
+- The deep tier's numbers come from `runtime_metrics.load_rows`, and that table is **all seconds and
+  geometry**: `total_s`, the seven section columns, `n_bins`, `n_aisles`, `peak_rss_mib`. There is
+  not one call count in the DDL.
+- So giving the deep tier a count means a new `INTEGER` column in the `runtime` DDL — which moves
+  the schema id, rides `--sync` before and `--accept` after, and needs a per-vintage
+  `dataset.override` omitting it or every archived run falls back to a dataclass default and reads
+  **0 rather than NULL**. That is the exact shape of the `free_bins` defect. It is a `schema-
+  maintainer` change, not a line in a table.
+
+**C2 — the route that needs no schema change, and it is already built.** `_aisle_best` lives in
+`_TravelBalancedPool`, which backs exactly the `rank_labor` and `rank_cartlabor` arms
+(`Assignment_Functions.py:1903, 1949` both return `_build_travel_balanced_pool_fn`). R4 now emits
+**per-arm growth with a trend** (`93e14c35`), so it answers the question directly:
+
+- if the `rank_labor` / `rank_cartlabor` arms are flat at deep scale while the cluster arms
+  diverge, `_aisle_best` closes at 2.66 % and §2.3's retraction becomes permanent;
+- if they diverge too, the rebuild is real at scale and C3 is worth designing — and the schema
+  column becomes worth its cost, because then there is something to count.
+
+**One deep ladder answers B and C both**, through the same per-arm instrument. That is the whole
+reason R4 is run once, after B, rather than twice.
 
 **C3**, only if C2 convicts: the argmin of `load[aid] + fq·cost(var)` is a lower-hull / kinetic-heap
 problem. **Do not pre-commit to a design.** Find one, or close it with a stated reason and the scale
