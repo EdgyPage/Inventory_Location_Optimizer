@@ -2641,15 +2641,45 @@ def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, fre
     superset keyed by aisle); values for the current live aisles are read from it instead
     of recomputed — identical numbers, because within a same-SKU run the member idx-sets
     gain only the SKU's own index, which (self-pairs are not stored) is never in ``row``."""
-    live = [aid for aid, lst in by_aisle.items() if lst]
-    if not live:
-        return None
+    # ONE pass, not four.  This block built `live`, rebuilt `lifts` onto it, took a `max`,
+    # then re-filtered for `tied` -- four O(|live|) scans per placement, and the ladder could
+    # see NONE of them, because a comprehension is one frame entry however wide it is.  The
+    # cluster cells measured the real scan volume directly: Sum|live| = 8,141,090 over 76,514
+    # calls at the 8k rung, fitting k=1.99 with local exponents pinned at 2.04.  The tracer
+    # saw 14.4% of that, through `_closest_abs` alone, and still ranked it top.
+    #
+    # Fusing changes no result.  `best` is still the first maximal value under `>` (so NaN is
+    # skipped exactly as `max` skips it), and `tied` is still in `by_aisle` iteration order,
+    # which is what the `min(tied, ...)` tie-break below depends on -- `min` returns the
+    # FIRST element achieving the minimum, so that order is load-bearing, not incidental.
+    #
+    # The two branches are written out rather than sharing a lookup closure: this is the hot
+    # path, and a per-element Python call to fetch the lift would cost more than the pass it
+    # saves.  It does NOT change the complexity class -- the scan is still O(|live|) per
+    # placement and |live| still grows linearly with the catalogue.  See
+    # docs/design/COMPLEXITY_ROUND_FINDINGS.md for the structural fix and why it is separate.
+    best: float = -math.inf
+    tied: list = []
     if lifts is None:
-        lifts = {a: _delta_lift_from_row(row, aisle_idx_sets[a], freq_by_idx) for a in live}
+        for aid, lst in by_aisle.items():
+            if not lst:
+                continue
+            v = _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx)
+            if v > best:
+                best, tied = v, [aid]
+            elif v == best:
+                tied.append(aid)
     else:
-        lifts = {a: lifts[a] for a in live}
-    best  = max(lifts.values())
-    tied  = [a for a in live if lifts[a] == best]
+        for aid, lst in by_aisle.items():
+            if not lst:
+                continue
+            v = lifts[aid]
+            if v > best:
+                best, tied = v, [aid]
+            elif v == best:
+                tied.append(aid)
+    if not tied:
+        return None
     if len(tied) == 1:
         return tied[0]
     # tie-break: min anchor gap.  target None ⇒ gap = min pref = prefs[0] (ascending list).

@@ -2335,6 +2335,9 @@ files:
       - {name: "test_the_other_arms_do_not_all_come_out_diverging", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_sum_stays_linear_while_one_arm_diverges", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_an_arm_missing_from_a_rung_is_skipped_not_zero_filled", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_a_falling_exponent_that_settles_at_two_is_not_saturating", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_only_a_series_heading_to_linear_is_demoted_in_the_ranking", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_three_falling_verdicts_are_told_apart_on_real_series", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_rank_cache_equivalence.py":
     purpose: "frozen oracles for the Phase-6 SKU-run caches."
@@ -3628,6 +3631,17 @@ files:
       - {name: "test_building_the_parser_twice_is_side_effect_free", file: "Tests/unit/test_cli_surface.py", kind: "function"}
       - {name: "test_no_flag_default_diverges_from_its_config_key", file: "Tests/unit/test_cli_surface.py", kind: "function"}
       - {name: "test_every_none_sentinel_flag_is_resolved_with_an_is_not_none_test", file: "Tests/unit/test_cli_surface.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_cluster_map_choose_aisle_equivalence.py":
+    purpose: "the fused lift scan returns the old answer."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_fused_pass_agrees_with_the_four_pass_body", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
+      - {name: "test_the_tie_is_actually_wide_in_the_cold_case", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
+      - {name: "test_an_all_empty_board_returns_none_from_both", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
+      - {name: "test_a_nan_lift_is_skipped_exactly_as_max_skipped_it", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
+      - {name: "test_negative_lifts_do_not_lose_to_an_absent_zero", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
+      - {name: "test_the_boards_really_do_produce_GAP_ties_not_just_lift_ties", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_co_demand_pool_equivalence.py":
     purpose: "the co-demand pool decides what the wave decided."

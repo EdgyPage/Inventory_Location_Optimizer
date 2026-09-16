@@ -538,6 +538,105 @@ A single instrumented arm, timing interpreter start / import / catalogue load / 
 settle it in one run of a few minutes. That is the cheap next step if anyone wants the 17 minutes
 back, and it is a different investigation from anything in this document.
 
+## 3.5 The two cells that had never been traced, and what was under them
+
+`delta_lift_idxs` was refuted, and that emptied the meso offender table of everything but
+`_aisle_best`. It should have been obvious that this was suspicious: §2.5 already records that the
+meso ladder runs **one arm**. So the plan's remaining candidates — `_CoDemandPool`'s per-take
+scans, `_ClusterMapPool`'s `list.remove` — were checked against the HEAD artifact and found to be
+**absent from it entirely**. Not small. Absent.
+
+Two new cells (`--config cluster_map`, `--config cmin`) traced those pools for the first time.
+Both convict.
+
+### 3.5.1 `_cluster_map_choose_aisle` is Θ(n²), and the tracer could see 14 % of it
+
+The top offender was `_closest_abs` at k = 2.39 — counts running 1,795 → 1,174,077 across a 16×
+catalogue, local exponents **1.34 → 2.41 → 2.79 → 2.81**, still steepening at the last rung. The
+opposite shape to the round's refutation, and the trend flag called it correctly.
+
+But `_closest_abs` is not the cost; it is the only part of the cost that is *visible*. The function
+made four passes over the live aisles per placement — `live`, the `lifts` rebuild, `max`, and the
+`tied` filter — and **every one is a comprehension or a C builtin, so the tracer records one frame
+entry however wide the scan is.** This is the `C-keyed scans are invisible` trap, and the
+prescription there is the one that worked: *fit the scan width*.
+
+Measured directly, by wrapping the function on the ladder's own workload:
+
+| max_skus | calls | mean &#124;live&#124; | **Σ&#124;live&#124;** (true scan volume) | Σ&#124;tied&#124; (what the tracer saw) |
+|---|---|---|---|---|
+| 500 | 4,191 | 7.0 | 29,337 | 1,795 (6.1 %) |
+| 1,000 | 10,891 | 14.1 | 153,563 | 4,542 (3.0 %) |
+| 2,000 | 18,143 | 26.5 | 480,790 | 24,219 (5.0 %) |
+| 4,000 | 37,911 | 52.1 | 1,975,163 | 166,963 (8.5 %) |
+| 8,000 | 76,514 | 106.4 | **8,141,090** | 1,174,077 (14.4 %) |
+
+Calls grow linearly (k = 1.02), the scan width grows linearly (k = 0.97), so the product is
+**k = 1.99 with local exponents pinned at 2.04** — a textbook quadratic. The instrument
+under-reported it by 7× and it was still the top offender.
+
+The rising tied fraction (3.0 % → 14.4 %) is why `_closest_abs` fits steeper than the underlying
+1.99: the fraction climbs *on top of* the quadratic. The docstring's premise — "in the warm case,
+one aisle wins on lift → no gap work at all" — decays with scale, because `tied` is aisles whose
+lift compares exactly equal and a SKU with no partners placed yet gives every live aisle 0.0.
+
+**A methodological note worth more than the finding.** The first attempt at this measurement drove
+`run_fullfid` and reported 676 calls at 4,000 SKUs where the ladder recorded 37,911 — a different
+entry point measuring a different workload. It also reported `mean|live| = 2.5`, which would have
+**acquitted the candidate outright**. The discrepancy was only caught because the call count could
+be compared against the ladder's own. A width instrument must run the ladder's workload through the
+ladder's own configuration, not a plausible-looking neighbour.
+
+### 3.5.2 `cmin` is quadratic too, through a different function
+
+The co-demand cell convicts `_build_aisle_score_fn.<locals>.assign.<locals>.score_of` at
+**9,195,611 calls, k = 1.98**, and `_delta_lift_from_row` at 7,997,764, k = 1.97 — with `t_reord`
+showing it as a section wall at k = 1.78. Local exponents settle at 2.00–2.11: not a transient.
+
+### 3.5.3 What landed, and what did not
+
+**Landed: the four passes are one.** `best` is still the first maximal value under `>` (so a NaN is
+skipped exactly as `max` skipped it) and `tied` is still in `by_aisle` order — which the
+`min(tied, …)` tie-break depends on, since `min` returns the FIRST element achieving the minimum.
+Equivalence is asserted against the original four-pass body verbatim, not a re-derivation.
+
+**Measured, before and after, on the same ladder.** Behaviour is identical on every rung — and
+not only the headline quantities: `_closest_abs` still fires 1,174,077 times and
+`_delta_lift_from_row` 462,913, so the same aisles tie and the same tie-breaks run. `fns` falls
+196 → 194, which is exactly the two comprehensions that no longer exist.
+
+| max_skus | picks | placements | wall before | wall after | |
+|---|---|---|---|---|---|
+| 500 | 17,812 | 22,307 | 0.67 s | **0.45 s** | −33 % |
+| 1,000 | 35,910 | 46,503 | 1.37 s | 1.18 s | *contended* |
+| 2,000 | 69,379 | 87,466 | 3.32 s | 3.50 s | *contended* |
+| 4,000 | 137,543 | 175,463 | 8.48 s | **6.09 s** | −28 % |
+| 8,000 | 279,616 | 354,770 | 20.43 s | **13.55 s** | **−34 %** |
+
+The two middle rungs are marked rather than quoted: the unit tier was running beside them, which
+is the same self-contention this document already records once. The three clean rungs agree at
+roughly a third, and the top one is the one that matters.
+
+A third of the arm's wall, for removing three passes over a list. That is the size of the prize
+sitting behind a construct the instrument is structurally unable to see, which is the argument for
+building the width instrument rather than reading exponents harder.
+
+**Not landed, and named rather than hidden: the complexity class is unchanged.** The scan is still
+O(&#124;live&#124;) per placement and &#124;live&#124; still grows linearly with the catalogue. The
+structural fix has to attack the cold-start tie-break, where the answer is "the live aisle whose
+pref is closest to `target`" — a nearest-neighbour query that one merged sorted array over live
+aisles answers in O(log N), against O(A) today. Two things make it a separate piece of work rather
+than a line: the merged array has to be maintained as bins are consumed, and the exact tie order
+(earliest aisle in `by_aisle` order among equal gaps) has to survive, which is precisely the
+property the equivalence test above needed two attempts to be able to observe.
+
+**A heap is the wrong answer here, and it is worth writing down why**, because it is the pattern
+this round used twice already. Within a SKU run `lifts` changes only for the winner, so a max-heap
+looks natural — but it would pop and re-push the whole tied set each placement, costing
+O(&#124;tied&#124; log A) against today's O(&#124;live&#124;). At 14.4 % tied that is roughly a 3.6×
+win, and the tied fraction is *rising*, so the heap's advantage shrinks exactly where the problem
+grows. The fused pass is both simpler and better, and the real fix is elsewhere.
+
 ---
 
 ## 4. What now has a fence
