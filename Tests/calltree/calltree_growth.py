@@ -271,8 +271,11 @@ def _trend(xs, ys) -> dict | None:
     if len(ks) < 3 or any(k != k for k in ks):
         return None
     first, last = ks[0], ks[-1]
-    if last <= first - FLAG_TREND_DELTA:
-        verdict = 'saturating'
+    falling = last <= first - FLAG_TREND_DELTA
+    if falling and last < FLAG_COUNT_EXP:
+        verdict = 'saturating'          # heading to linear -- probably not a finding
+    elif falling:
+        verdict = 'settling'            # the FIT overstates; the CLASS is still real
     elif last >= first + FLAG_TREND_DELTA:
         verdict = 'accelerating'
     else:
@@ -284,6 +287,10 @@ def _trend(xs, ys) -> dict | None:
         out['why'] = ('local k is falling, so the fitted k describes a transient and '
                       '`projected` over-reads; find the denominator this is a ratio of '
                       'and check whether that ratio has a ceiling before refactoring')
+    elif verdict == 'settling':
+        out['why'] = (f'local k is falling but has settled near {last:.2f}, not near 1 -- '
+                      f'the single fit overstates the early rungs, and the settled value is '
+                      f'the cost class. Quote the LAST local exponent, not the fit.')
     return out
 
 
@@ -376,10 +383,14 @@ def _severity_sort(offenders: list) -> list:
     """
     return sorted(offenders,
                   key=lambda o: (_KIND_ORDER.get(o.get('kind'), 9),
-                                 # False sorts first: a series whose local exponents are
-                                 # FALLING goes last in its class, however big its fitted
-                                 # k.  It is still listed -- the trend is a judgement the
-                                 # reader makes, not one the tool makes for them.
+                                 # False sorts first: a series heading TO LINEAR goes last
+                                 # in its class, however big its fitted k.  Only that
+                                 # verdict demotes -- a series whose local exponents fall
+                                 # and then SETTLE near 2 is a clean quadratic, and
+                                 # demoting it was this guard's first bug (cmin's
+                                 # `score_of`, 9.2M calls, local k 2.41 1.64 2.00 2.02).
+                                 # It is still listed either way -- the trend is a
+                                 # judgement the reader makes, not one the tool makes.
                                  (o.get('trend') or {}).get('verdict') == 'saturating',
                                  -(o.get('projected') or 0.0),
                                  -(o.get('exponent') or 0.0)))
@@ -1501,7 +1512,9 @@ def main(argv=None) -> int:
             print(f"  k={o['exponent']:5.2f}  [{o['kind']}]  {o['name']}{extra}")
             t = o.get('trend')
             if t is not None:
-                mark = {'saturating': '  <- CONVERGING, the fitted k is a transient',
+                mark = {'saturating': '  <- CONVERGING toward linear',
+                        'settling': f"  <- SETTLED near k={t['last']:.2f} (the fit "
+                                    f'overstates the early rungs; this IS the class)',
                         'accelerating': '  <- DIVERGING'}.get(t['verdict'], '')
                 locals_ = ' '.join(f'{k:.2f}' for k in t['local'])
                 print(f"           local k {locals_}{mark}")

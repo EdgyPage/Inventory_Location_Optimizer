@@ -633,3 +633,94 @@ def test_an_arm_missing_from_a_rung_is_skipped_not_zero_filled():
     assert 'uni_rank_labor_norsl' not in report['arm_growth'], (
         'an arm absent from a rung was fitted anyway — on four points misaligned with five xs')
     assert 'uni_cmax_norsl' in report['arm_growth'], 'the complete arm was dropped too'
+
+
+def test_a_falling_exponent_that_settles_at_two_is_not_saturating():
+    """THE BUG THIS VERDICT EXISTS FOR, found by running the instrument on a real cell.
+
+    `cmin`'s `_build_aisle_score_fn.<locals>.assign.<locals>.score_of` is a clean quadratic:
+    34,237 → 9,195,611 calls, local exponents 2.41, 1.64, **2.00, 2.02**. The first rule here
+    called "saturating" on direction alone (`last <= first - FLAG_TREND_DELTA`), so a series
+    that starts super-quadratic and settles at exactly 2.0 was labelled "CONVERGING, the fitted
+    k is a transient" — and, worse, `_severity_sort` demoted it to the bottom of its cost class.
+    A 9.2M-call quadratic was being pushed below everything by the guard meant to surface it.
+
+    Falling is not the same as heading to linear. A series only earns "saturating" when its last
+    local exponent is also below the flag threshold; one that falls and then settles high is
+    "settling" — the single fit overstates the early rungs, and the settled value IS the class.
+    """
+    import calltree_growth as cg
+
+    quadratic = [34_237, 181_498, 566_476, 2_263_535, 9_195_611]
+
+    t = cg._trend(_LADDER_XS, quadratic)
+    assert t['local'] == [2.41, 1.64, 2.0, 2.02], t['local']
+    assert t['first'] - t['last'] >= cg.FLAG_TREND_DELTA, (
+        'premise: this series IS falling, so the old rule really did call it saturating')
+    assert t['verdict'] == 'settling', t
+    assert t['last'] > cg.FLAG_COUNT_EXP, 'premise: it settles ABOVE the flag threshold'
+    assert 'settled' in t['why'] and 'LAST local exponent' in t['why']
+
+
+def test_only_a_series_heading_to_linear_is_demoted_in_the_ranking():
+    """The consequence, end to end.
+
+    THE PAIR MUST OPPOSE THE MAGNITUDE, or this proves nothing. `_severity_sort` keys on
+    `projected` before the trend, so a big quadratic beats a small saturating series under
+    BOTH rules and a test built on that pair passes with the fix reverted — which is exactly
+    what the first draft of this test did, for the second time in one session.
+
+    So: the quadratic here is the SMALL one (cmin's `delta_lift_idxs`, projecting 9.2M) and
+    the series heading to linear is the BIG one (`delta_lift_idxs`'s genexpr, projecting
+    52M). Under the old rule both counted as "saturating", the tie fell to magnitude, and the
+    saturating series won. Only the split verdict puts the quadratic first.
+    """
+    import calltree_growth as cg
+
+    small_quadratic = [315, 1_855, 8_767, 31_482, 86_170]
+    ladder = {'knob': 'skus', 'config': 'cmin',
+              'rungs': [{'x': x, 'sections': {},
+                         'counts': {'settled_quadratic': small_quadratic[i],
+                                    'heading_to_linear': _DELTA_LIFT_GEN[i]},
+                         'flows': {}, 'flows_per_placement': {}}
+                        for i, x in enumerate(_LADDER_XS)]}
+    report = cg.fit_report(ladder)
+
+    by_name = {o['name']: o for o in report['offenders'] if o['kind'] == 'call-count'}
+    assert by_name['settled_quadratic']['trend']['verdict'] == 'settling'
+    assert by_name['heading_to_linear']['trend']['verdict'] == 'saturating'
+    assert by_name['heading_to_linear']['projected'] > by_name['settled_quadratic']['projected'], (
+        'premise: the series heading to linear projects LARGER, so magnitude alone ranks it '
+        'first — without that, this test says nothing about the verdict')
+
+    order = [o['name'] for o in report['offenders'] if o['kind'] == 'call-count']
+    assert order == ['settled_quadratic', 'heading_to_linear'], (
+        f'the settled quadratic was demoted below a series heading to linear: {order}')
+
+    # NON-VACUITY: collapse `settling` back into `saturating` — the rule this replaced — and
+    # the order must flip back.
+    collapsed = [dict(o, trend={'verdict': 'saturating'})
+                 if (o.get('trend') or {}).get('verdict') in ('saturating', 'settling') else o
+                 for o in report['offenders']]
+    assert [o['name'] for o in cg._severity_sort(collapsed)] \
+        == ['heading_to_linear', 'settled_quadratic'], (
+        'the split verdict is not what produced the order above — this test would pass with '
+        'the fix reverted')
+
+
+def test_the_three_falling_verdicts_are_told_apart_on_real_series():
+    """All three shapes, from artifacts on disk, so the boundary is pinned to measurements
+    rather than to invented curves."""
+    import calltree_growth as cg
+
+    # Refuted this round: a bounded ratio saturating against a ceiling the code guarantees.
+    assert cg._trend(_LADDER_XS, _DELTA_LIFT)['verdict'] == 'saturating'
+    assert cg._trend(_LADDER_XS, _DELTA_LIFT_GEN)['verdict'] == 'saturating'
+    # Convicted this round: cmin's lift scan, quadratic and settled.
+    assert cg._trend(_LADDER_XS, [29_483, 160_693, 466_621, 1_854_211,
+                                  7_997_764])['verdict'] == 'settling'
+    # Convicted this round: cluster_map's tie-break, still steepening at the last rung.
+    assert cg._trend(_LADDER_XS, [1_795, 4_542, 24_219, 166_963,
+                                  1_174_077])['verdict'] == 'accelerating'
+    # Honest "not yet known": falling steadily but still above the threshold at the last step.
+    assert cg._trend(_LADDER_XS, [315, 1_855, 8_767, 31_482, 86_170])['verdict'] == 'settling'
