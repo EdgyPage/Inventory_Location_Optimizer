@@ -34421,6 +34421,14 @@
     },
     {
       "file": "Optimization/runschema/contract.py",
+      "id": "Optimization/runschema/contract.py::SHAPE_SOURCE_DIRS",
+      "kind": "const",
+      "module": "Optimization/runschema/contract.py",
+      "name": "SHAPE_SOURCE_DIRS",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/contract.py",
       "id": "Optimization/runschema/contract.py::SHORT_LEN",
       "kind": "const",
       "module": "Optimization/runschema/contract.py",

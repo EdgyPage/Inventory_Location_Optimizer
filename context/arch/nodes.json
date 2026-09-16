@@ -11611,6 +11611,13 @@
       "signature": null,
       "value_preview": "('Optimization/runschema/runlayout.py', 'Optimization/runschema/sim_manifest.py', 'Optimization/simdriver/sim_assets.py', 'Optimization/simdriver/__init__.py', 'Optimization/simdriver/cells.py', 'O..."
     },
+    "Optimization/runschema/contract.py::SHAPE_SOURCE_DIRS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('Optimization/simconfig/configs',)"
+    },
     "Optimization/runschema/contract.py::SHORT_LEN": {
       "decorators": [],
       "doc": null,
@@ -11760,7 +11767,7 @@
     },
     "Optimization/runschema/contract.py::source_fingerprint": {
       "decorators": [],
-      "doc": "Hash of every shape-defining source file (path + content), in declared order.\n\nLine endings are NORMALISED to \\n before hashing.  On Windows a checkout, stash/pop, or\nautocrlf change rewrites CRLF<->LF without touching a single statement; hashing raw bytes made\nthat look like a structural change and cost a needless canary pair.  Content changes still\nregister, which is the whole point.\n\nA missing file contributes its path plus a MISSING marker rather than being skipped, so\nDELETING a shape source is detected instead of silently matching.",
+      "doc": "Hash of every shape-defining source file (path + content), in declared order.\n\nLine endings are NORMALISED to \\n before hashing.  On Windows a checkout, stash/pop, or\nautocrlf change rewrites CRLF<->LF without touching a single statement; hashing raw bytes made\nthat look like a structural change and cost a needless canary pair.  Content changes still\nregister, which is the whole point.\n\nA missing file contributes its path plus a MISSING marker rather than being skipped, so\nDELETING a shape source is detected instead of silently matching.\n\n`SHAPE_SOURCE_DIRS` is then hashed by NAME LIST and content, which is how an\nADDED file registers -- a path tuple can only ever describe files someone already\nthought of, and `simconfig/configs/` is auto-discovered.",
       "is_async": false,
       "kind": "function",
       "signature": "(repo_root: str=_REPO_ROOT) -> str"

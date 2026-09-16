@@ -1155,6 +1155,7 @@ files:
     key_symbols:
       - {name: "SHORT_LEN", file: "Optimization/runschema/contract.py", kind: "const"}
       - {name: "SHAPE_SOURCES", file: "Optimization/runschema/contract.py", kind: "const"}
+      - {name: "SHAPE_SOURCE_DIRS", file: "Optimization/runschema/contract.py", kind: "const"}
       - {name: "short_id", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "contract_path", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "source_fingerprint", file: "Optimization/runschema/contract.py", kind: "function"}
@@ -2200,6 +2201,8 @@ files:
       - {name: "FLAG_TIME_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "MIN_R2", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "MIN_CALLS", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "MIN_WALL_S", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "PROJECT_FACTOR", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "FLAG_KNEE_JUMP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "LadderConfig", file: "Tests/calltree/calltree_growth.py", kind: "class"}
       - {name: "run_meso_ladder", file: "Tests/calltree/calltree_growth.py", kind: "function"}
@@ -2287,6 +2290,9 @@ files:
       - {name: "test_every_flow_anchor_that_should_fire_does_fire", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_flow_anchors_resolve", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_every_named_config_is_buildable", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_the_scenario_samples_with_the_era_not_the_frozen_default", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_the_sampler_can_still_be_pinned_for_an_archived_comparison", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_switching_the_scenario_sampler_moves_no_measurement_at_fixture_scale", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_calltree_smoke.py":
     purpose: "the measurement framework measures what it claims to."
@@ -2301,6 +2307,13 @@ files:
       - {name: "test_the_default_config_does_not_reach_the_held_path", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_knee_detector_catches_what_the_r2_gate_drops", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_knee_detector_does_not_fire_on_a_clean_curve", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_a_wall_fit_anchored_on_timer_noise_is_suppressed_not_flagged", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_a_section_with_a_real_anchor_still_flags", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_offenders_rank_by_cost_class_then_size_not_by_bare_exponent", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_seconds_outrank_calls_because_only_one_of_them_is_a_cost", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_all_zero_warning_stays_silent_when_flows_fired", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_all_zero_warning_still_fires_when_nothing_ran", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_warning_does_not_tell_you_to_use_the_config_you_are_running", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_rank_cache_equivalence.py":
     purpose: "frozen oracles for the Phase-6 SKU-run caches."
@@ -2936,6 +2949,10 @@ files:
       - {name: "test_every_leaf_family_glob_is_generated_and_complete", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
       - {name: "test_the_evaluation_attribution_matches_the_registry_both_ways", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
       - {name: "test_the_attribution_field_is_unhashed_so_completing_it_moved_nothing", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_adding_a_pick_config_moves_the_source_fingerprint", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_renaming_a_pick_config_moves_the_fingerprint_though_no_byte_changes", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_the_directory_hash_is_stable_when_nothing_moves", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
+      - {name: "test_channels_is_a_shape_source", file: "Tests/integration/test_runschema_contract.py", kind: "function"}
     notes: ""
   "Tests/integration/test_runtime_metrics.py":
     purpose: "Locks the runtime-metrics DB + graphs \u2014 record_arm/load round-trip, UNIQUE-key overwrite, arm parsing + rate, and the emitted ranked/breakdown PNGs."
