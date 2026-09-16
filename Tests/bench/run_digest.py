@@ -54,7 +54,24 @@ SIM_TABLES = ('simulation_runs', 'batch_stats', 'task_stats', 'picker_events', '
               # The second work stream and the put-away queues, added 2026-08-24/25 and
               # absent here until 2026-08-25 -- so a refactor touching put-away could pass
               # this gate while changing every row it wrote.
-              'work_events', 'put_queue_state', 'carryover')
+              'work_events', 'put_queue_state', 'carryover',
+              # ── the inbound/working-day five, absent here until 2026-09-15 ──────────
+              # WORSE than the 2026-08-25 omission above, and worth recording precisely
+              # because the docstring's warning did not prevent it.  These five are created
+              # UNCONDITIONALLY by `Picking_Data._apply_run_schema`, so `_surface_check`
+              # did not silently under-hash them -- it raised SystemExit on EVERY sim DB,
+              # and this tool could not run at all.  The repo's own byte-identity
+              # instrument was dead for however long that took to notice, which is the
+              # whole time `Tests/bench/` has been in no gate.
+              #
+              # All five are pure simulation output and comparable between two runs: the
+              # `*_s` columns are SIM-clock seconds, not wall-clock, and none carries a
+              # path, a timestamp or a row id beyond the excluded `run_id`.
+              'yard_trailers',    # per-trailer arrive/stage/empty stamps + status
+              'yard_drains',      # per-batch yard depth + free doors, start and end
+              'site_receiving',   # per-batch site dock depth/unloaded/cut/seconds
+              'shift_days',       # the drain-or-cap working-day ledger
+              'free_index')       # per-batch free-bin census by bucket
 KEYFRAME_TABLES  = ('bin_keyframe',)
 WAREHOUSE_TABLES = ('aisle_layout', 'aisle_type_stats', 'warehouse_stats')
 
