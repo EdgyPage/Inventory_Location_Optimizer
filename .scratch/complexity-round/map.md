@@ -90,6 +90,32 @@ Concretely, reached when:
   ranked-assign arms. That is the ladder's blind spot, not evidence the scan is harmless.
   -> [04-the-head-offender-table.md](issues/04-the-head-offender-table.md)
 
+- **[06] CLOSED: the `per_pick` memo is worth under 1%, and the form the findings doc suggests is
+  the worse of the two.** `INBOUND_PERF_FINDINGS.md` names it as the cheap half of the `R x A`
+  candidate, and the HEAD ladder convicted it independently (k=1.31, 542,781 calls). Priced before
+  building, against that exact count: today 42.8 ms, the suggested dict memo 15.5 ms (**0.72%** of
+  the 3.78 s rung), hoisting the invariant 10.4 ms (**0.86%**). A float-keyed dict pays hashing
+  where a hoist pays one multiply; what both actually remove is the Python FUNCTION CALL.
+  Closed rather than landed because 0.86% cannot justify the change it needs: the hoist means NOT
+  calling `per_pick`, and that primitive exists to stop callers re-deriving the expression ("
+  previously inlined at 7 sites... one helper makes the invariant structural"). Bit-identity was
+  verified and is not the obstacle (`m * base` is IEEE byte-equal at qty=1).
+  **The scale at which it becomes real:** it would need ~10x the share, and its share is
+  scale-stable -- so the answer is not "run it bigger", it is that the STRUCTURAL half of the same
+  candidate makes the question disappear by removing the calls.
+  -> [06-the-per-pick-memo-is-worth-under-one-percent.md](issues/06-the-per-pick-memo-is-worth-under-one-percent.md)
+
+- **[05] The "flows: ALL ZERO" warning read the wrong quantity and fired on EVERY rung.** It was
+  the `else` of the per-ENTRY-CALL branch (an inbound-only quantity), so on every non-inbound
+  config it printed "the put-away/receiving path did not execute under cfg=split_staging4" two
+  lines below `held_appends=40,720`, advising a switch to the config already in use. The same
+  nesting hid the per-placement RATIOS, which are not an inbound quantity either -- they were
+  computed and fitted but never printed per rung. This is the exact failure the package README
+  records being burned by (a held path that ran thirteen million times reporting `held: 0`), and a
+  warning that cries wolf on every rung trains the reader to skip the line that exists to stop
+  them trusting a zero. Now a testable `_flows_warning(flows, config)` helper.
+  -> [05-the-all-zero-warning-cried-wolf-on-every-rung.md](issues/05-the-all-zero-warning-cried-wolf-on-every-rung.md)
+
 ## Fog
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by
