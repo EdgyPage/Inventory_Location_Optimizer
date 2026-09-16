@@ -695,6 +695,13 @@ files:
       - {name: "build_channels", file: "Optimization/config/channels.py", kind: "function"}
       - {name: "wp_by_regime", file: "Optimization/config/channels.py", kind: "function"}
     notes: ""
+  "Optimization/config/envfile.py":
+    purpose: "the ONE `.env` reader, and the one path-value cleaner."
+    layer: "opt_config"
+    key_symbols:
+      - {name: "load_env", file: "Optimization/config/envfile.py", kind: "function"}
+      - {name: "clean_path", file: "Optimization/config/envfile.py", kind: "function"}
+    notes: ""
   "Optimization/config/objectives.py":
     purpose: "what each restock rule OPTIMISES, in one machine-readable place."
     layer: "opt_config"
@@ -715,6 +722,8 @@ files:
       - {name: "MAX_SKUS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "CHECKPOINT_FRAC", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "KEYFRAME_INTERVAL", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "AISLE_COLUMNS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "AISLE_LEVELS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "SAMPLER", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "REPORTING_FRAME_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "WORK_DAY_SECONDS", file: "Optimization/config/settings.py", kind: "const"}
@@ -803,6 +812,7 @@ files:
       - {name: "seed_world", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "seed_batches", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "n_batches", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "aisle_geometry", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "channel_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "channel_demand", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "min_headroom", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -1840,6 +1850,8 @@ files:
       - {name: "test_quoted_and_raw_string_values_are_unwrapped", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
       - {name: "test_binding_resolution_returns_none_without_a_profiles_root", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
       - {name: "test_binding_resolution_logs_by_name_when_it_succeeds", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_ingests_own_loader_unwraps_values_exactly_like_the_shared_one", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
+      - {name: "test_ingests_loader_and_the_shared_one_produce_the_same_environment", file: "Tests/architecture/test_ingest_env_bootstrap.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_memory_sync.py":
     purpose: "Locks the git-tracked memory mirror: index/file 1:1, no stale path anchors, and the mirror really is tracked; asserts on the mirror only, never the machine-local live store."
@@ -3749,6 +3761,8 @@ files:
       - {name: "test_zoning_bands_is_one_value_in_all_four_places", file: "Tests/unit/test_declared_once.py", kind: "function"}
       - {name: "test_the_identity_check_can_fail", file: "Tests/unit/test_declared_once.py", kind: "function"}
       - {name: "test_the_excluded_defaults_are_excluded_on_purpose", file: "Tests/unit/test_declared_once.py", kind: "function"}
+      - {name: "test_the_env_reader_is_one_function_not_four", file: "Tests/unit/test_declared_once.py", kind: "function"}
+      - {name: "test_envfile_imports_nothing_that_reads_the_environment", file: "Tests/unit/test_declared_once.py", kind: "function"}
     notes: ""
   "Tests/unit/test_door_team_cap.py":
     purpose: "the door-team cap is trailer physics, and off it changes nothing."
@@ -4640,6 +4654,15 @@ files:
       - {name: "test_load_aware_reorder_maintains_aisle_state_for_both_directions", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_a_sku_already_on_order_is_not_reordered_again", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_end_to_end_mini_sim_picks_restocks_and_places_for_five_batches", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_placement_selection_is_not_a_scan.py":
+    purpose: "the heap's win, fenced as a call count."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_refresh_is_one_call_per_take_whatever_the_warehouse_looks_like", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
+      - {name: "test_the_selection_does_not_walk_the_aisles", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
+      - {name: "test_the_run_boundary_rebuild_is_exactly_one_pass_per_aisle", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
+      - {name: "test_the_counter_can_tell_a_scan_from_a_heap", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
     notes: ""
   "Tests/unit/test_positive_int_flags.py":
     purpose: "a count that is meaningless at zero fails at the parser."

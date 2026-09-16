@@ -7175,6 +7175,33 @@
       "kind": "function",
       "signature": "(channels: list[Channel]) -> dict"
     },
+    "Optimization/config/envfile.py": {
+      "decorators": [],
+      "doc": "envfile.py \u2014 the ONE `.env` reader, and the one path-value cleaner.\n\n`load_env` and `clean_path` existed four times, byte-for-byte equivalent, in\n`Optimization/config/sim_config.py`, `Warehouse/generation/generate_mixed_profile.py`,\n`Warehouse/generation/generate_profile_suite.py` and `docs/experiments/ingest.py`. Every copy\nhad the same skip rules, the same `r\"...\"` stripping and the same shell-wins precedence, so\nthey were one function stored four times \u2014 the state `Warehouse/operations/putaway.py` records\nthe cost of: \"this project has already paid for two default sets that drifted 55x apart.\"\n\nWHY IT LIVES HERE, in `Optimization/config/`, and not somewhere more neutral:\n\n* `Warehouse/kernel/` is declared \"zero-dependency VALUE OBJECTS \u2014 the primitives everything\n  else in the DOMAIN is built from\". An `.env` reader is harness plumbing and would be the\n  first non-domain thing in it.\n* A module at the repo root would be STRUCTURALLY INVISIBLE. `context/arch/extract.py`'s\n  `GRAPH_ROOTS` are all directories, so a bare top-level `.py` is never walked: no `files.yml`\n  entry, no layer, and nothing to notice \u2014 the same class of hole this package has been\n  fixing elsewhere.\n* Reading `.env` IS configuration, and `generation -> opt_config` and `docs -> opt_config` are\n  both permitted by `context/architecture.yml` (only the reverse directions are forbidden).\n\nTHE IMPORT MUST STAY FREE. `docs/experiments/ingest.py` loads `.env` BEFORE importing anything\nthat reads it, and `Tests/architecture/test_ingest_env_bootstrap.py` pins that ordering. So\nthis module imports `os` and nothing else, and both package `__init__` files above it are\ndocstring-only (`Optimization/__init__.py` says so in as many words: \"Deliberately\nside-effect-free: no imports here\"). Adding an import here can break a bootstrap two packages\naway without failing anything local \u2014 do not.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/config/envfile.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('load_env', 'clean_path')"
+    },
+    "Optimization/config/envfile.py::clean_path": {
+      "decorators": [],
+      "doc": "Strip `r\"...\"` / `r'...'` notation or plain quotes from an env-var path value.\n\nApplied after `os.getenv` as well as during parsing, so a value set directly in a Windows\nsession environment (with literal `r\"...\"` text, which the shell does not interpret) is\nnormalised exactly like one read from the file.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(val: str) -> str"
+    },
+    "Optimization/config/envfile.py::load_env": {
+      "decorators": [],
+      "doc": "Inject `KEY=VALUE` pairs from *path* into `os.environ`.\n\nShell-set variables are never overwritten: a value already in the environment wins, which\nis what lets a one-off `COMPARISON_OUTPUT_DIR=... python -m ...` override the file without\nediting it. A missing file is not an error \u2014 every caller treats `.env` as optional.\n\nBlank lines, `#` comments and lines with no `=` are skipped. Values go through\n`clean_path`, so `r\"D:\\runs\"` and `\"D:\\runs\"` and `D:\\runs` all arrive the same.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> None"
+    },
     "Optimization/config/objectives.py": {
       "decorators": [],
       "doc": "objectives.py \u2014 what each restock rule OPTIMISES, in one machine-readable place.\n\nWHY THIS EXISTS.  The objective of a placement rule used to live in three places that\ndrifted independently: the Python closure that implements it, a hand-written LaTeX table\nin `docs/macros.py::assignment_formulas` (top-3 only), and a second hand-written copy in\neach experiment's `formula-reference.md` (all 17).  The macro's own docstring named the\nfix \u2014 \"expose each builder's objective \u2026 so this macro can read it like the others\" \u2014\nand this module is it.  The catalog is emitted INTO each run, so the objective published\nbeside a result is the objective that ran, versioned with it.\n\nWHAT THIS CANNOT DO, stated plainly: the LaTeX is not derived from the Python.  No\ninspection recovers an objective from a closure.  What the registry buys is that the\ntranscription exists exactly ONCE and is machine-anchored \u2014 `Tests/architecture/\ntest_rule_catalog.py` asserts every rule has an entry, every named symbol exists, and\nevery builder actually calls the symbol its entry claims.  A rename or a re-pointed\nbuilder fails a test instead of silently making a published formula a lie.\n\nKEYED BY RESTOCK KEY, not by arm.  `Strategy.restock` already carries it, so the tie is\n`OBJECTIVES[s.restock]` and `Optimization/config/strategies.py` needs no edit \u2014 which\nalso keeps LaTeX out of the strategy grid's import path and keeps that file (a\nrun-contract SHAPE_SOURCE) out of unrelated diffs.\n\nThe shared machinery each objective is written against \u2014 the placement primitive\n`ell(b) = M(y_b)(t0 + h) + D_b`, the pick-effort priority that orders a ranked wave, and\nthe tie-breaking / full-aisle rules \u2014 is documented once on the experiment site's\nformula reference; the entries below state only what distinguishes them.",
@@ -7252,6 +7279,20 @@
       "doc": "settings \u2014 every tunable a run has, as a flat list of named values.\n\nThe authoring surface. One name per knob, at module level, grouped by what it governs and\nannotated with what changing it costs. `sim_config.CONFIG` is DERIVED from this file, so\nthis is the one place a value is written down and the nested dict is a view of it.\n\n    settings.py          you edit this                        (declaration)\n        |\n        v\n    sim_config.CONFIG    the nested dict every reader knows   (run state)\n        |\n        v\n    resolve at run time  + CLI flags + the what-if cell       (this run)\n\n## Reading this file\n\nEvery value below is a DEFAULT. Three things override it, in order:\n\n1. a CLI flag (`--n-batches`, `--seed-world`, \u2026) \u2014 see `run_simulation`\n2. a what-if cell, for the three axes it sweeps \u2014 see `simdriver.cells`\n3. a `--resume`, which restores whatever the original run recorded in its run spec\n\nOverrides are written into `CONFIG` and read back through the accessors in `sim_config`\n(`n_batches()`, `seed_world()`, \u2026). **Never snapshot one of these at import**: a module\nscalar cannot see a CLI override, which is a bug this project has now shipped twice \u2014 once\nfor `_INITIAL_FILL`, which made a run misreport its own sizing in its warehouse DB, and once\nfor five more that were caught before they could.\n\n## What does NOT live here\n\n- **Pick-config coefficients.** Those are a swept AXIS, not a setting: each variant is a\n  self-registering module under `Optimization/simconfig/configs/`, and the run sweeps all of\n  them. A number that varies within one run is not a default.\n- **What-if cell definitions.** `Optimization/config/whatif_config.SPECS`.\n- **Restock-rule membership.** `Optimization/config/strategies`.\n- **Anything derived.** `checkpoint_every` is computed from `n_batches`; the shift's\n  hour-length is `REPORTING_FRAME_SECONDS / 3600`. A derived value declared beside its input is two\n  things to keep in step.\n\nAdding a setting: declare it here, thread it into `CONFIG` below, and \u2014 if it changes\nresults \u2014 give it a CLI flag, record it in the run spec, and restore it in both\n`_apply_run_spec` and `run_analysis._apply_run_shape`.\n\n**And then the FIFTH seam, which this list used to omit:** carry the value in\n`workunits._shared`, the picklable payload a spawned worker actually receives. A worker\nre-imports this module and gets the PRISTINE defaults above \u2014 it never sees the parent's\nmutated `CONFIG` \u2014 so a setting that reaches all four sites and not the payload is accepted\non the command line and then silently ignored for the whole run. That is not hypothetical:\nit is why the working day, the two crews, the crew price and the staffing record are each\ncarried as an explicit payload key rather than re-derived worker-side.\n\nMiss any one of those five and the flag is accepted and then silently ignored.\n`Tests/unit/test_run_shaping_params.py` guards the first four per knob;\n`Tests/unit/test_config_reaches_the_worker.py` guards the fifth generically \u2014 it proves a\nworker cannot import this package at all, so a value it uses must have arrived in the\npayload.",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/config/settings.py::AISLE_COLUMNS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "50"
+    },
+    "Optimization/config/settings.py::AISLE_LEVELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "10"
     },
     "Optimization/config/settings.py::BAND_TOL": {
       "decorators": [],
@@ -7875,20 +7916,6 @@
       "signature": null,
       "value_preview": "sorted((s for s in PICK_CONFIGS if s.enabled), key=lambda s: (s.channel, s.order, s.name))"
     },
-    "Optimization/config/sim_config.py::_AISLE_H": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "aisle_height_for(10)"
-    },
-    "Optimization/config/sim_config.py::_AISLE_W": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "aisle_width_for(50)"
-    },
     "Optimization/config/sim_config.py::_CART_TYPES": {
       "decorators": [],
       "doc": null,
@@ -7959,13 +7986,6 @@
       "kind": "function",
       "signature": "(n_batches: int) -> int"
     },
-    "Optimization/config/sim_config.py::_clean_path": {
-      "decorators": [],
-      "doc": "Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.\n\nApplied after os.getenv so that values set directly in the Windows session\nenvironment (with literal r\"...\" text) are normalised the same way as\nvalues parsed from the .env file.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(val: str) -> str"
-    },
     "Optimization/config/sim_config.py::_config_name": {
       "decorators": [],
       "doc": "A config's directory/identity name (explicit 'name', else a coeff fingerprint).",
@@ -7980,19 +8000,19 @@
       "kind": "function",
       "signature": "(raw)"
     },
-    "Optimization/config/sim_config.py::_load_env": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> None"
-    },
     "Optimization/config/sim_config.py::_setup_logging": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(log_path: str) -> logging.Logger"
+    },
+    "Optimization/config/sim_config.py::aisle_geometry": {
+      "decorators": [],
+      "doc": "(width, height) of one aisle in physical units, read at CALL time.\n\nA FUNCTION, not two module scalars, and deliberately: the pair used to be\n`aisle_width_for(50)` / `aisle_height_for(10)` evaluated at import, so a CLI override\ncould never reach them. That is the `_INITIAL_FILL` defect this project has already\nshipped once -- a run misreporting its own sizing in its own warehouse DB --\nand `Tests/unit/test_config_reaches_the_worker.py` mutates the CONFIG key and calls\nevery accessor twice to keep it from coming back.\n\nPARENT-SIDE. The warehouse is planned before any worker exists, so this is not in\nthe worker payload; it is listed in that test's `PARENT_ONLY` with the reason.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> tuple[int, int]"
     },
     "Optimization/config/sim_config.py::channel_demand": {
       "decorators": [],
@@ -18891,13 +18911,6 @@
       "kind": "function",
       "signature": "(args) -> list"
     },
-    "Warehouse/generation/generate_mixed_profile.py::_clean_path": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(val: str) -> str"
-    },
     "Warehouse/generation/generate_mixed_profile.py::_expected_conveyable_fraction": {
       "decorators": [],
       "doc": null,
@@ -18911,13 +18924,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(args) -> dict"
-    },
-    "Warehouse/generation/generate_mixed_profile.py::_load_env": {
-      "decorators": [],
-      "doc": "Inject KEY=VALUE pairs from *path* into os.environ (shell vars take priority).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> None"
     },
     "Warehouse/generation/generate_mixed_profile.py::_mix": {
       "decorators": [],
@@ -19008,20 +19014,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "os.path.dirname(_HERE)"
-    },
-    "Warehouse/generation/generate_profile_suite.py::_clean_path": {
-      "decorators": [],
-      "doc": "Strip r\"...\" / r'...' notation or plain quotes from an env-var path.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(val: str) -> str"
-    },
-    "Warehouse/generation/generate_profile_suite.py::_load_env": {
-      "decorators": [],
-      "doc": "Inject KEY=VALUE pairs from *path* into os.environ (shell vars take priority).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str) -> None"
     },
     "Warehouse/generation/generate_profile_suite.py::_save_close": {
       "decorators": [],
@@ -22641,7 +22633,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None)"
+      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None, aisle_key=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__len__": {
       "decorators": [],
@@ -22649,6 +22641,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._heap_key": {
+      "decorators": [],
+      "doc": "The ordering the scan computed, as a value.\n\nDefault: the head's D, NEGATED when maximising, so one min-heap serves `tmin` and\n`tmax` alike.  `-0.0 == 0.0`, so a zero-D tie still falls through to `_rank`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid)"
     },
     "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._pick_effort_priority": {
       "decorators": [],
@@ -22859,7 +22858,7 @@
       "doc": "`open_pool` shared by the four ranked-assign arms (tmin / tmax / rank_random /\nrank_popularity).  Mirrors `_ranked_assign_impl`'s parameter list exactly.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None)"
+      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None, aisle_key=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn.open_pool": {
       "decorators": [],
@@ -23371,12 +23370,12 @@
       "kind": "function",
       "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)"
     },
-    "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn._selector": {
+    "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn._key": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(head_D, head_bin)"
+      "signature": "(aid, head_D)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_assignment_fn": {
       "decorators": [],

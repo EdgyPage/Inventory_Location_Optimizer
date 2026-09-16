@@ -6926,6 +6926,11 @@
       "src": "Optimization/config/channels.py::wp_by_regime"
     },
     {
+      "dst": "Optimization/config/envfile.py::clean_path",
+      "kind": "calls",
+      "src": "Optimization/config/envfile.py::load_env"
+    },
+    {
       "dst": "Optimization/config/objectives.py::Objective",
       "kind": "calls",
       "src": "Optimization/config/objectives.py::_ENTRIES"
@@ -6968,6 +6973,16 @@
     {
       "dst": "Optimization/config/channels.py",
       "kind": "imports",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Optimization/config/envfile.py",
+      "kind": "imports",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Optimization/config/envfile.py::load_env",
+      "kind": "calls",
       "src": "Optimization/config/sim_config.py"
     },
     {
@@ -7046,11 +7061,6 @@
       "src": "Optimization/config/sim_config.py"
     },
     {
-      "dst": "Optimization/config/sim_config.py::_load_env",
-      "kind": "calls",
-      "src": "Optimization/config/sim_config.py"
-    },
-    {
       "dst": "Optimization/config/strategies.py",
       "kind": "imports",
       "src": "Optimization/config/sim_config.py"
@@ -7094,6 +7104,16 @@
       "dst": "Warehouse/picking/Pick.py",
       "kind": "imports",
       "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Optimization/config/settings.py::AISLE_COLUMNS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::AISLE_LEVELS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
       "dst": "Optimization/config/settings.py::BAND_TOL",
@@ -7496,22 +7516,12 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
-      "dst": "Warehouse/layout/Aisle_Dimensions.py::aisle_height_for",
-      "kind": "calls",
-      "src": "Optimization/config/sim_config.py::_AISLE_H"
-    },
-    {
-      "dst": "Warehouse/layout/Aisle_Dimensions.py::aisle_width_for",
-      "kind": "calls",
-      "src": "Optimization/config/sim_config.py::_AISLE_W"
-    },
-    {
-      "dst": "Optimization/config/sim_config.py::_clean_path",
+      "dst": "Optimization/config/envfile.py::clean_path",
       "kind": "calls",
       "src": "Optimization/config/sim_config.py::_DEFAULT_PROFILES_DIR"
     },
     {
-      "dst": "Optimization/config/sim_config.py::_clean_path",
+      "dst": "Optimization/config/envfile.py::clean_path",
       "kind": "calls",
       "src": "Optimization/config/sim_config.py::_OUTPUT_DIR"
     },
@@ -7519,6 +7529,16 @@
       "dst": "Warehouse/picking/Pick.py::PickConfig",
       "kind": "calls",
       "src": "Optimization/config/sim_config.py::_build_pick_cfg"
+    },
+    {
+      "dst": "Warehouse/layout/Aisle_Dimensions.py::aisle_height_for",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py::aisle_geometry"
+    },
+    {
+      "dst": "Warehouse/layout/Aisle_Dimensions.py::aisle_width_for",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py::aisle_geometry"
     },
     {
       "dst": "Optimization/config/sim_config.py::era_on",
@@ -9862,6 +9882,11 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::_setup_logging",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::aisle_geometry",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
@@ -13341,6 +13366,11 @@
       "src": "Optimization/simdriver/sim_assets.py"
     },
     {
+      "dst": "Optimization/config/sim_config.py::aisle_geometry",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::inbound_lead_law",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
@@ -13459,6 +13489,11 @@
       "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._build"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::aisle_geometry",
+      "kind": "calls",
+      "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._plan"
     },
     {
       "dst": "Optimization/config/sim_config.py::store_fill",
@@ -17911,6 +17946,16 @@
       "src": "Warehouse/generation/generate_inventory.py::save_inventory_to_db"
     },
     {
+      "dst": "Optimization/config/envfile.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_mixed_profile.py"
+    },
+    {
+      "dst": "Optimization/config/envfile.py::load_env",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_mixed_profile.py"
+    },
+    {
       "dst": "Schema/connect.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_mixed_profile.py"
@@ -17933,11 +17978,6 @@
     {
       "dst": "Warehouse/generation/generate_inventory.py",
       "kind": "imports",
-      "src": "Warehouse/generation/generate_mixed_profile.py"
-    },
-    {
-      "dst": "Warehouse/generation/generate_mixed_profile.py::_load_env",
-      "kind": "calls",
       "src": "Warehouse/generation/generate_mixed_profile.py"
     },
     {
@@ -17981,7 +18021,7 @@
       "src": "Warehouse/generation/generate_mixed_profile.py::CREATION_PLAN"
     },
     {
-      "dst": "Warehouse/generation/generate_mixed_profile.py::_clean_path",
+      "dst": "Optimization/config/envfile.py::clean_path",
       "kind": "calls",
       "src": "Warehouse/generation/generate_mixed_profile.py::_DEFAULT_PROFILES_DIR"
     },
@@ -17994,6 +18034,11 @@
       "dst": "Warehouse/generation/generate_mixed_profile.py::_ff_weight_spec",
       "kind": "calls",
       "src": "Warehouse/generation/generate_mixed_profile.py::_build_plan"
+    },
+    {
+      "dst": "Optimization/config/envfile.py::clean_path",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_mixed_profile.py::main"
     },
     {
       "dst": "Schema/profile_tree.py::write_profile_layout",
@@ -18012,11 +18057,6 @@
     },
     {
       "dst": "Warehouse/generation/generate_mixed_profile.py::_build_plan",
-      "kind": "calls",
-      "src": "Warehouse/generation/generate_mixed_profile.py::main"
-    },
-    {
-      "dst": "Warehouse/generation/generate_mixed_profile.py::_clean_path",
       "kind": "calls",
       "src": "Warehouse/generation/generate_mixed_profile.py::main"
     },
@@ -18056,6 +18096,16 @@
       "src": "Warehouse/generation/generate_mixed_profile.py::main._side_entry"
     },
     {
+      "dst": "Optimization/config/envfile.py",
+      "kind": "imports",
+      "src": "Warehouse/generation/generate_profile_suite.py"
+    },
+    {
+      "dst": "Optimization/config/envfile.py::load_env",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_profile_suite.py"
+    },
+    {
       "dst": "Schema/profile_tree.py",
       "kind": "imports",
       "src": "Warehouse/generation/generate_profile_suite.py"
@@ -18071,19 +18121,19 @@
       "src": "Warehouse/generation/generate_profile_suite.py"
     },
     {
-      "dst": "Warehouse/generation/generate_profile_suite.py::_load_env",
-      "kind": "calls",
-      "src": "Warehouse/generation/generate_profile_suite.py"
-    },
-    {
       "dst": "Warehouse/generation/generate_profile_suite.py::main",
       "kind": "calls",
       "src": "Warehouse/generation/generate_profile_suite.py"
     },
     {
-      "dst": "Warehouse/generation/generate_profile_suite.py::_clean_path",
+      "dst": "Optimization/config/envfile.py::clean_path",
       "kind": "calls",
       "src": "Warehouse/generation/generate_profile_suite.py::_DEFAULT_PROFILES_DIR"
+    },
+    {
+      "dst": "Optimization/config/envfile.py::clean_path",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_profile_suite.py::main"
     },
     {
       "dst": "Schema/profile_tree.py::DESCRIPTOR",
@@ -18107,11 +18157,6 @@
     },
     {
       "dst": "Warehouse/generation/generate_inventory.py::generate_run",
-      "kind": "calls",
-      "src": "Warehouse/generation/generate_profile_suite.py::main"
-    },
-    {
-      "dst": "Warehouse/generation/generate_profile_suite.py::_clean_path",
       "kind": "calls",
       "src": "Warehouse/generation/generate_profile_suite.py::main"
     },
@@ -20026,9 +20071,19 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._heap_key",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._pick_effort_priority"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._heap_key",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.take"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
@@ -29332,6 +29387,38 @@
       "public": true
     },
     {
+      "file": "Optimization/config/envfile.py",
+      "id": "Optimization/config/envfile.py",
+      "kind": "module",
+      "module": "Optimization/config/envfile.py",
+      "name": "Optimization.config.envfile",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/envfile.py",
+      "id": "Optimization/config/envfile.py::__all__",
+      "kind": "const",
+      "module": "Optimization/config/envfile.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/envfile.py",
+      "id": "Optimization/config/envfile.py::clean_path",
+      "kind": "function",
+      "module": "Optimization/config/envfile.py",
+      "name": "clean_path",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/envfile.py",
+      "id": "Optimization/config/envfile.py::load_env",
+      "kind": "function",
+      "module": "Optimization/config/envfile.py",
+      "name": "load_env",
+      "public": true
+    },
+    {
       "file": "Optimization/config/objectives.py",
       "id": "Optimization/config/objectives.py",
       "kind": "module",
@@ -29417,6 +29504,22 @@
       "kind": "module",
       "module": "Optimization/config/settings.py",
       "name": "Optimization.config.settings",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::AISLE_COLUMNS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "AISLE_COLUMNS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::AISLE_LEVELS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "AISLE_LEVELS",
       "public": true
     },
     {
@@ -30133,22 +30236,6 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::_AISLE_H",
-      "kind": "const",
-      "module": "Optimization/config/sim_config.py",
-      "name": "_AISLE_H",
-      "public": false
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::_AISLE_W",
-      "kind": "const",
-      "module": "Optimization/config/sim_config.py",
-      "name": "_AISLE_W",
-      "public": false
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::_CART_TYPES",
       "kind": "const",
       "module": "Optimization/config/sim_config.py",
@@ -30229,14 +30316,6 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::_clean_path",
-      "kind": "function",
-      "module": "Optimization/config/sim_config.py",
-      "name": "_clean_path",
-      "public": false
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::_config_name",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
@@ -30253,19 +30332,19 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
-      "id": "Optimization/config/sim_config.py::_load_env",
-      "kind": "function",
-      "module": "Optimization/config/sim_config.py",
-      "name": "_load_env",
-      "public": false
-    },
-    {
-      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::_setup_logging",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "_setup_logging",
       "public": false
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::aisle_geometry",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "aisle_geometry",
+      "public": true
     },
     {
       "file": "Optimization/config/sim_config.py",
@@ -42741,14 +42820,6 @@
     },
     {
       "file": "Warehouse/generation/generate_mixed_profile.py",
-      "id": "Warehouse/generation/generate_mixed_profile.py::_clean_path",
-      "kind": "function",
-      "module": "Warehouse/generation/generate_mixed_profile.py",
-      "name": "_clean_path",
-      "public": false
-    },
-    {
-      "file": "Warehouse/generation/generate_mixed_profile.py",
       "id": "Warehouse/generation/generate_mixed_profile.py::_expected_conveyable_fraction",
       "kind": "function",
       "module": "Warehouse/generation/generate_mixed_profile.py",
@@ -42761,14 +42832,6 @@
       "kind": "function",
       "module": "Warehouse/generation/generate_mixed_profile.py",
       "name": "_ff_weight_spec",
-      "public": false
-    },
-    {
-      "file": "Warehouse/generation/generate_mixed_profile.py",
-      "id": "Warehouse/generation/generate_mixed_profile.py::_load_env",
-      "kind": "function",
-      "module": "Warehouse/generation/generate_mixed_profile.py",
-      "name": "_load_env",
       "public": false
     },
     {
@@ -42873,22 +42936,6 @@
       "kind": "const",
       "module": "Warehouse/generation/generate_profile_suite.py",
       "name": "_WH",
-      "public": false
-    },
-    {
-      "file": "Warehouse/generation/generate_profile_suite.py",
-      "id": "Warehouse/generation/generate_profile_suite.py::_clean_path",
-      "kind": "function",
-      "module": "Warehouse/generation/generate_profile_suite.py",
-      "name": "_clean_path",
-      "public": false
-    },
-    {
-      "file": "Warehouse/generation/generate_profile_suite.py",
-      "id": "Warehouse/generation/generate_profile_suite.py::_load_env",
-      "kind": "function",
-      "module": "Warehouse/generation/generate_profile_suite.py",
-      "name": "_load_env",
       "public": false
     },
     {
@@ -46989,6 +47036,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._heap_key",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_heap_key",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._pick_effort_priority",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -47813,10 +47868,10 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn._selector",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn._key",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_selector",
+      "name": "_key",
       "public": false
     },
     {

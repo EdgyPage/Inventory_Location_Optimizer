@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.config.envfile · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_envfile_py" data-id="Optimization/config/envfile.py">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <span class="here"><code>Optimization/config/envfile.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.config.envfile</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_envfile_py.html"><code>Optimization/config/envfile.py</code></a></p>
+
+<pre class="sig"><code>Optimization.config.envfile</code></pre>
+<section class="doc">envfile.py — the ONE `.env` reader, and the one path-value cleaner.
+
+`load_env` and `clean_path` existed four times, byte-for-byte equivalent, in
+`Optimization/config/sim_config.py`, `Warehouse/generation/generate_mixed_profile.py`,
+`Warehouse/generation/generate_profile_suite.py` and `docs/experiments/ingest.py`. Every copy
+had the same skip rules, the same `r&quot;...&quot;` stripping and the same shell-wins precedence, so
+they were one function stored four times — the state `Warehouse/operations/putaway.py` records
+the cost of: &quot;this project has already paid for two default sets that drifted 55x apart.&quot;
+
+WHY IT LIVES HERE, in `Optimization/config/`, and not somewhere more neutral:
+
+* `Warehouse/kernel/` is declared &quot;zero-dependency VALUE OBJECTS — the primitives everything
+  else in the DOMAIN is built from&quot;. An `.env` reader is harness plumbing and would be the
+  first non-domain thing in it.
+* A module at the repo root would be STRUCTURALLY INVISIBLE. `context/arch/extract.py`&#x27;s
+  `GRAPH_ROOTS` are all directories, so a bare top-level `.py` is never walked: no `files.yml`
+  entry, no layer, and nothing to notice — the same class of hole this package has been
+  fixing elsewhere.
+* Reading `.env` IS configuration, and `generation -&gt; opt_config` and `docs -&gt; opt_config` are
+  both permitted by `context/architecture.yml` (only the reverse directions are forbidden).
+
+THE IMPORT MUST STAY FREE. `docs/experiments/ingest.py` loads `.env` BEFORE importing anything
+that reads it, and `Tests/architecture/test_ingest_env_bootstrap.py` pins that ordering. So
+this module imports `os` and nothing else, and both package `__init__` files above it are
+docstring-only (`Optimization/__init__.py` says so in as many words: &quot;Deliberately
+side-effect-free: no imports here&quot;). Adding an import here can break a bootstrap two packages
+away without failing anything local — do not.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nOptimization_config_sim_config_py.html"><code>Optimization.config.sim_config</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nWarehouse_generation_generate_mixed_profile_py.html"><code>Warehouse.generation.generate_mixed_profile</code></a> <span class="dim">Warehouse/generation/generate_mixed_profile.py</span></li><li><a href="nWarehouse_generation_generate_profile_suite_py.html"><code>Warehouse.generation.generate_profile_suite</code></a> <span class="dim">Warehouse/generation/generate_profile_suite.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(3)</span></h2><ul><li><a href="nOptimization_config_envfile_py____all__.html"><code>__all__</code></a> <span class="dim">Optimization/config/envfile.py</span></li><li><a href="nOptimization_config_envfile_py__clean_path.html"><code>clean_path</code></a> <span class="dim">Optimization/config/envfile.py</span></li><li><a href="nOptimization_config_envfile_py__load_env.html"><code>load_env</code></a> <span class="dim">Optimization/config/envfile.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_envfile_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/envfile.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
