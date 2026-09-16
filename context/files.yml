@@ -3651,6 +3651,16 @@ files:
       - {name: "test_the_accessor_reads_config_at_call_time", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_call_time_check_would_catch_a_snapshot", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_conftest_restores_config.py":
+    purpose: "the autouse fixture that stops the suite poisoning itself."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_test_may_still_mutate_config_freely", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
+      - {name: "test_the_next_test_does_not_inherit_it", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
+      - {name: "test_the_real_leak_is_contained", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
+      - {name: "test_and_the_leak_did_not_escape_the_test_above", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
+      - {name: "test_the_parser_still_builds_which_is_what_actually_broke", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_couple_channels_param.py":
     purpose: "The five seams of `--couple-channels`, the site-dock switch. Pins that the fifth seam is STRUCTURAL -- a worker reads no coupling flag, its payload either carries `leaves` or does not -- that the switch is DECLARED rather than derived from the inbound flag (the campaign couples its inbound-off pole), and that the run-tree marker is declared in both the JSON schema and the artifact catalogue."
     layer: "tests"

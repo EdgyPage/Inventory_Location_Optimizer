@@ -36,6 +36,24 @@ per-rung bind would report vintage drift as growth.
 **Why:** a ladder is only informative if the knob it varies actually reaches the subsystem under
 test; a saturated knob and a genuinely flat subsystem are indistinguishable from the ratios alone.
 
+**The DEEP tier had three more of these, all found by running it 2026-09-16, and all now fixed:**
+
+- **Its rungs could not run at all.** Each carried `--s-max-bins`/`--ff-max-bins`, and those bind
+  BELOW the era's declared stock levels, so the planner refuses (`UnfieldableRequirement`). "No
+  cap value would have worked" -- a smaller warehouse raises lines/day, which grows the levels.
+  Rungs now shrink with `--coverage-days`, which lowers the DECLARATION.
+- **It reported a clean bill after every rung failed** -- "no super-linear offenders flagged" plus
+  an archived JSON, because `RUNG FAILED ... continue` left nothing downstream able to tell
+  "measured and clean" from "never ran". It now refuses to report below three surviving rungs and
+  records `failed_rungs` in the artifact.
+- **It bound the NEWEST catalogue, not one big enough.** `find_latest_db_pairs` is
+  `ProfileTree.latest()`, so rungs above the bound catalogue truncated in silence. `run_simulation
+  --profile-run NAME` now names a run (new 2026-09-16), and the ladder sizes itself to the
+  catalogue, drops what it cannot serve BY NAME, and prints the surviving span.
+
+**So a clean deep-tier artifact in `out/archive/` from before 2026-09-16 may mean the tier never
+ran.** Check `failed_rungs` and the printed span before citing one.
+
 **How to apply:** before reading any growth ladder as flat, confirm the knob moved the thing it
 drives — check that the intermediate counts differ between rungs, not just the requested input.
 Full record: `docs/design/INBOUND_PERF_FINDINGS.md`, `.scratch/inbound-performance/issues/

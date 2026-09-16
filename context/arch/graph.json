@@ -9821,6 +9821,11 @@
       "src": "Optimization/run_simulation.py"
     },
     {
+      "dst": "Schema/profile_resolver.py",
+      "kind": "imports",
+      "src": "Optimization/run_simulation.py"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py",
       "kind": "imports",
       "src": "Optimization/run_simulation.py"
@@ -9992,6 +9997,11 @@
     },
     {
       "dst": "Schema/identity.py::families",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Schema/profile_resolver.py::ProfileTree",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
