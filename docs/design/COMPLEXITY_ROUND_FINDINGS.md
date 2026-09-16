@@ -210,6 +210,32 @@ It stays the top candidate because the SHARE grows: the rung wall fits k = 1.26,
 > which is the move that cost `inbound-performance` three retractions. The deep ladder tests it
 > before any lazy-bound work is built.
 
+### RETRACTED in part: the deep ladder corroborates the bend, not the attribution
+
+The 8× deep ladder ran (10,000 → 80,000 SKUs, 136 arms per rung, 400k catalogue). `reord_s`
+bends exactly as a growing super-linear term would — local exponents **0.88 → 1.13 → 1.31 →
+1.38** — and the rise is **specific to that section**, while `save_s` falls and `sim_s`,
+`build_s` stay flat. The headline fit of k = 1.12 understates the top end badly.
+
+But fitting `reord_s = A·n + B·n^q` with `q` fixed at **1.912**, the exponent independently
+measured for the rebuild, fits **worse than a plain power law**:
+
+| model | worst rung | log residual |
+|---|---|---|
+| single power law, k = 1.12 | 8.6% | 0.0249 |
+| **linear + rider at q = 1.912** | **16.9%** | **0.0354** |
+| linear + rider at q = 2.60 (fitted) | 9.2% | 0.0098 |
+
+`reord_s` carries the whole reorder phase, not just the pool's aisle selection. **The bend is
+real; that it is the `R × A` rebuild is unsupported. Do not quote the 74%.** What would settle
+it is the rebuild's own call count per deep rung — a `_FLOW_COUNTS` entry rather than an
+inference from a section wall — which the deep tier does not have, because its sections come
+from each run's log rather than a tracer.
+
+Also measured: **commensurability runs 0.26 → 0.52 across the ladder.** Even at the top rung
+half the wall is not per-arm work. A deep-tier wall read as "the cost of the simulation"
+is roughly double.
+
 ---
 
 ## 2.5 The assignment families were invisible, and the one that showed up was the biggest

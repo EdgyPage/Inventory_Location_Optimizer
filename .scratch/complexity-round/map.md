@@ -185,6 +185,20 @@ Concretely, reached when:
   changes every test's environment and needs a decision.
   -> [11-the-routine-suite-contaminates-itself.md](issues/11-the-routine-suite-contaminates-itself.md)
 
+- **[14] THE DEEP LADDER RAN AT FULL SPAN -- and it corroborates the BEND, not the attribution.**
+  5 rungs, 10k -> 80k (8x), 136 arms each, on the 400k catalogue, unblocked by `--profile-run`.
+  `reord_s` bends exactly as a growing super-linear term would -- local exponents
+  **0.88 -> 1.13 -> 1.31 -> 1.38** -- and the rise is SPECIFIC to that section (save_s falls,
+  sim_s and build_s are flat). The headline fit k=1.12 understates the top end badly.
+  **But the attribution fails.** Fitting `A*n + B*n^q` with q FIXED at 1.912 -- the exponent
+  measured for the rebuild in ticket 07 -- fits WORSE (16.9% worst rung) than a plain power law
+  (8.6%). `reord_s` carries the whole reorder phase, not just the pool's aisle selection.
+  **Ticket 07's measurement stands; its ~74%-at-campaign PROJECTION does not. Quote the bend.**
+  What would settle it: the rebuild's own call count per deep rung, as a `_FLOW_COUNTS` entry
+  rather than an inference from a section wall -- the deep tier has no tracer, so it cannot see it.
+  Also: **commensurability 0.26 -> 0.52** -- even at the top rung half the wall is not per-arm work.
+  -> [14-the-deep-ladder-corroborates-the-bend-not-the-attribution.md](issues/14-the-deep-ladder-corroborates-the-bend-not-the-attribution.md)
+
 ## Fog
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by

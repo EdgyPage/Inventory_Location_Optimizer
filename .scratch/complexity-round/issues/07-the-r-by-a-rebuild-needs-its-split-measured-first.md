@@ -146,6 +146,14 @@ rebuild's SHARE grows as n^0.651:
 | 240,000 | ~53% |
 | 400,000 (campaign) | ~74% |
 
+> **TESTED 2026-09-16 BY THE DEEP LADDER, AND THE ATTRIBUTION DID NOT SURVIVE.** The 8x
+> ladder (10k-80k, 400k catalogue) shows `reord_s` bending exactly as a growing
+> super-linear term would -- local exponents 0.88 -> 1.13 -> 1.31 -> 1.38, and the rise is
+> specific to that section. But fitting it as `A*n + B*n^1.912`, using the exponent
+> measured below, fits WORSE (16.9% worst rung) than a plain power law (8.6%). So the bend
+> is real and the claim that it IS this rebuild is unsupported. **Do not quote the 74%.**
+> See ticket 14.
+
 **This is a PREDICTION, not a result, and it must not be quoted as one.** It extrapolates a fit
 taken over a 4x span out to 167x, which is precisely the move this repo has been burned by --
 `inbound-performance` ticket 12, where a ladder that stopped growing its own driving variable
