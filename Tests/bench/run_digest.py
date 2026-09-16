@@ -72,8 +72,16 @@ SIM_TABLES = ('simulation_runs', 'batch_stats', 'task_stats', 'picker_events', '
               'site_receiving',   # per-batch site dock depth/unloaded/cut/seconds
               'shift_days',       # the drain-or-cap working-day ledger
               'free_index')       # per-batch free-bin census by bucket
-KEYFRAME_TABLES  = ('bin_keyframe',)
-WAREHOUSE_TABLES = ('aisle_layout', 'aisle_type_stats', 'warehouse_stats')
+# `schema_meta` is the Schema layer's stamp -- `(key, value)` holding the
+# content-addressed `schema_id`.  It is NOT created by these modules' own DDL
+# (`Schema/identity.meta_ddl` writes it, `compat.stamp_checked` installs it), which is
+# how it stayed undeclared here after the 2026-09-15 sweep caught the other five: that
+# sweep parsed `Picking_Data`'s CREATE statements and this table is in neither file.
+# Hashed rather than excluded: the id is deterministic for a build and moves exactly
+# when the schema does, which is signal worth having.  The RUN db carries no stamp
+# (its `stamp_checked` call is the verify half only), so it is absent from SIM_TABLES.
+KEYFRAME_TABLES  = ('bin_keyframe', 'schema_meta')
+WAREHOUSE_TABLES = ('aisle_layout', 'aisle_type_stats', 'warehouse_stats', 'schema_meta')
 
 #: Tables that exist in a file and are DELIBERATELY not part of the comparable surface.
 #: Empty today, and that is the point: the check below turns "I forgot" into an error and

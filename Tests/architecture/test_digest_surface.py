@@ -26,13 +26,29 @@ the tool; it is to make the SIXTH omission impossible without anyone remembering
 exists. That is the `test_config_reaches_the_worker` pattern: a check per knob can only be
 added after someone has already remembered the seam exists, so state the rule generically.
 
-# ── the rule ──────────────────────────────────────────────────────────────────────
+# ── the rule, and why it is stated TWICE ─────────────────────────────────────────
 
-Every `CREATE TABLE IF NOT EXISTS` in `Picking_Data`'s module-level DDL lands in exactly one
-declared bucket: hashed (`SIM_TABLES` / `KEYFRAME_TABLES` / `WAREHOUSE_TABLES`), deliberately
-excluded (`OUT_OF_SURFACE`, which carries a written reason), or not a table at all
-(`NOT_A_TABLE`, the views). "I forgot" becomes a failure here; "I decided" stays a one-line
-edit with a reason attached, exactly as `OUT_OF_SURFACE`'s own comment intends.
+Every table a run DB holds lands in exactly one declared bucket: hashed (`SIM_TABLES` /
+`KEYFRAME_TABLES` / `WAREHOUSE_TABLES`), deliberately excluded (`OUT_OF_SURFACE`, which
+carries a written reason), or not a table at all (`NOT_A_TABLE`, the views).
+
+It is checked from two directions because the first one alone was not enough:
+
+  * a SOURCE PARSE of `Picking_Data`'s CREATE statements, which sees tables created behind a
+    conditional a test build might not take; and
+  * a REAL BUILD of each of the three DB kinds through its own initialiser, with the tool's
+    own `_surface_check` over the result.
+
+THE SIXTH TABLE IS WHY THE SECOND EXISTS. After the five above were declared, the digest was
+still dead for keyframes: `schema_meta` is written by the Schema layer
+(`Schema/identity.meta_ddl`, installed by `compat.stamp_checked`) and appears in NEITHER
+persistence module, so a parse of `Picking_Data` was blind to it by construction. It was
+caught by actually running the tool, which is the same lesson one level up -- a gate that
+resolves names cannot catch a wrong relationship, and the fix shape is to exercise the thing
+and assert it produced something.
+
+"I forgot" becomes a failure here; "I decided" stays a one-line edit with a reason attached,
+exactly as `OUT_OF_SURFACE`'s own comment intends.
 """
 from __future__ import annotations
 
@@ -105,20 +121,13 @@ def test_every_created_table_is_declared_in_exactly_one_bucket():
         f'difference as two, and one excluded-and-hashed is simply ambiguous.')
 
 
-def test_no_bucket_names_a_table_that_does_not_exist():
-    """The other direction: an entry for a dropped table silently protects nothing.
-
-    `WAREHOUSE_TABLES` is exempt — it describes the separate warehouse DB, whose CREATEs do
-    not live in `Picking_Data`.
-    """
-    created = _created_tables() | _created_views()
-    buckets = _declared()
-    ghosts = {name: sorted(b - created)
-              for name, b in buckets.items()
-              if name != 'WAREHOUSE_TABLES' and (b - created)}
-    assert not ghosts, (
-        f'these bucket entries name nothing Picking_Data creates: {ghosts}. A stale entry '
-        f'exempts a table that no longer exists and hides the next real one.')
+# The ghost check (a bucket entry naming nothing that exists) USED to live here as a
+# source parse and had to exempt WAREHOUSE_TABLES, whose CREATEs are in another file.
+# It is now per-DB-kind against a real build, at the bottom of this file -- which needs
+# no exemption and covers tables from any source. Removed rather than kept alongside:
+# the parse version reported `schema_meta` as a ghost precisely BECAUSE the parse cannot
+# see the Schema layer, i.e. it was wrong in exactly the way that let the sixth table
+# through.
 
 
 def test_every_view_is_declared_not_a_table():
@@ -139,33 +148,68 @@ def test_out_of_surface_entries_carry_a_reason():
             f'comparable between two runs; got {reason!r}')
 
 
-# ── the tool actually runs ────────────────────────────────────────────────────────
+# ── the tool actually runs, on every DB KIND it opens ─────────────────────────────
+# THE CHECK THAT ACTUALLY CATCHES THINGS, and the one whose absence let a sixth table
+# through. The source-parse tests above read `Picking_Data`'s CREATE statements, so they
+# can only ever see tables THAT FILE creates. `schema_meta` is written by the Schema layer
+# (`Schema/identity.meta_ddl`, installed by `compat.stamp_checked`) into the keyframe and
+# warehouse DBs, so the parse was blind to it and the digest was still dead for keyframes
+# after the first five were declared.
+#
+# These build each DB with its REAL initialiser and put the tool's own check over the
+# result. A table from any source, conditional or not, is caught.
 
-def test_the_surface_check_passes_on_a_real_run_schema():
-    """END TO END, and the one that would have caught this: build the schema a run actually
-    writes and put the tool's own check over it.
+_KINDS = ('sim', 'keyframe', 'warehouse')
 
-    Every assertion above is about lists. This one is about the tool WORKING, which is the
-    thing that was false — `_surface_check` raised on every sim DB while the lists looked
-    plausible to anyone reading them.
-    """
-    con = sqlite3.connect(':memory:')
+
+def _build(kind, tmp_path):
+    from Optimization.persistence.Picking_Data import init_run_db, init_keyframe_db
+    from Optimization.persistence.Warehouse_Data import init_warehouse_db
+    init = {'sim': init_run_db, 'keyframe': init_keyframe_db,
+            'warehouse': init_warehouse_db}[kind]
+    bucket = {'sim': rd.SIM_TABLES, 'keyframe': rd.KEYFRAME_TABLES,
+              'warehouse': rd.WAREHOUSE_TABLES}[kind]
+    path = os.path.join(str(tmp_path), f'{kind}.db')
+    init(path)
+    return path, bucket
+
+
+@pytest.mark.parametrize('kind', _KINDS)
+def test_the_surface_check_passes_on_a_real_db_of_every_kind(kind, tmp_path):
+    """Build the DB a writer actually creates and run the tool's own check over it."""
+    path, bucket = _build(kind, tmp_path)
+    con = sqlite3.connect(path)
     try:
-        _apply_run_schema(con)
-        rd._surface_check(con, '<in-memory run db>', rd.SIM_TABLES)
+        rd._surface_check(con, f'<{kind}>', bucket)
     except SystemExit as exc:
-        pytest.fail(f'run_digest cannot read a run DB it was built to hash: {exc}')
+        pytest.fail(f'run_digest cannot read a {kind} DB it was built to hash: {exc}')
     finally:
         con.close()
 
 
-def test_the_surface_check_would_still_catch_an_undeclared_table():
-    """SABOTAGE: the test above proves nothing unless an undeclared table still raises."""
-    con = sqlite3.connect(':memory:')
+@pytest.mark.parametrize('kind', _KINDS)
+def test_no_bucket_declares_a_table_its_own_db_kind_does_not_have(kind, tmp_path):
+    """The other direction, per kind: a stale entry exempts nothing and hides the next one."""
+    path, bucket = _build(kind, tmp_path)
+    con = sqlite3.connect(path)
     try:
-        _apply_run_schema(con)
+        have = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
+    finally:
+        con.close()
+    ghosts = sorted(set(bucket) - have)
+    assert not ghosts, (
+        f'{kind} bucket declares {ghosts}, which a real {kind} DB does not contain')
+
+
+@pytest.mark.parametrize('kind', _KINDS)
+def test_the_surface_check_would_still_catch_an_undeclared_table(kind, tmp_path):
+    """SABOTAGE, per kind: the tests above prove nothing unless an extra table still raises."""
+    path, bucket = _build(kind, tmp_path)
+    con = sqlite3.connect(path)
+    try:
         con.execute('CREATE TABLE IF NOT EXISTS a_table_nobody_declared (run_id INTEGER)')
         with pytest.raises(SystemExit, match='a_table_nobody_declared'):
-            rd._surface_check(con, '<in-memory run db>', rd.SIM_TABLES)
+            rd._surface_check(con, f'<{kind}>', bucket)
     finally:
         con.close()
