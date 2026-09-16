@@ -2210,6 +2210,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "FLAG_COUNT_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "FLAG_TREND_DELTA", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "FLAG_TIME_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "MIN_R2", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "MIN_CALLS", file: "Tests/calltree/calltree_growth.py", kind: "const"}
@@ -2326,6 +2327,14 @@ files:
       - {name: "test_the_all_zero_warning_stays_silent_when_flows_fired", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_all_zero_warning_still_fires_when_nothing_ran", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_warning_does_not_tell_you_to_use_the_config_you_are_running", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_trend_catches_a_ratio_saturating_toward_its_ceiling", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_trend_stays_silent_on_the_series_that_is_actually_growing", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_trend_refuses_to_call_a_direction_from_two_steps", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_a_converging_offender_is_ranked_below_a_diverging_one", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_a_diverging_arm_is_caught_although_its_fit_is_under_every_threshold", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_other_arms_do_not_all_come_out_diverging", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_sum_stays_linear_while_one_arm_diverges", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_an_arm_missing_from_a_rung_is_skipped_not_zero_filled", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_rank_cache_equivalence.py":
     purpose: "frozen oracles for the Phase-6 SKU-run caches."
