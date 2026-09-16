@@ -66,6 +66,8 @@ history) holds the two result-dict keys that are not simply `t_<name>`.
 """
 from __future__ import annotations
 
+import time
+
 #: The twelve spans.  The order is this tuple's own and matches NEITHER the checkpoint log
 #: line nor `runtime_metrics`' column order — the log line prints reord, build, smpl, task,
 #: pre, sim, extr, cons and puts kf last (p1/p2/db come earlier still), so do not read this
@@ -101,11 +103,12 @@ class SectionTimers:
     SECTIONS = SECTIONS
     COLUMNS = COLUMNS
 
-    __slots__ = ('_base', '_win')
+    __slots__ = ('_base', '_win', '_cursor')
 
     def __init__(self) -> None:
         self._base = {name: 0.0 for name in SECTIONS}
         self._win = {name: 0.0 for name in SECTIONS}
+        self._cursor = 0.0
 
     def __repr__(self) -> str:
         live = ' '.join(f'{n}={self.total(n):.1f}' for n in SECTIONS if self.total(n))
@@ -120,6 +123,37 @@ class SectionTimers:
         accumulate seconds nothing ever reads and subtract them from nothing.
         """
         self._win[section] += seconds
+
+    # ── the lap cursor ────────────────────────────────────────────────────────────
+
+    def start(self, now: float = None) -> None:
+        """Open a lap.  Called once at the top of each batch, before any `split`.
+
+        The cursor is the TIMERS' state, not the caller's.  `_build_leaf` used to keep it as
+        a seventh closure variable `_t`, and every one of the eight timing sites repeated
+        `_now = time.perf_counter(); timers.add(s, _now - _t); _t = _now` -- eight chances to
+        forget the advance, which silently charges the next section its own time PLUS
+        everything before it.
+
+        `now` is injectable so a test need not sleep; production passes nothing.
+        """
+        self._cursor = time.perf_counter() if now is None else now
+
+    def split(self, *sections: str, now: float = None) -> float:
+        """Close the lap: charge the elapsed time to EVERY named section, reopen at the same
+        instant, and return the delta.
+
+        SEVERAL SECTIONS, ONE CLOCK READ.  `build` is the sum of `sample` and `task`, so both
+        of those sites charged two sections from a single `_dt` -- never two reads, which
+        would have made `build` disagree with its own parts by a few microseconds per batch.
+        """
+        t = time.perf_counter() if now is None else now
+        dt = t - self._cursor
+        win = self._win
+        for s in sections:
+            win[s] += dt
+        self._cursor = t
+        return dt
 
     # ── read ──────────────────────────────────────────────────────────────────────
 

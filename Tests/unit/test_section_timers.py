@@ -259,3 +259,85 @@ def test_nan_and_inf_are_not_special_cased():
     st = SectionTimers()
     st.add('sim', float('inf'))
     assert math.isinf(st.total('sim'))
+
+
+# ── the lap cursor ────────────────────────────────────────────────────────────────
+# `_build_leaf` kept the cursor itself, as a seventh closure variable `_t`, and every one
+# of the eight timing sites read the same three-statement incantation:
+#
+#     _now = time.perf_counter(); timers.add('reord', _now - _t); _t = _now
+#
+# The cursor is the TIMERS' state, not the caller's: every use of `_t` was a lap against
+# this object and nothing else ever read it. Owning it removes eight chances to forget the
+# `_t = _now`, which silently attributes one section's time to the next as well.
+
+def test_start_opens_a_lap_at_a_given_instant():
+    st = SectionTimers()
+    st.start(now=100.0)
+    st.split('sim', now=103.5)
+    assert st.window('sim') == pytest.approx(3.5)
+
+
+def test_split_advances_the_cursor_so_laps_do_not_overlap():
+    """The forgotten `_t = _now` is the defect this removes: without the advance the next
+    section is charged its own time PLUS everything before it."""
+    st = SectionTimers()
+    st.start(now=0.0)
+    st.split('reord', now=1.0)
+    st.split('sim', now=3.0)
+    assert st.window('reord') == pytest.approx(1.0)
+    assert st.window('sim') == pytest.approx(2.0), 'the second lap must not re-charge the first'
+
+
+def test_split_can_charge_SEVERAL_sections_the_same_delta():
+    """`build` is the sum of `sample` and `task`, so each of those two sites charged BOTH --
+    one `_dt` added twice, never two clock reads."""
+    st = SectionTimers()
+    st.start(now=0.0)
+    st.split('sample', 'build', now=2.0)
+    st.split('task', 'build', now=5.0)
+    assert st.window('sample') == pytest.approx(2.0)
+    assert st.window('task') == pytest.approx(3.0)
+    assert st.window('build') == pytest.approx(5.0), 'build is the sum of its two sub-splits'
+
+
+def test_split_returns_the_delta_it_charged():
+    st = SectionTimers()
+    st.start(now=10.0)
+    assert st.split('pre', now=14.25) == pytest.approx(4.25)
+
+
+def test_split_reads_the_clock_when_no_instant_is_given():
+    """Production passes no `now`; the injectable one exists so a test need not sleep."""
+    st = SectionTimers()
+    st.start()
+    dt = st.split('sim')
+    assert dt >= 0.0
+    assert st.window('sim') == dt
+
+
+def test_an_undeclared_section_is_refused_by_split_too():
+    st = SectionTimers()
+    st.start(now=0.0)
+    with pytest.raises(KeyError):
+        st.split('extrct', now=1.0)
+
+
+def test_the_cursor_is_not_a_section_and_does_not_reach_the_payload():
+    """A cursor in `totals()` would be a perf_counter stamp written to a DB column."""
+    st = SectionTimers()
+    st.start(now=5.0)
+    st.split('sim', now=6.0)
+    assert set(st.totals()) == {'t_reord', 't_build', 't_sample', 't_task', 't_kf', 't_pre',
+                                't_sim', 't_extract', 't_inv', 't_save', 'p1_s', 'p2_s'}
+
+
+def test_split_charges_the_open_window_and_rolls_with_it():
+    """A lap is an ordinary `add`: it lands in the open window and the totals still include it."""
+    st = SectionTimers()
+    st.start(now=0.0)
+    st.split('sim', now=2.0)
+    assert st.window('sim') == pytest.approx(2.0)
+    st.roll()
+    assert st.window('sim') == 0.0
+    assert st.total('sim') == pytest.approx(2.0)

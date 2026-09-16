@@ -176,9 +176,18 @@ def test_section_vocabulary_matches_strategy_runner():
     # measuring nothing, which is the exact shape of defect this repo keeps finding in
     # gates that only check that symbols exist.  So: every declared section must have a
     # real `timers.add(...)` site in the batch loop.
-    for name in SectionTimers.SECTIONS:
-        assert f"timers.add('{name}'" in src, \
-            f'section {name!r} is declared but strategy_runner never accumulates into it'
+    # Two accumulation forms, and both are real: `split()` closes a lap and charges one or
+    # more sections; `add()` charges a section from a LOCAL stopwatch, which is what an
+    # overlay like `kf` (a sub-span of `pre`) must use so it does not advance the lap
+    # cursor and carve its stretch out of the section containing it.  Parsed as CALLS
+    # rather than matched as text, so a section named only in a comment does not count.
+    accumulated = set()
+    for call in re.findall(r'timers[.](?:add|split)[(]([^)]*)[)]', src):
+        accumulated.update(re.findall(r"'([a-z_0-9]+)'", call))
+    missing = sorted(set(SectionTimers.SECTIONS) - accumulated)
+    assert not missing, (
+        f'{missing} are declared sections that strategy_runner never accumulates into via '
+        f'timers.add() or timers.split(); a vocabulary nothing charges measures nothing')
 
     # The checkpoint log line still carries the tokens bench_sections/macro parse.
     # (t_inv logs as 'cons=' — the conservation ledger; bench_sections accepts both

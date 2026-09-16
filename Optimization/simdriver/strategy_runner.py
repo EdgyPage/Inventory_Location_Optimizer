@@ -1971,7 +1971,6 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     # `_replenish` to create: the closures rebind them through `nonlocal`, and a name
     # first bound inside one of them would be that function's local instead -- which
     # reads correctly and carries nothing between the halves.
-    _t = 0.0                 # the phase timer, running across both halves
     _late = 0.0              # how late this batch was against its release slot
     _day_end = None          # the whistle for the day this batch was released into
     _put_base = None         # the put crew's epoch; the SITE's when pooled
@@ -1994,9 +1993,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         One leaf calls this and `_step` back to back, which is the loop this was cut
         out of, line for line.
         """
-        nonlocal _batch_early, _day_end, _late, _put_base, _t, arm_clock
+        nonlocal _batch_early, _day_end, _late, _put_base, arm_clock
         nonlocal _pending, _q, triggered
-        _t = time.perf_counter()
+        timers.start()
         bin_rec.begin_batch(i)
         # THE RELEASE INSTANT, COMPUTED BEFORE ANY WORK IS DISPATCHED.  It used to be
         # computed twice, two hundred lines below, once per branch -- which was correct for
@@ -2100,7 +2099,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         enclosing setup scope exactly as it was between iterations."""
         nonlocal _d, _pending, _q, arm_clock, last_dur, put_clock, recv_clock, skipped
         # The six the replenishment half bound; see the seeds above `_replenish`.
-        nonlocal _batch_early, _day_end, _late, _put_base, _t, triggered
+        nonlocal _batch_early, _day_end, _late, _put_base, triggered
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
         # Standardized reorder/stock accounting: N skus reordered (triggered), U units ordered
@@ -2248,7 +2247,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 # as an unpooled leaf leaves `recv_clock` alone.
                 site.coord.note_records(
                     mgr, recv_clock if (_recv_recs or _repack_recs) else None)
-        _now = time.perf_counter(); timers.add('reord', _now - _t); _t = _now
+        timers.split('reord')
 
         # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of
         # this warehouse family sees the identical sequence.  It is precomputed ONCE per family and
@@ -2260,8 +2259,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                     else batches[i] if batches is not None
                     else Batch(batch_cfg, inventory, affinity=affinity,
                                rng=random.Random(seed_batches + i)))
-        _now = time.perf_counter(); _dt = _now - _t
-        timers.add('sample', _dt); timers.add('build', _dt); _t = _now
+        timers.split('sample', 'build')
         # `_shortfall` is demand NO BIN could satisfy -- the pre-simulation cause, and the
         # only one knowable before the sim runs.  It rolls over with the other two below.
         # EFFECTIVE demand.  `batches[i]` is a SHARED pickle across every arm of the
@@ -2277,8 +2275,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             _eff_batch = batch
         tasks, _shortfall = Task.from_batch_with_shortfall(
             _eff_batch, warehouse, manager=mgr, cart=pick_cfg.cart)
-        _now = time.perf_counter(); _dt = _now - _t
-        timers.add('task', _dt); timers.add('build', _dt); _t = _now
+        timers.split('task', 'build')
 
         # One fused pass over the occupied bins (bin qtys before picks): the occupancy
         # term for the conservation ledger below always, keyframe row dicts only when
@@ -2294,14 +2291,16 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # Keyframe: full occupied-bin state at this batch's start (after reorders),
         # written every keyframe_interval batches so the player can jump here
         # without replaying deltas from batch 0.
-        # t_kf is a SUB-SPAN of t_pre (the smpl/task-inside-build pattern): `_t` is not
-        # touched, so t_pre still covers the whole stretch and the sections stay a
-        # partition of the loop body (the calltree smoke test's invariant).
+        # t_kf is a SUB-SPAN of t_pre (the smpl/task-inside-build pattern), so it uses a
+        # LOCAL stopwatch and a bare `add` -- never `split`, which would advance the lap
+        # cursor and carve this stretch out of t_pre.  t_pre must still cover the whole
+        # span or the sections stop being a partition of the loop body (the calltree
+        # smoke test's invariant).
         if _want_kf:
             _k0 = time.perf_counter()
             save_bin_keyframe(kf_db, run_id, i, kf_rows)
             timers.add('kf', time.perf_counter() - _k0)
-        _now = time.perf_counter(); timers.add('pre', _now - _t); _t = _now
+        timers.split('pre')
 
         # ── conservation ledger ────────────────────────────────────────────────
         # Σplaced − Σevicted − Σpicked must equal the units actually in bins.  `occupancy`
@@ -2335,7 +2334,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 f'A bin mutated outside bin_placement/bin_eviction/picks, so spatial '
                 f'reconstruction for this arm is no longer exact — see '
                 f'Optimization/metrics/bin_recorder.py.')
-        _now = time.perf_counter(); timers.add('inv', _now - _t); _t = _now
+        timers.split('inv')
 
         if not tasks:
             # A batch that produced no tasks still HAPPENED: `check_reorders` ran above and
@@ -2444,7 +2443,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         events          = sim.run()
         timers.add('p1', sim.phase1_time)
         timers.add('p2', sim.phase2_time)
-        _now = time.perf_counter(); timers.add('sim', _now - _t); _t = _now
+        timers.split('sim')
 
         bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
         bs.sigma_fd           = batch_sigma
@@ -2535,13 +2534,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                                  run_id=run_id, lift_cache=lift_cache)
         pev = extract_picker_events(events, batch_id=i, run_id=run_id)
         picks_b = extract_picks(events, batch_id=i, run_id=run_id)
-        _now = time.perf_counter(); timers.add('extract', _now - _t); _t = _now
+        timers.split('extract')
 
         # Close this batch's pick term.  `picks_b` is what the DB receives, so the ledger
         # audits the LOG rather than the manager's private counters — a pick the record
         # over- or under-states shows up here even though the sim itself is self-consistent.
         audit.note_picked(sum(p.quantity for p in picks_b))
-        _now = time.perf_counter(); timers.add('inv', _now - _t)
+        timers.split('inv')
         pb.append(bs)
         pt.extend(ts)
         pe.extend(pev)
