@@ -1092,15 +1092,22 @@ class _RankedAssignPool(_Pool):
 
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_fbi', '_fbs', '_qbs', '_beta',
                  '_minimize', '_selector', '_order_key', '_all_idx',
-                 '_by_aisle', '_D_of', '_head_bin', '_head_D')
+                 '_by_aisle', '_D_of', '_head_bin', '_head_D',
+                 '_key_fn', '_rank', '_sel')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta,
-                 minimize, aisle_selector=None, order_key=None):
+                 minimize, aisle_selector=None, order_key=None, aisle_key=None):
         self._aff, self._ass, self._ais = affinity, aisle_sku_sets, aisle_idx_sets
         self._ads, self._fbi = aisle_demand_sum, freq_by_idx
         self._fbs, self._qbs, self._beta = freq_by_sku, qty_by_sku, beta
         self._minimize, self._selector, self._order_key = minimize, aisle_selector, order_key
+        #: `aisle_key(aid, head_D) -> comparable` -- the SELECTION expressed as a KEY
+        #: instead of a scan, so `take` can heap it.  None means the default: the head's
+        #: own D.  An arm that supplies `aisle_selector` instead keeps the scan (see
+        #: `take`); today that is `rank_random` alone, whose uniform draw needs the live
+        #: key sequence and has no key to order by.
+        self._key_fn = aisle_key
 
         # The co-occurrence term ranks each SKU against ALL currently-placed SKU indices.
         # That union is identical for every unit in the group, so build it ONCE -- not once
@@ -1123,6 +1130,35 @@ class _RankedAssignPool(_Pool):
         self._D_of, self._by_aisle = D_of, by_aisle
         self._head_bin = {aid: dq[0]           for aid, dq in by_aisle.items() if dq}
         self._head_D   = {aid: D_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
+
+        # ── the selection heap ────────────────────────────────────────────────────
+        # `_rank` is the TIE-BREAK, and it is what makes the heap byte-identical rather
+        # than merely equivalent.  `min()`/`max()` return the FIRST extremal element in
+        # iteration order; `head_D` is built here in `by_aisle` order, reassigning an
+        # existing key does not move it, and deleting one does not reorder the rest -- so
+        # the scan's tie-break is "lowest original insertion index", for BOTH directions.
+        #
+        # NO LAZY DELETION and no run-boundary rebuild.  Neither key depends on the SKU
+        # (`head_D[aid]`, and `aisle_demand_sum[aid]` for the popularity arm), and `take`
+        # moves only the WINNER's -- so one pop and at most one push per placement keeps
+        # the heap exact for the whole wave.  `_TravelBalancedPool` needs a rebuild per
+        # SKU run because its score carries `fq`/`var`; this one does not.
+        self._rank = {aid: i for i, aid in enumerate(self._head_D)}
+        self._sel = ([] if aisle_selector is not None else
+                     [(self._heap_key(aid), self._rank[aid], aid) for aid in self._head_D])
+        if self._sel:
+            heapq.heapify(self._sel)
+
+    def _heap_key(self, aid):
+        """The ordering the scan computed, as a value.
+
+        Default: the head's D, NEGATED when maximising, so one min-heap serves `tmin` and
+        `tmax` alike.  `-0.0 == 0.0`, so a zero-D tie still falls through to `_rank`.
+        """
+        if self._key_fn is not None:
+            return self._key_fn(aid, self._head_D)
+        d = self._head_D[aid]
+        return d if self._minimize else -d
 
     def __len__(self):
         return sum(len(dq) for dq in self._by_aisle.values())
@@ -1156,9 +1192,16 @@ class _RankedAssignPool(_Pool):
         if not head_D:
             return None, None
         if self._selector is not None:
+            # `rank_random` only: a uniform draw over the live aisles has no key to order
+            # by, and the `list(...)` order decides which aisle is picked.
             best_aid = self._selector(head_D, head_bin)
         else:
-            best_aid = (min if self._minimize else max)(head_D, key=head_D.__getitem__)
+            # A SELECTION, not a scan.  This was
+            #   (min if minimize else max)(head_D, key=head_D.__getitem__)
+            # -- O(live aisles) on EVERY placement.  Measured on the meso ladder, the
+            # width is the live aisle count and it grows with the catalogue: 8.1 aisles
+            # per take at 500 SKUs, 115.3 at 8,000, k = 1.963 against the ladder knob.
+            _k, _r, best_aid = heapq.heappop(self._sel)
         chosen = head_bin[best_aid]
         score  = head_D[best_aid]
 
@@ -1178,16 +1221,23 @@ class _RankedAssignPool(_Pool):
         if dq:
             head_bin[best_aid] = dq[0]
             head_D[best_aid]   = self._D_of[id(dq[0])]
+            # Only the winner's inputs moved -- its head advanced, and `_ads` above may
+            # have risen.  Re-key and push it back; every other entry is still exact.
+            if self._selector is None:
+                heapq.heappush(self._sel,
+                               (self._heap_key(best_aid), self._rank[best_aid], best_aid))
         else:
             del head_bin[best_aid]
             del head_D[best_aid]
+            # An exhausted aisle is simply NOT pushed back -- that is how it leaves the
+            # heap, and it cannot return, because bins only ever leave a pool.
         return chosen, score
 
 
 def _build_ranked_assign_pool_fn(
     affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
     freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
-    aisle_selector=None, order_key=None,
+    aisle_selector=None, order_key=None, aisle_key=None,
 ):
     """`open_pool` shared by the four ranked-assign arms (tmin / tmax / rank_random /
     rank_popularity).  Mirrors `_ranked_assign_impl`'s parameter list exactly."""
@@ -1197,7 +1247,7 @@ def _build_ranked_assign_pool_fn(
             _wp_for(wp, rep) if rep is not None else wp,   # per-regime cost, mixed warehouse
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
-            aisle_selector=aisle_selector, order_key=order_key)
+            aisle_selector=aisle_selector, order_key=order_key, aisle_key=aisle_key)
     return open_pool
 
 
@@ -1352,12 +1402,17 @@ def build_ranked_popularity_pool_fn(
     Its selector reads the LIVE `aisle_demand_sum`, which `take` itself increments, so the
     aisle choice depends on what this pool has already placed.  That is pool state and ports
     as-is; what it means is that this arm's result moves when the service order moves."""
-    def _selector(head_D, head_bin):
-        return min(head_D, key=lambda aid: (aisle_demand_sum.get(aid, 0.0), head_D[aid]))
+    # The same ordering the scan computed, handed over as a KEY so the pool can heap it.
+    # It reads the LIVE `aisle_demand_sum` exactly as the scan did; within a wave that
+    # dict is written only by `take`, for the winner -- the batch loop runs the reloader's
+    # evictions and the reclaim drain in SEPARATE phases before placement
+    # (`strategy_runner` calls `reloader.reload` then `check_reorders`).
+    def _key(aid, head_D):
+        return (aisle_demand_sum.get(aid, 0.0), head_D[aid])
     return _build_ranked_assign_pool_fn(
         affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
         freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
-        aisle_selector=_selector, order_key=_score_expected_popularity)
+        aisle_key=_key, order_key=_score_expected_popularity)
 
 
 #: Sentinel for "no SKU run open yet" — a fresh object so it can never equal

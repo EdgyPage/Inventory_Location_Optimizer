@@ -128,7 +128,16 @@ def _tables(orders, aff):
     return freq_by_idx, freq_by_sku, qty_by_sku
 
 
-ARMS = ['tmin', 'tmax', 'rank_random', 'rank_popularity']
+#: `rank_popularity` appears TWICE on purpose. Production builds it through `aisle_key`
+#: (a heap), and this file used to build it only through `aisle_selector` (the scan it
+#: replaced) -- so after the heap landed these tests still passed while exercising a path
+#: production had stopped taking. That is the same failure `inbound-performance` ticket 05
+#: records: a check installed into a table production no longer reads.
+#:
+#: Keeping BOTH is worth more than swapping one for the other: the scan is the frozen
+#: definition of the ordering, so `impl == scan-pool == key-pool` is a three-way agreement
+#: rather than two restatements of the new code.
+ARMS = ['tmin', 'tmax', 'rank_random', 'rank_popularity', 'rank_popularity_scan']
 
 
 def _run(arm, bins, units, aff, orders, st, seed, use_pool):
@@ -145,6 +154,12 @@ def _run(arm, bins, units, aff, orders, st, seed, use_pool):
     if arm == 'rank_random':
         extra['aisle_selector'] = lambda bw, bb: rng.choice(list(bb.keys()))
     elif arm == 'rank_popularity':
+        # PRODUCTION's shape: the ordering as a KEY, which the pool heaps.
+        ads = st['aisle_demand_sum']
+        extra['aisle_key'] = lambda a, hd: (ads.get(a, 0.0), hd[a])
+        extra['order_key'] = af._score_expected_popularity
+    elif arm == 'rank_popularity_scan':
+        # The retired shape, kept as the frozen definition of that ordering.
         ads = st['aisle_demand_sum']
         extra['aisle_selector'] = (
             lambda hd, hb: min(hd, key=lambda a: (ads.get(a, 0.0), hd[a])))
@@ -154,6 +169,15 @@ def _run(arm, bins, units, aff, orders, st, seed, use_pool):
         pool = af._RankedAssignPool(list(bins), minimize=extra.pop('minimize'),
                                     **{k: v for k, v in common.items()}, **extra)
         return [(u, pool.take(u)[0]) for u in pool.order(units)], pool
+
+    # The frozen oracle has no `aisle_key` -- it only ever knew how to SCAN, which is the
+    # whole point of comparing against it. Translate the key into the scan it replaced, so
+    # the reference stays the retired algorithm rather than a paraphrase of the new one.
+    # (`aisle_key` is minimise-only today; `tmax` reaches the default path, not this one.)
+    if 'aisle_key' in extra:
+        assert extra['minimize'], 'a maximising aisle_key has no oracle translation here'
+        _kf = extra.pop('aisle_key')
+        extra['aisle_selector'] = lambda hd, hb, _k=_kf: min(hd, key=lambda a: _k(a, hd))
     got = af._ranked_assign_impl(units, lambda _u: list(bins), **common, **extra)
     return got, None
 

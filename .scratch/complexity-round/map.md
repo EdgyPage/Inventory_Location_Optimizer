@@ -157,6 +157,22 @@ Concretely, reached when:
   durable one is to fit the SCAN WIDTH (`lambda / takes`) rather than a raw count.
   -> [09-a-scan-keyed-on-a-c-callable-is-invisible.md](issues/09-a-scan-keyed-on-a-c-callable-is-invisible.md)
 
+- **[10] THE HEAP LANDS: 73x fewer key evaluations, k 1.963 -> 1.111.** `_RankedAssignPool.take`
+  selects from a `(key, rank, aid)` heap instead of scanning; the ordering is now a KEY
+  (`aisle_key`) rather than a scan. No lazy deletion and -- unlike `_TravelBalancedPool` -- **no
+  run-boundary rebuild at all**, because neither key depends on the SKU. `rank_random` keeps the
+  scan deliberately (a uniform draw has no key to order by). At 8,000 SKUs: key evaluations
+  8,819,328 -> **120,149**, `take` unchanged at 76,514, placements identical at every rung.
+  Predicted saving 0.51 s from two independently measured factors; observed wall 12.02 -> 11.20 s.
+  **The count is the result; the wall is corroboration only.**
+  **AND THE TEST WAS VACUOUS.** It passed 42/42 the moment the heap landed -- while building
+  `rank_popularity` with `aisle_selector`, the scan production had just stopped using. Same
+  failure as `inbound-performance` ticket 05, except that one failed loudly because a refactor
+  moved the seam and this one would not have failed at all. Both shapes are now arms, so the
+  agreement is three-way (`impl(scan) == pool(scan) == pool(heap)`); inverting the tie-break
+  fails 14 of 51.
+  -> [10-the-ranked-assign-heap-lands.md](issues/10-the-ranked-assign-heap-lands.md)
+
 ## Fog
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by

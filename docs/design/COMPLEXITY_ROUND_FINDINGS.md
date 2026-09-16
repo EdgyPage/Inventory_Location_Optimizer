@@ -1,9 +1,12 @@
 # Complexity round — what the instrument was wrong about, and what it found once it was fixed
 
 Successor to `INBOUND_PERF_FINDINGS.md`, and it inherits that document's most valuable property:
-**it retracts its own wrong findings in place.** Seven corrections are recorded below, five of
-them to claims this round itself made before measuring. Read them first if you are here to cite a
-number.
+**it retracts its own wrong findings in place.** Most of the corrections below are to claims this
+round itself made before measuring. Read them first if you are here to cite a number.
+
+(No count is given, deliberately. This round corrected a CLAUDE.md line that had said "6 of the
+13" while the directory had grown to 31 — a tally in prose rots faster than the thing it
+counts, and a document about not trusting numbers should not open with one it cannot maintain.)
 
 Reproduce with:
 
@@ -209,6 +212,61 @@ It stays the top candidate because the SHARE grows: the rung wall fits k = 1.26,
 
 ---
 
+## 2.5 The assignment families were invisible, and the one that showed up was the biggest
+
+Every config ran `DEFAULT_STRATEGY`, a travel-balanced arm, so `_RankedAssignPool` — the pool
+behind `tmin`, `tmax`, `rank_random` and `rank_popularity` — was structurally unreachable from
+every rung. Two new ladder cells fixed that and found the round's largest exponent.
+
+`--config ranked_popularity`, meso `skus` 500..8,000:
+
+| skus | wall | selector-lambda calls | takes | **aisles scanned per take** |
+|---|---|---|---|---|
+| 500 | 0.36 s | 34,134 | 4,191 | **8.1** |
+| 8,000 | 12.02 s | **8,819,328** | 76,514 | **115.3** |
+
+**k = 1.963**, above the `R × A` rebuild's 1.912, and it needs no fitting to read: the scan width
+IS the live aisle count, growing 14× across a 16× catalogue, while `take` itself is exactly linear
+(k = 1.018). Priced at 0.52 s of a 12.02 s rung — **4.3%** — with the share rising as n^0.698
+(~21% at 80 k SKUs, ~66% at campaign scale).
+
+### A scan keyed on a C callable is INVISIBLE here
+
+`ranked_tmin` runs the same pool with identical `take` counts and reports **no scan at all** —
+because its key is `head_D.__getitem__`, a C method the tracer records as `kind='ext'` and
+`_flat_counts` then skips. `tmin` is not cheaper; its scan is the same 115.3 aisles wide.
+
+The exclusion has a good reason (C leaves would break `counts_fingerprint`'s determinism) and an
+unstated consequence: **the count instrument systematically under-reports the cheapest-to-write
+form of the most common superlinear shape in this codebase.** Not fixed — counting C leaves is the
+worse trade. The durable mitigation is to fit the SCAN WIDTH (`lambda / takes`), which is immune
+to what the key is written in.
+
+### What landed, and what it cost to trust it
+
+`take` now selects from a `(key, rank, aid)` heap. No lazy deletion, and — unlike
+`_TravelBalancedPool` — **no run-boundary rebuild at all**, because neither key depends on the
+SKU. `rank_random` keeps the scan deliberately.
+
+| | key evaluations at 8,000 SKUs | k |
+|---|---|---|
+| before | 8,819,328 | 1.963 |
+| after | **120,149** | **1.111** |
+
+73× fewer; `take` unchanged at 76,514; placements identical at every rung. Predicted saving
+0.51 s from two independently measured factors, observed wall 12.02 → 11.20 s. **The count is the
+result; the wall is corroboration only.**
+
+**The equivalence test was VACUOUS and passed 42/42 anyway.** It built `rank_popularity` with
+`aisle_selector` — the scan production had just stopped using — so it green-lit a heap it never
+executed. Same failure as `inbound-performance` ticket 05, except that one failed loudly because
+a refactor moved the seam, and this one would not have failed at all. Both shapes are now arms, so
+the agreement is three-way (`impl(scan) == pool(scan) == pool(heap)`), with the reference side
+translating the key back into the scan so the oracle stays the RETIRED algorithm. Inverting the
+tie-break fails 14 of 51.
+
+---
+
 ## 3. Closed with a reason, not refactored
 
 **The `per_pick` memo** that `INBOUND_PERF_FINDINGS.md` recommends. Priced before building, against
@@ -265,3 +323,10 @@ cost.
    ever read.
 5. **A guard that flags everything is a guard nobody reads** — and the ALL-ZERO warning was worse
    than useless, because the README teaches readers to trust that exact line.
+6. **Check WHICH ARM a passing test exercises before believing it.** The ranked-assign oracle
+   passed 42/42 on a heap it never ran. A green suite is evidence about the code under test,
+   and "the code under test" is a claim that needs checking after any change to how the
+   production object is constructed.
+7. **An instrument can be blind for a good reason.** The C-leaf exclusion is correct on its own
+   terms and still hides half the scans in this codebase. Knowing what a tool cannot say is
+   part of reading it.
