@@ -84,6 +84,7 @@ from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
 from Optimization.simdriver.section_timers import CheckpointWindow, SectionTimers
+from Optimization.simdriver.audit_ledgers import AuditLedgers
 from Optimization.simdriver.shift_ledger import ShiftLedger
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
 # The ONE definition of a drained day (labour-only); the ledger's `drained` is written with it.
@@ -1861,7 +1862,6 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     fi: list = []   # the free index per bucket: one `(batch, *BinKey, free)` row per bucket per batch
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
-    demand_breaks  = 0   # batches that picked MORE than was demanded (see the ledger)
     # This arm's absolute clock: where the NEXT batch begins.  Batches are sequential
     # waves -- batch i+1's work is released when batch i completes -- so the whole crew
     # starts a batch together, at `arm_clock`, and the axis is the running sum of the batch
@@ -1922,9 +1922,10 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     # Measured at `fused_pre_snapshot` time — start of batch, after restock, before picks —
     # because that pass IS the occupied-bin walk, so the occupancy term accumulates inside
     # it rather than as a second walk of 396,500 bins.
-    cons_picked   = 0      # units picked, cumulative over the arm
-    cons_breaks   = 0      # batches that INTRODUCED an unaccounted-for unit
-    cons_residual = 0      # last observed (ledger − occupancy); see the report rule below
+    # The two run-long audits, with their two DIFFERENT report-once rules: conservation
+    # reports when the residual MOVES, demand reports only the FIRST.  Neither ever
+    # raises; the wording of both messages stays inline below.
+    audit = AuditLedgers()
     # Whole-arm section totals (never reset) → returned so the PARENT writes the runtime-metrics DB
     # (single writer, no SQLite contention).  These pinpoint hot sections (e.g. a reorder/reslot
     # dominance = the recurring valid-aisle recompute suspicion).
@@ -2097,8 +2098,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
         below is that loop's, unchanged, so a carry rebound here is rebound in the
         enclosing setup scope exactly as it was between iterations."""
-        nonlocal _d, _pending, _q, arm_clock, cons_breaks, cons_picked, cons_residual
-        nonlocal demand_breaks, last_dur, put_clock, recv_clock, skipped
+        nonlocal _d, _pending, _q, arm_clock, last_dur, put_clock, recv_clock, skipped
         # The six the replenishment half bound; see the seeds above `_replenish`.
         nonlocal _batch_early, _day_end, _late, _put_base, _t, triggered
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
@@ -2322,19 +2322,19 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # The ledger is cumulative, so one bad batch leaves a residual that persists forever.
         # Reporting every batch after the first would be ~100 identical lines; reporting only
         # when the residual MOVES names exactly the batches that introduced unaccounted units.
-        residual  = (bin_rec.units_placed - bin_rec.units_evicted - cons_picked) - occupancy
-        if residual != cons_residual:
-            cons_breaks += 1
+        _broke = audit.observe(placed=bin_rec.units_placed,
+                               evicted=bin_rec.units_evicted, occupancy=occupancy)
+        if _broke is not None:
+            _drift, _residual = _broke
             log.error(
                 f'  CONSERVATION BROKEN at batch {i}: '
                 f'placed={bin_rec.units_placed:,} − evicted={bin_rec.units_evicted:,} − '
-                f'picked={cons_picked:,} = {bin_rec.units_placed - bin_rec.units_evicted - cons_picked:,} '
+                f'picked={audit.picked:,} = {bin_rec.units_placed - bin_rec.units_evicted - audit.picked:,} '
                 f'but bins hold {occupancy:,} units '
-                f'(new drift {residual - cons_residual:+,}; cumulative {residual:+,}). '
+                f'(new drift {_drift:+,}; cumulative {_residual:+,}). '
                 f'A bin mutated outside bin_placement/bin_eviction/picks, so spatial '
                 f'reconstruction for this arm is no longer exact — see '
                 f'Optimization/metrics/bin_recorder.py.')
-            cons_residual = residual
         _now = time.perf_counter(); timers.add('inv', _now - _t); _t = _now
 
         if not tasks:
@@ -2522,14 +2522,12 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # -- both picker loops read the per-AISLE `task.items[sku]` once per bin, so a SKU
         # in several bins of one aisle was picked once per bin, inflating every throughput
         # figure by ~6.7% for as long as the model has existed.
-        if bs.total_items > bs.items_demanded:
-            demand_breaks += 1
-            if demand_breaks == 1:
-                log.error(
-                    f'  DEMAND BROKEN at batch {i}: picked {bs.total_items:,} against '
-                    f'{bs.items_demanded:,} demanded (+{bs.total_items - bs.items_demanded:,}). '
-                    f'A pick exceeded the demand that asked for it — check Task.planned '
-                    f'against the per-bin drain in Task.from_batch.')
+        if bs.total_items > bs.items_demanded and audit.note_demand_break():
+            log.error(
+                f'  DEMAND BROKEN at batch {i}: picked {bs.total_items:,} against '
+                f'{bs.items_demanded:,} demanded (+{bs.total_items - bs.items_demanded:,}). '
+                f'A pick exceeded the demand that asked for it — check Task.planned '
+                f'against the per-bin drain in Task.from_batch.')
         bs.queue_depth        = mgr.queue_depth
         bs.lead_queue_depth   = (mgr.lead_queue_depth if site is None else _tx_depth)
         bs.in_transit_qty     = (mgr.in_transit_qty if site is None else _tx_qty)
@@ -2542,7 +2540,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # Close this batch's pick term.  `picks_b` is what the DB receives, so the ledger
         # audits the LOG rather than the manager's private counters — a pick the record
         # over- or under-states shows up here even though the sim itself is self-consistent.
-        cons_picked += sum(p.quantity for p in picks_b)
+        audit.note_picked(sum(p.quantity for p in picks_b))
         _now = time.perf_counter(); timers.add('inv', _now - _t)
         pb.append(bs)
         pt.extend(ts)
@@ -2759,21 +2757,21 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # State the ledger's verdict once per arm, either way: a silent pass is indistinguishable
         # from a check that never ran, and "the log is complete" is the claim the whole spatial
         # record rests on.  The failing form repeats at ERROR so it survives a log tail.
-        if demand_breaks:
+        if audit.demand_breaks:
             # Conservation got an end-of-arm report and this did not, so an arm with 200 demand
             # breaks said so exactly once, in a line about batch 3.  The per-batch log is gated
             # on the FIRST break by design -- to avoid 100 identical lines -- which makes a
             # total here the only way to learn there were 100.
-            log.error(f'Strategy {strategy} DEMAND: {demand_breaks} batch(es) picked MORE than '
+            log.error(f'Strategy {strategy} DEMAND: {audit.demand_breaks} batch(es) picked MORE than '
                       f'was demanded. ONE-SIDED by construction: under-picking is not checked '
                       f'here and is legitimate whenever stock is short.')
-        if cons_breaks:
-            log.error(f'Strategy {strategy} CONSERVATION: {cons_breaks} batch(es) broke the ledger; '
-                      f'{cons_residual:+,} units unaccounted for at the end. The bin-mutation log '
+        if audit.cons_breaks:
+            log.error(f'Strategy {strategy} CONSERVATION: {audit.cons_breaks} batch(es) broke the ledger; '
+                      f'{audit.residual:+,} units unaccounted for at the end. The bin-mutation log '
                       f'for this arm is INCOMPLETE — spatial reconstruction will not be exact.')
         else:
             log.info(f'  conservation OK: placed {bin_rec.units_placed:,} − evicted '
-                     f'{bin_rec.units_evicted:,} − picked {cons_picked:,} balanced against bin '
+                     f'{bin_rec.units_evicted:,} − picked {audit.picked:,} balanced against bin '
                      f'occupancy on every batch')
         log.info('=' * 60)
 
@@ -2819,11 +2817,11 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # Conservation verdict for this arm — 0 means the bin-mutation log balanced against
             # real bin occupancy on every batch.  Surfaced to the parent so a sweep can be judged
             # from the result dicts without grepping 34 worker logs.
-            'cons_breaks'  : cons_breaks,
-            'cons_residual': cons_residual,
             # Returned so the parent can surface it per arm.  It was counted, logged once, and
             # then dropped on the floor.
-            'demand_breaks': demand_breaks,
+            # cons_breaks / cons_residual / demand_breaks -- one expansion rather than
+            # three lines that had to agree with the seeds and the verdicts above.
+            **audit.totals(),
             # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
             #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
             'n_bins'    : n_bins,
