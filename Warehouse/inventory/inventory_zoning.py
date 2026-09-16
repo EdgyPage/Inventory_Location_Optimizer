@@ -31,6 +31,12 @@ from Warehouse.layout.Storage_Primitive import StorageUnit
 from Warehouse.inventory.inventory_common import binkey_of
 
 
+#: How many velocity bands zoning slices into when nobody says otherwise.  THE declaration:
+#: `Inventory_Manager.__init__`, `configure_zoning`, `settings.ZONING_OFF` and the worker's
+#: own fallback all read THIS rather than restating 3, so the four cannot drift apart.
+DEFAULT_ZONING_BANDS: int = 3
+
+
 def _apportion(m: int, weights: list, n: int) -> list:
     """Allocate `m` aisles across `n` bands proportional to `weights`, with a floor of 1 per band
     when `m >= n` (so every band is reachable for the zone-filter spill).  When `m < n`, the first
@@ -53,7 +59,8 @@ class ZoningMixin:
 
     # ── velocity zoning setup ────────────────────────────────────────────────
 
-    def configure_zoning(self, enabled: bool, n_bands: int = 3, orders: Any = None,
+    def configure_zoning(self, enabled: bool, n_bands: int = DEFAULT_ZONING_BANDS,
+                         orders: Any = None,
                          *, mode: str = 'equal', abc: dict | None = None) -> None:
         """Enable/disable velocity zoning and precompute the band maps (once, before stocking).
 

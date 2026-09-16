@@ -46,6 +46,7 @@ from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.picking.fast_pick import DeferredPickSimulation
 from Warehouse.generation.generate_inventory import load_inventory_from_db
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
+from Warehouse.inventory.inventory_zoning import DEFAULT_ZONING_BANDS
 from Warehouse.placement.Capacity_Reloader import RELOADERS
 from Warehouse.operations import Crew as _Crew, Mode as _Mode, Role as _Role
 from Warehouse.kernel.cost_model import SpeedProfile as _SpeedProfile
@@ -1451,7 +1452,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     # the aisles by geometry BEFORE any stocking, so _candidates routes hot SKUs to shallow aisles.
     _zcfg = args.get('velocity_zoning') or {}
     if _zcfg.get('enabled'):
-        mgr.configure_zoning(True, int(_zcfg.get('n_bands', 3)), inventory.orders,
+        mgr.configure_zoning(True, int(_zcfg.get('n_bands', DEFAULT_ZONING_BANDS)),
+                             inventory.orders,
                              mode=_zcfg.get('mode', 'equal'), abc=_zcfg.get('abc'))
         log.info(f'  velocity zoning ON  (mode={_zcfg.get("mode","equal")} n_bands={mgr._zoning_bands})')
 

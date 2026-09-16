@@ -167,7 +167,7 @@ def build_channels(store_pick_cfg: PickConfig, store_num_pickers: int,
         channels.append(Channel(
             name='fulfillment', regime=FULFILLMENT,
             # A distinct seed offset → an independent batch stream from store.
-            batch_seed_offset=1_000_000,
+            batch_seed_offset=FF_BATCH_SEED_OFFSET,
             picker=PickerProfile('fulfillment_walker',
                                  ff_pick_cfg or fulfillment_pick_config(),
                                  ff_num_pickers,

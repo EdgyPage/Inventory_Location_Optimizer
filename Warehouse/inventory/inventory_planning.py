@@ -57,6 +57,14 @@ from Warehouse.inventory.inventory_common import (
 )
 
 
+#: The share of each bucket the declared levels occupy at setup; the rest is free bins, which
+#: is the headroom a base-stock top-up lands in (see the module docstring).  THE declaration --
+#: `Optimization.config.settings` imports this for `STORE_FILL`/`FF_FILL` rather than restating
+#: it, so the planner's default and the run's default cannot drift apart.  Under the calibrated
+#: era neither is read: the fill is DERIVED per bucket from the stationary fragmentation.
+DEFAULT_TARGET_FILL: float = 0.85
+
+
 # ── sizing helpers (shared by the global-legacy and per-regime paths) ───────────
 # All take an `eff_fn(bucket) -> bins-per-aisle` and operate on a subset of buckets, so the
 # same math sizes the whole warehouse (regime_sizing=None) or one regime partition.
@@ -347,7 +355,7 @@ class PlanningMixin:
         aisle_height : int,
         ff_aisle_width  : int | None = None,   # fulfillment aisle geometry (short shelves);
         ff_aisle_height : int | None = None,   # default width=aisle_width, height=~6 ft
-        target_fill  : float = 0.85,
+        target_fill  : float = DEFAULT_TARGET_FILL,
         min_bins     : int | None = None,
         max_bins     : int | None = None,
         max_aisles   : int | None = None,

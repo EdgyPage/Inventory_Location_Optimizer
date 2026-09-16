@@ -173,6 +173,14 @@ FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('fifo', 'tmin', 'tmax',
 # A CALENDAR day, three times the site day a batch is measured in; `timeline` declares the
 # pair side by side and carries the note on which is which.
 
+#: The two days-denominated knobs' defaults, for the same reason the divisor above is
+#: imported: they had a literal here AND in `settings.py`, which is two numbers for one
+#: meaning.  The declaration is HERE because this package may not import the run harness
+#: ({forbid: [inbound, optimization]}), so `settings.INBOUND_FEE_THRESHOLD_DAYS` and
+#: `INBOUND_URGENCY_HORIZON_DAYS` read these.  CALENDAR days, like the divisor.
+DEFAULT_FEE_THRESHOLD_DAYS: float = 2.0
+DEFAULT_URGENCY_HORIZON_DAYS: float = 0.0
+
 
 # ── the purity rule, stated once per aisle dict ───────────────────────────────────────
 # A virtual placement may never advance the LIVE bookkeeping, so the pool adapter opens
@@ -454,8 +462,8 @@ class GainBundle:
     def __init__(self, *, put_speed, wp_of, binkey_of, tier_ranks_for,
                  minimize: bool = True, pool_factory=None, expect_heads: bool = False,
                  heads_of=None, uniform: bool = False, aisle_state=None,
-                 fee_threshold_days: float = 2.0,
-                 urgency_horizon_days: float = 0.0):
+                 fee_threshold_days: float = DEFAULT_FEE_THRESHOLD_DAYS,
+                 urgency_horizon_days: float = DEFAULT_URGENCY_HORIZON_DAYS):
         if expect_heads and (pool_factory is None or heads_of is None):
             raise ValueError('expect_heads prices over the pool\'s aisle heads — it '
                              'needs both pool_factory and heads_of')

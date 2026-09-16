@@ -58,6 +58,10 @@ payload.
 from __future__ import annotations
 
 from Warehouse.kernel.timeline import DEFAULT_SHIFT_SECONDS
+# The inbound package's own declarations -- it may not import this one
+# ({forbid: [inbound, optimization]}), so the import runs this way round.
+from Inbound.gain import DEFAULT_FEE_THRESHOLD_DAYS, DEFAULT_URGENCY_HORIZON_DAYS
+from Inbound.transit import DEFAULT_DOCK_DOORS
 
 # ── determinism ──────────────────────────────────────────────────────────────────
 # The two values that decide whether two runs are COMPARABLE. Same world seed = same
@@ -142,7 +146,8 @@ RECV_DAY_ORIGIN = 0.0      # when the receiving day starts on the arm's absolute
 # Naming a type is a RESULTS ERA, not a tuning knob -- reorders then travel as trailer
 # loads, pack per trailer portion, and admit with source 'trailer'.
 INBOUND_TRAILER_TYPE = None      # '53' (26 pallet positions) | '28' (12); None = no trailers
-INBOUND_DOCK_DOORS = 4           # staging slots at the dock; BOOKKEEPING in v1 -- every
+INBOUND_DOCK_DOORS = DEFAULT_DOCK_DOORS
+                                 # staging slots at the dock; BOOKKEEPING in v1 -- every
                                  # arrival lands at the batch epoch and every policy is
                                  # FIFO, so a throttle here would invent staffing physics.
                                  # The knob exists for the policies that make doors bite.
@@ -210,10 +215,12 @@ INBOUND_DOOR_TEAM = None         # TRAILER PHYSICS, not a policy: at most this m
 # -- and `Tests/unit/test_gain_plan.py` section 4b hands the same span to both readers and
 # fails when they disagree.  DAYS HERE ARE CALENDAR DAYS, 86,400 s, three times the site
 # day a batch is measured in; `timeline` declares the pair side by side.
-INBOUND_FEE_THRESHOLD_DAYS = 2.0    # free yard days before a trailer accrues overage;
+INBOUND_FEE_THRESHOLD_DAYS = DEFAULT_FEE_THRESHOLD_DAYS
+                                    # free yard days before a trailer accrues overage;
                                     # 2.0 is a stated placeholder -- calibration rides the
                                     # funnel, not this default
-INBOUND_URGENCY_HORIZON_DAYS = 0.0  # gain_gated's only dial: trailers within this many
+INBOUND_URGENCY_HORIZON_DAYS = DEFAULT_URGENCY_HORIZON_DAYS
+                                    # gain_gated's only dial: trailers within this many
                                     # days of crossing the threshold are served FIFO ahead
                                     # of the plan.  0 ~ pure gain (only already-overdue
                                     # trailers jump); >= threshold = pure FIFO
@@ -481,8 +488,14 @@ PUT_MACHINE_Y = 2.0
 STORE_CART = 'StoreCart'
 FF_CART = 'FulfillmentCart'
 
-STORE_FILL = 0.85                      # sizing headroom; --store-fill.  FLAG-OFF ONLY:
-FF_FILL = 0.85                         # --ff-fill.  Under the calibrated era the fill is
+# The planner's own declaration, imported rather than restated -- same rule as the three crew
+# scalars below at PUT_INTERCEPT_SCALE, and for the same reason recorded in
+# Warehouse/operations/putaway.py: this project has already paid for two default sets that
+# drifted 55x apart.
+from Warehouse.inventory.inventory_planning import DEFAULT_TARGET_FILL  # noqa: E402
+
+STORE_FILL = DEFAULT_TARGET_FILL       # sizing headroom; --store-fill.  FLAG-OFF ONLY:
+FF_FILL = DEFAULT_TARGET_FILL          # --ff-fill.  Under the calibrated era the fill is
                                        # DERIVED per bucket from the stationary
                                        # fragmentation, floored at MIN_HEADROOM above, and
                                        # typing either flag is an error.
@@ -493,5 +506,8 @@ FF_BATCH_MEAN = 0.20
 FF_BATCH_STD = 0.05
 
 # Velocity zoning: the fulfillment experiment axis, off by default.  A cell turns it on.
-ZONING_OFF = {'enabled': False, 'n_bands': 3, 'mode': 'equal',
+# `n_bands` is the zoning module's own declaration, imported (see DEFAULT_TARGET_FILL above).
+from Warehouse.inventory.inventory_zoning import DEFAULT_ZONING_BANDS  # noqa: E402
+
+ZONING_OFF = {'enabled': False, 'n_bands': DEFAULT_ZONING_BANDS, 'mode': 'equal',
               'abc': {'mass_thresholds': [0.7, 0.9]}}

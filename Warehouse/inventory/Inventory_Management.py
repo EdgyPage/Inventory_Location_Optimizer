@@ -38,7 +38,8 @@ from Warehouse.inventory.inventory_reorder import ReorderMixin
 # Velocity zoning is the FOURTH mixin.  `_apportion` is re-exported rather than
 # merely moved: `from ...Inventory_Management import _apportion` is an existing
 # import, and a refactor is not the place to break one.
-from Warehouse.inventory.inventory_zoning import ZoningMixin, _apportion
+from Warehouse.inventory.inventory_zoning import (
+    ZoningMixin, _apportion, DEFAULT_ZONING_BANDS)
 from Warehouse.inventory.inventory_reorder import BatchTransit as _BatchTransit
 
 
@@ -209,7 +210,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         # _stock_ranked sub-groups the wave by band, so every arm places within the band.
         # OFF (default) = identity pass-through ⇒ byte-identical (protects FIFO's random.choice).
         self._zoning_enabled: bool = False
-        self._zoning_bands: int = 3
+        self._zoning_bands: int = DEFAULT_ZONING_BANDS
         self._sku_band: dict[int, int] = {}     # sku -> velocity band (0 = hottest)
         self._aisle_band: dict[int, int] = {}   # aisle_id -> geometry band (0 = shallowest/nearest)
         # Per-(tier BinKey, band) free-bin sub-index: the O(#bands) fast path _stock_per_unit uses

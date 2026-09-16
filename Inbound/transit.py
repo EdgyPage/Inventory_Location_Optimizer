@@ -76,6 +76,11 @@ from Inbound.trailer import Trailer, Trailer53
 #: is to be stable, because changing it re-rolls every lead schedule in the archive.
 _LEAD_TAG: int = 0x1EAD
 
+#: Staging slots at the dock when nobody says otherwise.  THE declaration -- both transit
+#: classes below and `Optimization.config.settings.INBOUND_DOCK_DOORS` read THIS rather than
+#: restating 4, so a dock built by a fixture cannot silently differ from the run's.
+DEFAULT_DOCK_DOORS: int = 4
+
 #: How a trailer left the yard — the `yard_trailers.status` LABEL, declared beside the two
 #: methods that stamp it.  Three values and no fourth: a trailer either emptied through a
 #: door, was dropped before it ever needed one, or is still on site when the run stops.
@@ -95,7 +100,7 @@ class TrailerTransit:
 
     def __init__(self, trailer_type: type = None, *, lead_s: float = 0.0,
                  lead_sigma: float = 0.0, lead_seed: int = 0,
-                 doors: int = 4, global_policy: str = 'fifo',
+                 doors: int = DEFAULT_DOCK_DOORS, global_policy: str = 'fifo',
                  local_policy: str = 'fifo', bound: int | None = None):
         self.trailer_type = trailer_type if trailer_type is not None else Trailer53
         # `lead_s` is the MEDIAN once `lead_sigma` is positive, and the whole lead when it
@@ -350,7 +355,8 @@ class YardTransit(TrailerTransit):
 
     def __init__(self, trailer_type: type = None, *, lead_s: float = 0.0,
                  lead_sigma: float = 0.0, lead_seed: int = 0,
-                 doors: int = 4, yard_policy: str = 'fifo', dock_policy: str = 'fifo',
+                 doors: int = DEFAULT_DOCK_DOORS,
+                 yard_policy: str = 'fifo', dock_policy: str = 'fifo',
                  local_policy: str = 'fifo', bound: int | None = None,
                  allocation: str = 'split', door_team: int | None = None):
         super().__init__(trailer_type, lead_s=lead_s, lead_sigma=lead_sigma,
