@@ -119,6 +119,12 @@ _DEEP_LADDER = [
 
 # Offender thresholds: exponent above which a fit is flagged, per instrument.
 FLAG_COUNT_EXP = 1.30
+#: How far the last local exponent must sit from the first before the DIRECTION of a
+#: series is called, rather than treated as noise between rungs.  0.25 is wide enough
+#: that the four converging offenders in the 2026-09-16 meso artifact all clear it
+#: (smallest gap 0.30, `_aisle_best` diverging by 0.15 stays 'sustained') and narrow
+#: enough to catch a ratio a full rung before it reaches its ceiling.
+FLAG_TREND_DELTA = 0.25
 FLAG_TIME_EXP  = 1.50
 MIN_R2         = 0.90       # don't flag garbage fits
 MIN_CALLS      = 200        # ignore trivial functions at the largest rung
@@ -241,6 +247,46 @@ def _local_exponents(xs, ys) -> list[float]:
     return out
 
 
+def _trend(xs, ys) -> dict | None:
+    """Which WAY the local exponents are going -- the part a single fit cannot say.
+
+    A fitted k answers "what power law describes these rungs"; it cannot answer "is this a
+    power law at all".  A bounded ratio climbing toward a ceiling fits one beautifully and
+    is not a complexity finding: it is a transient, and the fit it produces is arithmetically
+    impossible past the point where the ratio would exceed its bound.
+
+    THE CASE THIS EXISTS FOR, measured.  `AffinityStore.delta_lift_idxs` led every archived
+    `skus` ladder back to August at k = 1.56-1.61, r2 = 0.994, and was the round's largest
+    remaining candidate.  It is called once per reclaimed bin whose SKU was that aisle's last,
+    against `_index_add` once per reclaimed bin unconditionally -- so the ratio between them
+    cannot exceed 1.0, and the code guarantees it.  Measured: 0.169, 0.303, 0.506, 0.718,
+    0.871, with local exponents falling 1.92 -> 1.30 and the ratio's own falling 0.84 -> 0.28.
+    Extending the fit puts the ratio above 1.0 at roughly 13,000 SKUs; the ladder spans 500
+    to 8,000, entirely inside the ramp.  Four of the seven flagged offenders in that artifact
+    were converging like this, and the ranking put them above the one that was not.
+
+    Returns None below three local exponents -- two points cannot show a direction.
+    """
+    ks = _local_exponents(xs, ys)
+    if len(ks) < 3 or any(k != k for k in ks):
+        return None
+    first, last = ks[0], ks[-1]
+    if last <= first - FLAG_TREND_DELTA:
+        verdict = 'saturating'
+    elif last >= first + FLAG_TREND_DELTA:
+        verdict = 'accelerating'
+    else:
+        verdict = 'sustained'
+    out = {'local': [round(k, 2) for k in ks], 'verdict': verdict,
+           'first': round(first, 2), 'last': round(last, 2)}
+    if verdict == 'saturating':
+        # `projected` assumes the fitted k keeps holding, which is what this just denied.
+        out['why'] = ('local k is falling, so the fitted k describes a transient and '
+                      '`projected` over-reads; find the denominator this is a ratio of '
+                      'and check whether that ratio has a ceiling before refactoring')
+    return out
+
+
 def _knee(xs, ys) -> dict | None:
     """The last step's local exponent against the median of the ones before it.
 
@@ -310,6 +356,16 @@ _KIND_ORDER = {'section-wall': 0, 'arm-total': 0,
                'knee': 3}
 
 
+#: Where each offender kind's own series lives in the report, so `_trend` can be read off
+#: what was already computed.  `section-wall` walls are stored ROUNDED to 4 dp; that is below
+#: the MIN_WALL_S floor those offenders must clear, so no flagged series is distorted by it.
+_TREND_SERIES = {'call-count':    ('functions', 'counts'),
+                 'flow':          ('flows', 'counts'),
+                 'per-placement': ('flows_per_placement', 'ratios'),
+                 'section-wall':  ('sections', 'walls'),
+                 'arm-total':     ('arm_totals', 'values')}
+
+
 def _severity_sort(offenders: list) -> list:
     """Group by cost class, then by projected magnitude, then by exponent.
 
@@ -319,6 +375,11 @@ def _severity_sort(offenders: list) -> list:
     """
     return sorted(offenders,
                   key=lambda o: (_KIND_ORDER.get(o.get('kind'), 9),
+                                 # False sorts first: a series whose local exponents are
+                                 # FALLING goes last in its class, however big its fitted
+                                 # k.  It is still listed -- the trend is a judgement the
+                                 # reader makes, not one the tool makes for them.
+                                 (o.get('trend') or {}).get('verdict') == 'saturating',
                                  -(o.get('projected') or 0.0),
                                  -(o.get('exponent') or 0.0)))
 
@@ -1210,6 +1271,18 @@ def fit_report(ladder: dict) -> dict:
             'note': (f"local k {k['earlier_median_k']} -> {k['last_step_k']} at "
                      f"x={k['at_x']:,}; a single fit would smear this away")})
 
+    # Every offender above was appended with a fitted exponent; the series it came from
+    # is still in the report, so the trend is a lookup rather than a recomputation.  A knee
+    # IS a local-exponent finding already and needs no second one.
+    for _o in report['offenders']:
+        _where = _TREND_SERIES.get(_o.get('kind'))
+        if _where is None:
+            continue
+        _e = report[_where[0]].get(_o['name'])
+        _t = _trend(xs, _e[_where[1]]) if _e else None
+        if _t is not None:
+            _o['trend'] = _t
+
     report['offenders'] = _severity_sort(report['offenders'])
     return report
 
@@ -1354,6 +1427,12 @@ def main(argv=None) -> int:
         for o in report['offenders'][:20]:
             extra = f"  counts={o['counts']}" if 'counts' in o else ''
             print(f"  k={o['exponent']:5.2f}  [{o['kind']}]  {o['name']}{extra}")
+            t = o.get('trend')
+            if t is not None:
+                mark = {'saturating': '  <- CONVERGING, the fitted k is a transient',
+                        'accelerating': '  <- DIVERGING'}.get(t['verdict'], '')
+                locals_ = ' '.join(f'{k:.2f}' for k in t['local'])
+                print(f"           local k {locals_}{mark}")
     else:
         print('\nno super-linear offenders flagged at these thresholds')
 

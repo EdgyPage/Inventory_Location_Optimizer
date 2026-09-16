@@ -404,3 +404,123 @@ def test_the_warning_does_not_tell_you_to_use_the_config_you_are_running():
     assert '--config split_staging4' in on_none, (
         'the hint is gone entirely -- it is useful on a config that genuinely cannot reach '
         'the path')
+
+
+# -- the trend: which WAY the local exponents go, which a single fit cannot say ---------
+
+#: The real `AffinityStore.delta_lift_idxs` call counts from the 2026-09-16 HEAD meso
+#: artifact, and the `_index_add` counts from the same run. The second is the denominator
+#: that makes the first legible: `_reclaim_empty_bins` calls `_index_add` once per reclaimed
+#: bin unconditionally and `delta_lift_idxs` only when that bin held the SKU's last unit in
+#: the aisle, so the ratio cannot exceed 1.0 and the code guarantees it.
+_LADDER_XS      = [500, 1000, 2000, 4000, 8000]
+_DELTA_LIFT     = [1925, 7287, 23079, 64176, 157981]
+_INDEX_ADD      = [11359, 24025, 45624, 89435, 181441]
+#: `_TravelBalancedPool._aisle_best` from the same artifact -- the one offender in the table
+#: whose local exponents RISE, and the only one this round left as a live candidate.
+_AISLE_BEST     = [5552, 17011, 41479, 125659, 427497]
+#: `delta_lift_idxs.<locals>.<genexpr>` -- the row scan inside the call above. It is the
+#: converging series that PROJECTS LARGEST of anything in the artifact, which is what makes
+#: it the honest partner for the ranking test below.
+_DELTA_LIFT_GEN = [22819, 101596, 318159, 796808, 1581454]
+
+
+def test_the_trend_catches_a_ratio_saturating_toward_its_ceiling():
+    """THE case it exists for, with the real numbers.
+
+    `delta_lift_idxs` led every archived `skus` ladder back to August at k=1.56-1.61 with
+    r²=0.994 -- a textbook fit, and not a complexity finding. It is a bounded ratio measured
+    across the span where it saturates: 0.169 -> 0.871 of a ceiling of exactly 1.0. Extending
+    the fit puts that ratio above 1.0 at roughly 13,000 SKUs, and the ladder stops at 8,000.
+    """
+    import calltree_growth as cg
+
+    slope, r2 = cg._fit_loglog(_LADDER_XS, [float(y) for y in _DELTA_LIFT])
+    assert slope >= cg.FLAG_COUNT_EXP and r2 >= cg.MIN_R2, (
+        f'premise: this series is still FLAGGED by the fit (k={slope:.2f}, r²={r2:.3f}). '
+        f'If it no longer is, the ranking changed and this test should be re-pointed.')
+
+    t = cg._trend(_LADDER_XS, _DELTA_LIFT)
+    assert t is not None and t['verdict'] == 'saturating', (
+        f'the trend missed the case it exists for: {t}')
+    assert t['local'] == [1.92, 1.66, 1.48, 1.3], t['local']
+    assert 'ceiling' in t['why'], 'a saturating verdict must say what to check before acting'
+
+    # And the ratio itself, which is what makes the verdict more than a curve-shape guess.
+    ratios = [d / i for d, i in zip(_DELTA_LIFT, _INDEX_ADD)]
+    assert max(ratios) < 1.0, 'premise: the ratio has not reached its ceiling on this ladder'
+    assert cg._trend(_LADDER_XS, ratios)['verdict'] == 'saturating'
+
+
+def test_the_trend_stays_silent_on_the_series_that_is_actually_growing():
+    """NON-VACUITY, and the half that decides whether the verdict is worth reading.
+
+    A detector that calls everything converging is worse than none, because it would have
+    retired the one real candidate along with the four false ones. `_aisle_best` is that
+    candidate: its local exponents RISE, 1.62 -> 1.77.
+    """
+    import calltree_growth as cg
+
+    t = cg._trend(_LADDER_XS, _AISLE_BEST)
+    assert t is not None and t['verdict'] != 'saturating', (
+        f'called the one diverging offender converging: {t}')
+    assert t['last'] > t['first'], t['local']
+    assert 'why' not in t, 'only a saturating verdict carries the "check the denominator" note'
+
+    # A clean power law is not converging either -- it is exactly what the fit is FOR.
+    assert cg._trend(_LADDER_XS, [1.0, 4.0, 16.0, 64.0, 256.0])['verdict'] == 'sustained'
+    # ...and a series that flattens outright is the clearest case of all.
+    assert cg._trend(_LADDER_XS, [1.0, 4.0, 8.0, 10.0, 10.5])['verdict'] == 'saturating'
+
+
+def test_the_trend_refuses_to_call_a_direction_from_two_steps():
+    """Two local exponents are a difference, not a direction. The deep ladder can legitimately
+    run three rungs (`run_deep_ladder` drops rungs above the catalogue), so this is reachable
+    in practice rather than a defensive branch."""
+    import calltree_growth as cg
+
+    assert cg._trend([500, 1000, 2000], [1.0, 4.0, 16.0]) is None, 'called it from two steps'
+    assert cg._trend([500, 1000, 2000, 4000], [1.0, 4.0, 16.0, 64.0]) is not None
+    # A zero anywhere makes a log-log step undefined; that is a refusal, not a verdict.
+    assert cg._trend(_LADDER_XS, [1.0, 0.0, 16.0, 64.0, 256.0]) is None
+
+
+def test_a_converging_offender_is_ranked_below_a_diverging_one():
+    """End to end through `fit_report`, because the lookup that attaches the trend to an
+    offender is where this can silently do nothing -- the verdict is read off the series
+    stored in the report, under a key that differs per offender kind.
+
+    THE PAIR IS CHOSEN SO THE TREND IS WHAT DECIDES. `projected` sorts first, so most pairs
+    come out in the right order for reasons that have nothing to do with the trend -- an
+    earlier draft of this test asserted exactly that and would have passed with the sort key
+    reverted. Here the converging series projects 52 M against 15 M, so without the trend it
+    wins; the final assertion strips the verdict and shows the order flip back.
+    """
+    import calltree_growth as cg
+
+    ladder = {'knob': 'skus', 'config': 'none',
+              'rungs': [{'x': x, 'sections': {},
+                         'counts': {'saturating': _DELTA_LIFT_GEN[i],
+                                    'growing': _AISLE_BEST[i]},
+                         'flows': {}, 'flows_per_placement': {}}
+                        for i, x in enumerate(_LADDER_XS)]}
+    report = cg.fit_report(ladder)
+
+    by_name = {o['name']: o for o in report['offenders'] if o['kind'] == 'call-count'}
+    assert set(by_name) == {'saturating', 'growing'}, (
+        f'premise: both series are still flagged as offenders, got {sorted(by_name)}')
+    assert by_name['saturating']['projected'] > by_name['growing']['projected'], (
+        'premise: the converging series projects LARGER, so the magnitude key alone would '
+        'rank it first -- without that, this test proves nothing about the trend')
+    assert by_name['saturating']['trend']['verdict'] == 'saturating'
+    assert by_name['growing']['trend']['verdict'] != 'saturating'
+
+    order = [o['name'] for o in report['offenders'] if o['kind'] == 'call-count']
+    assert order == ['growing', 'saturating'], (
+        f'converging series still outranks the diverging one: {order}')
+
+    # NON-VACUITY: the same two offenders with the verdict removed must rank the other way.
+    stripped = [{k: v for k, v in o.items() if k != 'trend'} for o in report['offenders']]
+    assert [o['name'] for o in cg._severity_sort(stripped)] == ['saturating', 'growing'], (
+        'the trend is not what produced the order above -- `projected` alone already gives '
+        'it, so this test would pass with the sort key reverted')

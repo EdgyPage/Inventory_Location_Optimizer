@@ -311,6 +311,99 @@ not the obstacle; the obstacle is that the hoist means NOT calling `per_pick`, a
 exists to stop callers re-deriving the expression. Its share is scale-stable, so "run it bigger"
 does not get there — the structural half of the same candidate removes these calls entirely.
 
+**`AffinityStore.delta_lift_idxs` — the #1 offender in every archived ladder, and asymptotically
+linear.** It led the HEAD table at k = 1.59 (r² = 0.994), led every one of the fourteen archived
+`skus` ladders back to August, and was the plan's largest remaining candidate. It is not a
+candidate at all.
+
+Three facts, none of which needed a refactor to establish:
+
+1. **The callers are not the ones the plan named.** The plan placed it "per (placement, aisle)".
+   All six archived captures agree it has exactly ONE parent, `ReorderMixin._reclaim_empty_bins`
+   (`inventory_reorder.py:426`) — the bin-teardown path, not placement. The placement-side call at
+   `:240` never fires in any traced configuration.
+2. **Per call, the cost is capped by construction.** The work is one pass over the SKU's CSR row
+   (`Affinity_Store.py:387-389`); the `ci in member_idx_set` test is a hash probe, so the aisle's
+   size does not enter. Row nnz is the SKU's own `top_k = 10` plus the reverse-direction edges of
+   mates that chose it, bounded by `cluster_size - 1 = 79` and ~20 in expectation
+   (`generate_affinity.py:89-92, 340-345`). Both constants are fixed — **row nnz does not grow with
+   the catalogue.** And the ladder measures this directly, because the row scan is a generator
+   with its own counter — frames per parent call, across a 16× catalogue increase:
+
+   | max_skus | 500 | 1,000 | 2,000 | 4,000 | 8,000 |
+   |---|---|---|---|---|---|
+   | elements per call | 11.9 | 13.9 | 13.8 | 12.4 | **10.0** |
+
+   Flat, and if anything *declining*. The per-call cost was never the growing term, and no code
+   argument was needed to see it — the number sat in the same artifact as the exponent.
+3. **The call count is a bounded ratio, caught mid-saturation.** `_reclaim_empty_bins` calls
+   `_index_add` once per reclaimed bin unconditionally and `delta_lift_idxs` only when that bin was
+   the SKU's LAST in its aisle. So calls ≤ reclaimed bins, always. `_index_add` grows k = 0.99 —
+   linear. The ratio between them:
+
+| max_skus | `delta_lift_idxs` | `_index_add` | ratio | local k of the calls | local k of the ratio |
+|---|---|---|---|---|---|
+| 500 | 1,925 | 11,359 | 0.169 | — | — |
+| 1,000 | 7,287 | 24,025 | 0.303 | 1.92 | 0.84 |
+| 2,000 | 23,079 | 45,624 | 0.506 | 1.66 | 0.74 |
+| 4,000 | 64,176 | 89,435 | 0.718 | 1.48 | 0.50 |
+| 8,000 | 157,981 | 181,441 | 0.871 | 1.30 | 0.28 |
+
+The ratio is climbing toward a ceiling of exactly 1.0 that the code guarantees, and **both local
+exponents fall monotonically** — the call exponent from 1.92 to 1.30, the ratio's own from 0.84 to
+0.28. More SKUs spread the same demand over more bins, so a larger share of reclaims are a SKU's
+last bin in that aisle; once essentially all of them are, growth is linear in reclaims and nothing
+is left to saturate.
+
+The fitted power law is not merely pessimistic, it is **arithmetically impossible**: extending
+k = 0.28 on the ratio puts it above 1.0 at roughly 13,000 SKUs. The ladder's whole span
+(500–8,000) sits inside the ramp. A single number fitted across a saturation transient was read as
+a complexity class for three weeks.
+
+**What this cost, and what it saved.** The plan's fix was `delta_lift_sorted` — which already
+exists, is called by nothing, and would have been a **named comparability break**, because numpy's
+pairwise `.sum()` re-associates against the Python `sum()`. That is the full break protocol —
+digest classification, a dated record beside the other six, a two-run DB comparison — spent to
+convert linear into linear. The refutation cost no CPU at all: six archived captures for the
+parent, two constants in the generator for the per-call cap, and one existing counter as the
+denominator.
+
+**What would re-open it.** Raising `cluster_size` or `top_k` raises per-call cost directly and is
+the only thing that makes this superlinear again; both are catalogue-generation values that
+ticket 05 moves into the profile's own metadata, where a change is recorded. A rung above ~13,000
+SKUs should read k → 1.0; the meso ladder tops out at 8,000, so that confirmation is a rung, not a
+refit — and the proof above does not depend on it.
+
+### The same test, applied to the rest of the table
+
+A saturating ratio leaves the same fingerprint anywhere: **a falling local exponent** against a
+denominator that is known to be linear. `_index_add` is that denominator — one call per reclaimed
+bin, k = 0.99 across the ladder — and every offender already carries its own call series in the
+same artifact, so the whole table can be re-triaged with no run at all:
+
+| offender | k | local k, first → last | ratio's local k, last | verdict |
+|---|---|---|---|---|
+| `delta_lift_idxs` | 1.59 | 1.92 → 1.30 | 0.28 | **saturating → linear** |
+| `delta_lift_idxs.<locals>.<genexpr>` | 1.52 | 2.15 → **0.99** | −0.03 | **saturating → linear** |
+| `sum_lift.<locals>.<listcomp>` | 1.32 | 1.48 → 1.18 | 0.16 | **saturating**, and 29,715 calls |
+| `sum_lift` | 1.22 | 1.30 → 1.14 | 0.12 | **saturating**, and 32,582 calls |
+| `Task.__init__.<locals>.<genexpr>` | 1.25 | 1.31 → 1.17 | 0.15 | decaying |
+| `per_pick` | 1.26 | 1.25 → 1.51 | 0.48 | sustained — closed on price, §3 |
+| `_TravelBalancedPool._aisle_best` / `._score_of` | 1.54 | 1.62 → **1.77** | **0.75** | **sustained, and accelerating** |
+
+Five of the seven are decaying toward linear; two of those five are also too small to matter at any
+scale on the ladder. **One offender in the whole table has a local exponent that rises**, and it is
+the one this round already half-fixed — `_aisle_best`, whose surviving run-boundary rebuild is
+priced at 2.66 % of a rung and whose attribution the deep ladder explicitly refused to confirm
+(§2.3). Everything the instrument had to say about complexity, it was saying about that one site.
+
+This is worth more than the single retraction. The offender table was ranked by a fitted exponent,
+and a fitted exponent cannot distinguish a complexity class from a ratio on its way to a ceiling —
+so the ranking put four converging series above the one diverging series for three weeks. The fix
+is not a better threshold: it is **reporting the local exponents alongside the fit**, because the
+trend within a ladder is the part that separates the two, and the ladder already computes it
+(`_local_exponents`) and then shows it only for knees.
+
 ---
 
 ## 4. What now has a fence
