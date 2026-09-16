@@ -15,7 +15,7 @@
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_planning_py.html"><code>Warehouse/inventory/inventory_planning.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>@classmethod
-def plan_warehouse(cls, orders: list[Order], *, categories: list[str], handlings: list[str], aisle_width: int, aisle_height: int, ff_aisle_width: int | None=None, ff_aisle_height: int | None=None, target_fill: float=0.85, min_bins: int | None=None, max_bins: int | None=None, max_aisles: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, sample: bool=True, log: Any=None, bucket_hold: dict | None=None) -&gt; &#x27;WarehousePlan&#x27;</code></pre>
+def plan_warehouse(cls, orders: list[Order], *, categories: list[str], handlings: list[str], aisle_width: int, aisle_height: int, ff_aisle_width: int | None=None, ff_aisle_height: int | None=None, target_fill: float=DEFAULT_TARGET_FILL, min_bins: int | None=None, max_bins: int | None=None, max_aisles: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, sample: bool=True, log: Any=None, bucket_hold: dict | None=None) -&gt; &#x27;WarehousePlan&#x27;</code></pre>
 <section class="doc">Size a warehouse to hold *orders* at their DECLARED levels, and field them there.
 
 1. Enumerate the full bucket set (every handling×category gets 4 pallet

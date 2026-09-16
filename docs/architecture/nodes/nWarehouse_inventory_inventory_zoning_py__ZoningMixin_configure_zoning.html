@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>configure_zoning</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_inventory_zoning_py.html"><code>Warehouse/inventory/inventory_zoning.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def configure_zoning(self, enabled: bool, n_bands: int=3, orders: Any=None, *, mode: str=&#x27;equal&#x27;, abc: dict | None=None) -&gt; None</code></pre>
+<pre class="sig"><code>def configure_zoning(self, enabled: bool, n_bands: int=DEFAULT_ZONING_BANDS, orders: Any=None, *, mode: str=&#x27;equal&#x27;, abc: dict | None=None) -&gt; None</code></pre>
 <section class="doc">Enable/disable velocity zoning and precompute the band maps (once, before stocking).
 
 mode=&#x27;equal&#x27; (default): SKUs and aisles sliced into n_bands EQUAL-COUNT groups (hottest /

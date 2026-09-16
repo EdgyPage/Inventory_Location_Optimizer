@@ -6931,7 +6931,27 @@
       "src": "Optimization/config/objectives.py::_ENTRIES"
     },
     {
+      "dst": "Inbound/gain.py",
+      "kind": "imports",
+      "src": "Optimization/config/settings.py"
+    },
+    {
+      "dst": "Inbound/transit.py",
+      "kind": "imports",
+      "src": "Optimization/config/settings.py"
+    },
+    {
       "dst": "Optimization/simconfig/constants.py",
+      "kind": "imports",
+      "src": "Optimization/config/settings.py"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_planning.py",
+      "kind": "imports",
+      "src": "Optimization/config/settings.py"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py",
       "kind": "imports",
       "src": "Optimization/config/settings.py"
     },
@@ -13582,6 +13602,11 @@
     },
     {
       "dst": "Warehouse/inventory/inventory_common.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
     },

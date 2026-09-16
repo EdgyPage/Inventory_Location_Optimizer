@@ -3723,6 +3723,16 @@ files:
       - {name: "test_carry_residue_accumulates_into_a_shared_dict", file: "Tests/unit/test_day_cut.py", kind: "function"}
       - {name: "test_a_task_the_picker_never_started_carries_whole", file: "Tests/unit/test_day_cut.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_declared_once.py":
+    purpose: "a value two layers need is ONE value, not two equal ones."
+    layer: "tests"
+    key_symbols:
+      - {name: "PAIRS", file: "Tests/unit/test_declared_once.py", kind: "const"}
+      - {name: "test_the_setting_is_the_domain_declaration", file: "Tests/unit/test_declared_once.py", kind: "function"}
+      - {name: "test_zoning_bands_is_one_value_in_all_four_places", file: "Tests/unit/test_declared_once.py", kind: "function"}
+      - {name: "test_the_identity_check_can_fail", file: "Tests/unit/test_declared_once.py", kind: "function"}
+      - {name: "test_the_excluded_defaults_are_excluded_on_purpose", file: "Tests/unit/test_declared_once.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_door_team_cap.py":
     purpose: "the door-team cap is trailer physics, and off it changes nothing."
     layer: "tests"

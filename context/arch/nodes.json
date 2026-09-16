@@ -900,7 +900,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_state=None, fee_threshold_days: float=2.0, urgency_horizon_days: float=0.0)"
+      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_state=None, fee_threshold_days: float=DEFAULT_FEE_THRESHOLD_DAYS, urgency_horizon_days: float=DEFAULT_URGENCY_HORIZON_DAYS)"
     },
     "Inbound/gain.py::OneOwnerBundle": {
       "decorators": [],
@@ -2127,7 +2127,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=4, global_policy: str='fifo', local_policy: str='fifo', bound: int | None=None)"
+      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=DEFAULT_DOCK_DOORS, global_policy: str='fifo', local_policy: str='fifo', bound: int | None=None)"
     },
     "Inbound/transit.py::TrailerTransit._depart": {
       "decorators": [],
@@ -2226,7 +2226,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=4, yard_policy: str='fifo', dock_policy: str='fifo', local_policy: str='fifo', bound: int | None=None, allocation: str='split', door_team: int | None=None)"
+      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=DEFAULT_DOCK_DOORS, yard_policy: str='fifo', dock_policy: str='fifo', local_policy: str='fifo', bound: int | None=None, allocation: str='split', door_team: int | None=None)"
     },
     "Inbound/transit.py::YardTransit.depth": {
       "decorators": [
@@ -7321,7 +7321,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "0.85"
+      "value_preview": "DEFAULT_TARGET_FILL"
     },
     "Optimization/config/settings.py::FF_PICKERS": {
       "decorators": [],
@@ -7384,7 +7384,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "4"
+      "value_preview": "DEFAULT_DOCK_DOORS"
     },
     "Optimization/config/settings.py::INBOUND_DOCK_POLICY": {
       "decorators": [],
@@ -7405,7 +7405,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "2.0"
+      "value_preview": "DEFAULT_FEE_THRESHOLD_DAYS"
     },
     "Optimization/config/settings.py::INBOUND_FUTURESIGHT_BATCHES": {
       "decorators": [],
@@ -7489,7 +7489,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "0.0"
+      "value_preview": "DEFAULT_URGENCY_HORIZON_DAYS"
     },
     "Optimization/config/settings.py::INBOUND_YARD_POLICY": {
       "decorators": [],
@@ -7776,7 +7776,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "0.85"
+      "value_preview": "DEFAULT_TARGET_FILL"
     },
     "Optimization/config/settings.py::STORE_PICKERS": {
       "decorators": [],
@@ -7832,7 +7832,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'enabled': False, 'n_bands': 3, 'mode': 'equal', 'abc': {'mass_thresholds': [0.7, 0.9]}}"
+      "value_preview": "{'enabled': False, 'n_bands': DEFAULT_ZONING_BANDS, 'mode': 'equal', 'abc': {'mass_thresholds': [0.7, 0.9]}}"
     },
     "Optimization/config/sim_config.py": {
       "decorators": [],
@@ -20062,7 +20062,7 @@
       "doc": "Size a warehouse to hold *orders* at their DECLARED levels, and field them there.\n\n1. Enumerate the full bucket set (every handling\u00d7category gets 4 pallet\n   size tiers + 1 singleton) \u2014 the structural floor that guarantees\n   every SKU has a place.\n2. Replica per bucket either from the requirement (default,\n   max(1, ceil(requirement/(eff\u00b7fill)))) or from an explicit\n   *composition* basis vector (bins \u221d weight).\n3. Scale up to >= min_bins, then down to <= max_bins/max_aisles (never\n   below 1 replica/bucket; min_bins wins if it conflicts with max).\n4. Check the promise on the EMITTED capacity \u2014 `capacity \u00b7 fill >= requirement`\n   per bucket \u2014 and REFUSE (`UnfieldableRequirement`) when a bucket is short.\n5. Field every SKU at exactly its declaration, packed as `bucket_requirements`\n   counted it (`field_requirement`).  Skipped when sample=False, which wants only\n   the warehouse SHAPE; the sizing and the promise check still run, because both\n   read the declaration rather than the fielding.\n\nPlanning is DETERMINISTIC: there is no sampling left to seed.  A caller that used to\npass `rng` was seeding a SKU contest for capacity that no longer happens.\n\nbucket_hold: optional `{bucket: bins}` -- the bins a bucket must HOLD, which under\nthe calibrated era is its requirement plus the stationary fragmentation base stock\ncreates, never less than the declared minimum headroom leaves\n(`era_coverage.derive_fill`; \"Derive the fill headroom from the fragmentation\").\nA bucket named here is sized at `max(1, ceil(hold / eff))` replicas (the aisle-split\ninflation still applies) INSTEAD of the fill rule, and step 4 checks\n`capacity >= hold` for it, so the refusal names the extra bins short and not only\nthe requirement.  Its recorded `fill` is `requirement / hold` -- the share the\ndeclaration occupies of what the bucket was sized for.  A bucket not named keeps\nthe fill rule; None (the default, and every flag-off run) is the fill rule for all\nof them, byte for byte.\n\ncomposition: optional factored basis vector of *bin* ratios \u2014 a dict with\nany of the keys 'handling', 'category', 'size', 'unit', each mapping a\nvalue to a relative weight (missing values default to 1.0).  The per-bucket\nweight is the product of the matching dimension weights; bins are allocated\nproportionally.  Total scale comes from min_bins (or demand if min_bins is\nunset).  Example:\n    {'unit': {'pallet': 0.7, 'singleton': 0.3},\n     'size': {'small': 0.1, 'medium': 0.2, 'large': 0.3, 'extra_large': 0.4}}\n\nregime_sizing: optional PER-REGIME sizing that overrides the single\nmin_bins/max_bins/max_aisles/target_fill/composition scalars \u2014 a dict\n{'store': {...}, 'fulfillment': {...}} where each sub-dict may carry\n'min_bins', 'max_bins', 'max_aisles', 'fill', 'composition', and the two\naisle-shape knobs ('depth_classes', 'aisle_split').  When None (the\ndefault), the warehouse is sized globally.  When given, store and fulfillment are\nsized and capped INDEPENDENTLY, each with its own fill headroom.\n\nBoth regimes are sized from the requirement.  Fulfillment's fixed tier distribution\n('mode', 'distribution', 'target_bins') is RETIRED: it spread a demand-derived bin\ntotal 0.5/0.3/0.2 across the three tiers while the declared levels needed 11/63/26,\nwhich is how ff_medium came to be short by 293k bins on a section that was, in total,\nthe right size (\"Field the floor\", decision 8).  Depth classes and the aisle split\nsurvive \u2014 they reshape aisles, not the bin count.",
       "is_async": false,
       "kind": "function",
-      "signature": "(cls, orders: list[Order], *, categories: list[str], handlings: list[str], aisle_width: int, aisle_height: int, ff_aisle_width: int | None=None, ff_aisle_height: int | None=None, target_fill: float=0.85, min_bins: int | None=None, max_bins: int | None=None, max_aisles: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, sample: bool=True, log: Any=None, bucket_hold: dict | None=None) -> 'WarehousePlan'"
+      "signature": "(cls, orders: list[Order], *, categories: list[str], handlings: list[str], aisle_width: int, aisle_height: int, ff_aisle_width: int | None=None, ff_aisle_height: int | None=None, target_fill: float=DEFAULT_TARGET_FILL, min_bins: int | None=None, max_bins: int | None=None, max_aisles: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, sample: bool=True, log: Any=None, bucket_hold: dict | None=None) -> 'WarehousePlan'"
     },
     "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse._eff": {
       "decorators": [],
@@ -20464,7 +20464,7 @@
       "doc": "Enable/disable velocity zoning and precompute the band maps (once, before stocking).\n\nmode='equal' (default): SKUs and aisles sliced into n_bands EQUAL-COUNT groups (hottest /\nshallowest = band 0).  mode='abc': SKUs banded by cumulative demand-MASS thresholds\n(abc['mass_thresholds'], manual A/B/C), and aisles allocated per BinKey PROPORTIONAL to each\nband's SKU footprint \u2014 so the hot A-band is a SMALL aisle fraction and the cold C-band is\nmany rarely-visited aisles (batches skip them).  Disabled \u21d2 maps cleared (byte-identical).",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, enabled: bool, n_bands: int=3, orders: Any=None, *, mode: str='equal', abc: dict | None=None) -> None"
+      "signature": "(self, enabled: bool, n_bands: int=DEFAULT_ZONING_BANDS, orders: Any=None, *, mode: str='equal', abc: dict | None=None) -> None"
     },
     "Warehouse/inventory/inventory_zoning.py::_apportion": {
       "decorators": [],
