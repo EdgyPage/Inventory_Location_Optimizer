@@ -592,3 +592,78 @@ def test_the_attribution_field_is_unhashed_so_completing_it_moved_nothing():
     blob = json.dumps(shaped, sort_keys=True)
     assert 'headline.all_arms' not in blob, 'evaluation attribution leaked into the shape'
     assert 'prepare_config_dirs' not in blob, 'writer attribution leaked into the shape'
+
+
+# ── the fingerprint's blind spot: files nobody has written yet ────────────────────────
+
+def _fake_repo(tmp_path, names):
+    """A repo root holding only `simconfig/configs/`. Every SHAPE_SOURCES file is absent and
+    hashes as MISSING, which is fine and deliberate: these tests compare fingerprints of the
+    SAME fake root against each other, so the constant missing part cancels."""
+    d = tmp_path / 'Optimization' / 'simconfig' / 'configs'
+    d.mkdir(parents=True, exist_ok=True)
+    for f in d.glob('*.py'):
+        f.unlink()
+    for n in names:
+        (d / n).write_text('CONFIG = {}\n', encoding='utf-8')
+    return str(tmp_path)
+
+
+def test_adding_a_pick_config_moves_the_source_fingerprint(tmp_path):
+    """THE hole SHAPE_SOURCE_DIRS closes, and it is not a hypothetical.
+
+    `simconfig/configs/` is auto-discovered — `core/discovery.py` says so in its own
+    docstring: "dropping a new pick-config file into configs/ registers it with zero edits
+    elsewhere" — and a registered config's NAME becomes the `<config>` LEVEL's directory
+    name. So adding one RENAMES A LEVEL of the run tree.
+
+    A tuple of file paths cannot express this: it can only ever list files someone already
+    thought of, and the new one is by definition not among them. Listing today's four would
+    have left the fifth exactly as invisible.
+    """
+    from Optimization.runschema import contract
+
+    root = _fake_repo(tmp_path, ('store.py', 'ful_calibrated.py'))
+    before = contract.source_fingerprint(root)
+
+    _fake_repo(tmp_path, ('store.py', 'ful_calibrated.py', 'store_extra_tall.py'))
+    after = contract.source_fingerprint(root)
+
+    assert before != after, (
+        'a new pick-config left the source fingerprint unchanged, so preflight would never '
+        're-prove the tree and the new <config> directory would appear unannounced')
+
+
+def test_renaming_a_pick_config_moves_the_fingerprint_though_no_byte_changes(tmp_path):
+    """The case content-hashing alone would miss. Two files with identical bytes under
+    different names are the same content and a DIFFERENT run tree, because the name is the
+    directory. Hashing the sorted NAME LIST before any content is what catches it."""
+    from Optimization.runschema import contract
+
+    root = _fake_repo(tmp_path, ('store.py', 'ful_calibrated.py'))
+    before = contract.source_fingerprint(root)
+
+    _fake_repo(tmp_path, ('store_v2.py', 'ful_calibrated.py'))
+    after = contract.source_fingerprint(root)
+
+    assert before != after, (
+        'a renamed pick-config hashed identically — the content is the same and the run-tree '
+        'directory name is not, so the name list must be inside the hash')
+
+
+def test_the_directory_hash_is_stable_when_nothing_moves(tmp_path):
+    """Non-vacuity, the other way round. If the fingerprint changed on every call, the two
+    tests above would pass for free and the whole mechanism would be a false-trigger machine
+    costing a canary pair per invocation."""
+    from Optimization.runschema import contract
+
+    root = _fake_repo(tmp_path, ('store.py', 'ful_calibrated.py'))
+    assert contract.source_fingerprint(root) == contract.source_fingerprint(root)
+
+
+def test_channels_is_a_shape_source():
+    """`config/channels.py` decides whether the CONDITIONAL `<channel>/` level exists at all
+    — it appears only on a mixed catalogue. It was absent from SHAPE_SOURCES, which is the
+    same omission the `run_whatif_volume.py` comment in that tuple already records."""
+    from Optimization.runschema import contract
+    assert 'Optimization/config/channels.py' in contract.SHAPE_SOURCES

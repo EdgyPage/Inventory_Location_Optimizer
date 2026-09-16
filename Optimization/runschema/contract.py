@@ -91,7 +91,26 @@ SHAPE_SOURCES = (
     'Optimization/simconfig/constants.py',
     'Optimization/simconfig/core/discovery.py',
     'Optimization/simconfig/core/registry.py',
+    # channels decides whether the CONDITIONAL `<channel>/` level exists at all -- it
+    # appears only on a mixed catalogue -- so it is as shape-defining as sim_config.
+    # It was never listed: the same omission the run_whatif_volume note above records.
+    'Optimization/config/channels.py',
     'Optimization/runschema/schema.py',
+)
+
+# -- shape-defining DIRECTORIES ---------------------------------------------------
+# A tuple of file PATHS cannot notice a file that did not exist when it was written, and
+# one package turns exactly that into a tree change.  `simconfig/configs/` is
+# auto-discovered -- `core/discovery.py` states it plainly: "dropping a new pick-config
+# file into configs/ registers it with zero edits elsewhere" -- and a registered config's
+# NAME becomes the `<config>` LEVEL's directory name.  So adding one renames a level of
+# the run tree while the fingerprint sees nothing at all.
+#
+# Listing today's four files would not fix it; the fifth would be just as invisible.
+# Hashing the directory's `*.py` in sorted order does, because an addition, a deletion
+# and a rename each change the hashed sequence.
+SHAPE_SOURCE_DIRS = (
+    'Optimization/simconfig/configs',
 )
 
 
@@ -123,6 +142,10 @@ def source_fingerprint(repo_root: str = _REPO_ROOT) -> str:
 
     A missing file contributes its path plus a MISSING marker rather than being skipped, so
     DELETING a shape source is detected instead of silently matching.
+
+    `SHAPE_SOURCE_DIRS` is then hashed by NAME LIST and content, which is how an
+    ADDED file registers -- a path tuple can only ever describe files someone already
+    thought of, and `simconfig/configs/` is auto-discovered.
     """
     h = hashlib.sha256()
     for rel in SHAPE_SOURCES:
@@ -133,6 +156,20 @@ def source_fingerprint(repo_root: str = _REPO_ROOT) -> str:
                 h.update(f.read().replace(b'\r\n', b'\n'))
         except OSError:
             h.update(b'\x00MISSING')
+    for rel_dir in SHAPE_SOURCE_DIRS:
+        d = os.path.join(repo_root, rel_dir.replace('/', os.sep))
+        h.update(rel_dir.encode('utf-8'))
+        try:
+            names = sorted(n for n in os.listdir(d) if n.endswith('.py'))
+        except OSError:
+            h.update(b'\x00MISSING')
+            continue
+        # The NAME LIST is hashed before any content, so a RENAME registers even when no
+        # byte moves -- renaming a pick-config renames a run-tree directory.
+        h.update(repr(names).encode('utf-8'))
+        for n in names:
+            with open(os.path.join(d, n), 'rb') as f:
+                h.update(f.read().replace(b'\r\n', b'\n'))
     return 'sha256:' + h.hexdigest()
 
 

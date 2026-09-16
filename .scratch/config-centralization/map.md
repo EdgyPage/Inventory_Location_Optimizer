@@ -51,6 +51,17 @@ Concretely, the destination is reached when:
   was proven to fail under both sabotages before being believed.
   -> [01-ten-restated-literals.md](issues/01-ten-restated-literals.md)
 
+- **[02] The fingerprint was structurally blind to a file that did not exist yet.**
+  `SHAPE_SOURCES` is a tuple of PATHS, and `simconfig/configs/` is auto-discovered -- a new
+  pick-config's NAME becomes the `<config>` level's directory name, so adding one renames a level
+  of the run tree with no fingerprint movement at all. Listing the four current files would have
+  left the fifth just as invisible, so this needed a mechanism: `SHAPE_SOURCE_DIRS`, hashing the
+  sorted NAME LIST before any content -- the name is the directory, so a rename must register even
+  when no byte moves. `config/channels.py` was also missing outright (it decides whether the
+  conditional `<channel>/` level exists). Four tests, proven to fail with `SHAPE_SOURCE_DIRS`
+  forced back to `()`.
+  -> [02-the-fingerprint-cannot-see-a-new-file.md](issues/02-the-fingerprint-cannot-see-a-new-file.md)
+
 ## Fog
 
 - ~~Does `settings.py` importing `Inbound` pass the boundary checker?~~ **CLOSED by ticket 01:
