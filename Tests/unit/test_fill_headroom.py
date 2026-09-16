@@ -379,7 +379,8 @@ def test_the_era_sizes_every_bucket_from_the_derived_fill_and_a_rebuild_reproduc
     assert ec.holds_at(rec) == holds, 'the record round-trips the planner input exactly'
     rows = {(r['handling'], r['category'], r['size'], r['unit']): r for r in fielded['buckets']}
     assert set(rows) >= set(holds)
-    from Optimization.config.sim_config import _AISLE_W as _W, _AISLE_H as _H
+    from Optimization.config.sim_config import aisle_geometry
+    _W, _H = aisle_geometry()    # a CALL, not two import-time scalars
     for b, r in rows.items():
         assert r['capacity'] >= math.ceil(r['hold'] - 1e-9), r
         assert r['fill'] <= 1 - H + 1e-12, r

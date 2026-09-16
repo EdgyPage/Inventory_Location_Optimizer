@@ -1,8 +1,7 @@
 # One .env loader, not four
 
 Type: task
-Status: ready-for-agent
-Blocked by: none
+Status: resolved
 
 `_load_env` + `_clean_path` are copy-pasted at four sites:
 
@@ -47,7 +46,53 @@ importable exists. The honest improvement there is propagating the **depth `asse
 names, where a wrong `..` count silently stops `.env` loading and a run writes hundreds of GB into
 the repo.
 
-## Why it is not done yet
 
-Deprioritised against `complexity-round`, which is the larger half of the request. Recorded here
-with the analysis complete so it can be picked up cold.
+
+## Answer -- three of four, and the fourth is deliberate
+
+`Optimization/config/envfile.py` holds `load_env` and `clean_path`. `sim_config` and both
+`Warehouse/generation/` entry scripts import it; the underscore aliases are kept in `sim_config`
+because `run_simulation` imports them from there by those names.
+
+### Where it went, and the two places it could not go
+
+* **Not `Warehouse/kernel/`.** Its README declares it "zero-dependency VALUE OBJECTS -- the
+  primitives everything else in the DOMAIN is built from". An `.env` reader is harness plumbing
+  and would be the first non-domain thing in it.
+* **Not the repo root**, which was the plan's first suggestion and is worse than it looks:
+  `context/arch/extract.py`'s `GRAPH_ROOTS` are all DIRECTORIES, so a bare top-level `.py` is
+  never walked -- no `files.yml` entry, no layer, nothing to notice. That is the same
+  structurally-invisible shape this effort has been closing elsewhere, and it would have been
+  self-inflicted.
+* **`Optimization/config/` works and needs no new layer.** Reading `.env` IS configuration, and
+  `generation -> opt_config` and `docs -> opt_config` are both permitted -- only the reverse
+  directions are forbidden. Checked against `architecture.yml` before writing a line.
+
+### The fourth copy stays, because a gate says so and the gate is right
+
+`docs/experiments/ingest.py` keeps its own `_load_env`.
+`Tests/architecture/test_ingest_env_bootstrap.py` asserts the file CARRIES it, and that is not
+pedantry: `--profiles-root`'s default is evaluated when the parser is BUILT, so `.env` must
+already be in `os.environ` by then. When it was not, catalogue resolution fell back to a recorded
+ABSOLUTE path -- "precisely the route `pair_bindings` exists to replace, and the one that does not
+survive a moved drive" -- and it was silent, because that fallback is legitimate for pre-v2 runs.
+
+**I could have rewritten the gate to accept an import. I did not**, because the assertion is a
+proxy for an ordering invariant that a late-resolving import could genuinely break, and loosening
+a gate to fit a refactor is how gates stop working.
+
+So the duplication is now deliberate, confined to ONE file, and fenced by BEHAVIOUR instead:
+`test_ingests_own_loader_unwraps_values_exactly_like_the_shared_one` runs both loaders over an
+eleven-case battery (plain, quoted, single-quoted, `r"..."`, empty, unbalanced) and
+`..._produce_the_same_environment` compares the whole resulting environment, skip rules included.
+Compared through the LOADER, not a helper, because ingest inlines the unwrapping and exposes no
+`_clean_path` -- and behaviour is what has to agree anyway.
+
+**Proven non-vacuous** by forking ingest's loader to drop the `r"..."` form: both tests fail, the
+first naming the exact input (`'r"raw"': 'r"raw' vs 'raw'`).
+
+### One more fence
+
+`test_envfile_imports_nothing_that_reads_the_environment` parses the module and asserts its
+imports are `{os}`. Anything that reads the environment at import time, anywhere in envfile's
+import graph, would recreate the ingest ordering hazard somewhere else and just as silently.

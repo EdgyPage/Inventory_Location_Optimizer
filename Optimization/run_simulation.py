@@ -44,7 +44,7 @@ from Optimization.config.sim_config import (            # noqa: F401
     staffing_provenance, CALIBRATION_KEYS, ERA_ONLY_KEYS, FLAG_OFF_ONLY_KEYS, era_on,
     couple_channels,
     store_restocks, store_fill,
-    _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, _AISLE_W, _AISLE_H,
+    _OUTPUT_DIR, _DEFAULT_PROFILES_DIR, _CATEGORIES, _HANDLINGS, aisle_geometry,
     _STORE_PICKERS, _FF_PICKERS, _CART_TYPES,
     regime_sizing_from_config, _setup_logging, _checkpoint_every,
     _config_name, _build_pick_cfg, _clean_path, _load_env,
@@ -256,6 +256,7 @@ def _apply_run_spec(args, spec, explicit):
     spec = {**spec, **{k: _staffing_inputs[k] for k in STAFFING_KEYS if k in _staffing_inputs}}
     for f in ('n_batches', 'max_skus', 's_max_aisles', 's_max_bins', 's_min_bins',
               'ff_max_aisles', 'ff_max_bins', 'ff_min_bins', 'keyframe_interval', 'whatif', 'spec',
+              'aisle_columns', 'aisle_levels',
               'profiles_dir', 'all_profiles', 'workers', 'max_tasks_per_child',
               'max_retries', 'resume_granularity',
               # Sizing params: a resume MUST rebuild the same warehouse, so these are as
@@ -530,6 +531,20 @@ def _build_parser() -> argparse.ArgumentParser:
                              'INDEPENDENT audit of that fold plus a quantity anchor. Lower K '
                              'buys more audit points, not more accuracy. Default '
                              f'{CONFIG["global"]["keyframe_interval"]}.')
+    # Same rule as --keyframe-interval above: defaulted FROM CONFIG, because both are
+    # assigned unconditionally into `g` below and a literal here would make the declared
+    # value dead.  The pair is the reference warehouse's aisle SHAPE, which until now had
+    # no flag at all -- so no run's own spec could say what geometry it was built on.
+    parser.add_argument('--aisle-columns', type=_positive_int,
+                        default=CONFIG['global']['aisle_columns'], metavar='C',
+                        help='Bin-width columns per aisle (structural; both channels '
+                             'share one aisle shape). Default '
+                             f'{CONFIG["global"]["aisle_columns"]}.')
+    parser.add_argument('--aisle-levels', type=_positive_int,
+                        default=CONFIG['global']['aisle_levels'], metavar='L',
+                        help='Bin-height levels per aisle. Fulfillment overrides only the '
+                             'HEIGHT (short shelves). Default '
+                             f'{CONFIG["global"]["aisle_levels"]}.')
     parser.add_argument('--n-batches', type=_positive_int, default=None, metavar='N',
                         help='Override the per-run batch count (default '
                              f'{CONFIG["global"]["n_batches"]}). Use a small value for quick smoke runs.')
@@ -1016,6 +1031,8 @@ def main():
         g['max_skus'] = args.max_skus
     g['workers']           = args.workers or 1
     g['keyframe_interval'] = args.keyframe_interval
+    g['aisle_columns']     = args.aisle_columns
+    g['aisle_levels']      = args.aisle_levels
     g['sampler']           = args.sampler
     g['work_day_seconds']  = args.work_day_seconds
     g['releases_per_day']  = args.releases_per_day
@@ -1091,8 +1108,9 @@ def main():
     # correct, but it did so ~15 s into EVERY pair, after the inventory load.  Saying it once,
     # up front, costs microseconds and lets the operator retype the flag before anything runs.
     if args.s_max_bins is not None:
+        _aw, _ah = aisle_geometry()          # read at CALL time: --aisle-* has landed
         _floor_aisles, _floor_bins = structural_bin_floor(_HANDLINGS, _CATEGORIES,
-                                                          _AISLE_W, _AISLE_H)
+                                                          _aw, _ah)
         if args.s_max_bins < _floor_bins:
             log.warning(
                 f'  --s-max-bins {args.s_max_bins:,} is BELOW the store structural floor of '
@@ -1242,6 +1260,7 @@ def main():
             # detect it from -- the same argument that puts `sampler` in this file.
             'inbound_lead_tag'  : _LEAD_TAG,
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
+            'aisle_columns': args.aisle_columns, 'aisle_levels': args.aisle_levels,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
             'max_retries'  : args.max_retries, 'resume_granularity': args.resume_granularity,

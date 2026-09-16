@@ -70,6 +70,11 @@ PARENT_ONLY = {
     'regime_sizing_from_config':
         'a PARENT-side shape: run_analysis, run_map_precompute and simdriver.scenario size '
         'the warehouse with it before any worker exists',
+    'aisle_geometry':
+        'a PARENT-side shape, for the same reason as regime_sizing_from_config: the aisle '
+        'width/height are consumed by sim_assets.plan_warehouse and run_simulation'
+        "'s structural floor check, both of which run before a worker exists. The worker "
+        'receives the BUILT warehouse, never the geometry that shaped it',
 }
 
 #: Accessors that are STRUCTURALLY OFF under the pristine CONFIG and answer `None` whatever
@@ -98,8 +103,9 @@ def _spec_accessors():
     module rather than defined by it cannot masquerade as one of its accessors.
     """
     src = inspect.getsource(sc)
-    names = re.findall(r'^def (\w+_spec|inbound_lead_law|regime_sizing_from_config)\(',
-                       src, re.M)
+    names = re.findall(
+        r'^def (\w+_spec|inbound_lead_law|regime_sizing_from_config|aisle_geometry)\(',
+        src, re.M)
     return sorted(set(names))
 
 

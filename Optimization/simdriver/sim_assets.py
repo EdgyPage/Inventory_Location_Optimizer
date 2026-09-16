@@ -23,7 +23,7 @@ from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import BatchConfig
 
 from Optimization.config.sim_config import (
-    CONFIG, seed_world, _AISLE_W, _AISLE_H, _CATEGORIES, _HANDLINGS, store_fill,
+    CONFIG, seed_world, aisle_geometry, _CATEGORIES, _HANDLINGS, store_fill,
     staffing_spec, work_day_spec, inbound_lead_law,
 )
 
@@ -127,12 +127,13 @@ def build_shared_assets(
         # the fragmentation") -- handed in by the coverage loop on a run, read back off the
         # run's record on a rebuild, derived from the frozen declaration on a what-if cell.
         # None is the typed fill for every bucket, byte for byte.
+        _aisle_w, _aisle_h = aisle_geometry()   # call time, so --aisle-* is visible
         return Inventory_Manager.plan_warehouse(
             inventory.orders,
             categories   = _CATEGORIES,
             handlings    = _HANDLINGS,
-            aisle_width  = _AISLE_W,
-            aisle_height = _AISLE_H,
+            aisle_width  = _aisle_w,
+            aisle_height = _aisle_h,
             target_fill  = store_fill(),
             min_bins     = min_bins,
             max_bins     = max_bins,
@@ -327,14 +328,15 @@ def build_shared_assets(
         from Warehouse.layout.Aisle_Dimensions import (catalog_aisle_bins, FULFILLMENT_BIN_WIDTH,
                                       FF_TIER_HEIGHTS, FULFILLMENT_AISLE_HEIGHT)
         aisle_rows = []
+        _aisle_w, _aisle_h = aisle_geometry()
         for (h, cat, size, unit_type), cap_bins in plan.capacity.items():
             # Fulfillment buckets use the short-shelf catalog geometry (mirrors plan_warehouse._eff);
             # store buckets use the pallet/singleton geometry.
             if unit_type == 'fulfillment':
                 eff = catalog_aisle_bins(FULFILLMENT_BIN_WIDTH, FF_TIER_HEIGHTS[size],
-                                         _AISLE_W, FULFILLMENT_AISLE_HEIGHT)
+                                         _aisle_w, FULFILLMENT_AISLE_HEIGHT)
             else:
-                eff = uniform_aisle_bins(unit_type, size, _AISLE_W, _AISLE_H)
+                eff = uniform_aisle_bins(unit_type, size, _aisle_w, _aisle_h)
             rep = cap_bins // eff if eff else 0
             pcts = [0.0, 0.0, 0.0, 0.0]
             if unit_type == 'pallet' and size in _PCT_COL:

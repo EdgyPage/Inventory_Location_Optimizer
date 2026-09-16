@@ -36,24 +36,10 @@ assert os.path.isdir(os.path.join(_REPO_ROOT, 'Warehouse')), (
 # Recognised variables:
 #   COMPARISON_OUTPUT_DIR  — parent directory for comparison_<ts>/ output folders
 #   PROFILE_INPUT_DIR      — root directory for inventory+affinity DB pairs
-def _load_env(path: str) -> None:
-    if not os.path.isfile(path):
-        return
-    with open(path, encoding='utf-8') as _f:
-        for _line in _f:
-            _line = _line.strip()
-            if not _line or _line.startswith('#') or '=' not in _line:
-                continue
-            _key, _, _val = _line.partition('=')
-            _key = _key.strip()
-            _val = _val.strip()
-            # Strip optional r"..." / r'...' raw-string notation and plain quotes
-            if _val.startswith(('r"', "r'")):
-                _val = _val[2:].rstrip('"').rstrip("'")
-            else:
-                _val = _val.strip('"').strip("'")
-            if _key and _key not in os.environ:
-                os.environ[_key] = _val
+# THE loader lives in `envfile`, which imports only `os` -- see that module for why it
+# sits in this package rather than in the kernel or at the repo root.  The underscore
+# names are kept as aliases: `run_simulation` imports them from here by those names.
+from Optimization.config.envfile import clean_path as _clean_path, load_env as _load_env
 
 _load_env(os.path.join(_REPO_ROOT, '.env'))
 
@@ -70,10 +56,15 @@ from Optimization.simconfig.constants import _STORE_PICKERS, _FF_PICKERS
 from Optimization.config import settings as _s
 
 # ── warehouse geometry (structural; shared by both channels) ────────────────────
-# Physical aisle dimensions: 50 pallet-width columns × 10 extra_large-height levels.
-# Actual bin counts per aisle depend on unit type and size distribution.
-_AISLE_W = aisle_width_for(50)    # 50 × 48 = 2400 physical units
-_AISLE_H = aisle_height_for(10)   # 10 × 48 = 480 physical units
+# Physical aisle dimensions: AISLE_COLUMNS pallet-width columns × AISLE_LEVELS
+# extra_large-height levels.  Actual bin counts per aisle depend on unit type and size
+# distribution.
+#
+# Read through `aisle_geometry()` below, NEVER as module scalars.  These were
+# `aisle_width_for(50)` / `aisle_height_for(10)` evaluated at import, which is the shape
+# `Tests/unit/test_config_reaches_the_worker.py` calls a shipped defect: a snapshot taken at
+# import cannot see a CLI override, and `_INITIAL_FILL` did exactly that and made a run
+# misreport its own sizing in its own warehouse DB.
 
 # Picker-pool DEFAULTS per channel live in Optimization/simconfig/constants.py (imported above as
 # _STORE_PICKERS / _FF_PICKERS; re-exported for the diagnostics that reach them via `rs.`).  The
@@ -81,17 +72,6 @@ _AISLE_H = aisle_height_for(10)   # 10 × 48 = 480 physical units
 # `channel_pickers(name)` below; a pick-config entry that names its own 'num_pickers' must agree
 # with its channel's declared count or setup raises (see `workunits._channel_runs_for`).
 
-
-def _clean_path(val: str) -> str:
-    """Strip r\"...\" / r'...' notation or plain quotes from an env-var path value.
-
-    Applied after os.getenv so that values set directly in the Windows session
-    environment (with literal r\"...\" text) are normalised the same way as
-    values parsed from the .env file.
-    """
-    if val.startswith(('r"', "r'")):
-        return val[2:].rstrip('"').rstrip("'")
-    return val.strip('"').strip("'")
 
 _OUTPUT_DIR = _clean_path(os.getenv(
     'COMPARISON_OUTPUT_DIR',
@@ -167,6 +147,8 @@ CONFIG = {
         # ~3.1M rows, to re-answer a question the log answers exactly.  25 keeps both roles
         # at a fifth of the cost.  0 still disables the sidecar entirely.
         'keyframe_interval': _s.KEYFRAME_INTERVAL,
+        'aisle_columns'   : _s.AISLE_COLUMNS,
+        'aisle_levels'    : _s.AISLE_LEVELS,
         'max_skus'        : _s.MAX_SKUS,   # input-catalog cap (preserves the store/ff mix)
         # Batch-sampler VERSION — a results ERA, not a tuning knob.  Each version draws the
         # same weight model but a different SEQUENCE, so runs across a flip are not
@@ -369,6 +351,23 @@ def seed_batches() -> int:
 def n_batches() -> int:
     """The configured batch horizon, read at call time (`--n-batches` writes CONFIG)."""
     return CONFIG['global']['n_batches']
+
+
+def aisle_geometry() -> tuple[int, int]:
+    """(width, height) of one aisle in physical units, read at CALL time.
+
+    A FUNCTION, not two module scalars, and deliberately: the pair used to be
+    `aisle_width_for(50)` / `aisle_height_for(10)` evaluated at import, so a CLI override
+    could never reach them. That is the `_INITIAL_FILL` defect this project has already
+    shipped once -- a run misreporting its own sizing in its own warehouse DB --
+    and `Tests/unit/test_config_reaches_the_worker.py` mutates the CONFIG key and calls
+    every accessor twice to keep it from coming back.
+
+    PARENT-SIDE. The warehouse is planned before any worker exists, so this is not in
+    the worker payload; it is listed in that test's `PARENT_ONLY` with the reason.
+    """
+    g = CONFIG['global']
+    return aisle_width_for(g['aisle_columns']), aisle_height_for(g['aisle_levels'])
 
 
 #: Every `CONFIG['global']` key the staffing record's INPUTS block carries -- the family's

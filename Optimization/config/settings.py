@@ -80,6 +80,15 @@ MAX_SKUS = None            # global input-catalog cap; None = no cap.  Preserves
 CHECKPOINT_FRAC = 0.1      # flush every ceil(N_BATCHES * this) batches
 KEYFRAME_INTERVAL = 25     # batches between viewer keyframes.  Audit points, not accuracy
 
+# The reference warehouse's aisle SHAPE, in bin-width columns and bin-height levels.
+# 50 x 48in = 2,400 wide, 10 x 48in = 480 tall.  These were two bare integers inside
+# sim_config with no name and no flag, so no run's own spec could answer "what aisle
+# geometry was this?" without reading the source at that commit.  Structural: both
+# channels share one aisle shape, and the fulfillment section overrides only its HEIGHT
+# (FULFILLMENT_AISLE_HEIGHT, short shelves).  --aisle-columns / --aisle-levels
+AISLE_COLUMNS = 50
+AISLE_LEVELS = 10
+
 # Batch-sampler VERSION, and therefore a RESULTS ERA rather than a tuning knob: a run is not
 # row-comparable with the archive drawn under a different one.  Batch caches are fingerprinted
 # per sampler so the eras cannot contaminate each other.  `--sampler v1`/`v2` are the escapes.

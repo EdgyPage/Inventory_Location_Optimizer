@@ -62,10 +62,38 @@ Concretely, the destination is reached when:
   forced back to `()`.
   -> [02-the-fingerprint-cannot-see-a-new-file.md](issues/02-the-fingerprint-cannot-see-a-new-file.md)
 
+- **[03] One `.env` reader, three of four sites -- and the fourth stays because a gate says so.**
+  `Optimization/config/envfile.py` (imports `os` and nothing else) now serves `sim_config` and
+  both `Warehouse/generation/` entry scripts. NOT the kernel (declared "zero-dependency VALUE
+  OBJECTS... of the DOMAIN"), and NOT the repo root, which is worse than it looks: `GRAPH_ROOTS`
+  are all DIRECTORIES, so a bare top-level `.py` is never walked -- no `files.yml` entry, no
+  layer, nothing to notice. `docs/experiments/ingest.py` keeps its copy because
+  `test_ingest_env_bootstrap.py` requires the loader to RUN at module level before the argparse
+  default that depends on it, and loosening a gate to fit a refactor is how gates stop working.
+  That copy is fenced by BEHAVIOUR instead -- an eleven-case battery plus a whole-environment
+  comparison, proven to fail when the copy is forked to drop the `r"..."` form.
+  -> [03-one-env-loader-not-four.md](issues/03-one-env-loader-not-four.md)
+
+- **[04] One of the two "values with no seam" was not a value at all.**
+  `_OVERSTOCK_MIN_HEADROOM` appears ONCE in the entire repo: its own declaration. Commit
+  `8a20cdc9` (2026-06-03) says in its own message that it removed the constant -- it removed the
+  two USES and left the declaration behind a comment describing a loop that no longer exists.
+  DELETED. Threading it would have been the worst outcome available: a flag, a run_spec field and
+  a payload entry for a knob controlling nothing, recorded in every future run as if it meant
+  something.
+  The aisle geometry WAS real and carried a second defect the ticket did not name:
+  `_AISLE_W = aisle_width_for(50)` was a module scalar evaluated at IMPORT, which is the exact
+  `_INITIAL_FILL` shape `test_config_reaches_the_worker.py` calls a SHIPPED defect. Adding a flag
+  without converting it would have produced a flag that silently did nothing -- the sixth
+  instance. Now `AISLE_COLUMNS`/`AISLE_LEVELS` through seams 1-4 with `aisle_geometry()` read at
+  CALL time; seam 5 deliberately absent (parent-side) and registered in `PARENT_ONLY`.
+  -> [04-two-values-with-no-seam.md](issues/04-two-values-with-no-seam.md)
+
 ## Fog
 
 - ~~Does `settings.py` importing `Inbound` pass the boundary checker?~~ **CLOSED by ticket 01:
   yes.** `verify_architecture.py` exits 0 with the new edges in the graph.
-- Where does the single `.env` loader live? It must be importable by `Warehouse/generation/`
-  (which imports nothing from `Optimization/`) AND by `Optimization/config/`. Likely a new
-  dependency-free leaf plus one `layers` entry in `context/architecture.yml`.
+- ~~Where does the single `.env` loader live?~~ **CLOSED by ticket 03: `Optimization/config/`,
+  and it needed no new layer at all.** `generation -> opt_config` and `docs -> opt_config` are
+  both permitted; only the reverse directions are forbidden. The plan's "new top-level leaf"
+  suggestion would have been structurally invisible to the architecture graph.

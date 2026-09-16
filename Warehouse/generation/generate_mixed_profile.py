@@ -52,23 +52,9 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 
-def _load_env(path: str) -> None:
-    """Inject KEY=VALUE pairs from *path* into os.environ (shell vars take priority)."""
-    if not os.path.isfile(path):
-        return
-    with open(path, encoding='utf-8') as _f:
-        for _line in _f:
-            _line = _line.strip()
-            if not _line or _line.startswith('#') or '=' not in _line:
-                continue
-            _key, _, _val = _line.partition('=')
-            _key = _key.strip();  _val = _val.strip()
-            if _val.startswith(('r"', "r'")):
-                _val = _val[2:].rstrip('"').rstrip("'")
-            else:
-                _val = _val.strip('"').strip("'")
-            if _key and _key not in os.environ:
-                os.environ[_key] = _val
+# The shared `.env` reader.  Imported AFTER the sys.path bootstrap above, which is what
+# makes a package import resolve when this file is run as a script.
+from Optimization.config.envfile import clean_path as _clean_path, load_env as _load_env
 
 
 _load_env(os.path.join(_REPO_ROOT, '.env'))
@@ -83,12 +69,6 @@ from Warehouse.generation.generate_inventory import (
     fulfillment_families, DEFAULT_FF_WEIGHT_SPEC,
 )
 from Warehouse.generation.generate_affinity import generate_run as _aff_run
-
-
-def _clean_path(val: str) -> str:
-    if val.startswith(('r"', "r'")):
-        return val[2:].rstrip('"').rstrip("'")
-    return val.strip('"').strip("'")
 
 
 _DEFAULT_PROFILES_DIR = _clean_path(os.getenv(

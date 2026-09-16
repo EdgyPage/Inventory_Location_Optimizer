@@ -39,9 +39,6 @@ import time
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units as _vsu
 
-# Minimum empty bins to preserve per (handling, category, size, unit_type) bucket
-# during overstock fill so reorder units always find a slot during simulation.
-_OVERSTOCK_MIN_HEADROOM: int = 10
 from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.picking.fast_pick import DeferredPickSimulation
 from Warehouse.generation.generate_inventory import load_inventory_from_db

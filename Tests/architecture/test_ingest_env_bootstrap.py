@@ -127,3 +127,79 @@ def test_binding_resolution_logs_by_name_when_it_succeeds(tmp_path):
     got = mod._inv_root_from_bindings(_RT(), 'cat__prof', str(tmp_path), log)
     assert got is not None and os.path.samefile(got, str(inv))
     assert any('catalogue by NAME via pair_bindings' in m for m in log), log
+
+
+# -- the copy this gate FORCES must not drift from the shared reader ---------------------
+
+def test_ingests_own_loader_unwraps_values_exactly_like_the_shared_one(tmp_path, monkeypatch):
+    """`ingest.py` keeps its own `_load_env` because the test above requires it to, and that
+    requirement is not pedantry: `--profiles-root`'s default is evaluated when the parser is
+    BUILT, so `.env` has to be in `os.environ` before then, and an import resolving late -- or
+    pulling in a module that itself reads the environment -- would reintroduce the silent
+    fallback this file exists to prevent.
+
+    The other three sites (`Optimization/config/sim_config.py` and the two
+    `Warehouse/generation/` entry scripts) now import `Optimization.config.envfile`. The
+    duplication is therefore deliberate and confined to ONE file, and this is what keeps it a
+    copy rather than a fork.
+
+    Compared through the LOADER rather than a helper, because ingest inlines the unwrapping and
+    exposes no `_clean_path` -- and behaviour is the thing that must agree anyway.
+    """
+    import importlib
+
+    envfile = importlib.import_module('Optimization.config.envfile')
+    mod = _load_ingest()
+
+    cases = ['plain', '"quoted"', "'single'", 'r"raw"', "r'raw2'", 'D:/runs', '"D:/runs"',
+             'r"D:/runs"', 'has space', '"un"balanced', '']
+    for i, val in enumerate(cases):
+        key = 'ENVCASE_%d' % i
+        env = tmp_path / ('c%d.env' % i)
+        env.write_text('%s=%s%s' % (key, val, chr(10)), encoding='utf-8')
+        got = {}
+        for name, loader in (('ingest', mod._load_env), ('shared', envfile.load_env)):
+            monkeypatch.delenv(key, raising=False)
+            loader(str(env))
+            got[name] = os.environ.get(key)
+        assert got['ingest'] == got['shared'], (
+            'ingest and the shared reader disagree on %r: %r vs %r'
+            % (val, got['ingest'], got['shared']))
+
+    # non-vacuity: the battery must actually exercise the unwrapping
+    key = 'ENVCASE_NV'
+    env = tmp_path / 'nv.env'
+    env.write_text('%s=r"unwrapped"%s' % (key, chr(10)), encoding='utf-8')
+    monkeypatch.delenv(key, raising=False)
+    envfile.load_env(str(env))
+    assert os.environ[key] == 'unwrapped', 'the raw-string form is no longer being unwrapped'
+
+
+def test_ingests_loader_and_the_shared_one_produce_the_same_environment(tmp_path, monkeypatch):
+    """The other half: same FILE in, same os.environ out, including the skip rules."""
+    import importlib
+
+    envfile = importlib.import_module('Optimization.config.envfile')
+    mod = _load_ingest()
+
+    # Built by joining, not with escapes: a heredoc round-trip interprets them and the
+    # literal newlines end up IN the source.
+    body = chr(10).join(['# comment', '', 'NOEQUALS', 'PLAIN=one',
+                         '  SPACED  =  two  ', 'QUOTED="three"',
+                         'RAW=r"four"', ''])
+    env = tmp_path / '.env'
+    env.write_text(body, encoding='utf-8')
+    keys = ('NOEQUALS', 'PLAIN', 'SPACED', 'QUOTED', 'RAW')
+
+    def snapshot(loader):
+        for k in keys:
+            monkeypatch.delenv(k, raising=False)
+        loader(str(env))
+        return {k: os.environ.get(k) for k in keys}
+
+    theirs = snapshot(mod._load_env)
+    ours = snapshot(envfile.load_env)
+    assert theirs == ours, f'ingest loader {theirs} vs shared loader {ours}'
+    assert ours['PLAIN'] == 'one' and ours['QUOTED'] == 'three' and ours['RAW'] == 'four', (
+        'the comparison is between two loaders that both did nothing')
+    assert ours['NOEQUALS'] is None

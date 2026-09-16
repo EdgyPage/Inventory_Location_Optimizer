@@ -132,3 +132,48 @@ def test_the_excluded_defaults_are_excluded_on_purpose():
     assert cfg.mean_fraction != settings.STORE_BATCH_MEAN, (
         'store and fulfillment batch shapes converged; the "coincidence" argument for leaving '
         'BatchConfig.mean_fraction free needs restating')
+
+
+def test_the_env_reader_is_one_function_not_four():
+    """`load_env` / `clean_path` existed four times, byte-for-byte equivalent. Three of the four
+    now import `Optimization.config.envfile`; identity, not equality, is what proves it.
+
+    The fourth -- `docs/experiments/ingest.py` -- keeps its copy ON PURPOSE, because
+    `Tests/architecture/test_ingest_env_bootstrap.py` requires the loader to run at module level
+    before the argparse default that depends on it. That copy is fenced by an equivalence test
+    beside the gate that forces it, not by identity here.
+    """
+    from Optimization.config import envfile
+    from Optimization.config import sim_config
+    from Warehouse.generation import generate_mixed_profile, generate_profile_suite
+
+    for mod in (sim_config, generate_mixed_profile, generate_profile_suite):
+        assert mod._load_env is envfile.load_env, (
+            f'{mod.__name__} carries its own .env reader again')
+        assert mod._clean_path is envfile.clean_path, (
+            f'{mod.__name__} carries its own path cleaner again')
+
+
+def test_envfile_imports_nothing_that_reads_the_environment():
+    """The constraint that makes the shared module safe for an entry script to import early.
+
+    `ingest.py`'s defect was that `.env` had not been read when an argparse default was
+    evaluated. Any module which reads the environment AT IMPORT and ends up in envfile's import
+    graph would recreate that ordering hazard somewhere else, silently -- so envfile imports
+    `os` and nothing else, and the two packages above it are docstring-only.
+    """
+    import ast
+    import os as _os
+
+    src = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(
+        _os.path.abspath(__file__)))), 'Optimization', 'config', 'envfile.py')
+    tree = ast.parse(open(src, encoding='utf-8').read())
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(a.name.split('.')[0] for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module.split('.')[0])
+    assert imported <= {'os', '__future__'}, (
+        f'envfile imports {sorted(imported - {"os", "__future__"})} — anything that reads the '
+        f'environment at import time recreates the ingest bootstrap hazard')

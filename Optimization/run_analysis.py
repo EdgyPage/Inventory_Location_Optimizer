@@ -490,8 +490,11 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     # catalogue build from it, so re-analysing with this checkout's seed rebuilds a
     # DIFFERENT warehouse than the sim ran on -- the same silent wrong-warehouse bug this
     # function exists to close.  seed_batches rides along so a rebuilt batch stream matches.
+    # `aisle_columns`/`aisle_levels` ride here for exactly the reason the comment above
+    # gives about seed_world: analysis REBUILDS the warehouse, and rebuilding it to this
+    # checkout's geometry rather than the run's own is the silent wrong-warehouse bug.
     for key in ('n_batches', 'keyframe_interval', 'checkpoint_frac',
-                'seed_world', 'seed_batches'):
+                'seed_world', 'seed_batches', 'aisle_columns', 'aisle_levels'):
         if spec.get(key) is not None:
             g[key] = spec[key]
     # Batch-sampler era: a pre-field run_spec predates v2's adoption, so its absence
