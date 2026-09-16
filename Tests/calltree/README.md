@@ -65,6 +65,8 @@ the ladder reported clean. `--config` layers a named scenario under every rung (
 | `split_staging4` | both — the configuration the `_admit_held` work was measured on |
 | `receiving` | a dock in front of the put queues |
 | `dayshift` | the 200-batch stress run's shape: staged floors, a dock, both whistles |
+| `ranked_tmin` / `ranked_popularity` | the ASSIGNMENT-FAMILY cells (2026-09-16). Every other config runs `DEFAULT_STRATEGY`, a travel-balanced arm, so `_RankedAssignPool` — the pool behind tmin/tmax/rank_random/rank_popularity — was structurally unreachable from every rung and appeared in no offender table. Two cells because the selectors differ: `tmin` takes a plain min/max over head `D`, `rank_popularity` keys on the LIVE `aisle_demand_sum` its own takes mutate |
+| the six `inbound_*` cells | see the INBOUND block in `CONFIGS` |
 
 The staged configs use a **tight** warehouse (`bins_per_aisle=40, coverage=2.0, safety=0.4`)
 and smaller rungs (300–2,400 SKUs). That is not a shortcut: production coverage leaves so much

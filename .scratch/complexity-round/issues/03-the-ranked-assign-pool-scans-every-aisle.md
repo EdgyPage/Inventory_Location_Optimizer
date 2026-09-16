@@ -1,8 +1,7 @@
 # _RankedAssignPool.take scans every aisle on every placement
 
 Type: task
-Status: ready-for-agent
-Blocked by: 04
+Status: resolved
 
 The same shape `bd29d2eb` already removed from `_TravelBalancedPool.take`, still present in its
 sibling. `Assignment_Functions.py:1161`:
@@ -74,3 +73,57 @@ Blocked on ticket 04 (the HEAD offender table). The archived ladders that would 
 predate `bd29d2eb`, and this effort's own map says no archived number may be cited as a HEAD
 number. Measure first, then pick -- the previous effort spent three of its four retractions on
 exactly that ordering.
+
+
+## Answer -- convicted at k = 1.963, and it is the highest exponent in the round
+
+Ticket 04 could not see this arm at all: every config ran `DEFAULT_STRATEGY`, a travel-balanced
+one. Two new ladder cells fixed that, and the measurement is unambiguous.
+
+`--config ranked_popularity`, meso `skus` ladder, 500..8,000:
+
+| skus | wall | selector-lambda calls | takes | **aisles scanned per take** |
+|---|---|---|---|---|
+| 500 | 0.36 s | 34,134 | 4,191 | **8.1** |
+| 1,000 | 0.92 s | 178,200 | 10,891 | 16.4 |
+| 2,000 | 2.11 s | 548,595 | 18,143 | 30.2 |
+| 4,000 | 4.97 s | 2,167,841 | 37,911 | 57.2 |
+| 8,000 | 12.02 s | **8,819,328** | 76,514 | **115.3** |
+
+**k = 1.963** -- higher than the `R x A` rebuild's 1.912 and the largest exponent anywhere in this
+round. The mechanism is visible without fitting anything: the scan width IS the live aisle count,
+and it grows 14x across a 16x catalogue.
+
+`_RankedAssignPool.take` itself is **k = 1.018** -- exactly linear, identical counts under both
+cells. The pool is not the problem; the selector scanning every aisle inside it is.
+
+### Priced
+
+The selector's real shape (`(ads.get(aid, 0.0), head_D[aid])` over a live dict) measures
+**0.0587 us per scanned aisle**:
+
+    8,819,328 x 0.0587 us = 0.52 s of a 12.02 s rung = **4.3%**
+
+and the share GROWS, because the scan width grows with the warehouse: wall k = 1.265 against
+lambda k = 1.963, so the share rises as n^0.698 -- **~21% at 80,000 SKUs, ~66% at campaign scale**.
+
+That is a bigger term than the `R x A` rebuild (2.66%) and it has a proven, low-risk fix, which
+inverts this effort's refactor ordering. The plan ranked this candidate first; ticket 04 demoted
+it for being unmeasured; measuring it properly puts it back on top **with a number**.
+
+### The precondition, VERIFIED rather than assumed
+
+This ticket said the heap is only equivalent to the rescan while nothing outside `take` mutates
+the key's inputs mid-wave, and that for `rank_popularity` this was NOT settled by grep, because
+the key reads the manager's live `aisle_demand_sum`. Three writers exist:
+
+| writer | when it runs |
+|---|---|
+| `init_demand_state` | setup, before any wave |
+| `_reclaim_empty_bins` | *"the drain currently happens once, at the top of the next batch"* -- its own docstring |
+| `_drop_sku_from_aisle` via `requeue_bin` | the reloader's eviction phase |
+
+And the batch loop orders them: `reloader.reload(...)` at `strategy_runner.py:2071`, then
+`mgr.check_reorders(...)` at `:2079`, which is where placement happens. Sequential phases, not
+interleaved. **Within a wave, `aisle_demand_sum` is written only by `take`, for the winner.** The
+precondition holds.

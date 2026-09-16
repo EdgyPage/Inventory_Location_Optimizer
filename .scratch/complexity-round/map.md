@@ -133,6 +133,30 @@ Concretely, reached when:
   retractions, so the deep ladder tests it BEFORE any lazy-bound work is built.
   -> [07-the-r-by-a-rebuild-needs-its-split-measured-first.md](issues/07-the-r-by-a-rebuild-needs-its-split-measured-first.md)
 
+- **[03] THE RANKED-ASSIGN SCAN IS CONVICTED AT k = 1.963 -- the highest exponent in the round,
+  and it inverts the refactor ordering.** Two new ladder cells made the arm reachable; ticket 04
+  could not see it because every config ran a travel-balanced strategy. The scan width IS the live
+  aisle count and grows **8.1 -> 115.3 aisles per take** across a 16x catalogue, 8,819,328 selector
+  calls at 8,000 SKUs, while `take` itself is exactly linear (k = 1.018, identical under both
+  cells). Priced at **0.52 s of a 12.02 s rung = 4.3%**, and the share GROWS as n^0.698 (~21% at
+  80k, ~66% at campaign) -- a bigger term than the `R x A` rebuild's 2.66%, with a proven
+  low-risk fix. The precondition a heap needs was VERIFIED, not assumed: the batch loop runs
+  `reloader.reload` (evictions) at `strategy_runner.py:2071` before `check_reorders` at `:2079`,
+  and reclaim drains at the top of the batch, so within a wave only `take` writes
+  `aisle_demand_sum`.
+  -> [03-the-ranked-assign-pool-scans-every-aisle.md](issues/03-the-ranked-assign-pool-scans-every-aisle.md)
+
+- **[09] A scan keyed on a C callable is INVISIBLE to the offender table.** `ranked_tmin` and
+  `ranked_popularity` run the same pool with identical `take` counts, and only one reports a scan
+  -- because `tmin`'s key is `head_D.__getitem__` (a C method, recorded as `kind='ext'` and then
+  skipped by `_flat_counts`) while popularity's is a Python lambda. The exclusion has a good
+  reason (C leaves would make `counts_fingerprint` non-deterministic) and an unstated consequence:
+  **the count instrument systematically under-reports the cheapest-to-write form of the most
+  common superlinear shape here.** `tmin` is not cheaper; its scan is the same 115.3 aisles wide.
+  Not fixed -- counting C leaves is a worse trade -- but two mitigations are recorded, and the
+  durable one is to fit the SCAN WIDTH (`lambda / takes`) rather than a raw count.
+  -> [09-a-scan-keyed-on-a-c-callable-is-invisible.md](issues/09-a-scan-keyed-on-a-c-callable-is-invisible.md)
+
 ## Fog
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by
@@ -144,6 +168,6 @@ Concretely, reached when:
   top candidate** (ticket 04), not a speculative one. The `per_pick` memo is the measured cheap
   half -- 542,781 calls for a value depending only on `(m, var)`; the structural half is an
   algorithm search and may still close with a stated reason.
-- The `skus` ladder runs the DEFAULT strategy, so no ranked-assign arm is exercised by any rung.
-  Ticket 03's scan is therefore unmeasured rather than acquitted. Does the ladder need a strategy
-  axis, or is a per-arm capture the right instrument?
+- ~~The `skus` ladder runs the DEFAULT strategy, so no ranked-assign arm is exercised.~~
+  **CLOSED by tickets 03 and 09: a strategy axis was the answer, and it found the round's largest
+  exponent** -- plus a structural blind spot no `--config` can fix.
