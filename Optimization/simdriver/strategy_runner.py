@@ -83,7 +83,7 @@ from Warehouse.layout.Storage_Primitive import (
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
-from Optimization.simdriver.section_timers import SectionTimers
+from Optimization.simdriver.section_timers import CheckpointWindow, SectionTimers
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
 # The ONE definition of a drained day (labour-only); the ledger's `drained` is written with it.
 from Optimization.simconfig.equilibrium import is_drained as _is_drained
@@ -1888,11 +1888,6 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     # stamped from an epoch, so without a carry one receiver would be unloading two batches
     # at the same instant.
     recv_clock: float = 0.0
-    reorders_ckpt      = 0   # distinct SKUs reordered this checkpoint window (N)
-    units_ordered_ckpt = 0   # units ordered this window (U = Σ reorder qty)
-    placed_ckpt        = 0   # units placed this window (P = reorder placements)
-    dur_sum_ckpt   = 0.0
-    dur_count_ckpt = 0
     # ── per-section wall timers (diagnostic): where each checkpoint's wall goes ──
     # ONE object, not twenty-three closure variables.  `timers.add(section, dt)` inside
     # the loop, `timers.window(s)` for the checkpoint log line, `timers.roll()` to close
@@ -1958,7 +1953,17 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     _gc_thresh = gc.get_threshold()
     gc.set_threshold(_gc_thresh[0], _gc_thresh[1], _gc_thresh[2] * 5)
     t_loop         = time.perf_counter()
-    t_ckpt         = time.perf_counter()
+    # ── the checkpoint window's COUNTER half (the timer half is `timers` above) ──
+    # The five counters the checkpoint log line prints beside the section walls, and
+    # the instant the window opened:
+    #   reorders       distinct SKUs reordered this window (N)
+    #   units_ordered  units ordered this window (U = sum of reorder qty)
+    #   placed         units placed this window (P = reorder placements)
+    #   dur_sum        batch durations, a running sum in batch order
+    #   dur_count      batches timed this window
+    # EVERY ONE DIES AT THE LOG LINE -- none reaches a DB, the result dict or
+    # runtime_metrics -- which is why this object cannot move a simulation number.
+    ckpt_win = CheckpointWindow(opened_at=time.perf_counter())
 
     # THE SIX NAMES THE TWO HALVES OF A BATCH SHARE, seeded here rather than left to
     # `_replenish` to create: the closures rebind them through `nonlocal`, and a name
@@ -1988,7 +1993,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         out of, line for line.
         """
         nonlocal _batch_early, _day_end, _late, _put_base, _t, arm_clock
-        nonlocal _pending, _q, reorders_ckpt, triggered
+        nonlocal _pending, _q, triggered
         _t = time.perf_counter()
         bin_rec.begin_batch(i)
         # THE RELEASE INSTANT, COMPUTED BEFORE ANY WORK IS DISPATCHED.  It used to be
@@ -2074,7 +2079,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         triggered      = mgr.check_reorders(put_deadline=_put_deadline,
                                             recv_deadline=_recv_deadline,
                                             now_s=arm_clock)
-        reorders_ckpt += len(triggered)
+        ckpt_win.add('reorders', len(triggered))
 
     def _note_triggered(trig: dict) -> None:
         """Record what the SITE drain fired for THIS leaf.  Coupled units only.
@@ -2083,9 +2088,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         hashable by value there; the leaf knows which manager is its own, so the lookup
         happens here rather than the driver guessing at an order.
         """
-        nonlocal reorders_ckpt, triggered
+        nonlocal triggered
         triggered      = trig[id(mgr)]
-        reorders_ckpt += len(triggered)
+        ckpt_win.add('reorders', len(triggered))
 
     def _step(i: int) -> None:
         """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
@@ -2093,8 +2098,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         enclosing setup scope exactly as it was between iterations."""
         nonlocal _d, _pending, _q, _shift_cut_today, _shift_last_finish, _shift_prev_day
         nonlocal _shift_standing, arm_clock, cons_breaks, cons_picked, cons_residual
-        nonlocal demand_breaks, dur_count_ckpt, dur_sum_ckpt, last_dur, placed_ckpt
-        nonlocal put_clock, recv_clock, reorders_ckpt, skipped, t_ckpt, units_ordered_ckpt
+        nonlocal demand_breaks, last_dur, put_clock, recv_clock, skipped
         # The six the replenishment half bound; see the seeds above `_replenish`.
         nonlocal _batch_early, _day_end, _late, _put_base, _t, triggered
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
@@ -2102,8 +2106,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # Standardized reorder/stock accounting: N skus reordered (triggered), U units ordered
         # (mgr.units_ordered), P units placed (batch_rp = reorder placements this batch).
         batch_uo            = mgr.units_ordered
-        units_ordered_ckpt += batch_uo
-        placed_ckpt        += batch_rp
+        ckpt_win.add('units_ordered', batch_uo)
+        ckpt_win.add('placed', batch_rp)
         batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
         # Replay viewer: snapshot the standing replenishment queues at batch start (after
         # check_reorders).  lead = in-transit (with batches-to-arrival), stock = packed but
@@ -2597,8 +2601,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         pk.extend(picks_b)
         pm.extend(am)
         last_dur        = bs.duration
-        dur_sum_ckpt   += bs.duration
-        dur_count_ckpt += 1
+        ckpt_win.add('dur_sum', bs.duration)
+        ckpt_win.add('dur_count', 1)
 
         # ── the drain-or-cap shift's ledger ───────────────────────────────────
         # Per-DAY close-out, decided at the first batch of the NEXT day: a day drained if
@@ -2645,10 +2649,10 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             t_save = time.perf_counter() - t_s0
 
             wall      = time.perf_counter() - t_loop
-            ckpt_wall = time.perf_counter() - t_ckpt
+            ckpt_wall = ckpt_win.wall(time.perf_counter())
             cum_rate  = (i + 1 - start_i) / wall
-            ckpt_rate = dur_count_ckpt / ckpt_wall
-            avg_dur   = dur_sum_ckpt / dur_count_ckpt if dur_count_ckpt else 0.0
+            ckpt_rate = ckpt_win.rate(ckpt_wall)
+            avg_dur   = ckpt_win.avg_dur()
             cur_fill  = len(mgr._unavailable) / max(denom, 1)   # denom = THIS channel's regime bins
             _p1w, _p2w = timers.window('p1'), timers.window('p2')
             p1_frac   = _p1w / (_p1w + _p2w + 1e-9) * 100
@@ -2660,7 +2664,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 f'  rate={ckpt_rate:.2f}/s ({cum_rate:.2f} cum)'
                 f'  fill={cur_fill:.1%}'
                 f'  q={mgr.queue_depth}'
-                f'  reorder={reorders_ckpt}sku {units_ordered_ckpt}u ord {placed_ckpt}u plc'
+                f'  reorder={ckpt_win.get("reorders")}sku '
+                f'{ckpt_win.get("units_ordered")}u ord {ckpt_win.get("placed")}u plc'
                 f'  lead_q={mgr.lead_queue_depth if site is None else _tx_depth}'
                 f'({mgr.in_transit_qty if site is None else _tx_qty}u)'
                 f'  p1={_p1w:.2f}s ({p1_frac:.0f}%)'
@@ -2685,15 +2690,11 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             pqs.clear(); cov.clear()
             yt.clear(); yd.clear(); sd.clear(); fi.clear()
             we.clear()
-            reorders_ckpt      = 0
-            units_ordered_ckpt = 0
-            placed_ckpt        = 0
-            dur_sum_ckpt   = 0.0
-            dur_count_ckpt = 0
-            # Close the window for the next log line.  The whole-arm totals already
-            # contain it -- `roll` moves no number anybody is waiting on.
+            # Close BOTH halves of the window for the next log line.  The timers'
+            # whole-arm totals already contain theirs -- `roll` moves no number
+            # anybody is waiting on -- and the counters have no total to move.
             timers.roll()
-            t_ckpt         = time.perf_counter()
+            ckpt_win.roll(time.perf_counter())
 
 
     def _finish() -> dict:

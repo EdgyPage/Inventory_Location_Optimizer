@@ -154,3 +154,102 @@ class SectionTimers:
         result, so no views, no defaultdicts, nothing that needs the class to unpickle.
         """
         return {COLUMNS.get(name, f't_{name}'): self.total(name) for name in SECTIONS}
+
+
+#: The five counters the checkpoint log line prints beside the section walls.  `dur_sum`
+#: accumulates batch durations and `dur_count` the batches; the other three are the
+#: reorder triple (distinct SKUs, units ordered, units placed) for the window.
+COUNTERS: tuple = ('reorders', 'units_ordered', 'placed', 'dur_sum', 'dur_count')
+
+
+class CheckpointWindow:
+    """The COUNTER half of the checkpoint window, beside `SectionTimers`' timer half.
+
+        win = CheckpointWindow(opened_at=time.perf_counter())
+        win.add('placed', batch_rp)          # inside the batch loop
+        ckpt_wall = win.wall(now)            # at a checkpoint: the log line's three numbers
+        ckpt_rate = win.rate(ckpt_wall)
+        avg_dur   = win.avg_dur()
+        win.roll(now)                        # close the window
+
+    # -- why this one is free, and `SectionTimers` was not ---------------------------
+
+    EVERY VALUE HERE DIES AT THE LOG LINE.  The five counters, the open instant, and the
+    three numbers derived from them are consumed by exactly one reader -- the checkpoint
+    `log.info(...)` f-string -- and reach no database, no result dict and no
+    `runtime_metrics` column.  They are not simulation numbers, so no arrangement of them
+    can move one.  `SectionTimers` could not say that: its totals are persisted.
+
+    `Tests/unit/test_checkpoint_window.py` asserts the guarantee rather than trusting it --
+    the old loose names must stay gone and the window must not reach any writer -- because
+    the moment one of these values is persisted, the argument above stops holding silently.
+
+    # -- why it is a second object and not folded into `SectionTimers` ----------------
+
+    The two always roll together, which normally argues for one object.  They are kept
+    apart because their contracts differ: a timer carries a WHOLE-ARM total that outlives
+    every window and lands in a DB column; a counter here has no run total at all.  Folding
+    them would give half the members a `total()` that means nothing, and would reopen the
+    `SectionTimers` interface that `Tests/calltree/test_calltree_anchors.py` pins.
+
+    # -- the arithmetic is preserved exactly -----------------------------------------
+
+    `dur_sum` is a running sum in batch order (the original was a chain of `+=`); `avg_dur`
+    keeps the original's `if dur_count else 0.0` guard; and `rate` takes the ALREADY-COMPUTED
+    wall rather than re-reading the clock, because the original reused its `ckpt_wall` local
+    -- a `rate()` that read the clock itself would divide by a slightly later wall than the
+    one printed beside it.  `rate` deliberately does NOT guard a zero wall: the original had
+    no guard, and adding one would hide a clock that failed to advance.
+
+    Slotted and picklable, for the same reasons as `SectionTimers`.
+    """
+
+    COUNTERS = COUNTERS
+
+    __slots__ = ('_c', '_opened')
+
+    def __init__(self, opened_at: float) -> None:
+        # `dur_sum` seeded as a float so the first `+=` cannot promote an int accumulator.
+        self._c = {name: (0.0 if name == 'dur_sum' else 0) for name in COUNTERS}
+        self._opened = opened_at
+
+    def __repr__(self) -> str:
+        live = ' '.join(f'{n}={self._c[n]}' for n in COUNTERS if self._c[n])
+        return f'<CheckpointWindow {live or "empty"}>'
+
+    # -- accumulate / read ------------------------------------------------------------
+
+    def add(self, counter: str, n) -> None:
+        """Add to one counter.  An undeclared name is a KeyError, never a sixth counter."""
+        self._c[counter] += n
+
+    def get(self, counter: str):
+        return self._c[counter]
+
+    # -- the log line's three derived numbers -----------------------------------------
+
+    def wall(self, now: float) -> float:
+        """Seconds since this window opened."""
+        return now - self._opened
+
+    def rate(self, wall: float) -> float:
+        """Batches per second over `wall` -- the caller's already-computed wall."""
+        return self._c['dur_count'] / wall
+
+    def avg_dur(self) -> float:
+        """Mean batch duration this window, or 0.0 when it timed no batch."""
+        n = self._c['dur_count']
+        return self._c['dur_sum'] / n if n else 0.0
+
+    # -- close a window ---------------------------------------------------------------
+
+    def roll(self, now: float) -> None:
+        """Zero every counter and reopen the window at `now`.
+
+        All five together, as the original's one reset block did: a partial reset would
+        carry one counter into the next line and read as a spike.
+        """
+        c = self._c
+        for name in COUNTERS:
+            c[name] = 0.0 if name == 'dur_sum' else 0
+        self._opened = now
