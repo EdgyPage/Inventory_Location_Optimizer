@@ -54,10 +54,25 @@ Concretely, reached when:
   difference against the archived report is fitter drift since 2026-08-26, not the new sort.
   -> [01-the-offender-table-cannot-be-read.md](issues/01-the-offender-table-cannot-be-read.md)
 
+- **[02] The ladder has been fitting an exponent on a sampler production retired on 2026-09-12 --
+  and switching to the era moves no measurement at all.** `calltree_scenarios` built its
+  `BatchConfig` without a `sampler`, taking the dataclass default `'v1'` (the O(k*N) cumsum) while
+  `settings.SAMPLER` is `'v3'` (the segment tree). `Batch.__init__` is SECTION_MAP's anchor for
+  `t_sample`, so every archived `t_sample` exponent describes code no run executes. Measured
+  directly at k=0.15*N over 500..8,000: **v1 k=1.477 r2=0.993, v3 k=0.822 r2=0.901, 9.6x apart at
+  N=8,000** -- against the archived ladder's `t_sample` k=1.522, so the attribution closes.
+  The surprise, and it makes the fix free: at 2,000 SKUs over ten seeds **v1 and v3 draw
+  byte-identical batches** -- same SKUs, quantities and draw ORDER. They implement the same
+  selection rule and part company only where v1's float accumulation does, which is the production
+  catalogue's ~1e26 weight range, not a benign fixture. So `Workload_Builder`'s comment that v3
+  "moves every batch sequence" does not hold at fixture scale, the switch changed the COST of
+  drawing and not the batch, and count exponents stay comparable with the archive.
+  -> [02-the-ladder-measures-a-retired-sampler.md](issues/02-the-ladder-measures-a-retired-sampler.md)
+
 ## Fog
 
-- Is `t_sample`'s archived k = 1.52 a real cost or an artifact of the fixture running the `v1`
-  sampler production retired on 2026-09-12? (Ticket 01 answers this.)
+- ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by
+  ticket 02: yes.** v1 fits 1.477 independently; v3 fits 0.822.
 - Does anything in the analysis half of `Optimization/` grow superlinearly? 78 of its 147 files
   are `Performance_Evaluations`, measured by NOTHING -- but an `ast` sweep finds only 3
   triple-nested sites there, over bounded axes. Expect "found nothing" to be the honest answer.

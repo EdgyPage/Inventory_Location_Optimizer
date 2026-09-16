@@ -365,3 +365,85 @@ def test_every_named_config_is_buildable():
         unknown = set(cfg.overlay) - accepted
         assert not unknown, f'config {name!r} sets {sorted(unknown)}, which nothing accepts'
         assert cfg.why, f'config {name!r} has no `why`; it prints on selection'
+
+
+# ── the scenario must run what PRODUCTION runs ────────────────────────────────────────
+
+def test_the_scenario_samples_with_the_era_not_the_frozen_default():
+    """The framework's job is to describe what production costs, so its fixture must run
+    production's configuration.
+
+    `BatchConfig.sampler` defaults to `'v1'` deliberately — `Optimization/config/channels.py`
+    records the reason: non-runner constructions "keep their frozen historical meaning; the
+    runner passes the era in". That is right for a unit test pinning an old batch sequence and
+    wrong for an instrument, and `build_assets` was silently taking the default.
+
+    It mattered. `Batch.__init__` is SECTION_MAP's anchor for `t_sample`, and measured directly
+    at k=0.15*N over 500..8,000: v1 fits k=1.477 (r²=0.993), v3 fits k=0.822 (r²=0.901), 9.6x
+    apart at N=8,000. The archived ladders fit `t_sample` at k=1.522 — so every `t_sample`
+    exponent in `out/archive/` is the RETIRED sampler, measured on code no run executes.
+    """
+    from Optimization.config import settings
+
+    assets = scenarios.build_assets(n_skus=150, bins_per_aisle=40, n_pickers=3, seed=11,
+                                    coverage=2.0, safety=0.4)
+    assert assets.batch_cfg.sampler == settings.SAMPLER, (
+        f'the scenario samples with {assets.batch_cfg.sampler!r} while the era declares '
+        f'{settings.SAMPLER!r} — every exponent this instrument fits is about a different '
+        f'batch sequence than production draws')
+
+
+def test_the_sampler_can_still_be_pinned_for_an_archived_comparison():
+    """The frozen-historical default existed to protect something real: reproducing an
+    archived artifact. Following the era by default must not take that away, or the archive
+    becomes unreadable rather than merely superseded."""
+    assets = scenarios.build_assets(n_skus=150, bins_per_aisle=40, n_pickers=3, seed=11,
+                                    coverage=2.0, safety=0.4, sampler='v1')
+    assert assets.batch_cfg.sampler == 'v1', (
+        'an explicit sampler no longer overrides the era, so no archived ladder can be '
+        'reproduced')
+
+
+def test_switching_the_scenario_sampler_moves_no_measurement_at_fixture_scale():
+    """The check that makes the era switch SAFE, and it corrects a claim in the source.
+
+    `Workload_Builder.py` says v3 "moves every batch sequence", and the run harness treats it
+    as a results era (`batch_precompute` fingerprints non-v1 samplers apart). On THIS fixture
+    that is not so: at 2,000 SKUs over ten seeds, v1 and v3 draw the same SKUs, the same
+    quantities, and in the same order.
+
+    The two agree because both implement the same selection -- "first index whose cumulative
+    weight passes the draw" -- and consume one uniform per draw. They part company only where
+    v1's float accumulation does, which is the ~1e26 weight dynamic range of the production
+    catalogue, not a synthetic fixture whose weights are benign.
+
+    So pointing the scenarios at the era moved the COST of drawing a batch (k 1.477 -> 0.822,
+    9.6x at N=8,000) and not the batch. That is what makes the switch a measurement fix rather
+    than a new baseline: count exponents stay comparable with the archive, and only the
+    spurious `t_sample` wall exponent goes away.
+
+    If this ever fails, the era switch HAS become a comparability break at fixture scale and
+    the archived count comparisons stop being valid -- which is a finding, not a broken test.
+    """
+    import random
+
+    from Warehouse.picking.Workload_Builder import Batch
+
+    kw = dict(n_skus=2_000, bins_per_aisle=40, n_pickers=3, seed=11,
+              coverage=2.0, safety=0.4)
+    a1 = scenarios.build_assets(sampler='v1', **kw)
+    a3 = scenarios.build_assets(sampler='v3', **kw)
+
+    drew = 0
+    for s in range(4):
+        b1 = Batch(a1.batch_cfg, a1.inventory, a1.affinity, rng=random.Random(s))
+        b3 = Batch(a3.batch_cfg, a3.inventory, a3.affinity, rng=random.Random(s))
+        drew += len(b1.items)
+        assert b1.items == b3.items, (
+            f'seed {s}: v1 and v3 drew different batches at fixture scale, so switching the '
+            f'scenario default to the era HAS moved what the ladder measures')
+        assert list(b1.items) == list(b3.items), (
+            f'seed {s}: same SKUs, different draw ORDER -- insertion order is the draw '
+            f'sequence and downstream task building reads it')
+
+    assert drew > 0, 'no SKUs drawn at all, so the comparison above was between empty batches'

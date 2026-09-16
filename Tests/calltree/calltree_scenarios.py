@@ -68,6 +68,10 @@ from Inbound.receiving import SiteReceiving as _SiteReceiving
 from Inbound.space import SpaceTimeline as _SpaceTimeline
 from Inbound.trailer import TRAILER_TYPES as _TRAILER_TYPES
 from Inbound.transit import YardTransit as _YardTransit
+from Inbound.gain import (
+    DEFAULT_FEE_THRESHOLD_DAYS as _DEFAULT_FEE_THRESHOLD_DAYS,
+    DEFAULT_URGENCY_HORIZON_DAYS as _DEFAULT_URGENCY_HORIZON_DAYS,
+)
 from Warehouse.inventory.put_queue import (
     PutQueueSet as _PutQueueSet, PutQueueSpec as _PutQueueSpec,
     store_and_fulfillment as _store_and_fulfillment)
@@ -197,8 +201,9 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
                  yard_policy: str = 'fifo', dock_policy: str = 'fifo',
                  local_policy: str = 'fifo', trailer_bound: int | None = None,
                  crew_allocation: str = 'split', door_team: int | None = None,
-                 fee_threshold_days: float = 2.0,
-                 urgency_horizon_days: float = 0.0) -> ScenarioAssets:
+                 fee_threshold_days: float = _DEFAULT_FEE_THRESHOLD_DAYS,
+                 urgency_horizon_days: float = _DEFAULT_URGENCY_HORIZON_DAYS,
+                 sampler: str | None = None) -> ScenarioAssets:
     """Deterministic single-arm assets with production placement wiring.
 
     Mirrors Diagnostics/trace_lifecycle.py's recipe (plan_warehouse to a target fill,
@@ -244,8 +249,25 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
     qty_by_sku  = {c.sku: c.demand.quantity_rate      for c in inventory.orders}
     freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.relative_frequency
                    for c in inventory.orders if c.sku in affinity._sku_to_idx}
+    # THE SAMPLER IS PART OF THE SCENARIO, and leaving it out was a measurement bug.
+    # `BatchConfig.sampler` defaults to 'v1' on purpose -- `channels.py` records why: so
+    # non-runner constructions keep their frozen historical meaning.  That is right for a
+    # unit test pinning an old batch sequence and WRONG for an instrument whose whole job
+    # is to describe what production costs.  v1 is the O(k*N) cumsum draw; production has
+    # declared v3, the segment tree, since 2026-09-12.
+    #
+    # Measured directly, k=0.15*N, affinity=None, five rungs 500..8000:
+    #     v1  k=1.477 r2=0.993      v3  k=0.822 r2=0.901      9.6x apart at N=8,000
+    # and the archived ladders fit `t_sample` at k=1.52.  So every `t_sample` exponent in
+    # the archive is the RETIRED sampler, measured on an arm no run executes.
+    #
+    # None => follow the era.  Pass 'v1' explicitly to reproduce an archived artifact.
+    if sampler is None:
+        from Optimization.config import settings as _settings
+        sampler = _settings.SAMPLER
     batch_cfg = BatchConfig(inventory_size=len(inventory.orders),
-                            mean_fraction=0.15, std_fraction=0.05)
+                            mean_fraction=0.15, std_fraction=0.05,
+                            sampler=sampler)
     ctx = StrategyContext(
         affinity=affinity, wp=wp, freq_by_idx=freq_by_idx,
         freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku,
