@@ -5,8 +5,8 @@ Opened: 2026-09-16
 Tracker: `map.md` beside this file holds Destination / Decisions / Fog. This file holds the
 ordered work, what each step must produce before it counts as done, and **every run it asks for**.
 
-**Nothing is running.** No run in this plan starts without a go-ahead. §"The runs" below is the
-whole list, with costs, so it can be approved or cut item by item.
+**Status 2026-09-16, approved and executing.** R1, R2, R3 are done; R4 is running. Phases A
+and D are closed, B has convicted and half-landed, C is corrected. See §Progress at the foot.
 
 ---
 
@@ -49,9 +49,10 @@ The complete list. Nothing else in this plan touches the machine for more than a
 
 | # | Run | Cost | Contends? | Answers |
 |---|---|---|---|---|
-| R1 | `pytest Tests/ -q -k "not gpu"` | **40–50 min**, 1 core | no | A1 — does the `conftest` fixture hold at suite scale |
-| R2 | meso ladder, `--config cluster_map` | ~13 min, 1 core | **no** (call counts) | B1 — is `_ClusterMapPool` superlinear |
-| R3 | meso ladder, `--config cmin` | ~13 min, 1 core | **no** (call counts) | B1 — is `_CoDemandPool` superlinear |
+| R1 | `pytest Tests/ -q -k "not gpu"` | **40–50 min**, 1 core | no | A1 — does the `conftest` fixture hold at suite scale — **DONE** |
+| R2 | meso ladder, `--config cluster_map` | ~13 min, 1 core | **no** (call counts) | B1 — is `_ClusterMapPool` superlinear — **DONE: yes, k = 1.99** |
+| R2b | width probe + post-fix re-run | ~15 min, 1 core | **no** | the scan width the tracer cannot see — **DONE** |
+| R3 | meso ladder, `--config cmin` | ~13 min, 1 core | **no** (call counts) | B1 — is `_CoDemandPool` superlinear — **DONE: yes, k = 1.98** |
 | R4 | deep ladder, `--workers 18` | **~1 h 45 m**, whole box | **YES — exclusive** | B **and** C2 — per-arm growth isolates the cluster family AND the travel-balanced arms |
 | R5 | `pytest Tests/calltree/test_rank_cache_equivalence.py` | 7–13 min, 1 core | no | pre-merge byte-identity, only if B convicts |
 
@@ -274,6 +275,55 @@ python Tests/bench/run_digest.py <baseline_run_root> <candidate_run_root>
 
 `A ‖ B → C → D → E`, with C gated on B's result and D gated on A's.
 
+(D landed first among the tail, in `f2aa4dd6` — see §Progress.)
+
 D is last among the work but is **not optional** — leaving the pre-existing failures in a
 conversation is how they stay invisible for another three weeks, which is precisely how they got
 here. If time runs short, D1 and D2 are the two that must still be written.
+
+---
+
+## Progress
+
+### Done
+
+| phase | outcome |
+|---|---|
+| **A1** | 8 failed / 3543 passed. All 8 in `Tests/architecture`; **7 pre-existing**, 1 mine (files catalog, fixed by resync `45e7728f`). The six contamination failures are GONE — the fixture's contract, discharged. Nothing newly failed from a test leaning on a predecessor's mutation. |
+| **B1–B2** | Both new cells convict. `cluster_map`: Σ\|live\| = 8,141,090 at 8k, **k = 1.99**, local k pinned at 2.04, of which the tracer could see 14.4 %. `cmin`: `score_of` 9,195,611 calls, **k = 1.98**. Tickets 15–17. |
+| **B3** | Fused pass landed byte-identical (`8a5c6185`): **−34 % wall** at the top rung, every count identical. Class unchanged, and said so. Equivalence test + complexity guard (`10e23697`). |
+| **C1** | **Corrected before R4 rather than after** (`46ad05bd`). `_FLOW_COUNTS` could never have worked — it resolves against a traced tree and the deep tier never traces. The route that needs no schema change was already built: per-arm growth isolates `rank_labor` / `rank_cartlabor`, the arms `_aisle_best` backs. |
+| **D1** | Seven issues + a map handed over (`f2aa4dd6`). |
+| **D2** | The unattributed half of the deep wall decomposed to a ~48 s fixed per-arm cost (`351853a9`). |
+| **D3** | The pyyaml-skip count, whose first correction was also wrong (`9cbaf243`). |
+| **E1** | Tenth gate green throughout (59–64 tests, ~18 s). |
+| **E2** | Complexity guard landed, after three wrong instruments — all three errors were in the MEASUREMENT, not the code under test. |
+
+### Open
+
+- **R4 running.** Answers B and C at deep scale on the fixed code.
+- **Ticket 17** — the structural fix for both cells. Named, designed, not built; includes why a
+  heap is the wrong answer here.
+- **R5** — only if a named break is ever taken. The fused pass is byte-identical, so it is not
+  needed for what has landed.
+
+### What this plan got wrong, recorded because the pattern repeats
+
+Every error this session was in an **instrument**, not in the code under test:
+
+1. `_FLOW_COUNTS` for the deep tier — impossible, caught before R4 rather than after.
+2. The width probe drove `run_fullfid`, not the ladder's own path: 676 calls where the ladder had
+   37,911, and a `mean|live|` that would have **acquitted the candidate outright**.
+3. The trend classifier called a settled quadratic "converging" and demoted it to the bottom of
+   the ranking — a 9.2 M-call finding pushed below everything by the guard built to surface it.
+4. Two vacuous ranking tests, both from the same cause: `_severity_sort` keys on `projected`
+   before the trend, so a pair whose magnitudes agree with the verdict sorts identically either
+   way.
+5. An equivalence fixture that could not observe the ordering property its own source comment
+   called load-bearing (0 of 2,400 boards).
+6. Three wrong expected counts in the complexity guard, the last because the harness was
+   **measuring itself**.
+
+The through-line: a measurement that agrees with expectation gets believed. Each of these was
+caught by a cross-check against an independently known number — the ladder's own call count, a
+sabotage that should have failed, a formula verified at three sizes. Build the cross-check first.
