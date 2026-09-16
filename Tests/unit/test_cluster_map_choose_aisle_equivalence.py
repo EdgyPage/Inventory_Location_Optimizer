@@ -178,3 +178,153 @@ def test_the_boards_really_do_produce_GAP_ties_not_just_lift_ties():
     by_aisle, _p, _l, _t = _case(rng2, 40, distinct_lifts=1, empty_share=0.0, target=1.0)
     keys = list(by_aisle)
     assert keys != sorted(keys), 'aisle ids arrive sorted — `sorted(tied)` would change nothing'
+
+
+# -- the complexity guard: one pass, and it stays one pass -----------------------------
+
+class _CountingId:
+    """An aisle id that counts how many times it is hashed.
+
+    WHY NOT A COUNTING DICT, which is what this guard tried first and got wrong: the four-pass
+    body rebinds `lifts` to a fresh plain dict after its comprehension, so its second read of
+    every aisle goes to that plain dict and an instrumented mapping never sees it. Both bodies
+    read the instrumented dict exactly n times, and the guard passed on the code it was built
+    to reject.
+
+    A key is hashed on every lookup and on every insert, whichever dict it lands in, so it sees
+    all of it:  fused = 1 per live aisle;  four-pass = 3 (comprehension read, dict insert,
+    `tied` filter read).
+    """
+
+    __slots__ = ('n', 'hits')
+
+    def __init__(self, n):
+        self.n = n
+        self.hits = [0]
+
+    def __hash__(self):
+        self.hits[0] += 1
+        return hash(self.n)
+
+    def __eq__(self, other):
+        return isinstance(other, _CountingId) and other.n == self.n
+
+    def __repr__(self):
+        return f'aisle{self.n}'
+
+
+def _counted_case(n_aisles, *, distinct_lifts=1, target=2.0, seed=99):
+    """A board whose aisle ids count their own hashes. Shares one counter across all ids."""
+    rng = random.Random(seed)
+    shared = [0]
+    by_aisle, prefs, lifts = {}, {}, {}
+    ids = [_CountingId(i * 7 + 3) for i in range(n_aisles)]
+    rng.shuffle(ids)
+    for aid in ids:
+        aid.hits = shared
+        n_bins = rng.randint(1, 5)
+        by_aisle[aid] = [object() for _ in range(n_bins)]
+        prefs[aid] = sorted(float(rng.randrange(4)) for _ in range(n_bins))
+        lifts[aid] = float(rng.randrange(distinct_lifts))
+    shared[0] = 0                      # ignore the hashes spent building the board
+    return by_aisle, prefs, lifts, target, shared
+
+
+#: What a call costs in key hashes, as a function of the board.  DERIVED FROM MEASUREMENT, not
+#: guessed: two earlier versions of this guard asserted numbers reasoned from the source and both
+#: were wrong — the first missed that the four-pass body rebinds `lifts` (so a counting DICT saw
+#: n for both bodies), the second missed that the tie-break's `prefs_by_aisle[a]` lookups are
+#: hashes too, and are paid by BOTH bodies.
+#:
+#:   fused      =     live + tie_break     one lift lookup per live aisle
+#:   four-pass  = 3 * live + tie_break     comprehension read, dict insert, `tied` filter read
+#:
+#: where `tie_break` is `len(tied)` when the tie is wide and 0 when one aisle wins outright, since
+#: `len(tied) == 1` returns before the `min`.  Verified exact at n = 8, 40, 200 in both regimes.
+def _expected(live, tied, passes):
+    return passes * live + (tied if tied > 1 else 0)
+
+
+def _run_and_count(n_aisles, *, distinct_lifts, body):
+    """Run `body` on an instrumented board and return (hashes it cost, live, tied).
+
+    THE SNAPSHOT ON THE NEXT LINE IS LOAD-BEARING.  Describing the board — `max(lifts[a] ...)`
+    and the `tied` count — hashes every key twice more, and reading `hits[0]` afterwards charged
+    those to the body under test: the fused pass reported 3n and looked identical to the
+    four-pass one.  The measurement was measuring itself.
+    """
+    by_aisle, prefs, lifts, target, hits = _counted_case(
+        n_aisles, distinct_lifts=distinct_lifts)
+    body(by_aisle, prefs, lifts, target)
+    cost = hits[0]                      # snapshot BEFORE describing the board
+    live = sum(1 for lst in by_aisle.values() if lst)
+    best = max(lifts[a] for a, lst in by_aisle.items() if lst)
+    tied = sum(1 for a, lst in by_aisle.items() if lst and lifts[a] == best)
+    return cost, live, tied
+
+
+def _fused(by_aisle, prefs, lifts, target):
+    _cluster_map_choose_aisle(by_aisle, prefs, None, {}, {}, target, lifts=lifts)
+
+
+@pytest.mark.parametrize('n_aisles', [8, 40, 200, 800])
+@pytest.mark.parametrize('distinct_lifts,regime', [(10 ** 9, 'warm'), (1, 'cold')])
+def test_the_lift_scan_is_exactly_one_pass(n_aisles, distinct_lifts, regime):
+    """THE BOUND, across a 100x span in the axis that was quadratic, in both regimes.
+
+    `warm` gives every aisle a distinct lift, so one wins outright and the tie-break never runs —
+    this isolates the lift scan at exactly one hash per live aisle.  `cold` ties every aisle at
+    one value, which is the regime whose share was measured rising 3.0% -> 14.4% across the
+    ladder and the one that actually grows.
+
+    Not "fewer than before": EXACTLY the derived count.  A `<= 2n` bound would be satisfied by the
+    body this replaced in the warm regime, and a wall-clock bound would be satisfied by a faster
+    machine.
+    """
+    hits, live, tied = _run_and_count(n_aisles, distinct_lifts=distinct_lifts, body=_fused)
+    assert live == n_aisles, f'fixture built {live} live aisles, expected {n_aisles}'
+    want = _expected(live, tied, passes=1)
+    assert hits == want, (
+        f'{regime}: {hits} key hashes for {live} live aisles ({tied} tied), expected {want}. '
+        f'The four-pass body cost {_expected(live, tied, passes=3)}; anything above the '
+        f'one-pass figure means a pass came back.')
+
+
+def test_the_counter_can_actually_fail():
+    """NON-VACUITY, and not optional: every assertion above is satisfied by doing LESS work, so a
+    counter that stopped counting would pass all of them.  The four-pass body is driven through
+    the same instrumented keys and must cost three passes, not one.
+
+    This test is also why the instrument counts KEY HASHES rather than dict reads.  With a
+    counting `lifts` mapping this assertion read `n` for BOTH bodies — the four-pass body rebinds
+    `lifts` to a fresh plain dict after its comprehension, so its later reads never touch the
+    instrument — and the guard passed on exactly the code it exists to reject.
+    """
+    for n_aisles, distinct in ((40, 1), (40, 10 ** 9)):
+        hits, live, tied = _run_and_count(
+            n_aisles, distinct_lifts=distinct,
+            body=lambda ba, pf, lf, tg: _reference(ba, pf, lf, tg))
+        want = _expected(live, tied, passes=3)
+        assert hits == want, (
+            f'the four-pass reference cost {hits} hashes for {live} aisles ({tied} tied), not '
+            f'{want} — the counter is not observing what this guard claims it observes')
+        assert hits > _expected(live, tied, passes=1), (
+            'the two bodies cost the same, so this guard cannot tell them apart')
+
+
+def test_the_winner_still_has_the_maximal_lift():
+    """THE INVARIANT, separate from the count. A single pass returning the WRONG aisle would
+    satisfy every bound above."""
+    rng = random.Random(5)
+    for n in (3, 17, 120):
+        for distinct in (1, 4, 50):
+            by_aisle, prefs, lifts, target = _case(
+                rng, n, distinct_lifts=distinct, empty_share=0.2, target=1.0)
+            aid = _cluster_map_choose_aisle(by_aisle, prefs, None, {}, {}, 1.0, lifts=lifts)
+            if aid is None:
+                assert not any(by_aisle.values()), 'returned None with live aisles present'
+                continue
+            assert by_aisle[aid], 'chose an aisle with no bins'
+            best = max(lifts[a] for a, lst in by_aisle.items() if lst)
+            assert lifts[aid] == best, (
+                f'chose aisle {aid} at lift {lifts[aid]}, but the maximum was {best}')
