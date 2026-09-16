@@ -247,3 +247,105 @@ def test_the_knee_detector_does_not_fire_on_a_clean_curve():
     assert cg._knee(xs, [1.0, 4.0, 16.0, 64.0]) is None, 'fired on a clean power law'
     # a series that is flat then jumps IS a knee, however small the numbers
     assert cg._knee(xs, [10.0, 10.5, 11.0, 100.0]) is not None
+
+
+# -- ranking: a fit needs a real anchor, and k alone is not a priority ------------------
+
+def _ladder(xs, sections):
+    """The minimum `fit_report` accepts: rungs carrying x and a sections dict."""
+    return {'knob': 'skus', 'config': 'none',
+            'rungs': [{'x': x, 'sections': {k: v[i] for k, v in sections.items()},
+                       'counts': {}, 'flows': {}, 'flows_per_placement': {}}
+                      for i, x in enumerate(xs)]}
+
+
+def test_a_wall_fit_anchored_on_timer_noise_is_suppressed_not_flagged():
+    """THE deep ladder's top offender, with its RAW numbers.
+
+    `t_task` fitted k=3.916 at r2=0.946 and led the offender table of
+    `growth__knob-skus_ladder-deep_seed-42__20260820T231003Z_2cdea4386ab7.json`. Its walls
+    start at 4.9e-05 s. Fifty microseconds is timer noise, and the exponent it produced
+    outranked every true finding in that artifact.
+
+    The values below are the ladder's own, NOT the four-decimal `walls` the report renders --
+    those round the first rung to `0.0`, which fits at r2=0.877 and would be dropped by the r2
+    gate instead, testing a different thing entirely. Cite the artifact, not its display table.
+
+    The existing `max(ys) < 0.01` gate cannot catch this: it asks whether the section ever got
+    BIG, and what poisons the fit is the SMALLEST positive point.
+
+    Suppressed, never dropped -- "too small to fit here" is itself a finding, and the reason
+    has to reach the reader or the next session re-derives it.
+    """
+    import calltree_growth as cg
+
+    xs = [10_000, 20_000, 40_000, 80_000]
+    raw = [4.901960784313726e-05, 0.0003921568627450981,
+           0.035637254901960784, 0.0927450980392157]
+    slope, r2 = cg._fit_loglog(xs, raw)
+    assert round(slope, 3) == 3.916 and r2 >= cg.MIN_R2, (
+        f'the archived fit no longer reproduces (k={slope:.3f}, r2={r2:.3f}); this test is '
+        f'about THAT fit, so a changed fitter needs the numbers re-derived')
+
+    rep = cg.fit_report(_ladder(xs, {'t_task': raw}))
+
+    assert not [o for o in rep['offenders'] if o['name'] == 't_task'], (
+        'a fit resting on a 0.4 ms wall is still being reported as an offender')
+    sup = [s for s in rep['suppressed'] if s['name'] == 't_task']
+    assert sup, 'the suppression was silent - the reader is told nothing'
+    assert sup[0]['exponent'] > 3.0, 'the exponent should still be recorded, just not ranked'
+    assert 'ms' in sup[0]['why'], 'the reason does not name the anchor that disqualified it'
+    assert sup[0]['anchor_s'] < cg.MIN_WALL_S
+
+
+def test_a_section_with_a_real_anchor_still_flags():
+    """NON-VACUITY. The floor must not silence genuine findings - a suppressor that suppresses
+    everything is the same defect in the other direction."""
+    import calltree_growth as cg
+
+    xs = [10_000, 20_000, 40_000, 80_000]
+    rep = cg.fit_report(_ladder(xs, {'t_sim': [1.0, 4.0, 16.0, 64.0]}))   # clean quadratic
+
+    off = [o for o in rep['offenders'] if o['name'] == 't_sim']
+    assert off, 'a clean k=2 fit anchored on a whole second was suppressed'
+    assert not rep['suppressed'], f'unexpected suppressions: {rep["suppressed"]}'
+    assert off[0]['projected'] > off[0]['last'], 'the projection did not carry forward'
+
+
+def test_offenders_rank_by_cost_class_then_size_not_by_bare_exponent():
+    """The project's own lesson, applied to the tool that taught it: "element counts must be
+    weighted by COST CLASS before ranking" (docs/design/INBOUND_PERF_FINDINGS.md).
+
+    Two offenders, and the one with the LOWER exponent is the larger problem: 5.4 M calls at
+    k=1.45 projects to ~150 M, against 300 k calls at k=1.53 projecting to ~10 M. Sorting by k
+    alone puts the small one first, which is how a 5.4 M-call accessor sat at rank 9.
+    """
+    import calltree_growth as cg
+
+    big = {'kind': 'call-count', 'name': 'big', 'exponent': 1.45,
+           'last': 5_453_719, 'projected': cg._project([5_453_719], 1.45)}
+    small = {'kind': 'call-count', 'name': 'small', 'exponent': 1.53,
+             'last': 376_928, 'projected': cg._project([376_928], 1.53)}
+
+    assert small['exponent'] > big['exponent'], 'premise: the small one has the higher k'
+    assert big['projected'] > small['projected'], 'premise: the big one projects larger'
+
+    ranked = cg._severity_sort([small, big])
+    assert [o['name'] for o in ranked] == ['big', 'small'], (
+        'ranked by bare exponent again - the larger projected cost must come first')
+
+
+def test_seconds_outrank_calls_because_only_one_of_them_is_a_cost():
+    """A section's seconds ARE the cost; a call count is a proxy for one. Ranking across the
+    two by a shared number would invent a common unit that does not exist, so the table groups
+    by class and sorts by magnitude within each."""
+    import calltree_growth as cg
+
+    wall = {'kind': 'section-wall', 'name': 'sec', 'exponent': 1.6, 'projected': 30.0}
+    calls = {'kind': 'call-count', 'name': 'fn', 'exponent': 1.6, 'projected': 5.4e7}
+    knee = {'kind': 'knee', 'name': 'k', 'exponent': 9.9}
+
+    ranked = cg._severity_sort([knee, calls, wall])
+    assert [o['name'] for o in ranked] == ['sec', 'fn', 'k'], (
+        'a knee with a huge local k still sorts above priced seconds, or calls outrank '
+        'seconds because 5.4e7 > 30 - the two are not the same unit')

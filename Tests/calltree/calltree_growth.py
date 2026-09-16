@@ -110,6 +110,18 @@ FLAG_COUNT_EXP = 1.30
 FLAG_TIME_EXP  = 1.50
 MIN_R2         = 0.90       # don't flag garbage fits
 MIN_CALLS      = 200        # ignore trivial functions at the largest rung
+#: The smallest POSITIVE wall a fit may rest on.  The existing `max(ys) < 0.01` gate asks
+#: whether a section ever got big; this asks whether the fit's own anchor was real.  The
+#: deep ladder's top offender was `t_task` at k=3.916 over walls
+#: [0.0, 0.0004, 0.0356, 0.0927] -- 0.4 ms is timer noise, and it outranked everything
+#: true in the artifact.  A suppressed fit is RECORDED in report['suppressed'], never
+#: dropped: 'too small to fit here' is itself a finding, and silently vanishing is how
+#: this repo has lost findings before.
+MIN_WALL_S     = 0.005
+#: Offenders are ranked by their PROJECTED size this many times past the top rung, not by
+#: bare exponent.  k answers 'how fast', magnitude answers 'how much', and only the two
+#: together answer 'what should I fix'.  See `_severity_sort`.
+PROJECT_FACTOR = 10.0
 
 
 def _fit_loglog(xs: list[float], ys: list[float]) -> tuple[float, float]:
@@ -237,6 +249,44 @@ def _knee(xs, ys) -> dict | None:
     return {'local_exponents': [round(k, 3) for k in ks],
             'last_step_k': round(last, 3), 'earlier_median_k': round(med, 3),
             'at_x': xs[-1]}
+
+
+def _project(ys: list, k: float, factor: float = PROJECT_FACTOR) -> float:
+    """The series' last value carried `factor` times further along the ladder.
+
+    y(factor*x) = y(x) * factor**k for a power law, so this needs no refit.  It is a
+    projection and nothing more: it assumes the fitted exponent keeps holding, which is
+    exactly what a knee does not do -- which is why knees are ranked separately below.
+    """
+    if not ys or ys[-1] <= 0 or k != k:
+        return 0.0
+    try:
+        return float(ys[-1]) * (factor ** k)
+    except OverflowError:
+        return float('inf')
+
+
+#: Cost class, most directly priced first.  Seconds are a cost; a call count is a proxy
+#: for one; a ratio is a shape; a knee is a warning that the fit does not hold at all.
+#: Ranking ACROSS these by a shared number would invent a common unit that does not
+#: exist, so the table groups by class and sorts by magnitude WITHIN each.
+_KIND_ORDER = {'section-wall': 0, 'arm-total': 0,
+               'call-count': 1, 'flow': 1,
+               'per-placement': 2,
+               'knee': 3}
+
+
+def _severity_sort(offenders: list) -> list:
+    """Group by cost class, then by projected magnitude, then by exponent.
+
+    Replaces a bare `sort(key=-exponent)`, which put a 92 ms section fitted off a 0.4 ms
+    anchor above every real finding in the deep artifact.  The project states the rule
+    it was breaking: element counts must be weighted by COST CLASS before ranking.
+    """
+    return sorted(offenders,
+                  key=lambda o: (_KIND_ORDER.get(o.get('kind'), 9),
+                                 -(o.get('projected') or 0.0),
+                                 -(o.get('exponent') or 0.0)))
 
 
 def _flat_counts(tree: dict) -> dict[str, int]:
@@ -849,7 +899,7 @@ def fit_report(ladder: dict) -> dict:
     report = {'knob': ladder['knob'], 'config': ladder.get('config', 'none'), 'xs': xs,
               'sections': {}, 'functions': {}, 'flows': {},
               'flows_per_placement': {}, 'arm_totals': {}, 'knees': {},
-              'offenders': []}
+              'offenders': [], 'suppressed': []}
     if len(rungs) < 3:
         return report
 
@@ -868,8 +918,20 @@ def fit_report(ladder: dict) -> dict:
         report['sections'][sec] = {'exponent': round(slope, 3), 'r2': round(r2, 3),
                                    'walls': [round(y, 4) for y in ys]}
         if r2 >= MIN_R2 and slope >= FLAG_TIME_EXP:
-            report['offenders'].append({'kind': 'section-wall', 'name': sec,
-                                        'exponent': round(slope, 3), 'r2': round(r2, 3)})
+            anchor = min((y for y in ys if y > 0), default=0.0)
+            if anchor < MIN_WALL_S:
+                report['suppressed'].append(
+                    {'kind': 'section-wall', 'name': sec, 'exponent': round(slope, 3),
+                     'r2': round(r2, 3), 'anchor_s': round(anchor, 6),
+                     'why': (f'fit rests on a {anchor * 1000:.2f} ms point, under the '
+                             f'{MIN_WALL_S * 1000:.0f} ms floor -- re-measure at a scale '
+                             f'where this section is real before believing k')})
+            else:
+                report['offenders'].append(
+                    {'kind': 'section-wall', 'name': sec, 'exponent': round(slope, 3),
+                     'r2': round(r2, 3), 'last': round(ys[-1], 4),
+                     'projected': round(_project(ys, slope), 4),
+                     'units': 'seconds'})
 
     names = set()
     for r in rungs:
@@ -884,7 +946,9 @@ def fit_report(ladder: dict) -> dict:
         if r2 >= MIN_R2 and slope >= FLAG_COUNT_EXP:
             report['offenders'].append({'kind': 'call-count', 'name': name,
                                         'exponent': round(slope, 3), 'r2': round(r2, 3),
-                                        'counts': ys})
+                                        'last': ys[-1],
+                                        'projected': round(_project(ys, slope)),
+                                        'units': 'calls', 'counts': ys})
 
     # FLOWS.  Fitted like call counts, but reported separately because they answer a
     # different question: not "which function grows" but "did this configuration exercise the
@@ -903,6 +967,9 @@ def fit_report(ladder: dict) -> dict:
                                  'counts': ys}
         if r2 >= MIN_R2 and slope >= FLAG_COUNT_EXP:
             report['offenders'].append({'kind': 'flow', 'name': name,
+                                        'last': ys[-1],
+                                        'projected': round(_project(ys, slope)),
+                                        'units': 'calls',
                                         'exponent': round(slope, 3), 'r2': round(r2, 3),
                                         'counts': ys})
 
@@ -948,8 +1015,19 @@ def fit_report(ladder: dict) -> dict:
             report['arm_totals'][name] = {'exponent': round(slope, 3), 'r2': round(r2, 3),
                                           'values': ys}
             if r2 >= MIN_R2 and slope >= FLAG_TIME_EXP and name != 'n_bins':
-                report['offenders'].append({'kind': 'arm-total', 'name': name,
-                                            'exponent': round(slope, 3), 'r2': round(r2, 3)})
+                anchor = min((y for y in ys if y > 0), default=0.0)
+                seconds = name.endswith('_s') or name.endswith('_s_sum')
+                if seconds and anchor < MIN_WALL_S:
+                    report['suppressed'].append(
+                        {'kind': 'arm-total', 'name': name, 'exponent': round(slope, 3),
+                         'r2': round(r2, 3), 'anchor_s': round(anchor, 6),
+                         'why': 'fit rests on a sub-resolution wall'})
+                else:
+                    report['offenders'].append(
+                        {'kind': 'arm-total', 'name': name, 'last': ys[-1],
+                         'projected': round(_project(ys, slope), 4),
+                         'units': 'seconds' if seconds else '',
+                         'exponent': round(slope, 3), 'r2': round(r2, 3)})
         # A7: COMMENSURABILITY.  `sum(total_s)/workers` is a model of the phase; if it is
         # nowhere near the measured wall then the rows describe a different run than the
         # clock did, and every exponent above is about the wrong thing.  This is the check
@@ -985,7 +1063,7 @@ def fit_report(ladder: dict) -> dict:
             'note': (f"local k {k['earlier_median_k']} -> {k['last_step_k']} at "
                      f"x={k['at_x']:,}; a single fit would smear this away")})
 
-    report['offenders'].sort(key=lambda o: -o['exponent'])
+    report['offenders'] = _severity_sort(report['offenders'])
     return report
 
 
