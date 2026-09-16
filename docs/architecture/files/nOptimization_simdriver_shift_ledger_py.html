@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization/simdriver/shift_ledger.py · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="file">
+<h1><code>Optimization/simdriver/shift_ledger.py</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span></p>
+<p class="purpose">ShiftLedger: the drain-or-cap working day close-out state (prev_day, cut_today, last_finish, standing), replacing four _build_leaf closure variables. The ORDERING is the interface -- advance_to() returns the day to close, note() folds this batch in -- so the previous day closes on what ITS last batch left. Flag-off is structural: every call site is inside if _drain_or_cap.</p>
+<section><h2>Key symbols</h2><ul class="rel"><li><a href="../nodes/nOptimization_simdriver_shift_ledger_py__ShiftLedger.html"><code>ShiftLedger</code></a> <span class="dim">Optimization/simdriver/shift_ledger.py</span></li></ul></section>
+<section><h2>Nodes in this file <span class="count">(6)</span></h2><table class="tbl"><tr><th>kind</th><th>name</th><th class="num">fan-in</th><th class="num">fan-out</th></tr><tr><td>class</td><td><a href="../nodes/nOptimization_simdriver_shift_ledger_py__ShiftLedger.html"><code>ShiftLedger</code></a></td><td class="num">1</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_simdriver_shift_ledger_py__ShiftLedger___init__.html"><code>__init__</code></a></td><td class="num">0</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_simdriver_shift_ledger_py__ShiftLedger___repr__.html"><code>__repr__</code></a></td><td class="num">0</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_simdriver_shift_ledger_py__ShiftLedger_advance_to.html"><code>advance_to</code></a></td><td class="num">0</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_simdriver_shift_ledger_py__ShiftLedger_final.html"><code>final</code></a></td><td class="num">0</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_simdriver_shift_ledger_py__ShiftLedger_note.html"><code>note</code></a></td><td class="num">0</td><td class="num">0</td></tr></table></section>
+<section class="rel"><h2>Module imports <span class="count">(0)</span></h2></section>
+</article>
+</main>
+</body></html>

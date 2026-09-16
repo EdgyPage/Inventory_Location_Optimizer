@@ -14449,6 +14449,53 @@
       "kind": "function",
       "signature": "(self, section: str) -> float"
     },
+    "Optimization/simdriver/shift_ledger.py": {
+      "decorators": [],
+      "doc": "shift_ledger.py \u2014 the drain-or-cap working day's close-out state.\n\nWHAT IT REPLACES.  `strategy_runner._build_leaf` carried this as four closure variables --\n`_shift_prev_day`, `_shift_cut_today`, `_shift_last_finish`, `_shift_standing` -- written in\none block per batch and read again at run end for the final day, which has no next-day\nboundary to close it.\n\n# \u2500\u2500 the ordering rule IS the specification \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    the boundary is tested BEFORE this batch's clocks, cut and depths are folded in, so the\n    previous day closes on what ITS last batch left behind and this batch -- the first of the\n    new day -- is attributed to the new day.\n\nThat sentence was a comment in the batch loop and nothing enforced it.  Here it is the\nINTERFACE: `advance_to(day)` answers \"is there a day to close, and with what?\", and `note()`\nfolds this batch in.  Calling them in the other order mis-attributes every day's first batch,\nand `Tests/unit/test_shift_ledger.py` pins the rule with a sabotage proving the wrong order\nis actually visible.\n\n# \u2500\u2500 what each field is, and why they reset differently \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    prev_day     the day currently open; None until the first batch\n    cut_today    STICKY within a day (`cut or <this batch>`), reset at a boundary -- once a\n                 day has cut work it stays cut however many later batches fit\n    last_finish  a running MAX over the three crew clocks, reset at a boundary -- a batch\n                 whose crews finished earlier must not pull the day's finish backwards\n    standing     a LEVEL, REPLACED each batch and NOT reset at a boundary: it is re-measured\n                 every batch, so the carried value is simply the last reading until this\n                 day's first batch overwrites it.  Summing a level across batches is the\n                 `recv_cut` scar; this one is only ever assigned.\n\n# \u2500\u2500 what is deliberately NOT here \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`_shift_close_out` -- the pure function that turns a snapshot into a DB row and decides\n`drained` through `equilibrium.is_drained` -- stays in `strategy_runner`.  This object holds\nthe state that function is CALLED WITH; it makes no judgement about a day, and moving the\njudgement here would put `equilibrium` behind a second door.\n\nFLAG-OFF IS STRUCTURAL.  Every call site sits inside `if _drain_or_cap:`, so a run without\nthe era flag never constructs one and never calls it.  That is what makes this extraction\nbyte-identical by construction rather than by argument.\n\nSlotted and picklable, like the other `_build_leaf` state objects: the leaf that owns one is\nbuilt inside a spawned worker.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/shift_ledger.py::ShiftLedger": {
+      "decorators": [],
+      "doc": "Per-day close-out state for the drain-or-cap working day.\n\nshift = ShiftLedger()\n...\nclosed = shift.advance_to(day)        # BOUNDARY FIRST\nif closed is not None:\n    rows.append(close_out(*closed))\nshift.note(cut=..., finish=..., standing=...)   # then this batch\n...\nlast = shift.final()                  # at run end: the day nothing closed",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/shift_ledger.py::ShiftLedger.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/shift_ledger.py::ShiftLedger.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/simdriver/shift_ledger.py::ShiftLedger.advance_to": {
+      "decorators": [],
+      "doc": "Move to `day`.  Returns the snapshot of the day that just ENDED, or None.\n\nNone on the first batch (no previous day exists) and within a day.  On a boundary\nthe returned tuple is `(day, standing, last_finish, cut)` for the day that ended --\n`_shift_close_out`'s exact parameter order -- and the new day is opened uncut with\nno finish.  Days need not be contiguous: an empty day still consumes a release slot,\nand nothing is invented for the days in between.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, day)"
+    },
+    "Optimization/simdriver/shift_ledger.py::ShiftLedger.final": {
+      "decorators": [],
+      "doc": "The still-open day, for the run-end close-out, or None if none ever opened.\n\nThe last day of a run has no next-day boundary, so without this every era run would\nreport one day fewer than it worked and the equilibrium check's \"every day drained\"\nwould be read over a window missing its last member.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/shift_ledger.py::ShiftLedger.note": {
+      "decorators": [],
+      "doc": "Fold one batch into the open day.  Call AFTER `advance_to` -- see the docstring.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, cut: bool, finish: float, standing: tuple) -> None"
+    },
     "Optimization/simdriver/sim_assets.py": {
       "decorators": [],
       "doc": "sim_assets.py \u2014 per-pair shared-asset construction for a run.\n\nbuild_shared_assets loads the inventory+affinity pair once, sizes the warehouse\n(Inventory_Manager.plan_warehouse with the per-regime sizing from CONFIG), persists\nthe planned inventory + warehouse stats (rename-proof fingerprint), and returns the\npicklable shared dict every strategy worker receives.  Split out of run_simulation\nso the runner holds orchestration only; run_analysis imports this directly for its\nshape-only rebuild.",

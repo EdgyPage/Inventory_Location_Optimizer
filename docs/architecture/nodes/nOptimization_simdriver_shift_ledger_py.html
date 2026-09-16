@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simdriver.shift_ledger · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_shift_ledger_py" data-id="Optimization/simdriver/shift_ledger.py">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <span class="here"><code>Optimization/simdriver/shift_ledger.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simdriver.shift_ledger</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_shift_ledger_py.html"><code>Optimization/simdriver/shift_ledger.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simdriver.shift_ledger</code></pre>
+<section class="doc">shift_ledger.py — the drain-or-cap working day&#x27;s close-out state.
+
+WHAT IT REPLACES.  `strategy_runner._build_leaf` carried this as four closure variables --
+`_shift_prev_day`, `_shift_cut_today`, `_shift_last_finish`, `_shift_standing` -- written in
+one block per batch and read again at run end for the final day, which has no next-day
+boundary to close it.
+
+# ── the ordering rule IS the specification ────────────────────────────────────────
+
+    the boundary is tested BEFORE this batch&#x27;s clocks, cut and depths are folded in, so the
+    previous day closes on what ITS last batch left behind and this batch -- the first of the
+    new day -- is attributed to the new day.
+
+That sentence was a comment in the batch loop and nothing enforced it.  Here it is the
+INTERFACE: `advance_to(day)` answers &quot;is there a day to close, and with what?&quot;, and `note()`
+folds this batch in.  Calling them in the other order mis-attributes every day&#x27;s first batch,
+and `Tests/unit/test_shift_ledger.py` pins the rule with a sabotage proving the wrong order
+is actually visible.
+
+# ── what each field is, and why they reset differently ────────────────────────────
+
+    prev_day     the day currently open; None until the first batch
+    cut_today    STICKY within a day (`cut or &lt;this batch&gt;`), reset at a boundary -- once a
+                 day has cut work it stays cut however many later batches fit
+    last_finish  a running MAX over the three crew clocks, reset at a boundary -- a batch
+                 whose crews finished earlier must not pull the day&#x27;s finish backwards
+    standing     a LEVEL, REPLACED each batch and NOT reset at a boundary: it is re-measured
+                 every batch, so the carried value is simply the last reading until this
+                 day&#x27;s first batch overwrites it.  Summing a level across batches is the
+                 `recv_cut` scar; this one is only ever assigned.
+
+# ── what is deliberately NOT here ─────────────────────────────────────────────────
+
+`_shift_close_out` -- the pure function that turns a snapshot into a DB row and decides
+`drained` through `equilibrium.is_drained` -- stays in `strategy_runner`.  This object holds
+the state that function is CALLED WITH; it makes no judgement about a day, and moving the
+judgement here would put `equilibrium` behind a second door.
+
+FLAG-OFF IS STRUCTURAL.  Every call site sits inside `if _drain_or_cap:`, so a run without
+the era flag never constructs one and never calls it.  That is what makes this extraction
+byte-identical by construction rather than by argument.
+
+Slotted and picklable, like the other `_build_leaf` state objects: the leaf that owns one is
+built inside a spawned worker.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(6)</span></h2><ul><li><a href="nOptimization_simdriver_shift_ledger_py__ShiftLedger.html"><code>ShiftLedger</code></a> <span class="dim">Optimization/simdriver/shift_ledger.py</span></li><li><a href="nOptimization_simdriver_shift_ledger_py__ShiftLedger___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/shift_ledger.py</span></li><li><a href="nOptimization_simdriver_shift_ledger_py__ShiftLedger___repr__.html"><code>__repr__</code></a> <span class="dim">Optimization/simdriver/shift_ledger.py</span></li><li><a href="nOptimization_simdriver_shift_ledger_py__ShiftLedger_advance_to.html"><code>advance_to</code></a> <span class="dim">Optimization/simdriver/shift_ledger.py</span></li><li><a href="nOptimization_simdriver_shift_ledger_py__ShiftLedger_final.html"><code>final</code></a> <span class="dim">Optimization/simdriver/shift_ledger.py</span></li><li><a href="nOptimization_simdriver_shift_ledger_py__ShiftLedger_note.html"><code>note</code></a> <span class="dim">Optimization/simdriver/shift_ledger.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_shift_ledger_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/shift_ledger.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

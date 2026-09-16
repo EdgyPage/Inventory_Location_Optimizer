@@ -1443,6 +1443,12 @@ files:
       - {name: "SectionTimers", file: "Optimization/simdriver/section_timers.py", kind: "class"}
       - {name: "CheckpointWindow", file: "Optimization/simdriver/section_timers.py", kind: "class"}
     notes: ""
+  "Optimization/simdriver/shift_ledger.py":
+    purpose: "ShiftLedger: the drain-or-cap working day close-out state (prev_day, cut_today, last_finish, standing), replacing four _build_leaf closure variables. The ORDERING is the interface -- advance_to() returns the day to close, note() folds this batch in -- so the previous day closes on what ITS last batch left. Flag-off is structural: every call site is inside if _drain_or_cap."
+    layer: "opt_simdriver"
+    key_symbols:
+      - {name: "ShiftLedger", file: "Optimization/simdriver/shift_ledger.py", kind: "class"}
+    notes: ""
   "Optimization/simdriver/sim_assets.py":
     purpose: "per-pair shared-asset construction for a run."
     layer: "opt_simdriver"
@@ -5197,6 +5203,26 @@ files:
       - {name: "test_the_boundary_is_exact", file: "Tests/unit/test_shift_end.py", kind: "function"}
       - {name: "test_the_cap_implies_the_cut", file: "Tests/unit/test_shift_end.py", kind: "function"}
       - {name: "test_one_boundary_for_every_crew", file: "Tests/unit/test_shift_end.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_shift_ledger.py":
+    purpose: "Fences ShiftLedger: the day boundary, sticky cut, running-max finish, standing as a replaced LEVEL, the run-end final() that closes the day no boundary reaches, and the advance-before-note ordering rule -- with a sabotage proving the reverse order is actually visible."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_fresh_ledger_has_opened_no_day", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_the_first_day_opens_and_closes_nothing", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_staying_within_a_day_closes_nothing", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_crossing_a_boundary_returns_the_PREVIOUS_day_snapshot", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_crossing_a_boundary_resets_the_new_day_but_keeps_standing", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_a_skipped_day_still_closes_only_the_day_that_ended", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_cut_is_sticky_within_a_day", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_last_finish_is_a_running_max_never_the_latest", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_standing_is_replaced_not_accumulated", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_final_returns_the_open_day_for_the_run_end_close_out", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_final_is_none_when_no_day_ever_opened", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_advance_before_note_attributes_the_first_batch_to_the_NEW_day", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_the_wrong_order_would_be_visible", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_it_is_slotted_so_a_typo_cannot_shadow_a_field", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_it_survives_the_worker_process_boundary", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
     notes: ""
   "Tests/unit/test_sim_schema_id.py":
     purpose: "the sim DB's derived schema identity."

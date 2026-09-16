@@ -13551,6 +13551,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/simdriver/shift_ledger.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/simdriver/sim_assets.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -13762,6 +13767,11 @@
     },
     {
       "dst": "Optimization/simdriver/section_timers.py::SectionTimers",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
+      "dst": "Optimization/simdriver/shift_ledger.py::ShiftLedger",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
@@ -37604,6 +37614,62 @@
       "kind": "function",
       "module": "Optimization/simdriver/section_timers.py",
       "name": "window",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/shift_ledger.py",
+      "id": "Optimization/simdriver/shift_ledger.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/shift_ledger.py",
+      "name": "Optimization.simdriver.shift_ledger",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/shift_ledger.py",
+      "id": "Optimization/simdriver/shift_ledger.py::ShiftLedger",
+      "kind": "class",
+      "module": "Optimization/simdriver/shift_ledger.py",
+      "name": "ShiftLedger",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/shift_ledger.py",
+      "id": "Optimization/simdriver/shift_ledger.py::ShiftLedger.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/shift_ledger.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/shift_ledger.py",
+      "id": "Optimization/simdriver/shift_ledger.py::ShiftLedger.__repr__",
+      "kind": "function",
+      "module": "Optimization/simdriver/shift_ledger.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/shift_ledger.py",
+      "id": "Optimization/simdriver/shift_ledger.py::ShiftLedger.advance_to",
+      "kind": "function",
+      "module": "Optimization/simdriver/shift_ledger.py",
+      "name": "advance_to",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/shift_ledger.py",
+      "id": "Optimization/simdriver/shift_ledger.py::ShiftLedger.final",
+      "kind": "function",
+      "module": "Optimization/simdriver/shift_ledger.py",
+      "name": "final",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/shift_ledger.py",
+      "id": "Optimization/simdriver/shift_ledger.py::ShiftLedger.note",
+      "kind": "function",
+      "module": "Optimization/simdriver/shift_ledger.py",
+      "name": "note",
       "public": true
     },
     {
