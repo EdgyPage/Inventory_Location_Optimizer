@@ -1377,6 +1377,12 @@ files:
       - {name: "pin_digest", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "regime_orders", file: "Optimization/simconfig/staffing.py", kind: "function"}
     notes: ""
+  "Optimization/simdriver/audit_ledgers.py":
+    purpose: "AuditLedgers: the conservation ledger (placed - evicted - picked == occupancy, proving the bin-mutation log complete) and the demand ledger, with their two DIFFERENT report-once rules -- conservation reports when the residual MOVES, demand only the FIRST. Neither ever raises; the log wording stays in strategy_runner."
+    layer: "opt_simdriver"
+    key_symbols:
+      - {name: "AuditLedgers", file: "Optimization/simdriver/audit_ledgers.py", kind: "class"}
+    notes: ""
   "Optimization/simdriver/batch_precompute.py":
     purpose: "compute each warehouse family's batch sequence ONCE and share it."
     layer: "opt_simdriver"
@@ -3258,6 +3264,26 @@ files:
       - {name: "test_demand_weighted_policies_refuse_an_empty_frequency_map", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_nonpositive_speed_is_rejected_at_the_config_boundary", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_travel_scores_stay_finite_for_every_valid_speed", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_audit_ledgers.py":
+    purpose: "Fences AuditLedgers: a persisting residual is ONE break not many, movement in either direction counts, the demand rule reports only the first while counting all, and totals() writes real zeroes (NULL would read as not-measured)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_fresh_ledger_is_clean", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_a_balanced_batch_reports_nothing", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_the_first_unaccounted_unit_is_reported_with_its_drift", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_a_PERSISTING_residual_is_not_reported_again", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_a_residual_that_moves_again_is_a_second_break_with_the_incremental_drift", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_a_residual_that_moves_back_toward_zero_still_counts_as_a_break", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_picked_accumulates_over_the_arm_and_feeds_the_residual", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_the_first_demand_break_reports_and_later_ones_do_not", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_the_two_ledgers_are_independent", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_totals_renders_the_result_dict_keys", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_the_totals_payload_is_a_plain_picklable_dict", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_a_clean_arm_reports_zeroes_not_nulls", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_a_broken_ledger_is_reported_and_never_raises", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_it_is_slotted_so_a_typo_cannot_shadow_a_counter", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
+      - {name: "test_it_survives_the_worker_process_boundary", file: "Tests/unit/test_audit_ledgers.py", kind: "function"}
     notes: ""
   "Tests/unit/test_baseline_declaration.py":
     purpose: "the comparison baseline is selected, not counted."
@@ -5150,6 +5176,14 @@ files:
       - {name: "test_it_is_slotted_so_a_typo_cannot_shadow_a_section", file: "Tests/unit/test_section_timers.py", kind: "function"}
       - {name: "test_it_survives_the_worker_process_boundary", file: "Tests/unit/test_section_timers.py", kind: "function"}
       - {name: "test_nan_and_inf_are_not_special_cased", file: "Tests/unit/test_section_timers.py", kind: "function"}
+      - {name: "test_start_opens_a_lap_at_a_given_instant", file: "Tests/unit/test_section_timers.py", kind: "function"}
+      - {name: "test_split_advances_the_cursor_so_laps_do_not_overlap", file: "Tests/unit/test_section_timers.py", kind: "function"}
+      - {name: "test_split_can_charge_SEVERAL_sections_the_same_delta", file: "Tests/unit/test_section_timers.py", kind: "function"}
+      - {name: "test_split_returns_the_delta_it_charged", file: "Tests/unit/test_section_timers.py", kind: "function"}
+      - {name: "test_split_reads_the_clock_when_no_instant_is_given", file: "Tests/unit/test_section_timers.py", kind: "function"}
+      - {name: "test_an_undeclared_section_is_refused_by_split_too", file: "Tests/unit/test_section_timers.py", kind: "function"}
+      - {name: "test_the_cursor_is_not_a_section_and_does_not_reach_the_payload", file: "Tests/unit/test_section_timers.py", kind: "function"}
+      - {name: "test_split_charges_the_open_window_and_rolls_with_it", file: "Tests/unit/test_section_timers.py", kind: "function"}
     notes: ""
   "Tests/unit/test_seed_flags.py":
     purpose: "the two knobs that decide whether two runs are comparable."

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>observe · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_audit_ledgers_py__AuditLedgers_observe" data-id="Optimization/simdriver/audit_ledgers.py::AuditLedgers.observe">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_audit_ledgers_py.html"><code>Optimization/simdriver/audit_ledgers.py</code></a> <span class="sep">›</span> <a href="nOptimization_simdriver_audit_ledgers_py__AuditLedgers.html"><code>AuditLedgers</code></a> <span class="sep">›</span> <span class="here"><code>observe</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>observe</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_audit_ledgers_py.html"><code>Optimization/simdriver/audit_ledgers.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def observe(self, *, placed: int, evicted: int, occupancy: int)</code></pre>
+<section class="doc">Test the ledger against the warehouse.  Returns `(drift, residual)` if this batch
+INTRODUCED a break, else None.
+
+`drift` is INCREMENTAL -- how far the residual moved this batch -- and is computed
+before the new residual is stored, so the caller can report &quot;new drift X; cumulative
+Y&quot; exactly as the runner always did.  A residual that has not moved returns None and
+does not count a second break.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_audit_ledgers_py__AuditLedgers_observe">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/audit_ledgers.py#:~:text=def%20observe">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -13541,6 +13541,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/simdriver/audit_ledgers.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/simdriver/batch_precompute.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -13747,6 +13752,11 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_sku_scores",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
+      "dst": "Optimization/simdriver/audit_ledgers.py::AuditLedgers",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
@@ -36977,6 +36987,70 @@
       "public": true
     },
     {
+      "file": "Optimization/simdriver/audit_ledgers.py",
+      "id": "Optimization/simdriver/audit_ledgers.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/audit_ledgers.py",
+      "name": "Optimization.simdriver.audit_ledgers",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/audit_ledgers.py",
+      "id": "Optimization/simdriver/audit_ledgers.py::AuditLedgers",
+      "kind": "class",
+      "module": "Optimization/simdriver/audit_ledgers.py",
+      "name": "AuditLedgers",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/audit_ledgers.py",
+      "id": "Optimization/simdriver/audit_ledgers.py::AuditLedgers.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/audit_ledgers.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/audit_ledgers.py",
+      "id": "Optimization/simdriver/audit_ledgers.py::AuditLedgers.__repr__",
+      "kind": "function",
+      "module": "Optimization/simdriver/audit_ledgers.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/audit_ledgers.py",
+      "id": "Optimization/simdriver/audit_ledgers.py::AuditLedgers.note_demand_break",
+      "kind": "function",
+      "module": "Optimization/simdriver/audit_ledgers.py",
+      "name": "note_demand_break",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/audit_ledgers.py",
+      "id": "Optimization/simdriver/audit_ledgers.py::AuditLedgers.note_picked",
+      "kind": "function",
+      "module": "Optimization/simdriver/audit_ledgers.py",
+      "name": "note_picked",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/audit_ledgers.py",
+      "id": "Optimization/simdriver/audit_ledgers.py::AuditLedgers.observe",
+      "kind": "function",
+      "module": "Optimization/simdriver/audit_ledgers.py",
+      "name": "observe",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/audit_ledgers.py",
+      "id": "Optimization/simdriver/audit_ledgers.py::AuditLedgers.totals",
+      "kind": "function",
+      "module": "Optimization/simdriver/audit_ledgers.py",
+      "name": "totals",
+      "public": true
+    },
+    {
       "file": "Optimization/simdriver/batch_precompute.py",
       "id": "Optimization/simdriver/batch_precompute.py",
       "kind": "module",
@@ -37590,6 +37664,22 @@
       "kind": "function",
       "module": "Optimization/simdriver/section_timers.py",
       "name": "roll",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.split",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "split",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::SectionTimers.start",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "start",
       "public": true
     },
     {

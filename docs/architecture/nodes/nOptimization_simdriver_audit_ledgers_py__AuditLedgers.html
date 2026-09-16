@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AuditLedgers · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_audit_ledgers_py__AuditLedgers" data-id="Optimization/simdriver/audit_ledgers.py::AuditLedgers">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_audit_ledgers_py.html"><code>Optimization/simdriver/audit_ledgers.py</code></a> <span class="sep">›</span> <span class="here"><code>AuditLedgers</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>AuditLedgers</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_audit_ledgers_py.html"><code>Optimization/simdriver/audit_ledgers.py</code></a></p>
+
+<pre class="sig"><code>class AuditLedgers</code></pre>
+<section class="doc">The conservation ledger and the demand ledger, with their report-once rules.
+
+audit = AuditLedgers()
+audit.note_picked(sum(p.quantity for p in picks_b))
+broke = audit.observe(placed=..., evicted=..., occupancy=...)
+if broke is not None:
+    drift, residual = broke
+    log.error(...)
+...
+if bs.total_items &gt; bs.items_demanded and audit.note_demand_break():
+    log.error(...)
+...
+result.update(audit.totals())</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf.html"><code>_build_leaf</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_audit_ledgers_py__AuditLedgers">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/audit_ledgers.py#:~:text=class%20AuditLedgers">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simdriver.audit_ledgers · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_audit_ledgers_py" data-id="Optimization/simdriver/audit_ledgers.py">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <span class="here"><code>Optimization/simdriver/audit_ledgers.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simdriver.audit_ledgers</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_audit_ledgers_py.html"><code>Optimization/simdriver/audit_ledgers.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simdriver.audit_ledgers</code></pre>
+<section class="doc">audit_ledgers.py — the two run-long audits an arm keeps, and their two report-once rules.
+
+WHAT IT REPLACES.  `strategy_runner._build_leaf` carried these as four closure variables:
+`cons_picked`, `cons_breaks`, `cons_residual` (the conservation ledger) and `demand_breaks`
+(the demand ledger).
+
+# ── what each audit proves ────────────────────────────────────────────────────────
+
+CONSERVATION is the runtime proof that the bin-mutation log is COMPLETE.  Over the arm,
+
+    units placed - units evicted - units picked  ==  units sitting in bins right now
+
+and the right-hand side is read from the WAREHOUSE, not from any counter the recorder keeps,
+so a mutation that bypasses the log breaks it -- which is the entire point.  It is asserted
+cumulatively rather than per-batch because the cumulative form needs no special case for the
+first measured batch (a resumed arm re-stocks from empty) and localises a break just as well.
+
+DEMAND is the proof that no pick exceeded the demand that asked for it.  Its docstring in the
+runner records what it would have caught: both picker loops read the per-AISLE
+`task.items[sku]` once per bin, so a SKU in several bins of one aisle was picked once per
+bin, inflating every throughput figure by ~6.7% for as long as the model had existed.
+
+NEITHER EVER RAISES.  A residual can move for a benign scheduling coincidence -- two pickers
+contending for one bin drain slightly differently than the depletion applied -- and turning
+that into a run-killer would be strictly worse than reporting it.
+
+# ── the two report-once rules, which are NOT the same rule ────────────────────────
+
+Both suppress repeats, because ~100 identical log lines is how a real defect gets scrolled
+past.  They suppress them differently, and this object exists to make that difference
+addressable:
+
+    `observe()`           reports when the residual MOVES.  The ledger is cumulative, so one
+                          bad batch leaves a residual forever; only a batch that moves it
+                          INTRODUCED anything.  Movement in EITHER direction counts -- a
+                          ledger that reported only growth would go quiet exactly when a
+                          second defect cancelled the first.
+    `note_demand_break()` reports only the FIRST.  There is no residual here, so &quot;movement&quot;
+                          has no meaning: the first line is the diagnosis and the count is
+                          the summary.
+
+# ── what stays in the runner ──────────────────────────────────────────────────────
+
+THE LOG WORDING.  This object decides WHETHER a batch should be reported and hands back the
+drift; `strategy_runner` owns the messages, which name files and columns that a unit test
+should not be pinned to.
+
+Slotted and picklable, like the other `_build_leaf` state objects.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(7)</span></h2><ul><li><a href="nOptimization_simdriver_audit_ledgers_py__AuditLedgers.html"><code>AuditLedgers</code></a> <span class="dim">Optimization/simdriver/audit_ledgers.py</span></li><li><a href="nOptimization_simdriver_audit_ledgers_py__AuditLedgers___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/audit_ledgers.py</span></li><li><a href="nOptimization_simdriver_audit_ledgers_py__AuditLedgers___repr__.html"><code>__repr__</code></a> <span class="dim">Optimization/simdriver/audit_ledgers.py</span></li><li><a href="nOptimization_simdriver_audit_ledgers_py__AuditLedgers_note_demand_break.html"><code>note_demand_break</code></a> <span class="dim">Optimization/simdriver/audit_ledgers.py</span></li><li><a href="nOptimization_simdriver_audit_ledgers_py__AuditLedgers_note_picked.html"><code>note_picked</code></a> <span class="dim">Optimization/simdriver/audit_ledgers.py</span></li><li><a href="nOptimization_simdriver_audit_ledgers_py__AuditLedgers_observe.html"><code>observe</code></a> <span class="dim">Optimization/simdriver/audit_ledgers.py</span></li><li><a href="nOptimization_simdriver_audit_ledgers_py__AuditLedgers_totals.html"><code>totals</code></a> <span class="dim">Optimization/simdriver/audit_ledgers.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_audit_ledgers_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/audit_ledgers.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

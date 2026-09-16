@@ -13897,6 +13897,60 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/simdriver/audit_ledgers.py": {
+      "decorators": [],
+      "doc": "audit_ledgers.py \u2014 the two run-long audits an arm keeps, and their two report-once rules.\n\nWHAT IT REPLACES.  `strategy_runner._build_leaf` carried these as four closure variables:\n`cons_picked`, `cons_breaks`, `cons_residual` (the conservation ledger) and `demand_breaks`\n(the demand ledger).\n\n# \u2500\u2500 what each audit proves \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nCONSERVATION is the runtime proof that the bin-mutation log is COMPLETE.  Over the arm,\n\n    units placed - units evicted - units picked  ==  units sitting in bins right now\n\nand the right-hand side is read from the WAREHOUSE, not from any counter the recorder keeps,\nso a mutation that bypasses the log breaks it -- which is the entire point.  It is asserted\ncumulatively rather than per-batch because the cumulative form needs no special case for the\nfirst measured batch (a resumed arm re-stocks from empty) and localises a break just as well.\n\nDEMAND is the proof that no pick exceeded the demand that asked for it.  Its docstring in the\nrunner records what it would have caught: both picker loops read the per-AISLE\n`task.items[sku]` once per bin, so a SKU in several bins of one aisle was picked once per\nbin, inflating every throughput figure by ~6.7% for as long as the model had existed.\n\nNEITHER EVER RAISES.  A residual can move for a benign scheduling coincidence -- two pickers\ncontending for one bin drain slightly differently than the depletion applied -- and turning\nthat into a run-killer would be strictly worse than reporting it.\n\n# \u2500\u2500 the two report-once rules, which are NOT the same rule \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nBoth suppress repeats, because ~100 identical log lines is how a real defect gets scrolled\npast.  They suppress them differently, and this object exists to make that difference\naddressable:\n\n    `observe()`           reports when the residual MOVES.  The ledger is cumulative, so one\n                          bad batch leaves a residual forever; only a batch that moves it\n                          INTRODUCED anything.  Movement in EITHER direction counts -- a\n                          ledger that reported only growth would go quiet exactly when a\n                          second defect cancelled the first.\n    `note_demand_break()` reports only the FIRST.  There is no residual here, so \"movement\"\n                          has no meaning: the first line is the diagnosis and the count is\n                          the summary.\n\n# \u2500\u2500 what stays in the runner \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nTHE LOG WORDING.  This object decides WHETHER a batch should be reported and hands back the\ndrift; `strategy_runner` owns the messages, which name files and columns that a unit test\nshould not be pinned to.\n\nSlotted and picklable, like the other `_build_leaf` state objects.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/audit_ledgers.py::AuditLedgers": {
+      "decorators": [],
+      "doc": "The conservation ledger and the demand ledger, with their report-once rules.\n\naudit = AuditLedgers()\naudit.note_picked(sum(p.quantity for p in picks_b))\nbroke = audit.observe(placed=..., evicted=..., occupancy=...)\nif broke is not None:\n    drift, residual = broke\n    log.error(...)\n...\nif bs.total_items > bs.items_demanded and audit.note_demand_break():\n    log.error(...)\n...\nresult.update(audit.totals())",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/audit_ledgers.py::AuditLedgers.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/audit_ledgers.py::AuditLedgers.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/simdriver/audit_ledgers.py::AuditLedgers.note_demand_break": {
+      "decorators": [],
+      "doc": "Count a batch that picked more than was demanded.  True only for the FIRST.\n\nEvery break is counted; only the first is worth a line, because there is no residual\nwhose movement could distinguish a later one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/simdriver/audit_ledgers.py::AuditLedgers.note_picked": {
+      "decorators": [],
+      "doc": "Add this batch's picked units to the cumulative term.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, units: int) -> None"
+    },
+    "Optimization/simdriver/audit_ledgers.py::AuditLedgers.observe": {
+      "decorators": [],
+      "doc": "Test the ledger against the warehouse.  Returns `(drift, residual)` if this batch\nINTRODUCED a break, else None.\n\n`drift` is INCREMENTAL -- how far the residual moved this batch -- and is computed\nbefore the new residual is stored, so the caller can report \"new drift X; cumulative\nY\" exactly as the runner always did.  A residual that has not moved returns None and\ndoes not count a second break.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, placed: int, evicted: int, occupancy: int)"
+    },
+    "Optimization/simdriver/audit_ledgers.py::AuditLedgers.totals": {
+      "decorators": [],
+      "doc": "The audit half of the worker's result dict.\n\nReal zeroes on a clean arm, never None: `cons_breaks == 0` means MEASURED AND ZERO,\nand a NULL there would read as \"not measured\" -- which is the opposite claim.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
     "Optimization/simdriver/batch_precompute.py": {
       "decorators": [],
       "doc": "batch_precompute.py \u2014 compute each warehouse family's batch sequence ONCE and share it.\n\nBatch sampling (`Workload_Builder.Batch`) is a PURE function of (batch_cfg, inventory, affinity,\nseed_batches + i): it weights SKUs by static demand frequency x the immutable affinity-lift CSR and\ndraws from a dedicated per-batch RNG `random.Random(seed_batches + i)`.  Today every strategy arm of a\nwarehouse family re-samples the identical sequence inside its own worker process \u2014 the heavy\nO(k*|inventory|) sampling (the bulk of the per-batch \"build\" section) is paid ~32x for bit-identical\nresults.  This module computes the sequence ONCE (optionally in parallel chunks) so every arm of the\nfamily reads it instead, while the genuinely sequential `Task.from_batch` stays per-arm in the loop.\n\nCorrectness rests on two things:\n  * `load_inventory_from_db` selects `ORDER BY sku`, so the candidate order \u2014 which\n    `_lift_weighted_sample` indexes positionally \u2014 is deterministic; loading the SAME db with the SAME\n    limit/allowlist the worker uses reproduces the worker's candidates exactly.\n  * a content FINGERPRINT over exactly the fields a batch consumes (the ordered\n    (sku, relative_frequency, quantity_rate) triples + batch_cfg + seeds + the affinity CSR digest)\n    keys the on-disk list.  Families of different sizes get different fingerprints (so they never share\n    a list), and a worker accepts a file only when its own recomputed fingerprint matches \u2014 never\n    another family's.  On any mismatch/miss the caller falls back to inline sampling (still correct).",
@@ -14427,6 +14481,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.split": {
+      "decorators": [],
+      "doc": "Close the lap: charge the elapsed time to EVERY named section, reopen at the same\ninstant, and return the delta.\n\nSEVERAL SECTIONS, ONE CLOCK READ.  `build` is the sum of `sample` and `task`, so both\nof those sites charged two sections from a single `_dt` -- never two reads, which\nwould have made `build` disagree with its own parts by a few microseconds per batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *sections: str, now: float=None) -> float"
+    },
+    "Optimization/simdriver/section_timers.py::SectionTimers.start": {
+      "decorators": [],
+      "doc": "Open a lap.  Called once at the top of each batch, before any `split`.\n\nThe cursor is the TIMERS' state, not the caller's.  `_build_leaf` used to keep it as\na seventh closure variable `_t`, and every one of the eight timing sites repeated\n`_now = time.perf_counter(); timers.add(s, _now - _t); _t = _now` -- eight chances to\nforget the advance, which silently charges the next section its own time PLUS\neverything before it.\n\n`now` is injectable so a test need not sleep; production passes nothing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, now: float=None) -> None"
     },
     "Optimization/simdriver/section_timers.py::SectionTimers.total": {
       "decorators": [],
