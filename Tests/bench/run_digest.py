@@ -80,6 +80,8 @@ SIM_TABLES = ('simulation_runs', 'batch_stats', 'task_stats', 'picker_events', '
 # Hashed rather than excluded: the id is deterministic for a build and moves exactly
 # when the schema does, which is signal worth having.  The RUN db carries no stamp
 # (its `stamp_checked` call is the verify half only), so it is absent from SIM_TABLES.
+RUNTIME_TABLES   = ('runtime', 'schema_meta')   # the stamp again -- see the note below
+
 KEYFRAME_TABLES  = ('bin_keyframe', 'schema_meta')
 WAREHOUSE_TABLES = ('aisle_layout', 'aisle_type_stats', 'warehouse_stats', 'schema_meta')
 
@@ -97,6 +99,24 @@ EXCLUDED_COLS = {
     '*'              : {'id', 'run_id'},
     'simulation_runs': {'id', 'run_id', 'created'},
     'warehouse_stats': {'id', 'timestamp', 'inventory_db'},
+    # runtime_metrics: every measured SECOND is wall-clock and reproduces on no two runs,
+    # so hashing them would make this table permanently DIFFERS and train a reader to
+    # ignore it.  What is hashed is the row's IDENTITY and SHAPE -- which arms exist, how
+    # they were built, how many bins/aisles/batches each ran -- plus, implicitly, the
+    # COLUMN LIST itself, because `_table_digest` seeds the hash with it.
+    #
+    # BE PRECISE ABOUT WHAT THIS BUYS. It catches a section column added, dropped or
+    # renamed; an arm that stopped writing its row; and a changed arm identity. It does
+    # NOT catch a re-associated sum inside a section, because that moves only an excluded
+    # wall-clock value -- no digest over this table can catch that, and claiming otherwise
+    # would be worse than not hashing it at all. Value-level float association is fenced
+    # where it can be: `Tests/unit/test_section_timers.py`.
+    'runtime': {'id', 'run_id',
+                'total_s', 'rate',
+                'reord_s', 'build_s', 'pre_s', 'sim_s', 'extract_s', 'inv_s', 'save_s',
+                'smpl_s', 'task_s', 'kf_s', 'p1_s', 'p2_s',
+                'gc_pause_s', 'gc_gen2', 'peak_rss_mib', 'live_objects',
+                'precomp_s'},
 }
 
 
@@ -216,6 +236,14 @@ def digest_run(base: str) -> dict:
             extras[f'{cell}/{cr.pair}/warehouse.db'] = _digest_db(wh, WAREHOUSE_TABLES)
             cfg = rt.config_json(cell, cr.pair, cr.config)
             extras[f'{cell}/{cr.pair}/{cr.config}/config.json'] = _file_sha(cfg)
+
+    # The run-scope runtime DB: one row per arm, hashed for its SHAPE not its seconds
+    # (see EXCLUDED_COLS['runtime']).  Missing is symmetric, as everywhere else here:
+    # a run that crashed before the parent wrote it compares equal to another that did.
+    from Optimization.persistence.runtime_metrics import runtime_db_path
+    rtdb = runtime_db_path(root)
+    extras['runtime_metrics.db'] = (_digest_db(rtdb, RUNTIME_TABLES)
+                                    if os.path.isfile(rtdb) else {'missing': True})
 
     return {
         'schema': 'run-digest-v1',

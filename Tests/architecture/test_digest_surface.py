@@ -159,16 +159,30 @@ def test_out_of_surface_entries_carry_a_reason():
 # These build each DB with its REAL initialiser and put the tool's own check over the
 # result. A table from any source, conditional or not, is caught.
 
-_KINDS = ('sim', 'keyframe', 'warehouse')
+_KINDS = ('sim', 'keyframe', 'warehouse', 'runtime')
 
 
 def _build(kind, tmp_path):
     from Optimization.persistence.Picking_Data import init_run_db, init_keyframe_db
     from Optimization.persistence.Warehouse_Data import init_warehouse_db
+    # runtime_metrics has no named initialiser: `record_arm` applies `_ALL_DDL` inline.
+    # Building from the same constant is the faithful equivalent -- and is how the SEVENTH
+    # undeclared `schema_meta` was caught, since `_ALL_DDL` carries the stamp DDL too.
+    from Optimization.persistence.runtime_metrics import _ALL_DDL
+
+    def init_runtime_db(path):
+        import sqlite3 as _s
+        con = _s.connect(path)
+        try:
+            for stmt in _ALL_DDL:
+                con.execute(stmt)
+            con.commit()
+        finally:
+            con.close()
     init = {'sim': init_run_db, 'keyframe': init_keyframe_db,
-            'warehouse': init_warehouse_db}[kind]
+            'warehouse': init_warehouse_db, 'runtime': init_runtime_db}[kind]
     bucket = {'sim': rd.SIM_TABLES, 'keyframe': rd.KEYFRAME_TABLES,
-              'warehouse': rd.WAREHOUSE_TABLES}[kind]
+              'warehouse': rd.WAREHOUSE_TABLES, 'runtime': rd.RUNTIME_TABLES}[kind]
     path = os.path.join(str(tmp_path), f'{kind}.db')
     init(path)
     return path, bucket
@@ -213,3 +227,57 @@ def test_the_surface_check_would_still_catch_an_undeclared_table(kind, tmp_path)
             rd._surface_check(con, f'<{kind}>', bucket)
     finally:
         con.close()
+
+
+# ── the runtime table: what its digest can and cannot see ─────────────────────────
+
+def _runtime_cols(tmp_path):
+    path, _bucket = _build('runtime', tmp_path)
+    con = sqlite3.connect(path)
+    try:
+        return path, [r[1] for r in con.execute('PRAGMA table_info(runtime)')]
+    finally:
+        con.close()
+
+
+def test_every_runtime_second_is_excluded_from_the_digest(tmp_path):
+    """Wall-clock columns MUST be excluded, or the table reports DIFFERS on every run and a
+    reader learns to ignore it -- which is worse than not hashing it at all."""
+    _path, cols = _runtime_cols(tmp_path)
+    excluded = rd.EXCLUDED_COLS['runtime']
+    leaked = sorted(c for c in cols if c.endswith('_s') and c not in excluded)
+    assert not leaked, (
+        f'{leaked} are wall-clock seconds still inside the digest surface; they reproduce on '
+        f'no two runs, so the runtime table would always differ')
+
+
+def test_the_runtime_digest_still_sees_the_arm_identity_and_the_column_set(tmp_path):
+    """What it DOES catch, asserted so the exclusions above cannot quietly empty it out.
+
+    A digest that excluded everything would pass every comparison and mean nothing. The
+    surviving columns are the arm's identity and shape, and `_table_digest` seeds the hash
+    with the COLUMN LIST itself -- which is how a dropped or renamed section column shows up
+    even though its seconds are excluded.
+    """
+    path, _cols = _runtime_cols(tmp_path)
+    con = sqlite3.connect(path)
+    try:
+        dig = rd._table_digest(con, 'runtime')
+    finally:
+        con.close()
+    kept = set(dig['cols'])
+    for must in ('cell', 'pair', 'config', 'channel', 'arm',
+                 'initial', 'assignment', 'n_bins', 'regime_bins', 'n_aisles', 'batches'):
+        assert must in kept, f'{must} was excluded; the runtime digest no longer identifies an arm'
+    assert dig['sha'] is not None, 'the runtime table digested to nothing'
+
+
+def test_the_declared_section_partition_matches_the_table(tmp_path):
+    """`SECTIONS` is the stacked graph's partition and this table is where it reads from. A
+    section named there but absent here would plot a column that does not exist."""
+    from Optimization.persistence.runtime_metrics import SECTIONS, OUTSIDE_TOTAL
+    _path, cols = _runtime_cols(tmp_path)
+    have = set(cols)
+    for col, _label in list(SECTIONS) + list(OUTSIDE_TOTAL):
+        assert col in have, (
+            f'{col} is declared as a runtime section but the table has no such column')
