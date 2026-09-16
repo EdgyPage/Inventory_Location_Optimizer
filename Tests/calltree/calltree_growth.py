@@ -861,10 +861,72 @@ def _arm_rollup(run_root: str, workers: int) -> dict:
     }
 
 
-def run_deep_ladder(workers: int, dry_run: bool) -> dict:
-    """Real run_simulation per rung; sections parsed from each run's own log."""
+def _catalogue_size(profiles_dir=None):
+    """(label, declared SKUs) of the pair a rung would bind, or (None, 0).
+
+    Counted from `cartons`, not read from a metadata field: `run_metadata` on these
+    catalogues is a key/value table with no `num_skus`, and a size a catalogue merely
+    CLAIMS is exactly what this check exists to distrust.
+    """
+    import pathlib
+    import sqlite3
+    import Optimization.run_simulation as _rs
+    root = profiles_dir or _rs._DEFAULT_PROFILES_DIR
+    try:
+        label, inv, _aff = _rs.find_latest_db_pairs(root)[0]
+    except (IndexError, OSError):
+        return None, 0
+    try:
+        con = sqlite3.connect(pathlib.Path(inv).as_uri() + '?mode=ro', uri=True)
+        n = con.execute('select count(*) from cartons').fetchone()[0]
+        con.close()
+        return label, int(n)
+    except sqlite3.Error:
+        return label, 0
+
+
+def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None) -> dict:
+    """Real run_simulation per rung; sections parsed from each run's own log.
+
+    THE CATALOGUE IS CHECKED FIRST, and the ladder refuses rather than truncating. Each
+    rung passes `--max-skus N`, and `--max-skus` above the catalogue is neither an error
+    nor a warning -- it takes everything, which in the output is indistinguishable from a
+    subsystem that stopped growing. `INBOUND_PERF_FINDINGS.md` records the cost: three
+    rungs with identical priced quantities, read as a trend, "one run measured three
+    times". The meso tier was fixed by letting the declaration pick the fixture; this is
+    the same fix for the tier that shells out.
+    """
+    label, have = _catalogue_size(profiles_dir)
+    if not have:
+        raise SystemExit(
+            'REFUSING the deep ladder: no readable catalogue pair under '
+            f'{profiles_dir or "the default profiles dir"} (bound: {label}). '
+            'Pass --profiles-dir <root produced by generate_profile_suite.py>.')
+
+    # DROP what the catalogue cannot serve, and SAY SO.  `--max-skus` above the catalogue
+    # is neither an error nor a warning -- it takes everything, which in the output is
+    # indistinguishable from a subsystem that stopped growing.  INBOUND_PERF_FINDINGS.md
+    # records the cost of learning that the hard way: three rungs with identical priced
+    # quantities, read as a trend, "one run measured three times".
+    rungs = [k for k in _DEEP_LADDER if k['max_skus'] <= have]
+    dropped = [k['max_skus'] for k in _DEEP_LADDER if k['max_skus'] > have]
+    print(f'  catalogue: {label} -- {have:,} SKUs', flush=True)
+    if dropped:
+        print('  DROPPED rung(s) %s: above the catalogue, so they would run the SAME %s\n'
+              '           SKUs as the top surviving rung and read as flat. This is a\n'
+              '           SHORTER ladder, not a saturated one -- read the span below.'
+              % (', '.join(f'{d:,}' for d in dropped), f'{have:,}'), flush=True)
+    if len(rungs) < 3:
+        raise SystemExit(
+            f'REFUSING: only {len(rungs)} rung(s) fit under a {have:,}-SKU catalogue, and a\n'
+            'log-log fit needs three positive points. Generate a larger catalogue or\n'
+            'shorten _DEEP_LADDER deliberately.')
+    span = rungs[-1]['max_skus'] / rungs[0]['max_skus']
+    print(f'  span: {rungs[0]["max_skus"]:,} -> {rungs[-1]["max_skus"]:,} '
+          f'({span:.1f}x over {len(rungs)} rungs)', flush=True)
+
     results = []
-    for kwargs in _DEEP_LADDER:
+    for kwargs in rungs:
         cmd = [sys.executable, '-m', 'Optimization.run_simulation',
                '--workers', str(workers), '--spec', 'single',
                '--n-batches', str(kwargs['n_batches']),
@@ -872,6 +934,8 @@ def run_deep_ladder(workers: int, dry_run: bool) -> dict:
                '--s-max-bins', str(kwargs['s_max_bins']),
                '--ff-max-bins', str(kwargs['ff_max_bins']),
                '--keyframe-interval', '0']
+        if profiles_dir:
+            cmd += ['--profiles-dir', str(profiles_dir)]
         if dry_run:
             print('  would run:', ' '.join(cmd))
             continue
@@ -1143,6 +1207,11 @@ def _growth_png(report: dict, path: str) -> None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description='size-ladder growth-curve analysis')
     ap.add_argument('--ladder', choices=('meso', 'deep'), default='meso')
+    ap.add_argument('--profiles-dir', default=None,
+                    help='Catalogue root each DEEP rung binds. Default: whatever '
+                         'find_latest_db_pairs picks, which is the most RECENT pair and not '
+                         'necessarily one big enough for the top rung -- the ladder refuses '
+                         'rather than truncating, and names this flag.')
     ap.add_argument('--knob', choices=tuple(_MESO_LADDERS), default='skus',
                     help='meso only: which input the ladder scales')
     ap.add_argument('--config', choices=tuple(CONFIGS), default='none',
@@ -1179,7 +1248,7 @@ def main(argv=None) -> int:
     else:
         print(f'deep ladder ({args.workers} workers)'
               f'{" — DRY RUN" if args.dry_run else " — this is the ~1h session"}:')
-        ladder = run_deep_ladder(args.workers, args.dry_run)
+        ladder = run_deep_ladder(args.workers, args.dry_run, args.profiles_dir)
         if args.dry_run:
             return 0
 

@@ -173,6 +173,18 @@ Concretely, reached when:
   fails 14 of 51.
   -> [10-the-ranked-assign-heap-lands.md](issues/10-the-ranked-assign-heap-lands.md)
 
+- **[11] The routine suite contaminates itself, and every tier passes alone.** NOT this round's
+  doing -- the mechanism reproduces identically on a `git archive` control -- but it cost two
+  25-minute suite runs to establish. `run_analysis._apply_run_shape` writes `sampler` (falling back
+  to `'v1'`), `work_day_seconds` and `releases_per_day` onto the LIVE `CONFIG` unconditionally and
+  nothing restores them, so an e2e test flips the sampler and Nones two globals for every later
+  test. Three lines reproduce both symptom families. **It was already written down** -- in
+  `calltree_inbound_ladder.py`'s docstring, naming the function, the key and the twelve-minute
+  delay, inside a hand-run CLI that is in no gate. The fix (an autouse conftest fixture, which
+  `test_config_reaches_the_worker`'s `pristine_config` already is for one file) is NOT taken: it
+  changes every test's environment and needs a decision.
+  -> [11-the-routine-suite-contaminates-itself.md](issues/11-the-routine-suite-contaminates-itself.md)
+
 ## Fog
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by
