@@ -7,9 +7,11 @@ the unit is time — and the guards refusing exactly the reads that produced the
 ledger (a LEVEL summed 101x high, packs added to pieces, row-free aggregation over a
 value-dependent kind).
 
-DELIBERATELY STDLIB-ONLY: six of the thirteen architecture tests importorskip pyyaml and
-vanish without it — the silent-trap CLAUDE.md documents.  This gate imports nothing
-optional, so it cannot vanish.
+DELIBERATELY STDLIB-ONLY: seven of the thirty-one architecture tests importorskip pyyaml
+and vanish without it — the silent-trap CLAUDE.md documents.  This gate imports nothing
+optional, so it cannot vanish.  (Those counts were "six of the thirteen" until 2026-09-16;
+the directory had more than doubled underneath them, and CLAUDE.md's own first correction
+then listed THIS file among the vanishing seven, which is the opposite of what it is.)
 
 Run:  python -m pytest Tests/architecture/test_column_semantics.py -q
 """

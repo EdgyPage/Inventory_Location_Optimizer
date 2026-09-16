@@ -112,11 +112,12 @@ Or hand the whole chain to the `architecture-maintainer` agent.
   silence: a test module with no `def test_` function at all collects nothing and reports success.
 - **Without pyyaml, 7 of the 31 `Tests/architecture/*` files `importorskip` and vanish** — and
   they are exactly the sync gates (architecture, HTML site, graph extract, files-catalog,
-  context, column-semantics, figure-registry); an eighth needs `coverage`. The other
-  twenty-three still run, so the suite looks healthy while the generated docs and the
-  `context/` anchors rot unchecked. (This line read "6 of the 13" until 2026-09-16 — the
-  directory had more than doubled, which is its own argument for not trusting a count in
-  prose.)
+  context, architecture-coverage, figure-registry) — and one of those seven needs `coverage`
+  on top. The other twenty-four still run, so the suite looks healthy while the generated
+  docs and the `context/` anchors rot unchecked. (This line read "6 of the 13" until
+  2026-09-16, and its first correction still named `column-semantics` — the one file whose
+  docstring says it imports nothing optional so that it cannot vanish. A count in prose
+  rots; a count in prose that has already been corrected once rots just as fast.)
 - **`nbstripout` is a git filter whose command lives in uncommitted `.git/config`.** A fresh clone
   needs `pip install nbstripout && nbstripout --install` or notebook checkout fails.
 - **`run_analysis.py` takes a CELL directory; handed a run root it does nothing and exits 0.**
