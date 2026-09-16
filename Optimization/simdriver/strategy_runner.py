@@ -84,6 +84,7 @@ from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
 from Optimization.simdriver.section_timers import CheckpointWindow, SectionTimers
+from Optimization.simdriver.shift_ledger import ShiftLedger
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
 # The ONE definition of a drained day (labour-only); the ledger's `drained` is written with it.
 from Optimization.simconfig.equilibrium import is_drained as _is_drained
@@ -1256,10 +1257,10 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     _drain_or_cap = bool(_wd.get('drain_or_cap'))
     if _drain_or_cap:
         _cut_at_day_end = True
-    _shift_prev_day = None          # per-day close-out state for the shift ledger
-    _shift_cut_today = False
-    _shift_last_finish = 0.0
-    _shift_standing = (0, 0, 0, 0)  # (put queues + held, dock floor, LABOUR carry, SUPPLY
+    # Per-day close-out state for the drain-or-cap working day.  Constructed
+    # unconditionally (it is four fields and costs nothing), but touched ONLY inside
+    # `if _drain_or_cap:` -- so a flag-off run never calls it and is byte-identical.
+    shift = ShiftLedger()           # (put queues + held, dock floor, LABOUR carry, SUPPLY
                                     # carry) after the LAST batch processed -- the state a
                                     # day is closed on.  The carry is split by cause because
                                     # only the cut's own half (`unpicked_daycut`) is standing
@@ -2096,8 +2097,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
         below is that loop's, unchanged, so a carry rebound here is rebound in the
         enclosing setup scope exactly as it was between iterations."""
-        nonlocal _d, _pending, _q, _shift_cut_today, _shift_last_finish, _shift_prev_day
-        nonlocal _shift_standing, arm_clock, cons_breaks, cons_picked, cons_residual
+        nonlocal _d, _pending, _q, arm_clock, cons_breaks, cons_picked, cons_residual
         nonlocal demand_breaks, last_dur, put_clock, recv_clock, skipped
         # The six the replenishment half bound; see the seeds above `_replenish`.
         nonlocal _batch_early, _day_end, _late, _put_base, _t, triggered
@@ -2620,20 +2620,17 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # this batch -- the first of the new day -- is attributed to the new day.
         if _drain_or_cap:
             _d = _release.day_of(i)
-            if _shift_prev_day is None:
-                _shift_prev_day = _d
-            elif _d != _shift_prev_day:
-                sd.append(_shift_close_out(_shift_prev_day, _shift_standing,
-                                           _shift_last_finish, _shift_cut_today))
-                _shift_prev_day, _shift_cut_today = _d, False
-                _shift_last_finish = 0.0
-            _shift_cut_today = (_shift_cut_today or bool(sim.carried)
-                                or bool(bs.recv_cut))
-            _shift_last_finish = max(_shift_last_finish, arm_clock, put_clock, recv_clock)
-            _shift_standing = (mgr.queue_depth,
-                               mgr.dock_depth if site is None
-                               else site.coord.dock_depth_for(mgr),
-                               *_pending_split)
+            # BOUNDARY FIRST, then this batch -- the order IS the rule stated above, and
+            # it is now the ledger's interface rather than the shape of this block.
+            _closed = shift.advance_to(_d)
+            if _closed is not None:
+                sd.append(_shift_close_out(*_closed))
+            shift.note(cut=bool(sim.carried) or bool(bs.recv_cut),
+                       finish=max(arm_clock, put_clock, recv_clock),
+                       standing=(mgr.queue_depth,
+                                 mgr.dock_depth if site is None
+                                 else site.coord.dock_depth_for(mgr),
+                                 *_pending_split))
 
         if len(pb) >= checkpoint:
             t_s0 = time.perf_counter()
@@ -2723,9 +2720,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # day, so the last day of a run has no closer inside the loop; without this flush every
         # era run would report one day fewer than it worked, and the equilibrium check's "every
         # day drained" would be read over a window missing its last member.
-        if _drain_or_cap and _shift_prev_day is not None:
-            save_shift_days(db_path, run_id, [_shift_close_out(
-                _shift_prev_day, _shift_standing, _shift_last_finish, _shift_cut_today)])
+        _last_day = shift.final() if _drain_or_cap else None
+        if _last_day is not None:
+            save_shift_days(db_path, run_id, [_shift_close_out(*_last_day)])
 
         # THE CENSORED TAIL, and it is deliberately OUTSIDE the `if pb:` above.  That flush is
         # conditional on there being an unflushed batch window, which there is not when
