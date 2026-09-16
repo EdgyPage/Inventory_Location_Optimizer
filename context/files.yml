@@ -1441,6 +1441,7 @@ files:
     layer: "opt_simdriver"
     key_symbols:
       - {name: "SectionTimers", file: "Optimization/simdriver/section_timers.py", kind: "class"}
+      - {name: "CheckpointWindow", file: "Optimization/simdriver/section_timers.py", kind: "class"}
     notes: ""
   "Optimization/simdriver/sim_assets.py":
     purpose: "per-pair shared-asset construction for a run."
@@ -1764,10 +1765,10 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_every_created_table_is_declared_in_exactly_one_bucket", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
-      - {name: "test_no_bucket_names_a_table_that_does_not_exist", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
       - {name: "test_every_view_is_declared_not_a_table", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
       - {name: "test_out_of_surface_entries_carry_a_reason", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
-      - {name: "test_the_surface_check_passes_on_a_real_run_schema", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_the_surface_check_passes_on_a_real_db_of_every_kind", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_no_bucket_declares_a_table_its_own_db_kind_does_not_have", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
       - {name: "test_the_surface_check_would_still_catch_an_undeclared_table", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_docref_guard.py":
@@ -3518,6 +3519,25 @@ files:
       - {name: "test_abandon_closes_the_figure_and_returns_nothing", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
       - {name: "test_no_family_module_closes_a_chart_figure_by_hand", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
       - {name: "test_the_module_guards_can_actually_see_the_package", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_checkpoint_window.py":
+    purpose: "Fences CheckpointWindow: the five checkpoint counters and the window-open stamp, their exact arithmetic (running-sum dur_sum, the avg_dur zero guard, rate over the caller already-computed wall), and the guarantee that makes the extraction free -- every value dies at the log line and reaches no DB, result dict or runtime_metrics column."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_fresh_window_reads_zero_everywhere", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_add_accumulates_and_leaves_the_others_alone", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_an_undeclared_counter_is_refused_rather_than_created", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_dur_sum_is_a_running_sum_in_batch_order", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_wall_is_now_minus_the_open_instant", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_rate_takes_the_already_computed_wall", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_avg_dur_guards_on_the_count_exactly_as_the_original_did", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_rate_does_not_silently_guard_a_zero_wall", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_roll_zeroes_every_counter_and_reopens_the_window", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_rolling_resets_all_five_together", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_the_counter_vocabulary_is_pinned", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_it_is_slotted_so_a_typo_cannot_shadow_a_counter", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_it_survives_the_worker_process_boundary", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
+      - {name: "test_no_window_value_is_persisted_anywhere", file: "Tests/unit/test_checkpoint_window.py", kind: "function"}
     notes: ""
   "Tests/unit/test_cli_surface.py":
     purpose: "Guards run_simulation._build_parser as the CLI seam: the flag surface, help text, no duplicate registrations, and that no flag default diverges from its CONFIG key (the None sentinel being the documented exception)."

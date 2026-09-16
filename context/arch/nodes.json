@@ -14332,6 +14332,68 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow": {
+      "decorators": [],
+      "doc": "The COUNTER half of the checkpoint window, beside `SectionTimers`' timer half.\n\n    win = CheckpointWindow(opened_at=time.perf_counter())\n    win.add('placed', batch_rp)          # inside the batch loop\n    ckpt_wall = win.wall(now)            # at a checkpoint: the log line's three numbers\n    ckpt_rate = win.rate(ckpt_wall)\n    avg_dur   = win.avg_dur()\n    win.roll(now)                        # close the window\n\n# -- why this one is free, and `SectionTimers` was not ---------------------------\n\nEVERY VALUE HERE DIES AT THE LOG LINE.  The five counters, the open instant, and the\nthree numbers derived from them are consumed by exactly one reader -- the checkpoint\n`log.info(...)` f-string -- and reach no database, no result dict and no\n`runtime_metrics` column.  They are not simulation numbers, so no arrangement of them\ncan move one.  `SectionTimers` could not say that: its totals are persisted.\n\n`Tests/unit/test_checkpoint_window.py` asserts the guarantee rather than trusting it --\nthe old loose names must stay gone and the window must not reach any writer -- because\nthe moment one of these values is persisted, the argument above stops holding silently.\n\n# -- why it is a second object and not folded into `SectionTimers` ----------------\n\nThe two always roll together, which normally argues for one object.  They are kept\napart because their contracts differ: a timer carries a WHOLE-ARM total that outlives\nevery window and lands in a DB column; a counter here has no run total at all.  Folding\nthem would give half the members a `total()` that means nothing, and would reopen the\n`SectionTimers` interface that `Tests/calltree/test_calltree_anchors.py` pins.\n\n# -- the arithmetic is preserved exactly -----------------------------------------\n\n`dur_sum` is a running sum in batch order (the original was a chain of `+=`); `avg_dur`\nkeeps the original's `if dur_count else 0.0` guard; and `rate` takes the ALREADY-COMPUTED\nwall rather than re-reading the clock, because the original reused its `ckpt_wall` local\n-- a `rate()` that read the clock itself would divide by a slightly later wall than the\none printed beside it.  `rate` deliberately does NOT guard a zero wall: the original had\nno guard, and adding one would hide a clock that failed to advance.\n\nSlotted and picklable, for the same reasons as `SectionTimers`.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, opened_at: float) -> None"
+    },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow.add": {
+      "decorators": [],
+      "doc": "Add to one counter.  An undeclared name is a KeyError, never a sixth counter.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, counter: str, n) -> None"
+    },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow.avg_dur": {
+      "decorators": [],
+      "doc": "Mean batch duration this window, or 0.0 when it timed no batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow.get": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, counter: str)"
+    },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow.rate": {
+      "decorators": [],
+      "doc": "Batches per second over `wall` -- the caller's already-computed wall.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, wall: float) -> float"
+    },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow.roll": {
+      "decorators": [],
+      "doc": "Zero every counter and reopen the window at `now`.\n\nAll five together, as the original's one reset block did: a partial reset would\ncarry one counter into the next line and read as a spike.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, now: float) -> None"
+    },
+    "Optimization/simdriver/section_timers.py::CheckpointWindow.wall": {
+      "decorators": [],
+      "doc": "Seconds since this window opened.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, now: float) -> float"
+    },
     "Optimization/simdriver/section_timers.py::SectionTimers": {
       "decorators": [],
       "doc": "Two-level accumulator: an open window, and the whole-arm total that contains it.\n\n    st = SectionTimers()\n    st.add('sim', dt)          # inside the batch loop\n    st.window('sim')           # the checkpoint log line's number\n    st.roll()                  # at a checkpoint: close the window\n    st.totals()                # at run end: the runtime_metrics payload\n\nSlotted, so a mistyped attribute raises instead of shadowing a section, and picklable,\nbecause the leaf that owns one is built inside a spawned worker.",

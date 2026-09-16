@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CheckpointWindow · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_section_timers_py__CheckpointWindow" data-id="Optimization/simdriver/section_timers.py::CheckpointWindow">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_section_timers_py.html"><code>Optimization/simdriver/section_timers.py</code></a> <span class="sep">›</span> <span class="here"><code>CheckpointWindow</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>CheckpointWindow</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_section_timers_py.html"><code>Optimization/simdriver/section_timers.py</code></a></p>
+
+<pre class="sig"><code>class CheckpointWindow</code></pre>
+<section class="doc">The COUNTER half of the checkpoint window, beside `SectionTimers`&#x27; timer half.
+
+    win = CheckpointWindow(opened_at=time.perf_counter())
+    win.add(&#x27;placed&#x27;, batch_rp)          # inside the batch loop
+    ckpt_wall = win.wall(now)            # at a checkpoint: the log line&#x27;s three numbers
+    ckpt_rate = win.rate(ckpt_wall)
+    avg_dur   = win.avg_dur()
+    win.roll(now)                        # close the window
+
+# -- why this one is free, and `SectionTimers` was not ---------------------------
+
+EVERY VALUE HERE DIES AT THE LOG LINE.  The five counters, the open instant, and the
+three numbers derived from them are consumed by exactly one reader -- the checkpoint
+`log.info(...)` f-string -- and reach no database, no result dict and no
+`runtime_metrics` column.  They are not simulation numbers, so no arrangement of them
+can move one.  `SectionTimers` could not say that: its totals are persisted.
+
+`Tests/unit/test_checkpoint_window.py` asserts the guarantee rather than trusting it --
+the old loose names must stay gone and the window must not reach any writer -- because
+the moment one of these values is persisted, the argument above stops holding silently.
+
+# -- why it is a second object and not folded into `SectionTimers` ----------------
+
+The two always roll together, which normally argues for one object.  They are kept
+apart because their contracts differ: a timer carries a WHOLE-ARM total that outlives
+every window and lands in a DB column; a counter here has no run total at all.  Folding
+them would give half the members a `total()` that means nothing, and would reopen the
+`SectionTimers` interface that `Tests/calltree/test_calltree_anchors.py` pins.
+
+# -- the arithmetic is preserved exactly -----------------------------------------
+
+`dur_sum` is a running sum in batch order (the original was a chain of `+=`); `avg_dur`
+keeps the original&#x27;s `if dur_count else 0.0` guard; and `rate` takes the ALREADY-COMPUTED
+wall rather than re-reading the clock, because the original reused its `ckpt_wall` local
+-- a `rate()` that read the clock itself would divide by a slightly later wall than the
+one printed beside it.  `rate` deliberately does NOT guard a zero wall: the original had
+no guard, and adding one would hide a clock that failed to advance.
+
+Slotted and picklable, for the same reasons as `SectionTimers`.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf.html"><code>_build_leaf</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_section_timers_py__CheckpointWindow">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/section_timers.py#:~:text=class%20CheckpointWindow">Source ↗</a></p>
+</article>
+</main>
+</body></html>

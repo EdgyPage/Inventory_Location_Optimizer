@@ -13756,6 +13756,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
     {
+      "dst": "Optimization/simdriver/section_timers.py::CheckpointWindow",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
       "dst": "Optimization/simdriver/section_timers.py::SectionTimers",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
@@ -37463,6 +37468,78 @@
       "kind": "module",
       "module": "Optimization/simdriver/section_timers.py",
       "name": "Optimization.simdriver.section_timers",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow",
+      "kind": "class",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "CheckpointWindow",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow.__repr__",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow.add",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "add",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow.avg_dur",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "avg_dur",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow.get",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "get",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow.rate",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "rate",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow.roll",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "roll",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/section_timers.py",
+      "id": "Optimization/simdriver/section_timers.py::CheckpointWindow.wall",
+      "kind": "function",
+      "module": "Optimization/simdriver/section_timers.py",
+      "name": "wall",
       "public": true
     },
     {
