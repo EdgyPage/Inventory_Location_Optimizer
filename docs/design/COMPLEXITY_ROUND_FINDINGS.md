@@ -404,6 +404,93 @@ is not a better threshold: it is **reporting the local exponents alongside the f
 trend within a ladder is the part that separates the two, and the ladder already computes it
 (`_local_exponents`) and then shows it only for knees.
 
+### The aggregate was linear and one family was pulling away
+
+Refuting `delta_lift_idxs` emptied the meso offender table of everything but `_aisle_best`. That
+should have been suspicious on its own: the meso ladder runs **one arm**, and §2.5 already records
+that the assignment families are invisible to it. So the remaining candidates on the plan's list —
+`_CoDemandPool`'s per-take scans, `_ClusterMapPool`'s `list.remove` — were checked against the HEAD
+artifact and are **not in it at all**. Not small: absent. They belong to arms no cell reaches.
+
+The deep ladder does run all 136 arms, and it recorded which one was slowest at each rung:
+
+| max_skus | 10,000 | 20,000 | 40,000 | 60,000 | 80,000 |
+|---|---|---|---|---|---|
+| slowest arm | `opt_cluster_map` | `opt_cluster_map` | `uni_cluster_map` | `uni_cmin` | `uni_cmax` |
+| its `total_s` | 36.1 | 71.0 | 144.8 | 258.3 | **410.9** |
+| local k | — | 0.98 | 1.03 | 1.43 | **1.61** |
+| `total_s_sum` over all 136 | 2,283 | 4,516 | 9,188 | 14,564 | 20,471 |
+
+**The sum is linear at k = 1.05 across the same span where the worst arm goes from 36 s to 411 s
+with a rising local exponent.** Every section exponent in the deep report is a sum over arms, so
+the divergence is invisible in all of them — and the `reord_s` bend §2.3 could not attribute is in
+the same rungs.
+
+`cmax` is `MaxClu`, `cmin` is `MinClu`, `cluster_map` is `CluMap` (`strategies.py:331-336`): the
+argmax is not wandering at random, it stays inside **one placement family** — the family whose two
+pools the plan named on static grounds and the instrument has never once measured.
+
+This is not yet a conviction, and the reason is worth stating precisely: **a max over a migrating
+argmax is not any arm's growth curve.** A max over 136 noisy series is biased upward, and four arms
+taking turns being unlucky would produce a similar picture. The artifact kept only the extremum, so
+the question cannot be settled from it — which is the defect, not the finding.
+
+Both halves are now fixed, and neither needed a run:
+
+- **the ladder keeps `per_arm_total_s`** and fits every arm across the rungs. An arm missing from a
+  rung is skipped rather than zero-filled, because `zip()` truncates in silence and turns a dead
+  worker into a fast arm — measured, 4 points against 5 rungs gives k = 1.03 at r² = 0.999 where
+  the truth is 1.05, and *pool run swallows dead arms* records that an arm can vanish from a run
+  that still exits 0;
+- **the cluster family has two cells**, `--config cluster_map` and `--config cmin`, so the meso
+  ladder can trace those pools at all. This is the third time this exact blind spot has been paid
+  for, after `--config` itself and the two ranked cells.
+
+And it is the flagging rule that had to change, not the threshold. The diverging arm **fits
+k = 1.15 over the whole span** — under `FLAG_TIME_EXP` (1.50) *and* under `FLAG_COUNT_EXP` (1.30).
+No threshold on the fit reaches it, at any setting that would not also flag every arm in the run.
+Its first two steps are linear and average the last two away; only the trend sees it.
+
+### Inbound: one quadratic is unreachable, the other is bounded by a queue, not by scale
+
+Both were on the plan's list as genuine `O(n²)` by inspection. They are — and neither is a
+complexity risk, for reasons that are structural rather than measured, so no run was needed.
+
+**`bounded_order` (`Inbound/priorities.py:225-228`) — the quadratic branch is dead in every
+shipped configuration.** Its `while remaining:` loop, with `max(range(len(window)))` re-evaluated
+per round and a mid-list `pop`, runs only when `bound` is set AND smaller than the candidate list.
+`INBOUND_TRAILER_BOUND = None` (`settings.py:181`), and the other two call sites
+(`transit.py:269, 436`, the per-pallet ones) pass `bound=None` explicitly — which takes the
+`sorted(...)` path, `O(n log n)`. The archived captures confirm it from the other end: every traced
+`bounded_order` call shows `sorted` among its children and 17 key evaluations for 17 candidates,
+which is the sorted path's count, not the loop's `n × bound`.
+
+Even with the bound set it cannot become quadratic **in scale**: `n` is the yard depth, and
+*inbound yard is a stable queue under the era* records ρ = 0.819 with depth T ≈ 13 — a queue depth
+set by arrival and service rates, not by the catalogue. The ladder axis does not reach it.
+
+**`plan_order` (`Inbound/gain.py:1271-1299`) — genuinely `T³`, and `T` is that same queue depth.**
+The round loop runs `T` times over a shrinking candidate list, so the two `place_load` sweeps cost
+`T(T+1)` calls; worse, `others = {i for i, n in counts.items() if n > 1 or i not in ids}` and the
+`ev.taken | others` union beside it are both rebuilt **per candidate per round**, which is the
+cubic term. *Inbound yard is a stable queue* already names this — "drain cost is cubic in T,
+confirmed at T = 12.97 depth".
+
+The three mechanical fixes the plan proposed do not actually remove it, and it is worth recording
+why so nobody re-derives it: hoisting the multi-count set out of the candidate loop still leaves
+`others` proportional to `|counts|` per candidate, and the `ev.taken | others` union that follows
+is proportional to `|taken|` regardless. The union is the floor. Removing it means giving
+`place_load` a base-set-plus-exclusion pair instead of a materialized set — an API change to the
+evaluator, which is why the plan called the structural half a separate research ticket and why it
+stays one.
+
+**What would re-open both.** Neither is a function of catalogue size; both are a function of
+**ρ**. At ρ = 0.819 the queue is stable and shallow, but depth goes as `1/(1−ρ)` and `plan_order`
+goes as its cube, so the trigger is a volume increase against fixed doors — a *capacity* question,
+and the ladder's SKU axis will never show it however far it is extended. *Site dock is shared
+across channels* records that door count is not currently a knob. The honest instrument for this is
+a ρ sweep, and the one archived `yard` ladder is the known-bad artifact whose x-axis moved 4 %.
+
 ---
 
 ## 4. What now has a fence
