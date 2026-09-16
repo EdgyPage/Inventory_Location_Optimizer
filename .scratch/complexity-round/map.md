@@ -199,10 +199,28 @@ Concretely, reached when:
   Also: **commensurability 0.26 -> 0.52** -- even at the top rung half the wall is not per-arm work.
   -> [14-the-deep-ladder-corroborates-the-bend-not-the-attribution.md](issues/14-the-deep-ladder-corroborates-the-bend-not-the-attribution.md)
 
+- **The cluster family had never been traced, and both cells are quadratic.** `_ClusterMapPool`
+  and `_CoDemandPool` appear in no archived artifact at all -- every `--config` cell before this
+  ran a travel-balanced arm. `cluster_map`: Sum|live| = 8,141,090 over 76,514 calls, **k = 1.99**,
+  local exponents pinned at 2.04, of which the tracer could see 14.4% (four of the five scans are
+  comprehensions or C builtins). `cmin`: `score_of` at 9,195,611 calls, **k = 1.98**.
+  -> [15-the-cluster-family-was-never-traced.md](issues/15-the-cluster-family-was-never-traced.md)
+- **Four passes became one, byte-identical, for a third of the arm's wall** (20.43s -> 13.55s at
+  the top rung). The class did not move and the docs say so.
+  -> [16-the-fused-lift-scan.md](issues/16-the-fused-lift-scan.md)
+- **The quadratic is the cold-start tie-break, and a heap is the WRONG fix** -- it would cost
+  O(|tied| log A) while the tied fraction rises 3.0% -> 14.4%, so its advantage shrinks exactly
+  where the problem grows. Third time this round the heap pattern was reached for; first time it
+  loses.
+  -> [17-the-cold-start-tie-break-is-the-quadratic.md](issues/17-the-cold-start-tie-break-is-the-quadratic.md)
+
 ## Fog
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by
   ticket 02: yes.** v1 fits 1.477 independently; v3 fits 0.822.
+- Is `cmin`'s `score_of` reachable by the run-cache `cluster_map` already uses? Same shape (the
+  winner is the only thing that changes), same byte-identity trap already documented in `_place`.
+  Ticket 17.
 - Does anything in the analysis half of `Optimization/` grow superlinearly? 78 of its 147 files
   are `Performance_Evaluations`, measured by NOTHING -- but an `ast` sweep finds only 3
   triple-nested sites there, over bounded axes. Expect "found nothing" to be the honest answer.
