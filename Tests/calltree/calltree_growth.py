@@ -873,7 +873,7 @@ def _arm_rollup(run_root: str, workers: int) -> dict:
     }
 
 
-def _catalogue_size(profiles_dir=None):
+def _catalogue_size(profiles_dir=None, profile_run=None):
     """(label, declared SKUs) of the pair a rung would bind, or (None, 0).
 
     Counted from `cartons`, not read from a metadata field: `run_metadata` on these
@@ -885,8 +885,12 @@ def _catalogue_size(profiles_dir=None):
     import Optimization.run_simulation as _rs
     root = profiles_dir or _rs._DEFAULT_PROFILES_DIR
     try:
-        label, inv, _aff = _rs.find_latest_db_pairs(root)[0]
-    except (IndexError, OSError):
+        if profile_run:
+            from Schema.profile_resolver import ProfileTree
+            label, inv, _aff = ProfileTree(root).pairs(profile_run)[0]
+        else:
+            label, inv, _aff = _rs.find_latest_db_pairs(root)[0]
+    except (IndexError, OSError, KeyError, ValueError):
         return None, 0
     try:
         con = sqlite3.connect(pathlib.Path(inv).as_uri() + '?mode=ro', uri=True)
@@ -897,7 +901,8 @@ def _catalogue_size(profiles_dir=None):
         return label, 0
 
 
-def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None) -> dict:
+def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None,
+                    profile_run=None) -> dict:
     """Real run_simulation per rung; sections parsed from each run's own log.
 
     THE CATALOGUE IS CHECKED FIRST, and the ladder refuses rather than truncating. Each
@@ -908,7 +913,7 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None) -> dict:
     times". The meso tier was fixed by letting the declaration pick the fixture; this is
     the same fix for the tier that shells out.
     """
-    label, have = _catalogue_size(profiles_dir)
+    label, have = _catalogue_size(profiles_dir, profile_run)
     if not have:
         raise SystemExit(
             'REFUSING the deep ladder: no readable catalogue pair under '
@@ -947,6 +952,8 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None) -> dict:
                '--keyframe-interval', '0']
         if profiles_dir:
             cmd += ['--profiles-dir', str(profiles_dir)]
+        if profile_run:
+            cmd += ['--profile-run', str(profile_run)]
         if dry_run:
             print('  would run:', ' '.join(cmd))
             continue
@@ -1243,6 +1250,10 @@ def main(argv=None) -> int:
                          'find_latest_db_pairs picks, which is the most RECENT pair and not '
                          'necessarily one big enough for the top rung -- the ladder refuses '
                          'rather than truncating, and names this flag.')
+    ap.add_argument('--profile-run', default=None, metavar='NAME',
+                    help='DEEP only: bind this NAMED profile run rather than the newest. '
+                         'The newest is not necessarily the biggest, and a rung above the '
+                         'catalogue is truncated in silence.')
     ap.add_argument('--knob', choices=tuple(_MESO_LADDERS), default='skus',
                     help='meso only: which input the ladder scales')
     ap.add_argument('--config', choices=tuple(CONFIGS), default='none',
@@ -1279,7 +1290,8 @@ def main(argv=None) -> int:
     else:
         print(f'deep ladder ({args.workers} workers)'
               f'{" — DRY RUN" if args.dry_run else " — this is the ~1h session"}:')
-        ladder = run_deep_ladder(args.workers, args.dry_run, args.profiles_dir)
+        ladder = run_deep_ladder(args.workers, args.dry_run, args.profiles_dir,
+                                 args.profile_run)
         if args.dry_run:
             return 0
 

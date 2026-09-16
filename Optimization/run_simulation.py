@@ -257,7 +257,7 @@ def _apply_run_spec(args, spec, explicit):
     for f in ('n_batches', 'max_skus', 's_max_aisles', 's_max_bins', 's_min_bins',
               'ff_max_aisles', 'ff_max_bins', 'ff_min_bins', 'keyframe_interval', 'whatif', 'spec',
               'aisle_columns', 'aisle_levels',
-              'profiles_dir', 'all_profiles', 'workers', 'max_tasks_per_child',
+              'profiles_dir', 'all_profiles', 'profile_run', 'workers', 'max_tasks_per_child',
               'max_retries', 'resume_granularity',
               # Sizing params: a resume MUST rebuild the same warehouse, so these are as
               # load-bearing here as the bin caps beside them.
@@ -475,6 +475,13 @@ def _build_parser() -> argparse.ArgumentParser:
                         help='Root directory produced by generate_profile_suite.py')
     parser.add_argument('--all-profiles', action='store_true',
                         help='Run every profile pair instead of only the newest')
+    parser.add_argument('--profile-run', default=None, metavar='NAME',
+                        help='Bind the NAMED profile run under --profiles-dir instead of '
+                             'the newest. The default binds whichever was generated last, '
+                             'which is not necessarily the one big enough for the run you '
+                             'asked for: --max-skus above the catalogue is not an error, '
+                             'it silently takes everything. Lists the available names when '
+                             'given one that does not exist.')
     parser.add_argument('--resume', metavar='BASE_DIR', default=None,
                         help='Resume a previous run by passing its base directory')
     parser.add_argument('--workers', type=int, default=1, metavar='N',
@@ -1125,7 +1132,10 @@ def main():
         log.info('  Resuming from run_spec.json — run-shaping params reconstructed; no retyped flags needed')
     log.info(f'Output directory : {base_dir}')
     log.info(f'Profiles dir     : {args.profiles_dir}')
-    log.info(f'Mode             : {"all profiles" if args.all_profiles else "latest profile only"}')
+    log.info('Mode             : '
+             + ("all profiles" if args.all_profiles
+                else f"named profile run {args.profile_run!r}" if args.profile_run
+                else "latest profile only"))
 
     # On resume, use the pairs PINNED in run_spec.json — never re-discover (a newer profile
     # would silently swap the inventory out from under a resumed run).
@@ -1137,6 +1147,20 @@ def main():
                 log.warning(f'    run_spec pair path missing for {_lbl}: {_inv} | {_aff}')
     elif args.all_profiles:
         pairs = discover_db_pairs(args.profiles_dir)
+    elif args.profile_run:
+        # A NAMED run. `find_latest_db_pairs` can only ever return the newest, and newest
+        # is not biggest -- a rung asking for more SKUs than the bound catalogue holds is
+        # neither an error nor a warning, it just takes everything and reads as flat.
+        from Schema.profile_resolver import ProfileTree
+        _tree = ProfileTree(args.profiles_dir)
+        _known = list(_tree.runs())
+        if args.profile_run not in _known:
+            sys.exit(f'--profile-run {args.profile_run!r} is not under '
+                     f'{args.profiles_dir}. Available: '
+                     + (', '.join(_known) if _known else '(none)'))
+        pairs = _tree.pairs(args.profile_run)
+        log.info(f'  Binding NAMED profile run {args.profile_run!r} '
+                 f'({len(pairs)} pair(s)) instead of the newest')
     else:
         pairs = find_latest_db_pairs(args.profiles_dir)
 
@@ -1262,6 +1286,7 @@ def main():
             'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
             'aisle_columns': args.aisle_columns, 'aisle_levels': args.aisle_levels,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
+            'profile_run'  : args.profile_run,
             'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
             'max_retries'  : args.max_retries, 'resume_granularity': args.resume_granularity,
             'pairs'        : [list(p) for p in pairs],
