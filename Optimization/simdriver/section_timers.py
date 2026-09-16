@@ -36,21 +36,33 @@ test_section_timers.py` pins all three against a plain running sum.
 
 # ── the vocabulary is a contract ──────────────────────────────────────────────────
 
-`SECTIONS` names the twelve spans `runtime_metrics` has columns for.  It is NOT the
-checkpoint log line's vocabulary and NOT its order: that line prints `smpl=`, `extr=` and
-`cons=` for `sample`, `extract` and `inv`, and it puts `kf=` last where this tuple has it
-fifth.  Three spellings of the same span therefore coexist on purpose — the accumulator's
-key, the log line's token, and the DB column — and only two of the three are contracts.
+`SECTIONS` names the twelve spans an arm measures.  **FOUR spellings of each span coexist**,
+and it is worth writing them out because three of the four look like each other:
 
-The DB column is the one that must never move: `COLUMNS` holds the two that are not simply
-`t_<name>` (the fast_pick phase split kept its `p1_s` / `p2_s` names when it was promoted
-from per-checkpoint to whole-arm), and a renamed column would move the `runtime_metrics`
-schema id for a relabelling, breaking archived rows' comparability with themselves.
+    span        accumulator key   log-line token   result-dict key   runtime_metrics column
+    sampling    'sample'          smpl=            't_sample'        smpl_s
+    extraction  'extract'         extr=            't_extract'       extract_s
+    bin ledger  'inv'             cons=            't_inv'           inv_s
+    reorder     'reord'           reord=           't_reord'         reord_s
+    fast_pick   'p1' / 'p2'       p1= / p2=        'p1_s' / 'p2_s'   p1_s / p2_s
 
-`Tests/calltree/test_calltree_anchors.py` pins the vocabulary from the other side —
-`SECTION_MAP` against this tuple, plus a check that every declared section has a real
-`timers.add(...)` site — so renaming a section here without renaming it there fails a gate
-rather than silently re-labelling an archived column.
+`totals()` emits the THIRD column — the worker RESULT-DICT keys — not the DB column names.
+The result dict is mapped onto columns positionally by `runtime_metrics.record_arm`
+(runtime_metrics.py:186-194: `res.get('t_sample')` lands in `smpl_s`), so the two are
+related only by that hand-written call.  `p1_s` / `p2_s` are the single case where the key
+and the column coincide, which is exactly why calling `t_<name>` "the column" reads as
+plausible and is wrong.
+
+The tuple's ORDER is its own: it is neither the log line's (which puts `kf=` last where this
+has it fifth, and prints p1/p2/db earlier still) nor the DDL's.
+
+WHAT IS AND IS NOT A CONTRACT.  The DB column must never move — a rename would shift the
+`runtime_metrics` schema id for a relabelling and break archived rows' comparability with
+themselves — but this module does not name it, so that contract is enforced at
+`record_arm`, not here.  What IS pinned here is the ACCUMULATOR KEY:
+`Tests/calltree/test_calltree_anchors.py` checks `SECTION_MAP` against this tuple and that
+every declared section has a real `timers.add(...)` site.  `COLUMNS` (badly named for
+history) holds the two result-dict keys that are not simply `t_<name>`.
 """
 from __future__ import annotations
 
@@ -60,14 +72,16 @@ from __future__ import annotations
 #: as a rendering order.  The NAMES are not the log line's words either: `sample`, `extract`
 #: and `inv` print as `smpl=`, `extr=` and `cons=`.  These are the accumulator's own keys,
 #: and the only contract on them is that `COLUMNS`/`t_<name>` maps each to its
-#: `runtime_metrics` column (`Tests/unit/test_section_timers.py` pins the mapping, and
+#: result-dict key (`Tests/unit/test_section_timers.py` pins the mapping, and
 #: `Tests/calltree/test_calltree_anchors.py` pins them against the tracer's vocabulary).
 #: `save` is here even though the caller never opens a window on it (see the module
 #: docstring), so the result payload is one loop instead of eleven sections plus a case.
 SECTIONS: tuple = ('reord', 'build', 'sample', 'task', 'kf', 'pre', 'sim',
                    'extract', 'inv', 'save', 'p1', 'p2')
 
-#: Section -> `runtime_metrics` column.  Everything not named here is `t_<section>`.
+#: Section -> its RESULT-DICT key, for the two that are not simply `t_<section>`.  NOT the
+#: DB column: `runtime_metrics.record_arm` maps result-dict keys onto columns positionally
+#: (`t_sample` -> `smpl_s`), and `p1_s`/`p2_s` are the one case where the two coincide.
 COLUMNS: dict = {'p1': 'p1_s', 'p2': 'p2_s'}
 
 

@@ -14,8 +14,19 @@ composed from **four mixins**, each in its own module, plus their shared leaf he
 | `put_queue.py` | one configurable put-away queue, instantiated N times (spec + queue + set) |
 | `put_policy.py` | which waiting item a queue works next — the `PUT_POLICIES` registry |
 
-All four mixins have **fan-in 1** — only the manager imports them. This package simply makes an
-existing composition visible.
+**Two of the four mixins have fan-in 1; two do not.** `inventory_reorder` and `inventory_zoning`
+are imported only by `Inventory_Management.py` — for those, this package simply makes an existing
+composition visible. The other two are also read from outside, and a change to either is wider
+than it looks:
+
+| Module | Imported outside the manager by |
+|---|---|
+| `inventory_planning.py` | `Optimization/run_simulation.py:65` — module-level `structural_bin_floor`, used by the `--s-max-bins` structural-floor check |
+| `inventory_optimal.py` | `Optimization/run_map_precompute.py:141` — imports the module and reaches `OptimalLayoutMixin._assign_probe` |
+
+This table is here because the sentence it replaces claimed all four were manager-only, which
+would have led a maintainer to scope a change to `inventory_planning` as internal and break the
+CLI at import.
 
 **Zoning is a mixin and not a collaborator object, deliberately.** `Inventory_Manager._index_add` /
 `._index_remove` mirror every bin mutation into the per-band sub-index and are the hottest path in
