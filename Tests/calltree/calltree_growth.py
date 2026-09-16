@@ -94,15 +94,27 @@ _MESO_LADDERS: dict[str, list[dict]] = {
     'yard':    [dict(n_skus=600, n_batches=10, recv_deadline=d)
                 for d in (400.0, 200.0, 120.0, 80.0, 50.0)],
 }
-_DEEP_LADDER = [   # run_simulation args per rung; sized so 5 rungs fit ~an hour at 18 workers
-    dict(max_skus=10_000, s_max_bins=15_000, ff_max_bins=20_000, n_batches=15),
-    dict(max_skus=20_000, s_max_bins=25_000, ff_max_bins=33_000, n_batches=15),
-    dict(max_skus=40_000, s_max_bins=50_000, ff_max_bins=66_000, n_batches=15),
+# run_simulation args per rung; sized so 5 rungs fit ~an hour at 18 workers.
+#
+# THE BIN CAPS ARE GONE, and that is a fix rather than a simplification.  Every rung used to
+# carry `s_max_bins`/`ff_max_bins`, and on 2026-09-16 all three runnable rungs failed with
+# `UnfieldableRequirement` -- the caps bind BELOW the era's declared stock levels, so the planner
+# refuses rather than fielding under the line floor.  That is the documented behaviour of a cap
+# now, not a regression: `INBOUND_PERF_FINDINGS.md` records `run_fullfid` refusing for exactly
+# this reason and concludes "NO cap value would have worked", because a smaller warehouse raises
+# lines/day, which grows the levels, which needs more bins.
+#
+# `--coverage-days` is the lever that actually shrinks a run: it lowers the DECLARATION, so the
+# warehouse the planner sizes to comes down with it.  2 days against the production default of 10.
+_DEEP_LADDER = [
+    dict(max_skus=10_000, coverage_days=2.0, n_batches=15),
+    dict(max_skus=20_000, coverage_days=2.0, n_batches=15),
+    dict(max_skus=40_000, coverage_days=2.0, n_batches=15),
     # 60k is not a doubling, and that is the point.  The `save_s` knee sits somewhere in
     # 40k..80k, and with only 2x rungs a knee is one data point -- indistinguishable from
     # "this machine, that afternoon".  A mid rung brackets it.
-    dict(max_skus=60_000, s_max_bins=75_000, ff_max_bins=99_000, n_batches=15),
-    dict(max_skus=80_000, s_max_bins=100_000, ff_max_bins=132_000, n_batches=15),
+    dict(max_skus=60_000, coverage_days=2.0, n_batches=15),
+    dict(max_skus=80_000, coverage_days=2.0, n_batches=15),
 ]
 
 # Offender thresholds: exponent above which a fit is flagged, per instrument.
@@ -925,14 +937,13 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None) -> dict:
     print(f'  span: {rungs[0]["max_skus"]:,} -> {rungs[-1]["max_skus"]:,} '
           f'({span:.1f}x over {len(rungs)} rungs)', flush=True)
 
-    results = []
+    results, failed = [], []
     for kwargs in rungs:
         cmd = [sys.executable, '-m', 'Optimization.run_simulation',
                '--workers', str(workers), '--spec', 'single',
                '--n-batches', str(kwargs['n_batches']),
                '--max-skus', str(kwargs['max_skus']),
-               '--s-max-bins', str(kwargs['s_max_bins']),
-               '--ff-max-bins', str(kwargs['ff_max_bins']),
+               '--coverage-days', str(kwargs['coverage_days']),
                '--keyframe-interval', '0']
         if profiles_dir:
             cmd += ['--profiles-dir', str(profiles_dir)]
@@ -956,6 +967,7 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None) -> dict:
         if rc != 0:
             print(f'  RUNG FAILED (exit {rc}); last output:')
             print('\n'.join(out_txt.splitlines()[-10:]))
+            failed.append(kwargs['max_skus'])
             continue
         try:
             parsed = scenarios.macro_sections()   # newest run.log = the one we just made
@@ -987,7 +999,26 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None) -> dict:
         else:
             print('      NO runtime_metrics rows — the per-arm instrument is unavailable, so '
                   'this rung has only a wall.')
-    return {'knob': 'max_skus(deep)', 'rungs': results}
+    # A LADDER THAT MEASURED NOTHING MUST NOT REPORT NOTHING-IS-WRONG.
+    #
+    # Observed 2026-09-16: all three rungs exited 1 with UnfieldableRequirement, and the
+    # ladder went on to print "no super-linear offenders flagged at these thresholds" and
+    # archive a JSON.  `RUNG FAILED ... continue` dropped each rung and nothing downstream
+    # could tell "measured and clean" from "never ran" -- the same failure shape as the
+    # ALL-ZERO flows warning, one level up, and the one this package's README already
+    # names: a level is not coverage.
+    if failed:
+        listed = ', '.join(f'{f:,}' for f in failed)
+        msg = (f'{len(failed)} of {len(rungs)} rung(s) FAILED ({listed}) -- a fit over the '
+               f'survivors would describe a different ladder than the one requested.')
+        if len(results) < 3:
+            raise SystemExit(
+                'REFUSING to report: ' + msg
+                + f' Only {len(results)} rung(s) produced data, and a log-log fit needs three'
+                  ' positive points. NOTHING WAS MEASURED -- fix the rungs before reading any'
+                  ' exponent.')
+        print('  WARNING: ' + msg, flush=True)
+    return {'knob': 'max_skus(deep)', 'rungs': results, 'failed_rungs': failed}
 
 
 # ── fitting + report ─────────────────────────────────────────────────────────
