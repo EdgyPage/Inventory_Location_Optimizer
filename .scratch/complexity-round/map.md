@@ -69,6 +69,27 @@ Concretely, reached when:
   drawing and not the batch, and count exponents stay comparable with the archive.
   -> [02-the-ladder-measures-a-retired-sampler.md](issues/02-the-ladder-measures-a-retired-sampler.md)
 
+- **[04] THE HEAD OFFENDER TABLE -- and it refutes the claim that the `take` heap fixed
+  `_aisle_best`.** Measured 2026-09-16 on `608fbfc9`, sequentially on a quiet host, both configs.
+  `pytest Tests/calltree -q` re-confirmed green with the era sampler (33 passed, 434 s).
+  Ticket 02's pre-registered prediction held: `t_sample` fell from k=1.522 to **1.11 / 1.09** and
+  left the table.
+  **Nothing is a section-wall offender** -- the highest is `t_reord` at 1.48 against a 1.50 flag.
+  Every conviction is a call count: `delta_lift_idxs` k=1.59, `_TravelBalancedPool._aisle_best`
+  and `._score_of` k=1.54-1.57 (427,497 calls at 8,000 SKUs), and -- new, never in the archive --
+  **`cost_model:per_pick` k=1.31 at 542,781 calls**.
+  **One mechanism, not five.** Dividing by the run's own placements, work per unit IS growing and
+  all three grow together: `_aisle_best` k=0.573 (0.366 -> 1.205 per placement), `delta_lift_idxs`
+  k=0.502, `per_pick` k=0.414. They are the same thing -- every family re-scores EVERY AISLE at
+  every SKU-run boundary, so per-unit cost tracks the aisle count.
+  **`bd29d2eb` removed the SCAN in `take`'s selection, not the run-boundary rebuild.** `_aisle_best`
+  is convicted on HEAD under both configs and its per-placement cost more than triples across the
+  ladder. This is the first HEAD measurement of the `R x A` term, and it stands.
+  **Coverage gap, stated rather than read as an acquittal:** `_RankedAssignPool` (ticket 03) does
+  not appear in this table at all, because these rungs run the default strategy and not the
+  ranked-assign arms. That is the ladder's blind spot, not evidence the scan is harmless.
+  -> [04-the-head-offender-table.md](issues/04-the-head-offender-table.md)
+
 ## Fog
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by
@@ -76,5 +97,10 @@ Concretely, reached when:
 - Does anything in the analysis half of `Optimization/` grow superlinearly? 78 of its 147 files
   are `Performance_Evaluations`, measured by NOTHING -- but an `ast` sweep finds only 3
   triple-nested sites there, over bounded axes. Expect "found nothing" to be the honest answer.
-- What replaces the `R x A` run-boundary rebuild in `_TravelBalancedPool`? The `per_pick` memo is
-  a constant factor; the structural fix is an algorithm search and may close with a reason.
+- What replaces the `R x A` run-boundary rebuild in `_TravelBalancedPool`? **Now the convicted
+  top candidate** (ticket 04), not a speculative one. The `per_pick` memo is the measured cheap
+  half -- 542,781 calls for a value depending only on `(m, var)`; the structural half is an
+  algorithm search and may still close with a stated reason.
+- The `skus` ladder runs the DEFAULT strategy, so no ranked-assign arm is exercised by any rung.
+  Ticket 03's scan is therefore unmeasured rather than acquitted. Does the ladder need a strategy
+  axis, or is a per-arm capture the right instrument?

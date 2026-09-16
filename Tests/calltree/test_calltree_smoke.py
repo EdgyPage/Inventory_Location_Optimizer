@@ -349,3 +349,58 @@ def test_seconds_outrank_calls_because_only_one_of_them_is_a_cost():
     assert [o['name'] for o in ranked] == ['sec', 'fn', 'k'], (
         'a knee with a huge local k still sorts above priced seconds, or calls outrank '
         'seconds because 5.4e7 > 30 - the two are not the same unit')
+
+
+# -- the "nothing was measured" line must read what it is about ------------------------
+
+def test_the_all_zero_warning_stays_silent_when_flows_fired():
+    """THE defect, with the numbers that exposed it.
+
+    The HEAD ladder printed, two lines apart, on the same rung:
+
+        flows (traced, cumulative): ... held_appends=40,720 held_retry_touches=50,912 ...
+        flows: ALL ZERO -- the put-away/receiving path did not execute under
+                           cfg=split_staging4. Use --config split_staging4 to exercise it.
+
+    The warning was the `else` of the per-ENTRY-CALL branch -- an inbound-only quantity -- so on
+    every non-inbound config it fired regardless of the flows, and told the reader to switch to
+    the config they were already running.
+
+    This matters more than a cosmetic wrong line. `Tests/calltree/README.md` instructs the
+    reader that "`flows: ALL ZERO` in the per-rung output means *not measured*", and records a
+    run whose held path executed millions of times reporting `held: 0` with that zero read as
+    "the path never ran". A warning that cries wolf on every rung trains the reader to skip the
+    line that exists to stop them trusting a zero.
+    """
+    import calltree_growth as cg
+
+    real = {'refill_passes': 10_191, 'held_retry_touches': 50_912, 'held_appends': 40_720,
+            'queue_admissions': 91_779, 'pool_opens': 14_942}
+    assert cg._flows_warning(real, 'split_staging4') is None, (
+        'the ALL-ZERO warning fires on a rung that recorded 40,720 held appends')
+
+
+def test_the_all_zero_warning_still_fires_when_nothing_ran():
+    """NON-VACUITY, and the half that must survive: the line exists because a config that
+    silently exercises nothing is indistinguishable from a subsystem that costs nothing."""
+    import calltree_growth as cg
+
+    for flows in ({}, {'held_appends': 0, 'pool_opens': 0}):
+        msg = cg._flows_warning(flows, 'none')
+        assert msg and 'NOT MEASURED' in msg, f'silent on {flows!r}'
+
+
+def test_the_warning_does_not_tell_you_to_use_the_config_you_are_running():
+    """The other half of the original bug, and the one that makes the line actively misleading
+    rather than merely noisy."""
+    import calltree_growth as cg
+
+    on_ss4 = cg._flows_warning({}, 'split_staging4')
+    assert on_ss4 is not None
+    assert '--config split_staging4' not in on_ss4, (
+        'still advising --config split_staging4 while running split_staging4')
+
+    on_none = cg._flows_warning({}, 'none')
+    assert '--config split_staging4' in on_none, (
+        'the hint is gone entirely -- it is useful on a config that genuinely cannot reach '
+        'the path')

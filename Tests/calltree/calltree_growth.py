@@ -251,6 +251,28 @@ def _knee(xs, ys) -> dict | None:
             'at_x': xs[-1]}
 
 
+def _flows_warning(flows: dict, config: str) -> str | None:
+    """The per-rung "nothing was measured" line, or None when something was.
+
+    It reads FLOWS, which is what it is about.  It used to be the `else` of the
+    per-ENTRY-CALL branch -- an inbound-only quantity -- so on every non-inbound config it
+    fired regardless of the flows, printing "the put-away/receiving path did not execute
+    under cfg=split_staging4" two lines below `held_appends=40,720`, and telling the reader
+    to switch to the config they were already running.
+
+    That is the failure this package's README records having been burned by once already: a
+    run whose held path executed millions of times reported `held: 0`, and the zero was read
+    as "the path never ran".  A warning that cries wolf on every rung trains the reader to
+    skip the one line that exists to stop them trusting a zero.
+    """
+    if any(flows.values()):
+        return None
+    hint = ('' if config == 'split_staging4'
+            else ' Use --config split_staging4 to exercise it.')
+    return (f'flows: ALL ZERO -- no named flow fired under cfg={config}, so the '
+            f'put-away/receiving path was NOT MEASURED here.{hint}')
+
+
 def _project(ys: list, k: float, factor: float = PROJECT_FACTOR) -> float:
     """The series' last value carried `factor` times further along the ladder.
 
@@ -710,12 +732,15 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
                 _entries,
                 ' '.join(f'{k}={v:,.1f}' for k, v in per_en.items()),
                 f'   -> implied T from T(T+1)={_t:.1f}' if _t else ''))
-            if per_pl:
-                print('      per placement: '
-                      + ' '.join(f'{k}={v:.2f}' for k, v in sorted(per_pl.items())))
-        else:
-            print(f'      flows: ALL ZERO -- the put-away/receiving path did not execute '
-                  f'under cfg={config}. Use --config split_staging4 to exercise it.')
+        # Per-placement ratios are NOT an inbound quantity and must not hide behind `per_en`.
+        # Nested there, they never printed per-rung on any config but the inbound cells --
+        # while still being computed and fitted, so the summary showed what the rungs did not.
+        if per_pl:
+            print('      per placement: '
+                  + ' '.join(f'{k}={v:.2f}' for k, v in sorted(per_pl.items())))
+        _warn = _flows_warning(flows, config)
+        if _warn:
+            print(f'      {_warn}')
         print(f'      levels (untraced, END of run -- a level, not coverage): '
               f"q={levels_u['queue_depth']:,} dock={levels_u['dock_depth']:,} "
               f"held={levels_u['held']:,}")
