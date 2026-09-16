@@ -1770,6 +1770,9 @@ files:
       - {name: "test_the_surface_check_passes_on_a_real_db_of_every_kind", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
       - {name: "test_no_bucket_declares_a_table_its_own_db_kind_does_not_have", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
       - {name: "test_the_surface_check_would_still_catch_an_undeclared_table", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_every_runtime_second_is_excluded_from_the_digest", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_the_runtime_digest_still_sees_the_arm_identity_and_the_column_set", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_the_declared_section_partition_matches_the_table", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_docref_guard.py":
     purpose: "Locks the doc section-reference guard: every '<doc>.md section N' in the repo still resolves, the checker catches renumbered and retitled headings, and CLAUDE.md's numbering stays contiguous."
@@ -2136,6 +2139,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "SIM_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
+      - {name: "RUNTIME_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "KEYFRAME_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "WAREHOUSE_TABLES", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "NOT_A_TABLE", file: "Tests/bench/run_digest.py", kind: "const"}
