@@ -491,6 +491,53 @@ and the ladder's SKU axis will never show it however far it is extended. *Site d
 across channels* records that door count is not currently a knob. The honest instrument for this is
 a ρ sweep, and the one archived `yard` ladder is the known-bad artifact whose x-axis moved 4 %.
 
+### Half the deep-tier wall is not per-arm work, and it is not a complexity problem
+
+The deep ladder's own commensurability check — `Σ total_s / workers` against the measured wall —
+has never read better than 0.52:
+
+| max_skus | wall (min) | model (min) | gap | gap/wall | gap per arm-slot |
+|---|---|---|---|---|---|
+| 10,000 | 8.2 | 2.1 | 6.1 | 0.74 | **48.4 s** |
+| 20,000 | 10.5 | 4.2 | 6.3 | 0.60 | **50.0 s** |
+| 40,000 | 18.2 | 8.5 | 9.7 | 0.53 | 77.0 s |
+| 60,000 | 27.0 | 13.5 | 13.5 | 0.50 | 107.2 s |
+| 80,000 | 36.4 | 18.9 | 17.5 | 0.48 | 139.0 s |
+
+That check exists to catch rows describing a different run than the clock did, and a ratio of 0.26
+looks exactly like that failure. It is not. The last column is the decomposition: the gap divided
+by arm-slots (`gap × workers / 136`) is **what one arm costs outside its own `total_s`** — and it
+is ~48 seconds *flat* across the first doubling, then grows with the catalogue.
+
+48.4 s × 136 arms ÷ 18 workers = **6.0 minutes**, against a measured gap of 6.1 at the smallest
+rung. The fixed term alone accounts for essentially the whole gap there.
+
+**The mechanism is already on record.** `max_tasks_per_child` is pinned at 1 — *worker recycling
+pinned at one* records that anything higher deadlocked the pool at a cell boundary, so the pin is a
+decision, not an oversight. One process per arm means every arm pays a fresh interpreter start, a
+full re-import, and a catalogue load (the affinity CSR alone is 41 MB resident). The batch loop's
+clock starts after all of that, which is why none of it is in `total_s` and none of it is in any
+section. `precomp_s` is measured outside `total_s` too and is *not* the answer — it is 0.11–0.28
+minutes per rung against a gap of 6.1–17.5.
+
+**Three consequences, and the first two are reassuring:**
+
+1. **The section exponents are not contaminated.** They are computed from per-arm sums, and the
+   gap is per-arm *startup*, which is in neither. `total_s_sum` at k = 1.05 is measuring real work.
+2. **The deep WALL is the number not to fit.** It grows at k = 0.72 across the ladder — sub-linear,
+   because a largely fixed 48 s per arm amortizes as the work grows. Anyone fitting wall-clock here
+   would conclude the simulation gets cheaper per SKU. It does not; the startup share shrinks.
+3. **It is a scheduling cost, not a complexity one, and it is large.** At the top rung it is 17.5
+   minutes of a 36.4-minute run. Halving it would nearly halve every deep ladder — but the lever is
+   the recycling pin, which is held shut by a deadlock, so this is **recorded, not fixed**.
+
+**What would make it actionable.** Not a faster catalogue load: the flat 48 s at the two smallest
+rungs is mostly *not* catalogue-sized. The question is what a fresh worker pays before it starts
+its batch loop, and that has never been measured directly — only inferred from this subtraction.
+A single instrumented arm, timing interpreter start / import / catalogue load / first batch, would
+settle it in one run of a few minutes. That is the cheap next step if anyone wants the 17 minutes
+back, and it is a different investigation from anything in this document.
+
 ---
 
 ## 4. What now has a fence
