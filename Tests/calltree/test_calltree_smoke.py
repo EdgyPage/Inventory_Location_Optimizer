@@ -524,3 +524,112 @@ def test_a_converging_offender_is_ranked_below_a_diverging_one():
     assert [o['name'] for o in cg._severity_sort(stripped)] == ['saturating', 'growing'], (
         'the trend is not what produced the order above -- `projected` alone already gives '
         'it, so this test would pass with the sort key reverted')
+
+
+# -- per-arm growth: the sum can be linear while one family pulls away ------------------
+
+#: The 2026-09-16 deep ladder, 136 arms over 10k-80k SKUs. `_DEEP_MAX` is `total_s_max`, whose
+#: argmax MIGRATED across the rungs (opt_cluster_map -> uni_cluster_map -> uni_cmin -> uni_cmax,
+#: all one placement family); `_DEEP_MEAN` is `total_s_sum / 136` from the same rungs, standing
+#: in for the 135 arms that did not diverge.
+_DEEP_XS   = [10_000, 20_000, 40_000, 60_000, 80_000]
+_DEEP_MAX  = [36.06, 70.95, 144.75, 258.28, 410.86]
+_DEEP_MEAN = [16.78, 33.21, 67.56, 107.09, 150.52]
+
+
+def _deep_ladder(per_arm: dict):
+    """A deep-tier ladder carrying only what the per-arm fit reads."""
+    rungs = []
+    for i, x in enumerate(_DEEP_XS):
+        arms = {a: ys[i] for a, ys in per_arm.items()}
+        rungs.append({'x': x, 'sections': {}, 'counts': {}, 'flows': {},
+                      'flows_per_placement': {}, 'wall_s': 490.0 * (i + 1),
+                      'arms': {'arms': len(arms), 'total_s_sum': sum(arms.values()),
+                               'phase_model_s': 1.0, 'sections_sum': {}, 'residual_s': 0.0,
+                               'residual_frac': 0.0, 'precomp_s_sum': 0.0,
+                               'total_s_max': max(arms.values()),
+                               'slowest_arm': {'arm': max(arms, key=arms.get),
+                                               'total_s': max(arms.values())},
+                               'peak_rss_mib_max': 1.0, 'n_bins': 1, 'n_aisles': 1,
+                               'per_arm_total_s': arms}})
+    return {'knob': 'skus', 'config': 'none', 'rungs': rungs}
+
+
+def test_a_diverging_arm_is_caught_although_its_fit_is_under_every_threshold():
+    """THE case the per-arm series exists for, with the deep ladder's real numbers.
+
+    The diverging arm fits k=1.15 over the whole span — under `FLAG_TIME_EXP` (1.50) and under
+    `FLAG_COUNT_EXP` (1.30), so no threshold on the fit would ever report it. Its local
+    exponents are 0.98, 1.03, 1.43, 1.61: the first half of the ladder is linear and averages
+    the second half away. That is the shape a single fit is structurally unable to show, and
+    the arm holding it is the slowest arm at every rung of the ladder.
+    """
+    import calltree_growth as cg
+
+    report = cg.fit_report(_deep_ladder({'uni_cmax_norsl': _DEEP_MAX,
+                                         'uni_rank_labor_norsl': _DEEP_MEAN}))
+
+    fast = report['arm_growth']['uni_cmax_norsl']
+    assert fast['exponent'] < cg.FLAG_TIME_EXP and fast['exponent'] < cg.FLAG_COUNT_EXP, (
+        f"premise: the fit alone does NOT flag this arm (k={fast['exponent']}). If it now "
+        f'does, the thresholds moved and this test is no longer about the trend.')
+    assert fast['trend'] == 'accelerating', fast
+    assert fast['local'] == [0.98, 1.03, 1.43, 1.61], fast['local']
+
+    flagged = [o['name'] for o in report['offenders'] if o['kind'] == 'arm-total']
+    assert 'arm:uni_cmax_norsl' in flagged, (
+        f'the diverging arm was not reported at all: {flagged}')
+
+
+def test_the_other_arms_do_not_all_come_out_diverging():
+    """NON-VACUITY. 136 arms means a verdict that fires easily fires 136 times and is read
+    zero times. The stand-in for the arms that did NOT diverge rises too — 0.98 to 1.18 — and
+    must stay quiet, which is what `FLAG_TREND_DELTA` is for."""
+    import calltree_growth as cg
+
+    report = cg.fit_report(_deep_ladder({'uni_cmax_norsl': _DEEP_MAX,
+                                         'uni_rank_labor_norsl': _DEEP_MEAN}))
+
+    slow = report['arm_growth']['uni_rank_labor_norsl']
+    assert slow['trend'] == 'sustained', slow
+    assert slow['local'][-1] > slow['local'][0], (
+        'premise: this series rises too — if it were flat the test would prove nothing about '
+        'the threshold, only about the sign')
+    assert [o['name'] for o in report['offenders'] if o['kind'] == 'arm-total'] \
+        == ['arm:uni_cmax_norsl'], 'a quiet arm was reported'
+
+
+def test_the_sum_stays_linear_while_one_arm_diverges():
+    """Why the per-arm series had to exist at all: every section exponent in the deep report
+    is built from a SUM over arms, and the sum here is linear at k=1.05 across a span where
+    one arm goes from 36 s to 411 s. The divergence is invisible in every aggregate."""
+    import calltree_growth as cg
+
+    per_arm = {'uni_cmax_norsl': _DEEP_MAX}
+    per_arm.update({f'arm{i:03d}': _DEEP_MEAN for i in range(135)})    # the real 136
+    report = cg.fit_report(_deep_ladder(per_arm))
+
+    totals = [r['arms']['total_s_sum'] for r in _deep_ladder(per_arm)['rungs']]
+    k_sum, r2_sum = cg._fit_loglog(_DEEP_XS, totals)
+    assert k_sum < 1.10 and r2_sum > 0.99, (
+        f'premise: the 136-arm sum is linear (k={k_sum:.2f}, r²={r2_sum:.3f})')
+    assert cg._trend(_DEEP_XS, totals)['verdict'] == 'sustained', 'the sum hides it'
+
+    assert report['arm_growth']['uni_cmax_norsl']['trend'] == 'accelerating'
+    assert [o['name'] for o in report['offenders'] if o['kind'] == 'arm-total'] \
+        == ['arm:uni_cmax_norsl'], 'the one diverging arm in 136 was not isolated'
+
+
+def test_an_arm_missing_from_a_rung_is_skipped_not_zero_filled():
+    """A dead worker produces no runtime row. Zero-filling it would read as an arm that got
+    faster, which is the direction that hides a problem — and `pool run swallows dead arms`
+    records that a whole arm can vanish while the run still exits 0."""
+    import calltree_growth as cg
+
+    ladder = _deep_ladder({'uni_cmax_norsl': _DEEP_MAX, 'uni_rank_labor_norsl': _DEEP_MEAN})
+    del ladder['rungs'][2]['arms']['per_arm_total_s']['uni_rank_labor_norsl']
+
+    report = cg.fit_report(ladder)
+    assert 'uni_rank_labor_norsl' not in report['arm_growth'], (
+        'an arm absent from a rung was fitted anyway — on four points misaligned with five xs')
+    assert 'uni_cmax_norsl' in report['arm_growth'], 'the complete arm was dropped too'

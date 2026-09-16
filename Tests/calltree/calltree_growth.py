@@ -363,7 +363,8 @@ _TREND_SERIES = {'call-count':    ('functions', 'counts'),
                  'flow':          ('flows', 'counts'),
                  'per-placement': ('flows_per_placement', 'ratios'),
                  'section-wall':  ('sections', 'walls'),
-                 'arm-total':     ('arm_totals', 'values')}
+                 'arm-total':     ('arm_totals', 'values'),
+                 'arm-growth':    ('arm_growth', 'values')}
 
 
 def _severity_sort(offenders: list) -> list:
@@ -502,6 +503,21 @@ CONFIGS: dict[str, LadderConfig] = {
         why='rank_popularity over _RankedAssignPool -- the selector that reads the live '
             'aisle_demand_sum its own takes mutate',
         overlay=dict(strategy='uni_rank_popularity_norsl')),
+    # -- the CLUSTER family ----------------------------------------------------------
+    # The deep ladder's slowest arm at every rung belongs to this family, and its total_s
+    # DIVERGES (local k 0.98 -> 1.61) while the 136-arm sum stays flat at k=1.05.  The meso
+    # ladder could not see any of it: `_CoDemandPool` and `_ClusterMapPool` are unreachable
+    # from every other cell here, exactly as `_RankedAssignPool` was before the two cells
+    # above existed.  Two cells because the pools are different code: cluster_map walks
+    # favored locations with an intra-aisle compaction pass, cmin/cmax are co-demand.
+    'cluster_map': LadderConfig(
+        why='_ClusterMapPool -- map favored-location + cohesion + intra-aisle compaction; '
+            'held the deep ladder\'s slowest-arm slot at the two smallest rungs',
+        overlay=dict(strategy='uni_cluster_map_norsl')),
+    'cmin': LadderConfig(
+        why='_CoDemandPool (minimum-cluster) -- the co-demand pool, which took the deep '
+            'ladder\'s slowest-arm slot at 60,000 SKUs',
+        overlay=dict(strategy='uni_cmin_norsl')),
     'baseline_put': LadderConfig(
         why='timed put-away, unbounded floor -- the 2x2 origin cell',
         overlay=dict(_PUT_RECIPE, put_timing=True), rungs=_PUT_RUNGS),
@@ -926,6 +942,14 @@ def _arm_rollup(run_root: str, workers: int) -> dict:
         'precomp_s_sum': round(sum(_f(r, 'precomp_s') for r in rows), 2),
         'slowest_arm': {'arm': slowest.get('arm'), 'total_s': round(_f(slowest, 'total_s'), 2)},
         'total_s_max': round(_f(slowest, 'total_s'), 2),
+        # EVERY arm, not just the largest.  `total_s_max` is a max over a MIGRATING
+        # argmax -- on the 2026-09-16 deep ladder it ran 36 -> 411 s with local exponents
+        # 0.98, 1.03, 1.43, 1.61 while `total_s_sum` stayed flat at k=1.05, and the arm
+        # holding it changed three times (opt_cluster_map -> uni_cluster_map -> uni_cmin
+        # -> uni_cmax).  A max over a changing argmax is not any arm's growth curve, so
+        # the divergence could not be attributed without re-running the whole ladder.
+        # 136 floats per rung is nothing; losing them cost an hour of wall clock.
+        'per_arm_total_s': {str(r.get('arm')): round(_f(r, 'total_s'), 2) for r in rows},
         'peak_rss_mib_max': round(max(peaks), 1) if peaks else None,
         # A4: the SECOND axis.  The ladder scales SKUs and bins together, so every per-bin
         # cost is charged to the SKU exponent unless the bin count is carried alongside.
@@ -1106,7 +1130,8 @@ def fit_report(ladder: dict) -> dict:
     xs = [r['x'] for r in rungs]
     report = {'knob': ladder['knob'], 'config': ladder.get('config', 'none'), 'xs': xs,
               'sections': {}, 'functions': {}, 'flows': {},
-              'flows_per_placement': {}, 'arm_totals': {}, 'knees': {},
+              'flows_per_placement': {}, 'arm_totals': {}, 'arm_growth': {},
+              'knees': {},
               'offenders': [], 'suppressed': []}
     if len(rungs) < 3:
         return report
@@ -1236,6 +1261,33 @@ def fit_report(ladder: dict) -> dict:
                          'projected': round(_project(ys, slope), 4),
                          'units': 'seconds' if seconds else '',
                          'exponent': round(slope, 3), 'r2': round(r2, 3)})
+        # A8: PER-ARM. The sum can be linear while one FAMILY pulls away, and the sum is
+        # what every section exponent above is built from. An arm missing from any rung is
+        # skipped rather than zero-filled -- a dead worker must not read as a fast arm.
+        _per_arm: dict = {}
+        for a in arms:
+            for _arm, _v in (a.get('per_arm_total_s') or {}).items():
+                _per_arm.setdefault(_arm, []).append(_v)
+        for _arm, _ys in sorted(_per_arm.items()):
+            if len(_ys) != len(xs) or not all(y > 0 for y in _ys):
+                continue
+            _k, _r2 = _fit_loglog(xs, [float(y) for y in _ys])
+            if _k != _k:
+                continue
+            _t = _trend(xs, _ys)
+            report['arm_growth'][_arm] = {'exponent': round(_k, 3), 'r2': round(_r2, 3),
+                                          'values': _ys,
+                                          'trend': _t['verdict'] if _t else None,
+                                          'local': _t['local'] if _t else None}
+            # Flag on the TREND as well as the fit: an arm that is still under the threshold
+            # but accelerating is the one worth catching, and it is exactly what a fit over
+            # the whole span averages away.
+            if (_r2 >= MIN_R2 and _k >= FLAG_TIME_EXP) or (_t and _t['verdict'] == 'accelerating'):
+                report['offenders'].append(
+                    {'kind': 'arm-total', 'name': f'arm:{_arm}', 'last': _ys[-1],
+                     'projected': round(_project(_ys, _k), 4), 'units': 'seconds',
+                     'exponent': round(_k, 3), 'r2': round(_r2, 3)})
+
         # A7: COMMENSURABILITY.  `sum(total_s)/workers` is a model of the phase; if it is
         # nowhere near the measured wall then the rows describe a different run than the
         # clock did, and every exponent above is about the wrong thing.  This is the check
@@ -1275,10 +1327,14 @@ def fit_report(ladder: dict) -> dict:
     # is still in the report, so the trend is a lookup rather than a recomputation.  A knee
     # IS a local-exponent finding already and needs no second one.
     for _o in report['offenders']:
-        _where = _TREND_SERIES.get(_o.get('kind'))
+        _name = _o['name']
+        _kind = _o.get('kind')
+        if _kind == 'arm-total' and _name.startswith('arm:'):
+            _kind, _name = 'arm-growth', _name[4:]
+        _where = _TREND_SERIES.get(_kind)
         if _where is None:
             continue
-        _e = report[_where[0]].get(_o['name'])
+        _e = report[_where[0]].get(_name)
         _t = _trend(xs, _e[_where[1]]) if _e else None
         if _t is not None:
             _o['trend'] = _t
@@ -1415,6 +1471,22 @@ def main(argv=None) -> int:
         for c in report.get('commensurable', []):
             print(f"    x={c['x']:>7,}  model {c['phase_model_min']:>6.1f} min  "
                   f"wall {c['wall_min']:>6.1f} min  ratio {c['ratio']}")
+
+    if report.get('arm_growth'):
+        _rank = sorted(report['arm_growth'].items(), key=lambda kv: -kv[1]['exponent'])
+        _acc = [kv for kv in _rank if kv[1]['trend'] == 'accelerating']
+        print(f"\nPER-ARM growth ({len(report['arm_growth'])} arms; the SUM can be linear "
+              f"while one family pulls away):")
+        for _n, _e in _rank[:8]:
+            _mark = '  <- DIVERGING' if _e['trend'] == 'accelerating' else ''
+            print(f"  {_n:28s} k={_e['exponent']:6.2f}  r\u00b2={_e['r2']:.2f}  "
+                  f"{_e['values']}{_mark}")
+            if _e['local']:
+                print(f"       {'':26s} local k "
+                      + ' '.join(f'{k:.2f}' for k in _e['local']))
+        if _acc:
+            print(f"  {len(_acc)} arm(s) accelerating: "
+                  + ', '.join(n for n, _ in _acc[:10]))
 
     if report['flows_per_placement']:
         print('\nPER-PLACEMENT ratios (work per unit, not unit count — the discriminator):')
