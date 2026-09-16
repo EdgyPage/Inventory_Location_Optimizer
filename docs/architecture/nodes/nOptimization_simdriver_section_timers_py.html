@@ -53,21 +53,33 @@ test_section_timers.py` pins all three against a plain running sum.
 
 # ── the vocabulary is a contract ──────────────────────────────────────────────────
 
-`SECTIONS` names the twelve spans `runtime_metrics` has columns for.  It is NOT the
-checkpoint log line&#x27;s vocabulary and NOT its order: that line prints `smpl=`, `extr=` and
-`cons=` for `sample`, `extract` and `inv`, and it puts `kf=` last where this tuple has it
-fifth.  Three spellings of the same span therefore coexist on purpose — the accumulator&#x27;s
-key, the log line&#x27;s token, and the DB column — and only two of the three are contracts.
+`SECTIONS` names the twelve spans an arm measures.  **FOUR spellings of each span coexist**,
+and it is worth writing them out because three of the four look like each other:
 
-The DB column is the one that must never move: `COLUMNS` holds the two that are not simply
-`t_&lt;name&gt;` (the fast_pick phase split kept its `p1_s` / `p2_s` names when it was promoted
-from per-checkpoint to whole-arm), and a renamed column would move the `runtime_metrics`
-schema id for a relabelling, breaking archived rows&#x27; comparability with themselves.
+    span        accumulator key   log-line token   result-dict key   runtime_metrics column
+    sampling    &#x27;sample&#x27;          smpl=            &#x27;t_sample&#x27;        smpl_s
+    extraction  &#x27;extract&#x27;         extr=            &#x27;t_extract&#x27;       extract_s
+    bin ledger  &#x27;inv&#x27;             cons=            &#x27;t_inv&#x27;           inv_s
+    reorder     &#x27;reord&#x27;           reord=           &#x27;t_reord&#x27;         reord_s
+    fast_pick   &#x27;p1&#x27; / &#x27;p2&#x27;       p1= / p2=        &#x27;p1_s&#x27; / &#x27;p2_s&#x27;   p1_s / p2_s
 
-`Tests/calltree/test_calltree_anchors.py` pins the vocabulary from the other side —
-`SECTION_MAP` against this tuple, plus a check that every declared section has a real
-`timers.add(...)` site — so renaming a section here without renaming it there fails a gate
-rather than silently re-labelling an archived column.</section>
+`totals()` emits the THIRD column — the worker RESULT-DICT keys — not the DB column names.
+The result dict is mapped onto columns positionally by `runtime_metrics.record_arm`
+(runtime_metrics.py:186-194: `res.get(&#x27;t_sample&#x27;)` lands in `smpl_s`), so the two are
+related only by that hand-written call.  `p1_s` / `p2_s` are the single case where the key
+and the column coincide, which is exactly why calling `t_&lt;name&gt;` &quot;the column&quot; reads as
+plausible and is wrong.
+
+The tuple&#x27;s ORDER is its own: it is neither the log line&#x27;s (which puts `kf=` last where this
+has it fifth, and prints p1/p2/db earlier still) nor the DDL&#x27;s.
+
+WHAT IS AND IS NOT A CONTRACT.  The DB column must never move — a rename would shift the
+`runtime_metrics` schema id for a relabelling and break archived rows&#x27; comparability with
+themselves — but this module does not name it, so that contract is enforced at
+`record_arm`, not here.  What IS pinned here is the ACCUMULATOR KEY:
+`Tests/calltree/test_calltree_anchors.py` checks `SECTION_MAP` against this tuple and that
+every declared section has a real `timers.add(...)` site.  `COLUMNS` (badly named for
+history) holds the two result-dict keys that are not simply `t_&lt;name&gt;`.</section>
 <section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers.html"><code>SectionTimers</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers___repr__.html"><code>__repr__</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_add.html"><code>add</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_roll.html"><code>roll</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_total.html"><code>total</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_totals.html"><code>totals</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li><li><a href="nOptimization_simdriver_section_timers_py__SectionTimers_window.html"><code>window</code></a> <span class="dim">Optimization/simdriver/section_timers.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_section_timers_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/section_timers.py">Source ↗</a></p>
 </article>

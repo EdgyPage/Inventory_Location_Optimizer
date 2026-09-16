@@ -1759,6 +1759,17 @@ files:
       - {name: "test_an_ungated_evaluation_never_pays_for_the_probe", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
       - {name: "test_the_run_end_summary_counts_era_skips_separately", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_digest_surface.py":
+    purpose: "Gate: every table Picking_Data creates lands in exactly one run_digest bucket, and the tool actually runs on a real run schema. Added after five unconditional tables (yard_trailers, yard_drains, site_receiving, shift_days, free_index) made _surface_check raise SystemExit on every sim DB, leaving the byte-identity digest dead while Tests/bench sat in no gate."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_created_table_is_declared_in_exactly_one_bucket", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_no_bucket_names_a_table_that_does_not_exist", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_every_view_is_declared_not_a_table", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_out_of_surface_entries_carry_a_reason", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_the_surface_check_passes_on_a_real_run_schema", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+      - {name: "test_the_surface_check_would_still_catch_an_undeclared_table", file: "Tests/architecture/test_digest_surface.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_docref_guard.py":
     purpose: "Locks the doc section-reference guard: every '<doc>.md section N' in the repo still resolves, the checker catches renumbered and retitled headings, and CLAUDE.md's numbering stays contiguous."
     layer: "tests"

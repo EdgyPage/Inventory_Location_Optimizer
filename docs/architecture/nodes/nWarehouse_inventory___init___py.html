@@ -15,7 +15,7 @@
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory___init___py.html"><code>Warehouse/inventory/__init__.py</code></a></p>
 
 <pre class="sig"><code>Warehouse.inventory</code></pre>
-<section class="doc">Warehouse.inventory — The Inventory_Manager placement engine and its mixins (planning, optimal, reorder, zoning) plus their shared leaf helpers.  This is the composition documented in files.yml: inventory_optimal, inventory_reorder and inventory_zoning exist only for Inventory_Management.
+<section class="doc">Warehouse.inventory — The Inventory_Manager placement engine and its four mixins (planning, optimal, reorder, zoning) plus their shared leaf helpers.  Only inventory_reorder and inventory_zoning exist SOLELY for Inventory_Management; inventory_planning and inventory_optimal are also read from Optimization/ (see README.md for the two call sites), so a change to either is wider than the package boundary suggests.
 
 See README.md for what does and does not belong here.</section>
 <section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(0)</span></h2></section>
