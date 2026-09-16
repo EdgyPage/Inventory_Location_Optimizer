@@ -116,6 +116,23 @@ Concretely, reached when:
   them trusting a zero. Now a testable `_flows_warning(flows, config)` helper.
   -> [05-the-all-zero-warning-cried-wolf-on-every-rung.md](issues/05-the-all-zero-warning-cried-wolf-on-every-rung.md)
 
+- **[07] THE NEAR-QUADRATIC, CONVICTED AND DECOMPOSED: the run-boundary rebuild is k = 1.912, and
+  the two factors close exactly.** The ladder counts `_aisle_best`'s two call sites together and
+  the obvious subtraction is WRONG (it implies negative rebuilds at three of four rungs), so the
+  split was measured with a probe wrapping `take` -- nothing under `Warehouse/` edited.
+  Rebuild **k=1.912**, refresh **k=1.000**; boundaries R k=1.045 and aisles A k=0.867, and
+  **1.045 + 0.867 = 1.912** to three decimals. Two self-checks hold exactly: `R x A_mean` equals
+  `rebuild_calls` (116,712), and `refresh == takes` at every rung. The rebuild is already 80% of
+  the calls at 2,400 SKUs, up from 53% at 600.
+  **Priced, because a count is not a cost:** `_aisle_best` costs 0.434 us, so paired with the
+  ladder's own 2,400 rung the rebuild is 100 ms of a 3.78 s wall -- **2.66%**. That is the honest
+  headline: k=1.912 on a term worth 2.7% today.
+  It stays the top candidate because the SHARE grows as n^0.651 (wall k=1.26 against rebuild
+  1.912) -- ~12% at 24k, ~53% at 240k, ~74% at campaign scale. **That is a PREDICTION from a 4x
+  fit extrapolated 167x**, which is the exact move that cost `inbound-performance` three
+  retractions, so the deep ladder tests it BEFORE any lazy-bound work is built.
+  -> [07-the-r-by-a-rebuild-needs-its-split-measured-first.md](issues/07-the-r-by-a-rebuild-needs-its-split-measured-first.md)
+
 ## Fog
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by
