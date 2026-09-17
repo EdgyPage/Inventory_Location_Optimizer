@@ -1069,6 +1069,7 @@ files:
       - {name: "declared_runtime_shape", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
       - {name: "PRE_STAMP_RUNTIME_SCHEMA_ID", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "RUNTIME_DB_FAMILY", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
+      - {name: "Span", file: "Optimization/persistence/runtime_metrics.py", kind: "class"}
       - {name: "SECTIONS", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "OUTSIDE_TOTAL", file: "Optimization/persistence/runtime_metrics.py", kind: "const"}
       - {name: "runtime_db_path", file: "Optimization/persistence/runtime_metrics.py", kind: "function"}
@@ -5412,6 +5413,24 @@ files:
       - {name: "test_the_working_day_is_recorded_and_restored", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_the_runner_reads_the_day_only_from_its_arguments", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
       - {name: "test_batch_level_resume_is_refused_while_demand_rolls_over", file: "Tests/unit/test_run_shaping_params.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_runtime_span_table.py":
+    purpose: "Fences runtime_metrics.SPANS, the join that ends a measured span having FOUR spellings and no link between the last two: asserts the table and the runtime DDL cover each other both ways (a `*_s` column no span claims reads 0.0 forever, which is a legal measurement), that the stacked-graph partition excludes every overlay, and then WRITES a row through record_arm with a distinct value per span and reads every column back -- resolving names was never evidence, so the NULL-vs-measured-zero rule and two sabotages are checked against a real file."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_declared_column_is_in_the_ddl", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_every_ddl_section_column_is_declared", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_the_span_table_has_no_duplicate_spelling", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_the_partition_excludes_every_overlay", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_the_timer_vocabulary_is_the_table_and_the_order_is_preserved", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_totals_emits_the_result_keys_not_the_columns", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_every_declared_span_reaches_its_column_in_a_real_row", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_every_declared_result_column_reaches_its_column_too", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_an_absent_span_writes_its_declared_absent_and_not_a_crash", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_a_column_that_must_stay_NULL_stays_NULL", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_the_row_is_idempotent_by_its_key", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_a_span_added_without_a_column_fails_loudly", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
+      - {name: "test_a_span_added_without_a_column_also_fails_when_WRITTEN", file: "Tests/unit/test_runtime_span_table.py", kind: "function"}
     notes: ""
   "Tests/unit/test_scheduler.py":
     purpose: "Task\u2192picker scheduler (Pick.assign_tasks): 'round_robin' (default, byte-identical to the legacy"

@@ -8811,6 +8811,11 @@
       "src": "Optimization/persistence/checkpoint_buffer.py::write_rows"
     },
     {
+      "dst": "Optimization/persistence/runtime_metrics.py::Span",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_metrics.py"
+    },
+    {
       "dst": "Schema/compat.py",
       "kind": "imports",
       "src": "Optimization/persistence/runtime_metrics.py"
@@ -13334,6 +13339,11 @@
       "dst": "Optimization/runschema/runlayout.py::iter_sim_dbs",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_warn_blank_arms"
+    },
+    {
+      "dst": "Optimization/persistence/runtime_metrics.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/section_timers.py"
     },
     {
       "dst": "Optimization/simdriver/section_timers.py::SectionTimers.total",
@@ -33363,6 +33373,14 @@
       "kind": "const",
       "module": "Optimization/persistence/runtime_metrics.py",
       "name": "SECTIONS",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/runtime_metrics.py",
+      "id": "Optimization/persistence/runtime_metrics.py::Span",
+      "kind": "class",
+      "module": "Optimization/persistence/runtime_metrics.py",
+      "name": "Span",
       "public": true
     },
     {

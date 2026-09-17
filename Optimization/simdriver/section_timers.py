@@ -47,19 +47,30 @@ and it is worth writing them out because three of the four look like each other:
     fast_pick   'p1' / 'p2'       p1= / p2=        'p1_s' / 'p2_s'   p1_s / p2_s
 
 `totals()` emits the THIRD column — the worker RESULT-DICT keys — not the DB column names.
-The result dict is mapped onto columns positionally by `runtime_metrics.record_arm`
-(runtime_metrics.py:186-194: `res.get('t_sample')` lands in `smpl_s`), so the two are
-related only by that hand-written call.  `p1_s` / `p2_s` are the single case where the key
-and the column coincide, which is exactly why calling `t_<name>` "the column" reads as
-plausible and is wrong.
+`p1_s` / `p2_s` are the single case where the key and the column coincide, which is exactly
+why calling `t_<name>` "the column" reads as plausible and is wrong.
+
+THE LAST HOP USED TO BE A HAND-WRITTEN CALL.  `record_arm` mapped result-dict keys onto
+columns in a 32-column INSERT written out by hand, so a section added to `SECTIONS` flowed
+automatically into `totals()` and then **silently vanished** — writing nothing, raising
+nothing, and leaving a column reading 0.0, which is a legal measurement.  Ticket 14 made the
+four spellings one record: `runtime_metrics.SPANS`, from which this module's `SECTIONS` and
+`COLUMNS` are both derived and from which `record_arm` builds its statement.
+`Tests/unit/test_runtime_span_table.py` asserts the table and the DDL cover each other AND
+writes a real row to prove each span reaches its column.
+
+WHY THE TABLE LIVES IN `runtime_metrics` AND NOT HERE.  The DB column is the hard contract and
+it belongs beside the DDL — and `opt_persistence -> opt_simdriver` is a declared boundary
+("storing results must not depend on orchestration"), so the dependency can only run this way.
+This module owns the ACCUMULATOR KEY and reads the other three.
 
 The tuple's ORDER is its own: it is neither the log line's (which puts `kf=` last where this
 has it fifth, and prints p1/p2/db earlier still) nor the DDL's.
 
 WHAT IS AND IS NOT A CONTRACT.  The DB column must never move — a rename would shift the
 `runtime_metrics` schema id for a relabelling and break archived rows' comparability with
-themselves — but this module does not name it, so that contract is enforced at
-`record_arm`, not here.  What IS pinned here is the ACCUMULATOR KEY:
+themselves — which is why `Span.label` exists: the human name tracks what a span measures and
+the column never moves.  What is pinned HERE is the ACCUMULATOR KEY:
 `Tests/calltree/test_calltree_anchors.py` checks `SECTION_MAP` against this tuple and that
 every declared section has a real `timers.add(...)` site.  `COLUMNS` (badly named for
 history) holds the two result-dict keys that are not simply `t_<name>`.
@@ -67,6 +78,13 @@ history) holds the two result-dict keys that are not simply `t_<name>`.
 from __future__ import annotations
 
 import time
+
+# The span table lives in `runtime_metrics` because the DB COLUMN is the hard contract and it
+# belongs with the DDL -- and because `opt_persistence -> opt_simdriver` is a declared
+# boundary ("storing results must not depend on orchestration"), so the dependency can only
+# run this way.  This module owns the accumulator key; it now READS the other three spellings
+# instead of a reader having to know all four (ticket 14).
+from Optimization.persistence.runtime_metrics import SPANS as _SPANS
 
 #: The twelve spans.  The order is this tuple's own and matches NEITHER the checkpoint log
 #: line nor `runtime_metrics`' column order — the log line prints reord, build, smpl, task,
@@ -78,13 +96,16 @@ import time
 #: `Tests/calltree/test_calltree_anchors.py` pins them against the tracer's vocabulary).
 #: `save` is here even though the caller never opens a window on it (see the module
 #: docstring), so the result payload is one loop instead of eleven sections plus a case.
-SECTIONS: tuple = ('reord', 'build', 'sample', 'task', 'kf', 'pre', 'sim',
-                   'extract', 'inv', 'save', 'p1', 'p2')
+#: DERIVED from `runtime_metrics.SPANS` since ticket 14, in that tuple's declaration order,
+#: which was chosen to reproduce this one exactly.
+SECTIONS: tuple = tuple(s.section for s in _SPANS)
 
 #: Section -> its RESULT-DICT key, for the two that are not simply `t_<section>`.  NOT the
-#: DB column: `runtime_metrics.record_arm` maps result-dict keys onto columns positionally
-#: (`t_sample` -> `smpl_s`), and `p1_s`/`p2_s` are the one case where the two coincide.
-COLUMNS: dict = {'p1': 'p1_s', 'p2': 'p2_s'}
+#: DB column: `p1_s`/`p2_s` are the one case where the key and the column coincide, which is
+#: exactly why calling `t_<name>` "the column" reads as plausible and is wrong.  Derived, so
+#: the exception list cannot disagree with the table it is an exception to.
+COLUMNS: dict = {s.section: s.result_key for s in _SPANS
+                 if s.result_key != f't_{s.section}'}
 
 
 class SectionTimers:

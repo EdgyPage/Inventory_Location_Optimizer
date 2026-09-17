@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from typing import NamedTuple
 
 from Schema import compat as _compat
 from Schema import identity as _identity
@@ -107,23 +108,90 @@ RUNTIME_DB_FAMILY = _identity.register(_identity.Family(
 ))
 
 
-SECTIONS = [
-    ('reord_s',   'reorder'),
-    ('build_s',   'batch-build'),
-    ('pre_s',     'pre-snapshot'),
-    ('sim_s',     'sim'),
-    ('extract_s', 'extract'),
-    # `inv_s` predates the bin-mutation log, when this section wrote the bin_inventory
-    # snapshot.  That table is gone; the section is now the per-batch conservation ledger.
-    # The COLUMN keeps its name so archived rows stay readable (and so relabelling does not
-    # move the runtime_metrics schema id); only the human label tracks what it measures.
-    ('inv_s',     'bin-accounting'),
-    ('save_s',    'DB-save'),
-    # NOT in this list, deliberately: smpl_s/task_s (sub-splits of build_s), kf_s (a
-    # sub-span of pre_s), p1_s/p2_s (a split of sim_s), gc_pause_s (overlaps every
-    # section).  This list is a PARTITION for the stacked graph — adding an overlay
-    # column here double-counts its seconds.  Query the columns directly instead.
-]
+class Span(NamedTuple):
+    """One measured span, and ALL FOUR of its spellings in one place (ticket 14).
+
+    The chain used to be: `SectionTimers.SECTIONS` -> `totals()` -> a result-dict key ->
+    pickled across the process seam -> a hand-written column in `record_arm`'s INSERT. A
+    section added to the first flowed automatically as far as the result dict and then
+    **vanished at the INSERT** -- writing nothing and raising nothing. Here a span declares
+    its spellings once and `record_arm` builds its statement from them, so the last hop is
+    derived rather than remembered.
+
+    `column` IS A HARD CONTRACT. Renaming one shifts the `runtime_metrics` schema id for a
+    relabelling and breaks archived rows' comparability with themselves, which is why
+    `label` exists: the human name tracks what a span measures, the column never moves.
+    `inv_s` is the standing example -- it predates the bin-mutation log, when that section
+    wrote the `bin_inventory` snapshot; the table is gone and the section is now the
+    per-batch conservation ledger, but the column is still `inv_s`.
+
+    `label` is also the PARTITION flag. A span with a label is one of the seven that tile an
+    arm's wall clock; a span with `None` is an OVERLAY carved out of one of them, and putting
+    an overlay in the stacked graph double-counts its seconds.
+    """
+
+    #: the accumulator key `SectionTimers.add()` takes
+    section: str
+    #: the worker RESULT-DICT key -- `t_<section>` for ten of the twelve
+    result_key: str
+    #: the `runtime` DDL column. Never renamed; see the class docstring.
+    column: str
+    #: the stacked-graph label, or None when this span is an overlay of another
+    label: str | None
+    #: what the column gets when the worker did not measure this span
+    absent: float | None = 0.0
+
+
+#: The twelve spans, in `SectionTimers`' own declaration order — which matches NEITHER the
+#: checkpoint log line (it prints reord, build, smpl, task, pre, sim, extr, cons and puts kf
+#: last) NOR the DDL. Preserved exactly as it was so `SectionTimers.SECTIONS`, which is derived
+#: from this tuple, keeps the order it has always had.
+SPANS: tuple = (
+    Span('reord',   't_reord',   'reord_s',   'reorder'),
+    Span('build',   't_build',   'build_s',   'batch-build'),
+    Span('sample',  't_sample',  'smpl_s',    None),      # a sub-split of build_s
+    Span('task',    't_task',    'task_s',    None),      # a sub-split of build_s
+    Span('kf',      't_kf',      'kf_s',      None),      # a sub-span of pre_s
+    Span('pre',     't_pre',     'pre_s',     'pre-snapshot'),
+    Span('sim',     't_sim',     'sim_s',     'sim'),
+    Span('extract', 't_extract', 'extract_s', 'extract'),
+    Span('inv',     't_inv',     'inv_s',     'bin-accounting'),
+    Span('save',    't_save',    'save_s',    'DB-save'),
+    # The one pair whose result key and column COINCIDE, which is exactly why calling
+    # `t_<name>` "the column" reads as plausible and is wrong for the other ten.
+    Span('p1',      'p1_s',      'p1_s',      None),      # a split of sim_s
+    Span('p2',      'p2_s',      'p2_s',      None),      # a split of sim_s
+)
+
+
+#: The columns `record_arm` reads off the worker result that are NOT spans. `absent` is the
+#: value a row gets when the key is missing, and it is a per-column DECISION rather than a
+#: blanket `or 0.0`: NULL means "not measured", 0 means "measured as zero", and for the setup
+#: spans telling those apart is the entire job of `precomp_src`.
+RESULT_COLUMNS: tuple = (
+    # (column, result key, cast or None to pass through, absent)
+    ('n_bins',       'n_bins',       int,   0),
+    ('regime_bins',  'regime_bins',  int,   0),
+    ('n_aisles',     'n_aisles',     int,   0),
+    ('gc_pause_s',   'gc_pause_s',   float, 0.0),
+    ('gc_gen2',      'gc_gen2',      int,   0),
+    # NULLABLE, and not coerced: not every platform reports RSS, and a 0 here would read as
+    # "this arm used no memory" rather than "nobody looked".
+    ('peak_rss_mib', 'peak_rss_mib', None,  None),
+    ('live_objects', 'live_objects', None,  None),
+    # The setup spans (2026-08-23 column add), measured OUTSIDE `total_s` — see OUTSIDE_TOTAL.
+    # A worker that did not measure the precompute must write NULL, or the analysis cannot
+    # tell "no map to build" from "0.0 s".
+    ('precomp_s',    't_precompute', None,  None),
+    ('map_lap_pct',  'map_lap_pct',  None,  None),
+)
+
+
+#: The seven spans that TILE an arm's wall clock, as `(column, label)` for the stacked graph.
+#: DERIVED from `SPANS` rather than restated: a partition and an overlay differ by exactly one
+#: field, and this list having its own copy is how an overlay gets into it. Adding an overlay
+#: here double-counts its seconds; query the column directly instead.
+SECTIONS = [(s.column, s.label) for s in SPANS if s.label is not None]
 
 #: Spans measured OUTSIDE `total_s` — the batch loop's clock starts after setup, so the
 #: map precompute is in neither `total_s` nor any SECTION.  Kept as its own list for the
@@ -172,34 +240,32 @@ def record_arm(run_root: str, cell: str, res: dict, *,
         # Stamp + verify the store: worker-safe (warn-once) — record_arm runs per arm, deep
         # inside a sweep; a store gap must nag, not kill the arm.
         _compat.stamp_checked(con, RUNTIME_DB_FAMILY, strict=False)
+        # BUILT FROM THE TABLES, not written out (ticket 14).  A span used to declare itself
+        # in `SectionTimers.SECTIONS`, flow automatically into the result dict, and then
+        # vanish here -- writing nothing, raising nothing.  Now the last hop is derived, and
+        # `Tests/unit/test_runtime_span_table.py` asserts the tables and the DDL cover each
+        # other exactly.  Every read is still a `.get`, so a crashed or legacy result dict
+        # writes its declared `absent` rather than raising.
+        cols = ['cell', 'pair', 'config', 'channel', 'arm', 'initial', 'assignment',
+                'batches', 'total_s', 'rate']
+        vals = [cell or '', pair, config, channel, arm, initial, assignment,
+                batches, total, (batches / total if total > 0 else 0.0)]
+        for _col, _key, _cast, _absent in RESULT_COLUMNS:
+            _v = res.get(_key)
+            cols.append(_col)
+            vals.append(_absent if _v is None else (_cast(_v) if _cast else _v))
+        for _s in SPANS:
+            cols.append(_s.column)
+            vals.append(float(res.get(_s.result_key) or _s.absent or 0.0)
+                        if _s.absent is not None else res.get(_s.result_key))
+        # THE ONE DERIVED COLUMN, and it stays written out: its value is a statement ABOUT
+        # another column ("was the precompute measured at all") rather than a reading, so a
+        # table entry for it would be a table entry holding a sentence.
+        cols.append('precomp_src')
+        vals.append('inline' if res.get('t_precompute') is not None else None)
         con.execute(
-            'INSERT OR REPLACE INTO runtime '
-            '(cell,pair,config,channel,arm,initial,assignment,n_bins,regime_bins,n_aisles,'
-            'batches,total_s,rate,reord_s,build_s,pre_s,sim_s,extract_s,inv_s,save_s,'
-            'smpl_s,task_s,kf_s,p1_s,p2_s,gc_pause_s,gc_gen2,peak_rss_mib,live_objects,'
-            'precomp_s,precomp_src,map_lap_pct) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            (cell or '', pair, config, channel, arm, initial, assignment,
-             int(res.get('n_bins', 0) or 0), int(res.get('regime_bins', 0) or 0),
-             int(res.get('n_aisles', 0) or 0), batches, total,
-             (batches / total if total > 0 else 0.0),
-             float(res.get('t_reord', 0.0) or 0.0), float(res.get('t_build', 0.0) or 0.0),
-             float(res.get('t_pre', 0.0) or 0.0), float(res.get('t_sim', 0.0) or 0.0),
-             float(res.get('t_extract', 0.0) or 0.0), float(res.get('t_inv', 0.0) or 0.0),
-             float(res.get('t_save', 0.0) or 0.0),
-             # finer splits + memory observability (2026-08-19 column add; every read is a
-             # .get so a crashed/legacy result dict writes zeros/NULLs, never raises)
-             float(res.get('t_sample', 0.0) or 0.0), float(res.get('t_task', 0.0) or 0.0),
-             float(res.get('t_kf', 0.0) or 0.0),
-             float(res.get('p1_s', 0.0) or 0.0), float(res.get('p2_s', 0.0) or 0.0),
-             float(res.get('gc_pause_s', 0.0) or 0.0), int(res.get('gc_gen2', 0) or 0),
-             res.get('peak_rss_mib'), res.get('live_objects'),
-             # Setup-phase spans (2026-08-23 column add).  NOT coerced to 0.0 like the
-             # section columns above: a worker that did not measure the precompute must
-             # write NULL, or the analysis cannot tell "no map to build" from "0.0 s".
-             res.get('t_precompute'),
-             ('inline' if res.get('t_precompute') is not None else None),
-             res.get('map_lap_pct')))
+            f'INSERT OR REPLACE INTO runtime ({",".join(cols)}) '
+            f'VALUES ({",".join("?" * len(cols))})', tuple(vals))
         con.commit()                     # connect.close checkpoints, it does not commit
     finally:
         _connect.close(con)
