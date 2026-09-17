@@ -240,3 +240,13 @@ Concretely, reached when:
 - ~~The `skus` ladder runs the DEFAULT strategy, so no ranked-assign arm is exercised.~~
   **CLOSED by tickets 03 and 09: a strategy axis was the answer, and it found the round's largest
   exponent** -- plus a structural blind spot no `--config` can fix.
+- ~~The cold-start tie-break is the quadratic's growing half.~~ **CLOSED by
+  architecture-deepening ticket 05 (17c915a0)**: a live placed-index union short-circuits the
+  lift scan and a merged `_AislePrefIndex` answers the nearest-neighbour query in O(log N + k).
+  Byte-identity came from a DIFFERENT kind of argument than the ulp drift that beat the last
+  attempt -- an empty intersection with the union means no float addition happens at all, so
+  there is no summation order to flip. Verified four ways, including 256 cold answers
+  cross-checked against the O(A) scan on real arms and a frozen oracle WRAPPED so it keeps
+  answering the slow way. **The cmin half was REFUSED with a reason**: cluster_map's run cache
+  is wave-local by decision, cmin is place_one with no wave, and a closure-scoped cache is the
+  persistent dict that reintroduces the drift. It needs a pool first.

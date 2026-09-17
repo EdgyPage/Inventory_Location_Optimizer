@@ -156,7 +156,7 @@ count DOWN, which it permits.
 | 2 | 02 | **RESOLVED** | A: drop half. B: add half -- eleven commit blocks, one body, digest IDENTICAL. Remainder split to 21 |
 | 2 | 03 | **RESOLVED** | + the PlacementPolicy record; FAITHFUL_GAIN_FAMILIES and the aisle_state lists derived |
 | 2 | 04 | **RESOLVED** | four wave impls become thin drivers; the ranked oracle moved into its test first |
-| 2 | 05 | not started | **UNBLOCKED** by 04 |
+| 2 | 05 | **RESOLVED** | cluster_map cold start: O(A) -> O(log N) both halves. cmin REFUSED with a reason -- it has no wave to scope a run cache in |
 | 3 | 06 | **RESOLVED** | BatchState + ArmAssembly: `_build_leaf` 1,729 -> 918 lines, 149 -> 11 names, 0 nonlocal |
 | 3 | 07 | **RESOLVED** | CheckpointBuffer + write_rows; 15 writers deleted, and `t_save` had been reading 0.000000 since 2026-08-18 |
 | 3 | 08 | **RESOLVED** | LeafScope: 28 ternaries become one object, and the three parameters are a LADDER (site implies pool implies coupled), so the fourth corner is unnameable |
