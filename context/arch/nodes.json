@@ -20253,7 +20253,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drop_sku_from_aisle": {
       "decorators": [],
-      "doc": "Remove one bin's contribution to the per-SKU aisle state (affinity on).\n\nThe CANONICAL per-SKU aisle teardown: drop the bin's column position from\n_aisle_member_pos, decrement the aisle's SKU count, and \u2014 when this was the\nSKU's LAST bin in the aisle \u2014 retire it from the sku/idx sets and subtract\nits lift/demand/pick-load contributions (clamped at 0).\n\n_reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for\nits per-batch hot loop (deliberate micro-optimization over ~7k bins; it also\ntreats a defensive n==0 like n==1, which this cold path never reaches) \u2014\nKEEP THE TWO IN SYNC when editing either.",
+      "doc": "Remove one bin's contribution to the per-SKU aisle state (affinity on).\n\nThe CANONICAL per-SKU aisle teardown: drop the bin's column position from\n_aisle_member_pos, decrement the aisle's SKU count, and \u2014 when this was the\nSKU's LAST bin in the aisle \u2014 retire it from the sku/idx sets and subtract\nits lift/demand/pick-load/cart-volume contributions (clamped at 0).\n\n_reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for\nits per-batch hot loop (deliberate micro-optimization over ~7k bins; it also\ntreats a defensive n==0 like n==1, which this cold path never reaches) \u2014\nKEEP THE TWO IN SYNC when editing either.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, sku: int, bin_: 'Aisle.Bin') -> None"

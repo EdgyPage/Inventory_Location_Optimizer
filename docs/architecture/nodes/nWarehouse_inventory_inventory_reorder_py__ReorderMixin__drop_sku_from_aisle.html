@@ -20,7 +20,7 @@
 The CANONICAL per-SKU aisle teardown: drop the bin&#x27;s column position from
 _aisle_member_pos, decrement the aisle&#x27;s SKU count, and — when this was the
 SKU&#x27;s LAST bin in the aisle — retire it from the sku/idx sets and subtract
-its lift/demand/pick-load contributions (clamped at 0).
+its lift/demand/pick-load/cart-volume contributions (clamped at 0).
 
 _reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for
 its per-batch hot loop (deliberate micro-optimization over ~7k bins; it also
