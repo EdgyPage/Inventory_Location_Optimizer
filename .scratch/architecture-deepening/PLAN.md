@@ -166,7 +166,7 @@ count DOWN, which it permits.
 | 5 | 12 | **RESOLVED** | frame table + one cache + one accessor |
 | 5 | 13 | **RESOLVED** | one ContractStore behind two stores; the four invariants found two documents deleted by 6adf378e, and a test that had been taught to expect the damage |
 | 5 | 14 | **RESOLVED** | one Span table; SectionTimers.SECTIONS/COLUMNS and the stacked-graph partition all derived, and record_arm builds its INSERT |
-| 5 | 15 | not started | **UNBLOCKED** by 11 |
+| 5 | 15 | **RESOLVED** | A: four records behind one interface, the hidden fourth surfaced. B: an unadopted Requires is a gate failure, and it found three more |
 | 6 | 16 | **RESOLVED** | one at-bin put expression; the objective drops its term by name. File split -> 22 |
 | 6 | 17 | **RESOLVED** | ADR-0003's five rungs become a chain; `mgr.put_chain` is the knob the ADR anticipated |
 | 6 | 18 | **RESOLVED** | closed with a reason: all three mixins stay |

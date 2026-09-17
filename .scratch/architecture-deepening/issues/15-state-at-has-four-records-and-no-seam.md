@@ -1,7 +1,7 @@
 # 15 - state_at has four reconstruction records and no seam, and Requires is unenforced
 
 Type: refactor
-Status: needs-triage
+Status: resolved
 Blocked by: 11
 
 ## Context
@@ -74,3 +74,79 @@ allowlist ratchet `Visualization/` already lives under.
 - WAL sidecars appearing beside an archive are created by `mode=ro` READERS and are not a
   writer-side bug (memory `wal-sidecars-come-from-readers`). Do not chase them.
 - Gates 2, 3, 10.
+
+
+---
+
+## RESOLVED 2026-09-17  (3e2525d8 part B, f850d01e part A)
+
+### Part A -- the four records
+
+`Visualization/readers/state_sources.py`. `base.py` 1,150 -> 900 lines; `state_at` is a loop
+over `SOURCES` in cost order.
+
+**The fourth record was hidden inside the third.** `_state_from_keyframes` called
+`_state_without_keyframes` from its own body, so "this run has a fourth record" was a fact you
+learned by reading a method. It is an entry in the ordered tuple now.
+
+**CORRECTION: `available()` is not in the interface.** The ticket asks for
+`available(reader) -> bool` beside `state(...)`. Two questions where one suffices, and two that
+cannot be kept in agreement: `SpanIndexSource` HAS a sidecar index and still returns None when
+that index holds no row for the batch -- which the original method does today and must keep
+doing. `available()` saying True there would be wrong; opening the index to find out would run
+the query twice. A source answers exactly once, and the ORDER is the policy.
+
+The terminal contract became explicit as a result: `ArchiveSource` never returns None, and
+`state_at` asserts that rather than trusting it.
+
+**CORRECTION: one module, not four.** The ticket says "one per adapter module". The four share a
+base, the `_apply_picks_upto_t` helper, and an ordering that only means anything read together;
+four modules need a fifth for the tuple. One module holding an interface, its adapters and the
+table naming them is what `checkpoint_buffer.py` and `leaf_scope.py` already do here.
+
+**The allowlist keys on QUALNAME now.** All four adapters implement `state`, so a name-keyed
+exemption folds them into one entry and a fifth source's raw SQL becomes invisible. The scanner
+emits `Class.method`, which also makes an entry say which RECORD it is about.
+
+### Part B -- the enforcement hole
+
+`run_whatif_labor.py` declared a `Requires` and never passed it; `_hours` called
+`connect.read_only` directly while its sibling threaded the identical shape. Fixed, and gated.
+
+**CORRECTION: the proposed rule is false for several modules.** "Every module-level REQUIRES is
+referenced at a bind/check_requirements call in its own module" would fire on
+`Performance_Evaluations/core/era.py` (which SPLITS its declaration deliberately and re-checks
+per quantity), `Visualization/readers/base.py` ("declared -- the compatibility gate CI
+validates", its own words) and `db_reader.REQUIRES_DISCOVERY` (shape-following, because discovery
+probes ANY vintage including unvetted ones it then skips). The gate is "threaded, OR listed as
+declaration-only WITH the reason", shrink-only, with non-vacuity in both directions.
+
+**And it found three more on its first run.** There are TEN declarations in the tree, not the
+seven a `^REQUIRES = ` grep sees: `QUANTITY_READS`, `GATED_READS` and `REQUIRES_DISCOVERY` are
+not spelled `REQUIRES`. All three were declaration-only by design; none was a hole. None was
+visible either.
+
+**Diagnostics joined the ratchet** (`Tests/architecture/test_diagnostics_read_boundary.py`): 24
+raw SELECT literals across 10 functions, a hand-rolled read-only URI and two hand-rolled
+capability probes. The ten entries share ONE honest reason -- "unmigrated when the ratchet was
+installed" -- rather than ten invented ones; the viewer's entries have specific justifications
+because each was argued as that package migrated, and these were not. The two structural defects
+get named assertions instead, including the one that is NOT trivially fixable: memory
+`wal-sidecars-come-from-readers` -- a `mode=ro` open creates `-wal`/`-shm` beside an archived DB
+and cannot remove them, so which opener is used decides what an archive looks like afterwards.
+
+### Verification
+
+| check | result |
+|---|---|
+| `Tests/unit` + `Tests/integration -k "not gpu"` | 3,260 passed / 2 skipped |
+| `Tests/integration/test_log_reconstruction.py` | 27 passed (was 15; +12 for the adapters and the six untested public methods) |
+| `Tests/architecture/test_viewer_broker_boundary.py` | 5 passed |
+| `Tests/architecture/test_diagnostics_read_boundary.py` | 5 passed |
+| all ten gates | green |
+
+No byte-identity run: the viewer reads finished runs and writes no simulation output.
+
+### What this unblocks
+
+Nothing -- 15 was the last of the read-seam tickets.
