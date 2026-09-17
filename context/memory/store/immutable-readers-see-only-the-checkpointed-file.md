@@ -20,6 +20,14 @@ checkpointed, a row whose values were shifted one column. Neither raised.
 writer or an explicit `PRAGMA wal_checkpoint(TRUNCATE)` does that. Hit 2026-09-06 building the
 `shift_day_frame` override test for the pre-carry-split vintage (`487a65bf83a9`).
 
+**A REMOVED column is put back by DROP/CREATE, never by ALTER ADD COLUMN.** A vintage
+fabricator builds its fake from the CURRENT DDL, so restoring a column a later commit deleted
+looks like an `ALTER TABLE ... ADD COLUMN`. It is not: the observed shape records column
+ORDER, so an appended column lands in the wrong position and the shape no longer matches the
+vintage it claims to be. `DROP TABLE` + `CREATE` with the old DDL text is the only form that
+reproduces both the order and the indexes (`DROP TABLE` takes the indexes with it, which the
+ALTER path silently leaves behind). Hit 2026-09-16 deleting `aisle_metrics.lift_sum`.
+
 **How to apply:** in any test that fakes a vintage in place, `commit()`, run
 `PRAGMA wal_checkpoint(TRUNCATE)`, `close()` the connection, and assert the bound id
 (`Schema.dataset.bind(...).schema_id == <old id>`, source `stamped`) BEFORE asserting on the
