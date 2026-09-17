@@ -165,7 +165,7 @@ count DOWN, which it permits.
 | 5 | 11 | **RESOLVED** | one write declaration per table (20); the ratchet deleted its regex and found a third defect |
 | 5 | 12 | **RESOLVED** | frame table + one cache + one accessor |
 | 5 | 13 | not started | **UNBLOCKED** by 11; still waits on architecture-drift/05 |
-| 5 | 14 | not started | **UNBLOCKED** by 07 |
+| 5 | 14 | **RESOLVED** | one Span table; SectionTimers.SECTIONS/COLUMNS and the stacked-graph partition all derived, and record_arm builds its INSERT |
 | 5 | 15 | not started | **UNBLOCKED** by 11 |
 | 6 | 16 | **RESOLVED** | one at-bin put expression; the objective drops its term by name. File split -> 22 |
 | 6 | 17 | **RESOLVED** | ADR-0003's five rungs become a chain; `mgr.put_chain` is the knob the ADR anticipated |

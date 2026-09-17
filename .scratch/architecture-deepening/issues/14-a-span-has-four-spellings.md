@@ -1,7 +1,7 @@
 # 14 - a measured span has four spellings and no join
 
 Type: refactor
-Status: needs-triage
+Status: resolved
 Blocked by: 07
 
 ## Context
@@ -59,3 +59,67 @@ a column declares whether an absent measurement is `None` or `0.0`, and why.
 
 Natural follow-on to ticket 07 -- both are about the seam between what a worker measured and what
 lands in a row.
+
+
+---
+
+## RESOLVED 2026-09-17  (6692685a)
+
+`runtime_metrics.SPANS` is the join. A span names its accumulator key, result-dict key, DB
+column and stacked-graph label once; `record_arm` builds its INSERT from the table.
+
+### Three tables become derivations, each reproducing its original exactly
+
+| table | was | now |
+|---|---|---|
+| `SectionTimers.SECTIONS` | 12 names written out | `tuple(s.section for s in SPANS)` |
+| `SectionTimers.COLUMNS` | `{'p1': 'p1_s', 'p2': 'p2_s'}` | the spans whose result key is not `t_<section>` |
+| `runtime_metrics.SECTIONS` | 7 `(column, label)` pairs | the spans with a label |
+
+The third is the one that was quietly dangerous. It is a PARTITION for the stacked graph and
+its own comment warns that adding an overlay double-counts. `label is None` now MEANS overlay,
+so that is a derivation rather than a rule a reviewer has to remember.
+
+The declaration ORDER was chosen to reproduce `SectionTimers.SECTIONS` exactly -- its own order,
+matching neither the log line nor the DDL -- and the new test pins it as a literal.
+
+### THE TABLE DOES NOT LIVE WHERE THE TICKET PUT IT
+
+The ticket says "make `SECTIONS` a three-column table", i.e. extend the one in
+`section_timers`. That cannot work: `record_arm` would then have to read it, and
+`opt_persistence -> opt_simdriver` is a declared boundary -- *"storing results must not depend
+on orchestration"*. It lives with the DDL instead, which is also right on merit: the DB column
+is the hard contract (renaming one shifts the runtime_metrics schema id for a relabelling and
+breaks archived rows' comparability with themselves), and a contract belongs beside the thing it
+constrains. `section_timers` owns the accumulator key and reads the other three.
+
+### The NULL-vs-0.0 rule is a declaration now
+
+`absent` per column, as the ticket asked. The setup spans keep NULL: "not measured" and
+"measured as zero" are different claims and telling them apart is the entire job of
+`precomp_src`. `test_a_column_that_must_stay_NULL_stays_NULL` asserts BOTH directions -- an
+unmeasured precompute writes NULL, and a *measured* 0.0 survives as 0.0 with
+`precomp_src='inline'` beside it.
+
+### Verification
+
+| check | result |
+|---|---|
+| `Tests/unit` + `Tests/integration -k "not gpu"` | 3,220 passed / 2 skipped |
+| `Tests/unit/test_runtime_span_table.py` | 13 tests, 2 of them sabotages |
+| toy run vs baseline, `run_digest.py` | **IDENTICAL**, 136 arms |
+| all ten gates | green |
+
+**What the digest reaches here, precisely.** It hashes the runtime table's row IDENTITY and,
+implicitly, its column list, so a column added, dropped or renamed would show -- which is this
+change's risk class. It cannot reach the measured seconds: they are wall-clock and excluded by
+design, and the exclusion comment says so in as many words. That is exactly why the new test
+writes a row through `record_arm` with a distinct value per span and reads every column back.
+
+The DDL is untouched and `declared_runtime_shape()` is byte-identical to HEAD's, checked rather
+than assumed.
+
+### What this unblocks
+
+Nothing was waiting on 14. It was the last of the three tickets (07, 11, 14) about the seam
+between what a worker measured and what lands in a row.
