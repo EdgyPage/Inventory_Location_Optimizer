@@ -200,15 +200,12 @@ class EvalContext:
                      f'({self.strategies[0]["key"]!r})')
         self._by_key    = {s['key']: s for s in self.strategies}
 
-        self._bcache: dict = {}
-        self._tcache: dict = {}
-        self._ycache: dict = {}     # per-trailer yard frames
-        self._dcache: dict = {}     # per-drain yard frames
-        self._mcache: dict = {}     # per-batch demand-service frames
-        self._ccache: dict = {}     # raw carryover rows (the equilibrium check's flows)
-        self._ficache: dict = {}    # raw free_index rows (the rework clause's per-bucket depth)
-        self._wcache: dict = {}     # per-batch production-labour frames
-        self._scache: dict = {}     # per-day drain-or-cap ledger frames
+        # ONE frame cache, {kind: {key: frame}}, owned by `requests.frame`.  These were
+        # nine separate private dicts that `core/requests.py` reached into BY NAME from
+        # another module, so a kind whose dict was forgotten raised `AttributeError`
+        # instead of denying -- which is how three yard evaluations rendered nothing on
+        # the first coupled run while the [access] summary reported a grant.
+        self._frames: dict = {}
         self._expect = None         # staffing expectations, resolved once (False = none)
         self._series = None
         self._breakdown = None
@@ -504,9 +501,9 @@ class SiteContext(EvalContext):
                                             where=f'{self.name}/site')
         self._by_key    = {s['key']: s for s in self.strategies}
 
-        self._bcache: dict = {}
-        self._ycache: dict = {}
-        self._dcache: dict = {}
+        # The same single cache the base declares.  It used to be three of the nine, and
+        # the six it omitted were the AttributeError above.
+        self._frames: dict = {}
         self._expect = None
         self._fee_days = None
         self._caps = None
@@ -541,11 +538,9 @@ class SiteContext(EvalContext):
         """
         return _requests.site_batch_frame(self, key)
 
-    def yard_df(self, key):
-        return _requests.yard_frame(self, key)
-
-    def drain_df(self, key):
-        return _requests.drain_frame(self, key)
+    # `yard_df` and `drain_df` are NOT overridden here: they were, identically to the
+    # base, which only looked meaningful while each kind had its own cache dict to
+    # declare.  `batch_df` above is the one override that differs.
 
     def leaf_batch_df(self, key, channel):
         """ONE leaf's batch frame inside a site — the per-channel SHARE, never the site's.
@@ -554,7 +549,7 @@ class SiteContext(EvalContext):
         `a-right-site-total-hides-two-wrong-shares`: put-away's site load was 0.9% exact
         while both per-channel bands failed in opposite directions).  Not memoised: it is
         read once per arm pair per render, and a second cache keyed by `(key, channel)`
-        beside `_bcache` is a second thing to invalidate.
+        beside the shared frame cache is a second thing to invalidate.
         """
         for lf in self._by_key[key]['leaves']:
             if lf.get('channel') == channel:

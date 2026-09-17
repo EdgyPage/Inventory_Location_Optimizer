@@ -91,51 +91,57 @@ DIRECTIONS = ('lower', 'higher')
 #: `runtime`        a column of the run's own COST rows — wall-clock seconds spent by the
 #:                  optimiser, which is not a warehouse measurement and comes from no sim
 #:                  database.
-#: frame-source kind -> the sim-DB table its rows come from.  `_bdf` builds the per-batch
-#: frame out of `batch_stats` rows and `_tdf` the per-task frame out of `task_stats` rows,
-#: so this mapping is a property of those two builders and nothing else.
-FRAME_TABLE = {'batch': 'batch_stats',
-               'task_mean': 'task_stats',
-               'task_sum': 'task_stats',
-               # The yard's two frames.  `trailer` rows are per TRAILER and `drain` rows
-               # per drain (1:1 with batches) — see PAIRED_KINDS below for why neither is
-               # a per-batch metric despite `drain` lining up with the batch index.
-               'trailer': 'yard_trailers',
-               'drain': 'yard_drains',
-               # Demand service.  Its rows are per (batch, reason, sku), so a per-arm
-               # number is a FOLD over reasons rather than a column, and the fold is
-               # reason-selective — which is exactly why it is its own frame and not two
-               # more `batch_stats` columns.
-               'carryover': 'carryover',
-               # Production labour.  Its rows are per EVENT — ~30k an arm — and the fold to
-               # one value per (batch, role) happens in SQL, so what reaches `_wdf` is
-               # already an aggregate.  A frame of its own rather than columns on
-               # `batch_stats` because put-away hours were never written there at all:
-               # `putaway_seconds` is an in-sim property and this table is its only record.
-               'work': 'work_events',
-               # The calibrated era's ledger: one row per WORKING DAY the drain-or-cap
-               # shift closed, joined to the batches through `batch_stats.work_day`.  Not a
-               # per-batch kind (a day holds one batch under the era and any number off
-               # it), so it is in FRAME_TABLE and not in PAIRED_KINDS, like the yard's.
-               'shift': 'shift_days'}
+@dataclass(frozen=True)
+class FrameKind:
+    """One frame-source kind: where its rows come from, and whether it pairs by batch."""
+    table: str
+    paired: bool
 
-#: The frame kinds `stats_core._metric_series` can actually pair batch-for-batch, and
-#: therefore the only ones `metric_specs()` hands to the significance suite.
+
+#: ONE declaration per frame-source kind: the sim-DB table its rows come from, and whether
+#: `stats_core._metric_series` can pair it batch-for-batch.
 #:
-#: This split is not bookkeeping.  `_metric_series` is written as "batch, else the TASK
-#: frame", so a kind added to `FRAME_TABLE` and left out of here would silently be read
-#: out of `df_t` — a per-trailer column looked up in a per-task frame, found absent, and
-#: returned as an empty Series.  Every downstream test would then report the quantity as
-#: unmeasurable rather than as misrouted.  `drain` is excluded on meaning as well as on
-#: mechanics: its rows are LEVELS re-measured per drain, and the significance suite's whole
-#: apparatus is paired differences of per-batch values, which a level does not support.
+#: These were TWO hand-kept structures until 2026-09-16 -- `FRAME_TABLE` and a `PAIRED_KINDS`
+#: subset of its keys -- and the split was a live hazard rather than bookkeeping.
+#: `_metric_series` is written as "batch, else the TASK frame", so a kind added to the table
+#: and left out of the subset would silently be read out of `df_t`: a per-trailer column
+#: looked up in a per-task frame, found absent, and returned as an empty Series.  Every
+#: downstream test would then report the quantity as unmeasurable rather than as MISROUTED.
+#: One record per kind makes the two impossible to disagree; both old names are derived
+#: below and still exported, because tests and `headline/top_vs_baseline` read them.
 #:
-#: `work` IS here, and it has to be: the funnel's pre-registered decision rule (ticket 08)
+#: `paired=False` is a claim about MEANING as much as mechanics.  `drain` rows are LEVELS
+#: re-measured per drain, and the significance suite's apparatus is paired differences of
+#: per-batch values, which a level does not support.  `shift` rows are per WORKING DAY -- a
+#: day holds one batch under the era and any number off it -- so a day does not pair with a
+#: batch index either.  `trailer` rows are per TRAILER and `carryover` per (batch, reason,
+#: sku), so a per-arm number there is a reason-selective FOLD rather than a column.
+#:
+#: `work` IS paired, and it has to be: the funnel's pre-registered decision rule (ticket 08)
 #: is a moving-block bootstrap CI on the total-production-hours gain over the `fifo` cell,
-#: which is the significance suite's paired machinery and nothing else.  Its rows are one
-#: per batch and its values are FLOWS of seconds, so batch i of one arm pairs with batch i
-#: of another exactly as `batch` does.
-PAIRED_KINDS = ('batch', 'task_mean', 'task_sum', 'work')
+#: which is the significance suite's paired machinery and nothing else.  Its rows are one per
+#: batch and its values are FLOWS of seconds, so batch i of one arm pairs with batch i of
+#: another exactly as `batch` does.  Its rows are per EVENT in the DB -- ~30k an arm -- and
+#: the fold to one value per (batch, role) happens in SQL, so what reaches `_wdf` is already
+#: an aggregate.  A frame of its own rather than columns on `batch_stats` because put-away
+#: hours were never written there at all: `putaway_seconds` is an in-sim property and
+#: `work_events` is its only record.
+FRAME_KINDS = {
+    'batch':     FrameKind('batch_stats',   paired=True),
+    'task_mean': FrameKind('task_stats',    paired=True),
+    'task_sum':  FrameKind('task_stats',    paired=True),
+    'work':      FrameKind('work_events',   paired=True),
+    'trailer':   FrameKind('yard_trailers', paired=False),
+    'drain':     FrameKind('yard_drains',   paired=False),
+    'carryover': FrameKind('carryover',     paired=False),
+    'shift':     FrameKind('shift_days',    paired=False),
+}
+
+#: Derived, never hand-kept.  Both names stay exported: `FRAME_TABLE` is read by
+#: `Source.db_source`, `Tests/architecture/test_data_era_gate` and `test_production_hours`;
+#: `PAIRED_KINDS` by `metric_specs()` and `headline/top_vs_baseline`.
+FRAME_TABLE = {kind: spec.table for kind, spec in FRAME_KINDS.items()}
+PAIRED_KINDS = tuple(kind for kind, spec in FRAME_KINDS.items() if spec.paired)
 
 
 @dataclass(frozen=True)

@@ -127,26 +127,39 @@ def request(name: str, scope: str):
     return _wrap
 
 
-# ── per-arm frame loaders (the old EvalContext method bodies, memoised the same way) ──
+# ── per-arm frames: ONE table, one cache, one accessor ──────────────────────────
+#
+# There were nine near-identical seven-line bodies here, each reaching into a DIFFERENT
+# private cache dict on `EvalContext` BY NAME from this module.  Adding a frame kind meant
+# six edits across four files, and omitting the cache dict produced an `AttributeError`
+# rather than a denial -- defeating the broker's one contract, that a missing resource never
+# raises.  `SiteContext` initialised three of the nine, and every yard evaluation raised on
+# the first real coupled run, rendering nothing while the `[access]` summary reported a
+# grant.  One cache keyed per kind makes that class unrepresentable.
+#
+# `extra` is a CALLABLE, not a tuple, because three kinds genuinely need per-kind work:
+# `task` reads two maps off the context, `yard` needs the censoring bound and a threshold
+# that must NOT be consulted when there are no rows, and three kinds take sibling frames.
 
-def batch_frame(ctx, key):
-    """One strategy's batch frame, memoised in ctx._bcache — EvalContext.batch_df delegates here."""
-    df = ctx._bcache.get(key)
+
+@dataclass(frozen=True)
+class _FrameSpec:
+    """How one frame kind is loaded and built.  `extra(ctx, key, rows) -> tuple`."""
+    loader: Callable
+    builder: Callable
+    extra: Callable | None = None
+
+
+def frame(ctx, kind: str, key):
+    """One strategy's frame of `kind`, memoised per kind and key."""
+    cache = ctx._frames.setdefault(kind, {})
+    df = cache.get(key)
     if df is None:
         s = ctx._by_key[key]
-        df = _bdf(load_batch_stats(s['db_path'], s['run_id']))
-        ctx._bcache[key] = df
-    return df
-
-
-def task_frame(ctx, key):
-    """One strategy's task frame, memoised in ctx._tcache — EvalContext.task_df delegates here."""
-    df = ctx._tcache.get(key)
-    if df is None:
-        s = ctx._by_key[key]
-        df = _tdf(load_task_stats(s['db_path'], s['run_id']),
-                  ctx.aisle_unittype_map, ctx.aisle_handling_map)
-        ctx._tcache[key] = df
+        spec = FRAME_SPECS[kind]
+        rows = spec.loader(s['db_path'], s['run_id'])
+        df = spec.builder(rows, *(spec.extra(ctx, key, rows) if spec.extra else ()))
+        cache[key] = df
     return df
 
 
@@ -158,11 +171,12 @@ def _arm_end_s(ctx, key) -> float:
     makes every censored detention 0 — honest for a run with no batches at all, and the
     only case where it can happen.
 
-    THROUGH `ctx.batch_df`, NOT `batch_frame`, and the indirection is the whole of what
-    makes the yard family honest at site scope.  A site's batch record is BOTH leaves'
-    frames concatenated, so this bound becomes the SITE end — the union across two clocks
-    — which is what a censoring bound over one shared yard has to be.  `EvalContext.batch_df`
-    delegates straight back here, so a leaf reads exactly what it always read.
+    THROUGH `ctx.batch_df`, NOT `frame(ctx, 'batch', ...)`, and the indirection is the whole
+    of what makes the yard family honest at site scope.  A site's batch record is BOTH
+    leaves' frames concatenated, so this bound becomes the SITE end — the union across two
+    clocks — which is what a censoring bound over one shared yard has to be.  The three
+    sibling-frame `extra` hooks below deliberately do NOT go through `ctx`: each wants this
+    arm's own frame, and that difference was load-bearing before this table and still is.
     """
     df = ctx.batch_df(key)
     if df.empty:
@@ -170,102 +184,50 @@ def _arm_end_s(ctx, key) -> float:
     return float((df['batch_start_time'] + df['duration']).max())
 
 
-def yard_frame(ctx, key):
-    """One strategy's per-trailer frame, memoised — spans and the fee proxy derived here."""
-    df = ctx._ycache.get(key)
-    if df is None:
-        s = ctx._by_key[key]
-        rows = load_yard_trailers(s['db_path'], s['run_id'])
-        # The threshold is consulted only when there is a span to apply it to. `_ydf`
-        # returns its empty frame before reading the argument, so 0.0 is inert here — and
-        # the saving is not cycles but the LOG: `fee_threshold_days` says out loud when it
-        # is falling back to this build's default, and every inbound-off run would
-        # otherwise carry that notice about a configuration it never had. A warning that
-        # fires on runs it cannot apply to is one readers learn to skip.
-        df = _ydf(rows, _arm_end_s(ctx, key),
-                  ctx.fee_threshold_days() if rows else 0.0)
-        ctx._ycache[key] = df
-    return df
+#: The nine kinds.  `yard` reads `fee_threshold_days()` only when there are rows: `_ydf`
+#: returns its empty frame before touching the argument, and the saving is not cycles but
+#: the LOG — that accessor says out loud when it falls back to this build's default, and
+#: every inbound-off run would otherwise carry a notice about a configuration it never had.
+#: `missed` folds carryover per batch for the demand-service figures; `carry` is the SAME
+#: table unfolded, because the equilibrium check counts a re-attempted supply failure once
+#: off the per-SKU rows.  `work` takes both siblings: the batch frame states which batches
+#: happened (so a batch that put nothing away is present at zero rather than missing) and
+#: the task frame carries the pick leg, which `work_events` structurally cannot — a pick
+#: row is an instant with a NULL duration, and the work is the span between two of them.
+FRAME_SPECS: dict = {
+    'batch':      _FrameSpec(load_batch_stats, _bdf),
+    'task':       _FrameSpec(load_task_stats, _tdf,
+                             lambda ctx, key, rows: (ctx.aisle_unittype_map,
+                                                     ctx.aisle_handling_map)),
+    'yard':       _FrameSpec(load_yard_trailers, _ydf,
+                             lambda ctx, key, rows: (_arm_end_s(ctx, key),
+                                                     ctx.fee_threshold_days() if rows else 0.0)),
+    'drain':      _FrameSpec(load_yard_drains, _ddf),
+    'missed':     _FrameSpec(load_carryover, _cdf,
+                             lambda ctx, key, rows: (frame(ctx, 'batch', key),)),
+    'carry':      _FrameSpec(load_carryover, _crdf),
+    'free_index': _FrameSpec(load_free_index, _fidf),
+    'work':       _FrameSpec(load_work_hours, _wdf,
+                             lambda ctx, key, rows: (frame(ctx, 'batch', key),
+                                                     frame(ctx, 'task', key))),
+    'shift':      _FrameSpec(load_shift_days, _sdf,
+                             lambda ctx, key, rows: (frame(ctx, 'batch', key),
+                                                     frame(ctx, 'work', key),
+                                                     ctx.staffing_expectations())),
+}
 
 
-def drain_frame(ctx, key):
-    """One strategy's per-drain yard frame, memoised."""
-    df = ctx._dcache.get(key)
-    if df is None:
-        s = ctx._by_key[key]
-        df = _ddf(load_yard_drains(s['db_path'], s['run_id']))
-        ctx._dcache[key] = df
-    return df
-
-
-def missed_frame(ctx, key):
-    """One strategy's per-batch demand-service frame, memoised."""
-    df = ctx._mcache.get(key)
-    if df is None:
-        s = ctx._by_key[key]
-        df = _cdf(load_carryover(s['db_path'], s['run_id']), batch_frame(ctx, key))
-        ctx._mcache[key] = df
-    return df
-
-
-def carry_frame(ctx, key):
-    """One strategy's RAW carryover rows, memoised in ctx._ccache -- the equilibrium check's
-    flows (`equilibrium.demand_flows`).  Unfolded on purpose: the per-SKU rows are what let
-    the check count a re-attempted supply failure once; `missed_frame` is the folded
-    per-batch view for the demand-service figures."""
-    df = ctx._ccache.get(key)
-    if df is None:
-        s = ctx._by_key[key]
-        df = _crdf(load_carryover(s['db_path'], s['run_id']))
-        ctx._ccache[key] = df
-    return df
-
-
-def free_index_frame(ctx, key):
-    """One strategy's RAW `free_index` rows, memoised in ctx._ficache -- the rework clause's
-    per-bucket depth.  Unfolded on purpose: the clause takes per-bucket minima, means and
-    drawdowns over a window.  Empty with its columns on a vintage before the table."""
-    df = ctx._ficache.get(key)
-    if df is None:
-        s = ctx._by_key[key]
-        df = _fidf(load_free_index(s['db_path'], s['run_id']))
-        ctx._ficache[key] = df
-    return df
-
-
-def work_frame(ctx, key):
-    """One strategy's per-batch production-labour frame, memoised.
-
-    Takes BOTH sibling frames: the batch frame states which batches happened (so a batch
-    that put nothing away is present at zero rather than missing) and the task frame
-    carries the pick leg, which `work_events` structurally cannot — a pick row is an
-    instant with a NULL duration, and the work is the span between two of them.
-    """
-    df = ctx._wcache.get(key)
-    if df is None:
-        s = ctx._by_key[key]
-        df = _wdf(load_work_hours(s['db_path'], s['run_id']),
-                  batch_frame(ctx, key), task_frame(ctx, key))
-        ctx._wcache[key] = df
-    return df
-
-
-def shift_frame(ctx, key):
-    """One strategy's per-DAY ledger frame, memoised -- the throughput audit's frame.
-
-    Joined to the batch and work frames through `work_day`, and priced against the
-    context's staffing expectations (`ctx.staffing_expectations()`), which are None on a
-    run whose record carries no derived block: the utilization columns are then NaN and
-    the day verdicts still render.
-    """
-    df = ctx._scache.get(key)
-    if df is None:
-        s = ctx._by_key[key]
-        df = _sdf(load_shift_days(s['db_path'], s['run_id']),
-                  batch_frame(ctx, key), work_frame(ctx, key),
-                  ctx.staffing_expectations())
-        ctx._scache[key] = df
-    return df
+# The nine names the rest of the package calls.  Kept as names rather than collapsed at the
+# call sites: `EvalContext` exposes one method per kind and graph modules call those.
+def batch_frame(ctx, key):      return frame(ctx, 'batch', key)
+def task_frame(ctx, key):       return frame(ctx, 'task', key)
+def yard_frame(ctx, key):       return frame(ctx, 'yard', key)
+def drain_frame(ctx, key):      return frame(ctx, 'drain', key)
+def missed_frame(ctx, key):     return frame(ctx, 'missed', key)
+def carry_frame(ctx, key):      return frame(ctx, 'carry', key)
+def free_index_frame(ctx, key): return frame(ctx, 'free_index', key)
+def work_frame(ctx, key):       return frame(ctx, 'work', key)
+def shift_frame(ctx, key):      return frame(ctx, 'shift', key)
 
 
 def metric_frames(ctx, key) -> dict:
@@ -393,7 +355,9 @@ def _yard(ctx):
 
 
 def site_batch_frame(ctx, key):
-    """A SITE's batch frame: every leaf's, concatenated.  Memoised in `ctx._bcache`.
+    """A SITE's batch frame: every leaf's, concatenated.  Memoised in the shared frame
+    cache under 'batch', so for a site context it REPLACES the per-leaf frame rather
+    than sitting beside it.
 
     ONE CONCAT, AND IT ANSWERS BOTH OF THE DENOMINATOR QUESTIONS 07 asked, with no new
     arithmetic anywhere:
@@ -412,14 +376,15 @@ def site_batch_frame(ctx, key):
     driver writes them from the coordinator's decomposition — so the sum is the site total
     rather than either channel's number counted twice.
     """
-    df = ctx._bcache.get(key)
+    cache = ctx._frames.setdefault('batch', {})
+    df = cache.get(key)
     if df is None:
         import pandas as pd
         parts = [_bdf(load_batch_stats(lf['db_path'], lf['run_id']))
                  for lf in ctx._by_key[key]['leaves']]
         parts = [p for p in parts if not p.empty]
         df = pd.concat(parts, ignore_index=True) if parts else _bdf([])
-        ctx._bcache[key] = df
+        cache[key] = df
     return df
 
 

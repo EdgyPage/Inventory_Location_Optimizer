@@ -36,8 +36,7 @@ class _ConfigCtx:
                                     'db_path': str(tmp_path / f'sim_{key}.db'),
                                     'run_id': 1})
         self._by_key = {s['key']: s for s in self.strategies}
-        self._bcache: dict = {}
-        self._tcache: dict = {}
+        self._frames: dict = {}
         self._series = None
         self._breakdown = None
         self.log = logging.getLogger('test-broker')

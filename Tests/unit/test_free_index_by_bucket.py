@@ -533,8 +533,7 @@ class _Ctx:
         from Optimization.Performance_Evaluations.core import requests as rq
         self._rq = rq
         self._by_key = {'fifo': {'db_path': db, 'run_id': run_id}}
-        self._bcache, self._tcache, self._wcache = {}, {}, {}
-        self._ccache, self._ficache = {}, {}
+        self._frames: dict = {}      # one cache for every frame kind
         self.aisle_unittype_map, self.aisle_handling_map = {}, {}
 
     def batch_df(self, key):
@@ -570,4 +569,5 @@ def test_a_forced_spill_fails_the_clause_through_the_audits_call_site(tmp_path):
     c = v.clauses['rework']
     assert not c.passed and '1 tier spill(s)' in c.reason and A in c.reason, c.reason
     assert c.reading['buckets'][A]['dry_batches'] == [1]
-    assert ctx._ficache['fifo'] is ctx.free_index_df('fifo'), 'memoised like every frame'
+    assert ctx._frames['free_index']['fifo'] is ctx.free_index_df('fifo'), \
+        'memoised like every frame'
