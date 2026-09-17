@@ -15,16 +15,12 @@
 <p class="meta">layer <span class="chip">wh_operations</span> · file <a href="../files/nWarehouse_operations_putaway_py.html"><code>Warehouse/operations/putaway.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def put_cost(x_phys: float, y_phys: float, weight: float, volume: float, quantity: int, speed: SpeedProfile, cost: PutawayCost) -&gt; float</code></pre>
-<section class="doc">Seconds to put `quantity` units away at physical location `(x_phys, y_phys)`.
+<section class="doc">What the simulation BILLS for one put — `put_seconds_at` with the handling term in.
 
-Travel from the aisle mouth plus height-bracketed handling — the same two terms, in the
-same order, through the same primitives as `Pick._pick_time` and `Workload`&#x27;s P-term:
-
-    travel + M(y) · (intercept + quantity · per_item + quantity · var)
-
-Returns SECONDS, the unit the whole simulator counts in
-(`Warehouse.kernel.timeline.TIME_UNIT`).</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__handle_var.html"><code>handle_var</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__cost_putaway.html"><code>_cost_putaway</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
+Kept as its own name because it is the billing call and reads as one at every call site
+(`Inventory_Manager._cost_putaway`), and because `cost` is not optional here: a put that
+is charged always pays for the handling.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_operations_putaway_py__put_seconds_at.html"><code>put_seconds_at</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__cost_putaway.html"><code>_cost_putaway</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_putaway_py__put_cost">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/putaway.py#:~:text=def%20put_cost">Source ↗</a></p>
 </article>
 </main>

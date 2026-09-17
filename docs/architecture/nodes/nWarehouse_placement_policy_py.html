@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.placement.policy · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_policy_py" data-id="Warehouse/placement/policy.py">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <span class="here"><code>Warehouse/placement/policy.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.placement.policy</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_policy_py.html"><code>Warehouse/placement/policy.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.placement.policy</code></pre>
+<section class="doc">policy — one placement family, declared once.
+
+Competing placement policies are what this repo exists to measure, and adding one cost
+5-8 declarations across four packages: a pool class and builder here, an import plus a
+`_build_*` helper plus a `_RESTOCKS` row in `Optimization/config/strategies.py`, a branch in
+`strategy_runner._gain_bundle_for` naming the exact aisle books its `take` commits to, a
+name in `Inbound.gain.FAITHFUL_GAIN_FAMILIES`, rows in three dead registries, an equivalence
+test and an arch hint.
+
+Three of those are already gone (the dead registries, deleted 2026-09-16). This record takes
+four more: the positional `_RESTOCKS` tuple becomes named fields, `FAITHFUL_GAIN_FAMILIES`
+becomes derived, the gain evaluator&#x27;s per-family `aisle_state=` dicts become derived, and its
+`if restock == ...` chain becomes a lookup on `gain`.
+
+## Where the records live, and why not here
+
+The TYPE is here because a placement family is a placement concept. The seventeen INSTANCES
+live in `Optimization/config/strategies.py`, beside the `build` functions they carry: a build
+takes `(mgr, StrategyContext)`, and `StrategyContext` is the run harness&#x27;s own assembly of
+what a worker happens to have. Moving the records here would drag that up with them, and
+`wh_placement -&gt; optimization` is a forbidden edge for exactly the reason it should be —
+&quot;an assignment function must not import the run harness; it is a closure over its own
+inputs&quot;.
+
+## `ledger_terms` is DECLARED, and then checked against the wiring
+
+It names the `AisleLedger` books a family&#x27;s `take` commits to. It has to be declared rather
+than read off a pool, because the gain evaluator needs it BEFORE it builds one: it copies
+exactly those books so a virtual placement cannot advance the real warehouse. The
+declaration&#x27;s own hazard is the one `_gain_bundle_for` states — &quot;a dict left off that list is
+not a refusal, it is a virtual placement advancing the REAL warehouse&quot; — so it is not left
+as a claim: `Tests/unit/test_placement_policy.py` BUILDS each family&#x27;s pool and compares the
+declaration against `AisleLedger.bound`, the books that pool was actually handed. A symbol
+table that resolves names cannot catch a wrong relationship; exercising it can.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_aisle_ledger_py.html"><code>Warehouse.inventory.aisle_ledger</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_strategies_py.html"><code>Optimization.config.strategies</code></a> <span class="dim">Optimization/config/strategies.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nWarehouse_placement_policy_py__PlacementPolicy.html"><code>PlacementPolicy</code></a> <span class="dim">Warehouse/placement/policy.py</span></li><li><a href="nWarehouse_placement_policy_py____all__.html"><code>__all__</code></a> <span class="dim">Warehouse/placement/policy.py</span></li><li><a href="nWarehouse_placement_policy_py__PlacementPolicy___post_init__.html"><code>__post_init__</code></a> <span class="dim">Warehouse/placement/policy.py</span></li><li><a href="nWarehouse_placement_policy_py__PlacementPolicy_state_names.html"><code>state_names</code></a> <span class="dim">Warehouse/placement/policy.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_policy_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/policy.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

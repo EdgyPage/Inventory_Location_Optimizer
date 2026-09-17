@@ -159,7 +159,7 @@ walker skips it. A sidecar named `sim_<arm>.viz.db` beside the sim DB would inst
 | Bin keyframes | `sim_X.keyframes.db` `bin_keyframe` | full occupied-bin snapshot every `keyframe_interval` batches. The canonical spatial timeline **for archived arms**; for a run with the log, the independent audit of it and a qty anchor. |
 | Per-bin scores | `sim_X.db` `bin_scores` | static, one row/bin: `travel_d`, `height_mult`, `layout_score` (D + height), `map_pref` (NULL unless a `map`/`map_rank` run). |
 | Per-SKU scores | `sim_X.db` `sku_scores` | `map_target`, `labor_cost`, `handle_var`, `expected_popularity`/`expected_labor`, `equilibrium_qty`/`reorder_point`/`lead_time_mean`. |
-| Per-aisle scores | `sim_X.db` `aisle_metrics` | per batch: `demand_sum`, `lift_sum`, `pick_load_sum`, n_skus, n_bins. **Only written by strategies that maintain aisle state — empty for most arms.** |
+| Per-aisle scores | `sim_X.db` `aisle_metrics` | per batch: `demand_sum`, n_skus, n_bins. Written for EVERY arm (the note here said "empty for most arms" until 2026-09-17; it never was). `lift_sum` was dropped by ticket 19 and `pick_load_sum` by ticket 20 — both recorded numbers only two arms maintained. |
 | Reorder queues | `sim_X.db` `reorder_queue` | per batch: `kind` (`lead`/`stock`), sku, qty, `remaining_lead`, `unit_type`/`storage_size`. **Also empty for most arms.** |
 | Run identity (rename-proof) | `sim_X.db` `simulation_runs` + `warehouse.db` `warehouse_stats` | `strategy_key`, `pair_label`, `config_label`, `warehouse_fingerprint`, `optimal_sigma_fd`/`optimal_work`. The viewer resolves strategy/pair/config from these and matches the warehouse by `warehouse_fingerprint`, so renamed files/folders still load. |
 

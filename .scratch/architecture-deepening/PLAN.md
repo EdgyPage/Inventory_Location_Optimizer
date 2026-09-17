@@ -170,14 +170,19 @@ count DOWN, which it permits.
 | 6 | 17 | **RESOLVED** | ADR-0003's five rungs become a chain; `mgr.put_chain` is the knob the ADR anticipated |
 | 6 | 18 | **RESOLVED** | closed with a reason: all three mixins stay |
 | - | 19 | **RESOLVED** | LoadParams deleted; init_lift_state renamed; delta_lift_idxs closed with a reason |
-| - | 20 | not started | NEW, found by 02B: two priced levels are seeded once and then abandoned on 15 of 17 arms |
+| - | 20 | **RESOLVED** | `aisle_metrics.pick_load_sum` deleted -- wrong on 15 of 17 arms, no reader |
 | - | 21 | not started | NEW, split from 02B: the pool builders take loose dicts, not a ledger. Ride ticket 04's oracle re-freeze |
 | - | 22 | not started | NEW, split from 16: `Inbound/gain.py` is 1,398 lines and four modules |
+| - | 23 | **RESOLVED** | the seed prices only the arm's terms; `reconcile()` is unconditional again |
 
-**Ten resolved, twelve open** (19 tickets became 22 -- three pieces were split out rather than
-folded in, so a resolved status never hides outstanding work). Resolving 02 and 03 unblocked 04;
-16 and 17 are done. Tickets 06 and 11 are each still a multi-hour refactor of a hot path and want
-the toy-run digest, not a tail-end slice.
+**Twelve resolved, eleven open** (19 tickets became 23). Resolving 02 and 03 unblocked 04.
+Tickets 06 and 11 are each still a multi-hour refactor of a hot path and want the toy-run digest,
+not a tail-end slice.
+
+Four pieces were split out rather than folded in, so a resolved status never hides outstanding
+work: 21 (the builders take loose dicts, blocked on 04's oracle re-freeze), 22 (splitting
+`gain.py`, which carries a trap), 23 (the seed -- split, then done the same day once 03 made it
+cheap), and 20 itself, which came out of 02.
 
 ### Why ticket 11 has no cheap first step
 

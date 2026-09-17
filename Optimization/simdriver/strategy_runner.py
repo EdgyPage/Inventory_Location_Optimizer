@@ -1523,13 +1523,19 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                              mode=_zcfg.get('mode', 'equal'), abc=_zcfg.get('abc'))
         log.info(f'  velocity zoning ON  (mode={_zcfg.get("mode","equal")} n_bands={mgr._zoning_bands})')
 
+    # The levels THIS arm maintains, declared once on its `PlacementPolicy`.  The seed
+    # prices only these: pricing a level the arm never commits to leaves it stale from the
+    # first placed unit and then decaying, because `drop_sku` decrements unconditionally
+    # (ticket 20).  A key with no record prices everything, which is the old behaviour.
+    _seed_terms = getattr(_POLICY_BY_KEY.get(strat.restock), 'ledger_terms', None)
+
     def _arm_aisle_state() -> None:
         """Rebuild per-aisle affinity + demand/labor state from the placed bins."""
         if strat.needs_affinity:
             mgr._affinity = affinity   # enable incremental lift/count maintenance
             mgr.init_placement_state(affinity)
         if strat.needs_demand:
-            mgr.init_demand_state(inventory, wp)   # wp ⇒ also seed the labor twin
+            mgr.init_demand_state(inventory, wp, terms=_seed_terms)  # wp ⇒ the labor twin
 
     if strat.stock_mode == 'policy':
         log.info(f'Initial stock: {n_skus:,} SKUs  via own policy ({strat.key})...')
@@ -1539,7 +1545,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         if strat.needs_affinity:
             mgr._affinity = affinity
         if strat.needs_demand:
-            mgr.init_demand_state(inventory, wp)
+            mgr.init_demand_state(inventory, wp, terms=_seed_terms)
         if strat.uses_aisle_index:
             mgr.init_travel_costs(wp)   # NOTE(cluster): _aisle_index is maintained
                                         # incrementally by _index_add/remove during the fill

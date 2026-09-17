@@ -8256,6 +8256,20 @@
       "signature": null,
       "value_preview": "len(_INITIALS) * len(_RESTOCKS) * len(_RESLOTS)"
     },
+    "Optimization/config/strategies.py::_RANKED3": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('sku_sets', 'idx_sets', 'demand_sum')"
+    },
+    "Optimization/config/strategies.py::_RANKED3_POS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_RANKED3 + ('member_pos',)"
+    },
     "Optimization/config/strategies.py::_RESLOTS": {
       "decorators": [],
       "doc": null,
@@ -8269,13 +8283,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "0.005"
-    },
-    "Optimization/config/strategies.py::_RESTOCKS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "[('fifo', 'FIFO', _build_uniform, False, False, False), ('rank_random', 'Rank_random', _build_uniform_trip_min_ranked, True, True, False), ('rank_popularity', 'Rank_popularity', _build_rank_popular..."
     },
     "Optimization/config/strategies.py::_build_cluster_map": {
       "decorators": [],
@@ -8408,7 +8415,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "f'{_ik}_{_rk}_{_sk}'"
+      "value_preview": "f'{_ik}_{_pol.key}_{_sk}'"
     },
     "Optimization/config/strategies.py::_stock_optimal": {
       "decorators": [],
@@ -9478,7 +9485,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('c6bacfdb5c77', 'b87cfbb8d041', '02a78953886c'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('c37b50bf2b84', 'c6bacfdb5c77', 'b87cfbb8d041'..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -14865,6 +14872,13 @@
       "kind": "function",
       "signature": "(run_dir: str) -> None"
     },
+    "Optimization/simdriver/strategy_runner.py::_declared_pools": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{p.key for p in _POLICY_BY_KEY.values() if p.gain == 'pool'}"
+    },
     "Optimization/simdriver/strategy_runner.py::_futuresight_window": {
       "decorators": [],
       "doc": "Batch i's futuresight window: the demand of script batches `i+1 .. i+w`\n('all' = to the run's end), each `.items` dict COPIED \u2014 `batches[j]` is the\nSHARED pickle every arm of the family reads, and a reference travelling into\nthe frozen view would let any downstream mutation corrupt every sibling arm's\ndemand silently.  The copies guard the shared objects; they are not a cache.\n\nClamped at `n_batches`, not `len(batches)`: past the run's end nothing\nreleases, so the tail \u2014 and w=0 \u2014 yield `()`, an empty window, never an\nerror.",
@@ -14885,13 +14899,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle'"
-    },
-    "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(cands, state, wp_local)"
     },
     "Optimization/simdriver/strategy_runner.py::_gc_cb": {
       "decorators": [],
@@ -14919,6 +14926,69 @@
       "doc": null,
       "kind": "class",
       "signature": "(ctypes.Structure)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_rank_minlabor": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sctx, mgr)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_rank_minlabor._factory": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cands, state, wp_local)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_rank_popularity": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sctx, mgr)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_rank_popularity._factory": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cands, state, wp_local)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_rank_random": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sctx, mgr)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_rank_random._factory": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cands, state, wp_local)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced": {
+      "decorators": [],
+      "doc": "`rank_labor` and `rank_cartlabor`: one pool class, one seam, the cart term apart.\n\n`_aisle_pick_load_sum` is the LPT balance's running total and `_aisle_vol_sum` the\ncart's \u2014 both committed to by `take`, so both are in the record's `ledger_terms` and\ntherefore copied; `_sku_pick_load_product` / `_sku_vol_product` are per-SKU constants it\nonly reads, and stay live.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cart: bool)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced._make": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sctx, mgr)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced._make._factory": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cands, state, wp_local)"
     },
     "Optimization/simdriver/strategy_runner.py::_run_strategy_worker": {
       "decorators": [],
@@ -19241,6 +19311,34 @@
       "kind": "function",
       "signature": "(self, name: str, instead: str) -> None"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_empty_bin": {
+      "decorators": [],
+      "doc": "Rung 0: an EMPTY bin, chosen by the arm's own placement policy.\n\nTHE ONLY RUNG THAT RANKS ANYTHING, and ADR-0003 says why it stays first: \"the\nnew-bin decision is where placement optimisation happens: a restock that returned to\nits own bin would hand the arms nothing to rank until a shelf was taken to zero.\"\nDemoting this rung would leave every arm running and every comparison between them\nmeasuring less, with nothing raising.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, item, queue) -> RungResult"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_own_bins": {
+      "decorators": [],
+      "doc": "Rung 1: the SKU's OWN bins, fullest first, filled to capacity (ADR-0003).\n\nAHEAD OF THE TWO RESCUES IS THE WHOLE POINT: the rescues exist for a pallet meeting\na small-bin warehouse, and they must not fire for a carton whose own shelf has room.\nA rescue is rework; a top-up is a put.\n\nThe bin count is read off the `_put_topups` FLOW rather than returned, so\n`_top_up_own_bins` keeps its one-number interface.  It matters: a unit absorbed into\nthree own bins is three trips, three `bin_placement` rows and three\n`_reorder_placements`, so it must cost three against the budget too, or a crew cap is\nsilently generous exactly when the warehouse is most fragmented.\n\nA PARTIAL absorb sends the remainder back as ONE unit to take the chain from the\ntop -- a smaller unit may now find an empty bin, which is still empty-first.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, item, queue) -> RungResult"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_repack": {
+      "decorators": [],
+      "doc": "Rung 2: repack into a smaller size tier \u2014 pallet OR fulfillment.\n\nBoth families are size-tiered; `UNIT_CLASSES` + the unit class select which.  The\nrework is RECEIVING work, priced per RESULTING pack (`_charge_repack`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, item, queue) -> RungResult"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_singleton": {
+      "decorators": [],
+      "doc": "Rung 3: singleton bins of the same order type \u2014 STORE ONLY.\n\nA fulfillment unit has no singleton fallback; it stays ff.  Same rework and same\nprice as the repack above: a singleton rescue is a repack that happens to land in\nthe forward-pick family.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit: StorageUnit, item, queue) -> RungResult"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order": {
       "decorators": [],
       "doc": "WHO is served first, out of one BinKey group.  The drain's decision.\n\n`putaway_window` is the tolerance, in units:\n\n  None  the policy's whole request is granted -- pre-Phase-2 behaviour, and still\n        the default, so nothing moves until a caller asks for a window.\n  1     strict FIFO.  The policy chooses the BIN and has no say in the order.\n  K     the policy may pick its favourite from the K OLDEST units still waiting.\n        Serve it, slide the window forward by one, repeat.\n\nA window of K >= len(units) is exactly `pool.order(units)`, including the\ntie-breaking: `order` is a stable sort so equal keys keep queue order, and the heap\nbelow breaks ties on arrival index for the same reason.  That equivalence is\nasserted in Tests/unit/test_putaway_window.py rather than assumed, because it is\nwhat makes \"K = infinity reproduces today\" a fact instead of a hope.\n\nThis method is the whole point of Phase 1.  Until the pool inversion, an assignment\nfunction returned `[(unit, bin)] in priority order` and the drain iterated it, so\nevery ranked policy was choosing the ORDER as well as the bin -- 14 of the 17\nrestock rules, none of them asked to.  Put-away is supposed to be FIFO with a little\ntolerance; instead the queue was freely re-sorted by whatever score maximised the\nassignment function.\n\nThe pool split that in two.  `pool.order(units)` is now a REQUEST: the policy states\nthe precedence it would like and this method decides what to grant.  Today it grants\nall of it, which is why everything is still byte-identical -- the seam is real but\nnot yet load-bearing.  A finite K-oldest window lands here, and only here.\n\n`put_key` is the QUEUE's own precedence, from `put_policy`.  When present it\nreplaces the pool's `sort_key` entirely -- the pool still chooses every bin, it just\nstops choosing who goes first.  `k` then bounds the result exactly as it bounds the\npool's own order, so the two knobs compose rather than override each other.\n\n`units` arrives in queue order (the group's insertion order into `_stock_queue`), so\nthe FIFO answer is already in hand and needs no extra bookkeeping to recover.",
@@ -19298,7 +19396,7 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit": {
       "decorators": [],
-      "doc": "Place queued StorageUnit objects one at a time via placement.place_one.\n\nUsed for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked\nwave leaves behind.  The coupling guard runs in _stock() (the single entry).\n\nPlacement failures:\n  1. Repack into a smaller pallet size tier (retried immediately via appendleft).\n  2. Fall back to singleton bins of the same order type (same).\n  3. If no bin is available, the unit stays in the queue (FIFO, no expiry).\n\n``budget`` caps PLACEMENTS, not pops: a repack splits one unit into several and\npushes them back, and charging a budget for that would make the cap depend on how\nbadly the warehouse is packed rather than on how much the crew can move.\n\n``deadline`` is the day's whistle on the crew's batch-local clock; see `_stock`.\nChecked per unit rather than once, because each put advances the clock that decides\nit -- a crew with ten minutes left takes as many units as fit in ten minutes.",
+      "doc": "Place queued StorageUnit objects one at a time via placement.place_one.\n\nUsed for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked\nwave leaves behind.  The coupling guard runs in _stock() (the single entry).\n\n**The fallback chain is `self._put_chain`, not a branch tree in here.** ADR-0003\nfixes what happens when no empty bin fits -- the SKU's own bins, then a repack into\na smaller tier, then a singleton rescue, then pending -- and each of those is a rung\nanswering `RungResult` (`Warehouse/inventory/put_rungs.py`). This loop walks the\nchain, takes the first rung that did something, and books it. Adding a rung is a\nname in a tuple; it used to be an edit inside these 180 lines.\n\n``budget`` caps PLACEMENTS, not pops: a repack splits one unit into several and\npushes them back, and charging a budget for that would make the cap depend on how\nbadly the warehouse is packed rather than on how much the crew can move. A rung\nreports its own `bins`, so a unit absorbed into three of its own bins costs three.\n\n``deadline`` is the day's whistle on the crew's batch-local clock; see `_stock`.\nChecked per unit rather than once, because each put advances the clock that decides\nit -- a crew with ten minutes left takes as many units as fit in ten minutes.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, budget: int | None=None, queue=None, deadline: float | None=None) -> None"
@@ -19480,10 +19578,10 @@
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state": {
       "decorators": [],
-      "doc": "Populate demand-product lookup and per-aisle demand sums.\n\nMust be called after init_placement_state() so _aisle_sku_sets already\nreflects the actual placement.  Call once per strategy worker before\nswapping to a trip-cost assignment function.\n\nWhen *wp* is given, also build the cost-weighted labor twin\n(_sku_pick_load_product = f*q*cost1 = order.expected_labor, and the\nper-aisle _aisle_pick_load_sum) used by the Rank_labor balance selector.",
+      "doc": "Populate demand-product lookup and per-aisle demand sums.\n\nMust be called after init_placement_state() so _aisle_sku_sets already\nreflects the actual placement.  Call once per strategy worker before\nswapping to a trip-cost assignment function.\n\nWhen *wp* is given, also build the cost-weighted labor twin\n(_sku_pick_load_product = f*q*cost1 = order.expected_labor, and the\nper-aisle _aisle_pick_load_sum) used by the Rank_labor balance selector.\n\n**`terms` prices only the levels the ARM maintains** -- the ledger book names its\n`PlacementPolicy.ledger_terms` declares.  `None` prices everything, which is what\nevery caller without an arm (tests, the benches, the diagnostics) wants.\n\nPricing more than the arm maintains is not free, and it is ticket 20's finding.\n`enqueue_all` runs the initial stock through the arm's OWN policy, which commits\nonly the levels it scores on; from the first placed unit the others are stale, and\n`drop_sku` then decrements them unconditionally, so they DECAY.  Measured at 65 of\n65 aisles on a cluster_map fixture.  Nothing read them -- `aisle_metrics.lift_sum`\nand `.pick_load_sum` were both deleted on that evidence -- but that is exactly what\nwas true of `vol_sum` until `rank_cartlabor` started reading it.\n\nThe per-SKU PRODUCT goes with its level, deliberately.  Seeding the product without\nthe level would leave `AisleLedger.reconcile()` comparing an empty level against\nproducts nobody summed -- a finding about the seed rather than about the warehouse.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, inventory: Any, wp: Any=None) -> None"
+      "signature": "(self, inventory: Any, wp: Any=None, terms: 'tuple[str, ...] | None'=None) -> None"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state": {
       "decorators": [],
@@ -19507,6 +19605,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_chain": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "ADR-0003's fallback rung names, in order \u2014 what `_stock_per_unit` walks.\n\nThe ADR parks two rejected alternatives (home bin, relocate on top-up) and says the\nrule \"may become a knob later, which is why the rework is recorded rather than\nhidden\".  This is that knob: a chain is a tuple of names, resolved through\n`put_rungs.chain_for`, which refuses an unknown one rather than leaving a rung that\nsilently never fires.  Before ticket 17 the same change was an edit inside a\n180-line loop.\n\nSetting it does NOT re-litigate the ADR.  The default IS the ADR's ruling, and\n`put_rungs.DEFAULT_PUT_CHAIN` records what a reordering forfeits.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple[str, ...]"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_queues": {
       "decorators": [
@@ -19724,7 +19831,7 @@
       "doc": "`reconcile()` as an assertion, for tests and end-of-drain checks.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, levels: 'tuple[str, ...] | None'=None) -> None"
+      "signature": "(self) -> None"
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.bin_count": {
       "decorators": [],
@@ -19795,10 +19902,10 @@
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.reconcile": {
       "decorators": [],
-      "doc": "Every priced level must equal the sum of its members' products.  [] when sound.\n\nThis is the assertion the eleven loose dicts made impossible to write, and the reason\nboth drifts survived for the life of their features.  Returns findings rather than\nraising so a caller can report them all at once.\n\n**`levels` narrows the question, and a caller usually has to.**  `init_demand_state`\nprices ALL THREE levels off the current placement, but a placement family maintains\nonly the ones it scores on: `demand_sum` always, `pick_load_sum` on the two labour\nbalancers, `vol_sum` on `rank_cartlabor` alone.  So on any other arm the two unread\nlevels drift away from their members as soon as the first unit is placed -- a real\ninconsistency, recorded as its own ticket, and NOT something to hide by weakening\nthis default.  The default stays the strongest statement; a caller that knows an\narm's terms asks for exactly those.",
+      "doc": "Every priced level must equal the sum of its members' products.  [] when sound.\n\nThis is the assertion the eleven loose dicts made impossible to write, and the reason\nboth drifts survived for the life of their features.  Returns findings rather than\nraising so a caller can report them all at once.\n\n**Unconditional, and it took two tickets to get there.**  It briefly took a `levels`\nargument, because `init_demand_state` priced all three levels off the current\nplacement while a family maintains only the ones it scores on -- so on fifteen of the\nseventeen arms two levels drifted from the first placed unit, and asking the whole\nquestion would have reported the SEED rather than the warehouse.  Ticket 23 made the\nseed take the arm's terms, so there is no level left that is priced and then\nabandoned, and the argument was deleted with the condition that needed it.  A level\nwhose products were never seeded is skipped below, which is a different thing: that\nis a level this run does not have, not one it has and mismaintains.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, tol: float=1e-06, levels: 'tuple[str, ...] | None'=None) -> list[str]"
+      "signature": "(self, *, tol: float=1e-06) -> list[str]"
     },
     "Warehouse/inventory/aisle_ledger.py::_UNBOUND": {
       "decorators": [],
@@ -21062,6 +21169,48 @@
       "kind": "function",
       "signature": "(cart_crew=None, pallet_crew=None, ff_crew=None, pallet_staging: int | None=None, cart_staging: int | None=None, ff_staging: int | None=None, store_cart=None, ff_cart=None, swap_coef: float=0.0) -> PutQueueSet"
     },
+    "Warehouse/inventory/put_rungs.py": {
+      "decorators": [],
+      "doc": "put_rungs \u2014 the put-away fallback chain, as a sequence instead of a diff.\n\nADR-0003 fixes what happens when a queued unit finds no empty bin, and in what order:\n\n    0. an EMPTY bin                    (`placement.place_one` \u2014 where placement is chosen)\n    1. the SKU's OWN bins, fullest first, filled to capacity\n    2. repack into a smaller size tier (pallet or fulfillment)\n    3. singleton bins of the same order type (store only)\n    4. pending \u2014 back on the queue, retried next batch, no expiry\n\nAll five were written inline in one 180-line `while waiting:` loop, each hand-maintaining\n`_queued_sku_counts`, the budget charge and `waiting.appendleft(...)` with subtly different\nbookkeeping.  There was no seam: **a new rung was an edit INSIDE the hottest and most\ninvariant-dense loop in the manager.**  The ADR itself says the rule \"may become a knob\nlater, which is why the rework is recorded rather than hidden\" \u2014 and that knob would have\ncost exactly that edit.\n\nThe contrast was one file away.  `put_policy.py` answers the ADJACENT question \u2014 which\nwaiting item to work next \u2014 with a one-line interface, five adapters, a `key_for` resolver\nthat raises on an unknown name and a documented \"what is NOT here yet\".  Two sibling policy\nquestions; one had a real seam and the other had none.\n\n## What is here and what is not\n\nHere: the result type, the registry of rung names, and the resolver.  **Not** here: the rung\nBODIES, which stay on `Inventory_Manager`.  They reach into `_index`, `_execute_placement`,\n`_top_up_own_bins`, `_charge_repack` and `_queued_sku_counts` \u2014 that depth is why\n`put_policy`'s adapters could leave the manager and these cannot, and pretending otherwise\nwould buy a thinner file at the cost of a wider interface.\n\n## The bookkeeping the driver now expresses once\n\nEvery rung is handed the popped item and answers with what it did.  The driver reads the\nanswer and does the same three things for all of them:\n\n    placed += result.bins                         # the budget counts PLACEMENTS\n    waiting.extendleft(reversed(result.units))     # push back at the head, in order\n    _queued_sku_counts[sku] += len(result.units) - 1\n\nThat last line is the one worth staring at.  The item was POPPED, so it stops counting as\none queued unit; `len(units)` go back in its place.  Every rung's hand-written delta was a\nspecial case of it:\n\n| rung | bins | units back | delta | was written as |\n|---|---|---|---|---|\n| empty bin | 1 | 0 | \u22121 | inside `_execute_placement` |\n| own bins, absorbed | n | 0 | \u22121 | a hand-rolled pop-or-decrement |\n| own bins, partial | n | 1 | 0 | \"needs no delta (unlike the rescues, which split)\" |\n| repack | 0 | k | k\u22121 | `+ delta` where `delta = len(new_units) - 1` |\n| singleton | 0 | k | k\u22121 | the same expression again |\n| pending | 0 | 0 | \u2014 | the item is held, not consumed |\n\n`counts_booked` is the one asymmetry, and it is declared rather than buried: the empty-bin\nrung goes through `_execute_placement`, which drops the count itself because it is also\nreached from places that never touched a queue.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/inventory/put_rungs.py::DECLINED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "RungResult()"
+    },
+    "Warehouse/inventory/put_rungs.py::RungResult": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "What one rung did with the unit it was handed.  Falsy means it declined.\n\n`bins` are PLACEMENTS \u2014 trips a putter made, `bin_placement` rows written, and what the\nbudget caps.  A unit absorbed into three of its own bins is three of them, which is why\nthe budget cannot simply count popped items: a cap read that way is silently generous\nexactly when the warehouse is most fragmented.\n\n`units` go back on the head of the queue IN ORDER and take the chain from the top.  A\nrepack's splits and a top-up's remainder are the same shape to the driver even though\none is rework and the other is a part-filled trip.\n\n`counts_booked` says this rung already applied the `_queued_sku_counts` change itself.\nOnly the empty-bin rung sets it, because its placement call is shared with callers that\nnever had a queue item to drop.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/put_rungs.py::RungResult.__bool__": {
+      "decorators": [],
+      "doc": "A rung that neither placed nor respawned anything DECLINED, and the chain walks on.\n\nDeliberately derived rather than a fourth field: a rung that reports work and also\nreports declining is not a state the chain has, and a flag would let one exist.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/inventory/put_rungs.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['RungResult', 'DECLINED', 'PUT_RUNGS', 'DEFAULT_PUT_CHAIN', 'chain_for']"
+    },
+    "Warehouse/inventory/put_rungs.py::chain_for": {
+      "decorators": [],
+      "doc": "Resolve rung names to a chain, refusing an unknown one.\n\nMirrors `put_policy.key_for`: a typo must be a refusal at build time, not a rung that\nsilently never fires.  `None` is the default chain.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(names) -> tuple[str, ...]"
+    },
     "Warehouse/kernel/__init__.py": {
       "decorators": [],
       "doc": "Warehouse.kernel \u2014 Zero-dependency value objects shared across the domain: the pick-cost primitives and the store/fulfillment regime identity.  Nothing here may import from elsewhere in Warehouse.\n\nSee README.md for what does and does not belong here.",
@@ -22047,10 +22196,17 @@
     },
     "Warehouse/operations/putaway.py::put_cost": {
       "decorators": [],
-      "doc": "Seconds to put `quantity` units away at physical location `(x_phys, y_phys)`.\n\nTravel from the aisle mouth plus height-bracketed handling \u2014 the same two terms, in the\nsame order, through the same primitives as `Pick._pick_time` and `Workload`'s P-term:\n\n    travel + M(y) \u00b7 (intercept + quantity \u00b7 per_item + quantity \u00b7 var)\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).",
+      "doc": "What the simulation BILLS for one put \u2014 `put_seconds_at` with the handling term in.\n\nKept as its own name because it is the billing call and reads as one at every call site\n(`Inventory_Manager._cost_putaway`), and because `cost` is not optional here: a put that\nis charged always pays for the handling.",
       "is_async": false,
       "kind": "function",
       "signature": "(x_phys: float, y_phys: float, weight: float, volume: float, quantity: int, speed: SpeedProfile, cost: PutawayCost) -> float"
+    },
+    "Warehouse/operations/putaway.py::put_seconds_at": {
+      "decorators": [],
+      "doc": "Seconds to put `quantity` units away at `(x_phys, y_phys)` \u2014 the ONE expression.\n\nTravel from the aisle mouth plus height-bracketed handling \u2014 the same two terms, in the\nsame order, through the same primitives as `Pick._pick_time` and `Workload`'s P-term:\n\n    travel + M(y) \u00b7 (intercept + quantity \u00b7 per_item + quantity \u00b7 var)\n\nReturns SECONDS, the unit the whole simulator counts in\n(`Warehouse.kernel.timeline.TIME_UNIT`).\n\n## Two callers price the same physical act, and one of them drops a term\n\n`put_cost` below BILLS a put; `Inbound.gain._Evaluator._cost_at` OPTIMISES where to put\nit.  Until 2026-09-17 the objective restated this formula and kept only `travel` \u2014 no\nintercept, no per-item charge, and no HEIGHT MULTIPLIER, which is bin-dependent and\ntherefore does not cancel out of a difference between two candidate bins.  The\nsimplification was recorded in prose (`gain.py`'s header: \"put travel is paid once at\nthe put crew's speeds\") and nowhere in the code, so **whether it was a decision or drift\nwas undecidable from the tests** \u2014 and the put formula moved three times in two months\n(ADR-0001's per-item charge, the one-clock refactor, ADR-0003).\n\n`cost=None` is that drop, made VISIBLE: the handling term is not merely unwritten, it is\nrefused at the call site, by name, where a reader can see it and a test can pin it.\n`Tests/unit/test_put_seconds_at.py` asserts the exact relationship between the two\nreadings, so a change to either half now has somewhere to fail.\n\n`Inbound/unload.py`'s `UnloadCost.from_putaway` makes the same argument for the\nreceiving twin: a reference makes the drift \"structurally impossible rather than merely\na diff someone might notice\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x_phys: float, y_phys: float, *, speed: SpeedProfile, cost: 'PutawayCost | None'=None, weight: float=0.0, volume: float=0.0, quantity: int=0) -> float"
     },
     "Warehouse/operations/roles.py": {
       "decorators": [],
@@ -23655,6 +23811,43 @@
       "doc": "Warehouse.placement \u2014 The assignment functions themselves \u2014 the research subject.  Assignment_Functions builds the placement closures the manager dispatches through (see context/arch/resolver_hints.yml: those edges are DYNAMIC and invisible to static import analysis), and Capacity_Reloader is the bounded re-slot.\n\nSee README.md for what does and does not belong here.",
       "kind": "module",
       "signature": null
+    },
+    "Warehouse/placement/policy.py": {
+      "decorators": [],
+      "doc": "policy \u2014 one placement family, declared once.\n\nCompeting placement policies are what this repo exists to measure, and adding one cost\n5-8 declarations across four packages: a pool class and builder here, an import plus a\n`_build_*` helper plus a `_RESTOCKS` row in `Optimization/config/strategies.py`, a branch in\n`strategy_runner._gain_bundle_for` naming the exact aisle books its `take` commits to, a\nname in `Inbound.gain.FAITHFUL_GAIN_FAMILIES`, rows in three dead registries, an equivalence\ntest and an arch hint.\n\nThree of those are already gone (the dead registries, deleted 2026-09-16). This record takes\nfour more: the positional `_RESTOCKS` tuple becomes named fields, `FAITHFUL_GAIN_FAMILIES`\nbecomes derived, the gain evaluator's per-family `aisle_state=` dicts become derived, and its\n`if restock == ...` chain becomes a lookup on `gain`.\n\n## Where the records live, and why not here\n\nThe TYPE is here because a placement family is a placement concept. The seventeen INSTANCES\nlive in `Optimization/config/strategies.py`, beside the `build` functions they carry: a build\ntakes `(mgr, StrategyContext)`, and `StrategyContext` is the run harness's own assembly of\nwhat a worker happens to have. Moving the records here would drag that up with them, and\n`wh_placement -> optimization` is a forbidden edge for exactly the reason it should be \u2014\n\"an assignment function must not import the run harness; it is a closure over its own\ninputs\".\n\n## `ledger_terms` is DECLARED, and then checked against the wiring\n\nIt names the `AisleLedger` books a family's `take` commits to. It has to be declared rather\nthan read off a pool, because the gain evaluator needs it BEFORE it builds one: it copies\nexactly those books so a virtual placement cannot advance the real warehouse. The\ndeclaration's own hazard is the one `_gain_bundle_for` states \u2014 \"a dict left off that list is\nnot a refusal, it is a virtual placement advancing the REAL warehouse\" \u2014 so it is not left\nas a claim: `Tests/unit/test_placement_policy.py` BUILDS each family's pool and compares the\ndeclaration against `AisleLedger.bound`, the books that pool was actually handed. A symbol\ntable that resolves names cannot catch a wrong relationship; exercising it can.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/placement/policy.py::PlacementPolicy": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One restock (reorder placement) rule: what it needs, what it builds, what it commits.\n\nFrozen, because the grid in `strategies.py` reads these to build every `Strategy` and a\nmutable record would let one arm's setup change another's.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/policy.py::PlacementPolicy.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/placement/policy.py::PlacementPolicy.state_names": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "`ledger_terms` as the MANAGER attribute names the gain evaluator keys on.\n\nTwo vocabularies for the same books: the ledger calls them `sku_sets`, the manager\n`_aisle_sku_sets`, and `Inbound.gain`'s copier tables key on `aisle_sku_sets` because\n`Inbound/` may not import the placement engine.  The mapping is mechanical and lives\nhere so no third hand-written list exists to disagree.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple[str, ...]"
+    },
+    "Warehouse/placement/policy.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['PlacementPolicy', 'GAIN_ADAPTERS']"
     },
     "docs/experiments/ingest.py": {
       "decorators": [],

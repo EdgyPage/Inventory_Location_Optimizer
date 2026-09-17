@@ -267,16 +267,27 @@ def test_aisle_metrics_roundtrip():
     db = _tmp('sim_am.db')
     init_run_db(db)
     rid = create_run(db, 'uni_rank_labor_norsl')
-    # `lift_sum` was an eighth field here until 2026-09-16.  It was write-only end to end
-    # and was deleted with the load_min/load_max family that was its only reader.
+    # Two fields have left this record, both for the same reason and both found the same
+    # way -- an audit for readers that came back empty.  `lift_sum` went 2026-09-16 with the
+    # load_min/load_max family that was its only reader; `pick_load_sum` went 2026-09-17
+    # (ticket 20) because `init_demand_state` priced it for every arm while only
+    # `rank_labor` and `rank_cartlabor` MAINTAIN it, so on the other fifteen the recorded
+    # number was stale from the first placed unit and then decayed.
+    #
+    # THIS TEST IS WHERE BOTH DELETIONS WERE CAUGHT, and the unit tier covered neither. That
+    # is worth a line: the roundtrip is the only place a record, its INSERT column list and
+    # its loader are exercised against a real file together.
     rec = AisleMetricRecord(run_id=rid, batch_id=2, aisle_id=7, n_skus=3, n_bins=5,
-                            demand_sum=1.5, pick_load_sum=2.75)
+                            demand_sum=1.5)
     save_aisle_metrics(db, rid, [rec])
     got = {a.aisle_id: a for a in load_aisle_metrics(db, rid, batch_id=2)}[7]
 
-    assert abs(got.pick_load_sum - 2.75) < _TOL
     assert abs(got.demand_sum - 1.5) < _TOL
     assert got.n_bins == 5
+    assert got.n_skus == 3
+    assert not hasattr(got, 'pick_load_sum'), (
+        'the dropped column came back on the record; the DDL, the INSERT and the loader '
+        'have to move together or the value tuple misaligns silently')
 
 
 def test_run_identity_and_find_run():

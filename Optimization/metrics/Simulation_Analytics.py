@@ -517,6 +517,11 @@ def snapshot_aisle_metrics(
     aisle_sku_sets    = manager._aisle_sku_sets
     aisle_sku_counts  = manager._aisle_sku_counts
     aisle_demand_sum  = manager._aisle_demand_sum
+    # Read for the ROW SET only, not for a value: `aisle_metrics.pick_load_sum` was dropped
+    # by ticket 20 (it recorded a level only two of seventeen arms maintain), but the
+    # in-memory dict is still live state, and dropping it from the union below could change
+    # WHICH AISLES get a row -- which would make the column removal indistinguishable from a
+    # row-set change in the digest.
     aisle_pick_load   = getattr(manager, '_aisle_pick_load_sum', {})
 
     # Union of all aisle IDs present in any state dict
@@ -535,7 +540,6 @@ def snapshot_aisle_metrics(
             n_skus        = len(sku_set),
             n_bins        = sum(sku_cnts.values()),
             demand_sum    = float(aisle_demand_sum.get(aid, 0.0)),
-            pick_load_sum = float(aisle_pick_load.get(aid, 0.0)),
         ))
     return records
 

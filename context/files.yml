@@ -4287,8 +4287,8 @@ files:
     purpose: "pins rank_labor/rank_cartlabor/rank_minlabor faithful-to-arm and pure over the whole aisle_state surface, with the arm-level hoists and the seam's own refusals."
     layer: "tests"
     key_symbols:
-      - {name: "FAMILIES", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "const"}
       - {name: "RANKED3", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "const"}
+      - {name: "FAMILIES", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "const"}
       - {name: "EXTRAS", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "const"}
       - {name: "test_the_bundles_pool_places_exactly_as_the_arms_own_pool", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
       - {name: "test_a_real_plan_leaves_every_live_aisle_dict_untouched", file: "Tests/unit/test_gain_bundle_labor_families.py", kind: "function"}
@@ -4761,6 +4761,20 @@ files:
       - {name: "test_reorder_trigger_sets_the_flag_and_leaves_the_initial_baseline_alone", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_end_to_end_mini_sim_picks_restocks_and_places_for_five_batches", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_placement_policy.py":
+    purpose: "the one declaration per placement family, EXERCISED."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_record_refuses_an_unknown_gain_adapter", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+      - {name: "test_a_record_refuses_a_ledger_term_that_is_not_a_book", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+      - {name: "test_a_pool_family_with_no_ledger_terms_is_refused", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+      - {name: "test_state_names_is_the_manager_spelling_of_the_same_books", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+      - {name: "test_every_restock_key_has_exactly_one_record", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+      - {name: "test_the_faithful_families_are_derived_not_listed", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+      - {name: "test_the_strategy_grid_carries_every_record_through", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+      - {name: "test_the_declared_ledger_terms_are_the_books_the_family_binds", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+      - {name: "test_the_comparison_above_is_not_vacuous", file: "Tests/unit/test_placement_policy.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_placement_selection_is_not_a_scan.py":
     purpose: "the heap's win, fenced as a call count."
     layer: "tests"
@@ -4853,6 +4867,43 @@ files:
       - {name: "test_inherit_leaves_the_pool_in_charge", file: "Tests/unit/test_put_policy.py", kind: "function"}
       - {name: "test_sku_batched_restores_same_sku_adjacency", file: "Tests/unit/test_put_policy.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_put_rungs.py":
+    purpose: "each ADR-0003 rung, answered on its own."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_declined_is_falsy_and_work_is_truthy", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_a_result_is_immutable", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_the_default_chain_is_adr_0003s_order", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_an_unknown_rung_is_refused_not_silently_skipped", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_an_empty_chain_is_refused", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_every_registered_rung_exists_on_the_manager", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_the_manager_binds_the_default_chain_and_a_custom_one_resolves", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_empty_bin_places_one_and_books_its_own_count", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_empty_bin_declines_when_nothing_fits", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_own_bins_absorbs_fully_and_charges_every_bin_it_touched", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_own_bins_partial_sends_the_remainder_back_as_one_unit", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_own_bins_declines_when_the_sku_has_no_room", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_repack_splits_into_the_smaller_tier_and_charges_no_bins", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_repack_declines_with_no_smaller_tier_available", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_singleton_declines_for_a_fulfillment_unit", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_singleton_declines_when_no_singleton_bin_exists", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_the_queued_count_agrees_with_what_is_actually_queued", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+      - {name: "test_a_chain_that_declines_everywhere_holds_the_item_rather_than_dropping_it", file: "Tests/unit/test_put_rungs.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_put_seconds_at.py":
+    purpose: "the billed put and the optimised put, joined at last."
+    layer: "tests"
+    key_symbols:
+      - {name: "FOOT", file: "Tests/unit/test_put_seconds_at.py", kind: "const"}
+      - {name: "HIGH", file: "Tests/unit/test_put_seconds_at.py", kind: "const"}
+      - {name: "LOW", file: "Tests/unit/test_put_seconds_at.py", kind: "const"}
+      - {name: "test_put_cost_is_put_seconds_at_with_the_cost_in", file: "Tests/unit/test_put_seconds_at.py", kind: "function"}
+      - {name: "test_put_cost_has_no_arithmetic_of_its_own", file: "Tests/unit/test_put_seconds_at.py", kind: "function"}
+      - {name: "test_cost_none_drops_exactly_the_handling_term", file: "Tests/unit/test_put_seconds_at.py", kind: "function"}
+      - {name: "test_the_dropped_term_is_not_zero", file: "Tests/unit/test_put_seconds_at.py", kind: "function"}
+      - {name: "test_the_dropped_term_is_bin_dependent_which_is_why_it_matters", file: "Tests/unit/test_put_seconds_at.py", kind: "function"}
+      - {name: "test_the_gain_objective_prices_its_put_through_this_expression", file: "Tests/unit/test_put_seconds_at.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_putaway_budget.py":
     purpose: "the drain can be capped, and capping loses nothing."
     layer: "tests"
@@ -4925,7 +4976,7 @@ files:
       - {name: "test_the_default_is_intake", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_an_item_cannot_be_relabelled_in_flight", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_respawn_carries_the_origin_to_a_split_unit", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
-      - {name: "test_both_rescues_respawn_rather_than_pushing_a_bare_unit", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
+      - {name: "test_every_respawn_goes_through_the_one_push_site", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_execute_placement_takes_the_source_as_an_ignorable_keyword", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_the_recorder_reads_the_declared_source_not_an_identity_set", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
       - {name: "test_the_recorder_still_separates_intake_from_reorder_by_the_loop_flag", file: "Tests/unit/test_putaway_provenance.py", kind: "function"}
@@ -6396,6 +6447,14 @@ files:
       - {name: "HeldItems", file: "Warehouse/inventory/put_queue.py", kind: "class"}
       - {name: "store_and_fulfillment", file: "Warehouse/inventory/put_queue.py", kind: "function"}
     notes: ""
+  "Warehouse/inventory/put_rungs.py":
+    purpose: "the put-away fallback chain, as a sequence instead of a diff."
+    layer: "wh_inventory"
+    key_symbols:
+      - {name: "RungResult", file: "Warehouse/inventory/put_rungs.py", kind: "class"}
+      - {name: "DECLINED", file: "Warehouse/inventory/put_rungs.py", kind: "const"}
+      - {name: "chain_for", file: "Warehouse/inventory/put_rungs.py", kind: "function"}
+    notes: ""
   "Warehouse/kernel/allocation.py":
     purpose: "split a fixed set of work across N workers."
     layer: "wh_kernel"
@@ -6505,6 +6564,7 @@ files:
     layer: "wh_operations"
     key_symbols:
       - {name: "PutawayCost", file: "Warehouse/operations/putaway.py", kind: "class"}
+      - {name: "put_seconds_at", file: "Warehouse/operations/putaway.py", kind: "function"}
       - {name: "put_cost", file: "Warehouse/operations/putaway.py", kind: "function"}
     notes: ""
   "Warehouse/operations/roles.py":
@@ -6592,6 +6652,12 @@ files:
       - {name: "demote_unpopular_reloader", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
       - {name: "rebalance_reloader", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
       - {name: "RELOADERS", file: "Warehouse/placement/Capacity_Reloader.py", kind: "const"}
+    notes: ""
+  "Warehouse/placement/policy.py":
+    purpose: "one placement family, declared once."
+    layer: "wh_placement"
+    key_symbols:
+      - {name: "PlacementPolicy", file: "Warehouse/placement/policy.py", kind: "class"}
     notes: ""
   "docs/experiments/ingest.py":
     purpose: "Pull a simulation run's curated files into a docs experiment folder."

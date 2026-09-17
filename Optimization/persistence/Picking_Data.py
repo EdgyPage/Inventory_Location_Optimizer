@@ -34,7 +34,12 @@ class AisleMetricRecord:
     n_skus:        int    # unique SKUs placed in this aisle
     n_bins:        int    # occupied bin count in this aisle
     demand_sum:    float  # Σ f_i * q_i — trip-cost secondary score (demand mass)
-    pick_load_sum: float = 0.0  # Σ f_i*q_i*per-pick cost — labor-balance score (Rank_labor)
+    # `pick_load_sum` was here until 2026-09-17 (ticket 20).  `init_demand_state` priced it
+    # for every arm; only `rank_labor` and `rank_cartlabor` MAINTAIN it, so on the other
+    # fifteen it went stale at the first placed unit and then decayed, because `drop_sku`
+    # decrements it unconditionally.  No Quantity, figure, view or experiment read the
+    # column.  The in-memory `_aisle_pick_load_sum` stays -- its two readers are its two
+    # writers.
 
 
 @dataclass
@@ -252,7 +257,6 @@ _CREATE_AISLE_METRICS = """
         n_skus        INTEGER NOT NULL DEFAULT 0,
         n_bins        INTEGER NOT NULL DEFAULT 0,
         demand_sum    REAL    NOT NULL DEFAULT 0.0,
-        pick_load_sum REAL    NOT NULL DEFAULT 0.0,
         PRIMARY KEY (run_id, batch_id, aisle_id)
     )
 """
@@ -1250,7 +1254,20 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 is no optional-fill to negotiate because there is no column on an
     #                 existing table.  The only thing that MOVED on an uncoupled run is this
     #                 stamp itself.
-    known_ids=('c6bacfdb5c77',  # aisle_metrics WITH lift_sum: .. 2026-09-16.  The column was
+    known_ids=('c37b50bf2b84',  # aisle_metrics WITH pick_load_sum: 2026-09-16 .. 2026-09-17.
+                                # Same shape of finding as lift_sum above, one level subtler:
+                                # `init_demand_state` PRICED the level for every arm, but only
+                                # `rank_labor` and `rank_cartlabor` MAINTAIN it (see
+                                # PlacementPolicy.ledger_terms), so on the other fifteen it
+                                # went stale at the first placed unit and then decayed --
+                                # `drop_sku` decrements it unconditionally.  65 of 65 aisles
+                                # drifted on a cluster_map fixture, measured identical on both
+                                # sides of the ledger refactor, so it predates it.  No
+                                # Quantity, figure, view or experiment read the column.  The
+                                # in-memory `_aisle_pick_load_sum` STAYS: its two readers are
+                                # its two writers.  Archived files keep the column and still
+                                # vet under this id.
+              'c6bacfdb5c77',  # aisle_metrics WITH lift_sum: .. 2026-09-16.  The column was
                                 # write-only end to end -- no Quantity, figure, view or
                                 # published experiment ever read it, and CAP_AISLE_METRICS
                                 # already excluded it from the negotiable surface.  Its only
@@ -1331,8 +1348,7 @@ REQUIRES = _compat.Requires(
                           'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins',
                           'items_picked', 'total_items', 'pick_travel_x', 'pick_travel_y',
                           'non_pick_travel_x', 'non_pick_travel_y', 'cart_move'),
-        'aisle_metrics': ('run_id', 'batch_id', 'aisle_id', 'n_skus', 'n_bins', 'demand_sum',
-                          'pick_load_sum'),
+        'aisle_metrics': ('run_id', 'batch_id', 'aisle_id', 'n_skus', 'n_bins', 'demand_sum'),
         # `unit_type`/`storage_size` are in the PRIMARY select; the inner OperationalError
         # fallback re-queries without them for a pre-enrichment file.  Both are nonetheless in
         # the guaranteed surface — every vetted vintage has them — so the fallback is dead code
@@ -2687,12 +2703,11 @@ def save_aisle_metrics(path: str, run_id: int, records: list) -> None:
 def _insert_aisle_metrics(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
         'INSERT OR REPLACE INTO aisle_metrics '
-        '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum,pick_load_sum) '
-        'VALUES (?,?,?,?,?,?,?)',
+        '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum) '
+        'VALUES (?,?,?,?,?,?)',
         [
             (run_id, r.batch_id, r.aisle_id,
-             r.n_skus, r.n_bins, r.demand_sum,
-             getattr(r, 'pick_load_sum', 0.0))
+             r.n_skus, r.n_bins, r.demand_sum)
             for r in records
         ],
     )
@@ -2739,8 +2754,8 @@ def load_aisle_metrics(
                 n_skus        = row['n_skus'],
                 n_bins        = row['n_bins'],
                 demand_sum    = row['demand_sum'],
-                pick_load_sum = (row['pick_load_sum']
-                                 if 'pick_load_sum' in row.keys() else 0.0),
+                # An ARCHIVED file still carries `pick_load_sum`; `SELECT *` reads it and
+                # nothing asks for it, which is the whole point of dropping it.
             )
             for row in rows
         ]

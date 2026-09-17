@@ -946,6 +946,11 @@
       "src": "Inbound/gain.py"
     },
     {
+      "dst": "Warehouse/operations/putaway.py",
+      "kind": "imports",
+      "src": "Inbound/gain.py"
+    },
+    {
       "dst": "Inbound/gain.py::_copy_of_floats",
       "kind": "ref",
       "src": "Inbound/gain.py::AISLE_COPIERS"
@@ -992,6 +997,11 @@
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._cost_at"
+    },
+    {
+      "dst": "Warehouse/operations/putaway.py::put_seconds_at",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator._cost_at"
     },
@@ -7656,6 +7666,91 @@
       "src": "Optimization/config/strategies.py"
     },
     {
+      "dst": "Optimization/config/strategies.py::_build_cluster_map",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_cluster_map_rank",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_compaction",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_expansion",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_map",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_map_rank",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_max_cluster",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_min_cluster",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_rank_cartlabor",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_rank_labor",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_rank_maxlabor",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_rank_minlabor",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_rank_popularity",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_trip_max",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_trip_min",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_uniform",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::_build_uniform_trip_min_ranked",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
       "dst": "Optimization/config/strategies.py::_hsv_hex",
       "kind": "calls",
       "src": "Optimization/config/strategies.py"
@@ -7671,89 +7766,14 @@
       "src": "Optimization/config/strategies.py"
     },
     {
-      "dst": "Optimization/config/strategies.py::_build_cluster_map",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
+      "dst": "Warehouse/placement/policy.py",
+      "kind": "imports",
+      "src": "Optimization/config/strategies.py"
     },
     {
-      "dst": "Optimization/config/strategies.py::_build_cluster_map_rank",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_compaction",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_expansion",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_map",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_map_rank",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_max_cluster",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_min_cluster",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_rank_cartlabor",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_rank_labor",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_rank_maxlabor",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_rank_minlabor",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_rank_popularity",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_trip_max",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_trip_min",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_uniform",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
-    },
-    {
-      "dst": "Optimization/config/strategies.py::_build_uniform_trip_min_ranked",
-      "kind": "ref",
-      "src": "Optimization/config/strategies.py::_RESTOCKS"
+      "dst": "Warehouse/placement/policy.py::PlacementPolicy",
+      "kind": "calls",
+      "src": "Optimization/config/strategies.py"
     },
     {
       "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.build_optimal_map",
@@ -9594,11 +9614,6 @@
       "dst": "Optimization/runschema/__init__.py::resolver_for",
       "kind": "calls",
       "src": "Optimization/run_map_precompute.py::run"
-    },
-    {
-      "dst": "Inbound/gain.py",
-      "kind": "imports",
-      "src": "Optimization/run_restock_selection.py"
     },
     {
       "dst": "Optimization/config/strategies.py",
@@ -13661,6 +13676,26 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_pool_rank_minlabor",
+      "kind": "ref",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_pool_rank_popularity",
+      "kind": "ref",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_pool_rank_random",
+      "kind": "ref",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Warehouse/catalog/Affinity_Store.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -14391,29 +14426,29 @@
       "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_pool_fn",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
-    },
-    {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_pool_fn",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
+      "src": "Optimization/simdriver/strategy_runner.py::_pool_rank_minlabor._factory"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory"
+      "src": "Optimization/simdriver/strategy_runner.py::_pool_rank_popularity._factory"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_pool_rank_random._factory"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced._make._factory"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_pool_fn",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced._make._factory"
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::_gc_cb",
@@ -18306,6 +18341,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py"
     },
     {
+      "dst": "Warehouse/inventory/put_rungs.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/Inventory_Management.py"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/inventory/Inventory_Management.py"
@@ -18451,6 +18491,76 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._lead_queue"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_empty_bin"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates_raw",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_empty_bin"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_empty_bin"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_pick",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_empty_bin"
+    },
+    {
+      "dst": "Warehouse/inventory/put_rungs.py::RungResult",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_empty_bin"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_own_bins"
+    },
+    {
+      "dst": "Warehouse/inventory/put_rungs.py::RungResult",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_own_bins"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._charge_repack",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_repack"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::_max_qty_fitting_size",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_repack"
+    },
+    {
+      "dst": "Warehouse/inventory/put_rungs.py::RungResult",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_repack"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._charge_repack",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_singleton"
+    },
+    {
+      "dst": "Warehouse/inventory/put_rungs.py::RungResult",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_singleton"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::Singleton",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_singleton"
+    },
+    {
+      "dst": "Warehouse/layout/Storage_Primitive.py::_max_qty_fits",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_singleton"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::_windowed",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order"
@@ -18479,51 +18589,6 @@
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.count_put_cut",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._candidates_raw",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._charge_repack",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._execute_placement",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_common.py::_max_qty_fitting_size",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin._band_pick",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
-      "dst": "Warehouse/layout/Storage_Primitive.py::Singleton",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
-    },
-    {
-      "dst": "Warehouse/layout/Storage_Primitive.py::_max_qty_fits",
-      "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_per_unit"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.place_one",
@@ -18764,6 +18829,11 @@
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._refuse_site_scope",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.lead_queue_depth"
+    },
+    {
+      "dst": "Warehouse/inventory/put_rungs.py::chain_for",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_chain"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._bind_put_crews",
@@ -19441,6 +19511,11 @@
       "src": "Warehouse/inventory/put_queue.py::store_and_fulfillment"
     },
     {
+      "dst": "Warehouse/inventory/put_rungs.py::RungResult",
+      "kind": "calls",
+      "src": "Warehouse/inventory/put_rungs.py::DECLINED"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Warehouse/kernel/cost_model.py::SpeedProfile.__post_init__"
@@ -19666,19 +19741,24 @@
       "src": "Warehouse/operations/putaway.py"
     },
     {
-      "dst": "Warehouse/kernel/cost_model.py::handle_var",
+      "dst": "Warehouse/operations/putaway.py::put_seconds_at",
       "kind": "calls",
       "src": "Warehouse/operations/putaway.py::put_cost"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::handle_var",
+      "kind": "calls",
+      "src": "Warehouse/operations/putaway.py::put_seconds_at"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
       "kind": "calls",
-      "src": "Warehouse/operations/putaway.py::put_cost"
+      "src": "Warehouse/operations/putaway.py::put_seconds_at"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::per_pick",
       "kind": "calls",
-      "src": "Warehouse/operations/putaway.py::put_cost"
+      "src": "Warehouse/operations/putaway.py::put_seconds_at"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py",
@@ -20774,6 +20854,11 @@
       "dst": "Warehouse/placement/Capacity_Reloader.py::rebalance",
       "kind": "ref",
       "src": "Warehouse/placement/Capacity_Reloader.py::rebalance_reloader"
+    },
+    {
+      "dst": "Warehouse/inventory/aisle_ledger.py",
+      "kind": "imports",
+      "src": "Warehouse/placement/policy.py"
     },
     {
       "dst": "Optimization/runschema/__init__.py",
@@ -30750,6 +30835,22 @@
     },
     {
       "file": "Optimization/config/strategies.py",
+      "id": "Optimization/config/strategies.py::_RANKED3",
+      "kind": "const",
+      "module": "Optimization/config/strategies.py",
+      "name": "_RANKED3",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/strategies.py",
+      "id": "Optimization/config/strategies.py::_RANKED3_POS",
+      "kind": "const",
+      "module": "Optimization/config/strategies.py",
+      "name": "_RANKED3_POS",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/strategies.py",
       "id": "Optimization/config/strategies.py::_RESLOTS",
       "kind": "const",
       "module": "Optimization/config/strategies.py",
@@ -30762,14 +30863,6 @@
       "kind": "const",
       "module": "Optimization/config/strategies.py",
       "name": "_RESLOT_FRAC",
-      "public": false
-    },
-    {
-      "file": "Optimization/config/strategies.py",
-      "id": "Optimization/config/strategies.py::_RESTOCKS",
-      "kind": "const",
-      "module": "Optimization/config/strategies.py",
-      "name": "_RESTOCKS",
       "public": false
     },
     {
@@ -38318,6 +38411,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_declared_pools",
+      "kind": "const",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_declared_pools",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_futuresight_window",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -38338,38 +38439,6 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_gain_bundle_for",
-      "public": false
-    },
-    {
-      "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory",
-      "kind": "function",
-      "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "_factory",
-      "public": false
-    },
-    {
-      "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory",
-      "kind": "function",
-      "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "_factory",
-      "public": false
-    },
-    {
-      "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory",
-      "kind": "function",
-      "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "_factory",
-      "public": false
-    },
-    {
-      "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for._factory",
-      "kind": "function",
-      "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "_factory",
       "public": false
     },
     {
@@ -38402,6 +38471,78 @@
       "kind": "class",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_PMC",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_rank_minlabor",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_pool_rank_minlabor",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_rank_minlabor._factory",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_factory",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_rank_popularity",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_pool_rank_popularity",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_rank_popularity._factory",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_factory",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_rank_random",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_pool_rank_random",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_rank_random._factory",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_factory",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_pool_travel_balanced",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced._make",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_make",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced._make._factory",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_factory",
       "public": false
     },
     {
@@ -43334,6 +43475,38 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_empty_bin",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_rung_empty_bin",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_own_bins",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_rung_own_bins",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_repack",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_rung_repack",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._rung_singleton",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "_rung_singleton",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
       "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._serve_order",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
@@ -43642,6 +43815,22 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "lead_queue_depth",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_chain",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "put_chain",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.put_chain",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "put_chain",
       "public": true
     },
     {
@@ -45397,6 +45586,54 @@
       "public": true
     },
     {
+      "file": "Warehouse/inventory/put_rungs.py",
+      "id": "Warehouse/inventory/put_rungs.py",
+      "kind": "module",
+      "module": "Warehouse/inventory/put_rungs.py",
+      "name": "Warehouse.inventory.put_rungs",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_rungs.py",
+      "id": "Warehouse/inventory/put_rungs.py::DECLINED",
+      "kind": "const",
+      "module": "Warehouse/inventory/put_rungs.py",
+      "name": "DECLINED",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_rungs.py",
+      "id": "Warehouse/inventory/put_rungs.py::RungResult",
+      "kind": "class",
+      "module": "Warehouse/inventory/put_rungs.py",
+      "name": "RungResult",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/put_rungs.py",
+      "id": "Warehouse/inventory/put_rungs.py::RungResult.__bool__",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_rungs.py",
+      "name": "__bool__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_rungs.py",
+      "id": "Warehouse/inventory/put_rungs.py::__all__",
+      "kind": "const",
+      "module": "Warehouse/inventory/put_rungs.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/put_rungs.py",
+      "id": "Warehouse/inventory/put_rungs.py::chain_for",
+      "kind": "function",
+      "module": "Warehouse/inventory/put_rungs.py",
+      "name": "chain_for",
+      "public": true
+    },
+    {
       "file": "Warehouse/kernel/__init__.py",
       "id": "Warehouse/kernel/__init__.py",
       "kind": "module",
@@ -46498,6 +46735,14 @@
       "kind": "function",
       "module": "Warehouse/operations/putaway.py",
       "name": "put_cost",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/putaway.py",
+      "id": "Warehouse/operations/putaway.py::put_seconds_at",
+      "kind": "function",
+      "module": "Warehouse/operations/putaway.py",
+      "name": "put_seconds_at",
       "public": true
     },
     {
@@ -48339,6 +48584,46 @@
       "module": "Warehouse/placement/__init__.py",
       "name": "Warehouse.placement",
       "public": true
+    },
+    {
+      "file": "Warehouse/placement/policy.py",
+      "id": "Warehouse/placement/policy.py",
+      "kind": "module",
+      "module": "Warehouse/placement/policy.py",
+      "name": "Warehouse.placement.policy",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/policy.py",
+      "id": "Warehouse/placement/policy.py::PlacementPolicy",
+      "kind": "class",
+      "module": "Warehouse/placement/policy.py",
+      "name": "PlacementPolicy",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/policy.py",
+      "id": "Warehouse/placement/policy.py::PlacementPolicy.__post_init__",
+      "kind": "function",
+      "module": "Warehouse/placement/policy.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/policy.py",
+      "id": "Warehouse/placement/policy.py::PlacementPolicy.state_names",
+      "kind": "function",
+      "module": "Warehouse/placement/policy.py",
+      "name": "state_names",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/policy.py",
+      "id": "Warehouse/placement/policy.py::__all__",
+      "kind": "const",
+      "module": "Warehouse/placement/policy.py",
+      "name": "__all__",
+      "public": false
     },
     {
       "file": "docs/experiments/ingest.py",

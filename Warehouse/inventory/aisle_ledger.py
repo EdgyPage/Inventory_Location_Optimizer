@@ -361,27 +361,25 @@ class AisleLedger:
               ('pick_load_sum', 'sku_pick_load_product'),
               ('vol_sum', 'sku_vol_product'))
 
-    def reconcile(self, *, tol: float = 1e-6, levels: 'tuple[str, ...] | None' = None
-                  ) -> list[str]:
+    def reconcile(self, *, tol: float = 1e-6) -> list[str]:
         """Every priced level must equal the sum of its members' products.  [] when sound.
 
         This is the assertion the eleven loose dicts made impossible to write, and the reason
         both drifts survived for the life of their features.  Returns findings rather than
         raising so a caller can report them all at once.
 
-        **`levels` narrows the question, and a caller usually has to.**  `init_demand_state`
-        prices ALL THREE levels off the current placement, but a placement family maintains
-        only the ones it scores on: `demand_sum` always, `pick_load_sum` on the two labour
-        balancers, `vol_sum` on `rank_cartlabor` alone.  So on any other arm the two unread
-        levels drift away from their members as soon as the first unit is placed -- a real
-        inconsistency, recorded as its own ticket, and NOT something to hide by weakening
-        this default.  The default stays the strongest statement; a caller that knows an
-        arm's terms asks for exactly those.
+        **Unconditional, and it took two tickets to get there.**  It briefly took a `levels`
+        argument, because `init_demand_state` priced all three levels off the current
+        placement while a family maintains only the ones it scores on -- so on fifteen of the
+        seventeen arms two levels drifted from the first placed unit, and asking the whole
+        question would have reported the SEED rather than the warehouse.  Ticket 23 made the
+        seed take the arm's terms, so there is no level left that is priced and then
+        abandoned, and the argument was deleted with the condition that needed it.  A level
+        whose products were never seeded is skipped below, which is a different thing: that
+        is a level this run does not have, not one it has and mismaintains.
         """
         out: list[str] = []
         for level_name, product_name in self.LEVELS:
-            if levels is not None and level_name not in levels:
-                continue
             level = getattr(self, level_name)
             product = getattr(self, product_name)
             if not product:
@@ -395,7 +393,7 @@ class AisleLedger:
                         f'sum to {by_hand!r} (drift {have - by_hand:+.6g})')
         return out
 
-    def assert_sound(self, *, levels: 'tuple[str, ...] | None' = None) -> None:
+    def assert_sound(self) -> None:
         """`reconcile()` as an assertion, for tests and end-of-drain checks."""
-        findings = self.reconcile(levels=levels)
+        findings = self.reconcile()
         assert not findings, 'aisle ledger is inconsistent:\n  ' + '\n  '.join(findings)

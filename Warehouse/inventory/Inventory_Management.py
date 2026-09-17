@@ -579,7 +579,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 bisect.insort(by_aisle[b.location[0]], b, key=lambda x: x._D)
         self._travel_costs_ready = True
 
-    def init_demand_state(self, inventory: Any, wp: Any = None) -> None:
+    def init_demand_state(self, inventory: Any, wp: Any = None,
+                          terms: 'tuple[str, ...] | None' = None) -> None:
         """Populate demand-product lookup and per-aisle demand sums.
 
         Must be called after init_placement_state() so _aisle_sku_sets already
@@ -589,7 +590,25 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         When *wp* is given, also build the cost-weighted labor twin
         (_sku_pick_load_product = f*q*cost1 = order.expected_labor, and the
         per-aisle _aisle_pick_load_sum) used by the Rank_labor balance selector.
+
+        **`terms` prices only the levels the ARM maintains** -- the ledger book names its
+        `PlacementPolicy.ledger_terms` declares.  `None` prices everything, which is what
+        every caller without an arm (tests, the benches, the diagnostics) wants.
+
+        Pricing more than the arm maintains is not free, and it is ticket 20's finding.
+        `enqueue_all` runs the initial stock through the arm's OWN policy, which commits
+        only the levels it scores on; from the first placed unit the others are stale, and
+        `drop_sku` then decrements them unconditionally, so they DECAY.  Measured at 65 of
+        65 aisles on a cluster_map fixture.  Nothing read them -- `aisle_metrics.lift_sum`
+        and `.pick_load_sum` were both deleted on that evidence -- but that is exactly what
+        was true of `vol_sum` until `rank_cartlabor` started reading it.
+
+        The per-SKU PRODUCT goes with its level, deliberately.  Seeding the product without
+        the level would leave `AisleLedger.reconcile()` comparing an empty level against
+        products nobody summed -- a finding about the seed rather than about the warehouse.
         """
+        want_load = terms is None or 'pick_load_sum' in terms
+        want_vol = terms is None or 'vol_sum' in terms
         self._sku_demand_product = {
             c.sku: c.demand.relative_frequency * c.demand.quantity_rate
             for c in inventory.orders
@@ -600,7 +619,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 self._sku_demand_product.get(s, 0.0) for s in sku_set
             )
 
-        if wp is not None:
+        if wp is not None and want_load:
             # order.expected_labor reads labor_cost, which the worker sets via
             # compute_labor_cost() before this call.
             self._sku_pick_load_product = {
@@ -612,8 +631,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                     self._sku_pick_load_product.get(s, 0.0) for s in sku_set
                 )
 
-            # Expected picked-volume mass (f * q * volume) per SKU and per aisle, seeded
-            # from the current placement — read by the Rank_cartlabor cart-swap term.
+        # Expected picked-volume mass (f * q * volume) per SKU and per aisle, seeded
+        # from the current placement — read by the Rank_cartlabor cart-swap term.
+        if wp is not None and want_vol:
             self._sku_vol_product = {
                 c.sku: c.demand.relative_frequency * c.demand.quantity_rate * c.volume()
                 for c in inventory.orders

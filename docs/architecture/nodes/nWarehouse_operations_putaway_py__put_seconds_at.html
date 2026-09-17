@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>put_seconds_at · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_operations_putaway_py__put_seconds_at" data-id="Warehouse/operations/putaway.py::put_seconds_at">
+<nav class="crumbs"><a href="../layers.html">wh_operations</a> <span class="sep">›</span> <a href="../files/nWarehouse_operations_putaway_py.html"><code>Warehouse/operations/putaway.py</code></a> <span class="sep">›</span> <span class="here"><code>put_seconds_at</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>put_seconds_at</code></h1>
+<p class="meta">layer <span class="chip">wh_operations</span> · file <a href="../files/nWarehouse_operations_putaway_py.html"><code>Warehouse/operations/putaway.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def put_seconds_at(x_phys: float, y_phys: float, *, speed: SpeedProfile, cost: &#x27;PutawayCost | None&#x27;=None, weight: float=0.0, volume: float=0.0, quantity: int=0) -&gt; float</code></pre>
+<section class="doc">Seconds to put `quantity` units away at `(x_phys, y_phys)` — the ONE expression.
+
+Travel from the aisle mouth plus height-bracketed handling — the same two terms, in the
+same order, through the same primitives as `Pick._pick_time` and `Workload`&#x27;s P-term:
+
+    travel + M(y) · (intercept + quantity · per_item + quantity · var)
+
+Returns SECONDS, the unit the whole simulator counts in
+(`Warehouse.kernel.timeline.TIME_UNIT`).
+
+## Two callers price the same physical act, and one of them drops a term
+
+`put_cost` below BILLS a put; `Inbound.gain._Evaluator._cost_at` OPTIMISES where to put
+it.  Until 2026-09-17 the objective restated this formula and kept only `travel` — no
+intercept, no per-item charge, and no HEIGHT MULTIPLIER, which is bin-dependent and
+therefore does not cancel out of a difference between two candidate bins.  The
+simplification was recorded in prose (`gain.py`&#x27;s header: &quot;put travel is paid once at
+the put crew&#x27;s speeds&quot;) and nowhere in the code, so **whether it was a decision or drift
+was undecidable from the tests** — and the put formula moved three times in two months
+(ADR-0001&#x27;s per-item charge, the one-clock refactor, ADR-0003).
+
+`cost=None` is that drop, made VISIBLE: the handling term is not merely unwritten, it is
+refused at the call site, by name, where a reader can see it and a test can pin it.
+`Tests/unit/test_put_seconds_at.py` asserts the exact relationship between the two
+readings, so a change to either half now has somewhere to fail.
+
+`Inbound/unload.py`&#x27;s `UnloadCost.from_putaway` makes the same argument for the
+receiving twin: a reference makes the drift &quot;structurally impossible rather than merely
+a diff someone might notice&quot;.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__handle_var.html"><code>handle_var</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__cost_at.html"><code>_cost_at</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nWarehouse_operations_putaway_py__put_cost.html"><code>put_cost</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_putaway_py__put_seconds_at">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/putaway.py#:~:text=def%20put_seconds_at">Source ↗</a></p>
+</article>
+</main>
+</body></html>

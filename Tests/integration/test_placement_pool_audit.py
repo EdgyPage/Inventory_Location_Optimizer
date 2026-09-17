@@ -183,11 +183,17 @@ def test_every_pool_leaves_the_aisle_ledger_reconciled(built):
     level equals the sum of its members' per-SKU products -- and this drains each arm's pool
     against the manager's real ledger and asks for it.
 
-    Scoped to the levels the family MAINTAINS, which is not a weakening: `init_demand_state`
-    prices all three off the current placement, but only `demand_sum` is maintained by every
-    family, so the other two legitimately drift on arms that never read them. That drift is
-    real and is its own ticket; asking about it here would only make this test red for a
-    reason it is not about.
+    UNCONDITIONAL since ticket 23. It was scoped to the levels each family maintains,
+    because `init_demand_state` priced all three off the current placement while only
+    `demand_sum` is maintained by every family -- so the other two drifted on arms that
+    never read them, and asking about them here would have made this test red for a reason
+    it was not about. The seed now takes the arm's `ledger_terms` and prices only those, so
+    there is no level left that is priced and then abandoned, and `reconcile()` can be asked
+    the whole question.
+
+    The per-family term sets are still pinned below, because the derivation is what makes
+    the unconditional form safe: if a family silently stopped maintaining a level, the seed
+    would stop pricing it too and this would go quiet.
     """
     seen_terms = {}
     checked = 0
@@ -211,7 +217,7 @@ def test_every_pool_leaves_the_aisle_ledger_reconciled(built):
         levels = inner.maintained_levels() if inner is not None else ('demand_sum',)
         seen_terms[p.name] = levels
 
-        findings = a.mgr.ledger.reconcile(levels=levels)
+        findings = a.mgr.ledger.reconcile()          # every level, no scoping
         assert not findings, f'{key} ({p.name}): ' + '; '.join(findings)
         checked += 1
 
@@ -239,8 +245,8 @@ def test_the_ledger_assertion_above_is_not_vacuous(built):
     aid = next(a for a, s in led.sku_sets.items() if s)
     led.demand_sum[aid] += 1.0
     try:
-        findings = led.reconcile(levels=('demand_sum',))
+        findings = led.reconcile()
         assert len(findings) == 1 and f'demand_sum[{aid}]' in findings[0], findings
     finally:
         led.demand_sum[aid] -= 1.0
-    assert led.reconcile(levels=('demand_sum',)) == [], 'the probe did not restore the ledger'
+    assert led.reconcile() == [], 'the probe did not restore the ledger'

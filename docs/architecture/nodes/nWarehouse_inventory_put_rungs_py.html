@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.inventory.put_rungs · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_put_rungs_py" data-id="Warehouse/inventory/put_rungs.py">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <span class="here"><code>Warehouse/inventory/put_rungs.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.inventory.put_rungs</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_put_rungs_py.html"><code>Warehouse/inventory/put_rungs.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.inventory.put_rungs</code></pre>
+<section class="doc">put_rungs — the put-away fallback chain, as a sequence instead of a diff.
+
+ADR-0003 fixes what happens when a queued unit finds no empty bin, and in what order:
+
+    0. an EMPTY bin                    (`placement.place_one` — where placement is chosen)
+    1. the SKU&#x27;s OWN bins, fullest first, filled to capacity
+    2. repack into a smaller size tier (pallet or fulfillment)
+    3. singleton bins of the same order type (store only)
+    4. pending — back on the queue, retried next batch, no expiry
+
+All five were written inline in one 180-line `while waiting:` loop, each hand-maintaining
+`_queued_sku_counts`, the budget charge and `waiting.appendleft(...)` with subtly different
+bookkeeping.  There was no seam: **a new rung was an edit INSIDE the hottest and most
+invariant-dense loop in the manager.**  The ADR itself says the rule &quot;may become a knob
+later, which is why the rework is recorded rather than hidden&quot; — and that knob would have
+cost exactly that edit.
+
+The contrast was one file away.  `put_policy.py` answers the ADJACENT question — which
+waiting item to work next — with a one-line interface, five adapters, a `key_for` resolver
+that raises on an unknown name and a documented &quot;what is NOT here yet&quot;.  Two sibling policy
+questions; one had a real seam and the other had none.
+
+## What is here and what is not
+
+Here: the result type, the registry of rung names, and the resolver.  **Not** here: the rung
+BODIES, which stay on `Inventory_Manager`.  They reach into `_index`, `_execute_placement`,
+`_top_up_own_bins`, `_charge_repack` and `_queued_sku_counts` — that depth is why
+`put_policy`&#x27;s adapters could leave the manager and these cannot, and pretending otherwise
+would buy a thinner file at the cost of a wider interface.
+
+## The bookkeeping the driver now expresses once
+
+Every rung is handed the popped item and answers with what it did.  The driver reads the
+answer and does the same three things for all of them:
+
+    placed += result.bins                         # the budget counts PLACEMENTS
+    waiting.extendleft(reversed(result.units))     # push back at the head, in order
+    _queued_sku_counts[sku] += len(result.units) - 1
+
+That last line is the one worth staring at.  The item was POPPED, so it stops counting as
+one queued unit; `len(units)` go back in its place.  Every rung&#x27;s hand-written delta was a
+special case of it:
+
+| rung | bins | units back | delta | was written as |
+|---|---|---|---|---|
+| empty bin | 1 | 0 | −1 | inside `_execute_placement` |
+| own bins, absorbed | n | 0 | −1 | a hand-rolled pop-or-decrement |
+| own bins, partial | n | 1 | 0 | &quot;needs no delta (unlike the rescues, which split)&quot; |
+| repack | 0 | k | k−1 | `+ delta` where `delta = len(new_units) - 1` |
+| singleton | 0 | k | k−1 | the same expression again |
+| pending | 0 | 0 | — | the item is held, not consumed |
+
+`counts_booked` is the one asymmetry, and it is declared rather than buried: the empty-bin
+rung goes through `_execute_placement`, which drops the count itself because it is also
+reached from places that never touched a queue.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse.inventory.Inventory_Management</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(5)</span></h2><ul><li><a href="nWarehouse_inventory_put_rungs_py__DECLINED.html"><code>DECLINED</code></a> <span class="dim">Warehouse/inventory/put_rungs.py</span></li><li><a href="nWarehouse_inventory_put_rungs_py__RungResult.html"><code>RungResult</code></a> <span class="dim">Warehouse/inventory/put_rungs.py</span></li><li><a href="nWarehouse_inventory_put_rungs_py____all__.html"><code>__all__</code></a> <span class="dim">Warehouse/inventory/put_rungs.py</span></li><li><a href="nWarehouse_inventory_put_rungs_py__RungResult___bool__.html"><code>__bool__</code></a> <span class="dim">Warehouse/inventory/put_rungs.py</span></li><li><a href="nWarehouse_inventory_put_rungs_py__chain_for.html"><code>chain_for</code></a> <span class="dim">Warehouse/inventory/put_rungs.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_put_rungs_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/put_rungs.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

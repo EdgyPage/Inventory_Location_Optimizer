@@ -79,7 +79,7 @@ from Warehouse.kernel.cost_model import SpeedProfile as _SpeedProfile
 from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
 from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task, drain_sku as _drain_sku
-from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
+from Optimization.config.strategies import POLICY_BY_KEY, STRATEGY_BY_KEY, StrategyContext
 from Optimization.metrics.Simulation_Analytics import (
     fused_pre_snapshot, extract_batch_stats, extract_picker_events, extract_picks,
     extract_task_stats, snapshot_aisle_metrics)
@@ -284,7 +284,13 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
         mgr._affinity = affinity
         mgr.init_placement_state(affinity)
     if strat.needs_demand:
-        mgr.init_demand_state(inventory, wp)
+        # The arm's own terms, exactly as the worker passes them: pricing a level this arm
+        # never commits to would leave it stale from the first placed unit (ticket 20), and
+        # a fixture that seeds differently from production is a fixture that can only tell
+        # you about itself.
+        mgr.init_demand_state(inventory, wp,
+                              terms=getattr(POLICY_BY_KEY.get(strat.restock),
+                                            'ledger_terms', None))
     if strat.uses_aisle_index:
         mgr.init_travel_costs(wp)
     strat.build(mgr, ctx)

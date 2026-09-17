@@ -1,7 +1,7 @@
 # 20 - two priced levels are seeded once and then abandoned on 15 of 17 arms
 
 Type: bug
-Status: open
+Status: resolved
 Blocked by: -
 
 Found by ticket 02 stage B, the first time `AisleLedger.reconcile()` was pointed at a real
@@ -85,3 +85,67 @@ reconciles each arm on the levels its family maintains, read off the pool's own 
 (`AisleLedger.maintained_levels()`), and separately pins the two labour families' term sets.
 So a family that silently stopped maintaining a level fails there; this ticket is about the
 levels no family maintains.
+
+
+---
+
+## Progress -- the column is gone (2026-09-17)
+
+**Option 3 taken**, on the evidence the ticket already had: `aisle_metrics.pick_load_sum`
+recorded a number that is wrong on 15 of 17 arms and that no Quantity, figure, view or
+experiment reads. That is the same audit, with the same conclusion, as `lift_sum` in ticket 19.
+
+### What went
+
+The `AisleMetricRecord` field, the DDL column, the `REQUIRES` entry, the INSERT column string
+and its value tuple, the loader arm, and the `sim_semantics` declaration. The in-memory
+`_aisle_pick_load_sum` STAYS -- its two readers (`_TravelBalancedPool` and
+`_travel_balanced_impl`) are its two writers, and they are exactly the two arms that maintain
+it.
+
+`Visualization/RECONSTRUCTION.md` advertised these columns for state reconstruction and said
+"Only written by strategies that maintain aisle state -- empty for most arms". **That was
+wrong in both directions**: they are written for every arm, and the value is stale on most of
+them. Corrected rather than deleted, because the row is still true of `demand_sum`.
+
+### One read kept deliberately
+
+`snapshot_aisle_metrics` still reads `_aisle_pick_load_sum` -- for the ROW SET only. It is one
+of the three dicts whose union decides which aisles get a row, and dropping it could change
+that union, which would make the column removal indistinguishable from a row-set change in the
+digest. Commented at the site.
+
+### Schema pipeline
+
+`--sync` before the DDL edit, `--accept` after. `sim_db` moved
+**c37b50bf2b84 -> d9854632d1b0**; the outgoing id is adopted into `known_ids` and the
+commit-window comment is written by hand. Ticket 03's rule applies: a DDL change moves TWO
+tables in the digest, `aisle_metrics` and `simulation_runs` (which carries `sim_schema_id`).
+
+### The in-memory half went with it -- ticket 23, same commit
+
+Deleting the column would only have stopped the wrong number being RECORDED. Ticket 23 was
+split out and then done in the same pass, because ticket 03 had just made it cheap:
+`init_demand_state(inventory, wp, terms=...)` now prices only the levels the arm declares in
+`PlacementPolicy.ledger_terms`, so there is no level that is priced and then abandoned.
+
+Measured before and after, on `build_assets` fixtures:
+
+| arm | maintains | findings, all levels priced | after |
+|---|---|---|---|
+| `rank_cartlabor` | 3 of 3 | 0 | 0 |
+| `rank_labor` | 2 of 3 | 65 | 0 |
+| `cluster_map`, `comp` | 1 of 3 | 130 | 0 |
+
+`AisleLedger.reconcile()` is therefore UNCONDITIONAL again, and its `levels=` argument was
+deleted with the condition that needed it.
+`test_every_pool_leaves_the_aisle_ledger_reconciled` asks the whole question of every arm.
+
+
+### One more found the same way
+
+`test_visualization_data.py::test_aisle_metrics_roundtrip` failed, exactly as it did for
+`lift_sum` in ticket 19 -- **the unit tier covers neither deletion**. That roundtrip is the
+only place a record, its INSERT column list and its loader meet a real file together, and it
+has now caught two column removals in two days. Said so in its docstring rather than fixing it
+quietly.
