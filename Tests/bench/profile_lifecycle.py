@@ -48,7 +48,7 @@ import numpy as np
 from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.catalog.Inventory_Builder import Inventory
-from Warehouse.inventory.Inventory_Management import Inventory_Manager, LoadParams, Placement
+from Warehouse.inventory.Inventory_Management import Inventory_Manager, Placement
 from Warehouse.placement.Assignment_Functions import (
     build_cluster_minimizing_assignment_fn,
     build_cluster_maximizing_assignment_fn,
@@ -210,7 +210,6 @@ def _build_assets(
         cart_swap_coef   = 10.0,
     )
     wp          = WorkloadParams.from_pick_config(pick_cfg)
-    load_params = LoadParams(lambda_=1.0, k=1.0, gamma=1.5)
 
     print('  Building affinity store...', end='', flush=True)
     t0 = time.perf_counter()

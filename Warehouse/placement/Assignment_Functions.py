@@ -20,7 +20,7 @@ from Warehouse.kernel.cost_model import (
     SpeedProfile, height_multiplier, per_pick, sec_per_inch)
 from Warehouse.inventory.Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey, tier_ranks_for,
-    AssignmentFn, RankedAssignmentFn, LoadParams, Placement, _wp_for,
+    AssignmentFn, RankedAssignmentFn, Placement, _wp_for,
 )
 
 

@@ -167,13 +167,6 @@ class Placement:
 
 
 @dataclass
-class LoadParams:
-    lambda_: float = 1.0   # startup-cost multiplier
-    k: float       = 1.0   # pickers per task (normally 1 for single-aisle tasks)
-    gamma: float   = 1.5   # congestion exponent
-
-
-@dataclass
 class WarehousePlan:
     """Result of Inventory_Manager.plan_warehouse: a warehouse sized to hold the run's
     declared levels, plus the orders it FIELDS at exactly those levels.

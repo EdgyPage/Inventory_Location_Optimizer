@@ -27,7 +27,7 @@ from Warehouse.inventory.put_queue import (
     HeldItems, PutQueueSet, single_queue, store_and_fulfillment)
 from Warehouse.inventory.inventory_common import (
     PutawayItem,
-    AssignmentFn, RankedAssignmentFn, Placement, LoadParams, WarehousePlan,
+    AssignmentFn, RankedAssignmentFn, Placement, WarehousePlan,
     BinKey, binkey_of, is_forward_pick, _SIZE_RANKS, _SIZES_DESCENDING, tier_ranks_for,
     UNIT_CLASSES,
     _equilibrium_qty, _max_qty_fitting_size, own_bin_room,

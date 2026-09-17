@@ -1315,7 +1315,6 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     warehouse_cfg = args['warehouse_cfg']
     pick_cfg      = args['pick_cfg']
     wp            = args['wp']
-    load_params   = args['load_params']
     batch_cfg     = args['batch_cfg']
     batches_path        = args.get('batches_path')
     batches_fingerprint = args.get('batches_fingerprint')
@@ -1336,7 +1335,6 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     log.info(f'Strategy {strategy}  run_id={run_id}  batches {start_i}->{n_batches}')
     log.info(f'  pick  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}  '
              f'i={pick_cfg.pick_intercept}  cart={pick_cfg.cart_swap_coef}')
-    log.info(f'  load  lambda={load_params.lambda_}  k={load_params.k}  gamma={load_params.gamma}')
     log.info(f'  seeds  world={seed_world}  batches={seed_batches}')
     log.info(f'  checkpoint_every={checkpoint}'
              + (f'  max_skus={max_skus:,}' if max_skus else ''))

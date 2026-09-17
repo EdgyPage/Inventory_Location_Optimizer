@@ -35,7 +35,7 @@ from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.catalog.Order import Order
 from Warehouse.catalog.Demand import Demand
-from Warehouse.inventory.Inventory_Management import Inventory_Manager, LoadParams, Placement
+from Warehouse.inventory.Inventory_Management import Inventory_Manager, Placement
 from Warehouse.picking.Pick import PickConfig, PickSimulation
 from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task

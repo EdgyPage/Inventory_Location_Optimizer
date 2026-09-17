@@ -16,7 +16,7 @@ import time
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
-from Warehouse.inventory.Inventory_Management import LoadParams, Inventory_Manager
+from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.layout.Aisle_Dimensions import uniform_aisle_bins
 from Warehouse.layout.Storage_Primitive import viable_storage_units as _vsu
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
@@ -27,7 +27,7 @@ from Optimization.config.sim_config import (
     staffing_spec, work_day_spec, inbound_lead_law,
 )
 
-_HERE = os.path.dirname(os.path.abspath(__file__))   # recovered_params.json lives here
+_HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def _target_fill(coverage: dict | None, typed: float) -> float:
@@ -265,16 +265,6 @@ def build_shared_assets(
     log.info(f'  Affinity CSR ready : {n_aff_rows:,} entries  {mb:.0f} MB  '
              f'({time.perf_counter()-t0:.1f}s)')
 
-    param_path = os.path.join(_HERE, 'recovered_params.json')
-    if os.path.exists(param_path):
-        with open(param_path) as _pf:
-            p = json.load(_pf)
-        load_params = LoadParams(lambda_=p['lambda_'], k=1.0, gamma=p['gamma'])
-        log.info(f'  Params  λ={load_params.lambda_:.4f}  γ={load_params.gamma:.4f}')
-    else:
-        load_params = LoadParams(lambda_=1.1, k=1.0, gamma=1.5)
-        log.info('  recovered_params.json not found — using defaults (λ=1.1  γ=1.5)')
-
     # Shared batch_cfg for the store-only path (= the store channel, so store's batch shape).
     # The mixed path builds each channel's own BatchConfig from its Channel fractions.
     _store_batch = CONFIG['channels']['store']['batch']
@@ -412,7 +402,6 @@ def build_shared_assets(
         aff_db             = affinity_db,
         affinity_store     = affinity_store,
         batch_cfg          = batch_cfg,
-        load_params        = load_params,
         warehouse_cfg      = warehouse_cfg,
         total_aisles       = total_aisles,
         total_bins         = total_bins,

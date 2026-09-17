@@ -247,7 +247,6 @@ def _prepare_channel_run(
 
     inventory          = shared['inventory']
     batch_cfg          = shared['batch_cfg']
-    load_params        = shared['load_params']
     warehouse_cfg      = shared['warehouse_cfg']
     total_aisles       = shared['total_aisles']
     total_bins         = shared['total_bins']
@@ -295,9 +294,6 @@ def _prepare_channel_run(
         'x_speed'         : pick_cfg.x_speed,
         'y_speed'         : pick_cfg.y_speed,
         'num_pickers'     : pick_cfg.num_pickers,
-        'load_lambda'     : load_params.lambda_,
-        'load_k'          : load_params.k,
-        'load_gamma'      : load_params.gamma,
         'total_aisles'    : total_aisles,
         'total_bins'      : total_bins,
         'n_skus'          : len(inventory.orders),
@@ -484,7 +480,6 @@ def _prepare_channel_run(
         warehouse_cfg       = warehouse_cfg,
         pick_cfg            = ch_pick_cfg,
         wp                  = ch_wp,
-        load_params         = load_params,
         batch_cfg           = ch_batch_cfg,
         channel_regime      = ch_regime,      # worker filters inventory to this regime
         channel_name        = ch.name,
