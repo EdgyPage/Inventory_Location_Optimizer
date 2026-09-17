@@ -486,6 +486,13 @@ steady level as picked SKUs come to hold a remnant and a top-up in two bins. A w
 count that includes another channel's section is not a section's free index.
 _Avoid_: slack bins, spare capacity, empty bins in total
 
+**Aisle ledger**:
+What each aisle currently holds: its SKUs, and the levels that membership prices -- the demand,
+the pick load and the cart volume its contents represent. Re-measured as units are placed and
+dropped, never accumulated across snapshots. The complement of the free index, which counts what a
+section has left empty; a placement policy ranks aisles by reading the ledger.
+_Avoid_: aisle state, aisle index, aisle metrics (that is the recorded snapshot of it)
+
 **Tier spill**:
 A put that finds no empty bin in the unit's own tier and takes one from a larger tier of the same
 handling and category, ahead of consolidating into the SKU's own bin. The earliest sign that a
