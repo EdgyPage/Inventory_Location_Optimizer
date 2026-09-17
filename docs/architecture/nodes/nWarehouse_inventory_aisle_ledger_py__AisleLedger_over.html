@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>over · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_aisle_ledger_py__AisleLedger_over" data-id="Warehouse/inventory/aisle_ledger.py::AisleLedger.over">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_aisle_ledger_py.html"><code>Warehouse/inventory/aisle_ledger.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger.html"><code>AisleLedger</code></a> <span class="sep">›</span> <span class="here"><code>over</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>over</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_aisle_ledger_py.html"><code>Warehouse/inventory/aisle_ledger.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>@classmethod
+def over(cls, *, sku_sets=None, idx_sets=None, sku_counts=None, member_pos=None, demand_sum=None, pick_load_sum=None, vol_sum=None, sku_demand_product=None, sku_pick_load_product=None, sku_vol_product=None, **unknown) -&gt; &#x27;AisleLedger&#x27;</code></pre>
+<section class="doc">A ledger bound to dicts SOMEBODY ELSE owns, rather than ones it created.
+
+Two callers, and they are the reason this exists rather than `__init__`:
+
+- a placement policy, which is handed the aisle dicts down a long parameter
+  chain and must write through to whichever set it was given;
+- the inbound gain evaluator, which hands a policy copy-on-write wrappers so a
+  VIRTUAL placement cannot advance the real warehouse (`Inbound/gain.py`).
+
+A book left out reads as empty and REFUSES a write (`_UnboundBook`), so a family
+that never maintains `pick_load_sum` has somewhere harmless to look without a
+`None` check on the hot path, and a family that writes a book nobody gave it
+fails loudly instead of writing where no reader can follow.
+
+**Spelled out rather than looped, deliberately.**  `**books` plus ten `setattr`s
+cost 2.00 us; this costs 0.29 us, and the difference is 23.4% of a whole pool open
+against 4.2% -- paid once per virtual placement in the gain evaluator, which
+rebuilds the arm&#x27;s policy every time.  `**unknown` keeps the helpful refusal for a
+misspelled book and is free (0.014 us).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(11)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___CoDemandPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___MinLaborPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___RankedAssignPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___TravelBalancedPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___build_aisle_score_fn.html"><code>_build_aisle_score_fn</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___build_co_demand_place_one.html"><code>_build_co_demand_place_one</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___co_demand_ranked_impl.html"><code>_co_demand_ranked_impl</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___ranked_assign_impl.html"><code>_ranked_assign_impl</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___ranked_minlabor_impl.html"><code>_ranked_minlabor_impl</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___travel_balanced_impl.html"><code>_travel_balanced_impl</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_cluster_map_placement.html"><code>build_cluster_map_placement</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_aisle_ledger_py__AisleLedger_over">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/aisle_ledger.py#:~:text=def%20over">Source ↗</a></p>
+</article>
+</main>
+</body></html>

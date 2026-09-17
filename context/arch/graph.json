@@ -13676,6 +13676,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Warehouse/inventory/inventory_common.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -18786,6 +18791,11 @@
       "src": "Warehouse/inventory/aisle_ledger.py::AisleLedger.assert_sound"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::_UnboundBook",
+      "kind": "calls",
+      "src": "Warehouse/inventory/aisle_ledger.py::_UNBOUND"
+    },
+    {
       "dst": "Warehouse/catalog/Order.py",
       "kind": "imports",
       "src": "Warehouse/inventory/inventory_common.py"
@@ -20011,9 +20021,19 @@
       "src": "Warehouse/placement/Assignment_Functions.py"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py",
+      "kind": "imports",
+      "src": "Warehouse/placement/Assignment_Functions.py"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/placement/Assignment_Functions.py"
+    },
+    {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__init__"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
@@ -20044,6 +20064,11 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.take"
+    },
+    {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
@@ -20151,6 +20176,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_PrefPool.take_min"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
@@ -20174,6 +20204,11 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._heap_key",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.take"
+    },
+    {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
@@ -20211,6 +20246,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_aisle_extremal_bins"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_require_affinity",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn"
@@ -20236,11 +20276,6 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn.assign"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_commit_aisle",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn.assign"
-    },
-    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_pick_extremal_aisle",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn.assign"
@@ -20249,6 +20284,11 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn.assign.score_of"
+    },
+    {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_place_one"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
@@ -20301,6 +20341,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_cluster_map_choose_aisle"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
@@ -20341,6 +20386,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl"
@@ -20354,6 +20404,11 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl.pick_effort_priority"
+    },
+    {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
@@ -20386,6 +20441,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl._aisle_best_cost"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl"
@@ -20409,6 +20469,11 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_travel_or_cohesion.builder"
+    },
+    {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
@@ -20437,11 +20502,6 @@
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_cluster_map_choose_aisle",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._place"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_cluster_map_commit",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._place"
     },
@@ -38090,6 +38150,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_POLICY_STATE_NAMES",
+      "kind": "const",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_POLICY_STATE_NAMES",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_SiteDock",
       "kind": "class",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -43802,6 +43870,22 @@
     },
     {
       "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::AisleLedger.add_bin",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "add_bin",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::AisleLedger.add_sku",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "add_sku",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
       "id": "Warehouse/inventory/aisle_ledger.py::AisleLedger.assert_sound",
       "kind": "function",
       "module": "Warehouse/inventory/aisle_ledger.py",
@@ -43814,6 +43898,22 @@
       "kind": "function",
       "module": "Warehouse/inventory/aisle_ledger.py",
       "name": "bin_count",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::AisleLedger.bound",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "bound",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::AisleLedger.count_bin",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "count_bin",
       "public": true
     },
     {
@@ -43842,10 +43942,26 @@
     },
     {
       "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::AisleLedger.maintained_levels",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "maintained_levels",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
       "id": "Warehouse/inventory/aisle_ledger.py::AisleLedger.members",
       "kind": "function",
       "module": "Warehouse/inventory/aisle_ledger.py",
       "name": "members",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "over",
       "public": true
     },
     {
@@ -43855,6 +43971,30 @@
       "module": "Warehouse/inventory/aisle_ledger.py",
       "name": "reconcile",
       "public": true
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::_UNBOUND",
+      "kind": "const",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "_UNBOUND",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::_UnboundBook",
+      "kind": "class",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "_UnboundBook",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::_UnboundBook._refuse",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "_refuse",
+      "public": false
     },
     {
       "file": "Warehouse/inventory/aisle_ledger.py",
@@ -47514,14 +47654,6 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_cluster_map_commit",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_cluster_map_commit",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_cluster_map_pick_bin",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -47551,14 +47683,6 @@
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "priority",
       "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_commit_aisle",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_commit_aisle",
-      "public": false
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",

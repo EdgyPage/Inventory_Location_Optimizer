@@ -14719,6 +14719,13 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/simdriver/strategy_runner.py::_POLICY_STATE_NAMES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "frozenset(('aisle_' + b for b in _AisleLedger.POLICY_BOOKS))"
+    },
     "Optimization/simdriver/strategy_runner.py::_SiteDock": {
       "decorators": [],
       "doc": "The SITE's inbound, at UNIT scope: one dock, one yard, one coordinator, one DB.\n\nThe receiving twin of `_build_put_pool`'s `PutawayPool`, and built for the same three\nreasons: the crew is the pair's derived receiving crew (ONE site total, which the\nleaves no longer carry), the uid block chains off the put pool's so a receiver is the\nsame person in both DBs, and one yard is one yard -- two leaves each ticking their own\nsupplier-lead queue would land every order a batch early (`SITE_PHASES`).\n\nIt also owns the coupled unit's THIRD OUTPUT, the contract's `site_inbound_db`\n(ADR-0005).  A trailer's load is mixed by construction and a door is occupied by the\ntrailer rather than by either channel's share of it, so those rows belong to neither\nleaf -- writing them to `leaves[0]` would be `a-right-site-total-hides-two-wrong-shares`\nbuilt deliberately, which is exactly why site-dock 21 parked them and left the artifact\nto this ticket.",
@@ -19681,7 +19688,7 @@
     },
     "Warehouse/inventory/aisle_ledger.py": {
       "decorators": [],
-      "doc": "aisle_ledger.py \u2014 what each aisle currently holds, priced.\n\nThe **aisle ledger** (CONTEXT.md) is one concept kept in ten parallel dicts: which SKUs an\naisle holds, which matrix indices they translate to, how many bins each occupies, where those\nbins sit, and the three priced LEVELS that membership implies \u2014 demand, pick load and cart\nvolume \u2014 plus the three per-SKU products those levels are summed from.\n\n    \u250c\u2500 membership \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 priced levels \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 per-SKU products \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n    \u2502 sku_sets              \u2502 demand_sum             \u2502 sku_demand_product          \u2502\n    \u2502 idx_sets              \u2502 pick_load_sum          \u2502 sku_pick_load_product       \u2502\n    \u2502 sku_counts            \u2502 vol_sum                \u2502 sku_vol_product             \u2502\n    \u2502 member_pos            \u2502                        \u2502                             \u2502\n    \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\nWhy this module exists\n----------------------\nThese dicts had TWO writers who did not know about each other.  The *add* half lived\ninside the placement policies \u2014 ten hand-copied commit blocks in `Assignment_Functions.py`,\neach maintaining a DIFFERENT SUBSET \u2014 while `_execute_placement` committed only `sku_counts`.\nThe *drop* half lived in `inventory_reorder.py` in two copies, the second a hoisted-locals\ninline twin whose docstring asked a human to KEEP THE TWO IN SYNC.\n\nThey were not in sync, and nothing could have said so:\n\n- `vol_sum` was incremented by `rank_cartlabor` and decremented by neither drop path, so the\n  cart-swap penalty that arm competes on grew for the length of a run.  It is READ in the\n  scoring expression, so it moved placements, not just a recorded number.\n- `lift_sum` was decremented by both drop paths and incremented only by a production-dead\n  family, so it decayed monotonically in every shipped arm.  It was write-only end to end \u2014\n  no Quantity, figure, view or experiment read its column \u2014 so it was DELETED rather than\n  repaired, along with the `load_min`/`load_max` family that was its only in-memory reader.\n\nBoth are the same failure: a quantity whose add and drop live in different files, maintained by\ndifferent people at different times, with no place that owns the pair.\n\nWhat is and is NOT in here\n--------------------------\n`init_placement_state` on the manager does two jobs and only one of them is the ledger's \u2014 it also\nrebuilds `_bin_sku`, `_current_quantities` and the per-SKU bin indexes, none of which are aisle\nstate.  Those stay on the manager.  This module owns the aisle's own books and nothing else.\n\nPer-BIN and per-SKU are separate operations, deliberately\n---------------------------------------------------------\n`member_pos` records a COLUMN POSITION PER LIVE BIN, while the priced levels are SKU-once.  Four\nof the ten historical commit blocks correctly kept the index add and the `member_pos` append\nOUTSIDE the `if sku not in sku_sets[aid]` guard for exactly this reason.  So the interface is a\npair at each end \u2014 `add_bin`/`add_sku` and `drop_bin`/`drop_sku` \u2014 and the guard stays at the\ncall site, where each caller already has it.  Collapsing either pair into one method would\nquietly change which SKUs' positions are tracked.\n\nFloat discipline\n----------------\nEvery level is a running float sum, so its value depends on accumulation ORDER.  `add_sku` takes\nthe already-multiplied scalar from the caller rather than recomputing it from `f` and `q`: some\nhistorical blocks accumulate `+= f_s * q_s` and others `+= fq` computed earlier, and re-deriving\neither would move the last bits.  `drop_sku` clamps at zero exactly as the hand-written\ndecrements did.",
+      "doc": "aisle_ledger.py \u2014 what each aisle currently holds, priced.\n\nThe **aisle ledger** (CONTEXT.md) is one concept kept in ten parallel dicts: which SKUs an\naisle holds, which matrix indices they translate to, how many bins each occupies, where those\nbins sit, and the three priced LEVELS that membership implies \u2014 demand, pick load and cart\nvolume \u2014 plus the three per-SKU products those levels are summed from.\n\n    \u250c\u2500 membership \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 priced levels \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 per-SKU products \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n    \u2502 sku_sets              \u2502 demand_sum             \u2502 sku_demand_product          \u2502\n    \u2502 idx_sets              \u2502 pick_load_sum          \u2502 sku_pick_load_product       \u2502\n    \u2502 sku_counts            \u2502 vol_sum                \u2502 sku_vol_product             \u2502\n    \u2502 member_pos            \u2502                        \u2502                             \u2502\n    \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\nWhy this module exists\n----------------------\nThese dicts had TWO writers who did not know about each other.  The *add* half lived\ninside the placement policies \u2014 ELEVEN hand-copied commit blocks in `Assignment_Functions.py`,\neach maintaining one of three different subsets \u2014 while `_execute_placement` committed only\n`sku_counts`.  (The ticket that opened this counted ten; reading the module found an eleventh,\n`_cluster_map_commit`, hiding as a helper next to `_commit_aisle`.)\nThe *drop* half lived in `inventory_reorder.py` in two copies, the second a hoisted-locals\ninline twin whose docstring asked a human to KEEP THE TWO IN SYNC.\n\nThey were not in sync, and nothing could have said so:\n\n- `vol_sum` was incremented by `rank_cartlabor` and decremented by neither drop path, so the\n  cart-swap penalty that arm competes on grew for the length of a run.  It is READ in the\n  scoring expression, so it moved placements, not just a recorded number.\n- `lift_sum` was decremented by both drop paths and incremented only by a production-dead\n  family, so it decayed monotonically in every shipped arm.  It was write-only end to end \u2014\n  no Quantity, figure, view or experiment read its column \u2014 so it was DELETED rather than\n  repaired, along with the `load_min`/`load_max` family that was its only in-memory reader.\n\nBoth are the same failure: a quantity whose add and drop live in different files, maintained by\ndifferent people at different times, with no place that owns the pair.\n\nWhat is and is NOT in here\n--------------------------\n`init_placement_state` on the manager does two jobs and only one of them is the ledger's \u2014 it also\nrebuilds `_bin_sku`, `_current_quantities` and the per-SKU bin indexes, none of which are aisle\nstate.  Those stay on the manager.  This module owns the aisle's own books and nothing else.\n\nPer-BIN and per-SKU are separate operations, deliberately\n---------------------------------------------------------\n`member_pos` records a COLUMN POSITION PER LIVE BIN, while the priced levels are SKU-once.  Six\nof the eleven historical commit blocks correctly kept the index add and the `member_pos` append\nOUTSIDE the `if sku not in sku_sets[aid]` guard for exactly this reason; the other five kept no\npositions at all.  So the interface\nsplits at each end \u2014 `add_bin`/`add_sku` and `drop_bin`/`drop_sku` \u2014 and the guard stays at\nthe call site, where each caller already has it.  Collapsing either into one method would\nquietly change which SKUs' positions are tracked.\n\nThe add end has a third method, `count_bin`, because the per-bin COUNT is the one book the\nmanager maintained rather than the policy.  Its drop-side mirror has no separate method: the\ndecrement is what decides \"last bin\", so it is fused into `drop_sku`.\n\nFloat discipline\n----------------\nEvery level is a running float sum, so its value depends on accumulation ORDER.  `add_sku` takes\nthe already-multiplied scalar from the caller rather than recomputing it from `f` and `q`: some\nhistorical blocks accumulate `+= f_s * q_s` and others `+= fq` computed earlier, and re-deriving\neither would move the last bits.  `drop_sku` clamps at zero exactly as the hand-written\ndecrements did.",
       "kind": "module",
       "signature": null
     },
@@ -19698,12 +19705,26 @@
       "kind": "function",
       "signature": "(self) -> None"
     },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.add_bin": {
+      "decorators": [],
+      "doc": "Record ONE bin's column position and its SKU's matrix index.  Mirrors `drop_bin`.\n\nPer-BIN, so it sits OUTSIDE the `holds()` guard at every call site: `member_pos`\ntracks live bin columns and must see every placement, while the priced levels are\nSKU-once.  Six of the eleven historical blocks already had it on this side of the\nguard and five kept no positions at all; none had it on the wrong side.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, idx: int | None, x_phys: float) -> None"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.add_sku": {
+      "decorators": [],
+      "doc": "FIRST bin of this SKU in this aisle: membership, and the levels it is priced into.\n\nPer-SKU, so it sits INSIDE the `holds()` guard, which stays at the call site\nbecause six of the eleven callers do per-bin work on the other side of it.\n\n**`None` is not 0.0.**  A level is `None` when the calling family does not\nmaintain it at all, and is then skipped \u2014 not added as zero, which would\nmaterialise a `defaultdict` key that family never had and change the rows\n`aisle_metrics` later writes.  A family that DOES maintain a level passes its\nvalue even when that value is 0.0, exactly as the hand-written `+= splp.get(sku,\n0.0)` did.  This is ticket 03's `ledger_terms` in its usable form: the terms a\nfamily maintains are the keywords it passes, derived at the call site rather\nthan hand-listed a second time somewhere else.\n\nThe caller passes the ALREADY-MULTIPLIED scalar (`f_s * q_s`, or an `fq` computed\nat a run boundary) because these are running float sums: re-deriving the product\nhere from `f_s` and `q_s` would move the last bits on the families that had\nalready hoisted it, and the placement oracles compare exact floats.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, sku: int, idx: int | None=None, *, demand: float | None=None, pick_load: float | None=None, vol: float | None=None) -> None"
+    },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.assert_sound": {
       "decorators": [],
       "doc": "`reconcile()` as an assertion, for tests and end-of-drain checks.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self) -> None"
+      "signature": "(self, *, levels: 'tuple[str, ...] | None'=None) -> None"
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.bin_count": {
       "decorators": [],
@@ -19711,6 +19732,22 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, aid: int, sku: int) -> int"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.bound": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Which books this ledger was HANDED.  Derived, so it cannot disagree with them.\n\nAn owning ledger holds them all; a policy's ledger holds only the ones its family\nmaintains, which is how `reconcile` knows which levels it may ask about.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> frozenset"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.count_bin": {
+      "decorators": [],
+      "doc": "One more bin of this SKU in this aisle.  The manager's half of a placement.\n\n`_execute_placement` has committed this and nothing else since before the other\nnine dicts existed \u2014 which is exactly how a policy that forgot a sum left the\nCOUNT right and the PRICE wrong, and read as a working warehouse.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, sku: int) -> None"
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.drop_bin": {
       "decorators": [],
@@ -19733,6 +19770,13 @@
       "kind": "function",
       "signature": "(self, aid: int, sku: int) -> bool"
     },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.maintained_levels": {
+      "decorators": [],
+      "doc": "The priced levels this ledger is entitled to be reconciled on.\n\nFor a policy's ledger these are the levels its family was handed and therefore\nmaintains -- `demand_sum` for every family, plus `pick_load_sum` on the two labour\nbalancers and `vol_sum` on `rank_cartlabor`.  Derived from the wiring, so it cannot\ndisagree with it; hand-listing the same fact a second time is what ticket 03 calls\n`ledger_terms` and what this makes unnecessary.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple[str, ...]"
+    },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.members": {
       "decorators": [],
       "doc": null,
@@ -19740,12 +19784,41 @@
       "kind": "function",
       "signature": "(self, aid: int) -> set[int]"
     },
-    "Warehouse/inventory/aisle_ledger.py::AisleLedger.reconcile": {
-      "decorators": [],
-      "doc": "Every priced level must equal the sum of its members' products.  [] when sound.\n\nThis is the assertion the eleven loose dicts made impossible to write, and the reason\nboth drifts survived for the life of their features.  Returns findings rather than\nraising so a caller can report them all at once.",
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.over": {
+      "decorators": [
+        "classmethod"
+      ],
+      "doc": "A ledger bound to dicts SOMEBODY ELSE owns, rather than ones it created.\n\nTwo callers, and they are the reason this exists rather than `__init__`:\n\n- a placement policy, which is handed the aisle dicts down a long parameter\n  chain and must write through to whichever set it was given;\n- the inbound gain evaluator, which hands a policy copy-on-write wrappers so a\n  VIRTUAL placement cannot advance the real warehouse (`Inbound/gain.py`).\n\nA book left out reads as empty and REFUSES a write (`_UnboundBook`), so a family\nthat never maintains `pick_load_sum` has somewhere harmless to look without a\n`None` check on the hot path, and a family that writes a book nobody gave it\nfails loudly instead of writing where no reader can follow.\n\n**Spelled out rather than looped, deliberately.**  `**books` plus ten `setattr`s\ncost 2.00 us; this costs 0.29 us, and the difference is 23.4% of a whole pool open\nagainst 4.2% -- paid once per virtual placement in the gain evaluator, which\nrebuilds the arm's policy every time.  `**unknown` keeps the helpful refusal for a\nmisspelled book and is free (0.014 us).",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, tol: float=1e-06) -> list[str]"
+      "signature": "(cls, *, sku_sets=None, idx_sets=None, sku_counts=None, member_pos=None, demand_sum=None, pick_load_sum=None, vol_sum=None, sku_demand_product=None, sku_pick_load_product=None, sku_vol_product=None, **unknown) -> 'AisleLedger'"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.reconcile": {
+      "decorators": [],
+      "doc": "Every priced level must equal the sum of its members' products.  [] when sound.\n\nThis is the assertion the eleven loose dicts made impossible to write, and the reason\nboth drifts survived for the life of their features.  Returns findings rather than\nraising so a caller can report them all at once.\n\n**`levels` narrows the question, and a caller usually has to.**  `init_demand_state`\nprices ALL THREE levels off the current placement, but a placement family maintains\nonly the ones it scores on: `demand_sum` always, `pick_load_sum` on the two labour\nbalancers, `vol_sum` on `rank_cartlabor` alone.  So on any other arm the two unread\nlevels drift away from their members as soon as the first unit is placed -- a real\ninconsistency, recorded as its own ticket, and NOT something to hide by weakening\nthis default.  The default stays the strongest statement; a caller that knows an\narm's terms asks for exactly those.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, tol: float=1e-06, levels: 'tuple[str, ...] | None'=None) -> list[str]"
+    },
+    "Warehouse/inventory/aisle_ledger.py::_UNBOUND": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_UnboundBook()"
+    },
+    "Warehouse/inventory/aisle_ledger.py::_UnboundBook": {
+      "decorators": [],
+      "doc": "A book its ledger was never handed.  Reads see empty; a WRITE is refused.\n\n`over` binds this ONE shared instance for every book a caller leaves out, instead of\nallocating a private dict per missing book.  That is ten allocations saved per call on\na path the inbound gain evaluator walks once per VIRTUAL PLACEMENT -- it rebuilds the\narm's policy every time, at 12.59 pool opens per placement.  Measured in place against\na real pool open: binding a ledger went from 2.00 us to 0.29 us, from 23.4% of a whole\npool open down to 4.2%.\n\nRefusing is also the better failure.  A private empty dict ABSORBS a write that nobody\ncan ever read -- a family committing to a book its builder was never given, silently.\nRefusing is what makes ONE shared instance safe to hand every ledger: there is no state\nhere for one family's stray write to leave behind for the next.",
+      "kind": "class",
+      "signature": "(dict)"
+    },
+    "Warehouse/inventory/aisle_ledger.py::_UnboundBook._refuse": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *_a, **_k)"
     },
     "Warehouse/inventory/aisle_ledger.py::__all__": {
       "decorators": [],
@@ -22985,13 +23058,6 @@
       "kind": "function",
       "signature": "(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target, lifts=None)"
     },
-    "Warehouse/placement/Assignment_Functions.py::_cluster_map_commit": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, affinity, aid, sku, f_s, q_s, x_phys)"
-    },
     "Warehouse/placement/Assignment_Functions.py::_cluster_map_pick_bin": {
       "decorators": [],
       "doc": "Choose the cluster's bin within one aisle: anchor at the favored map location and\ncompact toward the partner centroid; honour the prime-spot cap when capped.\n\nReturns `(bin, cost)`.  The cost is RETURNED rather than recomputed by the caller, and\nthat is deliberate: `_CLUSTER_MAP_W_CENT * x_pace * abs(...)` re-associated as\n`(W * x_pace) * abs(...)` is a different float, so a caller reconstructing the number\nwould eventually persist something that is not what decided.  `None` on the capped\nleast-prime fallback, which is chosen by max-pref and not by this cost at all --\nreporting the cost of a bin that was picked on a different rule would be a lie.",
@@ -23019,13 +23085,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(unit)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_commit_aisle": {
-      "decorators": [],
-      "doc": "Record a newly-placed SKU in an aisle's state (idempotent if already present).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, affinity, aid, sku, f_s, q_s)"
     },
     "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row": {
       "decorators": [],

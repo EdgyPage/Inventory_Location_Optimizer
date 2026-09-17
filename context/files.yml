@@ -2740,6 +2740,9 @@ files:
       - {name: "test_every_pool_declares_its_direction", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
       - {name: "test_a_pool_consumes_its_snapshot_and_never_reissues_a_bin", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
       - {name: "test_the_drain_asks_the_pool_rather_than_obeying_it", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
+      - {name: "LEDGER_TERMS", file: "Tests/integration/test_placement_pool_audit.py", kind: "const"}
+      - {name: "test_every_pool_leaves_the_aisle_ledger_reconciled", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
+      - {name: "test_the_ledger_assertion_above_is_not_vacuous", file: "Tests/integration/test_placement_pool_audit.py", kind: "function"}
     notes: ""
   "Tests/integration/test_placement_scores_persist.py":
     purpose: "a pooled arm's placement rows persist the score, rank, and policy that chose them."
@@ -3235,6 +3238,16 @@ files:
       - {name: "test_the_seven_aisle_aliases_are_the_ledger_s_own_dicts", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
       - {name: "test_the_three_products_survive_the_rebind_in_init_demand_state", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
       - {name: "test_a_real_manager_s_ledger_reconciles_after_setup", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_a_level_the_family_does_not_maintain_is_not_materialised", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_add_bin_is_per_bin_and_add_sku_is_per_sku", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_add_bin_ignores_a_sku_with_no_matrix_index", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_add_and_drop_are_exact_inverses_and_reconcile_throughout", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_count_bin_is_the_increment_drop_sku_decrements", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_over_binds_rather_than_copies", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_over_refuses_a_write_to_a_book_it_was_not_handed", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_over_refuses_a_book_it_does_not_own", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_no_placement_policy_writes_an_aisle_book_directly", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_the_ratchet_can_actually_fail", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
     notes: ""
   "Tests/unit/test_aisle_vol_sum_teardown.py":
     purpose: "the cart-volume sum comes back down -- both aisle teardown paths, and the flag-off no-op."
