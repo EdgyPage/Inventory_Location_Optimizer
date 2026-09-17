@@ -116,3 +116,4 @@
 - [A DDL change moves two tables](a-ddl-change-moves-two-tables.md) — the table AND simulation_runs (it carries sim_schema_id); verify column-by-column, and the only test that catches a dropped column is an integration roundtrip
 - [Renaming a local needs AST positions](renaming-a-local-needs-ast-positions.md) — a word-boundary regex rename still rewrote two English comments and nothing failed; rewrite identifier tokens at their AST (lineno, col_offset)
 - [Two instruments named t_save](two-instruments-named-t-save.md) — runtime_metrics' stopwatch is alive; the calltree's SECTION_MAP attribution read 0.000000 for a month; say which one before quoting a saving number
+- [A test can be taught the damage](a-test-can-be-taught-the-damage.md) — a test written after a defect can assert its result as expected; 6adf378e deleted two immutable schema documents and a test said the store should hold exactly one
