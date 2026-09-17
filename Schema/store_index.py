@@ -27,6 +27,7 @@ identical input.
 from __future__ import annotations
 
 import hashlib
+from Schema import fingerprint as _fingerprint
 import json
 import os
 
@@ -59,21 +60,12 @@ DDL_SOURCES = (
 def source_fingerprint(repo_root: str = _REPO_ROOT) -> str:
     """Hash of every DDL-defining source file (path + content), in declared order.
 
-    Same algorithm as ``runschema.contract.source_fingerprint`` (copied — see the module
-    docstring for why importing it is illegal): line endings normalised to \\n so a CRLF<->LF
-    rewrite is not a structural change, and a missing file contributes a MISSING marker so a
-    DELETED source is detected instead of silently matching.
+    THE ALGORITHM IS SHARED NOW (`Schema.fingerprint.of_files`) rather than copied from
+    `runschema.contract`.  The copy this replaces is the precedent `profile_tree`'s own test
+    cites, and it drifted for the same reason any uncompared copy does.  Files only, like
+    `profile_tree` and unlike `contract`: no DDL source is auto-discovered.
     """
-    h = hashlib.sha256()
-    for rel in DDL_SOURCES:
-        h.update(rel.encode('utf-8'))
-        p = os.path.join(repo_root, rel.replace('/', os.sep))
-        try:
-            with open(p, 'rb') as f:
-                h.update(f.read().replace(b'\r\n', b'\n'))
-        except OSError:
-            h.update(b'\x00MISSING')
-    return 'sha256:' + h.hexdigest()
+    return _fingerprint.of_files(DDL_SOURCES, repo_root)
 
 
 def read_index() -> dict | None:

@@ -1577,6 +1577,14 @@ files:
       - {name: "bind", file: "Schema/dataset.py", kind: "function"}
       - {name: "Dataset", file: "Schema/dataset.py", kind: "class"}
     notes: ""
+  "Schema/fingerprint.py":
+    purpose: "The ONE source-fingerprint algorithm, which runschema/contract.py, Schema/profile_tree.py and Schema/store_index.py each carried as a COPY until architecture-drift/05 -- update_files folds paths+content into a caller's hash (CRLF-normalised so a checkout is not a shape change, MISSING-marked so a deleted source is not silently equal) and update_dirs adds the auto-discovered directory half that only contract has; in-place rather than digest-returning, which is what kept every emitted fingerprint byte-identical across the extraction."
+    layer: "schema"
+    key_symbols:
+      - {name: "update_files", file: "Schema/fingerprint.py", kind: "function"}
+      - {name: "update_dirs", file: "Schema/fingerprint.py", kind: "function"}
+      - {name: "of_files", file: "Schema/fingerprint.py", kind: "function"}
+    notes: ""
   "Schema/hook_check.py":
     purpose: "Stop-hook backstop that nudges a DB-shape store sync on drift."
     layer: "schema"
@@ -1923,7 +1931,9 @@ files:
       - {name: "test_the_store_holds_exactly_the_head_document", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_the_committed_store_is_clean_and_current_now", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_stale_reasons_flag_an_empty_store", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
-      - {name: "test_source_fingerprint_matches_the_runtree_implementation", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_the_three_stores_share_ONE_fingerprint_implementation", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_the_files_half_agrees_and_the_directory_half_is_contracts_alone", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_the_directory_half_registers_an_added_file", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_schema_id_ignores_prose_but_tracks_every_shape_field", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_write_profile_layout_roundtrips_and_replaces_atomically", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_read_profile_layout_is_none_for_absent_or_malformed", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}

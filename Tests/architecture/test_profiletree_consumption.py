@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -283,21 +284,60 @@ def test_stale_reasons_flag_an_empty_store(tmp_path, monkeypatch):
 # ── the honesty pins: the COPY may not drift from the run-tree original ─────────
 
 
-def test_source_fingerprint_matches_the_runtree_implementation(tmp_path, monkeypatch):
-    """The deliberate copy of `runschema.contract.source_fingerprint`, held byte-for-byte.
+def test_the_three_stores_share_ONE_fingerprint_implementation(tmp_path, monkeypatch):
+    """The copy is gone, and this is what replaced "the copies still match".
 
-    `Schema/` may not import `Optimization/`, so `profile_tree` COPIES the fingerprint algorithm
-    — and a copy nothing compares is a copy that drifts (the `store_index.source_fingerprint`
-    precedent).  Both implementations are pointed at the SAME tmp fixture files and must agree
-    on every case that defines the algorithm: shared content, CRLF↔LF churn (invariant), a real
-    content change (moves it), and a deleted source (the MISSING marker — moves it, still agree).
+    `Schema/` may not import `Optimization/`, so the fingerprint algorithm was COPIED into
+    `profile_tree` and `store_index` -- and a copy nothing compares is a copy that drifts. It
+    drifted: `runschema.contract` grew a second input class (`SHAPE_SOURCE_DIRS`, so an ADDED
+    file registers in an auto-discovered directory) and neither copy did, which is what this
+    test has been failing on (`.scratch/architecture-drift/issues/05`).
+
+    The files half now lives once, in `Schema.fingerprint`, which `Optimization` may import. So
+    the assertion is no longer "two implementations agree" -- it is that there is one.
     """
-    # NON-VACUITY: two distinct implementations from two distinct modules — if either ever
-    # aliases the other, this comparison proves nothing (and an import boundary broke).
-    assert _decl.source_fingerprint is not _runtree.source_fingerprint
-    assert _decl.source_fingerprint.__module__ == 'Schema.profile_tree'
-    assert _runtree.source_fingerprint.__module__ == 'Optimization.runschema.contract'
+    from Schema import fingerprint as _fp
+    from Schema import store_index as _si
 
+    src = {'profile_tree': inspect.getsource(_decl.source_fingerprint),
+           'store_index': inspect.getsource(_si.source_fingerprint),
+           'contract': inspect.getsource(_runtree.source_fingerprint)}
+    for name, body in src.items():
+        assert '_fingerprint.' in body, (
+            f'{name}.source_fingerprint no longer calls the shared helper -- it has grown its '
+            f'own copy back, which is the exact failure this test exists for')
+        assert 'hashlib.sha256()' not in body or name == 'contract', (
+            f'{name} mints its own hash again')
+        assert "replace(b'\\r\\n'" not in body, (
+            f'{name} re-implements the CRLF normalisation instead of using the helper')
+
+    # NON-VACUITY, and it is the OPPOSITE of what this test used to check. It used to assert the
+    # two were distinct objects; sharing is now the point, so what must be proved instead is
+    # that the shared helper is REACHED -- a module could import it and not call it.
+    calls = []
+    real = _fp.update_files
+    monkeypatch.setattr(_fp, 'update_files',
+                        lambda h, rels, root: (calls.append(tuple(rels)), real(h, rels, root))[1])
+    _decl.source_fingerprint(str(tmp_path))
+    _si.source_fingerprint(str(tmp_path))
+    _runtree.source_fingerprint(str(tmp_path))
+    assert len(calls) == 3, f'the shared helper was reached {len(calls)} time(s), not 3'
+
+
+def test_the_files_half_agrees_and_the_directory_half_is_contracts_alone(tmp_path, monkeypatch):
+    """THE ASYMMETRY, declared rather than discovered.
+
+    `contract` hashes `SHAPE_SOURCES` AND `SHAPE_SOURCE_DIRS`; the two file-only stores have no
+    auto-discovered input and hash files only. That difference is 100% of why the three disagree
+    on shared input -- measured, not assumed: with the directory half emptied, the digests are
+    equal on the same fixture.
+
+    Pinned because the severity in `architecture-drift/05` turns on it. That ticket calls this
+    "the dangerous one of the seven" -- one caller thinking a tree is current while another
+    thinks it is stale. That needs two readers of ONE index and there is no such pair: each store
+    compares its own fingerprint to its own stored one, and on the real tree they hash different
+    source LISTS anyway. It was a false-equivalence bug, not a live fingerprint hazard.
+    """
     sources = ('fp_a.py', 'sub/fp_b.py')
     root = str(tmp_path)
     (tmp_path / 'sub').mkdir()
@@ -306,20 +346,27 @@ def test_source_fingerprint_matches_the_runtree_implementation(tmp_path, monkeyp
     monkeypatch.setattr(_decl, 'SHAPE_SOURCES', sources)
     monkeypatch.setattr(_runtree, 'SHAPE_SOURCES', sources)
 
+    # As shipped: they DIFFER, and that is correct.
+    assert _decl.source_fingerprint(root) != _runtree.source_fingerprint(root), (
+        'contract stopped hashing its directories -- an ADDED file in simconfig/configs/ now '
+        'registers nowhere, which is the input class a path tuple cannot describe')
+
+    # With the one declared asymmetry removed, they are IDENTICAL.
+    monkeypatch.setattr(_runtree, 'SHAPE_SOURCE_DIRS', ())
     base_p, base_r = _decl.source_fingerprint(root), _runtree.source_fingerprint(root)
     assert base_p == base_r, (
-        f'the two implementations disagree on identical input:\n  profile_tree: {base_p}\n  '
-        f'runschema.contract: {base_r}')
+        f'the files half disagrees, which the shared helper makes impossible unless a caller '
+        f'has grown its own again:\n  profile_tree: {base_p}\n  contract: {base_r}')
     assert base_p.startswith('sha256:'), base_p
 
-    # CRLF↔LF churn is a checkout artifact, not a shape change — both must be invariant.
+    # CRLF<->LF churn is a checkout artifact, not a shape change - both must be invariant.
     crlf = b'alpha = 1\r\nbeta = 2\r\n'
     assert crlf != (tmp_path / 'fp_a.py').read_bytes(), 'the CRLF variant must differ as bytes'
     (tmp_path / 'fp_a.py').write_bytes(crlf)
-    assert _decl.source_fingerprint(root) == base_p, 'profile_tree fingerprint moved on CRLF churn'
-    assert _runtree.source_fingerprint(root) == base_p, 'contract fingerprint moved on CRLF churn'
+    assert _decl.source_fingerprint(root) == base_p, 'profile_tree moved on CRLF churn'
+    assert _runtree.source_fingerprint(root) == base_p, 'contract moved on CRLF churn'
 
-    # A real content change must move it — otherwise the invariance above is proving blindness.
+    # A real content change must move it - otherwise the invariance above is proving blindness.
     (tmp_path / 'fp_a.py').write_bytes(b'alpha = 99\n')
     changed = _decl.source_fingerprint(root)
     assert changed != base_p, 'a content change did not move the fingerprint'
@@ -332,7 +379,31 @@ def test_source_fingerprint_matches_the_runtree_implementation(tmp_path, monkeyp
     missing = _decl.source_fingerprint(root)
     assert missing != base_p, 'deleting a shape source did not move the fingerprint'
     assert missing == _runtree.source_fingerprint(root), (
-        'the two implementations disagree on the missing-file marker')
+        'the two disagree on the missing-file marker')
+
+
+def test_the_directory_half_registers_an_added_file(tmp_path, monkeypatch):
+    """What `contract`'s extra half is FOR, exercised. A path tuple can only describe files
+    someone already thought of; this is the input class that catches the ones they did not."""
+    root = str(tmp_path)
+    cfg = tmp_path / 'cfgs'
+    cfg.mkdir()
+    (cfg / 'one.py').write_bytes(b'A = 1\n')
+    monkeypatch.setattr(_runtree, 'SHAPE_SOURCES', ())
+    monkeypatch.setattr(_runtree, 'SHAPE_SOURCE_DIRS', ('cfgs',))
+    base = _runtree.source_fingerprint(root)
+
+    (cfg / 'two.py').write_bytes(b'B = 2\n')
+    assert _runtree.source_fingerprint(root) != base, (
+        'an ADDED file in an auto-discovered directory did not move the fingerprint')
+
+    os.remove(cfg / 'two.py')
+    assert _runtree.source_fingerprint(root) == base, 'removing it did not restore the value'
+
+    # A RENAME registers even when no byte moves - renaming a pick-config renames a run-tree
+    # directory, so the NAME LIST is hashed before any content.
+    os.rename(cfg / 'one.py', cfg / 'renamed.py')
+    assert _runtree.source_fingerprint(root) != base, 'a rename with identical bytes was invisible'
 
 
 def test_schema_id_ignores_prose_but_tracks_every_shape_field():

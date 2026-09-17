@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>update_files · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_fingerprint_py__update_files" data-id="Schema/fingerprint.py::update_files">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_fingerprint_py.html"><code>Schema/fingerprint.py</code></a> <span class="sep">›</span> <span class="here"><code>update_files</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>update_files</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_fingerprint_py.html"><code>Schema/fingerprint.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def update_files(h, rels, repo_root: str) -&gt; None</code></pre>
+<section class="doc">Fold `rels` (repo-relative paths, in declared order) into the hash `h`.
+
+Three properties, each of which a caller has been bitten by:
+
+  * **Line endings are NORMALISED to `\n`.** On Windows a checkout, a stash/pop or an
+    `autocrlf` change rewrites CRLF&lt;-&gt;LF without touching a statement; hashing raw bytes made
+    that look like a structural change and cost a needless canary pair.
+  * **A MISSING file contributes its path plus a marker** rather than being skipped, so
+    DELETING a source is detected instead of silently matching.
+  * **The path is hashed before the content**, so moving a file registers even when its bytes
+    do not change.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__source_fingerprint.html"><code>source_fingerprint</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nSchema_fingerprint_py__of_files.html"><code>of_files</code></a> <span class="dim">Schema/fingerprint.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_fingerprint_py__update_files">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/fingerprint.py#:~:text=def%20update_files">Source ↗</a></p>
+</article>
+</main>
+</body></html>

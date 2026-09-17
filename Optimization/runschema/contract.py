@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from Schema import fingerprint as _fingerprint
 import json
 import os
 import sys
@@ -148,28 +149,16 @@ def source_fingerprint(repo_root: str = _REPO_ROOT) -> str:
     thought of, and `simconfig/configs/` is auto-discovered.
     """
     h = hashlib.sha256()
-    for rel in SHAPE_SOURCES:
-        h.update(rel.encode('utf-8'))
-        p = os.path.join(repo_root, rel.replace('/', os.sep))
-        try:
-            with open(p, 'rb') as f:
-                h.update(f.read().replace(b'\r\n', b'\n'))
-        except OSError:
-            h.update(b'\x00MISSING')
-    for rel_dir in SHAPE_SOURCE_DIRS:
-        d = os.path.join(repo_root, rel_dir.replace('/', os.sep))
-        h.update(rel_dir.encode('utf-8'))
-        try:
-            names = sorted(n for n in os.listdir(d) if n.endswith('.py'))
-        except OSError:
-            h.update(b'\x00MISSING')
-            continue
-        # The NAME LIST is hashed before any content, so a RENAME registers even when no
-        # byte moves -- renaming a pick-config renames a run-tree directory.
-        h.update(repr(names).encode('utf-8'))
-        for n in names:
-            with open(os.path.join(d, n), 'rb') as f:
-                h.update(f.read().replace(b'\r\n', b'\n'))
+    # THE FILES HALF IS SHARED (`Schema.fingerprint`), and it folds into THIS hash rather than
+    # returning a digest -- which is what keeps the value emitted here byte-identical across the
+    # extraction.  A helper that returned a digest for re-hashing would invalidate every recorded
+    # `source_fingerprint` and force a canary re-prove for a pure code move.
+    _fingerprint.update_files(h, SHAPE_SOURCES, repo_root)
+    # THE DIRECTORY HALF IS THIS STORE'S ALONE, and it is the whole reason the two file-only
+    # stores disagree with this one on shared input: a path tuple can only describe files someone
+    # already thought of, and `simconfig/configs/` is auto-discovered.  Neither of the other two
+    # has an auto-discovered input, so neither grew one (`architecture-drift/05`).
+    _fingerprint.update_dirs(h, SHAPE_SOURCE_DIRS, repo_root)
     return 'sha256:' + h.hexdigest()
 
 

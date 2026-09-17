@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>update_dirs · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_fingerprint_py__update_dirs" data-id="Schema/fingerprint.py::update_dirs">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_fingerprint_py.html"><code>Schema/fingerprint.py</code></a> <span class="sep">›</span> <span class="here"><code>update_dirs</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>update_dirs</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_fingerprint_py.html"><code>Schema/fingerprint.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def update_dirs(h, rel_dirs, repo_root: str) -&gt; None</code></pre>
+<section class="doc">Fold whole DIRECTORIES of `.py` files into the hash `h`, by NAME LIST and then content.
+
+The input class a path tuple cannot describe: a tuple can only name files someone already
+thought of, and `Optimization/simconfig/configs/` is auto-discovered, so an ADDED pick config
+would register nowhere. Only `runschema.contract` has such an input -- which is the entire
+reason its fingerprint differs from the two file-only stores on shared input
+(`architecture-drift/05`), and why that difference is a DECLARED asymmetry, not drift.
+
+The NAME LIST is hashed BEFORE any content, so a RENAME registers even when no byte moves --
+renaming a pick config renames a run-tree directory.
+
+Content is normalised exactly as `update_files` normalises it, and it lives here so that ONE
+place decides what a line ending means. It was a fourth copy of that rule until this module.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__source_fingerprint.html"><code>source_fingerprint</code></a> <span class="dim">Optimization/runschema/contract.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_fingerprint_py__update_dirs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/fingerprint.py#:~:text=def%20update_dirs">Source ↗</a></p>
+</article>
+</main>
+</body></html>

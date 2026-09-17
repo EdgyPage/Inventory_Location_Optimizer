@@ -10796,6 +10796,11 @@
       "src": "Optimization/runschema/contract.py"
     },
     {
+      "dst": "Schema/fingerprint.py",
+      "kind": "imports",
+      "src": "Optimization/runschema/contract.py"
+    },
+    {
       "dst": "Optimization/runschema/contract.py::_git_head",
       "kind": "calls",
       "src": "Optimization/runschema/contract.py::adopt"
@@ -10944,6 +10949,16 @@
       "dst": "Optimization/runschema/contract.py::_shape_only",
       "kind": "calls",
       "src": "Optimization/runschema/contract.py::schema_id"
+    },
+    {
+      "dst": "Schema/fingerprint.py::update_dirs",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::source_fingerprint"
+    },
+    {
+      "dst": "Schema/fingerprint.py::update_files",
+      "kind": "calls",
+      "src": "Optimization/runschema/contract.py::source_fingerprint"
     },
     {
       "dst": "Optimization/runschema/contract.py::load_all",
@@ -15426,6 +15441,11 @@
       "src": "Schema/dataset.py::sql_for"
     },
     {
+      "dst": "Schema/fingerprint.py::update_files",
+      "kind": "calls",
+      "src": "Schema/fingerprint.py::of_files"
+    },
+    {
       "dst": "Schema/hook_check.py::main",
       "kind": "calls",
       "src": "Schema/hook_check.py"
@@ -15651,6 +15671,11 @@
       "src": "Schema/profile_tree.py"
     },
     {
+      "dst": "Schema/fingerprint.py",
+      "kind": "imports",
+      "src": "Schema/profile_tree.py"
+    },
+    {
       "dst": "Schema/identity.py",
       "kind": "imports",
       "src": "Schema/profile_tree.py"
@@ -15789,6 +15814,11 @@
       "dst": "Schema/profile_tree.py::_shape_only",
       "kind": "calls",
       "src": "Schema/profile_tree.py::schema_id"
+    },
+    {
+      "dst": "Schema/fingerprint.py::of_files",
+      "kind": "calls",
+      "src": "Schema/profile_tree.py::source_fingerprint"
     },
     {
       "dst": "Schema/profile_tree.py::build",
@@ -15934,6 +15964,16 @@
       "dst": "Schema/shape.py::canonical_shape",
       "kind": "calls",
       "src": "Schema/shape.py::shape_of_ddl"
+    },
+    {
+      "dst": "Schema/fingerprint.py",
+      "kind": "imports",
+      "src": "Schema/store_index.py"
+    },
+    {
+      "dst": "Schema/fingerprint.py::of_files",
+      "kind": "calls",
+      "src": "Schema/store_index.py::source_fingerprint"
     },
     {
       "dst": "Schema/store_index.py::read_index",
@@ -39749,6 +39789,46 @@
       "kind": "function",
       "module": "Schema/dataset.py",
       "name": "sql_for",
+      "public": true
+    },
+    {
+      "file": "Schema/fingerprint.py",
+      "id": "Schema/fingerprint.py",
+      "kind": "module",
+      "module": "Schema/fingerprint.py",
+      "name": "Schema.fingerprint",
+      "public": true
+    },
+    {
+      "file": "Schema/fingerprint.py",
+      "id": "Schema/fingerprint.py::__all__",
+      "kind": "const",
+      "module": "Schema/fingerprint.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Schema/fingerprint.py",
+      "id": "Schema/fingerprint.py::of_files",
+      "kind": "function",
+      "module": "Schema/fingerprint.py",
+      "name": "of_files",
+      "public": true
+    },
+    {
+      "file": "Schema/fingerprint.py",
+      "id": "Schema/fingerprint.py::update_dirs",
+      "kind": "function",
+      "module": "Schema/fingerprint.py",
+      "name": "update_dirs",
+      "public": true
+    },
+    {
+      "file": "Schema/fingerprint.py",
+      "id": "Schema/fingerprint.py::update_files",
+      "kind": "function",
+      "module": "Schema/fingerprint.py",
+      "name": "update_files",
       "public": true
     },
     {

@@ -16184,6 +16184,40 @@
       "kind": "function",
       "signature": "(family: str, name: str, schema_id: str) -> str"
     },
+    "Schema/fingerprint.py": {
+      "decorators": [],
+      "doc": "fingerprint \u2014 the source-hashing half that three content-addressed stores shared by COPY.\n\n`runschema/contract.py`, `Schema/profile_tree.py` and `Schema/store_index.py` each carry a\n`source_fingerprint`, and two of the three say in their own docstring that they are a copy of the\nfirst. `Schema/` may not import `Optimization/` (the declared boundary \"shape identity must not\ndepend on the run harness\"), so copying was the only way to share it -- and a copy nothing\ncompares is a copy that drifts.\n\n**It drifted.** `runschema.contract` grew a SECOND input class -- `SHAPE_SOURCE_DIRS`, hashed by\nname list and content, so an ADDED file registers in an auto-discovered directory -- and the two\ncopies did not. From that moment \"same algorithm as `runschema.contract.source_fingerprint`\" was\nfalse, and `test_source_fingerprint_matches_the_runtree_implementation`, which asserts the copies\nhold byte-for-byte, has been failing ever since\n(`.scratch/architecture-drift/issues/05`).\n\n## What that ticket calls this, and what it actually is\n\nThe ticket calls it \"the dangerous one of the seven\": two implementations disagreeing on\nidentical input, so \"one caller population thinks a tree is current while another thinks it is\nstale, with no error either way\". That is not what the disagreement was.\n\nMeasured before fixing: with `SHAPE_SOURCE_DIRS` emptied, the two produce the SAME digest on the\nsame input -- the files half was always byte-identical, and 100% of the difference was the dirs\nhalf that only one of them has. Neither computed a wrong answer for its own inputs; neither reads\nthe other's index; and on the real tree they hash different source LISTS anyway (nine files\nagainst roughly twenty-five plus a directory), so they were never going to agree. The live hazard\nthe ticket describes -- a tree one caller thinks is current and another thinks is stale -- needs\ntwo readers of ONE index, and there is no such pair.\n\nSo this is a false-equivalence bug, not a live fingerprint hazard: a docstring claiming an\nidentity that stopped being true, and a test asserting it. Recorded here because the severity is\nwhat decides whether the next person drops everything for it, and the ticket's own answer to that\nis wrong.\n\n## The shape of the fix\n\n`update_files` takes the hash object and folds the files into it IN PLACE, rather than returning\na digest the caller then re-hashes. That is deliberate and it is the whole reason this refactor\ncosts nothing: `contract` folds files and then directories into ONE hash, so a helper that\nreturned a digest would change its output, invalidate every recorded `source_fingerprint`, and\nforce a canary re-prove for a pure code move. In place, every one of the three callers emits the\nbyte-identical value it emitted before.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/fingerprint.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['update_files', 'update_dirs', 'of_files']"
+    },
+    "Schema/fingerprint.py::of_files": {
+      "decorators": [],
+      "doc": "`update_files` on a fresh hash, as the two file-only stores want it.\n\n`contract` does NOT use this: it continues the same hash into its directory half, which is\nwhat keeps its emitted value unchanged across this refactor.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rels, repo_root: str) -> str"
+    },
+    "Schema/fingerprint.py::update_dirs": {
+      "decorators": [],
+      "doc": "Fold whole DIRECTORIES of `.py` files into the hash `h`, by NAME LIST and then content.\n\nThe input class a path tuple cannot describe: a tuple can only name files someone already\nthought of, and `Optimization/simconfig/configs/` is auto-discovered, so an ADDED pick config\nwould register nowhere. Only `runschema.contract` has such an input -- which is the entire\nreason its fingerprint differs from the two file-only stores on shared input\n(`architecture-drift/05`), and why that difference is a DECLARED asymmetry, not drift.\n\nThe NAME LIST is hashed BEFORE any content, so a RENAME registers even when no byte moves --\nrenaming a pick config renames a run-tree directory.\n\nContent is normalised exactly as `update_files` normalises it, and it lives here so that ONE\nplace decides what a line ending means. It was a fourth copy of that rule until this module.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(h, rel_dirs, repo_root: str) -> None"
+    },
+    "Schema/fingerprint.py::update_files": {
+      "decorators": [],
+      "doc": "Fold `rels` (repo-relative paths, in declared order) into the hash `h`.\n\nThree properties, each of which a caller has been bitten by:\n\n  * **Line endings are NORMALISED to `\\n`.** On Windows a checkout, a stash/pop or an\n    `autocrlf` change rewrites CRLF<->LF without touching a statement; hashing raw bytes made\n    that look like a structural change and cost a needless canary pair.\n  * **A MISSING file contributes its path plus a marker** rather than being skipped, so\n    DELETING a source is detected instead of silently matching.\n  * **The path is hashed before the content**, so moving a file registers even when its bytes\n    do not change.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(h, rels, repo_root: str) -> None"
+    },
     "Schema/hook_check.py": {
       "decorators": [],
       "doc": "hook_check.py \u2014 Stop-hook backstop that nudges a DB-shape store sync on drift.\n\nWired via .claude/settings.json (Stop hook), beside Optimization/runschema/hook_check.py \u2014 the\nsame bargain for the OTHER contract.  It compares the DDL source fingerprint recorded in\n``Schema/shapes/INDEX.json`` against the working tree and stats the per-family committed\ndocuments.  It NEVER imports the writers (that pulls ~1350 modules, matplotlib and pandas\nincluded) and ALWAYS exits 0: advisory, never blocking, never slow.\n\nThe nag it prints is the whole point.  A DDL edit that ships without ``--sync`` opens the\nwindow `Schema.compat.UncommittedShape` documents: the new shape is unrecoverable at the next\nchange, and the outgoing one silently orphans the archive.  Catching it at the END OF THE TURN\nthat edited the DDL costs one line; catching it at the next run's precheck costs a blocked run;\ncatching it at analysis time costs an unreadable archive.\n\nRun standalone:  python Schema/hook_check.py",
@@ -16642,7 +16676,7 @@
     },
     "Schema/profile_tree.py::source_fingerprint": {
       "decorators": [],
-      "doc": "Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).\n\nSame algorithm as `runschema.contract.source_fingerprint` / `store_index.source_fingerprint`\n(copied \u2014 importing the former is schema\u2192optimization, forbidden); the honesty test pins the\nthree against each other on shared input.",
+      "doc": "Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).\n\nTHE ALGORITHM IS SHARED NOW, not copied: `Schema.fingerprint.of_files` is the one\nimplementation, and `runschema.contract` folds the same helper into the first half of its\nown fingerprint.  It was a copy until `architecture-drift/05`, and it had already drifted --\n`contract` grew a SECOND input class (`SHAPE_SOURCE_DIRS`, for auto-discovered files) and\nthis copy did not, which is what made the honesty test fail.\n\nTHIS STORE HASHES FILES ONLY, and that is correct rather than an omission: the profiles tree\nhas no auto-discovered directory in its shape.  A directory half here would hash nothing and\nread as parity.",
       "is_async": false,
       "kind": "function",
       "signature": "(repo_root: str=_REPO_ROOT) -> str"
@@ -16933,7 +16967,7 @@
     },
     "Schema/store_index.py::source_fingerprint": {
       "decorators": [],
-      "doc": "Hash of every DDL-defining source file (path + content), in declared order.\n\nSame algorithm as ``runschema.contract.source_fingerprint`` (copied \u2014 see the module\ndocstring for why importing it is illegal): line endings normalised to \\n so a CRLF<->LF\nrewrite is not a structural change, and a missing file contributes a MISSING marker so a\nDELETED source is detected instead of silently matching.",
+      "doc": "Hash of every DDL-defining source file (path + content), in declared order.\n\nTHE ALGORITHM IS SHARED NOW (`Schema.fingerprint.of_files`) rather than copied from\n`runschema.contract`.  The copy this replaces is the precedent `profile_tree`'s own test\ncites, and it drifted for the same reason any uncompared copy does.  Files only, like\n`profile_tree` and unlike `contract`: no DDL source is auto-discovered.",
       "is_async": false,
       "kind": "function",
       "signature": "(repo_root: str=_REPO_ROOT) -> str"

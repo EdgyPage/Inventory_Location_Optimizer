@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.fingerprint · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_fingerprint_py" data-id="Schema/fingerprint.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/fingerprint.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.fingerprint</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_fingerprint_py.html"><code>Schema/fingerprint.py</code></a></p>
+
+<pre class="sig"><code>Schema.fingerprint</code></pre>
+<section class="doc">fingerprint — the source-hashing half that three content-addressed stores shared by COPY.
+
+`runschema/contract.py`, `Schema/profile_tree.py` and `Schema/store_index.py` each carry a
+`source_fingerprint`, and two of the three say in their own docstring that they are a copy of the
+first. `Schema/` may not import `Optimization/` (the declared boundary &quot;shape identity must not
+depend on the run harness&quot;), so copying was the only way to share it -- and a copy nothing
+compares is a copy that drifts.
+
+**It drifted.** `runschema.contract` grew a SECOND input class -- `SHAPE_SOURCE_DIRS`, hashed by
+name list and content, so an ADDED file registers in an auto-discovered directory -- and the two
+copies did not. From that moment &quot;same algorithm as `runschema.contract.source_fingerprint`&quot; was
+false, and `test_source_fingerprint_matches_the_runtree_implementation`, which asserts the copies
+hold byte-for-byte, has been failing ever since
+(`.scratch/architecture-drift/issues/05`).
+
+## What that ticket calls this, and what it actually is
+
+The ticket calls it &quot;the dangerous one of the seven&quot;: two implementations disagreeing on
+identical input, so &quot;one caller population thinks a tree is current while another thinks it is
+stale, with no error either way&quot;. That is not what the disagreement was.
+
+Measured before fixing: with `SHAPE_SOURCE_DIRS` emptied, the two produce the SAME digest on the
+same input -- the files half was always byte-identical, and 100% of the difference was the dirs
+half that only one of them has. Neither computed a wrong answer for its own inputs; neither reads
+the other&#x27;s index; and on the real tree they hash different source LISTS anyway (nine files
+against roughly twenty-five plus a directory), so they were never going to agree. The live hazard
+the ticket describes -- a tree one caller thinks is current and another thinks is stale -- needs
+two readers of ONE index, and there is no such pair.
+
+So this is a false-equivalence bug, not a live fingerprint hazard: a docstring claiming an
+identity that stopped being true, and a test asserting it. Recorded here because the severity is
+what decides whether the next person drops everything for it, and the ticket&#x27;s own answer to that
+is wrong.
+
+## The shape of the fix
+
+`update_files` takes the hash object and folds the files into it IN PLACE, rather than returning
+a digest the caller then re-hashes. That is deliberate and it is the whole reason this refactor
+costs nothing: `contract` folds files and then directories into ONE hash, so a helper that
+returned a digest would change its output, invalidate every recorded `source_fingerprint`, and
+force a canary re-prove for a pure code move. In place, every one of the three callers emits the
+byte-identical value it emitted before.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(3)</span></h2><ul><li><a href="nOptimization_runschema_contract_py.html"><code>Optimization.runschema.contract</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nSchema_profile_tree_py.html"><code>Schema.profile_tree</code></a> <span class="dim">Schema/profile_tree.py</span></li><li><a href="nSchema_store_index_py.html"><code>Schema.store_index</code></a> <span class="dim">Schema/store_index.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(4)</span></h2><ul><li><a href="nSchema_fingerprint_py____all__.html"><code>__all__</code></a> <span class="dim">Schema/fingerprint.py</span></li><li><a href="nSchema_fingerprint_py__of_files.html"><code>of_files</code></a> <span class="dim">Schema/fingerprint.py</span></li><li><a href="nSchema_fingerprint_py__update_dirs.html"><code>update_dirs</code></a> <span class="dim">Schema/fingerprint.py</span></li><li><a href="nSchema_fingerprint_py__update_files.html"><code>update_files</code></a> <span class="dim">Schema/fingerprint.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_fingerprint_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/fingerprint.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

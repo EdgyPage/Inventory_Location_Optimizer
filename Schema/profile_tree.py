@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import hashlib
+from Schema import fingerprint as _fingerprint
 import json
 import os
 import sys
@@ -259,20 +260,17 @@ def head() -> str | None:
 def source_fingerprint(repo_root: str = _REPO_ROOT) -> str:
     """Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).
 
-    Same algorithm as `runschema.contract.source_fingerprint` / `store_index.source_fingerprint`
-    (copied — importing the former is schema→optimization, forbidden); the honesty test pins the
-    three against each other on shared input.
+    THE ALGORITHM IS SHARED NOW, not copied: `Schema.fingerprint.of_files` is the one
+    implementation, and `runschema.contract` folds the same helper into the first half of its
+    own fingerprint.  It was a copy until `architecture-drift/05`, and it had already drifted --
+    `contract` grew a SECOND input class (`SHAPE_SOURCE_DIRS`, for auto-discovered files) and
+    this copy did not, which is what made the honesty test fail.
+
+    THIS STORE HASHES FILES ONLY, and that is correct rather than an omission: the profiles tree
+    has no auto-discovered directory in its shape.  A directory half here would hash nothing and
+    read as parity.
     """
-    h = hashlib.sha256()
-    for rel in SHAPE_SOURCES:
-        h.update(rel.encode('utf-8'))
-        p = os.path.join(repo_root, rel.replace('/', os.sep))
-        try:
-            with open(p, 'rb') as f:
-                h.update(f.read().replace(b'\r\n', b'\n'))
-        except OSError:
-            h.update(b'\x00MISSING')
-    return 'sha256:' + h.hexdigest()
+    return _fingerprint.of_files(SHAPE_SOURCES, repo_root)
 
 
 def adopt(doc: dict, *, label: str = '') -> str:

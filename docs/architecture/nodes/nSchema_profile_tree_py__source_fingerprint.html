@@ -17,10 +17,16 @@
 <pre class="sig"><code>def source_fingerprint(repo_root: str=_REPO_ROOT) -&gt; str</code></pre>
 <section class="doc">Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).
 
-Same algorithm as `runschema.contract.source_fingerprint` / `store_index.source_fingerprint`
-(copied — importing the former is schema→optimization, forbidden); the honesty test pins the
-three against each other on shared input.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nSchema_profile_tree_py__adopt.html"><code>adopt</code></a> <span class="dim">Schema/profile_tree.py</span></li><li><a href="nSchema_profile_tree_py__stale_reasons.html"><code>stale_reasons</code></a> <span class="dim">Schema/profile_tree.py</span></li></ul></section>
+THE ALGORITHM IS SHARED NOW, not copied: `Schema.fingerprint.of_files` is the one
+implementation, and `runschema.contract` folds the same helper into the first half of its
+own fingerprint.  It was a copy until `architecture-drift/05`, and it had already drifted --
+`contract` grew a SECOND input class (`SHAPE_SOURCE_DIRS`, for auto-discovered files) and
+this copy did not, which is what made the honesty test fail.
+
+THIS STORE HASHES FILES ONLY, and that is correct rather than an omission: the profiles tree
+has no auto-discovered directory in its shape.  A directory half here would hash nothing and
+read as parity.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_fingerprint_py__of_files.html"><code>of_files</code></a> <span class="dim">Schema/fingerprint.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nSchema_profile_tree_py__adopt.html"><code>adopt</code></a> <span class="dim">Schema/profile_tree.py</span></li><li><a href="nSchema_profile_tree_py__stale_reasons.html"><code>stale_reasons</code></a> <span class="dim">Schema/profile_tree.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_profile_tree_py__source_fingerprint">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/profile_tree.py#:~:text=def%20source_fingerprint">Source ↗</a></p>
 </article>
 </main>
