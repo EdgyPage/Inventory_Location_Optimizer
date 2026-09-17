@@ -113,3 +113,5 @@
 - [Deep-tier save knee + fixed arm cost](deep-tier-save-knee-and-fixed-arm-cost.md) — save_s is ~half the run and knees at the top rung; each arm pays ~48s first. Both fake per-arm divergence
 - [Toy run is the byte-identity instrument](toy-run-is-the-byte-identity-instrument.md) — smoketest --profile tiny + run_digest is the only check that can actually FAIL a placement refactor; take the baseline BEFORE the change
 - [Placement oracles pin agreement, not truth](placement-oracles-pin-agreement-not-truth.md) — they compare a family's pool half to its wave half against a FROZEN hand-copy, so a shared-state fix is invisible and a signature change re-freezes them
+- [A DDL change moves two tables](a-ddl-change-moves-two-tables.md) — the table AND simulation_runs (it carries sim_schema_id); verify column-by-column, and the only test that catches a dropped column is an integration roundtrip
+- [Renaming a local needs AST positions](renaming-a-local-needs-ast-positions.md) — a word-boundary regex rename still rewrote two English comments and nothing failed; rewrite identifier tokens at their AST (lineno, col_offset)
