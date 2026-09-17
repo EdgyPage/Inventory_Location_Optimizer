@@ -1823,6 +1823,16 @@ files:
       - {name: "test_an_ungated_evaluation_never_pays_for_the_probe", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
       - {name: "test_the_run_end_summary_counts_era_skips_separately", file: "Tests/architecture/test_data_era_gate.py", kind: "function"}
     notes: ""
+  "Tests/architecture/test_diagnostics_read_boundary.py":
+    purpose: "Brings Diagnostics/ inside the shrink-only raw-SQL ratchet Visualization already lives under (ticket 15B): the read seam was half-adopted BY PACKAGE -- Performance_Evaluations has none, Visualization has an allowlist with a reason each, Diagnostics was unmanaged at 24 literals across 10 functions. The ten entries share ONE honest reason rather than ten invented ones, and the two structural defects (a hand-rolled read-only URI instead of Schema.connect, two hand-rolled capability probes) get named assertions that retire with the code."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_no_new_raw_sql_site_appears_in_diagnostics", file: "Tests/architecture/test_diagnostics_read_boundary.py", kind: "function"}
+      - {name: "test_the_allowlist_cannot_go_stale", file: "Tests/architecture/test_diagnostics_read_boundary.py", kind: "function"}
+      - {name: "test_the_ratchet_is_not_vacuous", file: "Tests/architecture/test_diagnostics_read_boundary.py", kind: "function"}
+      - {name: "test_the_hand_rolled_read_only_uri_is_recorded_not_forgotten", file: "Tests/architecture/test_diagnostics_read_boundary.py", kind: "function"}
+      - {name: "test_the_hand_rolled_capability_probes_are_recorded", file: "Tests/architecture/test_diagnostics_read_boundary.py", kind: "function"}
+    notes: ""
   "Tests/architecture/test_digest_surface.py":
     purpose: "Gate: every table Picking_Data creates lands in exactly one run_digest bucket, and the tool actually runs on a real run schema. Added after five unconditional tables (yard_trailers, yard_drains, site_receiving, shift_days, free_index) made _surface_check raise SystemExit on every sim DB, leaving the byte-identity digest dead while Tests/bench sat in no gate."
     layer: "tests"
@@ -2047,6 +2057,10 @@ files:
       - {name: "test_accept_adopts_before_it_records_the_fingerprint", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_the_keyframe_stamp_adoption_dogfood_is_locked_in", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_the_stop_hook_exits_zero_and_is_wired_into_settings", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "DECLARATION_ONLY", file: "Tests/architecture/test_schema_compatibility.py", kind: "const"}
+      - {name: "test_every_declared_Requires_is_threaded_or_declared_only", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_declaration_only_list_is_shrink_only_and_honest", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_gate_would_have_caught_run_whatif_labor", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_schema_identity.py":
     purpose: "every registered DB family must have a trustworthy shape id."

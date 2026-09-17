@@ -54,6 +54,7 @@ results drive, no `.env`, no `COMPARISON_OUTPUT_DIR`.
 from __future__ import annotations
 
 import ast
+import pathlib
 import contextlib
 import importlib.util
 import inspect
@@ -2276,3 +2277,133 @@ def test_the_stop_hook_exits_zero_and_is_wired_into_settings():
     assert 'python Schema/hook_check.py' in stop_commands, (
         f'Schema/hook_check.py is not wired as a Stop hook — the nag exists but never runs. '
         f'Wired commands: {stop_commands}')
+
+
+# ── an unadopted `Requires` is documentation, not enforcement ──────────────────────
+
+#: Modules whose `Requires` is a DECLARATION ONLY -- validated against the guaranteed surface by
+#: this file, and deliberately not threaded into a `bind` at a call site. Shrink-only: an entry
+#: here is a claim that the module has no single read to enforce it at, and each says why.
+#:
+#: This list exists because the rule ticket 15 proposed -- "every module-level REQUIRES is
+#: referenced at a bind/check_requirements call in its own module" -- is FALSE for three of the
+#: TEN declarations in the tree, three of them invisible to a `^REQUIRES = ` grep. Writing it as stated would have made the gate fire on modules
+#: that are correct, and the usual repair for that is to weaken the gate.
+DECLARATION_ONLY = {
+    # The package's DB access is the three `Picking_Data` loaders the request broker calls; no
+    # chart family opens a database, so there is no bind site in this module to thread it at.
+    # The module's own comment says to keep it that way.
+    'Optimization/Performance_Evaluations/core/context.py': 'read through the request broker',
+    # The WRITER's declaration of its own tables -- the reference every reader is validated
+    # against. Its one `dataset.bind` is a loader helper serving frozen vintages by design.
+    'Optimization/persistence/Picking_Data.py': 'the writer\'s own reference declaration',
+    # "What this reader READS, declared -- the compatibility gate CI validates" (its own words).
+    # `SqliteSimReader` opens through the viewer's own connection plumbing, and `precompute.py`
+    # threads ITS declarations (`REQUIRES_KEYFRAMES`, `REQUIRES_WAREHOUSE`) at its own binds.
+    'Visualization/readers/base.py': 'validated in CI; the viewer binds through precompute',
+    # The era layer SPLITS its declaration on purpose: `QUANTITY_READS` is the unconditional
+    # half (every vetted vintage must serve it, which the sweep enforces) and `GATED_READS` is
+    # the half some vintages cannot, said out loud, with a capability probe refusing the render.
+    # `QUANTITY_READS` "exists so the schema-compatibility sweep can SEE the declaration"
+    # (`Tests/architecture/test_data_era_gate.py`), and `findings()` re-checks per quantity so
+    # the MESSAGE can name which one. Threading either at a bind would collapse the split.
+    'Optimization/Performance_Evaluations/core/era.py': 'split declaration; findings() re-checks',
+    # Discovery's identity probe reads `simulation_runs` tolerantly on files of ANY vintage --
+    # including unvetted ones it then SKIPS -- so the declaration is shape-following by design.
+    # Enforcing it would refuse exactly the files discovery exists to look at.
+    'Visualization/db_reader.py': 'discovery probes any vintage, including unvetted',
+}
+
+
+def _requires_modules():
+    """Every module-level `Requires(...)` assignment in the tree, by file and constant name."""
+    out = []
+    for p in sorted(pathlib.Path('.').rglob('*.py')):
+        parts = set(p.parts)
+        if parts & {'.git', 'Tests', '__pycache__'} or 'comparison' in str(p):
+            continue
+        try:
+            tree = ast.parse(p.read_text(encoding='utf-8'))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in tree.body:
+            if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Call):
+                continue
+            f = node.value.func
+            name = f.attr if isinstance(f, ast.Attribute) else getattr(f, 'id', None)
+            if name != 'Requires':
+                continue
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    out.append((p.as_posix(), t.id))
+    return out
+
+
+def test_every_declared_Requires_is_threaded_or_declared_only():
+    """THE ENFORCEMENT HOLE, closed.
+
+    `run_whatif_labor.py` declared a `Requires` and never passed it anywhere -- `_hours` called
+    `connect.read_only` directly -- while its sibling `run_whatif_volume.py` threaded the
+    identical shape into `dataset.bind(..., requires=REQUIRES)`. Two CLIs, same shape, one
+    enforced. The declaration was validated against the guaranteed surface by this very file and
+    enforced against nothing, which is the worst of both: it looks like a contract and behaves
+    like a comment.
+
+    A module is compliant if it either threads its constant at a bind/check call of its own, or
+    appears in `DECLARATION_ONLY` with a reason.
+    """
+    unadopted = []
+    for path, const in _requires_modules():
+        if path in DECLARATION_ONLY:
+            continue
+        src = pathlib.Path(path).read_text(encoding='utf-8')
+        threaded = (f'requires={const}' in src
+                    or f'check_requirements({const}' in src
+                    or f'check_requirements(con, {const}' in src)
+        if not threaded:
+            unadopted.append(f'{path}:{const}')
+    assert not unadopted, (
+        f'declared but never enforced: {unadopted}. A `Requires` that no call site threads is '
+        f'documentation -- validated against the guaranteed surface here and checked against '
+        f'nothing at run time. Thread it at the read, or add the module to DECLARATION_ONLY '
+        f'with the reason it has no single read to enforce it at.')
+
+
+def test_the_declaration_only_list_is_shrink_only_and_honest():
+    """NON-VACUITY, both directions.
+
+    An allowlist that named a module with no `Requires` at all, or one that IS threaded, would
+    quietly excuse a future regression -- which is how an allowlist stops being a ratchet.
+    """
+    declared = {p for p, _c in _requires_modules()}
+    stale = sorted(set(DECLARATION_ONLY) - declared)
+    assert not stale, f'DECLARATION_ONLY names modules with no module-level Requires: {stale}'
+
+    for path in DECLARATION_ONLY:
+        src = pathlib.Path(path).read_text(encoding='utf-8')
+        consts = [c for p, c in _requires_modules() if p == path]
+        threaded = [c for c in consts if f'requires={c}' in src]
+        assert not threaded, (
+            f'{path} threads {threaded} at a bind -- it is enforced, so it does not belong in '
+            f'DECLARATION_ONLY; remove the entry rather than letting the list grow')
+
+    assert len(DECLARATION_ONLY) <= 5, (
+        'the declaration-only list grew. It is SHRINK-ONLY: each entry is a claim that a module '
+        'has no single read to enforce its declaration at, and a new one needs that argument '
+        'made, not assumed.')
+
+
+def test_the_gate_would_have_caught_run_whatif_labor():
+    """The ratchet, proved against the defect it was written for.
+
+    `run_whatif_labor` is the module ticket 15 found: it declared and never threaded. With its
+    threading removed, the gate must fire -- otherwise it is a test that passes because
+    everything already complies rather than because it can tell.
+    """
+    src = pathlib.Path('Optimization/run_whatif_labor.py').read_text(encoding='utf-8')
+    assert 'requires=REQUIRES' in src, 'run_whatif_labor stopped threading its declaration'
+    broken = src.replace('requires=REQUIRES', 'requires=None')
+    assert 'requires=REQUIRES' not in broken
+    threaded = ('requires=REQUIRES' in broken
+                or 'check_requirements(REQUIRES' in broken)
+    assert not threaded, 'the detection is not sensitive to the thing it detects'

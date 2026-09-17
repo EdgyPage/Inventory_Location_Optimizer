@@ -18,8 +18,16 @@
 <section class="doc">Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.
 
 Read-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened
-any other way leaves `-wal`/`-shm` sidecars beside an archived ~1 GB file.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_labor_py___scan_labor.html"><code>_scan_labor</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section>
+any other way leaves `-wal`/`-shm` sidecars beside an archived ~1 GB file.
+
+AND IT THREADS `REQUIRES`, which it did not until ticket 15. This module DECLARED what it
+reads and then opened the file without it -- so the declaration was validated in CI against
+the guaranteed surface and enforced against nothing, while its sibling
+`run_whatif_volume._series` threaded the identical shape. A vetted file that cannot serve
+the declared read now fails LOUDLY instead of returning whatever the vintage happens to
+have; an unvetted one (synthetic fixtures, cold archives) still takes the plain read-only
+path, which is the historical behaviour.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nSchema_connect_py__read_only.html"><code>read_only</code></a> <span class="dim">Schema/connect.py</span></li><li><a href="nSchema_dataset_py__bind.html"><code>bind</code></a> <span class="dim">Schema/dataset.py</span></li><li><a href="nSchema_identity_py__SchemaError.html"><code>SchemaError</code></a> <span class="dim">Schema/identity.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_whatif_labor_py___scan_labor.html"><code>_scan_labor</code></a> <span class="dim">Optimization/run_whatif_labor.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_whatif_labor_py___hours">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_whatif_labor.py#:~:text=def%20_hours">Source ↗</a></p>
 </article>
 </main>

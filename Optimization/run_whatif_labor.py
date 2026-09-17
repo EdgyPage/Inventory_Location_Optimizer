@@ -35,6 +35,7 @@ import csv
 import json
 import math
 import os
+import sqlite3
 import statistics
 import sys
 
@@ -101,8 +102,25 @@ def _hours(db: str):
 
     Read-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened
     any other way leaves `-wal`/`-shm` sidecars beside an archived ~1 GB file.
+
+    AND IT THREADS `REQUIRES`, which it did not until ticket 15. This module DECLARED what it
+    reads and then opened the file without it -- so the declaration was validated in CI against
+    the guaranteed surface and enforced against nothing, while its sibling
+    `run_whatif_volume._series` threaded the identical shape. A vetted file that cannot serve
+    the declared read now fails LOUDLY instead of returning whatever the vintage happens to
+    have; an unvetted one (synthetic fixtures, cold archives) still takes the plain read-only
+    path, which is the historical behaviour.
     """
-    con = connect.read_only(db, row_factory=False, immutable=True)
+    from Optimization.persistence import Picking_Data  # noqa: F401 — registers the sim_db family
+    from Schema import dataset as _dataset
+    from Schema import identity as _identity
+    try:
+        ds = _dataset.bind(db, 'sim_db', requires=REQUIRES, immutable=True)
+    except _compat.RequirementUnmet:
+        raise            # a vetted file that cannot serve the declared read must fail LOUDLY
+    except (_identity.SchemaError, sqlite3.Error):
+        ds = None        # unvetted → the plain read-only open below, historical behavior
+    con = ds.con if ds is not None else connect.read_only(db, row_factory=False, immutable=True)
     try:
         row = con.execute('SELECT SUM(task_makespan), SUM(duration), SUM(total_items), COUNT(*) '
                           'FROM batch_stats').fetchone()
@@ -111,7 +129,7 @@ def _hours(db: str):
         return {'labor_hours': row[0] / PER_HOUR, 'batch_hours': row[1] / PER_HOUR,
                 'items': int(row[2] or 0), 'n_batches': int(row[3] or 0)}
     finally:
-        con.close()
+        (ds if ds is not None else con).close()
 
 
 def _scan_labor(rt, cell: str) -> dict:
