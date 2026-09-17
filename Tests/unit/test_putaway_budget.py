@@ -204,11 +204,34 @@ def test_a_ranked_drain_with_no_budget_still_reaches_the_per_unit_fallback():
 def test_the_budget_counts_placements_not_pops():
     """A repack splits one unit into several and pushes them back. Charging the budget for
     that would make the cap depend on how badly the warehouse is packed rather than on how
-    much the crew can move."""
+    much the crew can move.
+
+    Since ticket 17 this is a property of the RUNGS rather than of one branch's position in
+    a 180-line loop: the driver charges `res.bins`, and a rung reports bins only when it
+    actually put something in one. So the two rescues -- which split a unit and push the
+    pieces back -- must report ZERO bins, and that is checkable per rung instead of by
+    finding a `placed += 1` between two string offsets.
+    """
     import inspect
+    from Warehouse.inventory.put_rungs import PUT_RUNGS, RungResult
+
     src = inspect.getsource(Inventory_Manager._stock_per_unit)
-    # `placed` is incremented only in the branch that actually commits a placement
-    commit = src.index('self._execute_placement(unit, bin_, source=item.source)')
-    bump = src.index('placed += 1')
-    assert commit < bump < src.index('else:', commit), \
-        'placed is counted somewhere other than immediately after a commit'
+    assert 'placed += res.bins' in src, (
+        'the driver no longer charges the budget off what a rung reports')
+    assert 'placed +=' not in src.replace('placed += res.bins', ''), (
+        'something other than a rung report is charging the budget')
+
+    # The two rescues return splits, never bins.
+    for rung in ('repack', 'singleton'):
+        body = inspect.getsource(getattr(Inventory_Manager, PUT_RUNGS[rung]))
+        returns = [ln.strip() for ln in body.splitlines() if 'return RungResult(' in ln]
+        assert returns, f'{rung} returns no RungResult at all'
+        assert all('bins=' not in r for r in returns), (
+            f'the {rung} rescue charges the budget for a split: {returns}')
+
+    # And the one that DOES place charges exactly one.
+    empty = inspect.getsource(Inventory_Manager._rung_empty_bin)
+    assert 'RungResult(bins=1' in empty, 'the empty-bin rung stopped charging its placement'
+
+    # Non-vacuity: a rung that reported bins would be charged.
+    assert RungResult(bins=3).bins == 3

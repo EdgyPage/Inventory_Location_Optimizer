@@ -129,6 +129,7 @@ from Inbound.priorities import DOCK_POLICIES, POLICY_VIEW_NEEDS, YARD_POLICIES, 
 from Warehouse.kernel.cost_model import height_multiplier, per_pick
 from Warehouse.kernel.regime import REGIMES, regime_of_key
 from Warehouse.kernel.timeline import SECONDS_PER_DAY
+from Warehouse.operations.putaway import put_seconds_at
 
 #: The entry names that need a driver-injected `GainBundle` on the transit.
 #: `futuresight` ADDITIONALLY needs the window feed — the driver refuses at startup
@@ -858,8 +859,16 @@ class _Evaluator:
         taken, never on an averaged y (which would be a different, wrong number).
         The sentinel keeps the bracket walk off the put-only path, where it would be
         computed and thrown away for every never-picked unit."""
+        # THE SAME EXPRESSION THE SIMULATION BILLS (`putaway.put_seconds_at`), with the
+        # handling term dropped BY NAME rather than by not writing it.  `cost=None` is the
+        # simplification this module's header records -- put travel paid once at the put
+        # crew's speeds -- and `Tests/unit/test_put_seconds_at.py` pins the exact
+        # relationship to the billed reading, so the two can no longer part company
+        # silently.  Dropping the handling term also drops the HEIGHT MULTIPLIER, which is
+        # bin-dependent and therefore does NOT cancel out of a difference between two
+        # candidate bins; that is the part worth revisiting, and ticket 16 records it.
         ps = self.b.put_speed
-        put = ps.x_pace * x + ps.y_pace * y
+        put = put_seconds_at(x, y, speed=ps, cost=None)
         order = unit.order
         wr = self._wr
         if wr is not None:

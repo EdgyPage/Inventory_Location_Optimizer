@@ -1,7 +1,7 @@
 # 16 - the inbound objective restates the cost model the simulation bills
 
 Type: refactor
-Status: needs-triage
+Status: claimed
 Blocked by: 02
 
 ## Context
@@ -67,3 +67,57 @@ a diff someone might notice". The gain evaluator is the one costing path that di
 - Byte-identity: if the unification changes any number, that is a finding, not a refactor. Prove
   DB-row neutrality with `run_digest.py` or stop and record what moved.
 - Gates 1, 2, 10.
+
+
+---
+
+## Progress — (a) landed 2026-09-17; (b) outstanding
+
+### What landed
+
+`putaway.put_seconds_at(x, y, *, speed, cost=None, weight, volume, quantity)` is now the ONE
+at-bin put expression. `put_cost` keeps its name — it is the BILLING call and reads as one at
+`_cost_putaway` — but has no arithmetic of its own; it is `put_seconds_at` with the cost in.
+`_Evaluator._cost_at` calls the same function and **drops the handling term by passing
+`cost=None`**, which is the whole point: the simplification is refused at the call site, by
+name, where a reader sees it and a test can pin it. It used to be a term that simply was not
+written.
+
+`Tests/unit/test_put_seconds_at.py` is the test the ticket said was unwritable. Six of them,
+and two matter:
+
+- `test_cost_none_drops_exactly_the_handling_term` states the relationship as an EQUATION, not
+  as "the optimised reading is smaller", so a change to either half lands here.
+- `test_the_dropped_term_is_bin_dependent_which_is_why_it_matters` asserts the concrete
+  reason: `M(y)` is a step function of height, so two bins in one aisle at the same x differ
+  in billed handling while the objective scores them identically. A dropped CONSTANT would
+  cancel out of a comparison between bins; this one does not.
+
+The two source-checked tests are deliberate: the failure this ticket is about is not a wrong
+number, it is a second implementation that agrees today. A value test cannot tell those apart,
+and `test_put_cost_has_no_arithmetic_of_its_own` is what says there is one body. Proved
+non-vacuous by restoring the old inline form — the objective test fails and names it.
+
+### Byte-identical, verified
+
+Toy-run digest IDENTICAL over 136 arms (batched with ticket 17). Expected by construction —
+the objective passes `cost=None` and gets exactly the travel expression it wrote before — but
+the ticket asked for proof rather than the argument.
+
+### What remains — (b), splitting the file
+
+`Inbound/gain.py` is 1,398 lines and four modules. Not done, and the reason is a trap worth
+recording rather than a lack of time:
+
+`Tests/unit/test_gain_cow_equivalence.py` REBINDS `gain.AISLE_VIEWS` to sabotage the views
+(`:51`, `:140`), and its own docstring calls that the saving throw — "without this the file
+passes if AISLE_VIEWS is pointed back at AISLE_COPIERS". If the views move to their own module
+and `_make_pool` reads them through `from ... import AISLE_VIEWS`, rebinding `gain.AISLE_VIEWS`
+stops reaching the reader and **the sabotage silently stops sabotaging**. That is not
+hypothetical: `test_gain_bundle_labor_families.py:240` records the same thing happening once
+already, when `_make_pool` moved from `AISLE_COPIERS` to `AISLE_VIEWS`.
+
+So the split is safe only if the evaluator reads the table through its MODULE
+(`_cow.AISLE_VIEWS[n]`, not a bare imported name) and the two tests are re-pointed and
+re-proved against planted damage. Mechanical, but it is the kind of mechanical that has
+already cost this repo a dead test.

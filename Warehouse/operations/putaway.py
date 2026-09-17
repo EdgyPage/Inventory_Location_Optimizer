@@ -95,9 +95,10 @@ class PutawayCost:
         )
 
 
-def put_cost(x_phys: float, y_phys: float, weight: float, volume: float, quantity: int,
-             speed: SpeedProfile, cost: PutawayCost) -> float:
-    """Seconds to put `quantity` units away at physical location `(x_phys, y_phys)`.
+def put_seconds_at(x_phys: float, y_phys: float, *, speed: SpeedProfile,
+                   cost: 'PutawayCost | None' = None,
+                   weight: float = 0.0, volume: float = 0.0, quantity: int = 0) -> float:
+    """Seconds to put `quantity` units away at `(x_phys, y_phys)` — the ONE expression.
 
     Travel from the aisle mouth plus height-bracketed handling — the same two terms, in the
     same order, through the same primitives as `Pick._pick_time` and `Workload`'s P-term:
@@ -106,8 +107,30 @@ def put_cost(x_phys: float, y_phys: float, weight: float, volume: float, quantit
 
     Returns SECONDS, the unit the whole simulator counts in
     (`Warehouse.kernel.timeline.TIME_UNIT`).
+
+    ## Two callers price the same physical act, and one of them drops a term
+
+    `put_cost` below BILLS a put; `Inbound.gain._Evaluator._cost_at` OPTIMISES where to put
+    it.  Until 2026-09-17 the objective restated this formula and kept only `travel` — no
+    intercept, no per-item charge, and no HEIGHT MULTIPLIER, which is bin-dependent and
+    therefore does not cancel out of a difference between two candidate bins.  The
+    simplification was recorded in prose (`gain.py`'s header: "put travel is paid once at
+    the put crew's speeds") and nowhere in the code, so **whether it was a decision or drift
+    was undecidable from the tests** — and the put formula moved three times in two months
+    (ADR-0001's per-item charge, the one-clock refactor, ADR-0003).
+
+    `cost=None` is that drop, made VISIBLE: the handling term is not merely unwritten, it is
+    refused at the call site, by name, where a reader can see it and a test can pin it.
+    `Tests/unit/test_put_seconds_at.py` asserts the exact relationship between the two
+    readings, so a change to either half now has somewhere to fail.
+
+    `Inbound/unload.py`'s `UnloadCost.from_putaway` makes the same argument for the
+    receiving twin: a reference makes the drift "structurally impossible rather than merely
+    a diff someone might notice".
     """
     travel = x_phys * speed.x_pace + y_phys * speed.y_pace
+    if cost is None:                       # the objective's documented simplification
+        return travel
     handling = per_pick(
         height_multiplier(cost.height_brackets, y_phys),
         cost.intercept,
@@ -117,3 +140,15 @@ def put_cost(x_phys: float, y_phys: float, weight: float, volume: float, quantit
         cost.per_item,
     )
     return travel + handling
+
+
+def put_cost(x_phys: float, y_phys: float, weight: float, volume: float, quantity: int,
+             speed: SpeedProfile, cost: PutawayCost) -> float:
+    """What the simulation BILLS for one put — `put_seconds_at` with the handling term in.
+
+    Kept as its own name because it is the billing call and reads as one at every call site
+    (`Inventory_Manager._cost_putaway`), and because `cost` is not optional here: a put that
+    is charged always pays for the handling.
+    """
+    return put_seconds_at(x_phys, y_phys, speed=speed, cost=cost,
+                          weight=weight, volume=volume, quantity=quantity)

@@ -23,6 +23,8 @@ log = logging.getLogger(__name__)
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
 from Warehouse.inventory.aisle_ledger import AisleLedger
 from Warehouse.inventory.put_policy import key_for as _put_key_for
+from Warehouse.inventory.put_rungs import (
+    DECLINED, PUT_RUNGS, RungResult, chain_for as _put_chain_for)
 from Warehouse.inventory.put_queue import (
     HeldItems, PutQueueSet, single_queue, store_and_fulfillment)
 from Warehouse.inventory.inventory_common import (
@@ -230,6 +232,11 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         # Count of queued units per SKU — O(1) alternative to rebuilding a set
         # from the full queue on every check_reorders call.
         self._queued_sku_counts: dict[int, int] = {}
+        # ADR-0003's put-away fallback chain, bound once.  See `put_chain` below and
+        # `Warehouse/inventory/put_rungs.py`.
+        self._put_chain_names: tuple[str, ...] = ()
+        self._put_chain: tuple = ()
+        self.put_chain = None                 # resolves to DEFAULT_PUT_CHAIN
         # Product-quantity on-order trackers (parallel to the unit-count dicts):
         # _queued_qty   = items reordered and ADMITTED UPSTREAM OF A BIN but not yet binned --
         #                 standing on the dock or waiting in a put queue.  Both, deliberately:
@@ -1551,6 +1558,29 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
             if queue.items and not queue.can_start(deadline):
                 queue.cut += len(queue.items)
 
+    @property
+    def put_chain(self) -> tuple[str, ...]:
+        """ADR-0003's fallback rung names, in order — what `_stock_per_unit` walks.
+
+        The ADR parks two rejected alternatives (home bin, relocate on top-up) and says the
+        rule "may become a knob later, which is why the rework is recorded rather than
+        hidden".  This is that knob: a chain is a tuple of names, resolved through
+        `put_rungs.chain_for`, which refuses an unknown one rather than leaving a rung that
+        silently never fires.  Before ticket 17 the same change was an edit inside a
+        180-line loop.
+
+        Setting it does NOT re-litigate the ADR.  The default IS the ADR's ruling, and
+        `put_rungs.DEFAULT_PUT_CHAIN` records what a reordering forfeits.
+        """
+        return self._put_chain_names
+
+    @put_chain.setter
+    def put_chain(self, names) -> None:
+        self._put_chain_names = _put_chain_for(names)
+        # Bound once, not resolved per unit: this is walked for every queued unit on every
+        # drain, and a `getattr` per rung per unit would be a real per-placement cost.
+        self._put_chain = tuple(getattr(self, PUT_RUNGS[n]) for n in self._put_chain_names)
+
     def _stock_per_unit(self, budget: int | None = None, queue=None,
                         deadline: float | None = None) -> None:
         """Place queued StorageUnit objects one at a time via placement.place_one.
@@ -1558,14 +1588,17 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         Used for initial enqueue, FIFO/cohesion reorders, and the stragglers a ranked
         wave leaves behind.  The coupling guard runs in _stock() (the single entry).
 
-        Placement failures:
-          1. Repack into a smaller pallet size tier (retried immediately via appendleft).
-          2. Fall back to singleton bins of the same order type (same).
-          3. If no bin is available, the unit stays in the queue (FIFO, no expiry).
+        **The fallback chain is `self._put_chain`, not a branch tree in here.** ADR-0003
+        fixes what happens when no empty bin fits -- the SKU's own bins, then a repack into
+        a smaller tier, then a singleton rescue, then pending -- and each of those is a rung
+        answering `RungResult` (`Warehouse/inventory/put_rungs.py`). This loop walks the
+        chain, takes the first rung that did something, and books it. Adding a rung is a
+        name in a tuple; it used to be an edit inside these 180 lines.
 
         ``budget`` caps PLACEMENTS, not pops: a repack splits one unit into several and
         pushes them back, and charging a budget for that would make the cap depend on how
-        badly the warehouse is packed rather than on how much the crew can move.
+        badly the warehouse is packed rather than on how much the crew can move. A rung
+        reports its own `bins`, so a unit absorbed into three of its own bins costs three.
 
         ``deadline`` is the day's whistle on the crew's batch-local clock; see `_stock`.
         Checked per unit rather than once, because each put advances the clock that decides
@@ -1590,139 +1623,170 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 pending.extend(waiting)
                 waiting.clear()
                 break
-            item   = waiting.popleft()
-            unit   = item.unit
-            order = unit.order
-            sku    = order.sku
+            item = waiting.popleft()
+            unit = item.unit
+            sku  = unit.order.sku
 
-            # B/C: aisle_index is active — assign derives BinKey from unit directly.
-            # A: uniform assignment needs a real candidates list.  Under zoning, take the O(#bands)
-            # _band_pick fast path (same in-band candidate SET as _zone_filter, off the maintained
-            # sub-index) instead of the O(free-bins) partition — this per-unit path is what made
-            # zoned FIFO O(placements x free-bins).  OFF ⇒ unchanged (_candidates) ⇒ byte-identical.
-            if self._travel_costs_ready:
-                candidates = None
-            elif self._zoning_enabled:
-                key, bins  = self._candidates_raw(unit)
-                candidates = self._band_pick(unit, key) if bins else bins
-            else:
-                candidates = self._candidates(unit)
-            bin_       = self.placement.place_one(unit, candidates)
+            # ADR-0003's order, walked. The first rung that did anything wins; a chain that
+            # declines all the way through means no bin anywhere can hold this unit, and it
+            # goes to a local `pending` deque that becomes the new queue and retries next
+            # batch. There is NO expiry: a unit no bin can ever hold retries forever, and
+            # `mgr.queue_depth` is the only signal it is happening. (An earlier comment here
+            # described a `_MAX_DRAIN_RETRIES` abandonment cap; no such constant has ever
+            # existed in the repo.)
+            res = DECLINED
+            for rung in self._put_chain:
+                res = rung(unit, item, queue)
+                if res:
+                    break
+            if not res:
+                pending.append(item)
+                continue
 
-            if bin_ is not None:
-                self._execute_placement(unit, bin_, source=item.source)
-                placed += 1
-            else:
-                # No EMPTY bin fits this unit.  Attempt the fallback chain in order
-                # (ADR-0003 fixes the order; the first rung is the new one):
-                #   0. The SKU's OWN bins, fullest first, filled to capacity.
-                #   1. Repack into smaller pallet size tier (existing logic).
-                #   2. Fall back to singleton bins of the same order type.
-                #   3. If all else fails, the unit goes to a local `pending` deque
-                #      that becomes the new _stock_queue, and it retries next batch.
-                #      There is NO expiry: a unit no bin can ever hold retries forever,
-                #      and `mgr.queue_depth` is the only signal it is happening.  (An
-                #      earlier version of this comment described a `_MAX_DRAIN_RETRIES`
-                #      abandonment cap; no such constant has ever existed in the repo.)
-                #
-                # 0 AHEAD OF 1 AND 2 IS THE WHOLE POINT: the rescues exist for a pallet
-                # meeting a small-bin warehouse, and they must not fire for a carton whose
-                # own shelf has room.  A rescue is rework; a top-up is a put.
-                repacked = False
-                shc = order.storage_handle_config
-
-                # ── rung 0: the SKU's own bins (ADR-0003) ─────────────────────────
-                _topups_before = self._put_topups
-                took = self._top_up_own_bins(unit, source=item.source, queue=queue)
-                if took:
-                    # The budget counts PLACEMENTS, and a unit absorbed into three own bins
-                    # is three trips, three `bin_placement` rows and three `_reorder_placements`
-                    # -- so it must cost three here too, or a crew cap is silently generous
-                    # exactly when the warehouse is most fragmented.  Read off the flow rather
-                    # than returned, so `_top_up_own_bins` keeps its one-number interface.
-                    _bins_touched = self._put_topups - _topups_before
-                    if took == unit.quantity:
-                        # Fully absorbed: the unit is off the queue for good, so the
-                        # queued-unit count drops exactly as `_execute_placement` drops it.
-                        n_q = self._queued_sku_counts.get(sku, 0)
-                        if n_q <= 1:
-                            self._queued_sku_counts.pop(sku, None)
-                        else:
-                            self._queued_sku_counts[sku] = n_q - 1
-                        placed += _bins_touched
-                        continue
-                    # Partial: the remainder goes back on the queue as ONE unit and takes
-                    # the chain from the top -- a smaller unit may now find an empty bin,
-                    # which is still empty-first.  One unit in, one unit out, so
-                    # `_queued_sku_counts` needs no delta (unlike the rescues, which split).
-                    waiting.appendleft(
-                        item.respawn(type(unit)(order, unit.quantity - took)))
-                    placed += _bins_touched
-                    continue
-
-                # ── rescue 1: repack into a smaller size tier (pallet OR fulfillment) ──
-                # Both are size-tiered; tier_ranks_for() + the unit class select the family.
-                if unit.unit_category in UNIT_CLASSES and unit.storage_size is not None:
-                    utype        = unit.unit_category
-                    unit_cls, ranks, sizes_desc = UNIT_CLASSES[utype]
-                    current_rank = ranks.get(unit.storage_size, 99)
-                    for size in sizes_desc:
-                        if ranks[size] >= current_rank:
-                            continue   # same or larger tier — already failed
-                        avail = self._index.get(
-                            (shc.handling, shc.category, size, utype))
-                        if not avail:
-                            continue
-                        max_q = _max_qty_fitting_size(order, size, utype)
-                        if max_q <= 0:
-                            continue
-                        remaining  = unit.quantity
-                        new_units: list[StorageUnit] = []
-                        while remaining > 0:
-                            q = min(remaining, max_q)
-                            new_units.append(unit_cls(order, q))
-                            remaining -= q
-                        delta = len(new_units) - 1
-                        if delta:
-                            self._queued_sku_counts[sku] = (
-                                self._queued_sku_counts.get(sku, 1) + delta
-                            )
-                        # The rework is RECEIVING work, priced per resulting pack.
-                        self._charge_repack(order, new_units)
-                        for u in reversed(new_units):
-                            waiting.appendleft(item.respawn(u))
-                        repacked = True
-                        break
-
-                # ── rescue 2: singleton bins of same order type (store only; a
-                #    fulfillment unit has no singleton fallback — it stays ff) ──
-                if not repacked and unit.unit_category != FULFILLMENT:
-                    max_sing = _sq_max(order, Singleton)
-                    avail = self._index.get((shc.handling, shc.category, None, 'singleton'))
-                    if max_sing > 0 and avail:
-                        remaining = unit.quantity
-                        new_units: list[StorageUnit] = []
-                        while remaining > 0:
-                            q = min(remaining, max_sing)
-                            new_units.append(Singleton(order, q))
-                            remaining -= q
-                        delta = len(new_units) - 1
-                        if delta:
-                            self._queued_sku_counts[sku] = (
-                                self._queued_sku_counts.get(sku, 1) + delta
-                            )
-                        # Same rework, same price -- a singleton rescue is a repack that
-                        # happens to land in the forward-pick family.
-                        self._charge_repack(order, new_units)
-                        for u in reversed(new_units):
-                            waiting.appendleft(item.respawn(u))
-                        repacked = True
-
-                # ── no bin available — hold in queue, retry next batch ────────
-                if not repacked:
-                    pending.append(item)
+            placed += res.bins
+            for u in reversed(res.units):
+                waiting.appendleft(item.respawn(u))
+            # ── the bookkeeping that was written five times, written once ──────────
+            # The item was POPPED, so it stops counting as one queued unit and
+            # `len(res.units)` take its place. The two forms below are NOT the same
+            # expression, and that difference was invisible while it lived in three
+            # separate blocks: leaving the queue POPS the key at zero (the form
+            # `_execute_placement` uses), while a split ADDS with a default of 1.
+            if not res.counts_booked:
+                back = len(res.units)
+                if back == 0:                      # gone for good
+                    n_q = self._queued_sku_counts.get(sku, 0)
+                    if n_q <= 1:
+                        self._queued_sku_counts.pop(sku, None)
+                    else:
+                        self._queued_sku_counts[sku] = n_q - 1
+                elif back > 1:                     # split into several
+                    self._queued_sku_counts[sku] = (
+                        self._queued_sku_counts.get(sku, 1) + (back - 1)
+                    )
+                # back == 1 is one unit in, one unit out -- no delta, and saying so
+                # explicitly is why the partial top-up needed a comment before.
         queue.items = pending
         self._placed_this_call += placed
+
+    # ── the put-away rungs (ADR-0003) ─────────────────────────────────────────────────
+    #
+    # Each answers `(unit, item, queue) -> RungResult`; falsy means DECLINED and the chain
+    # walks on. The bodies are here rather than in `put_rungs.py` because they reach into
+    # `_index`, `_execute_placement`, `_top_up_own_bins` and `_charge_repack` -- the depth
+    # that lets `put_policy`'s adapters live in their own module and stops these from doing
+    # the same. `put_rungs.py` owns the result type, the registry and the resolver.
+
+    def _rung_empty_bin(self, unit: StorageUnit, item, queue) -> RungResult:
+        """Rung 0: an EMPTY bin, chosen by the arm's own placement policy.
+
+        THE ONLY RUNG THAT RANKS ANYTHING, and ADR-0003 says why it stays first: "the
+        new-bin decision is where placement optimisation happens: a restock that returned to
+        its own bin would hand the arms nothing to rank until a shelf was taken to zero."
+        Demoting this rung would leave every arm running and every comparison between them
+        measuring less, with nothing raising.
+        """
+        # B/C: aisle_index is active — assign derives BinKey from unit directly.
+        # A: uniform assignment needs a real candidates list.  Under zoning, take the O(#bands)
+        # _band_pick fast path (same in-band candidate SET as _zone_filter, off the maintained
+        # sub-index) instead of the O(free-bins) partition — this per-unit path is what made
+        # zoned FIFO O(placements x free-bins).  OFF ⇒ unchanged (_candidates) ⇒ byte-identical.
+        if self._travel_costs_ready:
+            candidates = None
+        elif self._zoning_enabled:
+            key, bins  = self._candidates_raw(unit)
+            candidates = self._band_pick(unit, key) if bins else bins
+        else:
+            candidates = self._candidates(unit)
+        bin_ = self.placement.place_one(unit, candidates)
+        if bin_ is None:
+            return DECLINED
+        self._execute_placement(unit, bin_, source=item.source)
+        # `_execute_placement` drops the queued count itself, because it is also reached from
+        # callers that never had a queue item; the driver must not drop it a second time.
+        return RungResult(bins=1, counts_booked=True)
+
+    def _rung_own_bins(self, unit: StorageUnit, item, queue) -> RungResult:
+        """Rung 1: the SKU's OWN bins, fullest first, filled to capacity (ADR-0003).
+
+        AHEAD OF THE TWO RESCUES IS THE WHOLE POINT: the rescues exist for a pallet meeting
+        a small-bin warehouse, and they must not fire for a carton whose own shelf has room.
+        A rescue is rework; a top-up is a put.
+
+        The bin count is read off the `_put_topups` FLOW rather than returned, so
+        `_top_up_own_bins` keeps its one-number interface.  It matters: a unit absorbed into
+        three own bins is three trips, three `bin_placement` rows and three
+        `_reorder_placements`, so it must cost three against the budget too, or a crew cap is
+        silently generous exactly when the warehouse is most fragmented.
+
+        A PARTIAL absorb sends the remainder back as ONE unit to take the chain from the
+        top -- a smaller unit may now find an empty bin, which is still empty-first.
+        """
+        before = self._put_topups
+        took = self._top_up_own_bins(unit, source=item.source, queue=queue)
+        if not took:
+            return DECLINED
+        bins = self._put_topups - before
+        if took == unit.quantity:
+            return RungResult(bins=bins)
+        return RungResult(bins=bins,
+                          units=(type(unit)(unit.order, unit.quantity - took),))
+
+    def _rung_repack(self, unit: StorageUnit, item, queue) -> RungResult:
+        """Rung 2: repack into a smaller size tier — pallet OR fulfillment.
+
+        Both families are size-tiered; `UNIT_CLASSES` + the unit class select which.  The
+        rework is RECEIVING work, priced per RESULTING pack (`_charge_repack`).
+        """
+        if unit.unit_category not in UNIT_CLASSES or unit.storage_size is None:
+            return DECLINED
+        order = unit.order
+        shc   = order.storage_handle_config
+        utype = unit.unit_category
+        unit_cls, ranks, sizes_desc = UNIT_CLASSES[utype]
+        current_rank = ranks.get(unit.storage_size, 99)
+        for size in sizes_desc:
+            if ranks[size] >= current_rank:
+                continue   # same or larger tier — already failed
+            avail = self._index.get((shc.handling, shc.category, size, utype))
+            if not avail:
+                continue
+            max_q = _max_qty_fitting_size(order, size, utype)
+            if max_q <= 0:
+                continue
+            remaining = unit.quantity
+            new_units: list[StorageUnit] = []
+            while remaining > 0:
+                q = min(remaining, max_q)
+                new_units.append(unit_cls(order, q))
+                remaining -= q
+            self._charge_repack(order, new_units)
+            return RungResult(units=tuple(new_units))
+        return DECLINED
+
+    def _rung_singleton(self, unit: StorageUnit, item, queue) -> RungResult:
+        """Rung 3: singleton bins of the same order type — STORE ONLY.
+
+        A fulfillment unit has no singleton fallback; it stays ff.  Same rework and same
+        price as the repack above: a singleton rescue is a repack that happens to land in
+        the forward-pick family.
+        """
+        if unit.unit_category == FULFILLMENT:
+            return DECLINED
+        order    = unit.order
+        shc      = order.storage_handle_config
+        max_sing = _sq_max(order, Singleton)
+        avail    = self._index.get((shc.handling, shc.category, None, 'singleton'))
+        if max_sing <= 0 or not avail:
+            return DECLINED
+        remaining = unit.quantity
+        new_units: list[StorageUnit] = []
+        while remaining > 0:
+            q = min(remaining, max_sing)
+            new_units.append(Singleton(order, q))
+            remaining -= q
+        self._charge_repack(order, new_units)
+        return RungResult(units=tuple(new_units))
 
 
     @property

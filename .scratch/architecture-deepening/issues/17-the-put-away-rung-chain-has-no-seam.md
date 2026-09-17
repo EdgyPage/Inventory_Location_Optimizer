@@ -1,7 +1,7 @@
 # 17 - the put-away rung chain has no seam
 
 Type: refactor
-Status: needs-triage
+Status: resolved
 Blocked by: 02
 
 ## Context
@@ -59,3 +59,56 @@ until a shelf was taken to zero." A reordering rung must not quietly forfeit tha
   `empty-bin-preference-is-structural` records that the never-adds-to-an-occupied-bin form held
   only while reorder lots were pallet-sized. Do not reintroduce the old invariant as an assertion.
 - Gates 1, 2, 10.
+
+
+---
+
+## RESOLVED 2026-09-17
+
+### What landed
+
+`Warehouse/inventory/put_rungs.py` — `RungResult`, `PUT_RUNGS`, `DEFAULT_PUT_CHAIN` and a
+`chain_for` resolver that refuses an unknown rung. Four rung methods on the manager, each
+`(unit, item, queue) -> RungResult`; `_stock_per_unit` walks `self._put_chain` and books what
+a rung reports. `mgr.put_chain` is the knob ADR-0003 said "may become a knob later" — a tuple
+of names instead of an edit inside a 180-line loop.
+
+The result type is THREE fields, not the ticket's three cases: `bins`, `units`,
+`counts_booked`. "Declined" is derived (`__bool__`), deliberately — a rung that reported work
+and also reported declining is not a state the chain has, and a fourth field would let one
+exist. The partial top-up is why: it places bins AND respawns a remainder, so the cases are
+not exclusive.
+
+### What the seam exposed
+
+**The five hand-written `_queued_sku_counts` updates were not one expression.** Leaving the
+queue POPS the key at zero (the form `_execute_placement` uses); a split ADDS with a default
+of 1. Written once in the driver, the difference is a two-branch `if` with a comment. Spread
+over three blocks it was invisible, and this ticket's own "expressed once, in the driver"
+phrasing assumed it away.
+
+`counts_booked` is the other asymmetry, now declared: the empty-bin rung's placement call is
+shared with callers that never had a queue item, so it drops the count itself.
+
+### Two source-shape tests moved out from under, and both got stronger
+
+- `test_the_budget_counts_placements_not_pops` used `src.index('placed += 1')` between two
+  string offsets. It now asks each RESCUE rung whether it reports bins — a property, not a
+  position.
+- `test_both_rescues_respawn_rather_than_pushing_a_bare_unit` asserted two `appendleft` sites
+  both wrapping in `item.respawn`. There is now ONE push site, in the driver, and no rung can
+  push at all — so it became `test_every_respawn_goes_through_the_one_push_site`, which is
+  the stronger statement. Both were proved to fail against planted damage.
+
+`Tests/unit/test_put_rungs.py` (18 tests) is the file the ticket asked for: each rung answered
+on its own, instead of through a warehouse, a queue, a deadline and a budget arranged to make
+the loop walk that far.
+
+### Verification
+
+| check | result |
+|---|---|
+| toy run vs baseline, `run_digest.py` | **IDENTICAL**, 136 arms |
+| `Tests/unit -k "not gpu"` | 2,705 passed / 1 skipped |
+| `test_put_rungs.py` | 18 passed |
+| `test_empty_first_topup.py` (the ORDER, unchanged) | green |

@@ -131,18 +131,28 @@ def test_respawn_carries_the_origin_to_a_split_unit():
     assert isinstance(child, PutawayItem)
 
 
-def test_both_rescues_respawn_rather_than_pushing_a_bare_unit():
-    """The two `appendleft` sites inside `_stock_per_unit`. If either pushed a raw unit the
-    queue would hold two shapes and the next `popleft` would fail on `.unit`.
+def test_every_respawn_goes_through_the_one_push_site():
+    """If anything pushed a raw unit the queue would hold two shapes and the next `popleft`
+    would fail on `.unit`.
 
-    The drain works on whichever `PutQueue` it was handed rather than on `self._stock_queue`,
-    so the pattern matches the local deque. Anchored on `appendleft` alone, which is the
-    thing only a rescue does — the ordinary paths append or pop.
+    This used to read "the two `appendleft` sites, and both wrap in `item.respawn`". Ticket
+    17 made it structural: a rung RETURNS the units it wants pushed back and the driver does
+    the pushing, so there is exactly ONE `appendleft` in the drain and one place that can get
+    the wrapping wrong. Three rungs feed it -- the partial top-up's remainder and the two
+    rescues' splits -- and none of them can push anything itself.
     """
     src = inspect.getsource(im.Inventory_Manager._stock_per_unit)
     pushes = re.findall(r'\.appendleft\((.+?)\)', src)
-    assert len(pushes) == 2, f'expected the two rescues, found {pushes}'
-    assert all(p.startswith('item.respawn(') for p in pushes), pushes
+    assert len(pushes) == 1, f'the drain has more than one push site again: {pushes}'
+    assert pushes[0].startswith('item.respawn('), pushes
+
+    # And no rung reaches the queue behind the driver's back.
+    from Warehouse.inventory.put_rungs import PUT_RUNGS
+    for name, meth in PUT_RUNGS.items():
+        body = inspect.getsource(getattr(im.Inventory_Manager, meth))
+        assert 'appendleft' not in body, (
+            f'rung {name!r} pushes onto the queue itself; the whole point is that it '
+            f'RETURNS its units and the driver owns the wrapping')
 
 
 # ── 4 & 5. the chokepoint and the recorder ───────────────────────────────────────
