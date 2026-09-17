@@ -130,3 +130,68 @@ a DDL, and that one needs a digest.
    `--accept` after). It will change the digest surface -- expect exactly one table's digests to
    move, and prove that it IS exactly that table rather than asserting it.
 3. **The `PlacementPolicy` record itself**, which wants ticket 02 stage B (`ledger_terms`) first.
+
+## Progress 2 -- lift_sum and the load_* family are deleted (2026-09-16)
+
+Still CLAIMED: the `PlacementPolicy` record remains, and it wants ticket 02 stage B first.
+
+### What went
+
+`aisle_metrics.lift_sum` end to end -- the ledger dict and its `__slots__` entry, the manager
+alias, the seeding in `init_lift_state`, the `lift_delta_fn` on `drop_sku` and both callers, the
+`AisleMetricRecord` field, the DDL column, the `REQUIRES` entry, the INSERT, the loader, and the
+`sim_semantics` entry. With it the `load_min`/`load_max` family (`_build_load_assignment_fn` and
+its two wrappers, 128 lines), which was its only in-memory reader.
+
+Schema pipeline followed as documented: `--sync` BEFORE the DDL edit, `--accept` after. `sim_db`
+moved **c6bacfdb5c77 -> c37b50bf2b84**; the outgoing id is adopted into `known_ids` and I wrote
+the commit-window comment by hand.
+
+### The digest: TWO tables move on any DDL change, not one
+
+This ticket predicted "expect exactly one table's digests to move". **Wrong, and the reason
+generalises:** the run digests DIFFER on exactly two tables per arm, 136 arms --
+
+| table | why |
+|---|---|
+| `aisle_metrics` | the removed column. Expected. |
+| `simulation_runs` | carries `sim_schema_id`, which moved with the DDL. |
+
+Verified column by column rather than assumed: `simulation_runs` differs only in `created` (the
+wall-clock column, which `run_digest` already EXCLUDES from the comparable surface, so it is not
+the cause) and `sim_schema_id` (`c6bacfdb5c77` -> `c37b50bf2b84`). Every other table on every
+arm is byte-identical, so **no number moved** -- this is a pure deletion.
+
+**Carry this forward:** in this repo a DDL change always moves two tables, because the schema id
+is stamped into `simulation_runs`. "Exactly one table" is never the right prediction.
+
+### Three things that cost real care
+
+1. **A same-named decoy.** `task_stats.lift_sum` is a LIVE column -- read by
+   `Performance_Evaluations/common/frames.py:211` and `core/context.py:87`, written via
+   `affinity.sum_lift`, surfaced by `Visualization/readers/base.py:180,910`. A repo-wide grep
+   returns both. Every hit was classified before anything was cut.
+2. **A grep by symbol missed two importers.** `Tests/unit/test_index_equivalence.py` and
+   `test_velocity_zoning.py` import `Tests/bench/perf_simulation.py`, which imported the deleted
+   builder. Transitive importers do not appear in a grep for the symbol; only the full unit tier
+   found them. The bench's B/C arms were `load_min`/`load_max` and are now `travel_min`/
+   `travel_max` -- shipped policies, so the three-arm comparison keeps its point.
+3. **Two vintage-fabrication tests broke instructively.** `test_era_wiring` and
+   `test_free_index_by_bucket` build a fake old DB from the CURRENT DDL and drop everything added
+   since; their own comment says that holds "only while nothing else has been added". Removing a
+   column is the mirror case they did not anticipate. Restoring it needed DROP + CREATE, not
+   `ALTER ADD COLUMN`, because the observed shape records column ORDER and `ADD COLUMN` can only
+   append -- and `DROP TABLE` also took the two indexes, which the shape records too.
+
+### Verification
+
+`Tests/unit -k "not gpu"`: **2652 passed**, 1 skipped. Gates 1-5 and 7-10 green; gate 6 red,
+unchanged, pre-existing. Digest: two tables, both explained above.
+
+### Follow-on
+
+Deleting this chain orphaned three more things -- `LoadParams` (a whole dead knob chain including
+three `simulation_runs` columns), `AffinityStore.delta_lift_idxs` (now referenced only in
+comments), and the name `init_lift_state`, which no longer initialises any lift. Written up as
+ticket 19 rather than folded in here: this commit already carries one DDL move, and a second in
+the same commit would make the two-table attribution above impossible to state.
