@@ -724,3 +724,111 @@ def test_the_three_falling_verdicts_are_told_apart_on_real_series():
                                   1_174_077])['verdict'] == 'accelerating'
     # Honest "not yet known": falling steadily but still above the threshold at the last step.
     assert cg._trend(_LADDER_XS, [315, 1_855, 8_767, 31_482, 86_170])['verdict'] == 'settling'
+
+
+# -- the save confound, and the row collapse underneath it -----------------------------
+
+#: Real per-arm totals from the 2026-09-16 deep ladder (5 rungs, 10k -> 80k, 136 rows each),
+#: summed over the four (cell, pair, config, channel) rows every arm name owns.
+_R4_TOTAL = {
+    'uni_cluster_map_norsl': [114.77, 240.93, 477.48, 754.19, 1150.96],
+    'uni_cmin_norsl':        [72.29, 153.47, 347.18, 624.08, 1062.17],
+    'uni_tmin_norsl':        [61.24, 124.03, 239.84, 346.82, 641.59],
+}
+#: The same arms with the DB-save section removed.
+_R4_EX_SAVE = {
+    'uni_cluster_map_norsl': [89.61, 174.67, 362.71, 575.79, 770.44],
+    'uni_cmin_norsl':        [47.22, 88.89, 226.82, 433.37, 663.05],
+    'uni_tmin_norsl':        [35.57, 59.04, 114.72, 172.54, 231.26],
+}
+
+
+def test_sum_by_arm_sums_the_rows_instead_of_keeping_the_last():
+    """THE DEFECT THIS REPLACED, and it cost a whole deep ladder's per-arm reading.
+
+    `runtime_metrics` is unique on (cell, pair, config, channel, arm), so a 136-row run holds
+    34 distinct arm NAMES — four rows each. The first version built the per-arm map with a dict
+    comprehension keyed on the name, which kept whichever row iterated last and discarded three
+    quarters of the run in silence. The only visible symptom was a printed count of 34 sitting
+    next to a rollup that said 136, and nothing compared the two.
+    """
+    import calltree_growth as cg
+
+    rows = [
+        {'arm': 'a', 'channel': 'store', 'config': 'x', 'total_s': 10.0},
+        {'arm': 'a', 'channel': 'fulfillment', 'config': 'x', 'total_s': 20.0},
+        {'arm': 'a', 'channel': 'store', 'config': 'y', 'total_s': 30.0},
+        {'arm': 'b', 'channel': 'store', 'config': 'x', 'total_s': 5.0},
+    ]
+    got = cg._sum_by_arm(rows, lambda r: float(r['total_s']))
+    assert got == {'a': 60.0, 'b': 5.0}, (
+        f'{got} — an arm total must be the SUM over its rows; keeping the last gives '
+        f"{{'a': 30.0, 'b': 5.0}}, which is what the defect produced")
+
+
+def test_a_shared_save_knee_does_not_flag_every_arm():
+    """THE CONFOUND, with the ladder's real numbers.
+
+    On `total_s` alone, 33 of 34 arms read as accelerating and the median last local exponent
+    was 1.68. `save_s` was 35.9% -> 48.6% of total with a knee at the top rung (local k 1.27,
+    1.06, 0.97, **2.30**), so one shared I/O step lifted nearly every arm at the same rung. With
+    save removed the median last local exponent falls to 1.09 and only the co-demand pair
+    survives — which independently corroborates the meso cell's conviction of `score_of`.
+
+    `uni_tmin_norsl` is the control: it looks accelerating on `total_s` (last local k 2.14, the
+    largest in the run) and is flatly linear once save is removed.
+    """
+    import calltree_growth as cg
+
+    xs = [10_000, 20_000, 40_000, 60_000, 80_000]
+
+    # Premise: on total_s the control looks like the worst offender in the run.
+    t_tot = cg._trend(xs, _R4_TOTAL['uni_tmin_norsl'])
+    assert t_tot['verdict'] == 'accelerating' and t_tot['local'][-1] > 2.0, t_tot
+
+    # ...and with save removed it is linear, while the co-demand arm stays superlinear.
+    for arm, want_linear in (('uni_tmin_norsl', True),
+                             ('uni_cluster_map_norsl', True),
+                             ('uni_cmin_norsl', False)):
+        k, r2 = cg._fit_loglog(xs, _R4_EX_SAVE[arm])
+        if want_linear:
+            assert k < cg.FLAG_ARM_EXP, f'{arm} ex-save fits k={k:.2f}, expected linear'
+        else:
+            assert k >= cg.FLAG_ARM_EXP, (
+                f'{arm} ex-save fits k={k:.2f}, expected superlinear — this is the arm the '
+                f'meso cell convicted at k=1.98, and the two instruments must agree')
+
+
+def test_the_ex_save_series_gates_the_offender_list():
+    """End to end: an arm whose `total_s` accelerates only because of the save knee must not be
+    reported, and one whose placement cost really grows must be."""
+    import calltree_growth as cg
+
+    xs = [10_000, 20_000, 40_000, 60_000, 80_000]
+    rungs = []
+    for i, x in enumerate(xs):
+        tot = {a: v[i] for a, v in _R4_TOTAL.items()}
+        ex = {a: v[i] for a, v in _R4_EX_SAVE.items()}
+        rungs.append({'x': x, 'sections': {}, 'counts': {}, 'flows': {},
+                      'flows_per_placement': {}, 'wall_s': 400.0 * (i + 1),
+                      'arms': {'arms': len(tot), 'total_s_sum': sum(tot.values()),
+                               'phase_model_s': 1.0, 'sections_sum': {}, 'residual_s': 0.0,
+                               'residual_frac': 0.0, 'precomp_s_sum': 0.0,
+                               'total_s_max': max(tot.values()),
+                               'slowest_arm': {'arm': max(tot, key=tot.get),
+                                               'total_s': max(tot.values())},
+                               'peak_rss_mib_max': 1.0, 'n_bins': 1, 'n_aisles': 1,
+                               'per_arm_total_s': tot, 'per_arm_ex_save_s': ex}})
+    report = cg.fit_report({'knob': 'skus', 'config': 'none', 'rungs': rungs})
+
+    flagged = {o['name'] for o in report['offenders'] if o['kind'] == 'arm-total'}
+    assert 'arm:uni_cmin_norsl' in flagged, (
+        f'the genuinely superlinear arm was not reported: {sorted(flagged)}')
+    assert 'arm:uni_tmin_norsl' not in flagged, (
+        f'a linear arm was reported on the strength of the shared save knee: {sorted(flagged)}')
+
+    # NON-VACUITY: without the ex-save gate, the control WOULD be flagged.
+    t = cg._trend(xs, _R4_TOTAL['uni_tmin_norsl'])
+    assert t['verdict'] == 'accelerating', (
+        'the control no longer accelerates on total_s, so this test no longer proves the gate '
+        'is what excluded it')

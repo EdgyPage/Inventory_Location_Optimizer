@@ -125,6 +125,11 @@ FLAG_COUNT_EXP = 1.30
 #: (smallest gap 0.30, `_aisle_best` diverging by 0.15 stays 'sustained') and narrow
 #: enough to catch a ratio a full rung before it reaches its ceiling.
 FLAG_TREND_DELTA = 0.25
+#: An ARM's total is superlinear above this.  Lower than FLAG_COUNT_EXP on purpose: an arm
+#: total is a sum of real seconds over a whole simulation, so 1.25 is already a large
+#: effect, and the deep ladder's linear arms sit at 0.91-1.04 with the two genuinely
+#: superlinear ones (cmin, cmax) at 1.29 -- measured, save excluded.
+FLAG_ARM_EXP = 1.20
 FLAG_TIME_EXP  = 1.50
 MIN_R2         = 0.90       # don't flag garbage fits
 MIN_CALLS      = 200        # ignore trivial functions at the largest rung
@@ -921,6 +926,19 @@ def _sample_rss(proc, every: float = 2.0) -> dict:
             'rss_samples': n}
 
 
+def _sum_by_arm(rows, valfn) -> dict:
+    """Total `valfn` per arm NAME, summed over the (cell, pair, config, channel) rows it has.
+
+    Not a dict comprehension: the arm name is not the table's unique key, and assigning rather
+    than summing keeps one arbitrary row and discards the rest, in silence.
+    """
+    out: dict = {}
+    for r in rows:
+        name = str(r.get('arm'))
+        out[name] = out.get(name, 0.0) + valfn(r)
+    return {k: round(v, 2) for k, v in out.items()}
+
+
 def _arm_rollup(run_root: str, workers: int) -> dict:
     """Per-arm runtime rows, rolled up -- the deep tier's SHARP instrument.
 
@@ -956,11 +974,24 @@ def _arm_rollup(run_root: str, workers: int) -> dict:
         # EVERY arm, not just the largest.  `total_s_max` is a max over a MIGRATING
         # argmax -- on the 2026-09-16 deep ladder it ran 36 -> 411 s with local exponents
         # 0.98, 1.03, 1.43, 1.61 while `total_s_sum` stayed flat at k=1.05, and the arm
-        # holding it changed three times (opt_cluster_map -> uni_cluster_map -> uni_cmin
-        # -> uni_cmax).  A max over a changing argmax is not any arm's growth curve, so
-        # the divergence could not be attributed without re-running the whole ladder.
-        # 136 floats per rung is nothing; losing them cost an hour of wall clock.
-        'per_arm_total_s': {str(r.get('arm')): round(_f(r, 'total_s'), 2) for r in rows},
+        # holding it changed three times.  A max over a changing argmax is not any arm's
+        # growth curve.  136 floats per rung is nothing; losing them cost an hour.
+        #
+        # SUMMED, NOT ASSIGNED, and this was a real defect for one ladder: the table's
+        # unique key is (cell, pair, config, channel, arm), so a 136-row run holds only 34
+        # distinct arm NAMES -- four rows each.  A dict comprehension keyed on the name kept
+        # whichever row iterated last and silently threw away three quarters of the run, so
+        # the per-arm fit ran on one arbitrary row per arm and the printed count read 34
+        # where the rollup beside it said 136.  Summing is what "this arm's cost" means.
+        'per_arm_total_s': _sum_by_arm(rows, lambda r: _f(r, 'total_s')),
+        # ...and the same totals with the DB-save section removed.  On the 2026-09-16 deep
+        # ladder `save_s` was 35.9% -> 48.6% of total with a KNEE at the top rung (local k
+        # 1.27, 1.06, 0.97, 2.30), and it lifted nearly every arm at exactly that rung: 33 of
+        # 34 arms read as accelerating on `total_s` and only 22 on `total_s - save_s`, with
+        # the median last local exponent falling 1.68 -> 1.09.  An arm's PLACEMENT cost is
+        # the question the cluster cells ask; carrying both series is what lets a reader tell
+        # a per-arm divergence from a shared I/O step.
+        'per_arm_ex_save_s': _sum_by_arm(rows, lambda r: _f(r, 'total_s') - _f(r, 'save_s')),
         'peak_rss_mib_max': round(max(peaks), 1) if peaks else None,
         # A4: the SECOND axis.  The ladder scales SKUs and bins together, so every per-bin
         # cost is charged to the SKU exponent unless the bin count is carried alongside.
@@ -1142,6 +1173,7 @@ def fit_report(ladder: dict) -> dict:
     report = {'knob': ladder['knob'], 'config': ladder.get('config', 'none'), 'xs': xs,
               'sections': {}, 'functions': {}, 'flows': {},
               'flows_per_placement': {}, 'arm_totals': {}, 'arm_growth': {},
+              'arm_growth_ex_save': {},
               'knees': {},
               'offenders': [], 'suppressed': []}
     if len(rungs) < 3:
@@ -1275,10 +1307,25 @@ def fit_report(ladder: dict) -> dict:
         # A8: PER-ARM. The sum can be linear while one FAMILY pulls away, and the sum is
         # what every section exponent above is built from. An arm missing from any rung is
         # skipped rather than zero-filled -- a dead worker must not read as a fast arm.
+        # Both series, so a shared I/O step cannot masquerade as 34 separate divergences.
         _per_arm: dict = {}
+        _per_arm_ex: dict = {}
         for a in arms:
             for _arm, _v in (a.get('per_arm_total_s') or {}).items():
                 _per_arm.setdefault(_arm, []).append(_v)
+            for _arm, _v in (a.get('per_arm_ex_save_s') or {}).items():
+                _per_arm_ex.setdefault(_arm, []).append(_v)
+        for _arm, _ys in sorted(_per_arm_ex.items()):
+            if len(_ys) != len(xs) or not all(y > 0 for y in _ys):
+                continue
+            _k, _r2 = _fit_loglog(xs, [float(y) for y in _ys])
+            if _k != _k:
+                continue
+            _t = _trend(xs, _ys)
+            report['arm_growth_ex_save'][_arm] = {
+                'exponent': round(_k, 3), 'r2': round(_r2, 3), 'values': _ys,
+                'trend': _t['verdict'] if _t else None,
+                'local': _t['local'] if _t else None}
         for _arm, _ys in sorted(_per_arm.items()):
             if len(_ys) != len(xs) or not all(y > 0 for y in _ys):
                 continue
@@ -1293,7 +1340,23 @@ def fit_report(ladder: dict) -> dict:
             # Flag on the TREND as well as the fit: an arm that is still under the threshold
             # but accelerating is the one worth catching, and it is exactly what a fit over
             # the whole span averages away.
-            if (_r2 >= MIN_R2 and _k >= FLAG_TIME_EXP) or (_t and _t['verdict'] == 'accelerating'):
+            # THE SAVE-EXCLUDED SERIES IS THE GATE.  `total_s` carries the DB-save section,
+            # and one knee there flags nearly every arm at once -- 33 of 34 on the 2026-09-16
+            # ladder, against 22 once save was removed.  An arm is only reported when its
+            # PLACEMENT cost is what is growing.
+            _ex = report['arm_growth_ex_save'].get(_arm)
+            # ON THE EXPONENT ONLY, deliberately -- the TREND is biased upward here and
+            # must not be part of this gate.  An arm pays a large fixed cost before its
+            # batch loop starts (~48 s, measured in COMPLEXITY_ROUND_FINDINGS), so at small
+            # rungs that term depresses the early local exponents and ANY arm reads as
+            # accelerating while it amortises.  Measured on the 2026-09-16 ladder:
+            # `uni_tmin_norsl` is flatly linear with save removed (k = 0.90) and its local
+            # exponents still climb 0.73 -> 1.02, a 0.29 rise that clears FLAG_TREND_DELTA
+            # on its own.  An arm total is real seconds, not a ratio, so the fit is the
+            # right statistic for it.
+            _ex_ok = _ex is None or _ex['exponent'] >= FLAG_ARM_EXP
+            if _ex_ok and ((_r2 >= MIN_R2 and _k >= FLAG_TIME_EXP)
+                           or (_t and _t['verdict'] == 'accelerating')):
                 report['offenders'].append(
                     {'kind': 'arm-total', 'name': f'arm:{_arm}', 'last': _ys[-1],
                      'projected': round(_project(_ys, _k), 4), 'units': 'seconds',
@@ -1490,6 +1553,9 @@ def main(argv=None) -> int:
               f"while one family pulls away):")
         for _n, _e in _rank[:8]:
             _mark = '  <- DIVERGING' if _e['trend'] == 'accelerating' else ''
+            _x = report.get('arm_growth_ex_save', {}).get(_n)
+            if _x is not None:
+                _mark += f"   [ex-save k={_x['exponent']:.2f}]"
             print(f"  {_n:28s} k={_e['exponent']:6.2f}  r\u00b2={_e['r2']:.2f}  "
                   f"{_e['values']}{_mark}")
             if _e['local']:

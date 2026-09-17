@@ -637,6 +637,80 @@ O(&#124;tied&#124; log A) against today's O(&#124;live&#124;). At 14.4 % tied th
 win, and the tied fraction is *rising*, so the heap's advantage shrinks exactly where the problem
 grows. The fused pass is both simpler and better, and the real fix is elsewhere.
 
+## 3.6 The deep ladder: one confound, one closure, one corroboration
+
+R4 ran the full 8× span (10,000 → 80,000 SKUs, 136 arms, 5 rungs, 1 h 45 m) on the fixed code, with
+the per-arm instrument built earlier the same day. It reported **29 of 34 arms accelerating**.
+
+That number is the finding, and not in the way it looks. Twenty-nine simultaneous divergences, with
+the jump at the *same rung* for nearly all of them, is not twenty-nine divergences.
+
+### 3.6.1 Two defects in my own instrument, one of them fatal to the reading
+
+**The per-arm map was collapsing three quarters of every run.** `runtime_metrics` is unique on
+`(cell, pair, config, channel, arm)`, so a 136-row run holds **34 distinct arm names, four rows
+each**. The map was built with a dict comprehension keyed on the name, which keeps whichever row
+iterates last. The per-arm fit therefore ran on one arbitrary row per arm. The only visible symptom
+was a printed count of 34 sitting directly beneath a rollup that said 136 — two numbers on adjacent
+lines that should have been compared and were not.
+
+**And `save_s` was doing the accelerating.** The DB-save section ran 35.9 % → **48.6 %** of total
+across the ladder, with a knee at the top rung — local exponents `1.27, 1.06, 0.97, 2.30`. One
+shared I/O step lifted nearly every arm at exactly the rung where the verdict fired:
+
+| series (34 arms, summed over their rows) | arms flagged accelerating | median last local k |
+|---|---|---|
+| `total_s` | **33 of 34** | 1.68 |
+| `total_s − save_s` | 22 of 34 | **1.09** |
+
+Both series now ride in the artifact, and an arm is reported only when its **placement** cost is
+what grows. The gate keys on the ex-save *exponent* alone, never its trend: an arm pays a large
+fixed cost before its batch loop starts (§3.x: ~48 s), so early local exponents are depressed and
+any arm reads as "accelerating" while it amortises — `uni_tmin_norsl` is flatly linear with save
+removed (k = 0.90) and its local exponents still climb 0.73 → 1.02, clearing the trend threshold on
+its own.
+
+### 3.6.2 With the confound removed, the answers are clean
+
+| arm | local k, save excluded | fit | |
+|---|---|---|---|
+| `uni_rank_labor_norsl` | 0.78 1.00 1.15 1.13 | **0.98** | linear |
+| `uni_rank_cartlabor_norsl` | 0.81 1.01 1.19 1.19 | **1.01** | linear |
+| `uni_cluster_map_norsl` | 0.96 1.05 1.14 1.01 | **1.04** | linear |
+| `uni_tmin_norsl` | 0.73 0.96 1.01 1.02 | **0.91** | linear |
+| `uni_cmin_norsl` | 0.91 1.35 1.60 1.48 | **1.29** | **superlinear** |
+| `uni_cmax_norsl` | 0.92 1.35 1.63 1.39 | **1.29** | **superlinear** |
+
+**§2.3's retraction is now permanent.** `_aisle_best` lives in `_TravelBalancedPool`, which backs
+exactly `rank_labor` and `rank_cartlabor`. Both are linear at deep scale. The `R × A` run-boundary
+rebuild does not become a complexity problem at 80,000 SKUs, and the candidate closes at the 2.66 %
+it was priced at. **Do not re-open it without a new measurement.**
+
+**The cluster-family lead, as I stated it, is refuted.** §3.5 recorded it as a lead precisely
+because a max over a migrating argmax is not any arm's growth curve — and it was not. Most of that
+36 → 411 s was the save knee plus the argmax wandering. `cluster_map` is linear at deep scale.
+
+**And the co-demand pair survives everything.** `cmin` and `cmax` are the only arms still
+superlinear once the confound is gone, at k = 1.29 — which is an *independent corroboration* of the
+meso cell's conviction of `score_of` at k = 1.98, from a different instrument, a different tier, and
+a 10× larger catalogue. Two measurements that could each have been wrong on their own agree. That
+is the strongest evidence this round produced, and it points at ticket 17's second half: `cmin`'s
+missing same-SKU run cache.
+
+### 3.6.3 What is NOT claimed
+
+The fused pass is worth −34 % on the meso `cluster_map` cell, measured. **It does not visibly move
+deep-scale arm totals**, and this document will not pretend otherwise: `uni_cluster_map_norsl` sits
+at 71–145 s per rung in both the pre-fix and post-fix deep runs. Two honest reasons and no way to
+separate them without a pre/post deep pair costing another 1 h 45 m: `save_s` is 40–48 % of an arm's
+total at deep scale, so the placement share it improves is proportionally smaller; and the deep
+workload's aisle counts per placement differ from the meso fixture's. The meso win is the one that
+is measured; the deep number is neutral, not confirmatory.
+
+**`save_s` is a real superlinearity and is nobody's ticket yet.** Local k 2.30 at the top rung, on
+48.6 % of the run. It is I/O rather than placement, so it is outside this round's brief — but it is
+the largest single growing term in the deep tier and it currently has no owner.
+
 ---
 
 ## 4. What now has a fence

@@ -2211,6 +2211,7 @@ files:
     key_symbols:
       - {name: "FLAG_COUNT_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "FLAG_TREND_DELTA", file: "Tests/calltree/calltree_growth.py", kind: "const"}
+      - {name: "FLAG_ARM_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "FLAG_TIME_EXP", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "MIN_R2", file: "Tests/calltree/calltree_growth.py", kind: "const"}
       - {name: "MIN_CALLS", file: "Tests/calltree/calltree_growth.py", kind: "const"}
@@ -2338,6 +2339,9 @@ files:
       - {name: "test_a_falling_exponent_that_settles_at_two_is_not_saturating", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_only_a_series_heading_to_linear_is_demoted_in_the_ranking", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_three_falling_verdicts_are_told_apart_on_real_series", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_sum_by_arm_sums_the_rows_instead_of_keeping_the_last", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_a_shared_save_knee_does_not_flag_every_arm", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_ex_save_series_gates_the_offender_list", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_rank_cache_equivalence.py":
     purpose: "frozen oracles for the Phase-6 SKU-run caches."
@@ -3642,6 +3646,9 @@ files:
       - {name: "test_a_nan_lift_is_skipped_exactly_as_max_skipped_it", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
       - {name: "test_negative_lifts_do_not_lose_to_an_absent_zero", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
       - {name: "test_the_boards_really_do_produce_GAP_ties_not_just_lift_ties", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
+      - {name: "test_the_lift_scan_is_exactly_one_pass", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
+      - {name: "test_the_counter_can_actually_fail", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
+      - {name: "test_the_winner_still_has_the_maximal_lift", file: "Tests/unit/test_cluster_map_choose_aisle_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_co_demand_pool_equivalence.py":
     purpose: "the co-demand pool decides what the wave decided."
