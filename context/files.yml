@@ -3321,9 +3321,6 @@ files:
     purpose: "the composable, named assignment-function layer."
     layer: "tests"
     key_symbols:
-      - {name: "test_assignment_builder_registry_is_exactly_the_seven_named_policies", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
-      - {name: "test_ranked_builder_registry_is_exactly_the_three_wave_policies", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
-      - {name: "test_scorer_needs_declares_which_inputs_each_policy_loads", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_built_scorers_carry_their_programmatic_name", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_cohesion_max_co_locates_with_an_affinity_partner_despite_higher_travel", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
       - {name: "test_travel_min_ignores_the_partner_and_takes_the_cheapest_aisle", file: "Tests/unit/test_assignment_functions.py", kind: "function"}
@@ -6541,9 +6538,6 @@ files:
       - {name: "build_optmap_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_optmap_wave_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_cluster_map_placement", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
-      - {name: "ASSIGNMENT_BUILDERS", file: "Warehouse/placement/Assignment_Functions.py", kind: "const"}
-      - {name: "RANKED_BUILDERS", file: "Warehouse/placement/Assignment_Functions.py", kind: "const"}
-      - {name: "SCORER_NEEDS", file: "Warehouse/placement/Assignment_Functions.py", kind: "const"}
     notes: ""
   "Warehouse/placement/Capacity_Reloader.py":
     purpose: "bounded re-slot via evict-and-requeue."

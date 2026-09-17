@@ -1,7 +1,7 @@
 # 03 - a placement policy is declared in four packages, and three of its registries are dead
 
 Type: refactor
-Status: needs-triage
+Status: claimed
 Blocked by: 02
 
 ## Context
@@ -70,3 +70,63 @@ does it for 4 of 17 families.
   -- the fix shape from memory `symbol-table-relationship-not-verified-by-symbols`.
 - Equivalence suite; gates 2, 3, 4, 10. Gate 3 twice if any symbol rename is case-only
   (memory `case-only-rename-deletes-its-own-page`).
+
+## Progress -- the dead registries and the stale hint are gone (2026-09-16)
+
+**NOT resolved.** Two of the five pieces landed; the `PlacementPolicy` record and the
+`lift_sum` / `load_*` deletion did not.
+
+### Landed
+
+**The three dead registries are deleted** -- `ASSIGNMENT_BUILDERS`, `RANKED_BUILDERS`,
+`SCORER_NEEDS`, plus the three key-set tests that were their only readers.
+
+Verified by grep before cutting rather than taken from the review: the only occurrences outside
+`Assignment_Functions.py` were `Tests/unit/test_assignment_functions.py` and `context/files.yml`.
+`Optimization/config/strategies.py` imports `build_trip_minimizing_assignment_fn` and calls it
+directly at `:222`; it never touches the registry.
+
+**Two of the deleted tests asserted things that were no longer true**, which is worth recording
+because the docstrings read as authoritative:
+
+- *"`strategies.py` looks builders up by these keys; a rename here is a KeyError there."*
+  It does not, and a rename would have been a no-op.
+- *"`SCORER_NEEDS` is how the runner decides whether to load the affinity DB and the demand
+  maps."* The runner reads `needs_affinity` / `needs_demand` off `strategies._RESTOCKS`.
+  `SCORER_NEEDS` was a second copy nobody consulted.
+
+`test_built_scorers_carry_their_programmatic_name` was a real behavioural test that merely
+routed through the registry; it now calls the builders directly, the way `strategies.py` does.
+The module docstring records what was removed and why, so the next reader does not re-add them.
+
+**`resolver_hints.yml` now declares the live placement path.** It had only
+`_stock_per_unit -> place_one` and `_stock_ranked -> place_wave`. `_stock_ranked` branches on
+`placement.is_pooled`, and 14 of 17 shipped rules take the POOLED branch -- so the generated
+code map showed the legacy wave as the placement path and the pool as unreachable. Added
+`_stock_ranked -> open_pool` and `_stock_ranked -> take`; the graph gained 7 edges, one per
+`_Pool` subclass's `take`.
+
+### Verification
+
+`Tests/unit -k "not gpu"`: **2655 passed**, 1 skipped -- 2648 before, +10 new ledger tests,
+-3 deleted registry tests. Gates 1, 2, 3, 7, 8, 9, 10 green; gate 6 red and pre-existing.
+
+**No toy run for this commit, deliberately.** Nothing on a runtime path changed: three
+module-level dicts with no reader were removed, a test was rewired to call what it already
+called indirectly, and two resolver hints affect only the generated graph. Gate 2 validates the
+import graph and the unit tier is green. The REMAINING work below does touch the write path and
+a DDL, and that one needs a digest.
+
+### What remains before this ticket resolves
+
+1. **The `load_*` family and `lift_sum`.** The review said the family had no callers; it has
+   two -- `Tests/unit/test_placement_lifecycle.py` (Stage 5, "load-aware reorder -- lift state
+   maintained through a B/C-strategy restock") and `Tests/bench/perf_simulation.py`. So
+   deleting it means deleting a passing test and editing a bench harness. That is a judgement
+   call, not a mechanical removal, and it is **held for the user**: the family is production-
+   dead and `lift_sum` is write-only, so deleting both is coherent, but it removes coverage
+   that currently exists.
+2. **The DDL drop** of `aisle_metrics.lift_sum` rides the schema pipeline (`--sync` before,
+   `--accept` after). It will change the digest surface -- expect exactly one table's digests to
+   move, and prove that it IS exactly that table rather than asserting it.
+3. **The `PlacementPolicy` record itself**, which wants ticket 02 stage B (`ledger_terms`) first.

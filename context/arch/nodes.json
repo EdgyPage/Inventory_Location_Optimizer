@@ -22459,27 +22459,6 @@
       "kind": "module",
       "signature": null
     },
-    "Warehouse/placement/Assignment_Functions.py::ASSIGNMENT_BUILDERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'travel_min': build_trip_minimizing_assignment_fn, 'travel_max': build_trip_maximizing_assignment_fn, 'cohesion_max': build_cluster_maximizing_assignment_fn, 'cohesion_min': build_cluster_minimizi..."
-    },
-    "Warehouse/placement/Assignment_Functions.py::RANKED_BUILDERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'travel_min': build_ranked_minimizing_assignment_fn, 'travel_max': build_ranked_maximizing_assignment_fn, 'uniform_ranked': build_ranked_uniform_assignment_fn}"
-    },
-    "Warehouse/placement/Assignment_Functions.py::SCORER_NEEDS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'travel_min': (True, True), 'travel_max': (True, True), 'cohesion_max': (True, True), 'cohesion_min': (True, True), 'uniform_min': (False, False), 'load_min': (True, False), 'load_max': (True, Fal..."
-    },
     "Warehouse/placement/Assignment_Functions.py::_CLUSTER_MAP_W_CENT": {
       "decorators": [],
       "doc": null,

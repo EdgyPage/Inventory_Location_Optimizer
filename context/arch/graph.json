@@ -18546,6 +18546,71 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.take",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_OptMapPool.take",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_Pool.take",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.take",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn.open_pool",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn.open_pool",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn.open_pool",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn.open_pool",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.take",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.open_pool",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_optmap_pool_fn.open_pool",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn.place_wave",
       "kind": "dispatch",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
@@ -19919,36 +19984,6 @@
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/placement/Assignment_Functions.py"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_load_maximizing_assignment_fn",
-      "kind": "ref",
-      "src": "Warehouse/placement/Assignment_Functions.py::ASSIGNMENT_BUILDERS"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_load_minimizing_assignment_fn",
-      "kind": "ref",
-      "src": "Warehouse/placement/Assignment_Functions.py::ASSIGNMENT_BUILDERS"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_uniform_aisle_trip_min_assignment_fn",
-      "kind": "ref",
-      "src": "Warehouse/placement/Assignment_Functions.py::ASSIGNMENT_BUILDERS"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_assignment_fn",
-      "kind": "ref",
-      "src": "Warehouse/placement/Assignment_Functions.py::RANKED_BUILDERS"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_assignment_fn",
-      "kind": "ref",
-      "src": "Warehouse/placement/Assignment_Functions.py::RANKED_BUILDERS"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_assignment_fn",
-      "kind": "ref",
-      "src": "Warehouse/placement/Assignment_Functions.py::RANKED_BUILDERS"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
@@ -46865,30 +46900,6 @@
       "kind": "module",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "Warehouse.placement.Assignment_Functions",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::ASSIGNMENT_BUILDERS",
-      "kind": "const",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "ASSIGNMENT_BUILDERS",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::RANKED_BUILDERS",
-      "kind": "const",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "RANKED_BUILDERS",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::SCORER_NEEDS",
-      "kind": "const",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "SCORER_NEEDS",
       "public": true
     },
     {
