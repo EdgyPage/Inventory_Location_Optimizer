@@ -108,3 +108,6 @@
 - [Growth ladder saturates silently](growth-ladder-saturates-silently.md) — a ladder whose rungs exceed its fixture's declared size runs the SAME catalogue and prints three different ratios with no warning; the DEEP tier also refused to run at all and reported clean anyway (all fixed 2026-09-16)
 - [C-keyed scans are invisible](c-keyed-scans-are-invisible-to-the-offender-table.md) — calltree drops C leaves, so an O(A) scan keyed on `dict.__getitem__` never reaches the offender table while an identical lambda-keyed one is convicted; fit the scan WIDTH
 - [The suite restores CONFIG](the-suite-restores-config-after-every-test.md) — an autouse conftest fixture; without it one e2e test poisons unit tests twenty minutes later and every tier still passes alone
+- [A fitted exponent hides its shape](a-fitted-exponent-cannot-see-its-own-shape.md) — saturating/settling/accelerating all fit r2>0.99; read LOCAL exponents, find the denominator's ceiling
+- [The instrument is what is wrong](the-instrument-is-what-is-wrong.md) — 7 errors in one round, all in the measurement; build the cross-check before believing an agreeable number
+- [Deep-tier save knee + fixed arm cost](deep-tier-save-knee-and-fixed-arm-cost.md) — save_s is ~half the run and knees at the top rung; each arm pays ~48s first. Both fake per-arm divergence
