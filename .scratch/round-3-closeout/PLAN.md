@@ -5,8 +5,11 @@ Opened: 2026-09-16
 Tracker: `map.md` beside this file holds Destination / Decisions / Fog. This file holds the
 ordered work, what each step must produce before it counts as done, and **every run it asks for**.
 
-**Status 2026-09-16, approved and executing.** R1, R2, R3 are done; R4 is running. Phases A
-and D are closed, B has convicted and half-landed, C is corrected. See §Progress at the foot.
+**COMPLETE, 2026-09-16.** All five phases closed; R1-R4 run, R5 not needed (nothing took a named
+break). Final verification: **7 failed / 3577 passed**, the seven being exactly the pre-existing
+architecture drift handed over in `.scratch/architecture-drift/` — zero failures attributable to
+this work, and 34 more passing tests than the first run. Eight of the nine drift gates green; the
+ninth is issue 04 of that same handover. See §Progress.
 
 ---
 
@@ -298,6 +301,27 @@ here. If time runs short, D1 and D2 are the two that must still be written.
 | **D3** | The pyyaml-skip count, whose first correction was also wrong (`9cbaf243`). |
 | **E1** | Tenth gate green throughout (59–64 tests, ~18 s). |
 | **E2** | Complexity guard landed, after three wrong instruments — all three errors were in the MEASUREMENT, not the code under test. |
+
+### Closing verification
+
+```
+7 failed, 3577 passed, 3 skipped, 16 deselected in 24:11
+```
+
+The seven are precisely the pre-existing set (`test_merge_is_idempotent`, the one that WAS this
+round's, is gone). Against the first run's 8 failed / 3543 passed: one fewer failure, 34 more
+passing tests. Nine gates: eight green, the ninth (`Schema.profile_tree --check`) is handover issue
+04 — verified not ours, since none of its nine shape sources were touched by this session.
+
+### Outcome per phase
+
+- **A** closed. Fixture contract discharged; no test was leaning on a predecessor's mutation.
+- **B** convicted; the fused pass landed byte-identical at −34 % on the meso cell. The structural
+  half is ticket 17, closed with a stated reason and a design, per B3's own terms.
+- **C** closed by R4 — and C1 was corrected *before* R4 rather than after, which saved the run.
+- **D** all three handed over.
+- **E** gate green throughout; guard landed.
+- **R5** not needed: nothing took a named break.
 
 ### Open
 
