@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_travel_balanced_impl</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_travel_balanced_impl</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+
 <pre class="sig"><code>def _travel_balanced_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)</code></pre>
 <section class="doc">Travel- AND height-aware LPT load balance (Rank_labor).
 
@@ -33,8 +33,19 @@ scan one min-D representative per (aisle, bracket) — O(units · aisles · n_br
 cart (optional) makes this Rank_cartlabor: a tuple (aisle_vol_sum, sku_vol_product,
 expected_batch_skus, total_freq) that adds each aisle&#x27;s EXPECTED CART-SWAP cost to its
 balanced load, so the balancer disperses volume that would overflow a cart.  Default
-None ⇒ byte-identical Rank_labor.</section>
-<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_over.html"><code>over</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__height_multiplier.html"><code>height_multiplier</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__sec_per_inch.html"><code>sec_per_inch</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___D_map.html"><code>_D_map</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_cartlabor_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_labor_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+None ⇒ byte-identical Rank_labor.
+
+THIN DRIVER over `_TravelBalancedPool` since ticket 04. It was a second implementation of the same
+scoring rule, and the wave form has had no production caller since the pool inversion --
+14 of 17 shipped rules are pooled and the other three have no group path at all. What it
+is FOR is the equivalence suites, and they gain from this rather than lose: the reference
+they compare against is the FROZEN oracle in `Tests/unit/test_travel_balanced_equivalence.py`, and this leg is now the drain
+contract (pool driven in the wave&#x27;s own order == wave) instead of an echo of it.
+
+`pool.order(units)` is the sort the body used to do inline, and driving through it is the
+whole claim: given the same order, the pool makes bit-identical decisions. A drain that
+declines that order gets a different -- and intentionally different -- answer.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___TravelBalancedPool.html"><code>_TravelBalancedPool</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_cartlabor_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_labor_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___travel_balanced_impl">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_travel_balanced_impl">Source ↗</a></p>
 </article>
 </main>

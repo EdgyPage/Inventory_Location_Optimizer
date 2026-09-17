@@ -23367,17 +23367,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl": {
       "decorators": [],
-      "doc": "Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`\nand `expn` actually run; kept as the frozen oracle the port is tested against.\n\nUnits are placed in the same pick-effort order as\n_ranked_assign_impl and membership is committed incrementally, but the BIN choice is\nposition-aware: the aisle is scored by demand-weighted lift to its members (MAX for\ncompact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)\nthe partners' column centroid is taken \u2014 vs the extremal-D head.  Each placement also\nappends (x_phys, idx) to aisle_member_pos so later units in the wave see it.",
+      "doc": "Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`\nand `expn` actually run; kept as the frozen oracle the port is tested against.\n\nUnits are placed in the same pick-effort order as\n_ranked_assign_impl and membership is committed incrementally, but the BIN choice is\nposition-aware: the aisle is scored by demand-weighted lift to its members (MAX for\ncompact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)\nthe partners' column centroid is taken \u2014 vs the extremal-D head.  Each placement also\nappends (x_phys, idx) to aisle_member_pos so later units in the wave see it.\n\nTHIN DRIVER over `_CoDemandPool` since ticket 04. It was a second implementation of the same\nscoring rule, and the wave form has had no production caller since the pool inversion --\n14 of 17 shipped rules are pooled and the other three have no group path at all. What it\nis FOR is the equivalence suites, and they gain from this rather than lose: the reference\nthey compare against is the FROZEN oracle in `Tests/calltree/test_rank_cache_equivalence.py`, and this leg is now the drain\ncontract (pool driven in the wave's own order == wave) instead of an echo of it.\n\n`pool.order(units)` is the sort the body used to do inline, and driving through it is the\nwhole claim: given the same order, the pool makes bit-identical decisions. A drain that\ndeclines that order gets a different -- and intentionally different -- answer.",
       "is_async": false,
       "kind": "function",
       "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl.priority": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(unit)"
     },
     "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row": {
       "decorators": [],
@@ -23409,38 +23402,17 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl": {
       "decorators": [],
-      "doc": "Shared core for ranked-minimizing and ranked-maximizing assignment.\n\nSUPERSEDED by `_RankedAssignPool`, which is what the four arms actually run.  Kept as\nthe frozen oracle the port is tested against, and as the straggler-path reference.\n\nPriority formula (pick-effort x frequency + co-occurrence):\n  priority = f_i x (pick_intercept + pick_weight_coef x log(weight)\n                                    + pick_volume_coef x log(volume))\n             + beta x co_occur\n\nSorted descending by priority; highest-priority unit claims the extremal-D\nbin first within each same-BinKey group.  minimize=True -> lowest-D bin\n(easiest access); minimize=False -> highest-D bin (hardest access).\n\nW (task workload) remains a measurement metric only; this formula\ndrives bin placement at reorder time.",
+      "doc": "Shared core for ranked-minimizing and ranked-maximizing assignment.\n\nSUPERSEDED by `_RankedAssignPool`, which is what the four arms actually run.  Kept as\nthe frozen oracle the port is tested against, and as the straggler-path reference.\n\nPriority formula (pick-effort x frequency + co-occurrence):\n  priority = f_i x (pick_intercept + pick_weight_coef x log(weight)\n                                    + pick_volume_coef x log(volume))\n             + beta x co_occur\n\nSorted descending by priority; highest-priority unit claims the extremal-D\nbin first within each same-BinKey group.  minimize=True -> lowest-D bin\n(easiest access); minimize=False -> highest-D bin (hardest access).\n\nW (task workload) remains a measurement metric only; this formula\ndrives bin placement at reorder time.\n\nTHIN DRIVER over `_RankedAssignPool` since ticket 04. It was a second implementation of\nthe same scoring rule and has had no production caller since the pool inversion. The\nreference it used to BE now lives in `Tests/unit/test_ranked_assign_pool_equivalence.py`\nas `_oracle_ranked_assign_impl`, frozen verbatim -- this family was the last one whose\ntest read a live production impl as its oracle.\n\n`pool.order(units)` is the sort this body did inline. Note the pool takes the SCAN branch\nwhenever `aisle_selector` is given and the heap branch otherwise, which is exactly the\nsplit the wave had; a caller that wants the heap passes `aisle_key` to the pool directly,\nand the wave never knew how to do anything but scan.",
       "is_async": false,
       "kind": "function",
       "signature": "(units: list, candidates_fn, affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float, minimize: bool, aisle_selector=None, order_key=None) -> list"
     },
-    "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl.pick_effort_priority": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(unit) -> float"
-    },
     "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl": {
       "decorators": [],
-      "doc": "Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.\n\nSUPERSEDED by `_MinLaborPool`, which is what `rank_minlabor` and `rank_maxlabor` run;\nkept as the frozen oracle the port is tested against.\n\nModels the objective E[task labor] = \u03a3_s f_s\u00b7[ M(y_s)\u00b7(intercept + q_s\u00b7v_s) + D ] and\nplaces each unit in the (aisle, bin) that minimises its MARGINAL contribution:\n\n    cost(s, b) = f_s\u00b7( M(y_b)\u00b7(intercept + v_s) + D_b )  \u2212  \u03bb\u00b7\u03a3_{partners p in aisle} lift(s,p)\u00b7f_p\n\nwhere v_s = handle_var (per-unit weight/volume term), M(y) = height bracket multiplier,\nD_b = x_speed\u00b7x_phys + y_speed\u00b7y_phys.  This fuses three slotting levers into one score:\n  \u2022 golden-zone height  \u2014 the M(y_b)\u00b7v_s term pushes heavy/frequent SKUs to low brackets;\n  \u2022 effort-to-front     \u2014 the D_b term pulls them to near, low bins;\n  \u2022 affinity compaction \u2014 the \u2212\u03bb\u00b7delta_lift aisle reward co-locates demand partners in the\n    SAME aisle (the big travel win: fewer aisle-tasks), and within the chosen aisle the bin\n    is pulled toward the partners' column centroid (+x_speed\u00b7|x\u2212cx|) to shorten the sweep.\n\nmaximize=True flips every extremum (argmax score, farthest/highest bins, scatter partners)\nto deliberately MAXIMISE the objective \u2014 a worst-case upper-bound sanity control (Rank_maxlabor)\nthat brackets how much the minimiser is worth.  Unlike _travel_balanced_impl (Rank_labor) there\nis NO LPT load term \u2014 this MINIMISES (or maximises) total labor, it does not BALANCE it.  Units\nare placed highest expected_labor first so the costliest SKUs claim the best (or worst) slots.\n\nBoth the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) extremal-D\ndeque ends \u2014 O(units\u00b7aisles\u00b7brackets), independent of bins-per-aisle.  The chosen bin is popped\nfrom its deque end, so the ends are always live (no stale-bin bookkeeping).",
+      "doc": "Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.\n\nSUPERSEDED by `_MinLaborPool`, which is what `rank_minlabor` and `rank_maxlabor` run;\nkept as the frozen oracle the port is tested against.\n\nModels the objective E[task labor] = \u03a3_s f_s\u00b7[ M(y_s)\u00b7(intercept + q_s\u00b7v_s) + D ] and\nplaces each unit in the (aisle, bin) that minimises its MARGINAL contribution:\n\n    cost(s, b) = f_s\u00b7( M(y_b)\u00b7(intercept + v_s) + D_b )  \u2212  \u03bb\u00b7\u03a3_{partners p in aisle} lift(s,p)\u00b7f_p\n\nwhere v_s = handle_var (per-unit weight/volume term), M(y) = height bracket multiplier,\nD_b = x_speed\u00b7x_phys + y_speed\u00b7y_phys.  This fuses three slotting levers into one score:\n  \u2022 golden-zone height  \u2014 the M(y_b)\u00b7v_s term pushes heavy/frequent SKUs to low brackets;\n  \u2022 effort-to-front     \u2014 the D_b term pulls them to near, low bins;\n  \u2022 affinity compaction \u2014 the \u2212\u03bb\u00b7delta_lift aisle reward co-locates demand partners in the\n    SAME aisle (the big travel win: fewer aisle-tasks), and within the chosen aisle the bin\n    is pulled toward the partners' column centroid (+x_speed\u00b7|x\u2212cx|) to shorten the sweep.\n\nmaximize=True flips every extremum (argmax score, farthest/highest bins, scatter partners)\nto deliberately MAXIMISE the objective \u2014 a worst-case upper-bound sanity control (Rank_maxlabor)\nthat brackets how much the minimiser is worth.  Unlike _travel_balanced_impl (Rank_labor) there\nis NO LPT load term \u2014 this MINIMISES (or maximises) total labor, it does not BALANCE it.  Units\nare placed highest expected_labor first so the costliest SKUs claim the best (or worst) slots.\n\nBoth the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) extremal-D\ndeque ends \u2014 O(units\u00b7aisles\u00b7brackets), independent of bins-per-aisle.  The chosen bin is popped\nfrom its deque end, so the ends are always live (no stale-bin bookkeeping).\n\nTHIN DRIVER over `_MinLaborPool` since ticket 04. It was a second implementation of the same\nscoring rule, and the wave form has had no production caller since the pool inversion --\n14 of 17 shipped rules are pooled and the other three have no group path at all. What it\nis FOR is the equivalence suites, and they gain from this rather than lose: the reference\nthey compare against is the FROZEN oracle in `Tests/calltree/test_rank_cache_equivalence.py`, and this leg is now the drain\ncontract (pool driven in the wave's own order == wave) instead of an echo of it.\n\n`pool.order(units)` is the sort the body used to do inline, and driving through it is the\nwhole claim: given the same order, the pool makes bit-identical decisions. A drain that\ndeclines that order gets a different -- and intentionally different -- answer.",
       "is_async": false,
       "kind": "function",
       "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl._aisle_best_cost": {
-      "decorators": [],
-      "doc": "Extremal (min, or max if maximize) over the aisle's bracket ends of the\nper-pick labor + travel:  M\u00b7(intercept + per_item + var) + D  (height scales the whole pick).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(aid, var)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl._better": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(a, b)"
     },
     "Warehouse/placement/Assignment_Functions.py::_require_affinity": {
       "decorators": [],
@@ -23472,31 +23444,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl": {
       "decorators": [],
-      "doc": "Travel- AND height-aware LPT load balance (Rank_labor).\n\nThe expected labor of placing a unit in a bin is freq\u00b7qty times the per-pick cost\nTHERE:  height_mult(y_bin)\u00b7(pick_intercept + handle_var) + D_bin, where handle_var is\nthe per-unit weight/volume handling, height_mult(y) scales the WHOLE at-location pick\n(intercept + handling), and D_bin = x_speed\u00b7x_phys + y_speed\u00b7y_phys is travel.  Each\nunit is placed in the specific empty bin that minimises the resulting BUSIEST aisle's\ntotal labor (greedy LPT).  So a bin is only chosen high/far when the aisle's load is\nlow enough to absorb the extra handling/travel \u2014 heavy, frequently-picked SKUs gravitate\nto low, near bins.\n\nWithin an aisle the best bin is SKU-dependent (high handle_var prefers low brackets),\nso bins are grouped per aisle by height bracket, each a min-D deque; for each unit we\nscan one min-D representative per (aisle, bracket) \u2014 O(units \u00b7 aisles \u00b7 n_brackets).\n\ncart (optional) makes this Rank_cartlabor: a tuple (aisle_vol_sum, sku_vol_product,\nexpected_batch_skus, total_freq) that adds each aisle's EXPECTED CART-SWAP cost to its\nbalanced load, so the balancer disperses volume that would overflow a cart.  Default\nNone \u21d2 byte-identical Rank_labor.",
+      "doc": "Travel- AND height-aware LPT load balance (Rank_labor).\n\nThe expected labor of placing a unit in a bin is freq\u00b7qty times the per-pick cost\nTHERE:  height_mult(y_bin)\u00b7(pick_intercept + handle_var) + D_bin, where handle_var is\nthe per-unit weight/volume handling, height_mult(y) scales the WHOLE at-location pick\n(intercept + handling), and D_bin = x_speed\u00b7x_phys + y_speed\u00b7y_phys is travel.  Each\nunit is placed in the specific empty bin that minimises the resulting BUSIEST aisle's\ntotal labor (greedy LPT).  So a bin is only chosen high/far when the aisle's load is\nlow enough to absorb the extra handling/travel \u2014 heavy, frequently-picked SKUs gravitate\nto low, near bins.\n\nWithin an aisle the best bin is SKU-dependent (high handle_var prefers low brackets),\nso bins are grouped per aisle by height bracket, each a min-D deque; for each unit we\nscan one min-D representative per (aisle, bracket) \u2014 O(units \u00b7 aisles \u00b7 n_brackets).\n\ncart (optional) makes this Rank_cartlabor: a tuple (aisle_vol_sum, sku_vol_product,\nexpected_batch_skus, total_freq) that adds each aisle's EXPECTED CART-SWAP cost to its\nbalanced load, so the balancer disperses volume that would overflow a cart.  Default\nNone \u21d2 byte-identical Rank_labor.\n\nTHIN DRIVER over `_TravelBalancedPool` since ticket 04. It was a second implementation of the same\nscoring rule, and the wave form has had no production caller since the pool inversion --\n14 of 17 shipped rules are pooled and the other three have no group path at all. What it\nis FOR is the equivalence suites, and they gain from this rather than lose: the reference\nthey compare against is the FROZEN oracle in `Tests/unit/test_travel_balanced_equivalence.py`, and this leg is now the drain\ncontract (pool driven in the wave's own order == wave) instead of an echo of it.\n\n`pool.order(units)` is the sort the body used to do inline, and driving through it is the\nwhole claim: given the same order, the pool makes bit-identical decisions. A drain that\ndeclines that order gets a different -- and intentionally different -- answer.",
       "is_async": false,
       "kind": "function",
       "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._aisle_best": {
-      "decorators": [],
-      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m\u00b7(intercept + per_item + var) + D.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(aid, var)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._cart_cost": {
-      "decorators": [],
-      "doc": "Expected cart-swap cost for an aisle holding raw volume mass v_raw.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(v_raw)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._score_of": {
-      "decorators": [],
-      "doc": "The per-(unit, aisle) score \u2014 the ORIGINAL expressions verbatim.\n\nbalance TOTAL expected aisle labor = handling+travel + expected cart swaps,\nso an aisle nearing a full cart is penalised and further volume disperses.\nThe SKU's volume mass counts ONCE per aisle (a second bin of a SKU already\nhere adds no new expected picked volume), mirroring aisle_pick_load_sum.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(aid, ab, sku, fq, m_s)"
     },
     "Warehouse/placement/Assignment_Functions.py::_travel_or_cohesion": {
       "decorators": [],

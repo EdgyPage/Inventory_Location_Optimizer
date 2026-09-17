@@ -155,8 +155,8 @@ count DOWN, which it permits.
 | 1 | 01 | **RESOLVED** | PRE-RUN. vol_sum drift fixed, non-vacuity proved |
 | 2 | 02 | **RESOLVED** | A: drop half. B: add half -- eleven commit blocks, one body, digest IDENTICAL. Remainder split to 21 |
 | 2 | 03 | **RESOLVED** | + the PlacementPolicy record; FAITHFUL_GAIN_FAMILIES and the aisle_state lists derived |
-| 2 | 04 | not started | **UNBLOCKED** by 03 |
-| 2 | 05 | not started | blocked by 04 |
+| 2 | 04 | **RESOLVED** | four wave impls become thin drivers; the ranked oracle moved into its test first |
+| 2 | 05 | not started | **UNBLOCKED** by 04 |
 | 3 | 06 | **RESOLVED** | BatchState + ArmAssembly: `_build_leaf` 1,729 -> 918 lines, 149 -> 11 names, 0 nonlocal |
 | 3 | 07-08 | not started | **UNBLOCKED** by 06 |
 | 4 | 09 | **RESOLVED** | Knob registry; write-back, record and resume restore derived |
@@ -171,7 +171,7 @@ count DOWN, which it permits.
 | 6 | 18 | **RESOLVED** | closed with a reason: all three mixins stay |
 | - | 19 | **RESOLVED** | LoadParams deleted; init_lift_state renamed; delta_lift_idxs closed with a reason |
 | - | 20 | **RESOLVED** | `aisle_metrics.pick_load_sum` deleted -- wrong on 15 of 17 arms, no reader |
-| - | 21 | not started | NEW, split from 02B: the pool builders take loose dicts, not a ledger. Ride ticket 04's oracle re-freeze |
+| - | 21 | not started | **UNBLOCKED** by 04: one implementation per family to move now, not two |
 | - | 22 | **RESOLVED** | `gain.py` 1,410 -> 865 lines + gain_cow + gain_bundle; the rebinding trap proved closed |
 | - | 23 | **RESOLVED** | the seed prices only the arm's terms; `reconcile()` is unconditional again |
 | - | 24 | **RESOLVED** | the decision: `ArmAssembly` lives in `strategy_runner.py`; a new module would be a cycle |

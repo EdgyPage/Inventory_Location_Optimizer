@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_ranked_assign_impl</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_ranked_assign_impl</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+
 <pre class="sig"><code>def _ranked_assign_impl(units: list, candidates_fn, affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float, minimize: bool, aisle_selector=None, order_key=None) -&gt; list</code></pre>
 <section class="doc">Shared core for ranked-minimizing and ranked-maximizing assignment.
 
@@ -30,8 +30,19 @@ bin first within each same-BinKey group.  minimize=True -&gt; lowest-D bin
 (easiest access); minimize=False -&gt; highest-D bin (hardest access).
 
 W (task workload) remains a measurement metric only; this formula
-drives bin placement at reorder time.</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_over.html"><code>over</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__sec_per_inch.html"><code>sec_per_inch</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___D_map.html"><code>_D_map</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_maximizing_assignment_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_minimizing_assignment_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_popularity_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_uniform_assignment_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+drives bin placement at reorder time.
+
+THIN DRIVER over `_RankedAssignPool` since ticket 04. It was a second implementation of
+the same scoring rule and has had no production caller since the pool inversion. The
+reference it used to BE now lives in `Tests/unit/test_ranked_assign_pool_equivalence.py`
+as `_oracle_ranked_assign_impl`, frozen verbatim -- this family was the last one whose
+test read a live production impl as its oracle.
+
+`pool.order(units)` is the sort this body did inline. Note the pool takes the SCAN branch
+whenever `aisle_selector` is given and the heap branch otherwise, which is exactly the
+split the wave had; a caller that wants the heap passes `aisle_key` to the pool directly,
+and the wave never knew how to do anything but scan.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___RankedAssignPool.html"><code>_RankedAssignPool</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_maximizing_assignment_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_minimizing_assignment_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_popularity_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_ranked_uniform_assignment_fn_ranked_assign.html"><code>ranked_assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___ranked_assign_impl">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_ranked_assign_impl">Source ↗</a></p>
 </article>
 </main>

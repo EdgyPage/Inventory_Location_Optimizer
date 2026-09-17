@@ -20381,39 +20381,9 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_cluster_map_choose_aisle"
     },
     {
-      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "dst": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_affinity_row",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl.priority"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_affinity_row",
@@ -20426,84 +20396,19 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift"
     },
     {
-      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl"
     },
     {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl.pick_effort_priority"
-    },
-    {
-      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl"
     },
     {
-      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::per_pick",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::per_pick",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl._aisle_best_cost"
-    },
-    {
-      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::per_pick",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._aisle_best"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn",
@@ -48043,14 +47948,6 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl.priority",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "priority",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -48091,34 +47988,10 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl.pick_effort_priority",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "pick_effort_priority",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_ranked_minlabor_impl",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl._aisle_best_cost",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_aisle_best_cost",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl._better",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_better",
       "public": false
     },
     {
@@ -48159,30 +48032,6 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_travel_balanced_impl",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._aisle_best",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_aisle_best",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._cart_cost",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_cart_cost",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl._score_of",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_score_of",
       "public": false
     },
     {

@@ -505,80 +505,27 @@ def _ranked_assign_impl(
 
     W (task workload) remains a measurement metric only; this formula
     drives bin placement at reorder time.
+
+    THIN DRIVER over `_RankedAssignPool` since ticket 04. It was a second implementation of
+    the same scoring rule and has had no production caller since the pool inversion. The
+    reference it used to BE now lives in `Tests/unit/test_ranked_assign_pool_equivalence.py`
+    as `_oracle_ranked_assign_impl`, frozen verbatim -- this family was the last one whose
+    test read a live production impl as its oracle.
+
+    `pool.order(units)` is the sort this body did inline. Note the pool takes the SCAN branch
+    whenever `aisle_selector` is given and the heap branch otherwise, which is exactly the
+    split the wave had; a caller that wants the heap passes `aisle_key` to the pool directly,
+    and the wave never knew how to do anything but scan.
     """
-    wp      = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
-    x_pace  = sec_per_inch(wp.x_speed)   # ft/s -> s/inch
-    y_pace  = sec_per_inch(wp.y_speed)
-    # Fix 1: the co-occurrence term ranks each SKU against ALL currently-placed
-    # SKU indices.  That union is identical for every unit in the wave (placement
-    # is deferred to the caller, so aisle_idx_sets is static here), so build it
-    # ONCE — not once per unit inside the sort key (which was O(U·Σ) per wave).
-    # Only needed for the default pick-effort ordering's co-occurrence term.
-    all_idx = (set().union(*aisle_idx_sets.values()) if (order_key is None and aisle_idx_sets)
-               else set())
-    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
-                              demand_sum=aisle_demand_sum)
-
-    def pick_effort_priority(unit) -> float:
-        c = unit.order
-        # c.labor_cost is the precomputed per-pick effort (pi + pw*ln w + pv*ln v),
-        # so this avoids re-taking logs per unit per wave.
-        co_occur = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
-        return c.demand.relative_frequency * c.labor_cost + co_occur
-
-    # A policy may supply its own per-unit order score (decoupled enqueue ordering);
-    # otherwise fall back to the default pick-effort priority.  Both sort DESCENDING.
-    sorted_units = sorted(units, key=(order_key or pick_effort_priority), reverse=True)
-    result: list = []
-    if not sorted_units:
-        return result
-
-    # Fix 2: the candidate pool is constant for this whole call (placement is
-    # deferred) and every unit shares one BinKey, so compute it ONCE instead of
-    # re-copying / re-scanning it per unit (was O(U·bucket_bins) per wave).
-    # Pre-sort each aisle's bins by travel cost D (extremal-D first) and hand them
-    # out by popping the head — equivalent to picking the extremal-D available bin
-    # per aisle each step, but O(bucket log bucket + U·n_aisles) overall.
-    cands = candidates_fn(sorted_units[0])
-    D_of  = _D_map(cands, x_pace, y_pace)
-    by_aisle: dict[int, deque] = {}
-    for b in cands:
-        by_aisle.setdefault(b.location[0], []).append(b)
-    for aid, lst in by_aisle.items():
-        lst.sort(key=lambda bb: D_of[id(bb)], reverse=not minimize)   # head = extremal-D
-        by_aisle[aid] = deque(lst)
-    head_bin = {aid: dq[0]          for aid, dq in by_aisle.items() if dq}
-    head_D   = {aid: D_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
-
-    for unit in sorted_units:
-        if not head_D:
-            result.append((unit, None))
-            continue
-        if aisle_selector is not None:
-            best_aid = aisle_selector(head_D, head_bin)
-        else:
-            best_aid = (min if minimize else max)(head_D, key=head_D.__getitem__)
-        chosen = head_bin[best_aid]
-
-        sku = unit.order.sku
-        f_s = freq_by_sku.get(sku, 0.0)
-        q_s = qty_by_sku.get(sku, 0.0)
-        if sku not in aisle_sku_sets[best_aid]:
-            ledger.add_sku(best_aid, sku, affinity._sku_to_idx.get(sku), demand=f_s * q_s)
-
-        # Advance the chosen aisle's head; drop it when exhausted.
-        dq = by_aisle[best_aid]
-        dq.popleft()
-        if dq:
-            head_bin[best_aid] = dq[0]
-            head_D[best_aid]   = D_of[id(dq[0])]
-        else:
-            del head_bin[best_aid]
-            del head_D[best_aid]
-
-        result.append((unit, chosen))
-
-    return result
+    if not units:
+        return []
+    wp = _wp_for(wp, units[0])       # per-regime cost in a mixed warehouse
+    pool = _RankedAssignPool(
+        list(candidates_fn(units[0])), affinity, wp,
+        aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+        freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
+        aisle_selector=aisle_selector, order_key=order_key)
+    return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
 # ── co-demand compaction / expansion (within-aisle path-span min/max) ──────────
@@ -633,92 +580,25 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
     compact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)
     the partners' column centroid is taken — vs the extremal-D head.  Each placement also
     appends (x_phys, idx) to aisle_member_pos so later units in the wave see it.
+
+    THIN DRIVER over `_CoDemandPool` since ticket 04. It was a second implementation of the same
+    scoring rule, and the wave form has had no production caller since the pool inversion --
+    14 of 17 shipped rules are pooled and the other three have no group path at all. What it
+    is FOR is the equivalence suites, and they gain from this rather than lose: the reference
+    they compare against is the FROZEN oracle in `Tests/calltree/test_rank_cache_equivalence.py`, and this leg is now the drain
+    contract (pool driven in the wave's own order == wave) instead of an echo of it.
+
+    `pool.order(units)` is the sort the body used to do inline, and driving through it is the
+    whole claim: given the same order, the pool makes bit-identical decisions. A drain that
+    declines that order gets a different -- and intentionally different -- answer.
     """
-    x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
-    all_idx = set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set()
-
-    _co_by_sku: dict = {}                     # sort-key memo: all_idx is frozen during the sort,
-                                              # so a SKU's co term is one value — reuse is bit-safe
-    def priority(unit):
-        c = unit.order
-        co = _co_by_sku.get(c.sku)
-        if co is None:
-            # c.labor_cost = precomputed per-pick effort (pi + pwt*ln w + pv*ln v).
-            co = beta * _demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
-            _co_by_sku[c.sku] = co
-        return c.demand.relative_frequency * c.labor_cost + co
-
-    sorted_units = sorted(units, key=priority, reverse=True)
-    result: list = []
-    if not sorted_units:
-        return result
-
-    cands = candidates_fn(sorted_units[0])
-    D_of  = _D_map(cands, x_pace, y_pace)
-    by_aisle: dict[int, list] = {}
-    for b in cands:
-        by_aisle.setdefault(b.location[0], []).append(b)
-    for lst in by_aisle.values():
-        lst.sort(key=lambda b: b.x_phys)          # ascending column
-    sku_to_idx = affinity._sku_to_idx
-    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
-                              demand_sum=aisle_demand_sum,
-                              member_pos=aisle_member_pos)
-
-    # ── SKU-run cache (the Phase-6 precedent, both key components) ────────────
-    # sorted_units clusters same-SKU units (equal priority, stable sort).  aisle_key is
-    # (mass, ±d0): mass mutates only for the WINNER (commit adds this SKU's own index to
-    # its idx-set) and d0 only for the WINNER (its bin list pops) — so cache both per
-    # run and refresh just the winner after each placement.  The refresh recomputes with
-    # the same operands AND the same summation order a full per-unit recompute would use
-    # (the ulp lesson from the cluster_map cache: a value-only argument is not enough).
-    last_sku = None
-    key_cache: dict = {}                        # {aid: (mass, ±d0)} for the current run
-    cached_row = None
-    for unit in sorted_units:
-        live = [aid for aid, lst in by_aisle.items() if lst]
-        if not live:
-            result.append((unit, None))
-            continue
-        sku = unit.order.sku
-        f_s = freq_by_sku.get(sku, 0.0)
-        q_s = qty_by_sku.get(sku, 0.0)
-
-        if sku != last_sku:
-            cached_row = _affinity_row(affinity, sku)   # hoist the CSR slice: once per run
-            # aisle: most (compact) / least (expand) lift to members; tie-break toward
-            # the front (compact) / back (expand) bay by the aisle's lowest-D rep.
-            key_cache = {}
-            for aid in live:
-                mass = _delta_lift_from_row(cached_row, aisle_idx_sets[aid], freq_by_idx)
-                d0   = D_of[id(by_aisle[aid][0])]
-                key_cache[aid] = (mass, -d0) if compact else (mass, d0)
-            last_sku = sku
-        row = cached_row
-        best_aid = (max if compact else min)(live, key=key_cache.__getitem__)
-
-        lst = by_aisle[best_aid]
-        _mass, cx = _demand_weighted_partner_centroid(
-            affinity, sku, aisle_member_pos[best_aid], freq_by_idx)
-        if cx is not None:                        # bin nearest / farthest the partner column
-            j = (min if compact else max)(range(len(lst)), key=lambda k: abs(lst[k].x_phys - cx))
-        else:                                     # no partners yet: front (compact) / back (expand)
-            j = 0 if compact else len(lst) - 1
-        chosen = lst.pop(j)
-
-        if sku not in aisle_sku_sets[best_aid]:
-            ledger.add_sku(best_aid, sku, demand=f_s * q_s)
-        ledger.add_bin(best_aid, sku_to_idx.get(sku), chosen.x_phys)
-        result.append((unit, chosen))
-        # winner refresh: exactly what the next same-SKU unit's fresh recompute would see
-        if lst:
-            mass = _delta_lift_from_row(row, aisle_idx_sets[best_aid], freq_by_idx)
-            d0   = D_of[id(lst[0])]
-            key_cache[best_aid] = (mass, -d0) if compact else (mass, d0)
-        else:
-            key_cache.pop(best_aid, None)         # aisle exhausted: leaves `live` next unit
-
-    return result
+    if not units:
+        return []
+    pool = _CoDemandPool(list(candidates_fn(units[0])), affinity, wp,
+                         aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+                         aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
+                         beta, compact)
+    return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
 class _CoDemandPool(_Pool):
@@ -1315,148 +1195,26 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     expected_batch_skus, total_freq) that adds each aisle's EXPECTED CART-SWAP cost to its
     balanced load, so the balancer disperses volume that would overflow a cart.  Default
     None ⇒ byte-identical Rank_labor.
+
+    THIN DRIVER over `_TravelBalancedPool` since ticket 04. It was a second implementation of the same
+    scoring rule, and the wave form has had no production caller since the pool inversion --
+    14 of 17 shipped rules are pooled and the other three have no group path at all. What it
+    is FOR is the equivalence suites, and they gain from this rather than lose: the reference
+    they compare against is the FROZEN oracle in `Tests/unit/test_travel_balanced_equivalence.py`, and this leg is now the drain
+    contract (pool driven in the wave's own order == wave) instead of an echo of it.
+
+    `pool.order(units)` is the sort the body used to do inline, and driving through it is the
+    whole claim: given the same order, the pool makes bit-identical decisions. A drain that
+    declines that order gets a different -- and intentionally different -- answer.
     """
-    wp = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
-    x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
-    intercept = wp.pick_intercept
-    per_item  = wp.pick_per_item          # the per-unit charge, priced as the sim bills it
-    brackets  = getattr(wp, 'height_brackets', ())
-    sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
-    if not sorted_units:
+    if not units:
         return []
-    cands = candidates_fn(sorted_units[0])
-    if not cands:
-        return [(u, None) for u in sorted_units]
-
-    # ── optional cart-swap term ──────────────────────────────────────────────
-    # Expected picked volume in an aisle per task ≈ (k/Σf)·Σ f·q·vol; comparing that to the
-    # cart capacity is equivalent to comparing the RAW mass V_raw = Σ f·q·vol against
-    # cap_raw = cap·Σf/k.  Expected cart cost of an aisle = coef·max(0, V_raw/cap_raw − 1).
-    cart_on = cart is not None
-    if cart_on:
-        aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq = cart
-        cart_coef = wp.cart_swap_coef
-        cap_raw   = wp.cart_capacity * total_freq / max(expected_batch_skus, 1e-9)
-
-    D_of = _D_map(cands, x_pace, y_pace)
-    M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
-    # per aisle: {height_mult: deque of bins (that bracket) sorted by D ascending}
-    by_aisle: dict[int, dict] = {}
-    for b in cands:
-        by_aisle.setdefault(b.location[0], {}).setdefault(M_of[id(b)], []).append(b)
-    for groups in by_aisle.values():
-        for m, lst in list(groups.items()):
-            lst.sort(key=lambda bb: D_of[id(bb)])
-            groups[m] = deque(lst)
-    # running per-aisle total (handling+travel) labor, seeded from the maintained sum
-    load = {aid: float(aisle_pick_load_sum.get(aid, 0.0)) for aid in by_aisle}
-    # running per-aisle expected picked-volume mass (raw f·q·vol), seeded likewise
-    vol_load = ({aid: float(aisle_vol_sum.get(aid, 0.0)) for aid in by_aisle}
-                if cart_on else None)
-    sku_to_idx = affinity._sku_to_idx
-    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
-                              demand_sum=aisle_demand_sum,
-                              pick_load_sum=aisle_pick_load_sum,
-                              vol_sum=(aisle_vol_sum if cart_on else None))
-    result: list = []
-
-    def _cart_cost(v_raw):
-        """Expected cart-swap cost for an aisle holding raw volume mass v_raw."""
-        return cart_coef * max(0.0, v_raw / cap_raw - 1.0)
-
-    def _aisle_best(aid, var):
-        """(cost, mult, bin) of the cheapest available bin in the aisle for this var.
-        Height scales the whole at-location pick: cost = m·(intercept + per_item + var) + D."""
-        best = None
-        for m, dq in by_aisle[aid].items():
-            if not dq:
-                continue
-            b = dq[0]
-            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
-            if best is None or cost < best[0]:
-                best = (cost, m, b)
-        return best
-
-    def _score_of(aid, ab, sku, fq, m_s):
-        """The per-(unit, aisle) score — the ORIGINAL expressions verbatim.
-
-        balance TOTAL expected aisle labor = handling+travel + expected cart swaps,
-        so an aisle nearing a full cart is penalised and further volume disperses.
-        The SKU's volume mass counts ONCE per aisle (a second bin of a SKU already
-        here adds no new expected picked volume), mirroring aisle_pick_load_sum."""
-        score = load[aid] + fq * ab[0]
-        if cart_on:
-            add = 0.0 if sku in aisle_sku_sets[aid] else m_s
-            score += _cart_cost(vol_load[aid] + add)
-        return score
-
-    # ── SKU-run caching ──────────────────────────────────────────────────────
-    # sorted_units is a stable sort on a per-order key, so units of one SKU are contiguous.
-    # Within such a run, every input a NON-winning aisle's score reads is provably frozen:
-    # fq/var/m_s are per-SKU constants; load/vol_load/aisle_sku_sets mutate for the WINNING
-    # aisle only; deque heads advance for the winning aisle only; candidates were fetched
-    # once for the wave.  So _aisle_best and the score are computed once per aisle at each
-    # run boundary and refreshed only for the aisle that just won — the argmin sequence
-    # (and every float, computed by the verbatim expressions above) is byte-identical to
-    # the per-unit rescan this replaces; only redundant recomputation is skipped.  Guarded
-    # by Tests/unit/test_travel_balanced_equivalence.py's frozen-oracle suite.
-    run_sku = _NO_RUN_SKU
-    var = fq = m_s = 0.0
-    ab_cache: dict = {}
-    score_cache: dict = {}
-
-    for unit in sorted_units:
-        c = unit.order
-        sku = c.sku
-        if sku != run_sku:                       # run boundary: rebuild both caches
-            run_sku = sku
-            var = c.handle_var
-            fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
-            m_s = sku_vol_product.get(sku, 0.0) if cart_on else 0.0
-            ab_cache.clear()
-            score_cache.clear()
-            for aid in by_aisle:
-                ab = _aisle_best(aid, var)
-                ab_cache[aid] = ab
-                if ab is not None:
-                    score_cache[aid] = _score_of(aid, ab, sku, fq, m_s)
-        best_aid = best_choice = None
-        best_score = None
-        for aid in by_aisle:                     # original order ⇒ original tie-breaks
-            ab = ab_cache[aid]
-            if ab is None:
-                continue
-            score = score_cache[aid]
-            if best_score is None or score < best_score:
-                best_score, best_aid, best_choice = score, aid, ab
-        if best_aid is None:
-            result.append((unit, None))
-            continue
-        cost, m, chosen = best_choice
-        load[best_aid] += fq * cost
-
-        # commit manager aisle state (travel-blind sums; mirrors _ranked_assign_impl).
-        # `vol_load` is this call's DRAIN-SCOPED copy, read by the scorer above; it stays
-        # here rather than moving into the ledger, which owns the warehouse's own books.
-        if sku not in aisle_sku_sets[best_aid]:
-            if cart_on:                       # SKU-once, in lockstep with pick_load_sum
-                vol_load[best_aid] += m_s
-            ledger.add_sku(best_aid, sku, sku_to_idx.get(sku), demand=fq,
-                           pick_load=sku_pick_load_product.get(sku, 0.0),
-                           vol=(m_s if cart_on else None))
-
-        by_aisle[best_aid][m].popleft()
-        # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
-        # refresh its cache entries; an exhausted aisle goes None and is skipped exactly
-        # like the original `continue`.
-        ab = _aisle_best(best_aid, var)
-        ab_cache[best_aid] = ab
-        if ab is not None:
-            score_cache[best_aid] = _score_of(best_aid, ab, sku, fq, m_s)
-        else:
-            score_cache.pop(best_aid, None)
-        result.append((unit, chosen))
-    return result
+    wp = _wp_for(wp, units[0])       # per-regime cost in a mixed warehouse
+    pool = _TravelBalancedPool(
+        list(candidates_fn(units[0])), affinity, wp,
+        aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum,
+        sku_pick_load_product, freq_by_sku, qty_by_sku, cart=cart)
+    return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
 class _TravelBalancedPool(_Pool):
@@ -1881,165 +1639,26 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     Both the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) extremal-D
     deque ends — O(units·aisles·brackets), independent of bins-per-aisle.  The chosen bin is popped
     from its deque end, so the ends are always live (no stale-bin bookkeeping).
+
+    THIN DRIVER over `_MinLaborPool` since ticket 04. It was a second implementation of the same
+    scoring rule, and the wave form has had no production caller since the pool inversion --
+    14 of 17 shipped rules are pooled and the other three have no group path at all. What it
+    is FOR is the equivalence suites, and they gain from this rather than lose: the reference
+    they compare against is the FROZEN oracle in `Tests/calltree/test_rank_cache_equivalence.py`, and this leg is now the drain
+    contract (pool driven in the wave's own order == wave) instead of an echo of it.
+
+    `pool.order(units)` is the sort the body used to do inline, and driving through it is the
+    whole claim: given the same order, the pool makes bit-identical decisions. A drain that
+    declines that order gets a different -- and intentionally different -- answer.
     """
-    wp = _wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
-    x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
-    intercept = wp.pick_intercept
-    per_item  = wp.pick_per_item          # the per-unit charge, priced as the sim bills it
-    brackets  = getattr(wp, 'height_brackets', ())
-    sorted_units = sorted(units, key=lambda u: u.order.expected_labor, reverse=True)
-    if not sorted_units:
+    if not units:
         return []
-    cands = candidates_fn(sorted_units[0])
-    if not cands:
-        return [(u, None) for u in sorted_units]
-
-    # minimise → near (min-D) deque head; maximise → far (max-D) deque tail.
-    _rep  = (lambda dq: dq[-1]) if maximize else (lambda dq: dq[0])
-    _drop = (lambda dq: dq.pop()) if maximize else (lambda dq: dq.popleft())
-    def _better(a, b):                       # is a a better (more extreme) score than b?
-        return a > b if maximize else a < b
-
-    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
-                              demand_sum=aisle_demand_sum,
-                              member_pos=aisle_member_pos)
-    D_of = _D_map(cands, x_pace, y_pace)
-    M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
-    by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
-    for b in cands:
-        by_aisle_brkt.setdefault(b.location[0], {}).setdefault(M_of[id(b)], []).append(b)
-    for groups in by_aisle_brkt.values():
-        for m, lst in list(groups.items()):
-            lst.sort(key=lambda bb: D_of[id(bb)])
-            groups[m] = deque(lst)
-    sku_to_idx = affinity._sku_to_idx
-    matrix     = affinity._matrix
-    result: list = []
-
-    # ── SKU-run cache (the _travel_balanced_impl precedent) ──────────────────
-    # sorted_units clusters same-SKU units (equal expected_labor, stable sort), and
-    # within such a run the per-aisle base cost bc_by_aid is a pure function of
-    # (var, deque ends): var is the SKU's handle_var (constant across the run) and the
-    # only deque that changes is the WINNER's (its end is popped).  So rebuild the dict
-    # only at a SKU change and refresh just the last winner inside a run.  Dict ORDER is
-    # part of byte-identity (fq·bc ties resolve by insertion order in sorted()): the
-    # rebuild iterates by_aisle_brkt exactly as the old per-unit build did, a value
-    # refresh keeps its slot, and a pop removes it — the same key sequence the old
-    # build would produce.  row_items/max_reward ride the same cache: the CSR row is
-    # static and self-pairs are not stored, so a run's row never changes.
-    last_sku    = None
-    last_winner = None
-    bc_by_aid: dict = {}
-    row_items: list = []
-    max_reward  = 0.0
-
-    def _aisle_best_cost(aid, var):
-        """Extremal (min, or max if maximize) over the aisle's bracket ends of the
-        per-pick labor + travel:  M·(intercept + per_item + var) + D  (height scales the whole pick)."""
-        best = None
-        for m, dq in by_aisle_brkt[aid].items():
-            if not dq:
-                continue
-            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(_rep(dq))]
-            if best is None or _better(cost, best):
-                best = cost
-        return best
-
-    for unit in sorted_units:
-        c = unit.order
-        sku = c.sku
-        var = c.handle_var
-        fq = freq_by_sku.get(sku, 0.0) * qty_by_sku.get(sku, 0.0)
-
-        if sku != last_sku:
-            # Slice the SKU's affinity row ONCE per run (not once per unit/aisle):
-            # partners as (partner_idx, f_p·(lift−1)) pairs, all non-negative
-            # (association above independence, mirroring _demand_weighted_delta_lift).
-            # max_reward bounds lam·delta over any aisle (all partners present),
-            # enabling the early-termination prune below.
-            row_items = []
-            si = sku_to_idx.get(sku)
-            if si is not None and matrix is not None:
-                s = int(matrix.indptr[si]); e = int(matrix.indptr[si + 1])
-                for ci, d in zip(matrix.indices[s:e], matrix.data[s:e]):
-                    w = (float(d) - 1.0) * freq_by_idx.get(int(ci), 0.0)
-                    if w:
-                        row_items.append((int(ci), w))
-            max_reward = lam * sum(w for _, w in row_items)
-
-            # Cheap per-aisle bin cost (O(brackets)); sort so the affinity prune can fire.
-            bc_by_aid = {}
-            for aid in by_aisle_brkt:
-                bc = _aisle_best_cost(aid, var)
-                if bc is not None:
-                    bc_by_aid[aid] = bc
-            last_sku = sku
-        elif last_winner is not None:
-            # Same SKU as the previous unit: only the winner aisle's deque changed.
-            bc = _aisle_best_cost(last_winner, var)
-            if bc is None:
-                bc_by_aid.pop(last_winner, None)
-            else:
-                bc_by_aid[last_winner] = bc
-        last_winner = None                      # set again only on a successful pop
-        if not bc_by_aid:
-            result.append((unit, None))
-            continue
-        # minimise: ascending fq·bc, prune once base − max_reward ≥ best (reward can't save it).
-        # maximise: descending fq·bc, prune once base ≤ best (reward only lowers the score).
-        order = sorted(bc_by_aid, key=lambda a: fq * bc_by_aid[a], reverse=maximize)
-
-        best_aid = None
-        best_score = None
-        for aid in order:
-            base = fq * bc_by_aid[aid]
-            if best_score is not None:
-                if maximize:
-                    if base <= best_score:
-                        break
-                elif base - max_reward >= best_score:
-                    break
-            if row_items:
-                ais = aisle_idx_sets[aid]
-                delta = 0.0
-                for ci, w in row_items:
-                    if ci in ais:
-                        delta += w
-            else:
-                delta = 0.0
-            score = base - lam * delta
-            if best_score is None or _better(score, best_score):
-                best_score, best_aid = score, aid
-        if best_aid is None:
-            result.append((unit, None))
-            continue
-
-        # Final bin in the winning aisle: extremal bracket end (golden-zone min-D / worst max-D
-        # per height band), with the centroid term pulling toward (min) or away from (max) partners.
-        _mass, cx = _demand_weighted_partner_centroid(
-            affinity, sku, aisle_member_pos[best_aid], freq_by_idx)
-        chosen = chosen_m = None
-        cbest = None
-        for m, dq in by_aisle_brkt[best_aid].items():
-            if not dq:
-                continue
-            b = _rep(dq)
-            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
-            if cx is not None:
-                cost += x_pace * abs(b.x_phys - cx)
-            if cbest is None or _better(cost, cbest):
-                cbest, chosen, chosen_m = cost, b, m
-        if chosen is None:
-            result.append((unit, None))
-            continue
-        _drop(by_aisle_brkt[best_aid][chosen_m])
-        last_winner = best_aid                  # the one aisle whose cached bc is now stale
-
-        if sku not in aisle_sku_sets[best_aid]:
-            ledger.add_sku(best_aid, sku, demand=fq)
-        ledger.add_bin(best_aid, sku_to_idx.get(sku), chosen.x_phys)
-        result.append((unit, chosen))
-    return result
+    wp = _wp_for(wp, units[0])       # per-regime cost in a mixed warehouse
+    pool = _MinLaborPool(
+        list(candidates_fn(units[0])), affinity, wp,
+        aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+        freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=maximize)
+    return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
 class _MinLaborPool(_Pool):

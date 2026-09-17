@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_co_demand_ranked_impl</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_co_demand_ranked_impl</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+
 <pre class="sig"><code>def _co_demand_ranked_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)</code></pre>
 <section class="doc">Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`
 and `expn` actually run; kept as the frozen oracle the port is tested against.
@@ -23,8 +23,19 @@ _ranked_assign_impl and membership is committed incrementally, but the BIN choic
 position-aware: the aisle is scored by demand-weighted lift to its members (MAX for
 compact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)
 the partners&#x27; column centroid is taken — vs the extremal-D head.  Each placement also
-appends (x_phys, idx) to aisle_member_pos so later units in the wave see it.</section>
-<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_over.html"><code>over</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_kernel_cost_model_py__sec_per_inch.html"><code>sec_per_inch</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___D_map.html"><code>_D_map</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___affinity_row.html"><code>_affinity_row</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___delta_lift_from_row.html"><code>_delta_lift_from_row</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___demand_weighted_partner_centroid.html"><code>_demand_weighted_partner_centroid</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+appends (x_phys, idx) to aisle_member_pos so later units in the wave see it.
+
+THIN DRIVER over `_CoDemandPool` since ticket 04. It was a second implementation of the same
+scoring rule, and the wave form has had no production caller since the pool inversion --
+14 of 17 shipped rules are pooled and the other three have no group path at all. What it
+is FOR is the equivalence suites, and they gain from this rather than lose: the reference
+they compare against is the FROZEN oracle in `Tests/calltree/test_rank_cache_equivalence.py`, and this leg is now the drain
+contract (pool driven in the wave&#x27;s own order == wave) instead of an echo of it.
+
+`pool.order(units)` is the sort the body used to do inline, and driving through it is the
+whole claim: given the same order, the pool makes bit-identical decisions. A drain that
+declines that order gets a different -- and intentionally different -- answer.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___CoDemandPool.html"><code>_CoDemandPool</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___co_demand_ranked_impl">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_co_demand_ranked_impl">Source ↗</a></p>
 </article>
 </main>

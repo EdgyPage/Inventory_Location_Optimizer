@@ -8,9 +8,11 @@ WHAT THIS FILE CLAIMS, precisely: driven in the SAME order, the pool makes bit-i
 decisions and leaves bit-identical manager state. It does not claim that a reordered drain
 reproduces today's run — it cannot, and Phase 2 is where that stops being true on purpose.
 So every test here drives the pool through `pool.order(units)`, which is the sort the impl
-did internally, and compares against `_ranked_assign_impl` itself as a live oracle. When the
-drain later declines that order, this file still pins the half that must not move: the
-choice.
+did internally, and compares against `_oracle_ranked_assign_impl` -- the wave algorithm,
+FROZEN in this file. It was production's own `_ranked_assign_impl`, read as a live oracle,
+until ticket 04 made that impl a driver over the pool; keeping a live copy then would have
+been the pool compared with itself. When the drain later declines that order, this file
+still pins the half that must not move: the choice.
 
 Float equality is EXACT here, deliberately against the repo's tolerance convention, because
 the claim is byte-identity and not agreement. `aisle_demand_sum` is a running sum whose value
@@ -23,7 +25,7 @@ from __future__ import annotations
 
 import copy
 import random
-from collections import defaultdict
+from collections import defaultdict, deque
 
 import pytest
 
@@ -140,6 +142,133 @@ def _tables(orders, aff):
 ARMS = ['tmin', 'tmax', 'rank_random', 'rank_popularity', 'rank_popularity_scan']
 
 
+# ── THE FROZEN ORACLE ─────────────────────────────────────────────────────────────
+#
+# `_ranked_assign_impl` verbatim, as it stood before ticket 04 collapsed it into a driver
+# over the pool. Only the module-level helpers it reads gained an `af.` prefix; not a line of
+# its logic moved.
+#
+# It is HERE rather than in production for the reason this file always had: it compares the
+# pool against the algorithm the pool replaced, and once production's copy became a driver
+# over the pool the comparison would have been the pool against itself. The other three
+# ranked families already kept their oracles this way
+# (`test_travel_balanced_equivalence.py`, `Tests/calltree/test_rank_cache_equivalence.py`);
+# this one was the last live-oracle holdout.
+#
+# DO NOT "fix" this to call the pool, and do not re-derive it from the pool's behaviour. Its
+# whole value is that it is the RETIRED algorithm -- the same reason the `aisle_key`
+# translation below turns a key back into the scan it replaced, "so the reference stays the
+# retired algorithm rather than a paraphrase of the new one".
+
+
+def _oracle_ranked_assign_impl(
+    units        : list,
+    candidates_fn,
+    affinity,
+    wp,
+    aisle_sku_sets   : dict,
+    aisle_idx_sets   : dict,
+    aisle_demand_sum : dict,
+    freq_by_idx      : dict,
+    freq_by_sku      : dict,
+    qty_by_sku       : dict,
+    beta         : float,
+    minimize     : bool,
+    aisle_selector = None,
+    order_key      = None,
+) -> list:
+    """Shared core for ranked-minimizing and ranked-maximizing assignment.
+
+    SUPERSEDED by `_RankedAssignPool`, which is what the four arms actually run.  Kept as
+    the frozen oracle the port is tested against, and as the straggler-path reference.
+
+    Priority formula (pick-effort x frequency + co-occurrence):
+      priority = f_i x (pick_intercept + pick_weight_coef x log(weight)
+                                        + pick_volume_coef x log(volume))
+                 + beta x co_occur
+
+    Sorted descending by priority; highest-priority unit claims the extremal-D
+    bin first within each same-BinKey group.  minimize=True -> lowest-D bin
+    (easiest access); minimize=False -> highest-D bin (hardest access).
+
+    W (task workload) remains a measurement metric only; this formula
+    drives bin placement at reorder time.
+    """
+    wp      = af._wp_for(wp, units[0]) if units else wp   # per-regime cost in a mixed warehouse
+    x_pace  = af.sec_per_inch(wp.x_speed)   # ft/s -> s/inch
+    y_pace  = af.sec_per_inch(wp.y_speed)
+    # Fix 1: the co-occurrence term ranks each SKU against ALL currently-placed
+    # SKU indices.  That union is identical for every unit in the wave (placement
+    # is deferred to the caller, so aisle_idx_sets is static here), so build it
+    # ONCE — not once per unit inside the sort key (which was O(U·Σ) per wave).
+    # Only needed for the default pick-effort ordering's co-occurrence term.
+    all_idx = (set().union(*aisle_idx_sets.values()) if (order_key is None and aisle_idx_sets)
+               else set())
+    ledger = af.AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                              demand_sum=aisle_demand_sum)
+
+    def pick_effort_priority(unit) -> float:
+        c = unit.order
+        # c.labor_cost is the precomputed per-pick effort (pi + pw*ln w + pv*ln v),
+        # so this avoids re-taking logs per unit per wave.
+        co_occur = beta * af._demand_weighted_delta_lift(affinity, c.sku, all_idx, freq_by_idx)
+        return c.demand.relative_frequency * c.labor_cost + co_occur
+
+    # A policy may supply its own per-unit order score (decoupled enqueue ordering);
+    # otherwise fall back to the default pick-effort priority.  Both sort DESCENDING.
+    sorted_units = sorted(units, key=(order_key or pick_effort_priority), reverse=True)
+    result: list = []
+    if not sorted_units:
+        return result
+
+    # Fix 2: the candidate pool is constant for this whole call (placement is
+    # deferred) and every unit shares one BinKey, so compute it ONCE instead of
+    # re-copying / re-scanning it per unit (was O(U·bucket_bins) per wave).
+    # Pre-sort each aisle's bins by travel cost D (extremal-D first) and hand them
+    # out by popping the head — equivalent to picking the extremal-D available bin
+    # per aisle each step, but O(bucket log bucket + U·n_aisles) overall.
+    cands = candidates_fn(sorted_units[0])
+    D_of  = af._D_map(cands, x_pace, y_pace)
+    by_aisle: dict[int, deque] = {}
+    for b in cands:
+        by_aisle.setdefault(b.location[0], []).append(b)
+    for aid, lst in by_aisle.items():
+        lst.sort(key=lambda bb: D_of[id(bb)], reverse=not minimize)   # head = extremal-D
+        by_aisle[aid] = deque(lst)
+    head_bin = {aid: dq[0]          for aid, dq in by_aisle.items() if dq}
+    head_D   = {aid: D_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
+
+    for unit in sorted_units:
+        if not head_D:
+            result.append((unit, None))
+            continue
+        if aisle_selector is not None:
+            best_aid = aisle_selector(head_D, head_bin)
+        else:
+            best_aid = (min if minimize else max)(head_D, key=head_D.__getitem__)
+        chosen = head_bin[best_aid]
+
+        sku = unit.order.sku
+        f_s = freq_by_sku.get(sku, 0.0)
+        q_s = qty_by_sku.get(sku, 0.0)
+        if sku not in aisle_sku_sets[best_aid]:
+            ledger.add_sku(best_aid, sku, affinity._sku_to_idx.get(sku), demand=f_s * q_s)
+
+        # Advance the chosen aisle's head; drop it when exhausted.
+        dq = by_aisle[best_aid]
+        dq.popleft()
+        if dq:
+            head_bin[best_aid] = dq[0]
+            head_D[best_aid]   = D_of[id(dq[0])]
+        else:
+            del head_bin[best_aid]
+            del head_D[best_aid]
+
+        result.append((unit, chosen))
+
+    return result
+
+
 def _run(arm, bins, units, aff, orders, st, seed, use_pool):
     """Both paths over the SAME deep-copied state. The pool is driven through
     `pool.order(units)` — the impl's own sort — so only the CHOICE is under test."""
@@ -178,7 +307,8 @@ def _run(arm, bins, units, aff, orders, st, seed, use_pool):
         assert extra['minimize'], 'a maximising aisle_key has no oracle translation here'
         _kf = extra.pop('aisle_key')
         extra['aisle_selector'] = lambda hd, hb, _k=_kf: min(hd, key=lambda a: _k(a, hd))
-    got = af._ranked_assign_impl(units, lambda _u: list(bins), **common, **extra)
+    got = _oracle_ranked_assign_impl(units, lambda _u: list(bins),
+                                     **common, **extra)
     return got, None
 
 
