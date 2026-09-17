@@ -1,0 +1,169 @@
+# Architecture deepening -- the plan
+
+Label: wayfinder:plan
+Opened: 2026-09-16
+Tracker: `map.md` beside this file holds Destination / Decisions / Fog. This file holds the
+ordered work, what each step must produce before it counts as done, and the gates each asks for.
+
+---
+
+## What this plan is for
+
+Four explorers walked the ten-week hot spots and found the same shape sixteen times: **one fact
+declared in N places, with no module at the seam**. Two of those declarations have already drifted
+into live defects, and one of the two is read by a scoring expression in an arm that appears twice
+in the staged phase-2 campaign.
+
+The organizing decision is the run. A fresh campaign re-baselines every number, so the moment
+before a launch is the cheapest this repo will ever have to take a comparability break -- and the
+most expensive moment to churn the driver. So the split is sharp: **one correctness ticket before
+the launch, every structural ticket after it, in a HEAD copy.**
+
+---
+
+## Phase 0 -- baseline (before any edit)
+
+Not optional, and it is cheap. Four of the six surfaces this arc touches already carry a red
+architecture test that is not ours, and `Schema.profile_tree --check` is red on HEAD.
+
+1. Run all ten gates from `CLAUDE.md` §1 and record pass/fail per gate in §Progress. Do NOT trust
+   a green architecture tier without confirming `pyyaml` and `coverage` are installed -- without
+   pyyaml, 7 of 31 `Tests/architecture/*` files `importorskip` and vanish, and they are exactly
+   the sync gates.
+2. Record the three placement equivalence files' pass state (~4 s) as the pre-run baseline.
+3. Take a `git archive HEAD | tar -x` control copy for later diffing.
+
+**Exit:** a per-gate before table exists in §Progress, with the known-red ones named against their
+`.scratch/architecture-drift/` ticket.
+
+---
+
+## Phase 1 -- PRE-RUN, and nothing else (ticket 01)
+
+The only work that touches `develop` before the campaign launches.
+
+**Ticket 01** -- `_aisle_vol_sum` symmetric decrement + a non-vacuous test.
+
+**Exit:**
+- The decrement lands in `_drop_sku_from_aisle` AND its inline twin in `_reclaim_empty_bins`.
+- A test asserts the MAGNITUDE of the decrement, not merely that it moved, on both paths.
+- The three placement equivalence files are re-baselined, with the reason in the commit message:
+  they pin float-exact pool-vs-wave agreement, both halves shared the bug, correcting one breaks
+  the pin. This is a named break, not a regression.
+- Gate 10 (~20 s) green; `path_guard` and `docref_guard` green.
+- The commit says plainly which published results it invalidates: `rank_cartlabor` fulfillment
+  arms, bounded to aisles that crossed cart capacity.
+
+**Then the campaign launches.** Detached, no console, with a keep-awake -- Modern Standby logs
+506/507 and kills a run with STATUS_IN_PAGE_ERROR (memory `launch-long-drivers-detached`). Sizing
+is ~13 h at 4 workers, ~9 h at 6.
+
+---
+
+## Phase 2 -- the placement arc (tickets 02-05)
+
+First after the run, in the HEAD copy. `Warehouse/placement/` is the one surface with no red test
+standing over it and a 4-second equivalence suite, so this is where to build confidence. All four
+tickets touch `Assignment_Functions.py`; doing them as one pass means one re-run of the oracles
+instead of four.
+
+| Ticket | What |
+|---|---|
+| 02 | `AisleLedger` -- eleven dicts, one `add`/`drop` pair, `reconcile()` |
+| 03 | `PlacementPolicy` record; delete 3 dead registries, the `load_*` family and `lift_sum` |
+| 04 | Collapse the ranked `_impl` twins into drivers over the pools |
+| 05 | The cold-start tie-break quadratic (folded from `complexity-round/17`) |
+
+**Exit:** equivalence suite green and byte-identical for 02 and 04; `run_digest.py` proves DB-row
+neutrality where a ticket claims it (never PNGs -- memory `figures-are-not-byte-reproducible`);
+gates 1, 2, 7 and 10 green; `resolver_hints.yml` declares the `open_pool -> take` edge that 14 of
+17 arms actually take.
+
+---
+
+## Phase 3 -- the driver arc (tickets 06-08)
+
+`strategy_runner.py` carries drift ticket 02 (a hot path never observed executing). Attribute
+against the baseline, not the count.
+
+| Ticket | What |
+|---|---|
+| 06 | `ArmAssembly` + `BatchState` -- split `_build_leaf` where construction stops |
+| 07 | `CheckpointBuffer` -- the 13 lists, the channel table, `pending()` replaces `if pb:` |
+| 08 | `LeafScope` -- two adapters replace 28 ternaries and 8 domain-layer refusals |
+
+**Exit:** 06 lands first because 07 and 08 need somewhere to live. Gate 10 every commit; gate 2
+mandatory for any new import edge; `test_calltree_anchors.py` names the exact `SECTION_MAP` entry
+to fix when a hot-path symbol moves.
+
+---
+
+## Phase 4 -- config (tickets 09-10)
+
+| Ticket | What |
+|---|---|
+| 09 | The `Knob` registry -- one declaration, six derived loops |
+| 10 | Delete `GLOBAL_POLICIES` and its ten config sites |
+
+**Exit:** gate 4 if `SHAPE_SOURCES` moves; watch `.scratch/architecture-drift/issues/06` -- the
+hand-written-path ratchet has 11 recorded sites in `whatif_config.py` and this work should move the
+count DOWN, which it permits.
+
+---
+
+## Phase 5 -- persistence and the read side (tickets 11-15)
+
+`Picking_Data.py` carries drift ticket 07. Ticket 13 does not start until
+`.scratch/architecture-drift/issues/05` has an owner.
+
+| Ticket | What |
+|---|---|
+| 11 | One `Column` declaration per table; derive the other eight lists |
+| 12 | The `Frame` table -- one cache, one accessor, nine kinds |
+| 13 | One `ContractStore` behind the three copied shape stores |
+| 14 | A span's four spellings collapse into `SECTIONS` |
+| 15 | `state_at`'s four records become adapters; `Requires` gets enforced |
+
+**Exit:** every DDL change rides the schema pipeline (`--sync` before, `--accept` after); gates 4,
+5 and 6 as applicable; the `work_day` ratchet extends from 1 writer to 20 tables.
+
+---
+
+## Phase 6 -- the remainder (tickets 16-18)
+
+| Ticket | What |
+|---|---|
+| 16 | `put_seconds_at` -- one at-bin cost expression for the sim and the objective |
+| 17 | The put-away rung chain gets a seam |
+| 18 | Re-judge the two inventory mixins (blocked by 02) |
+
+**Exit:** 18 is allowed to end in "closed with a reason" and is marked as likely to.
+
+---
+
+## Progress
+
+| Phase | Ticket | Status | Commit | Note |
+|---|---|---|---|---|
+| 0 | baseline | not started | | |
+| 1 | 01 | not started | | PRE-RUN |
+| 2 | 02-05 | not started | | |
+| 3 | 06-08 | not started | | |
+| 4 | 09-10 | not started | | |
+| 5 | 11-15 | not started | | |
+| 6 | 16-18 | not started | | |
+
+### Gate baseline (fill in phase 0)
+
+| # | Gate | Before | After | Owner if red |
+|---|---|---|---|---|
+| 1 | `context/verify_context.py` | | | |
+| 2 | `context/arch/verify_architecture.py` | | | |
+| 3 | `context/arch/verify_site.py --fast` | | | |
+| 4 | `runschema.contract --check` | | | |
+| 5 | `runschema.preflight --check` | | | |
+| 6 | `Schema.profile_tree --check` | | | drift 04 -- red on HEAD |
+| 7 | `context/memory/verify_memory.py` | | | |
+| 8 | `path_guard.py --scan` | | | |
+| 9 | `docref_guard.py --scan` | | | |
+| 10 | calltree + digest surface (~20 s) | | | |
