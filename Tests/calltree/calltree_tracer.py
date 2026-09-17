@@ -68,14 +68,14 @@ SECTION_MAP: dict[str, str] = {
     'extract_task_stats'              : 't_extract',
     'extract_picker_events'           : 't_extract',
     'extract_picks'                   : 't_extract',
-    'save_batch_stats'                : 't_save',
-    'save_task_stats'                 : 't_save',
-    'save_picker_events'              : 't_save',
-    'save_picks'                      : 't_save',
-    'save_bin_placements'             : 't_save',
-    'save_bin_evictions'              : 't_save',
-    'save_aisle_metrics'              : 't_save',
-    'save_reorder_queue'              : 't_save',
+    # ONE ANCHOR FOR EIGHT.  Eight `save_<table>` names stood here and every one of them had
+    # zero production callers: the write path went through `save_checkpoint_bundle`, which was
+    # never anchored, so `t_save` read 0.000000 in EVERY archived capture.  Ticket 07 collapsed
+    # the writers into `CheckpointBuffer`, where `_write` is the one place a checkpoint row is
+    # inserted -- and `close()` runs it at every run end, so a capture that never reaches a
+    # checkpoint still measures the section.  `test_a_traced_arm_actually_spends_time_in_t_save`
+    # is the ratchet: a resolvable name was never evidence that anything calls it.
+    'CheckpointBuffer._write'         : 't_save',
     'save_worker_checkpoint'          : 't_save',
 }
 

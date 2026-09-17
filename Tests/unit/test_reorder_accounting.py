@@ -17,9 +17,8 @@ from Warehouse.catalog.Order import Order, StorageHandleConfig
 from Warehouse.catalog.Demand import Demand
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
-from Optimization.persistence.Picking_Data import (
-    BatchStats, init_run_db, save_batch_stats, load_batch_stats,
-)
+from Optimization.persistence.Picking_Data import BatchStats, init_run_db, load_batch_stats
+from Optimization.persistence.checkpoint_buffer import write_rows
 
 
 def _small_warehouse(seed=0):
@@ -82,7 +81,7 @@ def test_batch_stats_persists_reorder_counts(tmp_path):
     bs = BatchStats(run_id=1, batch_id=0, duration=100.0, num_tasks=3, total_items=50,
                     avg_concurrent_pickers=2.0, picking_pct=0.6, traveling_pct=0.4,
                     skus_reordered=7, units_ordered=123, reorder_placements=90)
-    save_batch_stats(db, 1, [bs])
+    write_rows(db, 1, batch_stats=[bs])
     got = load_batch_stats(db, 1)
     assert len(got) == 1
     assert got[0].skus_reordered == 7

@@ -722,8 +722,8 @@ def _we(batch_id, seq, role, qty, duration):
 
 def test_check_reads_the_four_sources_off_a_sim_db(tmp_path):
     from Optimization.persistence.Picking_Data import (
-        load_carryover, load_shift_days, load_work_hours, save_checkpoint_bundle,
-        save_shift_days)
+        load_carryover, load_shift_days, load_work_hours)
+    from Optimization.persistence.checkpoint_buffer import write_rows
     db, run_id = _fresh_db(tmp_path)
     # 50 units stocked out each day on a new SKU, re-offered and served the next day
     batches = [_bs(run_id, d, day=d, makespan=0.50 * 2 * S, items=950 + (50 if d else 0),
@@ -731,14 +731,14 @@ def test_check_reads_the_four_sources_off_a_sim_db(tmp_path):
     carry = [(d, 'unpicked_unstocked', 100 + d, 50) for d in range(3)]
     work = [_we(d, 2 * d, 'put', 4, 0.30 * S) for d in range(3)] + \
            [_we(d, 2 * d + 1, 'receive', 12, 0.20 * S) for d in range(3)]
-    save_checkpoint_bundle(db, run_id, batch_stats=batches, task_stats=[],
-                           picker_events=[], picks=[], bin_placements=[],
-                           bin_evictions=[], aisle_metrics=[], reorder_queue=[],
-                           work_events=work, carryover=carry,
-                           shift_days=[(0, S, S - 500, True, 0, 0, 0, 0, 0, 0, S - 500),
-                                       (1, 2 * S, 2 * S - 500, True, 0, 0, 0, 0, 0, 0,
-                                        2 * S - 500)])
-    save_shift_days(db, run_id, [(2, 3 * S, 3 * S, False, 9, 9, 0, 0, 0, 0, 3 * S + 40)])
+    write_rows(db, run_id, batch_stats=batches, task_stats=[],
+               picker_events=[], picks=[], bin_placements=[],
+               bin_evictions=[], aisle_metrics=[], reorder_queue=[],
+               work_events=work, carryover=carry,
+               shift_days=[(0, S, S - 500, True, 0, 0, 0, 0, 0, 0, S - 500),
+                           (1, 2 * S, 2 * S - 500, True, 0, 0, 0, 0, 0, 0,
+                            2 * S - 500)])
+    write_rows(db, run_id, shift_days=[(2, 3 * S, 3 * S, False, 9, 9, 0, 0, 0, 0, 3 * S + 40)])
     # the fold now carries units: Σ qty per (batch, role), the reference run's denominator
     rows = load_work_hours(db, run_id)
     assert {(r['role'], r['units']) for r in rows if r['batch_id'] == 0} == \

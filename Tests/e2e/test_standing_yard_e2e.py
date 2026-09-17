@@ -261,13 +261,18 @@ def test_the_split_run_differs_only_in_receive_labor_stamps(tmp_path, monkeypatc
 def test_the_trailers_still_standing_at_run_end_reach_the_file(tmp_path, monkeypatch):
     """The run-end flush fires even when the FINAL CHECKPOINT BLOCK does not.
 
-    This is the one path the two lockstep tests above cannot reach, and the reason it has
-    its own writer rather than riding `save_checkpoint_bundle`. The checkpoint cadence is
-    `max(1, n_batches // 10)`, so at these sizes it is **every batch** — which means the
-    accumulator is empty when the loop ends and the `if pb:` final flush is skipped
-    entirely. A censored tail written inside that block would be lost on every run whose
-    batch count divides evenly by its cadence, and those rows are exactly where an
-    adversarial ordering concentrates its overage.
+    This is the one path the two lockstep tests above cannot reach, and the reason the tail
+    needed its OWN writer for as long as the run-end flush was conditional. The checkpoint
+    cadence is `max(1, n_batches // 10)`, so at these sizes it is **every batch** — which
+    means the accumulator is empty when the loop ends, and under the old `if pb:` guard the
+    final flush was skipped entirely. A censored tail written inside that block would be lost
+    on every run whose batch count divides evenly by its cadence, and those rows are exactly
+    where an adversarial ordering concentrates its overage.
+
+    Ticket 07 moved the decision into `CheckpointBuffer.close`, which writes whether or not a
+    window is open, so the tail rides the buffer with everything else and there is no guard
+    left to sit outside. This test is what proves that from the OUTSIDE — it runs a real
+    standing yard and reads the file, rather than asserting on the shape of the source.
 
     One door and a short receiving day is what makes trailers stand: the crew cannot
     unload what arrives, so the yard is still occupied when the run stops.

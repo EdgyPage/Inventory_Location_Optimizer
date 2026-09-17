@@ -100,7 +100,6 @@ from Optimization.metrics.Simulation_Analytics import (
     fused_pre_snapshot, snapshot_aisle_metrics,
 )
 from Optimization.persistence.Picking_Data import (
-    save_shift_days, save_yard_trailers,
     save_bin_scores, save_sku_scores,
     create_run as _create_run, find_run as _find_run, init_run_db as _init_run_db,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,

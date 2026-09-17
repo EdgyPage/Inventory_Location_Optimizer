@@ -25,8 +25,9 @@ What a failure here means:
     `_fidf`; a column missing from either dict would make the clause read defaults on
     exactly the run it exists to flag (the trap ticket 24 fell into).  The last block forces
     a spill THROUGH those frames.
-  * **A bundle argument is accepted and never written.**  `save_checkpoint_bundle`'s
-    characteristic failure; the persistence block reads the FILE back.
+  * **A row is accepted and never written.**  `save_checkpoint_bundle`'s characteristic
+    failure, which `CheckpointBuffer` inherited the job of refusing (ticket 07); the
+    persistence block reads the FILE back either way.
 
 Run:  python -m pytest Tests/unit/test_free_index_by_bucket.py -q
 """
@@ -162,15 +163,15 @@ def _rows(batch, small, medium):
 
 
 def test_free_index_rows_ride_the_bundle_and_read_back_from_the_file(tmp_path):
-    from Optimization.persistence.Picking_Data import (
-        load_batch_stats, load_free_index, save_checkpoint_bundle)
+    from Optimization.persistence.Picking_Data import load_batch_stats, load_free_index
+    from Optimization.persistence.checkpoint_buffer import write_rows
     db, run_id = _fresh_db(tmp_path)
     assert load_free_index(db, run_id) == [], 'a fresh file has the table and no rows'
     bs = _bs(run_id, 0, day=0, makespan=S, items=100, demanded=100)
     bs.put_spills = 3
-    save_checkpoint_bundle(db, run_id, batch_stats=[bs], task_stats=[], picker_events=[],
-                           picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
-                           reorder_queue=[], free_index=_rows(0, 0, 40) + _rows(1, 2, 39))
+    write_rows(db, run_id, batch_stats=[bs], task_stats=[], picker_events=[],
+               picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
+               reorder_queue=[], free_index=_rows(0, 0, 40) + _rows(1, 2, 39))
     rows = load_free_index(db, run_id)
     assert [(r['batch_id'], r['size'], r['free']) for r in rows] == [
         (0, 'medium', 40), (0, 'small', 0), (1, 'medium', 39), (1, 'small', 2)]
@@ -180,10 +181,10 @@ def test_free_index_rows_ride_the_bundle_and_read_back_from_the_file(tmp_path):
 
 
 def test_the_tier_pair_round_trips_through_bin_placement(tmp_path):
-    from Optimization.persistence.Picking_Data import (
-        BinPlacementRecord, load_bin_placements, save_bin_placements)
+    from Optimization.persistence.Picking_Data import BinPlacementRecord, load_bin_placements
+    from Optimization.persistence.checkpoint_buffer import write_rows
     db, run_id = _fresh_db(tmp_path)
-    save_bin_placements(db, run_id, [
+    write_rows(db, run_id, bin_placements=[
         BinPlacementRecord(run_id, 0, 0, 1, 0, 0, 1, 6, 'reorder', unit_size='small',
                            bin_size='medium'),
         BinPlacementRecord(run_id, 0, 1, 1, 0, 1, 1, 7, 'reorder', bin_state='occupied',
@@ -205,18 +206,18 @@ def test_the_vintages_before_the_table_read_unknown_never_zero(tmp_path, vintage
     """
     from Optimization.persistence.Picking_Data import (
         PRE_FREE_INDEX_SIM_SCHEMA_ID, PRE_REWORK_SIM_SCHEMA_ID, BinPlacementRecord,
-        load_batch_stats, load_bin_placements, load_free_index, save_bin_placements,
-        save_checkpoint_bundle)
+        load_batch_stats, load_bin_placements, load_free_index)
+    from Optimization.persistence.checkpoint_buffer import write_rows
     from Schema import dataset
     db, run_id = _fresh_db(tmp_path)
     bs = _bs(run_id, 0, day=0, makespan=S, items=100, demanded=100)
     bs.put_spills, bs.free_bins, bs.put_topups = 3, 40, 2
-    save_checkpoint_bundle(db, run_id, batch_stats=[bs], task_stats=[], picker_events=[],
-                           picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
-                           reorder_queue=[], free_index=_rows(0, 0, 40))
-    save_bin_placements(db, run_id, [BinPlacementRecord(run_id, 0, 0, 1, 0, 0, 1, 6,
-                                                        'reorder', unit_size='small',
-                                                        bin_size='medium')])
+    write_rows(db, run_id, batch_stats=[bs], task_stats=[], picker_events=[],
+               picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
+               reorder_queue=[], free_index=_rows(0, 0, 40))
+    write_rows(db, run_id, bin_placements=[BinPlacementRecord(run_id, 0, 0, 1, 0, 0, 1, 6,
+                                                              'reorder', unit_size='small',
+                                                              bin_size='medium')])
     con = sqlite3.connect(db)
     con.execute('DROP TABLE free_index')
     # And the mirror case, which the paragraph above did not anticipate: a column REMOVED
@@ -422,16 +423,16 @@ def test_expectations_for_carries_the_setup_free_per_bucket_off_the_fielded_bloc
 
 
 def test_check_reads_the_free_index_off_a_sim_db_and_a_spill_fails_it(tmp_path):
-    from Optimization.persistence.Picking_Data import save_checkpoint_bundle, save_shift_days
+    from Optimization.persistence.checkpoint_buffer import write_rows
     db, run_id = _fresh_db(tmp_path)
     batches = [_bs(run_id, d, day=d, makespan=0.50 * 2 * S, items=1000, demanded=1000)
                for d in range(2)]
     batches[1].put_spills = 1
-    save_checkpoint_bundle(db, run_id, batch_stats=batches, task_stats=[], picker_events=[],
-                           picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
-                           reorder_queue=[], free_index=_rows(0, 3, 40) + _rows(1, 0, 40))
-    save_shift_days(db, run_id, [(0, S, S - 500, True, 0, 0, 0, 0, 0, 0, S - 500),
-                                 (1, 2 * S, 2 * S - 500, True, 0, 0, 0, 0, 0, 0, 2 * S - 500)])
+    write_rows(db, run_id, batch_stats=batches, task_stats=[], picker_events=[],
+               picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
+               reorder_queue=[], free_index=_rows(0, 3, 40) + _rows(1, 0, 40))
+    write_rows(db, run_id, shift_days=[(0, S, S - 500, True, 0, 0, 0, 0, 0, 0, S - 500),
+                                       (1, 2 * S, 2 * S - 500, True, 0, 0, 0, 0, 0, 0, 2 * S - 500)])
     v = eq.check(db, run_id, 0, 1, expectations=_exp(setup_free={A: 3, B: 40}))
     c = v.clauses['rework']
     assert not c.passed and A in c.reason and c.reading['buckets'][A]['dry_batches'] == [1]
@@ -560,17 +561,17 @@ class _Ctx:
 
 def test_a_forced_spill_fails_the_clause_through_the_audits_call_site(tmp_path):
     from Optimization.Performance_Evaluations.common.frames import _sdf
-    from Optimization.persistence.Picking_Data import (
-        load_shift_days, save_checkpoint_bundle, save_shift_days)
+    from Optimization.persistence.Picking_Data import load_shift_days
+    from Optimization.persistence.checkpoint_buffer import write_rows
     db, run_id = _fresh_db(tmp_path)
     batches = [_bs(run_id, d, day=d, makespan=0.50 * 2 * S, items=1000, demanded=1000)
                for d in range(2)]
     batches[1].put_spills = 1
-    save_checkpoint_bundle(db, run_id, batch_stats=batches, task_stats=[], picker_events=[],
-                           picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
-                           reorder_queue=[], free_index=_rows(0, 3, 40) + _rows(1, 0, 40))
-    save_shift_days(db, run_id, [(0, S, S - 500, True, 0, 0, 0, 0, 0, 0, S - 500),
-                                 (1, 2 * S, 2 * S - 500, True, 0, 0, 0, 0, 0, 0, 2 * S - 500)])
+    write_rows(db, run_id, batch_stats=batches, task_stats=[], picker_events=[],
+               picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
+               reorder_queue=[], free_index=_rows(0, 3, 40) + _rows(1, 0, 40))
+    write_rows(db, run_id, shift_days=[(0, S, S - 500, True, 0, 0, 0, 0, 0, 0, S - 500),
+                                       (1, 2 * S, 2 * S - 500, True, 0, 0, 0, 0, 0, 0, 2 * S - 500)])
     ctx = _Ctx(db, run_id)
     exp = _exp(setup_free={A: 3, B: 40})
     sdf = _sdf(load_shift_days(db, run_id), ctx.batch_df('fifo'), ctx.work_df('fifo'), exp)

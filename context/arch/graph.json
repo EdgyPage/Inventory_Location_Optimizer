@@ -8561,49 +8561,9 @@
       "src": "Optimization/persistence/Picking_Data.py::load_yard_trailers"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_aisle_metrics"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_aisle_metrics"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_batch_stats",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_batch_stats"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_batch_stats"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_evictions",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_bin_evictions"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_bin_evictions"
-    },
-    {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_bin_keyframe"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_placements",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_bin_placements"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_bin_placements"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -8611,199 +8571,9 @@
       "src": "Optimization/persistence/Picking_Data.py::save_bin_scores"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_carryover",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_carryover"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_carryover"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_batch_stats",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_evictions",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_placements",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_carryover",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_free_index",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_picker_events",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_picks",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_put_queue_state",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_reorder_queue",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_shift_days",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_task_stats",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_work_events",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_yard_drains",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_yard_trailers",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_picker_events",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_picker_events"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_picker_events"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_picks",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_picks"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_picks"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_put_queue_state",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_put_queue_state"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_put_queue_state"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_reorder_queue",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_reorder_queue"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_reorder_queue"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_shift_days",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_shift_days"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_shift_days"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_site_receiving",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_site_inbound"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_yard_drains",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_site_inbound"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_yard_trailers",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_site_inbound"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_site_inbound"
-    },
-    {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::save_sku_scores"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_task_stats",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_task_stats"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_task_stats"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_work_events",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_work_events"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_work_events"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_insert_yard_trailers",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_yard_trailers"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
-      "kind": "calls",
-      "src": "Optimization/persistence/Picking_Data.py::save_yard_trailers"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::declared_sim_schema_shape",
@@ -9034,6 +8804,11 @@
       "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.pending",
       "kind": "calls",
       "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.flush"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::write_rows"
     },
     {
       "dst": "Schema/compat.py",
@@ -13966,16 +13741,6 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
-      "dst": "Optimization/simconfig/equilibrium.py::is_drained",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out"
-    },
-    {
-      "dst": "Warehouse/kernel/timeline.py::shift_end",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out"
-    },
-    {
       "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.__init__"
@@ -14301,6 +14066,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_shift_close_out",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::save_worker_checkpoint",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
@@ -14367,6 +14137,11 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_keyframe",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_shift_close_out",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
     },
@@ -14554,6 +14329,16 @@
       "dst": "Optimization/simdriver/strategy_runner.py::_check_site_crews",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Optimization/simconfig/equilibrium.py::is_drained",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_shift_close_out"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::shift_end",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_shift_close_out"
     },
     {
       "dst": "Inbound/unload.py::UnloadCost.from_putaway",
@@ -33194,42 +32979,10 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_aisle_metrics",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_aisle_metrics",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_batch_stats",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_batch_stats",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_bin_evictions",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_bin_evictions",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::save_bin_keyframe",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_bin_keyframe",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_bin_placements",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_bin_placements",
       "public": true
     },
     {
@@ -33242,98 +32995,10 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_carryover",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_carryover",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_checkpoint_bundle",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_picker_events",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_picker_events",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_picks",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_picks",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_put_queue_state",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_put_queue_state",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_reorder_queue",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_reorder_queue",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_shift_days",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_shift_days",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_site_inbound",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_site_inbound",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::save_sku_scores",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "save_sku_scores",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_task_stats",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_task_stats",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_work_events",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_work_events",
-      "public": true
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::save_yard_trailers",
-      "kind": "function",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "save_yard_trailers",
       "public": true
     },
     {
@@ -33583,6 +33248,14 @@
       "module": "Optimization/persistence/checkpoint_buffer.py",
       "name": "__all__",
       "public": false
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::write_rows",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "write_rows",
+      "public": true
     },
     {
       "file": "Optimization/persistence/runtime_metrics.py",
@@ -38442,14 +38115,6 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out",
-      "kind": "function",
-      "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "shift_close_out",
-      "public": true
-    },
-    {
-      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_CKPT_REPLACE_ATTEMPTS",
       "kind": "const",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -38798,6 +38463,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_run_strategy_worker_impl",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_shift_close_out",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_shift_close_out",
       "public": false
     },
     {

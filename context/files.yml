@@ -1019,33 +1019,18 @@ files:
       - {name: "keyframe_db_path", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "init_keyframe_db", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_bin_keyframe", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_batch_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_batch_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_reorder_queue", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_put_queue_state", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_carryover", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_reorder_queue", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_bin_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "save_sku_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_sku_scores", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_task_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_task_stats", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_work_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_picker_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_picks", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_picker_events", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_inventory", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_aisle_metrics", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_aisle_metrics", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "BinPlacementRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "BinEvictionRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
-      - {name: "save_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_bin_evictions", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_shift_days", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_yard_trailers", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_site_inbound", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
-      - {name: "save_checkpoint_bundle", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_free_index", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_bin_placements", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "load_carryover", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -1074,6 +1059,7 @@ files:
     layer: "opt_persistence"
     key_symbols:
       - {name: "CheckpointBuffer", file: "Optimization/persistence/checkpoint_buffer.py", kind: "class"}
+      - {name: "write_rows", file: "Optimization/persistence/checkpoint_buffer.py", kind: "function"}
     notes: ""
   "Optimization/persistence/runtime_metrics.py":
     purpose: "Per-arm RUNTIME (compute-cost) capture written parent-side \u2014 record_arm inserts one row per arm (section totals + warehouse identity) into <run_root>/runtime_metrics.db so the runtime graphs can rank slowest arms and show where the compute time goes."
@@ -2339,6 +2325,7 @@ files:
       - {name: "test_the_scenario_samples_with_the_era_not_the_frozen_default", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_the_sampler_can_still_be_pinned_for_an_archived_comparison", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_switching_the_scenario_sampler_moves_no_measurement_at_fixture_scale", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_a_traced_arm_actually_spends_time_in_t_save", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_calltree_smoke.py":
     purpose: "the measurement framework measures what it claims to."
@@ -5505,6 +5492,11 @@ files:
       - {name: "test_the_wrong_order_would_be_visible", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
       - {name: "test_it_is_slotted_so_a_typo_cannot_shadow_a_field", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
       - {name: "test_it_survives_the_worker_process_boundary", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_the_ledger_snapshot_is_the_close_outs_parameter_order", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_a_quiet_day_drains_and_a_standing_queue_caps_it", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_the_supply_carry_is_not_labour_and_does_not_cap_the_day", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_overtime_caps_a_day_with_nothing_standing", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
+      - {name: "test_the_final_day_closes_the_same_way_as_a_boundary", file: "Tests/unit/test_shift_ledger.py", kind: "function"}
     notes: ""
   "Tests/unit/test_sim_schema_id.py":
     purpose: "the sim DB's derived schema identity."

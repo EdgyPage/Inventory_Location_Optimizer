@@ -28,8 +28,8 @@ identical packs made check 6 green however the price had been computed.
      once — and it is caught only because the two channels' recorded PICK constants still
      differ and a positive linear map cannot send two different inputs to one output.
 
-The DBs are real — `init_run_db` / `create_run` / `save_work_events` / `save_sku_scores` /
-`save_site_inbound` under `tmp_path` — because the whole point of this tool is that it reads
+The DBs are real — `init_run_db` / `create_run`, then rows down `write_rows`' channels
+(`work_events`, the site set) under `tmp_path` — because the whole point of this tool is that it reads
 a FILE back.  The numbers are the archive's: store prices at C = 7.6 s and fulfillment at
 C = 5.1 s (site-dock 17 derived both independently from each channel's own pick config), and
 the two pick intercepts are 15 s and 10 s.
@@ -47,6 +47,7 @@ import pytest
 from Diagnostics import receiving_report as rr
 from Optimization.persistence import Picking_Data as pdata
 from Optimization.runschema.resolver import RunTree
+from Optimization.persistence.checkpoint_buffer import SITE_CHANNELS, write_rows
 
 # ── the pair, in numbers ──────────────────────────────────────────────────────────
 #: Each channel's unload constant `C = per_item + intercept`, in seconds.  MEASURED values
@@ -122,7 +123,7 @@ def _leaf_db(tmp_path, channel: str, *, put_uids=_PUT_UIDS, recv_uids=_RECV_UIDS
         events.append(_work_event(b, seq, recv_uids[i % len(recv_uids)], 'receive',
                                   'receive', sku=sku, qty=qty, duration=dur)); seq += 1
     events.extend(extra_events)
-    pdata.save_work_events(path, run_id, events)
+    write_rows(path, run_id, work_events=events)
 
     # The leaf's OWN per-batch share, so the per-leaf checks 1 and 2 pass on this fixture
     # too. They are what `main` runs first, and a fixture whose leaves were individually
@@ -131,7 +132,7 @@ def _leaf_db(tmp_path, channel: str, *, put_uids=_PUT_UIDS, recv_uids=_RECV_UIDS
     for b, _sku, _qty, dur in (_unload_rows(channel) if rows is None else rows):
         n, s = recv.get(b, (0, 0.0))
         recv[b] = (n + 1, s + dur)
-    pdata.save_batch_stats(path, run_id, [pdata.BatchStats(
+    write_rows(path, run_id, batch_stats=[pdata.BatchStats(
         run_id=run_id, batch_id=b, duration=100.0, num_tasks=1, total_items=1,
         avg_concurrent_pickers=1.0, picking_pct=0.5, traveling_pct=0.5, work_day=b,
         recv_unloaded=recv.get(b, (0, 0.0))[0],
@@ -155,8 +156,8 @@ def _site_db(tmp_path, *, totals=None, write_table=True) -> str:
             secs = sum(d for ch in _C for bb, _s, _q, d in _unload_rows(ch) if bb == b)
             n = sum(1 for ch in _C for bb, _s, _q, _d in _unload_rows(ch) if bb == b)
             totals.append((b, 0, n, 0, secs))
-    pdata.save_site_inbound(path, run_id, yard_trailers=[], yard_drains=[(0, 1, 1, 0, 0)],
-                            site_receiving=totals)
+    write_rows(path, run_id, channels=SITE_CHANNELS, yard_trailers=[], yard_drains=[(0, 1, 1, 0, 0)],
+               site_receiving=totals)
     if not write_table:
         con = sqlite3.connect(path)
         try:
@@ -674,9 +675,9 @@ def test_a_one_unload_loss_on_a_huge_arm_still_fails_check_one(tmp_path):
         pdata.init_run_db(path)
         rid = pdata.create_run(path, 'comparison', {})
         total = 4_177_040.9
-        pdata.save_work_events(path, rid, [
+        write_rows(path, rid, work_events=[
             _work_event(0, 0, 7, 'receive', 'receive', sku=1, qty=1, duration=total)])
-        pdata.save_batch_stats(path, rid, [pdata.BatchStats(
+        write_rows(path, rid, batch_stats=[pdata.BatchStats(
             run_id=rid, batch_id=0, duration=1.0, num_tasks=1, total_items=1,
             avg_concurrent_pickers=1.0, picking_pct=0.5, traveling_pct=0.5,
             recv_unloaded=1, recv_seconds=total + drift)])

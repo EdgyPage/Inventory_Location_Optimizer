@@ -22,9 +22,9 @@ import tempfile
 import pytest
 
 from Optimization.persistence.Picking_Data import (
-    create_run, init_keyframe_db, init_run_db, keyframe_db_path,
-    save_batch_stats, save_bin_keyframe, save_picks, BatchStats, PickRecord,
-)
+    create_run, init_keyframe_db, init_run_db, keyframe_db_path, save_bin_keyframe, BatchStats,
+    PickRecord)
+from Optimization.persistence.checkpoint_buffer import write_rows
 from Optimization.persistence.Warehouse_Data import init_warehouse_db, save_aisle_layout
 from Visualization.cache_schema import CACHE_VERSION, TABLES
 from Visualization.db_reader import RunRef
@@ -69,12 +69,12 @@ def arm(tmp_path):
                         identity=dict(strategy_key='uni_fifo_norsl', pair_label='pairA',
                                       config_label='store', channel='store',
                                       warehouse_fingerprint='fp0'))
-    save_batch_stats(sim, run_id, [
+    write_rows(sim, run_id, batch_stats=[
         BatchStats(run_id=run_id, batch_id=b, duration=10.0 + b, num_tasks=1, total_items=2,
                    avg_concurrent_pickers=1.0, picking_pct=0.5, traveling_pct=0.5,
                    reorder_placements=3 if b else 0)
         for b in range(N_BATCHES)])
-    save_picks(sim, run_id, [
+    write_rows(sim, run_id, picks=[
         PickRecord(run_id=run_id, batch_id=b, picker_id=0, sim_time=1.0 + b,
                    aisle_id=1, bayX=1, bayY=1, sku=10 if b < 4 else 11, quantity=1)
         for b in range(N_BATCHES)])
@@ -243,9 +243,9 @@ def test_a_stale_cache_is_not_used_or_advertised(arm):
     assert reader.cache_status() == 'fresh'
     assert 'viz_cache' in reader.capabilities()
 
-    save_picks(arm.sim_db, arm.run_id, [                     # the sim DB grows -> cache is stale
-        PickRecord(run_id=arm.run_id, batch_id=5, picker_id=0, sim_time=9.0,
-                   aisle_id=1, bayX=1, bayY=2, sku=12, quantity=1)])
+    write_rows(arm.sim_db, arm.run_id, picks=[                     # the sim DB grows -> cache is stale
+                                              PickRecord(run_id=arm.run_id, batch_id=5, picker_id=0, sim_time=9.0,
+                                                         aisle_id=1, bayX=1, bayY=2, sku=12, quantity=1)])
 
     assert reader.cache_status() == 'stale'
     assert 'viz_cache' not in reader.capabilities(), 'a stale cache is a hazard, not a capability'
@@ -286,7 +286,7 @@ def test_cache_state_transitions(arm):
 def test_a_changed_source_makes_the_cache_stale(arm):
     build_one(arm)
     assert cache_state(arm) == 'fresh'
-    save_picks(arm.sim_db, arm.run_id, [
+    write_rows(arm.sim_db, arm.run_id, picks=[
         PickRecord(run_id=arm.run_id, batch_id=5, picker_id=0, sim_time=9.0,
                    aisle_id=1, bayX=1, bayY=2, sku=12, quantity=1)])
     assert cache_state(arm) == 'stale', 'a grown sim DB must invalidate the cache'

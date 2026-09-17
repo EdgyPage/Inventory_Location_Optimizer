@@ -25,6 +25,7 @@ import sqlite3
 import pytest
 
 from Optimization.persistence import Picking_Data as pd
+from Optimization.persistence.checkpoint_buffer import write_rows
 
 _RECV = ('recv_depth', 'recv_unloaded', 'recv_cut', 'recv_seconds')
 
@@ -78,7 +79,7 @@ def test_real_values_survive_write_and_read(db):
     """THE regression. Non-zero on purpose: zeros would pass against a reader that never
     selects the column at all."""
     path, run_id = db
-    pd.save_batch_stats(path, run_id, [
+    write_rows(path, run_id, batch_stats=[
         _row(0, recv_depth=12, recv_unloaded=37, recv_cut=5, recv_seconds=418.75),
         _row(1, recv_depth=0, recv_unloaded=44, recv_cut=0, recv_seconds=502.5),
     ])
@@ -95,7 +96,7 @@ def test_a_zero_is_recorded_rather_than_omitted(db):
     """A run with no receiving crew must write four zeros, and they must read back as zeros
     — not as NULL, and not as a missing column that a consumer then has to guess about."""
     path, run_id = db
-    pd.save_batch_stats(path, run_id, [_row(0)])
+    write_rows(path, run_id, batch_stats=[_row(0)])
     con = sqlite3.connect(path)
     try:
         con.row_factory = sqlite3.Row
@@ -110,7 +111,7 @@ def test_a_zero_is_recorded_rather_than_omitted(db):
 def test_the_pre_existing_columns_are_untouched(db):
     """The four are additive. Every column that existed before must hold what it held."""
     path, run_id = db
-    pd.save_batch_stats(path, run_id, [
+    write_rows(path, run_id, batch_stats=[
         _row(0, queue_depth=9, items_demanded=55, work_day=3, released_late=41.5,
              recv_depth=12, recv_seconds=418.75)])
     got = pd.load_batch_stats(path, run_id)[0]

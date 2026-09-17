@@ -14,7 +14,7 @@ reader — the `log.info(...)` f-string at the checkpoint — and by nothing els
     avg_dur   = dur_sum_ckpt / dur_count_ckpt ...   -> only the log line
     reorders_ckpt / units_ordered_ckpt / placed_ckpt -> only the log line
 
-None reaches `save_checkpoint_bundle`, the result dict, `runtime_metrics`, or any DB. They
+None reaches the checkpoint buffer, the result dict, `runtime_metrics`, or any DB. They
 are not simulation numbers, so this refactor cannot move one — a stronger guarantee than
 `SectionTimers`, whose totals do land in `runtime_metrics` columns.
 
@@ -183,7 +183,10 @@ def test_no_window_value_is_persisted_anywhere():
         assert old not in src, f'{old} is back as a loose closure variable'
 
     # the window must not be handed to any writer
-    for writer in ('save_checkpoint_bundle(', 'save_worker_checkpoint(', 'record_arm('):
+    # `save_checkpoint_bundle(` stood here until ticket 07 deleted it, at which point this
+    # loop silently stopped checking one of its three writers -- a name that can no longer
+    # appear passes by never matching. The buffer's two write calls replace it.
+    for writer in ('buf.flush(', 'buf.close(', 'save_worker_checkpoint(', 'record_arm('):
         for line in src.split('\n'):
             if writer in line:
                 assert 'ckpt_win' not in line, (

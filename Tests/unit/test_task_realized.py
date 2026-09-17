@@ -125,9 +125,8 @@ def test_realized_never_exceeds_planned():
 
 
 def test_the_columns_round_trip(tmp_path):
-    from Optimization.persistence.Picking_Data import (
-        TaskStats, create_run, init_run_db, save_task_stats,
-    )
+    from Optimization.persistence.Picking_Data import TaskStats, create_run, init_run_db
+    from Optimization.persistence.checkpoint_buffer import write_rows
     import sqlite3
     path = str(tmp_path / 'sim_ts.db')
     init_run_db(path)
@@ -136,7 +135,7 @@ def test_the_columns_round_trip(tmp_path):
                   task_end_time=10.0, duration=10.0, W=1.0, lift_sum=0.0,
                   num_bins_visited=9, total_items=40)
     r.items_realized, r.bins_realized = 13, 3
-    save_task_stats(path, rid, [r])
+    write_rows(path, rid, task_stats=[r])
     con = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
     try:
         got = con.execute('SELECT total_items, items_realized, num_bins_visited, '

@@ -38,8 +38,9 @@ five, and each one is a different kind of silent failure:
     path nothing produces, or produces output nothing declares — a preflight violation
     either way.
 
-The DBs are real: `init_run_db` / `create_run` / `save_batch_stats` for the two leaves and
-`save_site_inbound` for the `_site/` DB, all under `tmp_path`.  Nothing here is random and
+The DBs are real: `init_run_db` / `create_run`, then `write_rows` down the `batch_stats`
+channel for the two leaves and down `SITE_CHANNELS` for the `_site/` DB, all under
+`tmp_path`.  Nothing here is random and
 nothing is timed; the fixtures are three batches per leaf, which is what keeps a file that
 opens five SQLite databases a unit test.
 
@@ -61,6 +62,7 @@ from Optimization.persistence import Picking_Data as pdata
 from Optimization.runschema import contract as _contract
 from Optimization.runschema import schema as _schema
 from Optimization.runschema.resolver import RunTree
+from Optimization.persistence.checkpoint_buffer import SITE_CHANNELS, write_rows
 
 #: Floats (spans, seconds) compare with a tolerance, never `==`.
 _TOL = 1e-6
@@ -106,7 +108,7 @@ def _leaf_db(tmp_path, channel: str) -> tuple[str, int]:
     path = str(tmp_path / f'sim_{channel}.db')
     pdata.init_run_db(path)
     run_id = pdata.create_run(path, 'comparison', {})
-    pdata.save_batch_stats(path, run_id, [
+    write_rows(path, run_id, batch_stats=[
         _batch(i, start, dur, recv) for i, (start, dur, recv) in enumerate(_LEAVES[channel])
     ])
     return path, run_id
@@ -115,16 +117,16 @@ def _leaf_db(tmp_path, channel: str) -> tuple[str, int]:
 def _site_db(tmp_path) -> tuple[str, int]:
     """The `_site/` inbound DB: a sim DB carrying only the two yard tables.
 
-    Real rows, through `save_site_inbound`, because the context VERIFIES this file's schema
+    Real rows, through the site channel set, because the context VERIFIES this file's schema
     identity before a single frame is read — an empty file would fail there rather than
     where a reader would look.
     """
     path = str(tmp_path / f'inbound_{_ARM_PAIR}.db')
     pdata.init_run_db(path)
     run_id = pdata.create_run(path, 'comparison', {})
-    pdata.save_site_inbound(
+    write_rows(
         path, run_id,
-        yard_trailers=[(0, 0.0, 10.0, 900.0, 'done'), (1, 1000.0, 1010.0, None, 'standing')],
+        channels=SITE_CHANNELS, yard_trailers=[(0, 0.0, 10.0, 900.0, 'done'), (1, 1000.0, 1010.0, None, 'standing')],
         yard_drains=[(0, 2, 4, 1, 12), (1, 1, 4, 0, 0), (2, 0, 4, 0, 0)])
     return path, run_id
 
@@ -421,7 +423,7 @@ def _two_leaf_tree(tmp_path, *, coupled: bool = True):
         db = str(leaf / f'sim_{arm}.db')
         pdata.init_run_db(db)
         run_id = pdata.create_run(db, 'comparison', {}, identity={'strategy_key': arm})
-        pdata.save_batch_stats(db, run_id, [
+        write_rows(db, run_id, batch_stats=[
             _batch(i, start, dur, recv)
             for i, (start, dur, recv) in enumerate(_LEAVES[channel])])
         (leaf / 'sim_meta.json').write_text(json.dumps({
@@ -437,9 +439,9 @@ def _two_leaf_tree(tmp_path, *, coupled: bool = True):
     site_db = str(site_dir / f'inbound_{pair_stem}.db')
     pdata.init_run_db(site_db)
     site_run = pdata.create_run(site_db, 'site', {}, identity={'strategy_key': pair_stem})
-    pdata.save_site_inbound(site_db, site_run,
-                            yard_trailers=[(0, 0.0, 10.0, 900.0, 'done')],
-                            yard_drains=[(0, 2, 4, 1, 12)])
+    write_rows(site_db, site_run,
+               channels=SITE_CHANNELS, yard_trailers=[(0, 0.0, 10.0, 900.0, 'done')],
+               yard_drains=[(0, 2, 4, 1, 12)])
     # `channels` is the DECLARED channel order and `write_run_layout` writes it on every
     # run: it is the order `workunits._site_db_path` builds the arm-pair stem in, and the
     # stage resolves the two halves positionally against it (site-dock 25). A fixture that

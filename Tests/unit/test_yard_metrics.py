@@ -40,6 +40,7 @@ from Warehouse.layout.Aisle_Dimensions import aisle_height_for, aisle_width_for
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Warehouse_Builder import (
     AisleConfig, Warehouse_Builder, WarehouseConfig)
+from Optimization.persistence.checkpoint_buffer import write_rows
 
 DAY = float(SECONDS_PER_DAY)
 
@@ -238,7 +239,7 @@ def test_the_bundle_writes_both_yard_tables_and_reads_them_back(tmp_path):
     failure — `work_events` was one over 68 databases holding zero rows.  So the file is
     read back, through the same named queries the analysis uses."""
     path, run_id = _fresh_db(tmp_path)
-    PD.save_checkpoint_bundle(
+    write_rows(
         path, run_id,
         batch_stats=[], task_stats=[], picker_events=[], picks=[],
         bin_placements=[], bin_evictions=[], aisle_metrics=[], reorder_queue=[],
@@ -262,8 +263,8 @@ def test_a_standing_trailer_later_emptied_corrects_its_own_row(tmp_path):
     that arm's whole fee.
     """
     path, run_id = _fresh_db(tmp_path)
-    PD.save_yard_trailers(path, run_id, [(3, 100.0, 200.0, None, STANDING)])
-    PD.save_yard_trailers(path, run_id, [(3, 100.0, 200.0, 800.0, DONE)])
+    write_rows(path, run_id, yard_trailers=[(3, 100.0, 200.0, None, STANDING)])
+    write_rows(path, run_id, yard_trailers=[(3, 100.0, 200.0, 800.0, DONE)])
     (row,) = PD.load_yard_trailers(path, run_id)
     assert row['status'] == DONE and row['emptied_s'] == 800.0
 

@@ -36,14 +36,7 @@ _SECTION_MAP_HOME = {
     'extract_task_stats'              : 'Optimization.metrics.Simulation_Analytics',
     'extract_picker_events'           : 'Optimization.metrics.Simulation_Analytics',
     'extract_picks'                   : 'Optimization.metrics.Simulation_Analytics',
-    'save_batch_stats'                : 'Optimization.persistence.Picking_Data',
-    'save_task_stats'                 : 'Optimization.persistence.Picking_Data',
-    'save_picker_events'              : 'Optimization.persistence.Picking_Data',
-    'save_picks'                      : 'Optimization.persistence.Picking_Data',
-    'save_bin_placements'             : 'Optimization.persistence.Picking_Data',
-    'save_bin_evictions'              : 'Optimization.persistence.Picking_Data',
-    'save_aisle_metrics'              : 'Optimization.persistence.Picking_Data',
-    'save_reorder_queue'              : 'Optimization.persistence.Picking_Data',
+    'CheckpointBuffer._write'         : 'Optimization.persistence.checkpoint_buffer',
     'save_worker_checkpoint'          : 'Optimization.simdriver.strategy_runner',
 }
 
@@ -130,7 +123,11 @@ def test_section_map_symbols_resolve():
     # NON-VACUITY: the two maps must cover each other exactly, and be non-trivial.
     assert set(_SECTION_MAP_HOME) == set(ct.SECTION_MAP), \
         'SECTION_MAP and its home table diverged — update both together'
-    assert len(ct.SECTION_MAP) >= 15
+    # 14, not the 21 this floor was written against: ticket 07 collapsed eight `t_save`
+    # anchors into one (`CheckpointBuffer._write`) because it collapsed eight writers into
+    # one insert site. A floor still ratchets -- the map cannot be quietly emptied -- but it
+    # is a floor on the TABLE, and the table shrank because the code did.
+    assert len(ct.SECTION_MAP) >= 14
 
     for qualname, module_name in _SECTION_MAP_HOME.items():
         mod = importlib.import_module(module_name)
@@ -447,3 +444,45 @@ def test_switching_the_scenario_sampler_moves_no_measurement_at_fixture_scale():
             f'sequence and downstream task building reads it')
 
     assert drew > 0, 'no SKUs drawn at all, so the comparison above was between empty batches'
+
+
+# ── a resolvable name is not a called one ─────────────────────────────────────────
+
+def test_a_traced_arm_actually_spends_time_in_t_save():
+    """THE GAP THIS FILE HAD, and it hid a dead section for over a month.
+
+    Every test above asks whether an anchor RESOLVES. All of them resolved, and `t_save` still
+    read **0.000000 in every archived capture** -- because its eight `save_<table>` anchors had
+    zero production callers (the write path was `save_checkpoint_bundle`, never anchored) and
+    its ninth only fires at a checkpoint boundary a short capture never reaches. Memory
+    `symbol-table-relationship-not-verified-by-symbols`: a gate that resolves NAMES cannot
+    catch a wrong RELATIONSHIP, and the fix shape is to exercise it and assert it produced
+    something.
+
+    So this one WRITES, through the production path, and asserts the section moved.
+    """
+    import os
+    import tempfile
+
+    from Optimization.persistence.Picking_Data import BatchStats, create_run, init_run_db
+    from Optimization.persistence.checkpoint_buffer import CheckpointBuffer
+
+    path = os.path.join(tempfile.mkdtemp(), 'sim.db')
+    init_run_db(path)
+    rid = create_run(path, 'uni_fifo_norsl')
+
+    tracer = ct.CallTreeTracer()
+    tracer.start()
+    try:
+        buf = CheckpointBuffer()
+        buf.append('batch_stats', BatchStats(
+            run_id=rid, batch_id=1, duration=1.0, num_tasks=1, total_items=2,
+            avg_concurrent_pickers=1.0, picking_pct=0.5, traveling_pct=0.5))
+        buf.close(path, rid)
+    finally:
+        tracer.stop()
+
+    got = ct.attribute_sections(tracer.tree())
+    assert got.get('t_save', 0.0) > 0.0, (
+        't_save is still 0.0 after a real checkpoint write -- the anchor does not name '
+        'anything the write path calls, which is exactly how it read zero for a month')

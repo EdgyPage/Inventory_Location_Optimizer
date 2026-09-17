@@ -10,10 +10,12 @@ Two new surfaces, both per batch:
                      refused floor space" are different problems with different fixes, and a
                      single carried-over count cannot tell them apart.
 
-THIS FILE RUNS THE ACTUAL WRITER AND READS THE FILE BACK, because a bundle argument that is
-accepted and never inserted is `save_checkpoint_bundle`'s characteristic failure: `work_events`
-was one, and the reconciliation meant to catch it passed over 68 databases holding zero rows.
-An in-memory check of the accumulator lists would repeat that exactly.
+THIS FILE RUNS THE ACTUAL WRITER AND READS THE FILE BACK, because a row accepted and never
+inserted was `save_checkpoint_bundle`'s characteristic failure: `work_events` was one, and the
+reconciliation meant to catch it passed over 68 databases holding zero rows. An in-memory check
+of the accumulator lists would repeat that exactly. (`CheckpointBuffer` replaced the bundle in
+ticket 07 and cannot accept a channel it does not insert — but "cannot" is a claim about the
+channel table, and this file's claim is about the FILE.)
 
 Run:  python -m pytest Tests/integration/test_queue_state_and_carryover.py -q
 """
@@ -23,9 +25,8 @@ import sqlite3
 
 import pytest
 
-from Optimization.persistence.Picking_Data import (
-    create_run, init_run_db, save_carryover, save_checkpoint_bundle, save_put_queue_state,
-)
+from Optimization.persistence.Picking_Data import create_run, init_run_db
+from Optimization.persistence.checkpoint_buffer import write_rows
 
 
 @pytest.fixture
@@ -60,7 +61,7 @@ CARRY = [(0, 'unplaced', 101, 8), (0, 'held', 101, 14), (0, 'held', 102, 3),
 
 def test_queue_state_round_trips(db):
     path, rid = db
-    save_put_queue_state(path, rid, STATE)
+    write_rows(path, rid, put_queue_state=STATE)
     got = _rows(path, 'SELECT * FROM put_queue_state WHERE run_id=? '
                       'ORDER BY batch_id, queue', (rid,))
     assert len(got) == 3
@@ -73,7 +74,7 @@ def test_queue_state_round_trips(db):
 
 def test_carryover_round_trips_with_its_reason(db):
     path, rid = db
-    save_carryover(path, rid, CARRY)
+    write_rows(path, rid, carryover=CARRY)
     got = _rows(path, 'SELECT reason, sku, qty FROM carryover WHERE run_id=? AND batch_id=0 '
                       'ORDER BY reason, sku', (rid,))
     assert got == [{'reason': 'held', 'sku': 101, 'qty': 14},
@@ -87,7 +88,7 @@ def test_a_zero_blocked_count_is_recorded_rather_than_omitted(db):
     """Absence and zero are different claims. A queue that recorded nothing might not have
     been sampled; a queue that recorded 0 was sampled and refused nothing."""
     path, rid = db
-    save_put_queue_state(path, rid, STATE)
+    write_rows(path, rid, put_queue_state=STATE)
     cart = _rows(path, "SELECT blocked FROM put_queue_state WHERE run_id=? AND "
                        "queue='store_cart' AND batch_id=0", (rid,))
     assert cart == [{'blocked': 0}]
@@ -99,7 +100,7 @@ def test_the_bundle_inserts_both_new_surfaces(db):
     """The guard the `work_events` bug earned. A bundle argument that is accepted and
     silently dropped produces a database that passes every in-memory check."""
     path, rid = db
-    save_checkpoint_bundle(
+    write_rows(
         path, rid, batch_stats=[], task_stats=[], picker_events=[], picks=[],
         bin_placements=[], bin_evictions=[], aisle_metrics=[], reorder_queue=[],
         put_queue_state=STATE, carryover=CARRY)
@@ -112,7 +113,7 @@ def test_the_bundle_inserts_both_new_surfaces(db):
 def test_a_caller_that_omits_them_writes_no_rows(db):
     """Both are keyword-optional so every pre-existing caller is unchanged."""
     path, rid = db
-    save_checkpoint_bundle(
+    write_rows(
         path, rid, batch_stats=[], task_stats=[], picker_events=[], picks=[],
         bin_placements=[], bin_evictions=[], aisle_metrics=[], reorder_queue=[])
     assert _rows(path, 'SELECT COUNT(*) c FROM put_queue_state')[0]['c'] == 0
@@ -125,16 +126,16 @@ def test_re_saving_a_batch_replaces_rather_than_duplicates(db):
     """A resumed run re-flushes its tail. Two rows claiming to be the same (batch, queue)
     would make every per-queue number ambiguous, so the primary key forbids it."""
     path, rid = db
-    save_put_queue_state(path, rid, STATE)
-    save_put_queue_state(path, rid, STATE)
+    write_rows(path, rid, put_queue_state=STATE)
+    write_rows(path, rid, put_queue_state=STATE)
     assert _rows(path, 'SELECT COUNT(*) c FROM put_queue_state WHERE run_id=?',
                  (rid,))[0]['c'] == len(STATE)
 
 
 def test_carryover_is_keyed_by_batch_reason_and_sku(db):
     path, rid = db
-    save_carryover(path, rid, CARRY)
-    save_carryover(path, rid, [(0, 'held', 101, 99)])       # same key, new value
+    write_rows(path, rid, carryover=CARRY)
+    write_rows(path, rid, carryover=[(0, 'held', 101, 99)])       # same key, new value
     got = _rows(path, "SELECT qty FROM carryover WHERE run_id=? AND batch_id=0 AND "
                       "reason='held' AND sku=101", (rid,))
     assert got == [{'qty': 99}], 'the row should be replaced, not duplicated'
@@ -226,7 +227,8 @@ def test_batch_stats_round_trips_the_working_day_and_the_missed_slot(db):
     the model has no picker contention, so a batch cannot begin while the crew is still
     working the previous one. That clamp erases the miss; this column is the only record.
     """
-    from Optimization.persistence.Picking_Data import BatchStats, save_batch_stats
+    from Optimization.persistence.Picking_Data import BatchStats
+    from Optimization.persistence.checkpoint_buffer import write_rows
     path, rid = db
     rows = [
         BatchStats(run_id=rid, batch_id=0, duration=10.0, num_tasks=1, total_items=5,
@@ -236,7 +238,7 @@ def test_batch_stats_round_trips_the_working_day_and_the_missed_slot(db):
     ]
     rows[0].work_day, rows[0].released_late = 0, 0.0
     rows[1].work_day, rows[1].released_late = 3, 41.5
-    save_batch_stats(path, rid, rows)
+    write_rows(path, rid, batch_stats=rows)
     got = _rows(path, 'SELECT batch_id, work_day, released_late FROM batch_stats '
                       'WHERE run_id=? ORDER BY batch_id', (rid,))
     assert got == [{'batch_id': 0, 'work_day': 0, 'released_late': 0.0},
@@ -246,9 +248,10 @@ def test_batch_stats_round_trips_the_working_day_and_the_missed_slot(db):
 def test_the_working_day_columns_default_to_zero(db):
     """A continuous schedule has no day structure and no slots, so both are 0 — and an
     older BatchStats that never sets them must still insert."""
-    from Optimization.persistence.Picking_Data import BatchStats, save_batch_stats
+    from Optimization.persistence.Picking_Data import BatchStats
+    from Optimization.persistence.checkpoint_buffer import write_rows
     path, rid = db
-    save_batch_stats(path, rid, [
+    write_rows(path, rid, batch_stats=[
         BatchStats(run_id=rid, batch_id=7, duration=1.0, num_tasks=1, total_items=1,
                    avg_concurrent_pickers=1.0, picking_pct=0.0, traveling_pct=0.0)])
     assert _rows(path, 'SELECT work_day, released_late FROM batch_stats WHERE run_id=?',

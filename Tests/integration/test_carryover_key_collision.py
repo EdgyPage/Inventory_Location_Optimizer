@@ -34,6 +34,7 @@ import sqlite3
 import pytest
 
 from Optimization.persistence import Picking_Data as pd
+from Optimization.persistence.checkpoint_buffer import write_rows
 
 #: The put-away side's vocabulary — LEVELS, re-emitted every batch.
 _PUT_REASONS = ('unplaced', 'held')
@@ -91,14 +92,14 @@ def test_a_duplicate_key_in_one_flush_raises(db):
     cov = [(7, 'unplaced', 4242, 500),      # the manager's standing backlog
            (7, 'unplaced', 4242, 3)]        # a pick shortfall wearing the same reason
     with pytest.raises(ValueError, match='two rows for'):
-        pd.save_carryover(path, run_id, cov)
+        write_rows(path, run_id, carryover=cov)
 
 
 def test_the_refusal_names_both_quantities(db):
     """So the reader can see which producer is which without instrumenting the run."""
     path, run_id = db
     with pytest.raises(ValueError) as exc:
-        pd.save_carryover(path, run_id, [(2, 'held', 9, 500), (2, 'held', 9, 3)])
+        write_rows(path, run_id, carryover=[(2, 'held', 9, 500), (2, 'held', 9, 3)])
     msg = str(exc.value)
     assert '500' in msg and '3' in msg
     assert 'INSERT OR REPLACE' in msg
@@ -112,7 +113,7 @@ def test_the_guard_does_not_fire_on_legitimate_rows(db):
     cov = [(0, 'unplaced', 101, 8), (0, 'held', 101, 14),          # same sku, two reasons
            (0, 'unpicked_unstocked', 101, 2),                      # ...and a pick flow
            (1, 'unplaced', 101, 9), (2, 'unplaced', 101, 11)]      # same key, later batches
-    pd.save_carryover(path, run_id, cov)
+    write_rows(path, run_id, carryover=cov)
     con = sqlite3.connect(path)
     try:
         n = con.execute('SELECT COUNT(*) FROM carryover WHERE run_id=?', (run_id,)).fetchone()[0]
@@ -125,8 +126,8 @@ def test_a_resume_may_still_replace_its_own_batch(db):
     """The behaviour the OR REPLACE was written for, and which the guard must not break: a
     resumed batch re-writes its own rows. The guard is per FLUSH, not per table."""
     path, run_id = db
-    pd.save_carryover(path, run_id, [(4, 'unplaced', 7, 100)])
-    pd.save_carryover(path, run_id, [(4, 'unplaced', 7, 250)])     # the batch ran again
+    write_rows(path, run_id, carryover=[(4, 'unplaced', 7, 100)])
+    write_rows(path, run_id, carryover=[(4, 'unplaced', 7, 250)])     # the batch ran again
     con = sqlite3.connect(path)
     try:
         rows = con.execute('SELECT qty FROM carryover WHERE run_id=? AND batch_id=4',
@@ -148,7 +149,7 @@ def test_the_put_side_is_a_level_and_the_pick_side_is_a_flow(db):
     """
     path, run_id = db
     # one unit stands on the put queue for three batches; one batch misses 5 units of demand
-    pd.save_carryover(path, run_id, [
+    write_rows(path, run_id, carryover=[
         (0, 'unplaced', 1, 10), (1, 'unplaced', 1, 10), (2, 'unplaced', 1, 10),
         (1, 'unpicked_unstocked', 1, 5),
     ])

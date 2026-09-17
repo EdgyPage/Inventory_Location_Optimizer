@@ -7,9 +7,8 @@ import sys
 import pytest
 
 from Optimization.metrics.bin_recorder import BinRecorder
-from Optimization.persistence.Picking_Data import (
-    create_run, init_run_db, save_bin_placements,
-)
+from Optimization.persistence.Picking_Data import create_run, init_run_db
+from Optimization.persistence.checkpoint_buffer import write_rows
 
 SEED, N_SKUS, BINS_PER_AISLE, N_BATCHES = 42, 600, 40, 6
 
@@ -41,7 +40,7 @@ def _run_arm(tmp_path, strategy):
     cs.run_meso(assets, n_batches=N_BATCHES, seed=SEED)
     placements, _ = rec.drain()
     assert placements, f'{strategy} produced no reorder placements — fixture is vacuous'
-    save_bin_placements(path, run_id, placements)
+    write_rows(path, run_id, bin_placements=placements)
     return path, run_id, assets.mgr
 
 

@@ -34,10 +34,9 @@ import pytest
 import bin_log_harness as H          # Tests/bench is on sys.path via Tests/conftest.py
 
 from Optimization.persistence.Picking_Data import (
-    BatchStats, BinEvictionRecord, BinPlacementRecord, PickRecord,
-    create_run, init_keyframe_db, init_run_db, keyframe_db_path,
-    save_batch_stats, save_bin_evictions, save_bin_keyframe, save_bin_placements, save_picks,
-)
+    BatchStats, BinEvictionRecord, BinPlacementRecord, PickRecord, create_run,
+    init_keyframe_db, init_run_db, keyframe_db_path, save_bin_keyframe)
+from Optimization.persistence.checkpoint_buffer import write_rows
 from Optimization.persistence.Warehouse_Data import init_warehouse_db, save_aisle_layout
 from Visualization.cache_schema import SPAN_SOURCE_KEYFRAME, SPAN_SOURCE_LOG
 from Visualization.db_reader import RunRef
@@ -97,18 +96,18 @@ def _write_run(root, log, frames, warehouse):
     placed = {b: 0 for b, _a, _p, _t in frames}
     for p in log.places:
         placed[p.batch] = placed.get(p.batch, 0) + 1
-    save_batch_stats(sim_db, run_id, [
+    write_rows(sim_db, run_id, batch_stats=[
         BatchStats(run_id=run_id, batch_id=b, duration=10.0 + b,
                    num_tasks=1, total_items=1, avg_concurrent_pickers=1.0,
                    picking_pct=0.5, traveling_pct=0.5, reorder_placements=placed.get(b, 0))
         for b, _after, _final, _max_t in frames])
 
-    save_picks(sim_db, run_id, [
+    write_rows(sim_db, run_id, picks=[
         PickRecord(run_id=run_id, batch_id=k.batch, picker_id=0, sim_time=k.t,
                    aisle_id=k.loc[0], bayX=k.loc[1], bayY=k.loc[2],
                    sku=k.sku, quantity=k.qty)
         for k in log.picks])
-    save_bin_placements(sim_db, run_id, [
+    write_rows(sim_db, run_id, bin_placements=[
         # `bin_state` rides through: a top-up (ADR-0003) ADDS to a bin rather than filling an
         # empty one, and the span fold cannot tell the two apart without it — dropping the
         # field here made the rollup under-count by exactly the topped-up units.
@@ -116,7 +115,7 @@ def _write_run(root, log, frames, warehouse):
                            bayX=p.loc[1], bayY=p.loc[2], sku=p.sku, qty=p.qty, cause=p.cause,
                            bin_state=p.bin_state)
         for seq, p in _seq_numbered(log.places)])
-    save_bin_evictions(sim_db, run_id, [
+    write_rows(sim_db, run_id, bin_evictions=[
         BinEvictionRecord(run_id=run_id, batch_id=e.batch, seq=seq, aisle_id=e.loc[0],
                           bayX=e.loc[1], bayY=e.loc[2], sku=e.sku, qty=e.qty)
         for seq, e in _seq_numbered(log.evicts)])

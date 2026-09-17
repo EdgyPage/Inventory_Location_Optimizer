@@ -365,16 +365,16 @@ def _fresh_db(tmp_path):
 
 
 def test_shift_days_rows_ride_the_bundle_and_read_back_from_the_file(tmp_path):
-    from Optimization.persistence.Picking_Data import (
-        load_shift_days, save_checkpoint_bundle, save_shift_days)
+    from Optimization.persistence.Picking_Data import load_shift_days
+    from Optimization.persistence.checkpoint_buffer import write_rows
     db, run_id = _fresh_db(tmp_path)
-    save_checkpoint_bundle(db, run_id, batch_stats=[], task_stats=[], picker_events=[],
-                           picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
-                           reorder_queue=[],
-                           shift_days=[(0, 28800.0, 20000.0, True, 0, 0, 0, 0, 0, 0, 20000.0),
-                                       (1, 57600.0, 57600.0, False, 233, 200, 30, 3, 1, 2,
-                                        58000.0)])
-    save_shift_days(db, run_id, [(2, 86400.0, 86400.0, False, 5, 5, 0, 0, 0, 0, 86400.0)])
+    write_rows(db, run_id, batch_stats=[], task_stats=[], picker_events=[],
+               picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
+               reorder_queue=[],
+               shift_days=[(0, 28800.0, 20000.0, True, 0, 0, 0, 0, 0, 0, 20000.0),
+                           (1, 57600.0, 57600.0, False, 233, 200, 30, 3, 1, 2,
+                            58000.0)])
+    write_rows(db, run_id, shift_days=[(2, 86400.0, 86400.0, False, 5, 5, 0, 0, 0, 0, 86400.0)])
     rows = load_shift_days(db, run_id)
     assert [r['day'] for r in rows] == [0, 1, 2]
     assert rows[0]['drained'] == 1 and rows[0]['end_s'] == 20000.0
@@ -384,7 +384,7 @@ def test_shift_days_rows_ride_the_bundle_and_read_back_from_the_file(tmp_path):
     assert (rows[1]['standing_carry_labour'], rows[1]['standing_carry_supply']) == (1, 2)
     assert rows[1]['last_finish'] == 58000.0 > rows[1]['cap_end'], 'START-gate overtime kept'
     # INSERT OR REPLACE: re-flushing a day (a resume replaying a window) does not duplicate
-    save_shift_days(db, run_id, [(2, 86400.0, 80000.0, True, 0, 0, 0, 0, 0, 0, 80000.0)])
+    write_rows(db, run_id, shift_days=[(2, 86400.0, 80000.0, True, 0, 0, 0, 0, 0, 0, 80000.0)])
     rows = load_shift_days(db, run_id)
     assert len(rows) == 3 and rows[2]['drained'] == 1
     with sqlite3.connect(db) as con:
@@ -398,11 +398,12 @@ def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as
     halves as NULL -- unknown, never 0 -- and the verdict is NOT re-derived (one definition:
     `equilibrium.is_drained`, and it lives in the writer)."""
     from Optimization.persistence.Picking_Data import (
-        PRE_CARRY_SPLIT_SIM_SCHEMA_ID, load_shift_days, save_shift_days)
+        PRE_CARRY_SPLIT_SIM_SCHEMA_ID, load_shift_days)
+    from Optimization.persistence.checkpoint_buffer import write_rows
     db, run_id = _fresh_db(tmp_path)
-    save_shift_days(db, run_id, [(0, 28800.0, 28800.0, False, 7, 0, 0, 7, 0, 7, 28800.0),
-                                 # an overtime day that vintage's runner stamped DRAINED
-                                 (1, 57600.0, 57600.0, True, 0, 0, 0, 0, 0, 0, 57738.0)])
+    write_rows(db, run_id, shift_days=[(0, 28800.0, 28800.0, False, 7, 0, 0, 7, 0, 7, 28800.0),
+                                       # an overtime day that vintage's runner stamped DRAINED
+                                       (1, 57600.0, 57600.0, True, 0, 0, 0, 0, 0, 0, 57738.0)])
     con = sqlite3.connect(db)
     con.execute('ALTER TABLE shift_days DROP COLUMN standing_carry_labour')
     con.execute('ALTER TABLE shift_days DROP COLUMN standing_carry_supply')
@@ -466,11 +467,12 @@ def test_a_ledger_stamped_before_the_overtime_amendment_reads_its_overtime_days_
     and the lag it left on the next release raised the released-late clause.  The
     amendment moved no column, so the loader folds the term in off the row's own two
     stamps for every vintage -- and `_sdf`'s `capped`, hence `days_capped`, follows."""
-    from Optimization.persistence.Picking_Data import load_shift_days, save_shift_days
+    from Optimization.persistence.Picking_Data import load_shift_days
+    from Optimization.persistence.checkpoint_buffer import write_rows
     from Optimization.Performance_Evaluations.common.frames import _sdf
     db, run_id = _fresh_db(tmp_path)
     S = 28800.0
-    save_shift_days(db, run_id, [
+    write_rows(db, run_id, shift_days=[
         (3, 4 * S, 4 * S, True, 0, 0, 0, 0, 0, 0, 4 * S + 138.1),           # the old stamp
         (4, 5 * S, 5 * S - 500.0, True, 0, 0, 0, 0, 0, 0, 5 * S - 500.0),   # drained early
         (5, 6 * S, 6 * S, False, 9, 9, 0, 0, 0, 0, 6 * S + 40.0)])          # capped anyway

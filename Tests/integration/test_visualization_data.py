@@ -40,13 +40,11 @@ import sqlite3
 import tempfile
 
 from Optimization.persistence.Picking_Data import (
-    init_run_db, create_run, find_run, run_identity,
-    save_batch_stats, load_batch_stats, BatchStats, BinInventoryRecord,
-    init_keyframe_db, save_bin_keyframe, keyframe_db_path,
-    save_reorder_queue, load_reorder_queue,
-    save_bin_scores, load_bin_scores, save_sku_scores, load_sku_scores,
-    save_aisle_metrics, load_aisle_metrics, AisleMetricRecord,
-)
+    init_run_db, create_run, find_run, run_identity, load_batch_stats, BatchStats,
+    BinInventoryRecord, init_keyframe_db, save_bin_keyframe, keyframe_db_path,
+    load_reorder_queue, save_bin_scores, load_bin_scores, save_sku_scores, load_sku_scores,
+    load_aisle_metrics, AisleMetricRecord)
+from Optimization.persistence.checkpoint_buffer import write_rows
 from Optimization.persistence.Warehouse_Data import (
     init_warehouse_db, save_aisle_layout, compute_warehouse_fingerprint,
 )
@@ -175,7 +173,7 @@ def test_batch_stats_roundtrip():
                      batch_start_time=0.0, batch_end_time=120.5,
                      queue_depth=14395, lead_queue_depth=812, in_transit_qty=88000,
                      reorder_placements=1234)
-    save_batch_stats(db, rid, [rec])
+    write_rows(db, rid, batch_stats=[rec])
     got = {b.batch_id: b for b in load_batch_stats(db, rid)}[7]
 
     assert abs(got.batch_end_time - 120.5) < _TOL
@@ -197,7 +195,7 @@ def test_reorder_queue_roundtrip():
             (5, 'lead', 102, 12, 1, None, None, None),
             (5, 'stock', 101, 8, 0, 'pallet', 'large', 'store_pallet'),
             (5, 'held', 103, 4, 0, 'pallet', 'large', 'store_pallet')]
-    save_reorder_queue(db, rid, recs)
+    write_rows(db, rid, reorder_queue=recs)
     got = {(r['kind'], r['sku']): r for r in load_reorder_queue(db, rid, 5)}
 
     assert len(got) == 4
@@ -279,7 +277,7 @@ def test_aisle_metrics_roundtrip():
     # its loader are exercised against a real file together.
     rec = AisleMetricRecord(run_id=rid, batch_id=2, aisle_id=7, n_skus=3, n_bins=5,
                             demand_sum=1.5)
-    save_aisle_metrics(db, rid, [rec])
+    write_rows(db, rid, aisle_metrics=[rec])
     got = {a.aisle_id: a for a in load_aisle_metrics(db, rid, batch_id=2)}[7]
 
     assert abs(got.demand_sum - 1.5) < _TOL
@@ -579,7 +577,7 @@ def test_batch_list_comes_from_batch_stats_not_a_range():
     db = _tmp('sim_holes.db')
     init_run_db(db)
     rid = create_run(db, 'uni_fifo_norsl', params=dict(n_batches=5))
-    save_batch_stats(db, rid, [
+    write_rows(db, rid, batch_stats=[
         BatchStats(run_id=rid, batch_id=b, duration=1.0, num_tasks=1, total_items=1,
                    avg_concurrent_pickers=1.0, picking_pct=0.5, traveling_pct=0.5)
         for b in (0, 1, 3, 4)                                  # batch 2 produced no tasks

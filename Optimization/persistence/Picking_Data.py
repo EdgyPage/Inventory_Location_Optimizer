@@ -557,9 +557,9 @@ _CREATE_PICKER_EVENTS_TIME_IDX = """
 
 
 # NOTE: the standalone PickRecord CSV/SQLite pair (load/save_picks_csv, load/save_picks_db) and
-# their _pick_to_row/_pick_from_row helpers were removed — superseded by `save_picks` below, which
-# is what strategy_runner actually calls.  PickRecord itself is very much alive
-# (Simulation_Analytics.extract_picks builds them; save_picks persists them).
+# their _pick_to_row/_pick_from_row helpers were removed — superseded by `_insert_picks`, which
+# `CheckpointBuffer`'s `picks` channel calls.  PickRecord itself is very much alive
+# (Simulation_Analytics.extract_picks builds them; the `picks` channel persists them).
 
 
 # ── Run DB public API ─────────────────────────────────────────────────────────
@@ -579,13 +579,14 @@ def _open_db(path: str, timeout: float = 60.0) -> sqlite3.Connection:
       13 are `load_*` / `find_run` / `run_identity` / the two `declared_*_shape` helpers.
          Read-only or `:memory:`.  There is no WAL to fold back; converting them is noise.
 
-      12 are the per-flush writers — `save_batch_stats`, `save_task_stats`,
-         `save_picker_events`, `save_picks`, `save_bin_placements`, `save_bin_evictions`,
-         `save_aisle_metrics`, `save_reorder_queue`, `save_bin_keyframe`, and the two score
-         writers.  Each opens and closes ONCE PER CHECKPOINT FLUSH (default every 10 batches,
-         `strategy_runner.py:583`) against a sim DB that reaches ~1 GB.  A
-         `wal_checkpoint(TRUNCATE)` there would fold the whole WAL into the main file every
-         flush, on the hot path of a 40-minute arm, for no benefit — see below.
+       3 are the per-flush writers — `save_bin_keyframe` and the two score writers.  (This
+         read TWELVE until ticket 07: nine of them were `save_<table>` wrappers with no
+         production caller, and they are gone.  The checkpoint path's own open/close now
+         lives in `checkpoint_buffer._write`, one per flush for ALL fifteen channels instead
+         of one per table, and the reasoning below applies to it unchanged.)  Each opens and
+         closes ONCE PER CHECKPOINT FLUSH (default every 10 batches) against a sim DB that
+         reaches ~1 GB.  A `wal_checkpoint(TRUNCATE)` there would fold the whole WAL into the
+         main file every flush, on the hot path of a 40-minute arm, for no benefit — see below.
 
        3 are one-time setup: `init_run_db`, `create_run`, `init_keyframe_db`.  The connection
          is finished but the FILE is not; the run writes to it for the next 40 minutes, so a
@@ -979,8 +980,10 @@ _CREATE_FREE_INDEX = """
 # ── the drain-or-cap shift's LEDGER, one row per working day ─────────────────────────────
 # The persisted form of the `[shift] day N ended ...` log line ("Declare the equilibrium bands",
 # decision 5).  Written as each close-out fires -- and the close-out fires at the FIRST batch of
-# the NEXT day, so the final day never closes inside the loop and gets its own flush at run end
-# (`save_shift_days`, outside the checkpoint tail: memory `run-end-writers-miss-the-final-flush`).
+# the NEXT day, so the final day never closes inside the loop; the runner appends it to the
+# checkpoint buffer after the loop and `CheckpointBuffer.close` writes it, because a run-end close
+# always writes.  It needed a SEPARATE writer outside the checkpoint tail until ticket 07, when
+# that tail stopped being conditional (memory `run-end-writers-miss-the-final-flush`).
 # ZERO rows on every run without the drain-or-cap shift, which is every run before the era; its
 # own table rather than batch_stats columns for the same reason the yard tables are.
 # Joined to `batch_stats.work_day`.  Deriving drained/capped from batch_stats alone was rejected:
@@ -2228,15 +2231,6 @@ def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> 
                     [_batch_row(run_id, r) for r in records])
 
 
-def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
-    con = _open_db(path)
-    try:
-        _insert_batch_stats(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
-
-
 def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
     """One BatchStats per batch, version-adaptive.
 
@@ -2308,20 +2302,6 @@ def load_batch_stats(path: str, run_id: int) -> list[BatchStats]:
 # state the viewer shows draining into bins at t=0 of the batch).  Each record is a
 # (batch_id, kind, sku, qty, remaining_lead) tuple; kind ∈ {'lead','stock'}.
 
-def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -> None:
-    """Persist per-batch queue snapshots.  Each record is
-    (batch_id, kind, sku, qty, remaining_lead, unit_type, storage_size, queue); the middle
-    two are None for 'lead' entries (in-transit) and carry the bin tier for 'stock' units,
-    and `queue` names the put-away stream (None while still in transit)."""
-    if not records:
-        return
-    con = _open_db(path)
-    try:
-        _insert_reorder_queue(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
-
 
 def _insert_reorder_queue(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
@@ -2368,32 +2348,6 @@ def _insert_carryover(con: sqlite3.Connection, run_id: int, records: list) -> No
         [(run_id, int(b), str(reason), int(sku), int(qty))
          for (b, reason, sku, qty) in records],
     )
-
-
-def save_put_queue_state(path: str, run_id: int, records: list) -> None:
-    """Per-(batch, queue) stream state: depth and oldest age (LEVELS), admitted/placed/
-    blocked (FLOWS).  `blocked` is the only trace a refused admission leaves anywhere."""
-    if not records:
-        return
-    con = _open_db(path)
-    try:
-        _insert_put_queue_state(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
-
-
-def save_carryover(path: str, run_id: int, records: list) -> None:
-    """Work that did not happen when it should have, and why.  Each record is
-    (batch_id, reason, sku, qty)."""
-    if not records:
-        return
-    con = _open_db(path)
-    try:
-        _insert_carryover(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
 
 
 def load_reorder_queue(path: str, run_id: int, batch_id: int) -> list[dict]:
@@ -2506,15 +2460,6 @@ def _insert_task_stats(con: sqlite3.Connection, run_id: int, records: list) -> N
             for r in records
         ],
     )
-
-
-def save_task_stats(path: str, run_id: int, records: list[TaskStats]) -> None:
-    con = _open_db(path)
-    try:
-        _insert_task_stats(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
 
 
 def load_task_stats(path: str, run_id: int) -> list[TaskStats]:
@@ -2704,27 +2649,6 @@ def _insert_work_events(con: sqlite3.Connection, run_id: int, rows: list) -> Non
         [(run_id, *r) for r in rows])
 
 
-def save_work_events(path: str, run_id: int, rows: list) -> None:
-    """Append merged-stream rows.  Each row is `_WORK_EVENT_COLS` in order."""
-    if not rows:
-        return
-    con = _open_db(path)
-    try:
-        _insert_work_events(con, run_id, rows)
-        con.commit()
-    finally:
-        con.close()
-
-
-def save_picker_events(path: str, run_id: int, records: list) -> None:
-    con = _open_db(path)
-    try:
-        _insert_picker_events(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
-
-
 def _insert_picks(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
         _INSERT_SQL['picks'],
@@ -2734,16 +2658,6 @@ def _insert_picks(con: sqlite3.Connection, run_id: int, records: list) -> None:
             for r in records
         ],
     )
-
-
-def save_picks(path: str, run_id: int, records: list) -> None:
-    """Persist individual pick events extracted from the picker event stream."""
-    con = _open_db(path)
-    try:
-        _insert_picks(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
 
 
 def load_picker_events(path: str, run_id: int, batch_id: int | None = None) -> list:
@@ -2866,20 +2780,6 @@ def load_bin_inventory(
 
 # ── AisleMetrics DB ───────────────────────────────────────────────────────────
 
-def save_aisle_metrics(path: str, run_id: int, records: list) -> None:
-    """Persist per-aisle trip-cost equation state snapshots.
-
-    Captured once per batch after check_reorders() — reflects the warehouse
-    layout as it evolves under the assignment function.  Strategy A rows carry
-    zeros because affinity state is not maintained for uniform placement.
-    """
-    con = _open_db(path)
-    try:
-        _insert_aisle_metrics(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
-
 
 def _insert_aisle_metrics(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
@@ -2984,18 +2884,6 @@ class BinEvictionRecord:
     qty:      int
 
 
-def save_bin_placements(path: str, run_id: int, records: list) -> None:
-    """Persist PLACE events — the term the record was missing."""
-    if not records:
-        return
-    con = _open_db(path)
-    try:
-        _insert_bin_placements(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
-
-
 def _insert_bin_placements(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
         _INSERT_SQL['bin_placement'],
@@ -3003,18 +2891,6 @@ def _insert_bin_placements(con: sqlite3.Connection, run_id: int, records: list) 
           getattr(r, 'bin_state', 'empty'), getattr(r, 'unit_size', None),
           getattr(r, 'bin_size', None), r.score, r.score_rank, r.policy)
          for r in records])
-
-
-def save_bin_evictions(path: str, run_id: int, records: list) -> None:
-    """Persist EVICT events.  Zero rows on a `norsl` arm, which is every shipped arm today."""
-    if not records:
-        return
-    con = _open_db(path)
-    try:
-        _insert_bin_evictions(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
 
 
 def _insert_bin_evictions(con: sqlite3.Connection, run_id: int, records: list) -> None:
@@ -3075,158 +2951,6 @@ def _insert_shift_days(con: sqlite3.Connection, run_id: int, records: list) -> N
         [(run_id, int(day), float(cap), float(end), int(bool(dr)), int(st), int(sp), int(sd),
           int(sc), int(scl), int(scs), float(lf))
          for day, cap, end, dr, st, sp, sd, sc, scl, scs, lf in records])
-
-
-def save_shift_days(path: str, run_id: int, records: list) -> None:
-    """Write shift close-out rows on their own connection -- the FINAL DAY's writer.
-
-    The close-out fires at the first batch of the NEXT day, so the last day of a run never
-    closes inside the loop; the runner closes it after the loop and writes it here, OUTSIDE
-    the checkpoint tail, for the same reason `save_yard_trailers` is separate: that tail only
-    fires when a batch window is unflushed, which it is not when the batch count divides
-    evenly by the checkpoint interval (memory `run-end-writers-miss-the-final-flush`).
-    """
-    if not records:
-        return
-    con = _open_db(path)
-    try:
-        _insert_shift_days(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
-
-
-def save_yard_trailers(path: str, run_id: int, records: list) -> None:
-    """Write trailer stamps on their own connection — the RUN-END flush's writer.
-
-    Separate from `save_checkpoint_bundle` because the censored tail is not a checkpoint
-    product: the bundle only fires when a batch window is unflushed, and a run whose batch
-    count divides evenly by its checkpoint interval has no such window. The trailers still
-    standing then are exactly the rows an adversarial ordering concentrates its overage in,
-    so they cannot ride a conditional.
-    """
-    if not records:
-        return
-    con = _open_db(path)
-    try:
-        _insert_yard_trailers(con, run_id, records)
-        con.commit()
-    finally:
-        con.close()
-
-
-def save_site_inbound(path: str, run_id: int, *, yard_trailers: list,
-                      yard_drains: list, site_receiving: list | None = None) -> None:
-    """Write a COUPLED unit's site-scoped inbound rows on one connection, one commit.
-
-    The third output of a coupled work unit (the run tree's `site_inbound_db`,
-    ADR-0005): trailer- and door-denominated rows belong to neither channel, because a
-    trailer's load is mixed by construction and a door is occupied by the trailer rather
-    than by either channel's share of it.
-
-    A SITE DB IS A SIM DB carrying only these two tables, which is why this takes the same
-    `(path, run_id)` every other writer here takes and inserts through the same two
-    helpers.  That is what lets the analysis brokers bind it with no new loader: they key
-    on `db_path` and `run_id` and nothing else, so a site scope is a different thing for
-    those keys to point AT rather than a second implementation of every frame.
-
-    `site_receiving` is the dock's OWN per-site-day totals (site-dock 15 section 7): the
-    third site-scoped table, and the one that gives `receiving_report.reconcile_pair` the
-    site half of its closure.  Keyword-OPTIONAL so a caller that predates it writes no rows
-    — and it is exactly the shape this function's own docstring warns about, so
-    `Tests/unit/test_site_receiving_totals.py` reads the FILE back rather than the
-    argument.
-
-    Separate from `save_checkpoint_bundle` rather than a call to it with eleven empty
-    lists: a bundle argument that is accepted and never inserted is that function's
-    characteristic failure, and eleven of them would be eleven chances at it.
-    """
-    if not yard_trailers and not yard_drains and not site_receiving:
-        return
-    con = _open_db(path)
-    try:
-        if yard_trailers:
-            _insert_yard_trailers(con, run_id, yard_trailers)
-        if yard_drains:
-            _insert_yard_drains(con, run_id, yard_drains)
-        if site_receiving:
-            _insert_site_receiving(con, run_id, site_receiving)
-        con.commit()
-    finally:
-        con.close()
-
-
-def save_checkpoint_bundle(
-    path           : str,
-    run_id         : int,
-    *,
-    batch_stats    : list,
-    task_stats     : list,
-    picker_events  : list,
-    picks          : list,
-    bin_placements : list,
-    bin_evictions  : list,
-    aisle_metrics  : list,
-    reorder_queue  : list,
-    work_events    : list | None = None,
-    put_queue_state: list | None = None,
-    carryover      : list | None = None,
-    yard_trailers  : list | None = None,
-    yard_drains    : list | None = None,
-    shift_days     : list | None = None,
-    free_index     : list | None = None,
-) -> None:
-    """All per-checkpoint writers on ONE connection with ONE commit.
-
-    `work_events`, `put_queue_state`, `carryover`, the two `yard_*` lists, `shift_days` and
-    `free_index` are keyword-OPTIONAL, so a caller that predates them -- a test, a
-    Diagnostics harness -- is unchanged and writes no rows.
-
-    A bundle argument that is accepted and never inserted is this function's characteristic
-    failure: `work_events` was one for a while, and the reconciliation that was supposed to
-    catch it passed over 68 databases holding zero rows. Every new argument here needs a
-    test that reads the FILE back.
-
-    strategy_runner's checkpoint flush used to call the eight `save_*` writers back to
-    back, each paying its own open + commit + close against a ~1 GB WAL DB — measured
-    at 40k as ~2s of CPU inside ~8.7s of t_save, the rest drive latency multiplied by
-    the per-writer connection churn (and the maker of the synchronized 18-worker save
-    storm early in a run).  This bundles them: the INSERT bodies are the writers' own
-    (shared `_insert_*` helpers), executed in exactly the historical call order, so
-    every table receives identical rows in identical order — per-table rowids and the
-    run digest are unchanged.  The three writers that early-return on empty keep that
-    skip here (parity; the tables all pre-exist from init_run_db either way).
-    """
-    con = _open_db(path)
-    try:
-        _insert_batch_stats(con, run_id, batch_stats)
-        _insert_task_stats(con, run_id, task_stats)
-        _insert_picker_events(con, run_id, picker_events)
-        _insert_picks(con, run_id, picks)
-        if bin_placements:
-            _insert_bin_placements(con, run_id, bin_placements)
-        if bin_evictions:
-            _insert_bin_evictions(con, run_id, bin_evictions)
-        _insert_aisle_metrics(con, run_id, aisle_metrics)
-        if work_events:
-            _insert_work_events(con, run_id, work_events)
-        if reorder_queue:
-            _insert_reorder_queue(con, run_id, reorder_queue)
-        if put_queue_state:
-            _insert_put_queue_state(con, run_id, put_queue_state)
-        if carryover:
-            _insert_carryover(con, run_id, carryover)
-        if yard_trailers:
-            _insert_yard_trailers(con, run_id, yard_trailers)
-        if yard_drains:
-            _insert_yard_drains(con, run_id, yard_drains)
-        if shift_days:
-            _insert_shift_days(con, run_id, shift_days)
-        if free_index:
-            _insert_free_index(con, run_id, free_index)
-        con.commit()
-    finally:
-        con.close()
 
 
 def _insert_free_index(con: sqlite3.Connection, run_id: int, records: list) -> None:

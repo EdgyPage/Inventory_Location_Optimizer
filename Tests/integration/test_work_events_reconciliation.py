@@ -29,9 +29,8 @@ import pytest
 
 from Optimization.metrics.Simulation_Analytics import extract_batch_stats
 from Optimization.metrics.work_events import pick_rows, put_rows
-from Optimization.persistence.Picking_Data import (
-    create_run, init_run_db, save_checkpoint_bundle,
-)
+from Optimization.persistence.Picking_Data import create_run, init_run_db
+from Optimization.persistence.checkpoint_buffer import write_rows
 from Optimization.metrics.Simulation_Analytics import extract_picker_events
 from Warehouse.kernel.cost_model import SpeedProfile
 from Warehouse.operations import Crew, Mode, Role
@@ -70,7 +69,7 @@ def _events(t0: float, spans: list[float]) -> list[PickEvent]:
 @pytest.fixture(scope='module')
 def db(tmp_path_factory):
     """A real sim DB written the way the runner writes one: an arm clock, a carrying put
-    crew, and everything flushed through save_checkpoint_bundle."""
+    crew, and everything flushed down the checkpoint buffer's channels."""
     path = str(tmp_path_factory.mktemp('we') / 'sim_recon.db')
     init_run_db(path)
     run_id = create_run(path, 'test')
@@ -98,9 +97,9 @@ def db(tmp_path_factory):
 
         arm_clock = bs.batch_start_time + bs.duration
 
-    save_checkpoint_bundle(path, run_id, batch_stats=pb, task_stats=[], picker_events=pe,
-                           picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
-                           reorder_queue=[], work_events=we)
+    write_rows(path, run_id, batch_stats=pb, task_stats=[], picker_events=pe,
+               picks=[], bin_placements=[], bin_evictions=[], aisle_metrics=[],
+               reorder_queue=[], work_events=we)
     return path
 
 

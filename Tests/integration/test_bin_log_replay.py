@@ -186,7 +186,7 @@ def test_dropping_evictions_breaks_the_fold(reslot):
 # ── regression: the PK must be collision-proof ───────────────────────────────────
 
 def test_placement_seq_never_collides_within_a_batch():
-    """`(run_id, batch_id, seq)` is the primary key, and `save_bin_placements` uses
+    """`(run_id, batch_id, seq)` is the primary key, and `_insert_bin_placements` uses
     INSERT OR REPLACE — so a repeated seq inside one batch does not error, it silently DROPS a
     row.
 

@@ -16,10 +16,11 @@ mean anything.
     other grid); a silently re-indexed row would file the site's day-3 labour under batch 1
     and put the closure check's per-batch localisation onto the wrong batch for the whole
     run.
-  * **The writer puts the rows in the FILE.**  `save_site_inbound`'s own docstring names
-    "a bundle argument that is accepted and never inserted" as its characteristic failure —
-    the reconciliation that was supposed to catch it once passed over 68 databases holding
-    zero rows — so every assertion here reads the database back rather than the argument.
+  * **The writer puts the rows in the FILE.**  The site rows went through
+    `save_site_inbound` until ticket 07 and now ride `SITE_CHANNELS`; both forms have the same
+    characteristic failure, a row accepted and never inserted — the reconciliation that was
+    supposed to catch one once passed over 68 databases holding zero rows — so every assertion
+    here reads the database back rather than the argument.
 
 Run:  python -m pytest Tests/unit/test_site_receiving_totals.py -q
 """
@@ -32,7 +33,7 @@ import pytest
 
 from Optimization.persistence import Picking_Data as pdata
 from Optimization.persistence.checkpoint_buffer import (
-    SITE_CHANNELS, CheckpointBuffer)
+    SITE_CHANNELS, CheckpointBuffer, write_rows)
 from Optimization.simdriver import strategy_runner as sr
 
 from Tests.unit.test_site_receiving import _day, _mixed_trailer, _site
@@ -145,8 +146,8 @@ def test_finish_writes_the_dock_totals_it_collected(tmp_path):
 
     Two separate ways this goes silently wrong and neither raises: `finish`'s early return
     counts only the yard lists, so a batch that unloaded without finishing a trailer writes
-    nothing at all; or the rows are collected and never handed to the writer, which is
-    `save_site_inbound`'s own characteristic failure seen from the caller's side.
+    nothing at all; or the rows are collected and never handed to the writer, which is the
+    channel's characteristic failure seen from the caller's side.
     """
     d = _site_dock(tmp_path, [(0, 0, 4, 0, 30.4)])
     d.coord.drain_site_rows = lambda: []          # no yard row this batch
@@ -187,12 +188,12 @@ def _site_file(tmp_path, name='inbound_a__b.db'):
 
 
 def test_the_rows_are_written_and_read_back(tmp_path):
-    """`save_site_inbound`'s characteristic failure is an argument accepted and never
-    inserted, so this reads the database rather than the call."""
+    """A row accepted and never inserted is the characteristic failure of every writer this
+    table has had, so this reads the database rather than the call."""
     path, run_id = _site_file(tmp_path)
     rows = [(0, 1, 10, 0, 76.5), (1, 0, 12, 3, 91.25)]
-    pdata.save_site_inbound(path, run_id, yard_trailers=[], yard_drains=[],
-                            site_receiving=rows)
+    write_rows(path, run_id, channels=SITE_CHANNELS, yard_trailers=[], yard_drains=[],
+               site_receiving=rows)
     assert _read_back(path) == rows
 
 
@@ -200,8 +201,8 @@ def test_a_run_with_only_dock_totals_still_writes(tmp_path):
     """A coupled day that unloaded without finishing a trailer produces a dock total and no
     trailer stamp. The early return has to count all three lists or that day is dropped."""
     path, run_id = _site_file(tmp_path)
-    pdata.save_site_inbound(path, run_id, yard_trailers=[], yard_drains=[],
-                            site_receiving=[(0, 0, 4, 0, 30.4)])
+    write_rows(path, run_id, channels=SITE_CHANNELS, yard_trailers=[], yard_drains=[],
+               site_receiving=[(0, 0, 4, 0, 30.4)])
     assert _read_back(path) == [(0, 0, 4, 0, 30.4)]
 
 
@@ -212,11 +213,11 @@ def test_a_second_row_for_one_batch_raises(tmp_path):
     would keep the second and drop the first — memory `carryover-two-producers-one-key`, a
     level and a flow sharing a key, where 500 units vanished."""
     path, run_id = _site_file(tmp_path)
-    pdata.save_site_inbound(path, run_id, yard_trailers=[], yard_drains=[],
-                            site_receiving=[(0, 0, 4, 0, 30.4)])
+    write_rows(path, run_id, channels=SITE_CHANNELS, yard_trailers=[], yard_drains=[],
+               site_receiving=[(0, 0, 4, 0, 30.4)])
     with pytest.raises(sqlite3.IntegrityError):
-        pdata.save_site_inbound(path, run_id, yard_trailers=[], yard_drains=[],
-                                site_receiving=[(0, 0, 9, 0, 99.9)])
+        write_rows(path, run_id, channels=SITE_CHANNELS, yard_trailers=[], yard_drains=[],
+                   site_receiving=[(0, 0, 9, 0, 99.9)])
 
 
 def test_an_uncoupled_sim_db_has_the_table_and_no_rows(tmp_path):

@@ -50,7 +50,7 @@ from typing import Callable
 
 from Optimization.persistence import Picking_Data as _pd
 
-__all__ = ['CheckpointBuffer', 'CHANNELS', 'SITE_CHANNELS']
+__all__ = ['CheckpointBuffer', 'CHANNELS', 'SITE_CHANNELS', 'write_rows']
 
 
 #: `(name, insert_fn, skip_when_empty)`, IN SAVE ORDER. See the module docstring: the order is
@@ -165,3 +165,34 @@ class CheckpointBuffer:
     def clear(self) -> None:
         for name, _fn, _skip in self._channels:
             self._rows[name].clear()
+
+
+def write_rows(path: str, run_id: int, *, channels=CHANNELS, **rows) -> None:
+    """Write rows a caller ALREADY HAS, in one connection and one commit. No window.
+
+    Fifteen named writers stood here until ticket 07 -- eleven `save_<table>` wrappers with
+    zero production callers, plus `save_checkpoint_bundle`, `save_site_inbound`,
+    `save_shift_days` and `save_yard_trailers` -- and every one of them was the same four
+    lines with its channel name baked into its own name:
+
+        con = _open_db(path); _insert_<table>(con, run_id, rows); con.commit(); con.close()
+
+    Here the channel is DATA. That is the difference that matters, not the line count: the
+    bundle's characteristic failure was an argument ACCEPTED AND NEVER INSERTED (`work_events`
+    was one over 68 databases holding zero rows), and a 16-parameter signature is what made
+    that expressible. An unknown name raises here, because the only place a channel exists is
+    the table it is inserted from.
+
+    The last four had docstrings arguing at length that they must be separate from the bundle
+    -- "the bundle only fires when a batch window is unflushed, and a run whose batch count
+    divides evenly by its checkpoint interval has no such window". That was always an argument
+    about `if pb:`, and `close()` writing unconditionally is what retired it.
+
+    `None` is SKIPPED rather than refused, which is what the bundle's seven optional keywords
+    did: a caller that predates a channel passes nothing and writes no rows.
+    """
+    buf = CheckpointBuffer(channels)
+    for name, r in rows.items():
+        if r is not None:
+            buf.add(name, r)
+    buf.close(path, run_id)

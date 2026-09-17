@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>write_rows · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_persistence_checkpoint_buffer_py__write_rows" data-id="Optimization/persistence/checkpoint_buffer.py::write_rows">
+<nav class="crumbs"><a href="../layers.html">opt_persistence</a> <span class="sep">›</span> <a href="../files/nOptimization_persistence_checkpoint_buffer_py.html"><code>Optimization/persistence/checkpoint_buffer.py</code></a> <span class="sep">›</span> <span class="here"><code>write_rows</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>write_rows</code></h1>
+<p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_checkpoint_buffer_py.html"><code>Optimization/persistence/checkpoint_buffer.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def write_rows(path: str, run_id: int, *, channels=CHANNELS, **rows) -&gt; None</code></pre>
+<section class="doc">Write rows a caller ALREADY HAS, in one connection and one commit. No window.
+
+Fifteen named writers stood here until ticket 07 -- eleven `save_&lt;table&gt;` wrappers with
+zero production callers, plus `save_checkpoint_bundle`, `save_site_inbound`,
+`save_shift_days` and `save_yard_trailers` -- and every one of them was the same four
+lines with its channel name baked into its own name:
+
+    con = _open_db(path); _insert_&lt;table&gt;(con, run_id, rows); con.commit(); con.close()
+
+Here the channel is DATA. That is the difference that matters, not the line count: the
+bundle&#x27;s characteristic failure was an argument ACCEPTED AND NEVER INSERTED (`work_events`
+was one over 68 databases holding zero rows), and a 16-parameter signature is what made
+that expressible. An unknown name raises here, because the only place a channel exists is
+the table it is inserted from.
+
+The last four had docstrings arguing at length that they must be separate from the bundle
+-- &quot;the bundle only fires when a batch window is unflushed, and a run whose batch count
+divides evenly by its checkpoint interval has no such window&quot;. That was always an argument
+about `if pb:`, and `close()` writing unconditionally is what retired it.
+
+`None` is SKIPPED rather than refused, which is what the bundle&#x27;s seven optional keywords
+did: a caller that predates a channel passes nothing and writes no rows.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer.html"><code>CheckpointBuffer</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_checkpoint_buffer_py__write_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/checkpoint_buffer.py#:~:text=def%20write_rows">Source ↗</a></p>
+</article>
+</main>
+</body></html>
