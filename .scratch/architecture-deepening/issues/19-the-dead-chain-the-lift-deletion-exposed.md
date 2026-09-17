@@ -1,7 +1,7 @@
 # 19 - the dead chain the lift deletion exposed
 
 Type: debt
-Status: needs-triage
+Status: claimed
 Blocked by: 03
 
 Deleting `aisle_metrics.lift_sum` and the `load_min`/`load_max` family (ticket 03) orphaned
@@ -86,3 +86,66 @@ before touching it; ticket 03 did that classification and it is written up in it
   `Tests/bench/perf_simulation.py`, which imported the deleted symbol. **Transitive importers do
   not appear in a grep for the symbol.** Run the full unit tier before believing a deletion is
   contained.
+
+## Progress (2026-09-16) -- LoadParams deleted; two corrections to this ticket
+
+### Correction 1: there was no DDL change. This ticket was wrong.
+
+It said `load_lambda` / `load_k` / `load_gamma` were three `simulation_runs` columns needing the
+schema pipeline. **They are keys in the per-run CONFIG DICT**, written to `config.json`
+(`workunits.py:298-300`), and `Picking_Data.py` has no such columns at all. No DDL, no `--sync`,
+no adoption. The only places the three names appear outside the driver are archived
+`config.json` files under `docs/experiments/experiment-1/` -- published static records that this
+change cannot alter.
+
+The lesson is the same one ticket 03 recorded: check the claim before acting on it, including a
+claim in a ticket I wrote myself an hour earlier.
+
+### Correction 2: `recovered_params.json` does not exist
+
+`sim_assets.py` read it behind `if os.path.exists(param_path)` and fell back to hardcoded
+defaults. There is no such file in the repo, so the branch never fired and the "recovered"
+parameters were always `lambda_=1.1, k=1.0, gamma=1.5` -- three constants, read off no disk,
+pickled to every worker to parameterise nothing.
+
+### Deleted
+
+`LoadParams` (the dataclass in `inventory_common.py`), its construction and the
+`recovered_params.json` probe in `sim_assets.py`, its slot in the `_shared` payload, its unpack
+in `workunits.py` and `strategy_runner.py`, the three `config.json` keys, the log line in
+`strategy_runner`, the `_HERE` comment that pointed at the missing file, and four imports
+(two source, two test). `Tests/bench/profile_lifecycle.py` loses its unused construction.
+
+Verification: `Tests/unit -k "not gpu"` **2652 passed**, 1 skipped -- unchanged.
+
+**Gate 5 went RED and was fixed properly, not waved through.** Editing `workunits.py` and
+`sim_assets.py` moved the run-tree shape fingerprint. `python -m Optimization.runschema.preflight`
+proved the shape with TWO CANARY RUNS (A mixed 2-cell, B store-only single cell -- the case
+CLAUDE.md records as having silently dropped every store-only run from the what-if scanners) in
+62s, reported **tree shape UNCHANGED, schema 341e1422457c still valid**, and refreshed the
+fingerprint. Validated against canaries rather than against a finished run, per memory
+`verify-tree-uses-the-runs-own-contract`.
+
+### NOT deleted: `delta_lift_idxs`, and why
+
+It has no production caller -- three comments and nothing else. But it is woven into the
+**calltree instrument's frozen anchors**: `Tests/calltree/test_calltree_smoke.py:411-431, 673-674`
+carries recorded call counts and fitted exponents for `AffinityStore.delta_lift_idxs` and its
+inner genexpr from a 2026-09-16 meso capture, and `calltree_growth.py:263` names it as "THE CASE
+THIS EXISTS FOR, measured". `Tests/bench/profile_lifecycle.py:75` lists it in `_AFF_METHODS`.
+
+CLAUDE.md §1 puts the calltree instrument in the tenth gate precisely because it "fails SILENTLY
+and in the direction of looking healthy". Deleting the function those anchors are written
+against needs the anchors RE-MEASURED, which is a ladder run, not an edit. That is a bigger act
+than the payoff, so it is deferred with this reason rather than done blind.
+
+`Tests/unit/test_affinity_lift_invariant.py` also still passes: its body exercises the affinity
+store's own arithmetic, which is live. Only its docstring describes the deleted consumer.
+
+### Still open on this ticket
+
+- `delta_lift_idxs` -- needs the calltree anchors re-measured first (above).
+- `init_lift_state` no longer initialises any lift: 27 references across 15 files. A rename, not
+  a deletion, so strictly outside the "delete what isn't necessary" mandate -- and a hot-path
+  rename has to update `SECTION_MAP` in the same instrument.
+- The stale docstring in `test_affinity_lift_invariant.py`.
