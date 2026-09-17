@@ -157,3 +157,90 @@ def test_the_drain_asks_the_pool_rather_than_obeying_it(built):
     # The drain routes THROUGH the method, so overriding it overrides the policy.
     got = Inventory_Manager._serve_order(a.mgr, _Contrary(), [1, 2, 3], None)
     assert got == [3, 2, 1], 'the drain is not consulting the pool at all'
+
+
+# ── the aisle ledger's invariant, per arm ─────────────────────────────────────
+
+#: Which priced levels each family maintains, as of the stage-B ledger move. The TEST does
+#: not consult this to decide what to check -- it reads that off the pool's own ledger, the
+#: books the builder handed it. This is here so that the derivation itself is pinned: if a
+#: family silently stopped maintaining a level, the derived answer would shrink and the
+#: check below would keep passing on a narrower question.
+LEDGER_TERMS = {
+    'ranked_labor':     ('demand_sum', 'pick_load_sum'),
+    'ranked_cartlabor': ('demand_sum', 'pick_load_sum', 'vol_sum'),
+}
+
+
+def test_every_pool_leaves_the_aisle_ledger_reconciled(built):
+    """The invariant the eleven loose dicts made impossible to write, asserted per ARM.
+
+    Until 2026-09-16 each placement family maintained the aisle books in its own copied
+    commit block, and the copies maintained different subsets: `vol_sum` was incremented by
+    `rank_cartlabor` and decremented by neither drop path (it is READ by the cart scorer, so
+    it moved real placements), and `lift_sum` decayed monotonically in every shipped arm.
+    `AisleLedger.reconcile()` is the statement that could not be made then -- every priced
+    level equals the sum of its members' per-SKU products -- and this drains each arm's pool
+    against the manager's real ledger and asks for it.
+
+    Scoped to the levels the family MAINTAINS, which is not a weakening: `init_demand_state`
+    prices all three off the current placement, but only `demand_sum` is maintained by every
+    family, so the other two legitimately drift on arms that never read them. That drift is
+    real and is its own ticket; asking about it here would only make this test red for a
+    reason it is not about.
+    """
+    seen_terms = {}
+    checked = 0
+    for key, a in built.items():
+        p = a.mgr.placement
+        if not p.is_pooled:
+            continue
+        unit = _any_unit(a)
+        cands = list(a.mgr._candidates(unit))[:12]
+        if len(cands) < 3:
+            continue
+        pool = p.open_pool(list(cands), unit)
+        for _ in range(len(cands)):
+            if pool.take(unit)[0] is None:
+                break
+
+        # The levels this family maintains, read off the pool's own ledger -- the books its
+        # builder handed it. The two map families keep their ledger in a closure instead of
+        # on the pool; they maintain membership and `demand_sum`, like every other family.
+        inner = getattr(pool, '_led', None)
+        levels = inner.maintained_levels() if inner is not None else ('demand_sum',)
+        seen_terms[p.name] = levels
+
+        findings = a.mgr.ledger.reconcile(levels=levels)
+        assert not findings, f'{key} ({p.name}): ' + '; '.join(findings)
+        checked += 1
+
+    assert checked == len(POOLED), (
+        f'only {checked} of {len(POOLED)} pooled arms were drained -- the rest were skipped '
+        f'for want of candidates, so this proves less than it claims')
+    for name, want in LEDGER_TERMS.items():
+        assert seen_terms.get(name) == want, (
+            f'{name} maintains {seen_terms.get(name)}, audited as {want} -- either the '
+            f'family changed which levels it scores on, or a book stopped being handed to '
+            f'its builder and the check above silently narrowed')
+
+
+def test_the_ledger_assertion_above_is_not_vacuous(built):
+    """`reconcile()` skips a level whose per-SKU products were never seeded, so a fixture
+    that never priced anything would pass the test above while checking nothing."""
+    a = next(iter(built.values()))
+    led = a.mgr.ledger
+    assert led.sku_demand_product, 'no per-SKU demand products: reconcile checked nothing'
+    assert any(v > 0.0 for v in led.demand_sum.values()), 'every aisle level is zero'
+    assert any(led.sku_sets.values()), 'no aisle holds a SKU'
+
+    # And it must report a level that stops matching its members -- the shape of both
+    # shipped defects, on a real manager's books rather than a hand-built ledger.
+    aid = next(a for a, s in led.sku_sets.items() if s)
+    led.demand_sum[aid] += 1.0
+    try:
+        findings = led.reconcile(levels=('demand_sum',))
+        assert len(findings) == 1 and f'demand_sum[{aid}]' in findings[0], findings
+    finally:
+        led.demand_sum[aid] -= 1.0
+    assert led.reconcile(levels=('demand_sum',)) == [], 'the probe did not restore the ledger'

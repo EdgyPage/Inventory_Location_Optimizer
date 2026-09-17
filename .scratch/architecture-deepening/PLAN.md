@@ -153,7 +153,7 @@ count DOWN, which it permits.
 |---|---|---|---|
 | 0 | baseline | DONE | gate 6 red, pre-existing (drift 04); all others green |
 | 1 | 01 | **RESOLVED** | PRE-RUN. vol_sum drift fixed, non-vacuity proved |
-| 2 | 02 | part-landed | stage A: ledger module + drop half + reconcile(). **Stage B open** |
+| 2 | 02 | **RESOLVED** | A: drop half. B: add half -- eleven commit blocks, one body, digest IDENTICAL. Remainder split to 21 |
 | 2 | 03 | part-landed | dead registries, live dispatch hints, lift_sum + load_* deleted. **PlacementPolicy record open** |
 | 2 | 04 | not started | blocked by 03 |
 | 2 | 05 | not started | blocked by 04 |
@@ -169,10 +169,13 @@ count DOWN, which it permits.
 | 6 | 16-17 | not started | blocked by 02 |
 | 6 | 18 | **RESOLVED** | closed with a reason: all three mixins stay |
 | - | 19 | **RESOLVED** | LoadParams deleted; init_lift_state renamed; delta_lift_idxs closed with a reason |
+| - | 20 | not started | NEW, found by 02B: two priced levels are seeded once and then abandoned on 15 of 17 arms |
+| - | 21 | not started | NEW, split from 02B: the pool builders take loose dicts, not a ledger. Ride ticket 04's oracle re-freeze |
 
-**Six resolved, two part-landed, eleven open.** The three still-unblocked tickets (02 stage B,
-06, 11) are each a multi-hour refactor of a hot path and want a focused effort with the toy-run
-digest, not a tail-end slice.
+**Six resolved, two part-landed, thirteen open** (19 tickets became 21 -- see the rows above).
+Ticket 02's add half landed 2026-09-17; what remains of it is the gain evaluator's three
+hand-written lists, which now have a declaration to be derived from. Tickets 06 and 11 are each
+still a multi-hour refactor of a hot path and want the toy-run digest, not a tail-end slice.
 
 ### Why ticket 11 has no cheap first step
 

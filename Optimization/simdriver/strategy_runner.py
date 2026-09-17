@@ -58,6 +58,7 @@ from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
 from Inbound.gain import (
+    AISLE_VIEWS as _AISLE_VIEWS,
     FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle,
     OneOwnerBundle as _OneOwnerBundle, SiteGainBundle as _SiteGainBundle)
 from Inbound.pack import packer as _inbound_packer
@@ -75,6 +76,7 @@ from dataclasses import dataclass as _dataclass, replace as _dc_replace
 from Warehouse.inventory.inventory_common import (
     _wp_for, binkey_of as _binkey_of, tier_ranks_for as _tier_ranks_for)
 from Warehouse.placement import Assignment_Functions as _af
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 from Warehouse.inventory.put_queue import store_and_fulfillment as _store_and_fulfillment
 from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
@@ -201,6 +203,26 @@ def _timed_build(strat, mgr, ctx) -> float:
     t0 = time.perf_counter()
     strat.build(mgr, ctx)
     return time.perf_counter() - t0
+
+
+# ── the two vocabularies, checked against each other at import ────────────────────────
+#
+# `AisleLedger.POLICY_BOOKS` is the list of books a placement policy writes; `AISLE_VIEWS`
+# is how the gain evaluator makes each one copy-on-write for a VIRTUAL placement.  They are
+# named differently because `Inbound/` may not import the placement engine (the broker
+# rule), so the gain module keys on the MANAGER attribute the driver hands it -- and the
+# driver is the only place that knows both.
+#
+# A book with no wrapper is the failure `_gain_bundle_for` warns about below: not a refusal,
+# a virtual placement advancing the real warehouse.  Checked here rather than at the first
+# drain, because by then the evaluator has already priced a fiction under the arm's name.
+_POLICY_STATE_NAMES = frozenset('aisle_' + b for b in _AisleLedger.POLICY_BOOKS)
+if _POLICY_STATE_NAMES != set(_AISLE_VIEWS):
+    raise RuntimeError(
+        f'Inbound.gain.AISLE_VIEWS and AisleLedger.POLICY_BOOKS disagree: '
+        f'{sorted(_POLICY_STATE_NAMES ^ set(_AISLE_VIEWS))}. Every book a placement policy '
+        f'can write needs a copy-on-write view, or a virtual placement writes into the live '
+        f'warehouse; a view for a book no policy writes is dead weight on every pool open.')
 
 
 def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':

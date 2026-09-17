@@ -86,6 +86,14 @@ Reached when:
   which is both a perf question and a float-accumulation-order question. Neither belongs in a
   pre-run patch. Ticket 02 revisits whether the sum should exist at all.
 
+  **AMENDED 2026-09-17 (ticket 02 stage B): derive-on-read is REFUSED, not deferred.** The
+  "better end state" above was wrong about where the leverage is. The levels are read inside
+  the scoring expression on every candidate, in a loop whose width is the live aisle count and
+  grows with the catalogue, so deriving on read turns an O(1) dict read into a sum over the
+  aisle's members there. And it is not what makes the drift unrepresentable: what does that is
+  the add and the drop living in one module with `reconcile()` between them, which the running
+  sums now have.
+
 - **Accepted for ticket 01: the fix is made by hand in two places, which is the exact failure mode
   ticket 02 exists to kill.** `_drop_sku_from_aisle` carries a hoisted-locals inline twin in
   `_reclaim_empty_bins` and its own docstring says KEEP THE TWO IN SYNC. Two lines in two places is
@@ -122,6 +130,22 @@ Reached when:
   it "the dangerous one of the seven" because one caller population thinks a tree is current while
   another thinks it is stale, with no error either way.
 
+- **A frozen oracle must keep its own copy, so a body refactor must not move a signature**
+  (2026-09-17, ticket 02 stage B). The three placement equivalence suites hold hand-copied
+  `_impl` bodies and call `_ranked_assign_impl` / `_TravelBalancedPool(...)` with the same
+  positional dicts. Changing a signature forces the oracle to be rewritten, which re-freezes it
+  against the change it exists to check. The copies inside `Tests/` are the reference, not
+  duplicates to delete. Consequence: ticket 02's add half binds `AisleLedger.over(...)` to the
+  dicts each function was ALREADY handed instead of taking a ledger parameter, and the oracles
+  stayed untouched. Carry this into ticket 04, whose fog item asks the same question.
+
+- **Binding a ledger per pool was a cost class, not noise** (2026-09-17, ticket 02 stage B).
+  The gain evaluator rebuilds the arm's policy per VIRTUAL placement at 12.59 pool opens per
+  placement, so `AisleLedger.over()` at 2.00 us was 23.4% of a whole pool open. Spelling the
+  signature out, deriving `bound` on read and binding one shared sentinel for the books a
+  caller omits took it to 0.29 us / 4.2%. Recorded because the instinct was "ten empty dicts,
+  who cares" and the instinct was wrong -- and because the measurement was cheap.
+
 - **`complexity-round/17` folds in as ticket 05, by cross-reference rather than by moving it.**
   Grouping it with the placement tickets means one pass over `Assignment_Functions.py` and one
   re-run of the equivalence suite instead of three. The original file stays where it is so that
@@ -130,9 +154,17 @@ Reached when:
 
 ## Fog
 
-- Whether the aisle ledger's seven priced quantities should be running sums at all, or derived on
-  read from `members(aid)` and the per-SKU products. Ticket 02 decides; the answer is a perf and
-  float-order question, not a design-taste one.
+- ~~Whether the aisle ledger's priced quantities should be running sums or derived on read.~~
+  **DECIDED 2026-09-17, running sums stay.** They are read inside the scoring expression on every
+  candidate, in a loop whose width is the live aisle count and grows with the catalogue
+  (k = 1.963 against the ladder knob), so derive-on-read turns an O(1) dict read into a sum over
+  the aisle's members there. What makes the drift unrepresentable is not derive-on-read; it is
+  that the add and the drop now live in one module with `reconcile()` between them.
+- Whether ticket 20's two abandoned levels are repaired, symmetrised or deleted. `pick_load_sum`
+  and `vol_sum` are seeded by `init_demand_state` and then maintained by only the two labour
+  families, so they are stale for the whole run on the other fifteen arms. The persisted one has
+  no reader outside its writer/loader pair, which is the `lift_sum` evidence exactly -- but
+  `vol_sum` had no reader either, until `rank_cartlabor` grew one.
 - Whether the knob registry (ticket 09) trips `.scratch/architecture-drift/issues/06`, the ratchet
   on hand-written run-tree path knowledge -- 11 of its recorded sites are in
   `Optimization/config/whatif_config.py`. It may go DOWN, which the ratchet permits.

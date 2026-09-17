@@ -1,7 +1,7 @@
 # 02 - the aisle ledger has no module
 
 Type: refactor
-Status: claimed
+Status: resolved
 Blocked by: 01
 
 **POST-RUN. This is the first thing that lands after the campaign, per ticket 01's condition.**
@@ -138,9 +138,7 @@ Consequence for the interface: `add_bin` is the manager's call (it already has t
 `add_sku` is the policy's. The guard `if sku not in ledger.holds(aid)` stays at the call site
 because four of the ten blocks legitimately need work on both sides of it.
 
-## Progress -- STAGE A landed, stage B outstanding (2026-09-16)
-
-**This ticket is NOT resolved.** The drop half is done; the add half is not.
+## Progress -- STAGE A landed (2026-09-16); see the stage B section at the foot
 
 ### What landed
 
@@ -156,7 +154,7 @@ comparing a level against products nobody wrote.
 instruction that produced ticket 01's defect is deleted, not restated.
 
 `reconcile()` returns every level that no longer equals the sum of its members' products;
-`assert_sound()` is the assertion form. `Tests/unit/test_aisle_ledger.py`, 10 tests.
+`assert_sound()` is the assertion form. `Tests/unit/test_aisle_ledger.py`, 9 tests.
 
 ### Three exactness hazards this ticket did not anticipate
 
@@ -178,7 +176,7 @@ instruction that produced ticket 01's defect is deleted, not restated.
 | check | result |
 |---|---|
 | toy run vs baseline, `run_digest.py` | **IDENTICAL** on the comparable surface, 136 arms |
-| `Tests/unit/test_aisle_ledger.py` | 10 passed |
+| `Tests/unit/test_aisle_ledger.py` | 9 passed |
 | `Tests/unit -k "not gpu"` | 2648 passed, 1 skipped -- same count as before the change |
 | the three placement equivalence files | 95 passed |
 | gates 1-5, 7-10 | green |
@@ -204,3 +202,130 @@ iterations". The SAME docstring says the loop is now "typically a handful per ba
 is stale prose from the O(total_bins) full-scan era it replaced. I removed the hoists for the
 ledger calls on that basis and the digest is identical, but identical is not *fast*: if the
 per-call cost matters it is a calltree measurement, not an argument.
+
+---
+
+## STAGE B landed (2026-09-17) -- the add half is one body
+
+### What landed
+
+`add_sku` / `add_bin` / `count_bin` on `AisleLedger`, and **every** commit block in
+`Assignment_Functions.py` now calls them. There were ELEVEN, not the ten this ticket counted:
+`_cluster_map_commit` was a twelfth writer hiding as a helper, and `_commit_aisle` was another.
+Both are deleted; nothing in the placement module writes an aisle book directly any more.
+
+The three historical shapes collapse into one pair of calls:
+
+| shape | families | what it maintains |
+|---|---|---|
+| A | travel / cohesion, ranked wave + pool | `demand_sum`, idx inside the guard |
+| B | co-demand x2, minlabor x2, cluster_map | `demand_sum` + `member_pos` outside the guard |
+| C | `rank_labor`, `rank_cartlabor` | `demand_sum`, `pick_load_sum`, and `vol_sum` when the cart is on |
+
+**`None` is not 0.0, and that is the whole design of `add_sku`.** A level a family does not
+maintain is omitted, not passed as zero: passing zero would `+=` into a `defaultdict` and
+MATERIALISE a key the family never had, adding rows to `aisle_metrics`. A level the family
+does maintain is passed even when its value is 0.0, exactly as `+= splp.get(sku, 0.0)` did.
+This is stage A's third hazard running in the opposite direction.
+
+### The decision this ticket left open
+
+**Running sums stay; derive-on-read is refused.** The levels are read inside the scoring
+expression on every candidate (`aisle_demand_sum[aid] + f_s * q_s` in the travel tie-break,
+`load`/`vol_load` in `_score_of`), so deriving on read turns an O(1) dict read into a sum over
+the aisle's members -- inside a loop whose width is the live aisle count and grows with the
+catalogue (`k = 1.963` against the ladder knob, measured on `_RankedAssignPool`). What makes
+the drift unrepresentable is not derive-on-read; it is that the add and the drop now live in
+one module with `reconcile()` between them.
+
+### Why no signature moved
+
+Deliberate, and it is the reason the oracles still mean something. The three placement
+equivalence suites carry FROZEN HAND-COPIES of these impl bodies and call
+`_ranked_assign_impl` / `_TravelBalancedPool(...)` directly with the same positional dicts.
+Changing a signature forces the oracle to be rewritten, which re-freezes it against the very
+change it exists to check. So each function binds an `AisleLedger.over(...)` to the dicts it
+was ALREADY HANDED, and writes through that. The copies inside `Tests/` are not duplicates to
+delete -- they are the reference.
+
+`over()` also carries the seam the gain evaluator needs: it BINDS rather than copies, so a
+pool opened over `Inbound/gain.py`'s copy-on-write wrappers writes into those and not into the
+real warehouse, unchanged from before.
+
+### `bound` -> `maintained_levels()` -- ticket 03's `ledger_terms`, derived
+
+A ledger records which books it was handed. A policy's ledger therefore KNOWS which levels its
+family maintains, without anyone listing them a second time. `reconcile(levels=...)` takes that
+list, and the per-arm integration assertion reads it off the pool rather than off a table.
+This is what ticket 03 wants for `PlacementPolicy.ledger_terms`; it should consume this, not
+restate it.
+
+### A finding, filed as ticket 20
+
+Pointing `reconcile()` at a real manager per arm immediately reported 65 of 65 aisles drifted
+on `pick_load_sum` and `vol_sum` for `cluster_map`. Measured on stage A and stage B: identical,
+and present BEFORE any drain. `init_demand_state` prices all three levels; the arm then
+maintains only the ones it scores on, so two of them are stale for the whole run on 15 of the
+17 arms. Dormant today (no reader outside the writer/loader pair for the persisted one), which
+is exactly what `vol_sum` was before `rank_cartlabor` started reading it. Ticket 20 holds the
+measurement and the three ways out.
+
+### Verification
+
+| check | result |
+|---|---|
+| toy run vs baseline, `run_digest.py` | **IDENTICAL** on the comparable surface, 136 arms |
+| the three placement equivalence files + the pool/index suites | 148 passed |
+| `Tests/unit -k "not gpu"` | 2,671 passed / 1 skipped -- unchanged count |
+| `Tests/unit/test_aisle_ledger.py` | 19 passed (9 -> 19) |
+| the source ratchet, on planted damage | fails and names the line |
+
+The digest baseline was `comparison_whatif_20260916_223315` (ticket 12's commit), so IDENTICAL
+also clears the six commits in between -- tickets 09, 10, 19 and their arch re-syncs.
+
+### `over()` was a cost class, and it was measured rather than assumed
+
+Binding a ledger per pool looked like an allocation nobody would notice. It is not: the gain
+evaluator rebuilds the arm's policy for EVERY VIRTUAL PLACEMENT, at 12.59 pool opens per
+placement, so anything on that path is paid O(yard^2) times per drain.
+
+| form | per call | as a share of one pool open |
+|---|---|---|
+| `**books`, `cls()`, ten `setattr`s | 2.00 us | **23.4%** |
+| spelled-out keywords, `__new__`, a shared unbound sentinel | 0.29 us | **4.2%** |
+
+Where the 2.00 us went: 0.48 us allocating ten dicts of which seven were thrown away,
+0.36 us building `bound` as a frozenset, 0.23 us validating with `set(books) - set(BOOKS)`,
+the rest kwargs packing and ten `setattr`s. The fix is all three at once -- the signature is
+spelled out (free validation, no kwargs dict), `bound` is derived on read, and a book the
+caller leaves out binds ONE shared `_UnboundBook` instead of a fresh dict.
+
+The sentinel also improved the failure. A private empty dict ABSORBS a write to a book the
+family was never handed -- no error, and the number lands where no reader can follow it,
+which is the shape of every defect this module exists for. `_UnboundBook` refuses the write
+and says why; `.get()` still answers, so `reconcile()` works on a ledger holding three books.
+
+This is the repo's own rule applied to itself: cost class before count, and "measured, and it
+was nothing" is a different statement from "never measured". Here it was not nothing.
+
+### The gain-path hazard, mostly closed
+
+`_gain_bundle_for`'s warning was: *"A dict left off that list is not a refusal, it is a
+virtual placement advancing the REAL warehouse."* Two things now stand between that and the
+code:
+
+1. **A pool can only write books it was handed.** Its ledger binds exactly what the factory
+   passed out of `state`, and every other book refuses. So a family's write set is bounded by
+   its wiring rather than by a comment.
+2. **`AisleLedger.POLICY_BOOKS` vs `Inbound.gain.AISLE_VIEWS`, checked at import** in
+   `strategy_runner` -- the only module that may see both vocabularies, since `Inbound/` must
+   not import the placement engine. A writable book with no copy-on-write view now refuses to
+   load, instead of being discovered during a campaign.
+
+### Resolved, with one piece split off
+
+**Ticket 21** carries the remainder: the pool builders still take the aisle books as separate
+positional parameters, so `strategies.py`, `_gain_bundle_for`'s `aisle_state=` dicts and
+`test_gain_bundle_labor_families.FAMILIES` each restate the same list. Narrowing those
+signatures means re-freezing the placement oracles, so it rides ticket 04's pass, which has to
+re-freeze them anyway. What is left there is duplication; the danger is closed (see above).

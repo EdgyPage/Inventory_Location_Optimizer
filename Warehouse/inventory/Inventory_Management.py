@@ -529,17 +529,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 sku = bin_.storage.order.sku
                 aid = bin_.location[0]
                 qty = bin_.storage.quantity
-                self._aisle_sku_sets[aid].add(sku)
-                counts = self._aisle_sku_counts[aid]
-                counts[sku] = counts.get(sku, 0) + 1
+                self.ledger.add_sku(aid, sku)      # membership only; the levels are
+                self.ledger.count_bin(aid, sku)    # priced by init_demand_state, below
                 self._bin_sku[id(bin_)] = sku
                 self._current_quantities[sku] = (
                     self._current_quantities.get(sku, 0) + qty
                 )
-                idx = sku_to_idx.get(sku)
-                if idx is not None:
-                    self._aisle_idx_sets[aid].add(idx)
-                    self._aisle_member_pos[aid][idx].append(bin_.x_phys)
+                self.ledger.add_bin(aid, sku_to_idx.get(sku), bin_.x_phys)
                 if is_forward_pick(bin_):
                     self._sku_singleton_bins[sku].add(bin_)
                 else:
@@ -916,9 +912,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         else:
             self._sku_pallet_bins[sku].add(bin_)
         if self._affinity is not None:
-            aid    = bin_.location[0]
-            counts = self._aisle_sku_counts[aid]
-            counts[sku] = counts.get(sku, 0) + 1
+            self.ledger.count_bin(bin_.location[0], sku)
         self._reorder_placements += 1
         if self._sigma_freq is not None:
             self._sigma_fd += self._sigma_delta(sku, bin_)

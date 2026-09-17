@@ -413,6 +413,11 @@ AISLE_COPIERS = {
 #: The two tables must cover each other exactly.  A name that has a copier and no view would
 #: silently fall back to the eager path and quietly cost 40x; a name with a view and no copier
 #: would have no oracle to be tested against.  Asserted immediately below, at import.
+#:
+#: That check says the tables agree WITH EACH OTHER; it cannot say they cover every book a
+#: placement policy writes, because `Inbound/` may not import the placement engine.  The
+#: DRIVER makes that comparison instead -- `strategy_runner` checks this table against
+#: `AisleLedger.POLICY_BOOKS` at import, and refuses to load if a writable book has no view.
 AISLE_VIEWS = {
     'aisle_sku_sets':      _CowSets,
     'aisle_idx_sets':      _CowSets,

@@ -22,6 +22,7 @@ from Warehouse.inventory.Inventory_Management import (
     _SIZE_RANKS, _SIZES_DESCENDING, BinKey, tier_ranks_for,
     AssignmentFn, RankedAssignmentFn, Placement, _wp_for,
 )
+from Warehouse.inventory.aisle_ledger import AisleLedger
 
 
 # ── sorted-by-pref placement helpers (map / cluster_map fast path) ─────────────
@@ -279,16 +280,6 @@ def _pick_extremal_aisle(best_D, score_of, maximize):
     return best_aid
 
 
-def _commit_aisle(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, affinity, aid, sku, f_s, q_s):
-    """Record a newly-placed SKU in an aisle's state (idempotent if already present)."""
-    if sku not in aisle_sku_sets[aid]:
-        aisle_sku_sets[aid].add(sku)
-        idx = affinity._sku_to_idx.get(sku)
-        if idx is not None:
-            aisle_idx_sets[aid].add(idx)
-        aisle_demand_sum[aid] += f_s * q_s
-
-
 def _require_affinity(affinity, policy: str) -> None:
     """Fail loudly if an affinity-DRIVEN policy (cohesion / co-demand) is built without a
     usable affinity matrix, rather than silently scoring 0 lift and degrading to uniform.
@@ -340,6 +331,12 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
     # cohesion always uses the front (min-D) bay; travel uses min-D when minimising
     # and max-D when maximising (f_s*D is monotone in D within an aisle).
     bin_minimize = True if score_kind == 'cohesion' else (not maximize)
+    # The aisle books this family maintains: membership and the demand level, nothing
+    # else.  `over` BINDS the dicts it is handed rather than copying them, so the writes
+    # below land wherever the caller's dicts live -- the warehouse's own, or the gain
+    # evaluator's copy-on-write wrappers.
+    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                              demand_sum=aisle_demand_sum)
 
     def assign(unit, candidates):
         sku = unit.order.sku
@@ -371,7 +368,8 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
         best_aid = _pick_extremal_aisle(best_D, score_of, maximize)
         if best_aid < 0:
             return None
-        _commit_aisle(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, affinity, best_aid, sku, f_s, q_s)
+        if sku not in aisle_sku_sets[best_aid]:
+            ledger.add_sku(best_aid, sku, affinity._sku_to_idx.get(sku), demand=f_s * q_s)
         return best_bin_map[best_aid]
 
     assign.name = name
@@ -513,6 +511,8 @@ def _ranked_assign_impl(
     # Only needed for the default pick-effort ordering's co-occurrence term.
     all_idx = (set().union(*aisle_idx_sets.values()) if (order_key is None and aisle_idx_sets)
                else set())
+    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                              demand_sum=aisle_demand_sum)
 
     def pick_effort_priority(unit) -> float:
         c = unit.order
@@ -559,11 +559,7 @@ def _ranked_assign_impl(
         f_s = freq_by_sku.get(sku, 0.0)
         q_s = qty_by_sku.get(sku, 0.0)
         if sku not in aisle_sku_sets[best_aid]:
-            aisle_sku_sets[best_aid].add(sku)
-            idx = affinity._sku_to_idx.get(sku)
-            if idx is not None:
-                aisle_idx_sets[best_aid].add(idx)
-            aisle_demand_sum[best_aid] += f_s * q_s
+            ledger.add_sku(best_aid, sku, affinity._sku_to_idx.get(sku), demand=f_s * q_s)
 
         # Advance the chosen aisle's head; drop it when exhausted.
         dq = by_aisle[best_aid]
@@ -660,6 +656,9 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
     for lst in by_aisle.values():
         lst.sort(key=lambda b: b.x_phys)          # ascending column
     sku_to_idx = affinity._sku_to_idx
+    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                              demand_sum=aisle_demand_sum,
+                              member_pos=aisle_member_pos)
 
     # ── SKU-run cache (the Phase-6 precedent, both key components) ────────────
     # sorted_units clusters same-SKU units (equal priority, stable sort).  aisle_key is
@@ -703,12 +702,8 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
         chosen = lst.pop(j)
 
         if sku not in aisle_sku_sets[best_aid]:
-            aisle_sku_sets[best_aid].add(sku)
-            aisle_demand_sum[best_aid] += f_s * q_s
-        idx = sku_to_idx.get(sku)
-        if idx is not None:
-            aisle_idx_sets[best_aid].add(idx)
-            aisle_member_pos[best_aid][idx].append(chosen.x_phys)
+            ledger.add_sku(best_aid, sku, demand=f_s * q_s)
+        ledger.add_bin(best_aid, sku_to_idx.get(sku), chosen.x_phys)
         result.append((unit, chosen))
         # winner refresh: exactly what the next same-SKU unit's fresh recompute would see
         if lst:
@@ -746,7 +741,7 @@ class _CoDemandPool(_Pool):
 
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs',
                  '_beta', '_compact', '_x_pace', '_all_idx', '_by_aisle', '_D_of',
-                 '_s2i', '_last_sku', '_key_cache', '_cached_row', '_co_by_sku')
+                 '_s2i', '_last_sku', '_key_cache', '_cached_row', '_co_by_sku', '_led')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -755,6 +750,9 @@ class _CoDemandPool(_Pool):
         self._ads, self._amp = aisle_demand_sum, aisle_member_pos
         self._fbi, self._fbs, self._qbs = freq_by_idx, freq_by_sku, qty_by_sku
         self._beta, self._compact = beta, compact
+        self._led = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                                     demand_sum=aisle_demand_sum,
+                                     member_pos=aisle_member_pos)
         self._s2i = affinity._sku_to_idx
 
         speed = SpeedProfile(wp.x_speed, wp.y_speed)
@@ -841,12 +839,8 @@ class _CoDemandPool(_Pool):
         score = None if cx is None else self._x_pace * abs(chosen.x_phys - cx)
 
         if sku not in self._ass[best_aid]:
-            self._ass[best_aid].add(sku)
-            self._ads[best_aid] += f_s * q_s
-        idx = self._s2i.get(sku)
-        if idx is not None:
-            self._ais[best_aid].add(idx)
-            self._amp[best_aid][idx].append(chosen.x_phys)
+            self._led.add_sku(best_aid, sku, demand=f_s * q_s)
+        self._led.add_bin(best_aid, self._s2i.get(sku), chosen.x_phys)
         # winner refresh: exactly what the next same-SKU unit's fresh recompute would see
         if lst:
             mass = _delta_lift_from_row(row, self._ais[best_aid], self._fbi)
@@ -874,6 +868,9 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
     Used for the ranked policy's stragglers; accumulates positions like the wave."""
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     sku_to_idx = affinity._sku_to_idx
+    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                              demand_sum=aisle_demand_sum,
+                              member_pos=aisle_member_pos)
 
     def assign(unit, candidates):
         if not candidates:
@@ -901,12 +898,8 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
             chosen = (min if compact else max)(lst, key=lambda b: x_pace * b.x_phys + y_pace * b.y_phys)
 
         if sku not in aisle_sku_sets[best_aid]:
-            aisle_sku_sets[best_aid].add(sku)
-            aisle_demand_sum[best_aid] += f_s * q_s
-        idx = sku_to_idx.get(sku)
-        if idx is not None:
-            aisle_idx_sets[best_aid].add(idx)
-            aisle_member_pos[best_aid][idx].append(chosen.x_phys)
+            ledger.add_sku(best_aid, sku, demand=f_s * q_s)
+        ledger.add_bin(best_aid, sku_to_idx.get(sku), chosen.x_phys)
         return chosen
 
     assign.name = name
@@ -965,7 +958,7 @@ class _RankedAssignPool(_Pool):
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_fbi', '_fbs', '_qbs', '_beta',
                  '_minimize', '_selector', '_order_key', '_all_idx',
                  '_by_aisle', '_D_of', '_head_bin', '_head_D',
-                 '_key_fn', '_rank', '_sel')
+                 '_key_fn', '_rank', '_sel', '_led')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta,
@@ -973,6 +966,8 @@ class _RankedAssignPool(_Pool):
         self._aff, self._ass, self._ais = affinity, aisle_sku_sets, aisle_idx_sets
         self._ads, self._fbi = aisle_demand_sum, freq_by_idx
         self._fbs, self._qbs, self._beta = freq_by_sku, qty_by_sku, beta
+        self._led = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                                     demand_sum=aisle_demand_sum)
         self._minimize, self._selector, self._order_key = minimize, aisle_selector, order_key
         #: `aisle_key(aid, head_D) -> comparable` -- the SELECTION expressed as a KEY
         #: instead of a scan, so `take` can heap it.  None means the default: the head's
@@ -1081,11 +1076,8 @@ class _RankedAssignPool(_Pool):
         f_s = self._fbs.get(sku, 0.0)
         q_s = self._qbs.get(sku, 0.0)
         if sku not in self._ass[best_aid]:
-            self._ass[best_aid].add(sku)
-            idx = self._aff._sku_to_idx.get(sku)
-            if idx is not None:
-                self._ais[best_aid].add(idx)
-            self._ads[best_aid] += f_s * q_s
+            self._led.add_sku(best_aid, sku, self._aff._sku_to_idx.get(sku),
+                              demand=f_s * q_s)
 
         # Advance the chosen aisle's head; drop it when exhausted.
         dq = self._by_aisle[best_aid]
@@ -1354,6 +1346,10 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     vol_load = ({aid: float(aisle_vol_sum.get(aid, 0.0)) for aid in by_aisle}
                 if cart_on else None)
     sku_to_idx = affinity._sku_to_idx
+    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                              demand_sum=aisle_demand_sum,
+                              pick_load_sum=aisle_pick_load_sum,
+                              vol_sum=(aisle_vol_sum if cart_on else None))
     result: list = []
 
     def _cart_cost(v_raw):
@@ -1431,17 +1427,15 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
         cost, m, chosen = best_choice
         load[best_aid] += fq * cost
 
-        # commit manager aisle state (travel-blind sums; mirrors _ranked_assign_impl)
+        # commit manager aisle state (travel-blind sums; mirrors _ranked_assign_impl).
+        # `vol_load` is this call's DRAIN-SCOPED copy, read by the scorer above; it stays
+        # here rather than moving into the ledger, which owns the warehouse's own books.
         if sku not in aisle_sku_sets[best_aid]:
-            aisle_sku_sets[best_aid].add(sku)
-            idx = sku_to_idx.get(sku)
-            if idx is not None:
-                aisle_idx_sets[best_aid].add(idx)
-            aisle_demand_sum[best_aid] += fq
-            aisle_pick_load_sum[best_aid] += sku_pick_load_product.get(sku, 0.0)
             if cart_on:                       # SKU-once, in lockstep with pick_load_sum
                 vol_load[best_aid] += m_s
-                aisle_vol_sum[best_aid] += m_s
+            ledger.add_sku(best_aid, sku, sku_to_idx.get(sku), demand=fq,
+                           pick_load=sku_pick_load_product.get(sku, 0.0),
+                           vol=(m_s if cart_on else None))
 
         by_aisle[best_aid][m].popleft()
         # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
@@ -1483,7 +1477,7 @@ class _TravelBalancedPool(_Pool):
     __slots__ = ('_ass', '_ais', '_ads', '_apl', '_splp', '_fbs', '_qbs', '_s2i',
                  '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
-                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_rank', '_sel')
+                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_rank', '_sel', '_led')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
@@ -1514,6 +1508,12 @@ class _TravelBalancedPool(_Pool):
             self._avs, self._svp = aisle_vol_sum, sku_vol_product
             self._cart_coef = wp.cart_swap_coef
             self._cap_raw = wp.cart_capacity * total_freq / max(expected_batch_skus, 1e-9)
+        # `_avs` is None off the cart branch, and `over` skips a book it is handed as None --
+        # so a labor pool never materialises a `vol_sum` key its family does not maintain.
+        self._led = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                                     demand_sum=aisle_demand_sum,
+                                     pick_load_sum=aisle_pick_load_sum,
+                                     vol_sum=self._avs)
 
         # ── per aisle: {height_mult: HEAP of (D, seq, bin)}, cheapest-D first ────────
         #
@@ -1690,17 +1690,14 @@ class _TravelBalancedPool(_Pool):
         marginal = fq * cost
         self._load[best_aid] += marginal
 
-        # commit manager aisle state (travel-blind sums; mirrors _RankedAssignPool)
+        # commit manager aisle state (travel-blind sums; mirrors _RankedAssignPool).
+        # `_vol_load` is the pool's own drain-scoped copy -- see `_travel_balanced_impl`.
         if sku not in self._ass[best_aid]:
-            self._ass[best_aid].add(sku)
-            idx = self._s2i.get(sku)
-            if idx is not None:
-                self._ais[best_aid].add(idx)
-            self._ads[best_aid] += fq
-            self._apl[best_aid] += self._splp.get(sku, 0.0)
             if self._cart_on:                 # SKU-once, in lockstep with pick_load_sum
                 self._vol_load[best_aid] += m_s
-                self._avs[best_aid] += m_s
+            self._led.add_sku(best_aid, sku, self._s2i.get(sku), demand=fq,
+                              pick_load=self._splp.get(sku, 0.0),
+                              vol=(m_s if self._cart_on else None))
 
         heapq.heappop(by_aisle[best_aid][m])
         # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
@@ -1895,6 +1892,9 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     def _better(a, b):                       # is a a better (more extreme) score than b?
         return a > b if maximize else a < b
 
+    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                              demand_sum=aisle_demand_sum,
+                              member_pos=aisle_member_pos)
     D_of = _D_map(cands, x_pace, y_pace)
     M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
     by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
@@ -2028,12 +2028,8 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
         last_winner = best_aid                  # the one aisle whose cached bc is now stale
 
         if sku not in aisle_sku_sets[best_aid]:
-            aisle_sku_sets[best_aid].add(sku)
-            aisle_demand_sum[best_aid] += fq
-        idx = sku_to_idx.get(sku)
-        if idx is not None:
-            aisle_idx_sets[best_aid].add(idx)
-            aisle_member_pos[best_aid][idx].append(chosen.x_phys)
+            ledger.add_sku(best_aid, sku, demand=fq)
+        ledger.add_bin(best_aid, sku_to_idx.get(sku), chosen.x_phys)
         result.append((unit, chosen))
     return result
 
@@ -2065,7 +2061,7 @@ class _MinLaborPool(_Pool):
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs', '_lam',
                  '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
                  '_s2i', '_matrix', '_rep', '_drop', '_last_sku', '_last_winner',
-                 '_bc_by_aid', '_row_items', '_max_reward')
+                 '_bc_by_aid', '_row_items', '_max_reward', '_led')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -2074,6 +2070,9 @@ class _MinLaborPool(_Pool):
         self._ads, self._amp = aisle_demand_sum, aisle_member_pos
         self._fbi, self._fbs, self._qbs = freq_by_idx, freq_by_sku, qty_by_sku
         self._lam, self._maximize = lam, maximize
+        self._led = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                                     demand_sum=aisle_demand_sum,
+                                     member_pos=aisle_member_pos)
         self._s2i, self._matrix = affinity._sku_to_idx, affinity._matrix
 
         speed = SpeedProfile(wp.x_speed, wp.y_speed)
@@ -2239,12 +2238,8 @@ class _MinLaborPool(_Pool):
         self._last_winner = best_aid            # the one aisle whose cached bc is now stale
 
         if sku not in self._ass[best_aid]:
-            self._ass[best_aid].add(sku)
-            self._ads[best_aid] += fq
-        idx = self._s2i.get(sku)
-        if idx is not None:
-            self._ais[best_aid].add(idx)
-            self._amp[best_aid][idx].append(chosen.x_phys)
+            self._led.add_sku(best_aid, sku, demand=fq)
+        self._led.add_bin(best_aid, self._s2i.get(sku), chosen.x_phys)
         return chosen, best_score
 
 
@@ -2560,17 +2555,6 @@ def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, fre
     return min(tied, key=lambda a: _closest_abs(prefs_by_aisle[a], target))
 
 
-def _cluster_map_commit(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-                        affinity, aid, sku, f_s, q_s, x_phys):
-    if sku not in aisle_sku_sets[aid]:
-        aisle_sku_sets[aid].add(sku)
-        aisle_demand_sum[aid] += f_s * q_s
-    idx = affinity._sku_to_idx.get(sku)
-    if idx is not None:
-        aisle_idx_sets[aid].add(idx)
-        aisle_member_pos[aid][idx].append(x_phys)
-
-
 def build_cluster_map_placement(mgr, affinity, wp,
                                 aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
                                 freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, *, capped) -> Placement:
@@ -2581,6 +2565,9 @@ def build_cluster_map_placement(mgr, affinity, wp,
     _require_affinity(affinity, name)          # cohesion is meaningless without lift data
     _require_demand(freq_by_idx, name, 'freq_by_idx (the cohesion weight)')
     x_pace = sec_per_inch(wp.x_speed)
+    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
+                              demand_sum=aisle_demand_sum,
+                              member_pos=aisle_member_pos)
 
     pref = mgr._bin_pref
 
@@ -2630,8 +2617,9 @@ def build_cluster_map_placement(mgr, affinity, wp,
         k = bisect.bisect_left(plst, pref.get(id(chosen), 0.0))
         if k < len(plst) and plst[k] == pref.get(id(chosen), 0.0):
             del plst[k]
-        _cluster_map_commit(aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-                            affinity, aid, sku, f_s, q_s, chosen.x_phys)
+        if sku not in aisle_sku_sets[aid]:
+            ledger.add_sku(aid, sku, demand=f_s * q_s)
+        ledger.add_bin(aid, affinity._sku_to_idx.get(sku), chosen.x_phys)
         if run_cache is not None and run_cache.get('sku') == sku:
             # The commit may have grown THIS aisle's idx-set: recompute its delta fresh so
             # the next same-SKU unit sees exactly what a full per-unit recompute would.
