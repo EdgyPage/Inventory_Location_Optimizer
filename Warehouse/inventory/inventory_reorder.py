@@ -205,7 +205,7 @@ class ReorderMixin:
         The CANONICAL per-SKU aisle teardown: drop the bin's column position from
         _aisle_member_pos, decrement the aisle's SKU count, and — when this was the
         SKU's LAST bin in the aisle — retire it from the sku/idx sets and subtract
-        its lift/demand/pick-load contributions (clamped at 0).
+        its lift/demand/pick-load/cart-volume contributions (clamped at 0).
 
         _reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for
         its per-batch hot loop (deliberate micro-optimization over ~7k bins; it also
@@ -245,6 +245,9 @@ class ReorderMixin:
             dl = self._sku_pick_load_product.get(sku, 0.0)
             if dl:
                 self._aisle_pick_load_sum[aid] = max(0.0, self._aisle_pick_load_sum[aid] - dl)
+            dv = self._sku_vol_product.get(sku, 0.0)
+            if dv:
+                self._aisle_vol_sum[aid] = max(0.0, self._aisle_vol_sum[aid] - dv)
 
     # ── pick notifications (called by PickSimulation, O(1) each) ────────────
 
@@ -386,6 +389,8 @@ class ReorderMixin:
         sku_demand_prod  = self._sku_demand_product
         aisle_pick_load  = self._aisle_pick_load_sum
         sku_pick_load    = self._sku_pick_load_product
+        aisle_vol_sum    = self._aisle_vol_sum
+        sku_vol_prod     = self._sku_vol_product
         aisle_member_pos = self._aisle_member_pos
         if has_affinity:
             sku_to_idx      = self._affinity._sku_to_idx
@@ -431,6 +436,9 @@ class ReorderMixin:
                         dl = sku_pick_load.get(sku, 0.0)
                         if dl:
                             aisle_pick_load[aid] = max(0.0, aisle_pick_load[aid] - dl)
+                        dv = sku_vol_prod.get(sku, 0.0)
+                        if dv:
+                            aisle_vol_sum[aid] = max(0.0, aisle_vol_sum[aid] - dv)
             self._index_add(bin_)
             unavailable.pop(bin_id, None)
 
