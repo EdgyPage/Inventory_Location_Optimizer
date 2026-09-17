@@ -3218,6 +3218,21 @@ files:
       - {name: "test_sidecar_never_crosses_between_dbs_in_one_directory", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
       - {name: "test_comparison_rejects_float64_impostor", file: "Tests/unit/test_affinity_load_equivalence.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_aisle_ledger.py":
+    purpose: "the ledger's own interface, and the invariant it finally makes assertable."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_reconcile_is_quiet_on_a_sound_ledger", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_reconcile_detects_a_level_that_drifted_from_its_members", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_reconcile_skips_a_level_whose_products_were_never_seeded", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_drop_bin_is_per_bin_and_leaves_the_levels_alone", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_drop_sku_subtracts_only_on_the_last_bin", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_last_when_zero_is_the_difference_between_the_two_old_copies", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_lift_delta_is_taken_against_the_post_discard_index_set", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_the_eight_aisle_aliases_are_the_ledger_s_own_dicts", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_the_three_products_survive_the_rebind_in_init_demand_state", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_a_real_manager_s_ledger_reconciles_after_setup", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_aisle_vol_sum_teardown.py":
     purpose: "the cart-volume sum comes back down -- both aisle teardown paths, and the flag-off no-op."
     layer: "tests"
@@ -6268,6 +6283,12 @@ files:
     layer: "wh_inventory"
     key_symbols:
       - {name: "Inventory_Manager", file: "Warehouse/inventory/Inventory_Management.py", kind: "class"}
+    notes: ""
+  "Warehouse/inventory/aisle_ledger.py":
+    purpose: "what each aisle currently holds, priced."
+    layer: "wh_inventory"
+    key_symbols:
+      - {name: "AisleLedger", file: "Warehouse/inventory/aisle_ledger.py", kind: "class"}
     notes: ""
   "Warehouse/inventory/inventory_common.py":
     purpose: "leaf types/constants/helpers shared by the Inventory_Manager"

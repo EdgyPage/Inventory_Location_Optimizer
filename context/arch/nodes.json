@@ -19210,6 +19210,33 @@
       "kind": "function",
       "signature": "(self, sku: int, bin_: Aisle.Bin) -> float"
     },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._sku_demand_product": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict[int, float]"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._sku_pick_load_product": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict[int, float]"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._sku_vol_product": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict[int, float]"
+    },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stamp": {
       "decorators": [],
       "doc": "Wrap one unit as a stamped `PutawayItem` -- the ONE place the age stamp is\ntaken.  Split out of `_admit` for the standing yard, whose units are stamped at\nYARD ARRIVAL (their age is the trailer's, not the unload's) but enter no queue\nuntil the crew pulls them -- `_admit` routes as well as stamps, and routing a\ndeferred unit would put it away for free.  Every stamp still comes from here, so\nno producer can invent its own and quietly enter as age -1.",
@@ -19613,6 +19640,81 @@
       "doc": "Warehouse.inventory \u2014 The Inventory_Manager placement engine and its four mixins (planning, optimal, reorder, zoning) plus their shared leaf helpers.  Only inventory_reorder and inventory_zoning exist SOLELY for Inventory_Management; inventory_planning and inventory_optimal are also read from Optimization/ (see README.md for the two call sites), so a change to either is wider than the package boundary suggests.\n\nSee README.md for what does and does not belong here.",
       "kind": "module",
       "signature": null
+    },
+    "Warehouse/inventory/aisle_ledger.py": {
+      "decorators": [],
+      "doc": "aisle_ledger.py \u2014 what each aisle currently holds, priced.\n\nThe **aisle ledger** (CONTEXT.md) is one concept kept in eleven parallel dicts: which SKUs an\naisle holds, which matrix indices they translate to, how many bins each occupies, where those\nbins sit, and the four priced LEVELS that membership implies \u2014 lift, demand, pick load and\ncart volume \u2014 plus the three per-SKU products those levels are summed from.\n\n    \u250c\u2500 membership \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 priced levels \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 per-SKU products \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n    \u2502 sku_sets              \u2502 lift_sum               \u2502 sku_demand_product          \u2502\n    \u2502 idx_sets              \u2502 demand_sum             \u2502 sku_pick_load_product       \u2502\n    \u2502 sku_counts            \u2502 pick_load_sum          \u2502 sku_vol_product             \u2502\n    \u2502 member_pos            \u2502 vol_sum                \u2502                             \u2502\n    \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\nWhy this module exists\n----------------------\nThe eleven dicts had TWO writers who did not know about each other.  The *add* half lived\ninside the placement policies \u2014 ten hand-copied commit blocks in `Assignment_Functions.py`,\neach maintaining a DIFFERENT SUBSET \u2014 while `_execute_placement` committed only `sku_counts`.\nThe *drop* half lived in `inventory_reorder.py` in two copies, the second a hoisted-locals\ninline twin whose docstring asked a human to KEEP THE TWO IN SYNC.\n\nThey were not in sync, and nothing could have said so:\n\n- `vol_sum` was incremented by `rank_cartlabor` and decremented by neither drop path, so the\n  cart-swap penalty that arm competes on grew for the length of a run.  It is READ in the\n  scoring expression, so it moved placements, not just a recorded number.\n- `lift_sum` was decremented by both drop paths and incremented only by a production-dead\n  family, so it decayed monotonically in every shipped arm.\n\nBoth are the same failure: a quantity whose add and drop live in different files, maintained by\ndifferent people at different times, with no place that owns the pair.\n\nWhat is and is NOT in here\n--------------------------\n`init_lift_state` on the manager does two jobs and only one of them is the ledger's \u2014 it also\nrebuilds `_bin_sku`, `_current_quantities` and the per-SKU bin indexes, none of which are aisle\nstate.  Those stay on the manager.  This module owns the aisle's own books and nothing else.\n\nPer-BIN and per-SKU are separate operations, deliberately\n---------------------------------------------------------\n`member_pos` records a COLUMN POSITION PER LIVE BIN, while the priced levels are SKU-once.  Four\nof the ten historical commit blocks correctly kept the index add and the `member_pos` append\nOUTSIDE the `if sku not in sku_sets[aid]` guard for exactly this reason.  So the interface is a\npair at each end \u2014 `add_bin`/`add_sku` and `drop_bin`/`drop_sku` \u2014 and the guard stays at the\ncall site, where each caller already has it.  Collapsing either pair into one method would\nquietly change which SKUs' positions are tracked.\n\nFloat discipline\n----------------\nEvery level is a running float sum, so its value depends on accumulation ORDER.  `add_sku` takes\nthe already-multiplied scalar from the caller rather than recomputing it from `f` and `q`: some\nhistorical blocks accumulate `+= f_s * q_s` and others `+= fq` computed earlier, and re-deriving\neither would move the last bits.  `drop_sku` clamps at zero exactly as the hand-written\ndecrements did.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger": {
+      "decorators": [],
+      "doc": "The aisle ledger: eleven dicts, one owner, one add/drop pair at each grain.\n\nThe dicts are exposed as plain attributes, not properties.  They are read on the placement\nhot path by closures that hoist them once outside their loop, and an indirection there is a\nper-candidate cost \u2014 the same argument `inventory_zoning` records for staying a mixin.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.assert_sound": {
+      "decorators": [],
+      "doc": "`reconcile()` as an assertion, for tests and end-of-drain checks.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.bin_count": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, sku: int) -> int"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.drop_bin": {
+      "decorators": [],
+      "doc": "Retire ONE bin's column position.  Called for every reclaimed bin, live-bin only.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, idx: int | None, x_phys: float) -> None"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.drop_sku": {
+      "decorators": [],
+      "doc": "Decrement the SKU's bin count; on its LAST bin, retire it and subtract its levels.\n\nReturns True when the SKU left the aisle.  Every subtraction is clamped at zero, as\nthe two hand-written copies were.\n\n`lift_delta_fn` is a CALLABLE, not a scalar, and the distinction is load-bearing: the\noriginal computed `2.0 * affinity.delta_lift_idxs(sku, idx_sets[aid])` *after* the\nindex was discarded, so a precomputed value would be taken against a different set and\nchange the result.  It is called with the post-discard index set.  Passing a callable\nalso keeps this module free of any affinity knowledge.\n\n`last_when_zero` reproduces the difference between the two original copies: the cold\npath used `elif n == 1`, so a defensive n == 0 fell through and did nothing; the hot\ntwin used a bare `else`, treating n == 0 like n == 1.  The twin's callers pass True.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, sku: int, idx: int | None, lift_delta_fn=None, *, last_when_zero: bool=False) -> bool"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.holds": {
+      "decorators": [],
+      "doc": "Is this SKU resident in this aisle?  The guard every commit block already uses.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, sku: int) -> bool"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.members": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int) -> set[int]"
+    },
+    "Warehouse/inventory/aisle_ledger.py::AisleLedger.reconcile": {
+      "decorators": [],
+      "doc": "Every priced level must equal the sum of its members' products.  [] when sound.\n\nThis is the assertion the eleven loose dicts made impossible to write, and the reason\nboth drifts survived for the life of their features.  Returns findings rather than\nraising so a caller can report them all at once.\n\n`lift_sum` is deliberately NOT checked: it is not a sum over per-SKU products but a\npairwise quantity over the aisle's index set, so reconciling it needs the affinity store.\nIt is also write-only end to end and is being deleted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, tol: float=1e-06) -> list[str]"
+    },
+    "Warehouse/inventory/aisle_ledger.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['AisleLedger']"
     },
     "Warehouse/inventory/inventory_common.py": {
       "decorators": [],
@@ -20253,7 +20355,7 @@
     },
     "Warehouse/inventory/inventory_reorder.py::ReorderMixin._drop_sku_from_aisle": {
       "decorators": [],
-      "doc": "Remove one bin's contribution to the per-SKU aisle state (affinity on).\n\nThe CANONICAL per-SKU aisle teardown: drop the bin's column position from\n_aisle_member_pos, decrement the aisle's SKU count, and \u2014 when this was the\nSKU's LAST bin in the aisle \u2014 retire it from the sku/idx sets and subtract\nits lift/demand/pick-load/cart-volume contributions (clamped at 0).\n\n_reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for\nits per-batch hot loop (deliberate micro-optimization over ~7k bins; it also\ntreats a defensive n==0 like n==1, which this cold path never reaches) \u2014\nKEEP THE TWO IN SYNC when editing either.",
+      "doc": "Remove one bin's contribution to the per-SKU aisle state (affinity on).\n\nBoth halves now live in `AisleLedger` (Warehouse/inventory/aisle_ledger.py):\n`drop_bin` retires the bin's column position, `drop_sku` decrements the count\nand \u2014 on the SKU's LAST bin \u2014 retires it from the sku/idx sets and subtracts\nits lift/demand/pick-load/cart-volume levels.\n\nThere used to be an INLINE TWIN of this body in `_reclaim_empty_bins`, with a\ndocstring on each asking a human to KEEP THE TWO IN SYNC.  They were not in\nsync: `vol_sum` was subtracted by neither and `lift_sum` by both while only a\nproduction-dead family added to it.  One body now serves both callers, and the\ndifference that actually mattered between them \u2014 the hot twin's bare `else`\ntreats a defensive n == 0 like n == 1, this cold path's `elif n == 1` does not \u2014\nis the explicit `last_when_zero` flag rather than a remark in prose.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, sku: int, bin_: 'Aisle.Bin') -> None"

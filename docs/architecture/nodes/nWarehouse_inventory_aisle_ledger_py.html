@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.inventory.aisle_ledger · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_aisle_ledger_py" data-id="Warehouse/inventory/aisle_ledger.py">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <span class="here"><code>Warehouse/inventory/aisle_ledger.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.inventory.aisle_ledger</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_aisle_ledger_py.html"><code>Warehouse/inventory/aisle_ledger.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.inventory.aisle_ledger</code></pre>
+<section class="doc">aisle_ledger.py — what each aisle currently holds, priced.
+
+The **aisle ledger** (CONTEXT.md) is one concept kept in eleven parallel dicts: which SKUs an
+aisle holds, which matrix indices they translate to, how many bins each occupies, where those
+bins sit, and the four priced LEVELS that membership implies — lift, demand, pick load and
+cart volume — plus the three per-SKU products those levels are summed from.
+
+    ┌─ membership ──────────┬─ priced levels ────────┬─ per-SKU products ──────────┐
+    │ sku_sets              │ lift_sum               │ sku_demand_product          │
+    │ idx_sets              │ demand_sum             │ sku_pick_load_product       │
+    │ sku_counts            │ pick_load_sum          │ sku_vol_product             │
+    │ member_pos            │ vol_sum                │                             │
+    └───────────────────────┴────────────────────────┴─────────────────────────────┘
+
+Why this module exists
+----------------------
+The eleven dicts had TWO writers who did not know about each other.  The *add* half lived
+inside the placement policies — ten hand-copied commit blocks in `Assignment_Functions.py`,
+each maintaining a DIFFERENT SUBSET — while `_execute_placement` committed only `sku_counts`.
+The *drop* half lived in `inventory_reorder.py` in two copies, the second a hoisted-locals
+inline twin whose docstring asked a human to KEEP THE TWO IN SYNC.
+
+They were not in sync, and nothing could have said so:
+
+- `vol_sum` was incremented by `rank_cartlabor` and decremented by neither drop path, so the
+  cart-swap penalty that arm competes on grew for the length of a run.  It is READ in the
+  scoring expression, so it moved placements, not just a recorded number.
+- `lift_sum` was decremented by both drop paths and incremented only by a production-dead
+  family, so it decayed monotonically in every shipped arm.
+
+Both are the same failure: a quantity whose add and drop live in different files, maintained by
+different people at different times, with no place that owns the pair.
+
+What is and is NOT in here
+--------------------------
+`init_lift_state` on the manager does two jobs and only one of them is the ledger&#x27;s — it also
+rebuilds `_bin_sku`, `_current_quantities` and the per-SKU bin indexes, none of which are aisle
+state.  Those stay on the manager.  This module owns the aisle&#x27;s own books and nothing else.
+
+Per-BIN and per-SKU are separate operations, deliberately
+---------------------------------------------------------
+`member_pos` records a COLUMN POSITION PER LIVE BIN, while the priced levels are SKU-once.  Four
+of the ten historical commit blocks correctly kept the index add and the `member_pos` append
+OUTSIDE the `if sku not in sku_sets[aid]` guard for exactly this reason.  So the interface is a
+pair at each end — `add_bin`/`add_sku` and `drop_bin`/`drop_sku` — and the guard stays at the
+call site, where each caller already has it.  Collapsing either pair into one method would
+quietly change which SKUs&#x27; positions are tracked.
+
+Float discipline
+----------------
+Every level is a running float sum, so its value depends on accumulation ORDER.  `add_sku` takes
+the already-multiplied scalar from the caller rather than recomputing it from `f` and `q`: some
+historical blocks accumulate `+= f_s * q_s` and others `+= fq` computed earlier, and re-deriving
+either would move the last bits.  `drop_sku` clamps at zero exactly as the hand-written
+decrements did.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse.inventory.Inventory_Management</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(10)</span></h2><ul><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger.html"><code>AisleLedger</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py____all__.html"><code>__all__</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_assert_sound.html"><code>assert_sound</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_bin_count.html"><code>bin_count</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_drop_bin.html"><code>drop_bin</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_drop_sku.html"><code>drop_sku</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_holds.html"><code>holds</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_members.html"><code>members</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li><li><a href="nWarehouse_inventory_aisle_ledger_py__AisleLedger_reconcile.html"><code>reconcile</code></a> <span class="dim">Warehouse/inventory/aisle_ledger.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_aisle_ledger_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/aisle_ledger.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

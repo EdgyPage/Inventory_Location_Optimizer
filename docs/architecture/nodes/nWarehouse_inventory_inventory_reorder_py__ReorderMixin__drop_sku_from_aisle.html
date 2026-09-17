@@ -17,15 +17,18 @@
 <pre class="sig"><code>def _drop_sku_from_aisle(self, sku: int, bin_: &#x27;Aisle.Bin&#x27;) -&gt; None</code></pre>
 <section class="doc">Remove one bin&#x27;s contribution to the per-SKU aisle state (affinity on).
 
-The CANONICAL per-SKU aisle teardown: drop the bin&#x27;s column position from
-_aisle_member_pos, decrement the aisle&#x27;s SKU count, and — when this was the
-SKU&#x27;s LAST bin in the aisle — retire it from the sku/idx sets and subtract
-its lift/demand/pick-load/cart-volume contributions (clamped at 0).
+Both halves now live in `AisleLedger` (Warehouse/inventory/aisle_ledger.py):
+`drop_bin` retires the bin&#x27;s column position, `drop_sku` decrements the count
+and — on the SKU&#x27;s LAST bin — retires it from the sku/idx sets and subtracts
+its lift/demand/pick-load/cart-volume levels.
 
-_reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for
-its per-batch hot loop (deliberate micro-optimization over ~7k bins; it also
-treats a defensive n==0 like n==1, which this cold path never reaches) —
-KEEP THE TWO IN SYNC when editing either.</section>
+There used to be an INLINE TWIN of this body in `_reclaim_empty_bins`, with a
+docstring on each asking a human to KEEP THE TWO IN SYNC.  They were not in
+sync: `vol_sum` was subtracted by neither and `lift_sum` by both while only a
+production-dead family added to it.  One body now serves both callers, and the
+difference that actually mattered between them — the hot twin&#x27;s bare `else`
+treats a defensive n == 0 like n == 1, this cold path&#x27;s `elif n == 1` does not —
+is the explicit `last_when_zero` flag rather than a remark in prose.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_reorder_py__ReorderMixin_requeue_bin.html"><code>requeue_bin</code></a> <span class="dim">Warehouse/inventory/inventory_reorder.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_inventory_reorder_py__ReorderMixin__drop_sku_from_aisle">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/inventory_reorder.py#:~:text=def%20_drop_sku_from_aisle">Source ↗</a></p>
 </article>
