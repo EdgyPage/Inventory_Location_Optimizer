@@ -1612,6 +1612,61 @@ _BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                *_BATCH_OPTIONAL)
 
+# ── the WRITE surface, and the check that joins it to the read surface ────────────────
+#
+# `_insert_batch_stats` carried a 34-name column STRING and a parallel 34-value TUPLE, kept
+# in step by hand.  One declaration now, and the two are zipped from it -- so the misalignment
+# that shape invites (a column inserted in one list and not the other, shifting every value
+# after it by one) is not expressible.
+#
+# ORDER IS THE HISTORICAL INSERT ORDER, not `_BATCH_COLS`'.  An INSERT with an explicit column
+# list writes the same rows under any order, and keeping this one makes the diff that
+# introduced it readable.
+_BATCH_WRITE_COLS = (
+    'run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
+    'task_makespan', 'thr_task', 'thr_batch',
+    'avg_concurrent_pickers', 'picking_pct', 'traveling_pct',
+    'batch_start_time', 'batch_end_time',
+    'sigma_fd', 'reload_moves', 'reorder_placements', 'skus_reordered', 'units_ordered',
+    'queue_depth', 'lead_queue_depth', 'in_transit_qty', 'items_demanded',
+    'work_day', 'released_late',
+    'recv_depth', 'recv_unloaded', 'recv_cut', 'recv_seconds',
+    'put_topups', 'put_spills', 'recv_repacks', 'recv_repacked_packs', 'free_bins',
+    'is_outlier',
+)
+
+# NO PER-COLUMN FALLBACK, and that is a change.  The insert used to read eleven of these
+# through `getattr(r, 'work_day', 0)` -- a default spelled out a second time beside
+# `work_day: int = 0` on the record, so a change to one would not have moved the other.  Every
+# caller passes a real `BatchStats`, which always HAS every field, so the fallback could only
+# ever fire for a duck-typed stub -- and for one of those, silently writing 0 into a column
+# the caller forgot is the failure mode this whole table's history is about.  A missing
+# attribute is now an `AttributeError` at the write.
+#
+# (The writer's defaults and `_BATCH_OPTIONAL`'s reader fills genuinely differ for `free_bins`
+# and `put_spills` -- 0 means "this run measured zero", None means "a vintage that never
+# recorded it".  Ticket 11 predicted a disagreement there; it is a real distinction, and
+# deleting the writer's copy is what makes the record's own default the only one.)
+
+#: A column WRITTEN but absent from the read surface is read back as its Python default
+#: forever, on every run including the ones holding real values -- the select list is built
+#: from `_BATCH_COLS`, so a missing name is simply never asked for.  `work_day` and
+#: `released_late` shipped exactly that way and reported 0 for runs that recorded a real
+#: working day, for three days, with nothing raising: the schema id did not move, the insert
+#: did not fail, and the loader did not fail -- it never asked.
+#:
+#: This is that failure as an IMPORT-TIME refusal, for one table.  Extending it to the other
+#: nineteen is the rest of ticket 11; the ratchet it replaces
+#: (`test_written_columns_are_readable`) recovers the writer's column list with a regex over
+#: `inspect.getsource`, and covers 1 writer of 16.
+_unreadable = [c for c in _BATCH_WRITE_COLS if c not in _BATCH_COLS]
+if _unreadable:
+    raise RuntimeError(
+        f'batch_stats writes {_unreadable} and no reader can ask for them: the `batch_frame` '
+        f'select list is built from _BATCH_COLS, so these would be written by every run and '
+        f'read back as their Python default forever. Add them to _BATCH_OPTIONAL (with the '
+        f'pre-column TRUE value as the fill) or stop writing them.')
+
 def _batch_frame_sql(*omit: str) -> str:
     """The `batch_frame` select list minus the columns a vintage lacks -- an override for a
     pure column addition, so the OPTIONAL fill (not the legacy dataclass default) answers
@@ -2122,36 +2177,32 @@ def save_bin_keyframe(path: str, run_id: int, batch_id: int, records: list) -> N
 
 # ── BatchStats DB ─────────────────────────────────────────────────────────────
 
-def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> None:
-    con.executemany(
-        'INSERT INTO batch_stats '
-        '(run_id,batch_id,duration,num_tasks,total_items,'
-        'task_makespan,thr_task,thr_batch,'
-        'avg_concurrent_pickers,picking_pct,traveling_pct,'
-        'batch_start_time,batch_end_time,'
-        'sigma_fd,reload_moves,reorder_placements,skus_reordered,units_ordered,'
-        'queue_depth,lead_queue_depth,in_transit_qty,items_demanded,'
-        'work_day,released_late,'
-        'recv_depth,recv_unloaded,recv_cut,recv_seconds,'
-        'put_topups,put_spills,recv_repacks,recv_repacked_packs,free_bins,is_outlier) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        [
-            (run_id, r.batch_id, r.duration, r.num_tasks, r.total_items,
-             r.task_makespan, r.thr_task, r.thr_batch,
-             r.avg_concurrent_pickers, r.picking_pct, r.traveling_pct,
-             r.batch_start_time, r.batch_end_time,
-             r.sigma_fd, r.reload_moves, r.reorder_placements, r.skus_reordered, r.units_ordered,
-             r.queue_depth, r.lead_queue_depth, r.in_transit_qty, r.items_demanded,
-             getattr(r, 'work_day', 0), getattr(r, 'released_late', 0.0),
-             getattr(r, 'recv_depth', 0), getattr(r, 'recv_unloaded', 0),
-             getattr(r, 'recv_cut', 0), getattr(r, 'recv_seconds', 0.0),
-             getattr(r, 'put_topups', 0), getattr(r, 'put_spills', 0),
-             getattr(r, 'recv_repacks', 0),
-             getattr(r, 'recv_repacked_packs', 0), getattr(r, 'free_bins', 0),
-             int(r.is_outlier))
-            for r in records
-        ],
+#: Built once at import from `_BATCH_WRITE_COLS`, not re-joined per call.
+_BATCH_INSERT_SQL = ('INSERT INTO batch_stats (' + ','.join(_BATCH_WRITE_COLS) + ') '
+                     'VALUES (' + ','.join('?' * len(_BATCH_WRITE_COLS)) + ')')
+
+
+def _batch_row(run_id: int, r) -> tuple:
+    """One `batch_stats` row, in `_BATCH_WRITE_COLS` order.
+
+    Zipped from the same declaration the column list is built from, so the two cannot get
+    out of step -- which is the whole point: a hand-kept pair shifts every value after the
+    inserted column by one, and SQLite accepts it as long as the types line up.
+
+    `is_outlier` is the one column with an expression rather than a read: SQLite has no
+    boolean, and `int()` says which integer a `bool` becomes rather than leaving it to the
+    adapter.
+    """
+    return tuple(
+        run_id if c == 'run_id' else
+        int(r.is_outlier) if c == 'is_outlier' else
+        getattr(r, c)
+        for c in _BATCH_WRITE_COLS
     )
+
+
+def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> None:
+    con.executemany(_BATCH_INSERT_SQL, [_batch_row(run_id, r) for r in records])
 
 
 def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:

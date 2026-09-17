@@ -8381,6 +8381,11 @@
       "src": "Optimization/persistence/Picking_Data.py::_apply_run_schema"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_batch_row",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::_insert_batch_stats"
+    },
+    {
       "dst": "Schema/dataset.py::bind",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::_query_rows"
@@ -32277,10 +32282,26 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_BATCH_INSERT_SQL",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_BATCH_INSERT_SQL",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_BATCH_OPTIONAL",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_BATCH_OPTIONAL",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_BATCH_WRITE_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_BATCH_WRITE_COLS",
       "public": false
     },
     {
@@ -32741,6 +32762,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_batch_row",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_batch_row",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -32905,6 +32934,14 @@
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_shift_day_select",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_unreadable",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_unreadable",
       "public": false
     },
     {

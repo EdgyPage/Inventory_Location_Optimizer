@@ -161,7 +161,7 @@ count DOWN, which it permits.
 | 3 | 07-08 | not started | blocked by 06 |
 | 4 | 09 | **RESOLVED** | Knob registry; write-back, record and resume restore derived |
 | 4 | 10 | **RESOLVED** | GLOBAL_POLICIES deleted |
-| 5 | 11 | not started | **UNBLOCKED** |
+| 5 | 11 | part-landed | batch_stats' WRITE surface is one declaration + an import-time refusal. 19 tables to go |
 | 5 | 12 | **RESOLVED** | frame table + one cache + one accessor |
 | 5 | 13 | not started | blocked by 11, and on architecture-drift/05 |
 | 5 | 14 | not started | blocked by 07 |
@@ -176,7 +176,7 @@ count DOWN, which it permits.
 | - | 23 | **RESOLVED** | the seed prices only the arm's terms; `reconcile()` is unconditional again |
 | - | 24 | not started | NEW, split from 06: ArmAssembly needs a module-boundary decision first |
 
-**Twelve resolved, one part-landed, eleven open** (19 tickets became 24). Resolving 02 and 03 unblocked 04.
+**Twelve resolved, two part-landed, ten open** (19 tickets became 24). Resolving 02 and 03 unblocked 04.
 Tickets 06 and 11 are each still a multi-hour refactor of a hot path and want the toy-run digest,
 not a tail-end slice.
 

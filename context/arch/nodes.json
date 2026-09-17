@@ -9509,12 +9509,26 @@
       "signature": null,
       "value_preview": "('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items', 'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier', *_BATCH_OPTIONAL)"
     },
+    "Optimization/persistence/Picking_Data.py::_BATCH_INSERT_SQL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'INSERT INTO batch_stats (' + ','.join(_BATCH_WRITE_COLS) + ') VALUES (' + ','.join('?' * len(_BATCH_WRITE_COLS)) + ')'"
+    },
     "Optimization/persistence/Picking_Data.py::_BATCH_OPTIONAL": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "{'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0, 'batch_start_time': 0.0, 'batch_end_time': 0.0, 'sigma_fd': 0.0, 'reload_moves': 0, 'reorder_placements': 0, 'skus_reordered': 0, 'units_or..."
+    },
+    "Optimization/persistence/Picking_Data.py::_BATCH_WRITE_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items', 'task_makespan', 'thr_task', 'thr_batch', 'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'batch_start_time', 'batch_end_tim..."
     },
     "Optimization/persistence/Picking_Data.py::_BIN_SCORE_COLS": {
       "decorators": [],
@@ -9915,6 +9929,13 @@
       "kind": "function",
       "signature": "(*omit: str) -> str"
     },
+    "Optimization/persistence/Picking_Data.py::_batch_row": {
+      "decorators": [],
+      "doc": "One `batch_stats` row, in `_BATCH_WRITE_COLS` order.\n\nZipped from the same declaration the column list is built from, so the two cannot get\nout of step -- which is the whole point: a hand-kept pair shifts every value after the\ninserted column by one, and SQLite accepts it as long as the types line up.\n\n`is_outlier` is the one column with an expression rather than a read: SQLite has no\nboolean, and `int()` says which integer a `bool` becomes rather than leaving it to the\nadapter.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_id: int, r) -> tuple"
+    },
     "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics": {
       "decorators": [],
       "doc": null,
@@ -10061,6 +10082,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cols) -> str"
+    },
+    "Optimization/persistence/Picking_Data.py::_unreadable": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "[c for c in _BATCH_WRITE_COLS if c not in _BATCH_COLS]"
     },
     "Optimization/persistence/Picking_Data.py::create_run": {
       "decorators": [],

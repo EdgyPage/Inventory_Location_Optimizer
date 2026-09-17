@@ -2111,6 +2111,9 @@ files:
     key_symbols:
       - {name: "test_every_batch_stats_column_written_can_be_read_back", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
       - {name: "test_the_ratchet_can_actually_fail", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+      - {name: "test_the_declaration_is_what_the_writer_actually_writes", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+      - {name: "test_a_row_has_exactly_one_value_per_declared_column", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+      - {name: "test_the_writer_cannot_write_a_column_no_reader_can_ask_for", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
       - {name: "test_the_optional_defaults_match_the_column_types", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
     notes: ""
   "Tests/bench/bench_plan_warehouse.py":
