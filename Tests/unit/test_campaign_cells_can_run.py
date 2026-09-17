@@ -37,7 +37,8 @@ from __future__ import annotations
 
 import pytest
 
-from Inbound.gain import FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES
+from Inbound.gain import GAIN_POLICIES
+from Optimization.config.strategies import FAITHFUL_GAIN_FAMILIES
 from Inbound.priorities import DOCK_POLICIES, POLICY_VIEW_NEEDS, YARD_POLICIES, view_needs
 from Inbound.site_space import (
     COMPOSED_VIEW_FIELDS, UNCOMPOSED_VIEW_FIELDS, compose_site_view, uncomposable_policies)

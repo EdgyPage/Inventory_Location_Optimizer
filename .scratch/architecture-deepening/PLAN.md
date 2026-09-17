@@ -154,8 +154,8 @@ count DOWN, which it permits.
 | 0 | baseline | DONE | gate 6 red, pre-existing (drift 04); all others green |
 | 1 | 01 | **RESOLVED** | PRE-RUN. vol_sum drift fixed, non-vacuity proved |
 | 2 | 02 | **RESOLVED** | A: drop half. B: add half -- eleven commit blocks, one body, digest IDENTICAL. Remainder split to 21 |
-| 2 | 03 | part-landed | dead registries, live dispatch hints, lift_sum + load_* deleted. **PlacementPolicy record open** |
-| 2 | 04 | not started | blocked by 03 |
+| 2 | 03 | **RESOLVED** | + the PlacementPolicy record; FAITHFUL_GAIN_FAMILIES and the aisle_state lists derived |
+| 2 | 04 | not started | **UNBLOCKED** by 03 |
 | 2 | 05 | not started | blocked by 04 |
 | 3 | 06 | not started | **UNBLOCKED** |
 | 3 | 07-08 | not started | blocked by 06 |
@@ -166,16 +166,18 @@ count DOWN, which it permits.
 | 5 | 13 | not started | blocked by 11, and on architecture-drift/05 |
 | 5 | 14 | not started | blocked by 07 |
 | 5 | 15 | not started | blocked by 11 |
-| 6 | 16-17 | not started | blocked by 02 |
+| 6 | 16 | **RESOLVED** | one at-bin put expression; the objective drops its term by name. File split -> 22 |
+| 6 | 17 | **RESOLVED** | ADR-0003's five rungs become a chain; `mgr.put_chain` is the knob the ADR anticipated |
 | 6 | 18 | **RESOLVED** | closed with a reason: all three mixins stay |
 | - | 19 | **RESOLVED** | LoadParams deleted; init_lift_state renamed; delta_lift_idxs closed with a reason |
 | - | 20 | not started | NEW, found by 02B: two priced levels are seeded once and then abandoned on 15 of 17 arms |
 | - | 21 | not started | NEW, split from 02B: the pool builders take loose dicts, not a ledger. Ride ticket 04's oracle re-freeze |
+| - | 22 | not started | NEW, split from 16: `Inbound/gain.py` is 1,398 lines and four modules |
 
-**Six resolved, two part-landed, thirteen open** (19 tickets became 21 -- see the rows above).
-Ticket 02's add half landed 2026-09-17; what remains of it is the gain evaluator's three
-hand-written lists, which now have a declaration to be derived from. Tickets 06 and 11 are each
-still a multi-hour refactor of a hot path and want the toy-run digest, not a tail-end slice.
+**Ten resolved, twelve open** (19 tickets became 22 -- three pieces were split out rather than
+folded in, so a resolved status never hides outstanding work). Resolving 02 and 03 unblocked 04;
+16 and 17 are done. Tickets 06 and 11 are each still a multi-hour refactor of a hot path and want
+the toy-run digest, not a tail-end slice.
 
 ### Why ticket 11 has no cheap first step
 

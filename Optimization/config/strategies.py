@@ -40,6 +40,7 @@ from Warehouse.placement.Assignment_Functions import (
     _score_expected_labor,
 )
 from Warehouse.inventory.Inventory_Management import Placement, _uniform_assignment
+from Warehouse.placement.policy import PlacementPolicy
 
 
 @dataclass
@@ -312,31 +313,91 @@ _INITIALS = [
     ('opt', 'Opt', 'policy'),              # stock via the strategy's own assignment fn
 ]
 
-# restock (reorder) rule: (key, label, build fn, needs_affinity, needs_demand, uses_aisle_index)
-# uses_aisle_index=True only for the per-unit _stock cluster policies: the worker
-# arms init_travel_costs() before build() and the cluster fn reads mgr._aisle_index.
-# FIFO (random, RNG-order sensitive) and the ranked drains (tmin/tmax/rank, which use
-# the already-optimised _stock_ranked path) stay on the candidates scan → False.
-_RESTOCKS = [
-    ('fifo', 'FIFO',    _build_uniform,                 False, False, False),  # uniform random, FIFO drain
+# restock (reorder) rule: one `PlacementPolicy` record each (Warehouse/placement/policy.py).
+#
+# This was a positional 6-tuple until ticket 03, with the same facts restated in three other
+# places: `Inbound.gain.FAITHFUL_GAIN_FAMILIES`, `_gain_bundle_for`'s per-family
+# `aisle_state=` dicts, and a `FAMILIES` table in `test_gain_bundle_labor_families.py`. All
+# three are now DERIVED from these records.
+#
+# `uses_aisle_index=True` only for the per-unit _stock cluster policies: the worker arms
+# init_travel_costs() before build() and the cluster fn reads mgr._aisle_index. FIFO (random,
+# RNG-order sensitive) and the ranked drains (tmin/tmax/rank, which use the already-optimised
+# _stock_ranked path) stay on the candidates scan.
+#
+# `ledger_terms` names the AisleLedger books this family's placement COMMITS to. The gain
+# evaluator copies exactly those before every virtual placement, so a missing term is not a
+# refusal -- it is a virtual placement advancing the real warehouse. Declared rather than read
+# off a pool because the evaluator needs it BEFORE it builds one, and checked against the
+# built pool's own ledger in `Tests/unit/test_placement_policy.py`.
+#
+# `gain` says how the inbound evaluator prices the arm faithfully, and None means it REFUSES
+# rather than pricing a fiction under the arm's name.
+
+#: The three books every ranked pool's `take` commits to.
+_RANKED3 = ('sku_sets', 'idx_sets', 'demand_sum')
+#: ...plus the placement POSITIONS the partner centroid sums in placement order.
+_RANKED3_POS = _RANKED3 + ('member_pos',)
+
+_RESTOCKS: list[PlacementPolicy] = [
+    PlacementPolicy('fifo', 'FIFO', _build_uniform,                      # uniform random, FIFO drain
+                    gain='uniform'),
     # ── full ablation (8 arms): placement functions + worst-case bracket ──
-    ('rank_random',     'Rank_random',     _build_uniform_trip_min_ranked, True, True, False),  # random aisle
-    ('rank_popularity', 'Rank_popularity', _build_rank_popularity,         True, True, False),  # min Σ freq*qty
-    ('rank_labor',      'Rank_labor',      _build_rank_labor,              True, True, False),  # travel-aware LPT: min Σ freq*qty*(pick+travel)
-    ('rank_cartlabor',  'Rank_cartlabor',  _build_rank_cartlabor,          True, True, False),  # rank_labor + expected cart-swap cost in the balance
-    ('rank_minlabor',   'Rank_minlabor',   _build_rank_minlabor,           True, True, False),  # MINIMISER: golden-zone + to-front + affinity compaction
-    ('rank_maxlabor',   'Rank_maxlabor',   _build_rank_maxlabor,           True, True, False),  # MAXIMISER: worst-case sanity bound (mirror of minlabor)
-    ('map',             'Map',             _build_map,                     False, False, False),  # optimal-map score-matched reloading
-    ('map_rank',        'Map_rank',        _build_map_rank,                False, False, False),  # optimal-map, upgrade-capped (saves prime spots)
-    ('cluster_map',     'CluMap',          _build_cluster_map,             True,  True,  False),  # map favored-location + cohesion + intra-aisle compaction
-    ('cluster_map_rank','CluMapRk',        _build_cluster_map_rank,        True,  True,  False),  # cluster_map, upgrade-capped (saves prime spots)
-    ('tmin', 'TripMin', _build_trip_min,                True,  True,  False),
-    ('tmax', 'TripMax', _build_trip_max,                True,  True,  False),
-    ('cmax', 'MaxClu',  _build_max_cluster,             True,  True,  True),
-    ('cmin', 'MinClu',  _build_min_cluster,             True,  True,  True),
-    ('comp', 'Compact', _build_compaction,              True,  True,  False),  # co-demand min-span (ranked)
-    ('expn', 'Expand',  _build_expansion,               True,  True,  False),  # co-demand max-span (counter)
+    PlacementPolicy('rank_random', 'Rank_random', _build_uniform_trip_min_ranked,  # random aisle
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3,
+                    gain='pool', gain_expect_heads=True),
+    PlacementPolicy('rank_popularity', 'Rank_popularity', _build_rank_popularity,  # min Σ freq*qty
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3,
+                    gain='pool'),
+    PlacementPolicy('rank_labor', 'Rank_labor', _build_rank_labor,       # travel-aware LPT
+                    needs_affinity=True, needs_demand=True, gain='pool',
+                    ledger_terms=_RANKED3 + ('pick_load_sum',)),
+    PlacementPolicy('rank_cartlabor', 'Rank_cartlabor', _build_rank_cartlabor,     # + cart-swap
+                    needs_affinity=True, needs_demand=True, gain='pool',
+                    ledger_terms=_RANKED3 + ('pick_load_sum', 'vol_sum')),
+    PlacementPolicy('rank_minlabor', 'Rank_minlabor', _build_rank_minlabor,        # MINIMISER
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3_POS,
+                    gain='pool'),
+    PlacementPolicy('rank_maxlabor', 'Rank_maxlabor', _build_rank_maxlabor,        # MAXIMISER
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3_POS),
+    PlacementPolicy('map', 'Map', _build_map),                           # score-matched reloading
+    PlacementPolicy('map_rank', 'Map_rank', _build_map_rank),            # upgrade-capped
+    PlacementPolicy('cluster_map', 'CluMap', _build_cluster_map,         # map + cohesion + compaction
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3_POS),
+    PlacementPolicy('cluster_map_rank', 'CluMapRk', _build_cluster_map_rank,       # upgrade-capped
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3_POS),
+    PlacementPolicy('tmin', 'TripMin', _build_trip_min,
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3,
+                    gain='merge', gain_minimize=True),
+    PlacementPolicy('tmax', 'TripMax', _build_trip_max,
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3,
+                    gain='merge', gain_minimize=False),
+    PlacementPolicy('cmax', 'MaxClu', _build_max_cluster,
+                    needs_affinity=True, needs_demand=True, uses_aisle_index=True,
+                    ledger_terms=_RANKED3),
+    PlacementPolicy('cmin', 'MinClu', _build_min_cluster,
+                    needs_affinity=True, needs_demand=True, uses_aisle_index=True,
+                    ledger_terms=_RANKED3),
+    PlacementPolicy('comp', 'Compact', _build_compaction,                # co-demand min-span
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3_POS),
+    PlacementPolicy('expn', 'Expand', _build_expansion,                  # co-demand max-span
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3_POS),
 ]
+
+#: restock key -> its policy record.  The one lookup every derived list below goes through.
+POLICY_BY_KEY: dict[str, PlacementPolicy] = {p.key: p for p in _RESTOCKS}
+
+#: The families the inbound gain evaluator can price FAITHFULLY -- DERIVED from which
+#: records declare a gain adapter, not typed beside them.
+#:
+#: It lived in `Inbound/gain.py` as a hand-written tuple until ticket 03, which is the wrong
+#: home twice over: `Inbound/` never read it (every consumer is in `Optimization/`), and it
+#: restated a fact the driver's own bundle branches already decided. Moving it here makes
+#: "this family has a faithful bundle" and "this family declares a gain adapter" the same
+#: statement instead of two that can disagree -- and they HAD disagreed silently in the
+#: direction that matters: a rule missing here is a campaign spec refusing a run it could
+#: have priced, and a rule wrongly here is a fiction published under that arm's name.
+FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = tuple(p.key for p in _RESTOCKS if p.gain)
 
 # re-slot (capacity reloader): (key, label, reslot_frac, reloader variant)
 _RESLOT_FRAC = 0.005
@@ -351,7 +412,7 @@ _RESLOTS = [
 #: list is checked against (`whatif_config.validate_spec`), derived from the grid rather than
 #: typed beside it: a hand-kept copy drifts silently the moment a rule is added or renamed, and
 #: a mistyped rule in a ten-cell campaign spec is a run that sweeps a suite nobody chose.
-RESTOCK_KEYS: tuple[str, ...] = tuple(_r[0] for _r in _RESTOCKS)
+RESTOCK_KEYS: tuple[str, ...] = tuple(_p.key for _p in _RESTOCKS)
 
 #: Each INITIAL's position in the grid, keyed by its `stock_mode` — the outer loop of the
 #: strategy grid, and therefore the outer key `strategies_for` orders by.  Keyed on stock_mode
@@ -368,15 +429,16 @@ _N_STRATEGIES = len(_INITIALS) * len(_RESTOCKS) * len(_RESLOTS)
 
 STRATEGIES: list[Strategy] = []
 for _ik, _il, _stock_mode in _INITIALS:
-    for _rk, _rl, _bld, _na, _nd, _uix in _RESTOCKS:
+    for _pol in _RESTOCKS:
         for _sk, _sl, _frac, _rld in _RESLOTS:
-            _key = f'{_ik}_{_rk}_{_sk}'
+            _key = f'{_ik}_{_pol.key}_{_sk}'
             STRATEGIES.append(Strategy(
-                key=_key, label=f'{_il}|{_rl}|{_sl}',
+                key=_key, label=f'{_il}|{_pol.label}|{_sl}',
                 color=_hsv_hex(len(STRATEGIES), _N_STRATEGIES), run_type=_key,
-                needs_affinity=_na, needs_demand=_nd, build=_bld,
+                needs_affinity=_pol.needs_affinity, needs_demand=_pol.needs_demand,
+                build=_pol.build,
                 stock_mode=_stock_mode, reslot_frac=_frac, reloader=_rld,
-                uses_aisle_index=_uix, restock=_rk,
+                uses_aisle_index=_pol.uses_aisle_index, restock=_pol.key,
             ))
 
 STRATEGY_BY_KEY: dict[str, Strategy] = {s.key: s for s in STRATEGIES}

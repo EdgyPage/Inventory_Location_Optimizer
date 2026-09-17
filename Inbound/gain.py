@@ -138,26 +138,24 @@ from Warehouse.operations.putaway import put_seconds_at
 GAIN_POLICIES: frozenset = frozenset({'gain_myopic', 'gain_forecast', 'gain_gated',
                                       'futuresight'})
 
-#: The placement families `_gain_bundle_for` can build a FAITHFUL bundle for — the other side
-#: of the same seam.  A gain policy run against any other restock rule refuses loudly rather
-#: than pricing a fiction under that arm's name, so this tuple is the phase-2 selection's
-#: constraint: a chosen rule outside it needs the evaluator EXTENDED before it can be swept.
-#:
-#: Declared here rather than in the driver so the funnel's selector can read it without
-#: importing the simulation, and so there is one list rather than a dispatch chain and a
-#: remembered copy.  `Tests/unit/test_restock_selection.py` pins it against what the driver
-#: actually accepts.
-#:
-#: `fifo` leads because it is the one entry that is not optional: 08 makes it a mandatory
-#: phase-2 rider, and a gain cell builds a bundle for EVERY arm in its set, so without it
-#: all five gain cells refuse at worker startup (ticket 21).
-#: The three after the ranked pair were added by ticket 20, from the ranking phase 1
-#: actually produced (`restock_selection.json`): 08's extension cap of three, exactly
-#: consumed, chosen by the selector rather than by the guess this ticket was charted with.
-FAITHFUL_GAIN_FAMILIES: tuple[str, ...] = ('fifo', 'tmin', 'tmax',
-                                           'rank_popularity', 'rank_random',
-                                           'rank_minlabor', 'rank_labor',
-                                           'rank_cartlabor')
+# ── FAITHFUL_GAIN_FAMILIES lives in `Optimization/config/strategies.py` ───────────
+#
+# The placement families `_gain_bundle_for` can build a FAITHFUL bundle for — the other side
+# of the same seam.  A gain policy run against any other restock rule refuses loudly rather
+# than pricing a fiction under that arm's name, so that tuple is the phase-2 selection's
+# constraint: a chosen rule outside it needs the evaluator EXTENDED before it can be swept.
+#
+# It was declared HERE until ticket 03, with this reason: "so the funnel's selector can read
+# it without importing the simulation, and so there is one list rather than a dispatch chain
+# and a remembered copy."  Both halves are better served from `strategies.py`, where it is
+# DERIVED from which `PlacementPolicy` declares a `gain` adapter — the selector already
+# imports that module and still never touches `strategy_runner`, and there is now no second
+# list to remember.  `Inbound/` never read it: every consumer is in `Optimization/`, which is
+# also why moving it crosses no boundary.
+#
+# `fifo` leads the derived order because it is the one entry that is not optional: 08 makes it
+# a mandatory phase-2 rider, and a gain cell builds a bundle for EVERY arm in its set, so
+# without it all five gain cells refuse at worker startup.
 
 # ── the seconds->days divisor: IMPORTED, never restated ───────────────────────────
 # `SECONDS_PER_DAY` comes from `Warehouse.kernel.timeline` at the top of this module and

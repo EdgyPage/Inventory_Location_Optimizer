@@ -52,6 +52,7 @@ import Inbound.gain as gain
 from Inbound.gain import GainBundle, OneOwnerBundle, plan_order
 from Optimization.config.strategies import STRATEGY_BY_KEY, StrategyContext
 from Optimization.metrics.Workload import WorkloadParams
+from Optimization.config.strategies import POLICY_BY_KEY
 from Optimization.simdriver.strategy_runner import _gain_bundle_for
 from Warehouse.inventory.inventory_common import binkey_of, tier_ranks_for
 from Warehouse.placement import Assignment_Functions as af
@@ -65,16 +66,24 @@ from Tests.unit.test_ranked_assign_pool_equivalence import _Affinity
 _WP = WorkloadParams(cart_capacity=800.0)
 _SPEC = {'fee_threshold_days': 2.0, 'urgency_horizon_days': 0.0}
 
-#: family -> (strategy key, the live dicts its `take` commits to BEYOND the ranked three).
-#: The second element is exactly what ticket 20 added to the seam, and what (3) sabotages.
-FAMILIES = {
-    'rank_labor':     ('uni_rank_labor_norsl',     ('aisle_pick_load_sum',)),
-    'rank_cartlabor': ('uni_rank_cartlabor_norsl', ('aisle_pick_load_sum',
-                                                    'aisle_vol_sum')),
-    'rank_minlabor':  ('uni_rank_minlabor_norsl',  ('aisle_member_pos',)),
-}
+#: The three labour families and the live dicts each one's `take` commits to BEYOND the
+#: ranked three -- exactly what ticket 20 added to the seam, and what (3) sabotages.
+#:
+#: DERIVED from `PlacementPolicy.state_names` since ticket 03. It was a fourth hand-written
+#: copy of the same fact (the record, `_gain_bundle_for`'s `aisle_state=` dicts, and
+#: `Inbound.gain.AISLE_VIEWS` were the others), and a test's copy is the worst of the four:
+#: it agrees with the code by having been written from it, so it cannot notice the code
+#: changing. `test_placement_policy.py` is where the declaration is checked against what a
+#: built pool actually binds.
 RANKED3 = ('aisle_sku_sets', 'aisle_idx_sets', 'aisle_demand_sum')
+FAMILIES = {
+    k: (f'uni_{k}_norsl', tuple(n for n in POLICY_BY_KEY[k].state_names if n not in RANKED3))
+    for k in ('rank_labor', 'rank_cartlabor', 'rank_minlabor')
+}
 EXTRAS = [(f, e) for f, (_k, es) in FAMILIES.items() for e in es]
+assert all(es for _k, es in FAMILIES.values()), (
+    'a labour family declares nothing beyond the ranked three, so (3) would sabotage '
+    'nothing and pass')
 
 
 # ── the scene ─────────────────────────────────────────────────────────────────────

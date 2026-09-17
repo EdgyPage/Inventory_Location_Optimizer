@@ -24,14 +24,15 @@ rather than in the driver because this file is where a campaign is authored, and
 them guards a defect whose only other symptom is a run that completes and means something else
 (`validate_spec`).
 """
-from Optimization.config.strategies import RESTOCK_KEYS   # the rule universe a spec is checked
+from Optimization.config.strategies import (              # the rule universe a spec is checked
+    FAITHFUL_GAIN_FAMILIES, RESTOCK_KEYS)
                                                           # against — same-layer, derived from
                                                           # the grid, never a hand-kept copy
 # The two registries that decide whether a DECLARED cell can actually run, read the same way
 # `run_restock_selection` reads the second of them: a declared list, never the simulation.  A
 # campaign is authored here, so this is where "this spec names something the run will decline"
 # has to be answerable — see `_refuse_unrunnable_cells`.
-from Inbound.gain import FAITHFUL_GAIN_FAMILIES, GAIN_POLICIES
+from Inbound.gain import GAIN_POLICIES
 from Inbound.site_space import uncomposable_policies
 
 WHATIF = {

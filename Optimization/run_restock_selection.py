@@ -84,8 +84,8 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__fil
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from Inbound.gain import FAITHFUL_GAIN_FAMILIES              # noqa: E402
-from Optimization.config.strategies import STRATEGY_BY_KEY   # noqa: E402
+from Optimization.config.strategies import (                 # noqa: E402
+    FAITHFUL_GAIN_FAMILIES, STRATEGY_BY_KEY)
 from Optimization.simconfig import staffing as _staffing      # noqa: E402
 
 #: The series-document field the ranking reads, and the quantity it belongs to.  Named as a

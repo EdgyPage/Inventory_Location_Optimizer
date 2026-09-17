@@ -374,6 +374,11 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
 
     assign.name = name
     assign.uses_aisle_index = aisle_index is not None
+    #: The books this family commits to, as the object that owns them.  `PlacementPolicy`
+    #: DECLARES the same list (`ledger_terms`), and a test compares the two -- a declaration
+    #: nobody exercises is how the gain evaluator's copy list drifts from what a pool writes.
+    #: The pooled families expose theirs as `pool._led`; this is the per-unit half.
+    assign.ledger = ledger
     return assign
 
 
@@ -904,6 +909,9 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
 
     assign.name = name
     assign.uses_aisle_index = False
+    #: The books this family commits to -- the object, beside the `ledger_terms`
+    #: its `PlacementPolicy` declares.  A test compares the two.
+    assign.ledger = ledger
     return assign
 
 
@@ -2691,6 +2699,9 @@ def build_cluster_map_placement(mgr, affinity, wp,
 
     place_one.name = name
     open_pool.name = name
+    #: The books this family commits to -- the object, beside the `ledger_terms`
+    #: its `PlacementPolicy` declares.  A test compares the two.
+    place_one.ledger = ledger
     return Placement(name, place_one, open_pool=open_pool)
 
 

@@ -42,7 +42,7 @@ import os
 
 import pytest
 
-from Inbound.gain import FAITHFUL_GAIN_FAMILIES
+from Optimization.config.strategies import FAITHFUL_GAIN_FAMILIES
 from Optimization import run_restock_selection as sel
 
 
@@ -249,13 +249,42 @@ def test_a_gain_bundle_really_is_built_for_the_rider():
 
 def test_the_faithful_set_is_the_one_the_driver_actually_accepts():
     """Two copies of this list is a bug with a delay on it: the selector would keep proposing
-    rules the evaluator refuses, or refuse rules it serves."""
+    rules the evaluator refuses, or refuse rules it serves.
+
+    Since ticket 03 there is ONE copy -- `FAITHFUL_GAIN_FAMILIES` is derived from which
+    `PlacementPolicy` declares a `gain` adapter, so "declared faithful" and "has a branch in
+    the driver" are the same statement rather than two that can drift. What is left to check
+    is that every declared adapter is one the driver can actually serve: a record naming
+    `pool` with no factory, or a factory with no record, would be the same class of bug one
+    level down.
+    """
     import inspect
 
+    from Optimization.config.strategies import POLICY_BY_KEY
     from Optimization.simdriver import strategy_runner
-    src = inspect.getsource(strategy_runner._gain_bundle_for)
+
+    declared = {k for k, pol in POLICY_BY_KEY.items() if pol.gain}
+    assert set(FAITHFUL_GAIN_FAMILIES) == declared, (
+        f'the derived set and the records disagree: '
+        f'{sorted(set(FAITHFUL_GAIN_FAMILIES) ^ declared)}')
+    assert declared, 'no family declares a gain adapter; this would pass vacuously'
+
     for fam in FAITHFUL_GAIN_FAMILIES:
-        assert f"'{fam}'" in src, f'{fam} is declared faithful but has no branch in the driver'
+        pol = POLICY_BY_KEY[fam]
+        if pol.gain == 'pool':
+            assert fam in strategy_runner._POOL_FACTORIES, (
+                f'{fam} declares a pool adapter with no factory; the driver refuses at '
+                f'import, but only if that check is still there')
+            assert pol.ledger_terms, (
+                f'{fam} opens a pool over copies of nothing -- a virtual placement would '
+                f'advance the real warehouse')
+
+    # And a family that declares nothing must NOT be in the set.
+    unfaithful = [k for k, pol in POLICY_BY_KEY.items() if not pol.gain]
+    assert unfaithful, 'every family is faithful, so the exclusion proves nothing'
+    assert not (set(unfaithful) & set(FAITHFUL_GAIN_FAMILIES))
+
+    src = inspect.getsource(strategy_runner._gain_bundle_for)
     assert 'FAITHFUL_GAIN_FAMILIES' in src, 'the refusal message no longer names the one list'
 
 
@@ -281,7 +310,7 @@ def test_all_seventeen_rules_are_recorded_not_just_the_cut(tmp_path):
     """The full ranking, so a later reader can see how close the decision was."""
     from Optimization.config.strategies import _RESTOCKS
     root = str(tmp_path / 'run')
-    every = {k: 3600.0 * (i + 1) for i, (k, *_rest) in enumerate(_RESTOCKS)}
+    every = {pol.key: 3600.0 * (i + 1) for i, pol in enumerate(_RESTOCKS)}
     _leaf(root, 'k1_off', 'prof_a', 'store', _arms(**every))
     _layout(root, ['k1_off'])
     store = sel.select(root, log=lambda *_a: None)['channels']['store']

@@ -1,7 +1,7 @@
 # 16 - the inbound objective restates the cost model the simulation bills
 
 Type: refactor
-Status: claimed
+Status: resolved
 Blocked by: 02
 
 ## Context
@@ -71,7 +71,7 @@ a diff someone might notice". The gain evaluator is the one costing path that di
 
 ---
 
-## Progress — (a) landed 2026-09-17; (b) outstanding
+## RESOLVED 2026-09-17 — (a) landed here, (b) split to ticket 22
 
 ### What landed
 
@@ -104,10 +104,11 @@ Toy-run digest IDENTICAL over 136 arms (batched with ticket 17). Expected by con
 the objective passes `cost=None` and gets exactly the travel expression it wrote before — but
 the ticket asked for proof rather than the argument.
 
-### What remains — (b), splitting the file
+### (b) is now ticket 22, and it carries a trap
 
-`Inbound/gain.py` is 1,398 lines and four modules. Not done, and the reason is a trap worth
-recording rather than a lack of time:
+Splitting the 1,398-line file is real work with a real hazard, and folding it into this
+ticket would have hidden the hazard behind a resolved status. Ticket 22 holds it. The trap,
+recorded here because it is what made the split worth its own file:
 
 `Tests/unit/test_gain_cow_equivalence.py` REBINDS `gain.AISLE_VIEWS` to sabotage the views
 (`:51`, `:140`), and its own docstring calls that the saving throw — "without this the file

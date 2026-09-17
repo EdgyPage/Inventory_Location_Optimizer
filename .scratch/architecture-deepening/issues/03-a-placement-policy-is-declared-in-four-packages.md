@@ -1,7 +1,7 @@
 # 03 - a placement policy is declared in four packages, and three of its registries are dead
 
 Type: refactor
-Status: claimed
+Status: resolved
 Blocked by: 02
 
 ## Context
@@ -195,3 +195,82 @@ three `simulation_runs` columns), `AffinityStore.delta_lift_idxs` (now reference
 comments), and the name `init_lift_state`, which no longer initialises any lift. Written up as
 ticket 19 rather than folded in here: this commit already carries one DDL move, and a second in
 the same commit would make the two-table attribution above impossible to state.
+
+
+---
+
+## Progress 3 -- the `PlacementPolicy` record lands; RESOLVED (2026-09-17)
+
+### What landed
+
+`Warehouse/placement/policy.py` -- `PlacementPolicy(key, label, build, needs_affinity,
+needs_demand, uses_aisle_index, ledger_terms, gain, gain_minimize, gain_expect_heads)`.
+`_RESTOCKS` is seventeen of them instead of seventeen positional 6-tuples, and three more
+hand-written lists are now DERIVED from it:
+
+| was | now |
+|---|---|
+| `Inbound.gain.FAITHFUL_GAIN_FAMILIES`, a typed tuple | `tuple(p.key for p in _RESTOCKS if p.gain)` |
+| `_gain_bundle_for`'s three per-family `aisle_state=` dicts | `{n: getattr(mgr, '_' + n) for n in policy.state_names}` |
+| `test_gain_bundle_labor_families.FAMILIES` | derived from `policy.state_names` |
+| the `if restock == ...` chain | a lookup on `policy.gain` + `_POOL_FACTORIES[key]` |
+
+`FAITHFUL_GAIN_FAMILIES` MOVED, and its own comment asked for it: *"Declared here rather than
+in the driver so the funnel's selector can read it without importing the simulation, and so
+there is one list rather than a dispatch chain and a remembered copy."* Both halves are better
+served from `strategies.py` -- the selector already imports that module and still never
+touches `strategy_runner`, and there it is derived rather than remembered. `Inbound/` never
+read it; every consumer is in `Optimization/`, which is also why the move crosses no boundary.
+
+### What did NOT collapse, and why saying so matters
+
+The ticket asked for `_gain_bundle_for` to become `policy.open_pool(cands, ledger.view())`
+with no per-family branch. **It cannot, yet.** The five pool builders take the aisle books as
+separate positional parameters in five different shapes -- `rank_popularity` takes three,
+`rank_labor` five, `rank_cartlabor` seven, `rank_minlabor` four, and `rank_random` constructs
+`_RankedAssignPool` directly with a stand-in selector. One uniform call needs those signatures
+to take a ledger, which is **ticket 21**, which rides ticket 04's oracle re-freeze.
+
+So the five factories stay -- as a `_POOL_FACTORIES` table rather than a branch chain, with an
+import-time check that the records declaring `gain='pool'` and the table's keys are the same
+set. Adding a family is a record plus a table row, and getting either wrong is a refusal at
+import instead of a fiction priced under that arm's name at the first virtual placement.
+
+### `ledger_terms` is declared, and then EXERCISED
+
+It is the one field that cannot be derived: the gain evaluator needs the list of books to copy
+BEFORE it builds a pool to read it off. So it carries the hazard `_gain_bundle_for` states --
+"a dict left off that list is not a refusal, it is a virtual placement advancing the REAL
+warehouse" -- and a declaration nobody exercises is exactly how that drifts.
+
+`Tests/unit/test_placement_policy.py` BUILDS each of the seventeen families and compares the
+declaration against `AisleLedger.bound`, the books the pool (or the per-unit fn) was actually
+handed. To make the per-unit half reachable, `_build_aisle_score_fn`, `_build_co_demand_place_one`
+and `build_cluster_map_placement` now expose `fn.ledger` beside their existing `fn.name`.
+
+All seventeen agreed on the first run, which is worth recording: the declarations were read
+off the builders rather than guessed. Proved non-vacuous by removing `vol_sum` from
+`rank_cartlabor` -- the test fails and names the dangerous direction (bound and not declared).
+
+### Two tests moved out from under this
+
+- `test_the_faithful_set_is_the_one_the_driver_actually_accepts` asserted each family name
+  appears literally in `_gain_bundle_for`'s source. The names are not there any more, because
+  there is no branch chain. It now asserts the set IS the derived one, that every `pool`
+  family has a factory and non-empty terms, and that an unfaithful family is excluded --
+  with a non-vacuity guard on both directions.
+- `test_all_seventeen_rules_are_recorded_not_just_the_cut` unpacked `_RESTOCKS` positionally.
+
+### Verification
+
+| check | result |
+|---|---|
+| toy run vs baseline, `run_digest.py` | **IDENTICAL**, 136 arms |
+| `Tests/unit` + `Tests/integration -k "not gpu"` | 3,161 passed / 2 skipped |
+| `test_placement_policy.py` | 25 passed, incl. 17 parametrized declaration-vs-wiring |
+| the derived `FAITHFUL_GAIN_FAMILIES` vs the deleted hand-written tuple | identical sets |
+
+### Remaining, split out
+
+Ticket 21 (the builders take a ledger, not loose dicts) is the last piece of "one declaration
+per family". It is duplication now rather than danger -- see ticket 02's closing section.
