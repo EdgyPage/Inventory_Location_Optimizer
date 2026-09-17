@@ -14533,6 +14533,357 @@
       "kind": "function",
       "signature": "(lead: dict | None, scale: float=1.0) -> dict | None"
     },
+    "Optimization/simdriver/leaf_scope.py": {
+      "decorators": [],
+      "doc": "leaf_scope \u2014 who answers a leaf's inbound and put-away questions: it, or the site.\n\n`_build_leaf` asked `site is None` / `pool is None` twenty-eight times, and every pair was the\nsame dispatch under a different name:\n\n| the question | solo | site-docked |\n|---|---|---|\n| the transit census | `mgr.transit_snapshot()` | `coord.transit_census_for(mgr)` |\n| the receiving snapshot | `mgr.receiving_snapshot()` | `coord.snapshot_for(mgr)` |\n| this batch's receipts | `mgr.drain_receiving_records()` | `coord.drain_records_for(mgr)` |\n| the dock depth | `mgr.dock_depth` | `coord.dock_depth_for(mgr)` |\n| the yard rows | `mgr.drain_yard_*()` | nothing \u2014 the SITE collects them |\n| the receiving roster | `_recv_crew.workers(uid)` | `site.workers` |\n| the put roster | `_put_crew.workers(uid)` | `pool.workers` |\n\nTwo adapters already existed \u2014 \"the leaf's own manager answers\" and \"the coordinator answers on\nits behalf\" \u2014 with no interface between them, so the dispatch was re-decided at every call site\nand correctness was held up by REFUSALS IN THE DOMAIN LAYER. Eight accessors under `Warehouse/`\nand `Inbound/` raise under a site scope, which means `Warehouse/` had to learn that a DRIVER\nconcept exists. Those refusals are still there and still right, but they are a backstop now\nrather than the mechanism.\n\n## The three parameters are a LADDER, not eight combinations\n\nThe ticket that asked for this counted `pool`, `site_gain` and `site` as three independent\n`None`-able parameters \u2014 eight nominal combinations, \"~3 legal, enforced by guards scattered\nacross `_build_site_dock`, `_build_put_pool` and `_bind_put_crews`\". Reading those guards, the\nreason only three are legal is stronger than scattering: **they form a ladder.**\n\n    SOLO      no pool, no site      an uncoupled run\n      |       `_build_put_pool` is only called on a coupled unit\n    POOLED    pool, no site         a coupled unit with inbound OFF (site-dock 06)\n      |       `_build_site_dock` reads `pool.workers[-1].uid`, so it cannot exist without one\n    DOCKED    pool and site         a coupled unit with the standing yard\n\n`_build_put_pool` never returns `None` \u2014 it raises or it builds \u2014 so `site` implies `pool`\nimplies coupled. The fourth corner (a site dock with no put pool) is not one of eight\ncombinations that happens to be guarded: it is unreachable, and here it is UNNAMEABLE, because\nthere is no class for it. `scope_for` is the only constructor and it walks the ladder.\n\n`site_gain` is not on this ladder at all. It is read at exactly one place \u2014 binding the gain\nbundle into the transit \u2014 so it stays an argument to `_build_arm` rather than becoming a fourth\nrung; a scope member consulted once is a parameter wearing a costume.\n\n## What each rung overrides\n\n`PooledScope` changes the PUT half only; a coupled unit with inbound off still answers every\ninbound question out of its own manager, byte-identically to a solo run. `SiteScope` adds the\ninbound half on top. That is why this is an inheritance chain rather than three siblings: each\nrung is the one below it with one more group of answers moved to the site, and writing it any\nother way would duplicate the put half into two classes.\n\n## The instants are preserved, including where the two poles disagree\n\n`lead_depth` and `in_transit` are read at DIFFERENT MOMENTS by the two poles, and that is kept\nexactly. The site takes all three transit numbers off one partitioning pass before\n`check_reorders` fires; a solo leaf reads them off the manager afterwards, so its values include\nthis batch's own reorders and the site's do not. That asymmetry predates this module (see\n`transit_census`' own note) and moving either read would move published numbers, so `lead_depth`\nand `in_transit` stay METHODS taking the census value rather than becoming fields resolved at\ncensus time, which is the shape that would silently align them.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope": {
+      "decorators": [],
+      "doc": "SOLO \u2014 the leaf's own manager answers every question, and it owns its put crew.\n\nThe base is a real rung, not an abstract interface: an uncoupled run uses this class\nunchanged, so every method here is the production answer rather than a stub to override.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.bind_put": {
+      "decorators": [],
+      "doc": "Nothing to bind: this leaf's manager owns its own put-away.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, channel_name: str) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.bind_receiving": {
+      "decorators": [],
+      "doc": "Nothing to bind: this leaf's manager owns its own dock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, channel_regime) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.dock_depth": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.in_transit": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, census_qty)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.lead_depth": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, census_depth)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.note_put": {
+      "decorators": [],
+      "doc": "Nothing to report: this leaf's clocks are its own.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, put_clock) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.note_recv": {
+      "decorators": [],
+      "doc": "Nothing to report: an unpooled leaf's `drain_receiving_records` already reset its own\ncrew clock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, recv_clock) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.put_base_for_batch": {
+      "decorators": [],
+      "doc": "The epoch this batch's put rows are stamped from.\n\nSolo the crew picks this wave's queue up when the wave is RELEASED or when it finished\nthe last one, whichever is later. Pooled it was already fixed when the site day opened,\nso the value handed in is the answer and this must not recompute it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, site_base, batch_start, put_clock)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.put_clock_for": {
+      "decorators": [],
+      "doc": "Which clock a caller that must name ONE epoch should use.\n\nTwo callers want this and they want the same answer: the skipped-batch close-out, and\nthe `_put_recs` empty case where a pooled leaf still owes the pool a report. Solo the\nanswer is the leaf's own clock, which makes the second one an assignment to itself --\ndeliberately, because \"nothing changes here\" is the solo behaviour being preserved.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, put_clock, put_base)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.put_uid_after": {
+      "decorators": [],
+      "doc": "Where the uid cursor sits after the put crews are minted.\n\nSolo, the per-queue loop already advanced it. Pooled, it must jump to the POOL's block\nend -- the pool's block starts above BOTH channels' dense picker uids, so a cursor left\nat this leaf's own `k_pickers + put_size` would put the smaller leaf's receivers inside\nthe putters' block and merge two crews in one DB.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, uid: int, put_crews: dict, first_queue: str) -> int"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.put_window": {
+      "decorators": [],
+      "doc": "`(base, deadline)` \u2014 the epoch put-away is charged from, and its whistle.\n\nSolo there is no base (the manager keeps its own clock) and the whistle is what is left\nof THIS leaf's day.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, day, day_end, arm_clock, put_clock)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.receiving_snapshot": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.recv_drain": {
+      "decorators": [],
+      "doc": "`(receipts, repacks, base)` for this batch.\n\nBoth streams must be taken in the SAME batch or the one left behind lands against the\nnext batch's epoch. `drain_repacks` deliberately does not reset the crew clocks and both\nstreams' `t0` were stamped when the work happened, so their order does not matter.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, *, arm_clock, recv_clock, day)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.standing_yard": {
+      "decorators": [],
+      "doc": "The censored tail at run end. `standing_yard_trailers` does not drain, so two leaves\nreading it would bill every standing trailer twice -- which is why it refuses under a\nsite scope and why this returns nothing there.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.transit_census": {
+      "decorators": [],
+      "doc": "`(rows, in_transit_qty, lead_queue_depth)` \u2014 the second and third are None here.\n\nA solo leaf reads those two off the manager LATER, after `check_reorders` has fired\nthis batch's reorders, so they cannot be resolved at census time without moving them.\nSee the module docstring: the two poles genuinely read at different instants and this\nmodule preserves that rather than tidying it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr)"
+    },
+    "Optimization/simdriver/leaf_scope.py::LeafScope.yard_rows": {
+      "decorators": [],
+      "doc": "`(trailer stamps, drain levels)` for THIS leaf to record.\n\nSite-docked this is empty and the site collects instead: a trailer's load is mixed by\nconstruction and a door is occupied by the trailer rather than by either channel's share\nof it (ADR-0005). Both leaf accessors REFUSE under a site scope, so the empty pair here\nis the reason nothing calls them, not a duplicate of the refusal.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, batch_id: int)"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope": {
+      "decorators": [],
+      "doc": "COUPLED, INBOUND OFF \u2014 one site put crew, but every inbound question is still the leaf's.\n\nThe middle rung, and a real configuration rather than a degenerate one: the funnel runs the\ncoupled inbound-off pole in every cell (site-dock 06). Nothing inbound is overridden here, so\nsuch a run answers `transit_census`, `receiving_snapshot` and the rest exactly as a solo run\ndoes -- which is the byte-identity that pole is supposed to have, now by construction.",
+      "kind": "class",
+      "signature": "(LeafScope)"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, pool) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.bind_put": {
+      "decorators": [],
+      "doc": "Both ways: the manager routes phase 5 to the pool, and the pool learns which channel\nthis leaf is so it can hand it its share of the day.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, channel_name: str) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.note_put": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, put_clock) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.put_base_for_batch": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, site_base, batch_start, put_clock)"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.put_clock_for": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, put_clock, put_base)"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.put_clocks": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The POOL's list, shared by identity: `crew_clock.charge` books every put to whichever\nputter is free earliest across BOTH channels, and `reset` mutates in place -- which is\nwhy the pool, and not either manager, owns the reset (`reset_put_clocks`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.put_uid_after": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, uid: int, put_crews: dict, first_queue: str) -> int"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.put_window": {
+      "decorators": [],
+      "doc": "BOTH NUMBERS ARE THE SITE'S and neither is this leaf's to compute. One shared clock\nlist cannot carry two epochs, so the base is the site day's start and the whistle is what\nis left of THAT day -- never `arm_clock`, which would idle the site's putters whenever\nEITHER pick crew overran its day and would misattribute a picking overrun to put-away's\ncut. `open_batch` is idempotent per day, so both leaves get the same answer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, day, day_end, arm_clock, put_clock)"
+    },
+    "Optimization/simdriver/leaf_scope.py::PooledScope.put_workers": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope": {
+      "decorators": [],
+      "doc": "COUPLED, STANDING YARD \u2014 the coordinator answers for inbound as well as put-away.\n\nThe top rung. It extends `PooledScope` rather than `LeafScope` because a site dock cannot\nexist without a put pool (`_build_site_dock` reads `pool.workers[-1].uid`), so \"site-docked\nbut unpooled\" is not a state this class can be in.",
+      "kind": "class",
+      "signature": "(PooledScope)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, pool, site) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.bind_receiving": {
+      "decorators": [],
+      "doc": "The SECOND bind, which stamps `site_scoped` on the leaf and turns the six leaf\naccessors into refusals. It must run after the transit is set and after intake has filled\n`_originals`: `bind` reads this leaf's whole catalogue partition to build the\n`{sku: leaf}` owner dict, and asserts the leaf holds the coordinator's own transit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, channel_regime) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.coord": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.dock": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "ONE dock, built above both leaves with a per-regime PRICE LIST (site-dock 27): the\nunload price is a statement about the merchandise, so the site charges each channel's own\nconstant.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.dock_depth": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.in_transit": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, census_qty)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.lead_depth": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, census_depth)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.note_recv": {
+      "decorators": [],
+      "doc": "THE SITE CARRY IS COMMITTED ONCE PER SITE DAY, after EVERY leaf has stamped -- and so\nis the shared crew's clock reset, which `note_records` owns because\n`drain_receiving_records` (its uncoupled owner) refuses here. `None` when this leaf\nrecorded nothing: the crew is where it was, exactly as an unpooled leaf leaves\n`recv_clock` alone.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, recv_clock) -> None"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.receiving_snapshot": {
+      "decorators": [],
+      "doc": "`snapshot_for` partitions once and serves each leaf once. The leaf accessor refuses\nhere because three of its four values RESET, so the first caller would take the site's\nwhole batch and leave the other channel reporting an idle dock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.recv_drain": {
+      "decorators": [],
+      "doc": "BOTH STREAMS COME OFF THE SITE'S ONE DRAIN, partitioned by the owner of each row's\nsku -- the same `{sku: leaf}` dict step 1 packs by, so an unload row, a repack row and\nthe lot that produced them cannot land in different channels.\n\nAnd the BASE is the SITE DAY's, not this leaf's `arm_clock`: one crew on one dock has one\nepoch, and basing it on a pick crew's release would idle the site's receivers whenever\nEITHER channel overran its day. `open_batch` is idempotent per day, so this reads the\nvalue the drain was already run against rather than computing a second one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, *, arm_clock, recv_clock, day)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.standing_yard": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.transit": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "ONE site is ONE yard. Two transits behind one dock would give each leaf its own\ntrailers while the drain ranked only the coordinator's, and `_advance_lead_queue` would\ntick each channel's copy of the SUPPLIER lead queue -- an order placed with a 3-batch\nlead arriving in 2, on every coupled run, silently.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.transit_census": {
+      "decorators": [],
+      "doc": "THE CENSUS IS THE SITE'S and this leaf takes its own share. All three reads come off\nONE pass so they cannot disagree, and the split is by SKU -- the pack rule (ADR-0005) --\nso the rows and the units sum back to the site's own census exactly.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.workers": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/leaf_scope.py::SiteScope.yard_rows": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, mgr, batch_id: int)"
+    },
+    "Optimization/simdriver/leaf_scope.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['LeafScope', 'PooledScope', 'SiteScope', 'scope_for']"
+    },
+    "Optimization/simdriver/leaf_scope.py::scope_for": {
+      "decorators": [],
+      "doc": "The ONE constructor, and the only place the ladder is walked.\n\nA site dock with no put pool is refused rather than silently degraded: `_build_site_dock`\nreads `pool.workers[-1].uid` to mint the receiving block, so this state cannot arise from the\nbuilders -- and if it ever does, the symptom without this check is a receiving crew whose\nuids sit inside the putters' block, which merges two crews in one DB and no table says so.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pool, site) -> LeafScope"
+    },
     "Optimization/simdriver/scenario.py": {
       "decorators": [],
       "doc": "simdriver.scenario \u2014 one scenario + the cell-matrix driver.\n\n_run_scenario is the inner pipeline for a SINGLE warehouse cell (manifest + shared\nassets + flat pool + blank-arm check); _run_whatif_matrix loops _build_cells over one\nfrozen inventory so every run is a cell matrix (a plain run is the single cell k1_off).",
@@ -14816,7 +15167,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pool, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, sd, seed_batches, shift, site, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt)"
+      "signature": "(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, scope, sd, seed_batches, shift, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt)"
     },
     "Optimization/simdriver/strategy_runner.py::_CKPT_REPLACE_ATTEMPTS": {
       "decorators": [],

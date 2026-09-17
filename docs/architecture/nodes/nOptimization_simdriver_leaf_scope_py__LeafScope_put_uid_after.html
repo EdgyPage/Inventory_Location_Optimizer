@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>put_uid_after · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_leaf_scope_py__LeafScope_put_uid_after" data-id="Optimization/simdriver/leaf_scope.py::LeafScope.put_uid_after">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_leaf_scope_py.html"><code>Optimization/simdriver/leaf_scope.py</code></a> <span class="sep">›</span> <a href="nOptimization_simdriver_leaf_scope_py__LeafScope.html"><code>LeafScope</code></a> <span class="sep">›</span> <span class="here"><code>put_uid_after</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>put_uid_after</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_leaf_scope_py.html"><code>Optimization/simdriver/leaf_scope.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def put_uid_after(self, uid: int, put_crews: dict, first_queue: str) -&gt; int</code></pre>
+<section class="doc">Where the uid cursor sits after the put crews are minted.
+
+Solo, the per-queue loop already advanced it. Pooled, it must jump to the POOL&#x27;s block
+end -- the pool&#x27;s block starts above BOTH channels&#x27; dense picker uids, so a cursor left
+at this leaf&#x27;s own `k_pickers + put_size` would put the smaller leaf&#x27;s receivers inside
+the putters&#x27; block and merge two crews in one DB.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_leaf_scope_py__LeafScope_put_uid_after">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/leaf_scope.py#:~:text=def%20put_uid_after">Source ↗</a></p>
+</article>
+</main>
+</body></html>

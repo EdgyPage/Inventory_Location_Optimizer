@@ -89,6 +89,7 @@ from Optimization.simdriver.section_timers import CheckpointWindow, SectionTimer
 from Optimization.persistence.checkpoint_buffer import (
     SITE_CHANNELS, CheckpointBuffer)
 from Optimization.simdriver.audit_ledgers import AuditLedgers
+from Optimization.simdriver.leaf_scope import scope_for
 from Optimization.simdriver.batch_state import BatchState
 from Optimization.simdriver.shift_ledger import ShiftLedger
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
@@ -1238,9 +1239,9 @@ class ArmAssembly:
                   'denom', 'expected_pick', 'fi', 'freq_by_idx', 'freq_by_sku', 'inventory',
                   'k_pickers', 'keyframe_interval', 'kf_db', 'last_dur', 'lift_cache', 'log',
                   'map_lap_pct', 'mgr', 'n_batches', 'opt_x', 'opt_y', 'pb', 'pe', 'pick_cfg',
-                  'pk', 'pm', 'pool', 'pq', 'pqs', 'pt', 'put_clock', 'qty_by_sku',
+                  'pk', 'pm', 'pq', 'pqs', 'pt', 'put_clock', 'qty_by_sku',
                   'recv_clock', 'reloader', 'run_dir', 'run_id', 'sd', 'seed_batches', 'shift',
-                  'site', 'skipped', 'start_i', 'strat', 'strategy', 't_loop', 't_precompute',
+                  'scope', 'skipped', 'start_i', 'strat', 'strategy', 't_loop', 't_precompute',
                   'timers', 'warehouse', 'we', 'wp', 'yd', 'yt')
 
     def __init__(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0,
@@ -1250,9 +1251,9 @@ class ArmAssembly:
                          batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom,
                          expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers,
                          keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr,
-                         n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pool, pq, pqs, pt,
-                         put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, sd,
-                         seed_batches, shift, site, skipped, start_i, strat, strategy, t_loop,
+                         n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pq, pqs, pt,
+                         put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, scope,
+                         sd, seed_batches, shift, skipped, start_i, strat, strategy, t_loop,
                          t_precompute, timers, warehouse, we, wp, yd, yt):
         self.buf = buf
         self.n_catalogue = n_catalogue
@@ -1307,7 +1308,7 @@ class ArmAssembly:
         self.pick_cfg = pick_cfg
         self.pk = pk
         self.pm = pm
-        self.pool = pool
+        self.scope = scope
         self.pq = pq
         self.pqs = pqs
         self.pt = pt
@@ -1320,7 +1321,6 @@ class ArmAssembly:
         self.sd = sd
         self.seed_batches = seed_batches
         self.shift = shift
-        self.site = site
         self.skipped = skipped
         self.start_i = start_i
         self.strat = strat
@@ -1783,17 +1783,25 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     # which any site-level rollup joining on `actor_uid` needs; a dense-but-lying uid is
     # worse than a sparse-but-true one.  `put_queue_split` is refused under a pool
     # (`_bind_put_crews`), so there is exactly one queue here to hand it to.
+    # WHO ANSWERS THIS LEAF'S INBOUND AND PUT-AWAY QUESTIONS, decided once (ticket 08).
+    # `pool` and `site` are a LADDER -- solo, pooled, docked -- and `scope_for` is the only
+    # place it is walked; the 28 `pool is None` / `site is None` checks that stood between
+    # here and the end of `_finish` are all this one object now.  `site_gain` is NOT on the
+    # ladder: it is read at exactly one place (the gain-bundle bind below), so it stays a
+    # parameter rather than becoming a member consulted once.
+    scope = scope_for(pool, site)
     _uid = _pick_crew.next_uid(0)
     _put_crews = {}
+    _pooled_put = scope.put_workers
     for _q in mgr.put_queues:
-        _put_crews[_q.name] = _put_crew.workers(_uid) if pool is None else pool.workers
+        _put_crews[_q.name] = (_put_crew.workers(_uid) if _pooled_put is None
+                               else _pooled_put)
         _uid = _put_crew.next_uid(_uid)
-    if pool is not None:
-        # THE CURSOR MOVES TO THE POOL'S BLOCK END, not this leaf's.  The receiving crew
-        # chains off it, and the pool's block starts above BOTH channels' pickers -- so a
-        # cursor left at `k_pickers + put_size` would hand the smaller leaf receivers whose
-        # uids sit inside the putters' block, silently merging two crews in one DB.
-        _uid = _put_crews[mgr.put_queues.queues[0].name][-1].uid + 1
+    # Pooled, THE CURSOR MOVES TO THE POOL'S BLOCK END, not this leaf's.  The receiving crew
+    # chains off it, and the pool's block starts above BOTH channels' pickers -- so a cursor
+    # left at `k_pickers + put_size` would hand the smaller leaf receivers whose uids sit
+    # inside the putters' block, silently merging two crews in one DB.
+    _uid = scope.put_uid_after(_uid, _put_crews, mgr.put_queues.queues[0].name)
     # The default roster for a caller that does not know the queue name (the skipped-batch
     # path passes it through).  With one queue this IS the only roster.
     _put_workers = _put_crews[mgr.put_queues.queues[0].name]
@@ -1816,12 +1824,8 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     # earliest across both channels.  The sharing is identity -- `reset` mutates in place
     # -- which is why the pool, and not either manager, owns the reset.
     mgr.enable_putaway_timing(_put_crew.speed, cost=_pcost, size=_put_crew.size,
-                              clocks=None if pool is None else pool.clocks)
-    if pool is not None:
-        # The injection, both ways: the manager routes phase 5 here, and the pool learns
-        # which channel this leaf is so it can hand it its share of the day.
-        mgr.putaway_pool = pool
-        pool.bind(mgr, args['channel_name'])
+                              clocks=scope.put_clocks)
+    scope.bind_put(mgr, args['channel_name'])
 
     # ── the receiving crew ────────────────────────────────────────────────────────
     # ABSENT BY DEFAULT, AND STRUCTURALLY SO: `recv_crew_spec()` returns None when the size
@@ -1845,7 +1849,8 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
         # so both leaves stamp the SAME people -- and the site's block was minted off the
         # PUT POOL's block end, which is the same cursor this line would compute, taken at
         # unit scope so the two leaves cannot compute it differently.
-        _recv_workers = _recv_crew.workers(_uid) if site is None else site.workers
+        _recv_workers = (_recv_crew.workers(_uid) if scope.workers is None
+                         else scope.workers)
         _uid = _recv_crew.next_uid(_uid)
         _recv_sources = ('reorder', 'trailer') if args.get('inbound') is not None \
             else ('reorder',)
@@ -1867,7 +1872,7 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
         # one dock holds one clock list and one crew.
         _dock = (_Dock(_DockSpec(size=_recv_spec['size'], sources=_recv_sources),
                        cost=_ucost)
-                 if site is None else site.dock)
+                 if scope.dock is None else scope.dock)
         mgr.enable_receiving(_dock)
         # The rich packer rides with the crew: LoadPlans exist so the dock can count
         # deliveries; unbound (every store-only run) the mixin's default packs the same units.
@@ -1904,7 +1909,7 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
             # copy of the SUPPLIER lead queue -- an order placed with a 3-batch lead
             # arriving in 2, on every coupled run, silently.  `SiteReceiving.bind` asserts
             # the identity below, which is what makes that a structural guarantee.
-            mgr.transit = site.transit if site is not None else _YardTransit(
+            mgr.transit = scope.transit if scope.transit is not None else _YardTransit(
                 _TRAILER_TYPES[_inb_spec['trailer_type']],
                 lead_s=_inb_spec['lead_s'],
                 lead_sigma=_inb_spec['lead_sigma'],
@@ -1932,16 +1937,11 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
             # the standing branch without a dock and a coordinator with no dock could not
             # drain one.
             if _dock is not None:
-                mgr.receiving = (_SiteReceiving(_dock, mgr.transit) if site is None
-                                 else site.coord)
-                if site is not None:
-                    # BOUND AFTER the transit is set and after intake has filled
-                    # `_originals`: `bind` reads this leaf's whole catalogue partition to
-                    # build the `{sku: leaf}` owner dict, and asserts the leaf holds the
-                    # coordinator's own transit.  The SECOND bind is what stamps
-                    # `site_scoped` on every bound leaf and turns the six leaf accessors
-                    # into refusals.
-                    site.coord.bind(mgr, channel_regime)
+                mgr.receiving = (_SiteReceiving(_dock, mgr.transit)
+                                 if scope.coord is None else scope.coord)
+                # BOUND AFTER the transit is set and after intake has filled `_originals`
+                # (a no-op off the top rung; `SiteScope.bind_receiving` says why).
+                scope.bind_receiving(mgr, channel_regime)
             # THE GAIN BUNDLE rides only when a gain policy is named (unlike the
             # timeline, which is always on): the seeded fifo/lifo keys never read it,
             # so building arm machinery nothing consumes would be unconsumed infra.
@@ -2203,10 +2203,10 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
                       k_pickers=k_pickers, keyframe_interval=keyframe_interval, kf_db=kf_db,
                       last_dur=last_dur, lift_cache=lift_cache, log=log,
                       map_lap_pct=map_lap_pct, mgr=mgr, n_batches=n_batches, opt_x=opt_x,
-                      opt_y=opt_y, pb=pb, pe=pe, pick_cfg=pick_cfg, pk=pk, pm=pm, pool=pool,
+                      opt_y=opt_y, pb=pb, pe=pe, pick_cfg=pick_cfg, pk=pk, pm=pm,
                       pq=pq, pqs=pqs, pt=pt, put_clock=put_clock, qty_by_sku=qty_by_sku,
                       recv_clock=recv_clock, reloader=reloader, run_dir=run_dir, run_id=run_id,
-                      sd=sd, seed_batches=seed_batches, shift=shift, site=site,
+                      scope=scope, sd=sd, seed_batches=seed_batches, shift=shift,
                       skipped=skipped, start_i=start_i, strat=strat, strategy=strategy,
                       t_loop=t_loop, t_precompute=t_precompute, timers=timers,
                       warehouse=warehouse, we=we, wp=wp, yd=yd, yt=yt)
@@ -2307,17 +2307,15 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # the same relative terms: how much of the day is left when they pick this wave up.
         # They pick it up when the wave is released OR when they finish the last one --
         # whichever is later, which is exactly the `bstate.put_base` the event rows use below.
-        _put_deadline = (None if bstate.day_end is None
-                         else bstate.day_end - max(asm.arm_clock, asm.put_clock))
         # POOLED, BOTH NUMBERS ARE THE SITE'S and neither is this leaf's to compute.  One
         # shared clock list cannot carry two epochs, so the base is the SITE DAY START
         # (`max(day.start_of(i), put_clock_site)`) and the whistle is what is left of that
         # day -- never `arm_clock`, which would idle the site's putters whenever EITHER
         # pick crew overran its day and would misattribute a picking overrun to put-away's
         # cut.  `open_batch` is idempotent per day, so both leaves get the same answer.
-        bstate.put_base = None
-        if asm.pool is not None:
-            bstate.put_base, _put_deadline = asm.pool.open_batch(asm._release.day_of(i))
+        bstate.put_base, _put_deadline = asm.scope.put_window(
+            day=asm._release.day_of(i), day_end=bstate.day_end,
+            arm_clock=asm.arm_clock, put_clock=asm.put_clock)
         # The RECEIVE whistle: its own day, its own carry.  Reusing `_put_deadline` would be
         # arithmetically well-formed and wrong -- it is the PUT crew's remaining day, already
         # shrunk by the PUT crew's backlog -- and the only symptom would be a `recv_cut` that
@@ -2355,7 +2353,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.
             asm.reloader.reload(asm.mgr, asm.freq_by_sku, asm.opt_x, asm.opt_y)
-        if asm.site is not None:
+        if not asm.scope.drives_own_composition:
             # PHASES 0-5 ARE THE SITE'S, and this leaf's half of batch `i` stops here.
             # One lead tick over one yard, one receive at one dock, and a put drain that
             # must land AFTER that receive for BOTH leaves -- none of which a leaf running
@@ -2400,9 +2398,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # is by SKU -- the pack rule (ADR-0005), so the rows and the units sum back to the
         # site's own census exactly.
         _rq: dict = {}
-        _tx_rows, _tx_qty, _tx_depth = (
-            (asm.mgr.transit_snapshot(), None, None) if asm.site is None
-            else asm.site.coord.transit_census_for(asm.mgr))
+        _tx_rows, _tx_qty, _tx_depth = asm.scope.transit_census(asm.mgr)
         for _sku, _qty, _rem in _tx_rows:
             _k = ('lead', _sku, _rem, None, None, None)   # in transit: no queue yet
             _rq[_k] = _rq.get(_k, 0) + _qty
@@ -2436,8 +2432,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # reporting an idle dock.  `snapshot_for` partitions once and serves each leaf once,
         # and closes the shares against the dock's totals (site-dock 15's precondition:
         # each leaf's `batch_stats` scalars come from its own `_recv_seconds`).
-        _rcv = (asm.mgr.receiving_snapshot() if asm.site is None
-                else asm.site.coord.snapshot_for(asm.mgr))
+        _rcv = asm.scope.receiving_snapshot(asm.mgr)
         # ADR-0003's rework flows and the free-index level, taken HERE for exactly the
         # reasons above: `snapshot_putaway_rework` RESETS all four, so one call per batch,
         # above the skip guard so a skipped batch records its own top-ups (put-away runs in
@@ -2464,9 +2459,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # the contract's `site_inbound_db` and `_SiteDock.collect` is their one
         # collector.  Both leaf accessors refuse under a site scope, so this is guarded
         # rather than merely skipped.
-        if asm.site is None:
-            asm.yt.extend(asm.mgr.drain_yard_trailers())
-            asm.yd.extend((i, *_lv) for _lv in asm.mgr.drain_yard_drains())
+        _yt_rows, _yd_rows = asm.scope.yard_rows(asm.mgr, i)
+        asm.yt.extend(_yt_rows)
+        asm.yd.extend(_yd_rows)
         # THE RECEIVE FLUSH, in the block both branches pass through -- so
         # `close_skipped_batch` is untouched.  That matters: it has two early returns of its
         # own, and a drain appended after its put block would be silently skipped whenever
@@ -2483,18 +2478,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # crew's release would idle the site's receivers whenever EITHER channel
             # overran its day.  `open_batch` is idempotent per day, so this reads the value
             # the drain was already run against rather than computing a second one.
-            if asm.site is None:
-                _recv_recs = asm.mgr.drain_receiving_records()
-                # ADR-0003's rework.  Order against `drain_receiving_records` above does not
-                # matter -- `drain_repacks` deliberately does NOT reset the crew clocks, and both
-                # streams' `t0` were stamped when the work happened -- but both must be taken in
-                # the SAME batch, or the one left behind lands against the next batch's epoch.
-                _repack_recs = asm.mgr.drain_repack_records()
-                _recv_base = max(asm.arm_clock, asm.recv_clock)
-            else:
-                _recv_recs = asm.site.coord.drain_records_for(asm.mgr)
-                _repack_recs = asm.site.coord.drain_repacks_for(asm.mgr)
-                _recv_base, _ = asm.site.coord.open_batch(asm._release.day_of(i))
+            _recv_recs, _repack_recs, _recv_base = asm.scope.recv_drain(
+                asm.mgr, arm_clock=asm.arm_clock, recv_clock=asm.recv_clock,
+                day=asm._release.day_of(i))
             if _recv_recs:
                 asm.we.extend(_work_events.recv_rows(
                     _recv_recs, batch_id=i, batch_start=asm.arm_clock, crew=asm._recv_workers,
@@ -2521,14 +2507,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                     first_seq=len(_recv_recs)))
                 asm.recv_clock = max(asm.recv_clock,
                                  max((_recv_base + r[0]) + r[1] for r in _repack_recs))
-            if asm.site is not None:
-                # THE SITE CARRY IS COMMITTED ONCE PER SITE DAY, after EVERY leaf has
-                # stamped -- and so is the shared crew's clock reset, which `note_records`
-                # owns because `drain_receiving_records` (its uncoupled owner) refuses here.
-                # `None` when this leaf recorded nothing: the crew is where it was, exactly
-                # as an unpooled leaf leaves `recv_clock` alone.
-                asm.site.coord.note_records(
-                    asm.mgr, asm.recv_clock if (_recv_recs or _repack_recs) else None)
+            asm.scope.note_recv(
+                asm.mgr, asm.recv_clock if (_recv_recs or _repack_recs) else None)
         asm.timers.split('reord')
 
         # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of
@@ -2642,7 +2622,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             _bs, _we_skip, asm.put_clock = close_skipped_batch(
                 lead_depth=_tx_depth,
                 batch_id=i, mgr=asm.mgr, arm_clock=asm.arm_clock,
-                put_clock=asm.put_clock if asm.pool is None else bstate.put_base,
+                put_clock=asm.scope.put_clock_for(asm.put_clock, bstate.put_base),
                 k_pickers=asm.k_pickers, run_id=asm.run_id,
                 # `_eff_batch`, NOT `batch`.  The two differ by exactly the inherited
                 # carry, and using `batch` here gave `items_demanded` a SECOND definition
@@ -2659,9 +2639,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 # the pool a report exactly as a picked one does.  `put_clock` is handed in
                 # as `bstate.put_base` so the return is the base itself when nothing was
                 # recorded, which is what `note_records` wants either way.
-                put_base=bstate.put_base, reset_clocks=asm.pool is None)
-            if asm.pool is not None:
-                asm.pool.note_records(asm.mgr, asm.put_clock)
+                put_base=bstate.put_base, reset_clocks=asm.scope.reset_put_clocks)
+            asm.scope.note_put(asm.mgr, asm.put_clock)
             _bs.work_day      = asm._release.day_of(i)
             (_bs.recv_depth, _bs.recv_unloaded,
              _bs.recv_cut, _bs.recv_seconds) = _rcv
@@ -2810,8 +2789,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 f'A pick exceeded the demand that asked for it — check Task.planned '
                 f'against the per-bin drain in Task.from_batch.')
         bs.queue_depth        = asm.mgr.queue_depth
-        bs.lead_queue_depth   = (asm.mgr.lead_queue_depth if asm.site is None else _tx_depth)
-        bs.in_transit_qty     = (asm.mgr.in_transit_qty if asm.site is None else _tx_qty)
+        bs.lead_queue_depth   = asm.scope.lead_depth(asm.mgr, _tx_depth)
+        bs.in_transit_qty     = asm.scope.in_transit(asm.mgr, _tx_qty)
         ts  = extract_task_stats(events, tasks, batch_id=i, affinity=asm.affinity, wp=asm.wp,
                                  run_id=asm.run_id, lift_cache=asm.lift_cache)
         pev = extract_picker_events(events, batch_id=i, run_id=asm.run_id)
@@ -2837,12 +2816,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # POOLED, THE DRAIN LEAVES THE CREW STANDING.  Resetting here would zero the
             # other leaf's half-spent day with nothing raising and every subsequent row
             # plausible; the pool resets the one list once, after both leaves report.
-            _put_recs = asm.mgr.drain_putaway_records(reset_clocks=asm.pool is None)
+            _put_recs = asm.mgr.drain_putaway_records(
+                reset_clocks=asm.scope.reset_put_clocks)
             # The crew picks this wave's queue up when the wave is released OR when it
             # finishes the last one, whichever is later.  Pooled, `bstate.put_base` is the site's
             # and was set when the day opened, above.
-            if asm.pool is None:
-                bstate.put_base = max(bs.batch_start_time, asm.put_clock)
+            bstate.put_base = asm.scope.put_base_for_batch(
+                bstate.put_base, bs.batch_start_time, asm.put_clock)
             # ONE CALL PER STREAM.  Each queue has its own crew, so a worker index means
             # something only against that crew's roster -- worker 0 of the cart crew and
             # worker 0 of the forklift crew are different people.  With the default single
@@ -2866,17 +2846,16 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 # not associative, and `bstate.put_base + (t0 + dur)` moved 28 rows by one
                 # ulp across two arms.  Same value for one worker, exactly.
                 asm.put_clock = max((bstate.put_base + r[0]) + r[1] for r in _put_recs)
-            elif asm.pool is not None:
-                # NOTHING PUT AWAY, and the pool still has to hear from this leaf -- it
-                # resets the shared clocks only when every leaf has reported.  The base is
-                # what to report: a crew that did no work today is free at the day's start,
-                # which is the same answer the carry gives tomorrow either way.
-                asm.put_clock = bstate.put_base
-            if asm.pool is not None:
-                # The site carry is the pool's, committed when the LAST leaf reports, so
-                # both leaves of one batch read one epoch.  `put_clock` stays as this
-                # leaf's own view for the shift ledger's `_shift_last_finish`.
-                asm.pool.note_records(asm.mgr, asm.put_clock)
+            else:
+                # NOTHING PUT AWAY. Pooled, the pool still has to hear from this leaf -- it
+                # resets the shared clocks only when every leaf has reported -- and the base
+                # is what to report: a crew that did no work today is free at the day's
+                # start, the same answer the carry gives tomorrow either way.
+                asm.put_clock = asm.scope.put_clock_for(asm.put_clock, bstate.put_base)
+            # The site carry is the pool's, committed when the LAST leaf reports, so both
+            # leaves of one batch read one epoch.  `put_clock` stays as this leaf's own view
+            # for the shift ledger's `_shift_last_finish`.
+            asm.scope.note_put(asm.mgr, asm.put_clock)
         asm.pk.extend(picks_b)
         asm.pm.extend(am)
         asm.last_dur        = bs.duration
@@ -2907,8 +2886,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             asm.shift.note(cut=bool(sim.carried) or bool(bs.recv_cut),
                        finish=max(asm.arm_clock, asm.put_clock, asm.recv_clock),
                        standing=(asm.mgr.queue_depth,
-                                 asm.mgr.dock_depth if asm.site is None
-                                 else asm.site.coord.dock_depth_for(asm.mgr),
+                                 asm.scope.dock_depth(asm.mgr),
                                  *_pending_split))
 
         if len(asm.pb) >= asm.checkpoint:
@@ -2938,8 +2916,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 f'  q={asm.mgr.queue_depth}'
                 f'  reorder={asm.ckpt_win.get("reorders")}sku '
                 f'{asm.ckpt_win.get("units_ordered")}u ord {asm.ckpt_win.get("placed")}u plc'
-                f'  lead_q={asm.mgr.lead_queue_depth if asm.site is None else _tx_depth}'
-                f'({asm.mgr.in_transit_qty if asm.site is None else _tx_qty}u)'
+                f'  lead_q={asm.scope.lead_depth(asm.mgr, _tx_depth)}'
+                f'({asm.scope.in_transit(asm.mgr, _tx_qty)}u)'
                 f'  p1={_p1w:.2f}s ({p1_frac:.0f}%)'
                 f'  p2={_p2w:.2f}s'
                 f'  wall={wall:.0f}s'
@@ -3003,7 +2981,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # SITE-DOCKED, THE TAIL IS THE SITE'S and `_SiteDock.finish` reads it: this
         # accessor does not DRAIN, so two leaves reading it would bill every trailer still
         # standing at run end twice.  Refused there, guarded here.
-        _yard_standing = [] if asm.site is not None else asm.mgr.standing_yard_trailers()
+        _yard_standing = asm.scope.standing_yard(asm.mgr)
         if _yard_standing:
             asm.log.info(f'  [yard] {len(_yard_standing)} trailer(s) still on site at run end — '
                      f'detention censored')

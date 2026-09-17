@@ -13146,6 +13146,56 @@
       "src": "Optimization/simdriver/era_coverage.py::transit_of"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.receiving_snapshot",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::LeafScope.receiving_snapshot"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_receiving_records",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::LeafScope.recv_drain"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_repack_records",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::LeafScope.recv_drain"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.standing_yard_trailers",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::LeafScope.standing_yard"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.transit_snapshot",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::LeafScope.transit_census"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_drains",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::LeafScope.yard_rows"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_trailers",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::LeafScope.yard_rows"
+    },
+    {
+      "dst": "Optimization/simdriver/leaf_scope.py::LeafScope",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::scope_for"
+    },
+    {
+      "dst": "Optimization/simdriver/leaf_scope.py::PooledScope",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::scope_for"
+    },
+    {
+      "dst": "Optimization/simdriver/leaf_scope.py::SiteScope",
+      "kind": "calls",
+      "src": "Optimization/simdriver/leaf_scope.py::scope_for"
+    },
+    {
       "dst": "Optimization/config/sim_config.py",
       "kind": "imports",
       "src": "Optimization/simdriver/scenario.py"
@@ -13606,6 +13656,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/simdriver/leaf_scope.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/simdriver/section_timers.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -13852,6 +13907,11 @@
     },
     {
       "dst": "Optimization/simdriver/batch_precompute.py::load_batches",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/leaf_scope.py::scope_for",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
@@ -37775,6 +37835,398 @@
       "kind": "function",
       "module": "Optimization/simdriver/era_coverage.py",
       "name": "transit_of",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "Optimization.simdriver.leaf_scope",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope",
+      "kind": "class",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "LeafScope",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.__repr__",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.bind_put",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "bind_put",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.bind_receiving",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "bind_receiving",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.dock_depth",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "dock_depth",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.in_transit",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "in_transit",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.lead_depth",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "lead_depth",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.note_put",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "note_put",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.note_recv",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "note_recv",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.put_base_for_batch",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_base_for_batch",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.put_clock_for",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_clock_for",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.put_uid_after",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_uid_after",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.put_window",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_window",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.receiving_snapshot",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "receiving_snapshot",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.recv_drain",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "recv_drain",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.standing_yard",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "standing_yard",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.transit_census",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "transit_census",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::LeafScope.yard_rows",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "yard_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope",
+      "kind": "class",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "PooledScope",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.__repr__",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.bind_put",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "bind_put",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.note_put",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "note_put",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.put_base_for_batch",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_base_for_batch",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.put_clock_for",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_clock_for",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.put_clocks",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_clocks",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.put_uid_after",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_uid_after",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.put_window",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_window",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::PooledScope.put_workers",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "put_workers",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope",
+      "kind": "class",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "SiteScope",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.__repr__",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.bind_receiving",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "bind_receiving",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.coord",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "coord",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.dock",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "dock",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.dock_depth",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "dock_depth",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.in_transit",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "in_transit",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.lead_depth",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "lead_depth",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.note_recv",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "note_recv",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.receiving_snapshot",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "receiving_snapshot",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.recv_drain",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "recv_drain",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.standing_yard",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "standing_yard",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.transit",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "transit",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.transit_census",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "transit_census",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.workers",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "workers",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::SiteScope.yard_rows",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "yard_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::__all__",
+      "kind": "const",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/leaf_scope.py",
+      "id": "Optimization/simdriver/leaf_scope.py::scope_for",
+      "kind": "function",
+      "module": "Optimization/simdriver/leaf_scope.py",
+      "name": "scope_for",
       "public": true
     },
     {

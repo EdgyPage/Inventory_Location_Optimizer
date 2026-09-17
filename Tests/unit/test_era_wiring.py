@@ -538,8 +538,14 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     # dock it carries this leaf's SHARE of it -- `mgr.dock_depth` refuses on a coupled leaf
     # because one floor holding both channels' merchandise has no per-channel answer.
     assert 'standing=(asm.mgr.queue_depth,' in src
-    assert 'asm.mgr.dock_depth if asm.site is None' in src
-    assert 'else asm.site.coord.dock_depth_for(asm.mgr),' in src
+    # Ticket 08 made that dispatch the scope's, so the claim moves to the two places that
+    # now carry it: the call site asks ONE object, and the object answers per rung. Asserting
+    # only the call site would pass on a scope whose two rungs returned the same thing.
+    assert 'asm.scope.dock_depth(asm.mgr),' in src
+    from Optimization.simdriver.leaf_scope import LeafScope, SiteScope
+    import inspect as _insp
+    assert 'mgr.dock_depth' in _insp.getsource(LeafScope.dock_depth)
+    assert 'dock_depth_for(mgr)' in _insp.getsource(SiteScope.dock_depth)
     assert '*_pending_split))' in src
     assert "if _reason == 'unpicked_daycut':" in src, 'the carry is split by cause family'
     # THE ORDERING. The boundary test precedes the fold of this batch's clocks/cut/depths, so

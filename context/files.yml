@@ -1462,6 +1462,15 @@ files:
       - {name: "resolve_floors", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
       - {name: "fixed_point", file: "Optimization/simdriver/era_coverage.py", kind: "function"}
     notes: ""
+  "Optimization/simdriver/leaf_scope.py":
+    purpose: "LeafScope: the one object a leaf consults instead of re-deciding `site is None` / `pool is None` at 28 call sites -- three rungs (LeafScope solo, PooledScope shares the site put crew, SiteScope routes inbound to the coordinator) built by `scope_for`, which is the only place the ladder is walked; site implies pool implies coupled, so the fourth corner is unnameable rather than guarded, and the domain-layer refusals under Warehouse/ and Inbound/ become a backstop rather than the mechanism."
+    layer: "opt_simdriver"
+    key_symbols:
+      - {name: "LeafScope", file: "Optimization/simdriver/leaf_scope.py", kind: "class"}
+      - {name: "PooledScope", file: "Optimization/simdriver/leaf_scope.py", kind: "class"}
+      - {name: "SiteScope", file: "Optimization/simdriver/leaf_scope.py", kind: "class"}
+      - {name: "scope_for", file: "Optimization/simdriver/leaf_scope.py", kind: "function"}
+    notes: ""
   "Optimization/simdriver/scenario.py":
     purpose: "One scenario (manifest + shared assets + flat pool + blank-arm check) + the cell-matrix driver _run_whatif_matrix that loops _build_cells so every run is a cell matrix."
     layer: "opt_simdriver"
@@ -4562,6 +4571,32 @@ files:
       - {name: "test_one_check_reorders_advances_every_in_transit_order_by_exactly_one", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
       - {name: "test_an_order_can_go_past_zero_rather_than_clamping", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
       - {name: "test_the_decision_is_written_down_where_the_tick_is", file: "Tests/unit/test_lead_time_unit.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_leaf_scope.py":
+    purpose: "Fences LeafScope: the three legal rungs and the refusal of the fourth, that PooledScope overrides nothing inbound (the coupled inbound-OFF pole answers exactly as solo, now structural rather than held up by 28 call sites) with a mirror test so it cannot pass vacuously, that a SiteScope never consults a leaf for a site-owned question (the manager stub refuses what the real one refuses), that every routed call carries the ASKING leaf, and that the runner names no `asm.site` / `asm.pool` again."
+    layer: "tests"
+    key_symbols:
+      - {name: "INBOUND_MEMBERS", file: "Tests/unit/test_leaf_scope.py", kind: "const"}
+      - {name: "PUT_MEMBERS", file: "Tests/unit/test_leaf_scope.py", kind: "const"}
+      - {name: "test_the_three_legal_rungs_and_their_classes", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_a_site_with_no_pool_is_refused_by_name", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_ladder_is_an_inheritance_chain_not_three_siblings", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_pooled_rung_overrides_nothing_inbound", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_site_rung_overrides_nothing_in_the_put_half", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_site_rung_overrides_every_inbound_member", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_solo_asks_the_manager_and_only_the_manager", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_solo_reads_the_lead_numbers_off_the_manager_not_the_census", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_solo_recv_drain_bases_on_the_later_of_the_two_clocks", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_site_scope_never_consults_the_leaf_for_a_site_owned_question", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_every_site_question_carries_the_ASKING_leafs_manager", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_site_recv_base_is_the_site_days_not_the_leafs", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_site_takes_the_lead_numbers_from_the_census", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_put_half_moves_at_the_MIDDLE_rung_not_the_top", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_solo_put_keeps_its_own_clock_and_its_own_whistle", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_uid_cursor_jumps_to_the_pools_block_end_only_when_pooled", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_binding_happens_only_on_the_rung_that_has_something_to_bind", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_every_rung_is_slotted_so_a_typo_cannot_shadow_a_member", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
+      - {name: "test_the_runner_consults_the_scope_and_nothing_else", file: "Tests/unit/test_leaf_scope.py", kind: "function"}
     notes: ""
   "Tests/unit/test_line_distribution.py":
     purpose: "the line law is STAMPED on the SKU, and every reader reads it."

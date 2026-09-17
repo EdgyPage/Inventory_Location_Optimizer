@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simdriver.leaf_scope · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_leaf_scope_py" data-id="Optimization/simdriver/leaf_scope.py">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <span class="here"><code>Optimization/simdriver/leaf_scope.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simdriver.leaf_scope</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_leaf_scope_py.html"><code>Optimization/simdriver/leaf_scope.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simdriver.leaf_scope</code></pre>
+<section class="doc">leaf_scope — who answers a leaf&#x27;s inbound and put-away questions: it, or the site.
+
+`_build_leaf` asked `site is None` / `pool is None` twenty-eight times, and every pair was the
+same dispatch under a different name:
+
+| the question | solo | site-docked |
+|---|---|---|
+| the transit census | `mgr.transit_snapshot()` | `coord.transit_census_for(mgr)` |
+| the receiving snapshot | `mgr.receiving_snapshot()` | `coord.snapshot_for(mgr)` |
+| this batch&#x27;s receipts | `mgr.drain_receiving_records()` | `coord.drain_records_for(mgr)` |
+| the dock depth | `mgr.dock_depth` | `coord.dock_depth_for(mgr)` |
+| the yard rows | `mgr.drain_yard_*()` | nothing — the SITE collects them |
+| the receiving roster | `_recv_crew.workers(uid)` | `site.workers` |
+| the put roster | `_put_crew.workers(uid)` | `pool.workers` |
+
+Two adapters already existed — &quot;the leaf&#x27;s own manager answers&quot; and &quot;the coordinator answers on
+its behalf&quot; — with no interface between them, so the dispatch was re-decided at every call site
+and correctness was held up by REFUSALS IN THE DOMAIN LAYER. Eight accessors under `Warehouse/`
+and `Inbound/` raise under a site scope, which means `Warehouse/` had to learn that a DRIVER
+concept exists. Those refusals are still there and still right, but they are a backstop now
+rather than the mechanism.
+
+## The three parameters are a LADDER, not eight combinations
+
+The ticket that asked for this counted `pool`, `site_gain` and `site` as three independent
+`None`-able parameters — eight nominal combinations, &quot;~3 legal, enforced by guards scattered
+across `_build_site_dock`, `_build_put_pool` and `_bind_put_crews`&quot;. Reading those guards, the
+reason only three are legal is stronger than scattering: **they form a ladder.**
+
+    SOLO      no pool, no site      an uncoupled run
+      |       `_build_put_pool` is only called on a coupled unit
+    POOLED    pool, no site         a coupled unit with inbound OFF (site-dock 06)
+      |       `_build_site_dock` reads `pool.workers[-1].uid`, so it cannot exist without one
+    DOCKED    pool and site         a coupled unit with the standing yard
+
+`_build_put_pool` never returns `None` — it raises or it builds — so `site` implies `pool`
+implies coupled. The fourth corner (a site dock with no put pool) is not one of eight
+combinations that happens to be guarded: it is unreachable, and here it is UNNAMEABLE, because
+there is no class for it. `scope_for` is the only constructor and it walks the ladder.
+
+`site_gain` is not on this ladder at all. It is read at exactly one place — binding the gain
+bundle into the transit — so it stays an argument to `_build_arm` rather than becoming a fourth
+rung; a scope member consulted once is a parameter wearing a costume.
+
+## What each rung overrides
+
+`PooledScope` changes the PUT half only; a coupled unit with inbound off still answers every
+inbound question out of its own manager, byte-identically to a solo run. `SiteScope` adds the
+inbound half on top. That is why this is an inheritance chain rather than three siblings: each
+rung is the one below it with one more group of answers moved to the site, and writing it any
+other way would duplicate the put half into two classes.
+
+## The instants are preserved, including where the two poles disagree
+
+`lead_depth` and `in_transit` are read at DIFFERENT MOMENTS by the two poles, and that is kept
+exactly. The site takes all three transit numbers off one partitioning pass before
+`check_reorders` fires; a solo leaf reads them off the manager afterwards, so its values include
+this batch&#x27;s own reorders and the site&#x27;s do not. That asymmetry predates this module (see
+`transit_census`&#x27; own note) and moving either read would move published numbers, so `lead_depth`
+and `in_transit` stay METHODS taking the census value rather than becoming fields resolved at
+census time, which is the shape that would silently align them.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(48)</span></h2><ul><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope.html"><code>LeafScope</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope.html"><code>PooledScope</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope.html"><code>SiteScope</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py____all__.html"><code>__all__</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope___repr__.html"><code>__repr__</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope___repr__.html"><code>__repr__</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope___repr__.html"><code>__repr__</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_bind_put.html"><code>bind_put</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope_bind_put.html"><code>bind_put</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_bind_receiving.html"><code>bind_receiving</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_bind_receiving.html"><code>bind_receiving</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_coord.html"><code>coord</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_dock.html"><code>dock</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_dock_depth.html"><code>dock_depth</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_dock_depth.html"><code>dock_depth</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_in_transit.html"><code>in_transit</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_in_transit.html"><code>in_transit</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_lead_depth.html"><code>lead_depth</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_lead_depth.html"><code>lead_depth</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_note_put.html"><code>note_put</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope_note_put.html"><code>note_put</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_note_recv.html"><code>note_recv</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_note_recv.html"><code>note_recv</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_put_base_for_batch.html"><code>put_base_for_batch</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope_put_base_for_batch.html"><code>put_base_for_batch</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_put_clock_for.html"><code>put_clock_for</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope_put_clock_for.html"><code>put_clock_for</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope_put_clocks.html"><code>put_clocks</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_put_uid_after.html"><code>put_uid_after</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope_put_uid_after.html"><code>put_uid_after</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_put_window.html"><code>put_window</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope_put_window.html"><code>put_window</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__PooledScope_put_workers.html"><code>put_workers</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_receiving_snapshot.html"><code>receiving_snapshot</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_receiving_snapshot.html"><code>receiving_snapshot</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_recv_drain.html"><code>recv_drain</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_recv_drain.html"><code>recv_drain</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__scope_for.html"><code>scope_for</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_standing_yard.html"><code>standing_yard</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_standing_yard.html"><code>standing_yard</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_transit.html"><code>transit</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_transit_census.html"><code>transit_census</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_transit_census.html"><code>transit_census</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_workers.html"><code>workers</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__LeafScope_yard_rows.html"><code>yard_rows</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li><li><a href="nOptimization_simdriver_leaf_scope_py__SiteScope_yard_rows.html"><code>yard_rows</code></a> <span class="dim">Optimization/simdriver/leaf_scope.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_leaf_scope_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/leaf_scope.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
