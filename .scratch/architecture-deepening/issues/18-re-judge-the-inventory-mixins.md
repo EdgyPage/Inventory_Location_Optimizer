@@ -1,7 +1,7 @@
 # 18 - re-judge the two inventory mixins after the ledger lands
 
 Type: decision
-Status: needs-triage
+Status: resolved
 Blocked by: 02
 
 **This ticket is allowed to end in "closed with a reason", and is marked as likely to.**
@@ -56,3 +56,62 @@ level beside `structural_bin_floor` and `_aisle_split`, and delete the class.
   (`context/memory/verify_memory.py`) is the one that rots unattended, and the 2026-07 restructure
   staled 8 anchors across 4 of 8 memories. Run it.
 - Gates 1, 2, 7, 10.
+
+## Answer -- RESOLVED as CLOSED WITH A REASON (2026-09-16)
+
+Judged after ticket 02 stage A, as this ticket required. All three mixins stay. The numbers,
+measured by walking each class's AST for `self.X` where X is not defined on the class:
+
+| mixin | methods | static/class | distinct manager attributes reached |
+|---|---|---|---|
+| `ReorderMixin` | 19 | 0 | **38** |
+| `PlanningMixin` | 5 | **5** | **0** |
+| `ZoningMixin` | 8 | 0 | 8 |
+
+### `ReorderMixin` -- closed, it is the manager's own behaviour
+
+Stage A removed roughly 12 reaches, exactly as ticket 02 predicted (the aisle-ledger dicts
+became `self.ledger`). **38 remain.** That is not a surface an explicit collaborator could take:
+it spans `_queued_qty`, `_held`, `_dock`, `transit`, `space_timeline`, `packer`,
+`putaway_pool`, `_sigma_fd`, `_seed`, `_now_s`, `_stock`, `_admit`, `_queue`, `_index_add` and
+two dozen more. Passing those as a protocol would reproduce `Inventory_Manager` under a second
+name.
+
+The honest answer is the one this ticket said to say if it was true: reorder IS the manager's
+own behaviour, the file split is a file split, and that is fine. Recorded here so a future
+review does not re-suggest it.
+
+### `PlanningMixin` -- the move FAILS the deletion test, which this ticket did not anticipate
+
+Zero `self.X`, all five methods static or class -- so the "namespace wearing a mixin's clothes"
+reading is confirmed, and this ticket proposed moving them to module level and deleting the
+class.
+
+**That does not survive the deletion test.** Every caller reaches them through the MANAGER, not
+through the mixin: `Inventory_Manager.plan_warehouse(...)` (`sim_assets.py:131`),
+`Inventory_Manager.declared_packing(...)` (`era_coverage.py:578`), and the same shape elsewhere.
+That spelling is the documented planning entry point -- `sim_config.py:88`, `sim_assets.py:4`,
+`simconfig/coverage.py:67` and `era_coverage.py:23-26` all describe the pair-level fixed point
+as `Q(n) -> plan_warehouse -> geometry -> n` in those terms.
+
+So deleting the class would not make complexity vanish. It would MOVE it: six call-site renames
+across four modules, a documented entry point lost, and either a broken public spelling or a set
+of thin delegates on the manager -- which is strictly worse than the mixin, because a delegate
+is a wrapper and the mixin is not. The class earns its keep as the manager's planning namespace
+even though it holds no instance state.
+
+The one thing that IS true and cheap: `structural_bin_floor` and `_aisle_split` already live at
+module level and `run_simulation.py:67` imports one of them directly. That is the right shape
+for a helper with no manager involvement, and nothing needs to change for it.
+
+### `ZoningMixin` -- stays, by a prior decision with a measurement behind it
+
+`Warehouse/inventory/README.md` records a measured per-bin attribute-lookup reason, and
+`Tests/unit/test_velocity_zoning.py` pins the two mirror sites. Not reopened.
+
+### A note for whoever owns `.scratch/architecture-drift/issues/01`
+
+While checking whether a `PlanningMixin` refactor would collide with that ticket, I diagnosed
+it: the backbone edge is NOT missing. `graph.json` carries it with the source
+`sim_assets.py::build_shared_assets._plan` -- the nested closure -- while the assertion names
+`build_shared_assets`. Written up in that ticket, not acted on here.

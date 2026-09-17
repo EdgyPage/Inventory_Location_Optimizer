@@ -1537,13 +1537,6 @@
       "kind": "function",
       "signature": "(policy: str)"
     },
-    "Inbound/priorities.py::global_key": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(policy: str)"
-    },
     "Inbound/priorities.py::local_key": {
       "decorators": [],
       "doc": null,
@@ -2127,7 +2120,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=DEFAULT_DOCK_DOORS, global_policy: str='fifo', local_policy: str='fifo', bound: int | None=None)"
+      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=DEFAULT_DOCK_DOORS, local_policy: str='fifo', bound: int | None=None)"
     },
     "Inbound/transit.py::TrailerTransit._depart": {
       "decorators": [],
@@ -2217,7 +2210,7 @@
     },
     "Inbound/transit.py::YardTransit": {
       "decorators": [],
-      "doc": "The standing yard: doors become real, and a trailer keeps its door until empty.\n\nWhat changes against the parent, and nothing else: `release()` is PURE CALENDAR \u2014\ndeparts loaders, lands arrivals in the yard, returns NO deliveries \u2014 and every door\nand crew decision moves to `_receive`, which drives the standing surfaces below over\nDRAIN-FROZEN rankings.  The parent's `release()` body is not edited; flag-off binds\nthe parent untouched, which is the first of the four byte-identity layers.\n\n# \u2500\u2500 the standing surfaces (what `_receive` drives) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe manager owns `_originals`, the packer and the crew, so it cannot live here \u2014 and\nthis class may not reach any of those, so the split is: THIS object holds trailer,\nyard and door STATE (`unplanned`/`planned_lots` for plans-at-arrival, `freeze_ctx`/\n`yard_order`/`dock_order` for the frozen rankings, `stage`/`door_freed`/`discard` for\nthe door lifecycle, `staged`/`free_doors` for the census) and the MANAGER makes every\ndecision over them.  The other transits satisfy these surfaces trivially \u2014 no\n`STANDING` attribute, no standing work \u2014 which is why neither is edited.\n\n# \u2500\u2500 invariants worth naming \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n* The yard is kept in (arrival stamp, `seq`) order \u2014 the charter's entry order \u2014 so\n  the stable ranking sort breaks stamp ties by seq for free.\n* At most `doors` trailers are staged; `stage` raises past that rather than quietly\n  widening the dock.\n* Decisions are drain-quantized, data is event-stamped: `stage`/`door_freed` take the\n  ABSOLUTE instant the caller derived (drain epoch, or epoch + crew-clock offset for\n  a mid-drain refill), and `stamps` keeps one\n  `(seq, arrived_s, staged_s, emptied_s, status)` tuple per finished trailer \u2014 the raw\n  material the `yard_trailers` table reports from, kept here because the trailer object\n  itself is dropped when it empties.  The STATUS is stamped by whichever door the\n  trailer left through rather than re-derived downstream from the null pattern: the\n  two producers know which they are, and a reader inferring `discarded` from \"never\n  staged\" would silently reclassify the day someone stages a trailer they then drop.\n* `INBOUND_GLOBAL_POLICY` and the parent's global registry are UNREAD here \u2014 the\n  yard/dock registries are the standing model's split of that decision.",
+      "doc": "The standing yard: doors become real, and a trailer keeps its door until empty.\n\nWhat changes against the parent, and nothing else: `release()` is PURE CALENDAR \u2014\ndeparts loaders, lands arrivals in the yard, returns NO deliveries \u2014 and every door\nand crew decision moves to `_receive`, which drives the standing surfaces below over\nDRAIN-FROZEN rankings.  The parent's `release()` body is not edited; flag-off binds\nthe parent untouched, which is the first of the four byte-identity layers.\n\n# \u2500\u2500 the standing surfaces (what `_receive` drives) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nThe manager owns `_originals`, the packer and the crew, so it cannot live here \u2014 and\nthis class may not reach any of those, so the split is: THIS object holds trailer,\nyard and door STATE (`unplanned`/`planned_lots` for plans-at-arrival, `freeze_ctx`/\n`yard_order`/`dock_order` for the frozen rankings, `stage`/`door_freed`/`discard` for\nthe door lifecycle, `staged`/`free_doors` for the census) and the MANAGER makes every\ndecision over them.  The other transits satisfy these surfaces trivially \u2014 no\n`STANDING` attribute, no standing work \u2014 which is why neither is edited.\n\n# \u2500\u2500 invariants worth naming \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n* The yard is kept in (arrival stamp, `seq`) order \u2014 the charter's entry order \u2014 so\n  the stable ranking sort breaks stamp ties by seq for free.\n* At most `doors` trailers are staged; `stage` raises past that rather than quietly\n  widening the dock.\n* Decisions are drain-quantized, data is event-stamped: `stage`/`door_freed` take the\n  ABSOLUTE instant the caller derived (drain epoch, or epoch + crew-clock offset for\n  a mid-drain refill), and `stamps` keeps one\n  `(seq, arrived_s, staged_s, emptied_s, status)` tuple per finished trailer \u2014 the raw\n  material the `yard_trailers` table reports from, kept here because the trailer object\n  itself is dropped when it empties.  The STATUS is stamped by whichever door the\n  trailer left through rather than re-derived downstream from the null pattern: the\n  two producers know which they are, and a reader inferring `discarded` from \"never\n  staged\" would silently reclassify the day someone stages a trailer they then drop.\n* The parent's trailer order is UNREAD here \u2014 the yard/dock registries are the\n  standing model's split of that decision.  There was a `GLOBAL_POLICIES` registry and\n  an `INBOUND_GLOBAL_POLICY` knob behind it until 2026-09-16; this class is the reason\n  they could never gain a second entry, so both were deleted.",
       "kind": "class",
       "signature": "(TrailerTransit)"
     },
@@ -7470,13 +7463,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "None"
-    },
-    "Optimization/config/settings.py::INBOUND_GLOBAL_POLICY": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'fifo'"
     },
     "Optimization/config/settings.py::INBOUND_LEAD_MINUTES": {
       "decorators": [],

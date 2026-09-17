@@ -94,7 +94,6 @@ files:
       - {name: "DockContext", file: "Inbound/priorities.py", kind: "class"}
       - {name: "ordering", file: "Inbound/priorities.py", kind: "function"}
       - {name: "view_needs", file: "Inbound/priorities.py", kind: "function"}
-      - {name: "global_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "local_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "yard_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "dock_key", file: "Inbound/priorities.py", kind: "function"}
@@ -739,7 +738,6 @@ files:
       - {name: "INBOUND_DOCK_DOORS", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_LEAD_MINUTES", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_LEAD_SPREAD", file: "Optimization/config/settings.py", kind: "const"}
-      - {name: "INBOUND_GLOBAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_LOCAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_TRAILER_BOUND", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_STANDING_YARD", file: "Optimization/config/settings.py", kind: "const"}

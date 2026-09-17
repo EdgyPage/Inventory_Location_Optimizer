@@ -1201,11 +1201,6 @@
       "src": "Inbound/priorities.py"
     },
     {
-      "dst": "Inbound/priorities.py::_fifo_trailer",
-      "kind": "ref",
-      "src": "Inbound/priorities.py"
-    },
-    {
       "dst": "Inbound/priorities.py::_lifo_standing",
       "kind": "ref",
       "src": "Inbound/priorities.py"
@@ -1514,11 +1509,6 @@
       "dst": "Inbound/trailer.py",
       "kind": "imports",
       "src": "Inbound/transit.py"
-    },
-    {
-      "dst": "Inbound/priorities.py::global_key",
-      "kind": "calls",
-      "src": "Inbound/transit.py::TrailerTransit.__init__"
     },
     {
       "dst": "Inbound/priorities.py::local_key",
@@ -7257,11 +7247,6 @@
     },
     {
       "dst": "Optimization/config/settings.py::INBOUND_FUTURESIGHT_BATCHES",
-      "kind": "ref",
-      "src": "Optimization/config/sim_config.py::CONFIG"
-    },
-    {
-      "dst": "Optimization/config/settings.py::INBOUND_GLOBAL_POLICY",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -23105,14 +23090,6 @@
     },
     {
       "file": "Inbound/priorities.py",
-      "id": "Inbound/priorities.py::global_key",
-      "kind": "function",
-      "module": "Inbound/priorities.py",
-      "name": "global_key",
-      "public": true
-    },
-    {
-      "file": "Inbound/priorities.py",
       "id": "Inbound/priorities.py::local_key",
       "kind": "function",
       "module": "Inbound/priorities.py",
@@ -29805,14 +29782,6 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "INBOUND_FUTURESIGHT_BATCHES",
-      "public": true
-    },
-    {
-      "file": "Optimization/config/settings.py",
-      "id": "Optimization/config/settings.py::INBOUND_GLOBAL_POLICY",
-      "kind": "const",
-      "module": "Optimization/config/settings.py",
-      "name": "INBOUND_GLOBAL_POLICY",
       "public": true
     },
     {

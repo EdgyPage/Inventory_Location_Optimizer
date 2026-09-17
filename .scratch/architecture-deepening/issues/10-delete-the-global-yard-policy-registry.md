@@ -1,7 +1,7 @@
 # 10 - delete the global yard policy registry
 
 Type: debt
-Status: needs-triage
+Status: resolved
 Blocked by: 09
 
 ## Context
@@ -56,3 +56,43 @@ the key-entry bound arithmetic is unreached -- decide separately whether that go
   `_apply_run_shape` tolerate the absent key rather than raising -- an archived run's spec carries
   it.
 - Gates 1, 2, 8, 10.
+
+## Answer -- RESOLVED (2026-09-16)
+
+`GLOBAL_POLICIES`, `global_key`, `INBOUND_GLOBAL_POLICY`, the `--inbound-global-policy` flag,
+the CONFIG key, the `Knob`, the `inbound_spec` entry, the driver kwarg and
+`TrailerTransit`'s now-unused `global_policy` parameter are all gone. v1's transit calls
+`_fifo_trailer` directly.
+
+### One correction to this ticket's reasoning
+
+It said the registry was "unreachable on the path anyone runs". That is true of the STANDING
+YARD, but not of the repo: `TrailerTransit` is still constructed in production, on the
+inbound-on / standing-yard-off branch (`strategy_runner.py:1782`), and it did read the
+registry. So the registry was reachable -- it simply could never hold a second entry, because
+`YardTransit` REPLACED the decision rather than deferring it and any value but `'fifo'` raised
+`KeyError`. One adapter, and no route by which a second could arrive.
+
+The deletion is the same either way; the argument for it is "a seam with one adapter that
+cannot gain another", not "dead code".
+
+### Kept, with reasons
+
+- **`LOCAL_POLICIES`** -- also single-entry, but the order items come off ONE trailer is a
+  plausible future axis and was never replaced by anything.
+- **`bounded_order`** -- its ORDERING branch (the permutation check) is load-bearing and
+  exercised by `test_bound_composes_bound_first_with_a_gain_entry`.
+- **`INBOUND_TRAILER_BOUND`** and the key-entry bound arithmetic -- `settings.py` records it as
+  "inert under fifo -- shipped for the interface, by decision". That is a standing decision of
+  the repo's, not an oversight, and this ticket is not the place to overturn it.
+
+### Verification
+
+`Tests/unit -k "not gpu"`: **2671 passed**, 1 skipped -- no test referenced the deleted
+registry. e2e + integration run separately because the toy run's profile is inbound-OFF
+(`--spec scheduler_ab`), so a digest would not have exercised `TrailerTransit` at all; that
+gap is worth knowing before anyone trusts a tiny-profile digest for an inbound change.
+
+An archived `run_spec.json` still carrying `inbound_global_policy` is harmless: the resume
+restore iterates `SPEC_KNOB_NAMES` and `_apply_run_shape` iterates `INBOUND_KEYS`, and the key
+is in neither, so it is ignored rather than re-applied.
