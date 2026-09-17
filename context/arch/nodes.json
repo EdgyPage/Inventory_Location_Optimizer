@@ -19743,14 +19743,6 @@
       "signature": null,
       "value_preview": "'singleton'"
     },
-    "Warehouse/inventory/inventory_common.py::LoadParams": {
-      "decorators": [
-        "dataclass"
-      ],
-      "doc": null,
-      "kind": "class",
-      "signature": ""
-    },
     "Warehouse/inventory/inventory_common.py::PUTAWAY_SOURCES": {
       "decorators": [],
       "doc": null,

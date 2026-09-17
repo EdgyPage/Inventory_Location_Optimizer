@@ -43828,14 +43828,6 @@
     },
     {
       "file": "Warehouse/inventory/inventory_common.py",
-      "id": "Warehouse/inventory/inventory_common.py::LoadParams",
-      "kind": "class",
-      "module": "Warehouse/inventory/inventory_common.py",
-      "name": "LoadParams",
-      "public": true
-    },
-    {
-      "file": "Warehouse/inventory/inventory_common.py",
       "id": "Warehouse/inventory/inventory_common.py::PUTAWAY_SOURCES",
       "kind": "const",
       "module": "Warehouse/inventory/inventory_common.py",

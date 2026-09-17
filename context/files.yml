@@ -6291,7 +6291,6 @@ files:
       - {name: "PUTAWAY_SOURCES", file: "Warehouse/inventory/inventory_common.py", kind: "const"}
       - {name: "PutawayItem", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "Placement", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
-      - {name: "LoadParams", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "WarehousePlan", file: "Warehouse/inventory/inventory_common.py", kind: "class"}
       - {name: "tier_ranks_for", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
       - {name: "binkey_of", file: "Warehouse/inventory/inventory_common.py", kind: "function"}
