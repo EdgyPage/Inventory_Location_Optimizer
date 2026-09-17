@@ -152,3 +152,13 @@ Reached when:
   acts on ADR-0003's own "may become a knob later". Neither reopens a ruling.
 - The six other `.scratch/` efforts. `architecture-drift` and `complexity-round` are the only ones
   still open, and this map touches each at exactly one named point.
+
+- **The toy run is byte-reproducible, and that is what makes the rest of this arc provable**
+  (2026-09-16). `smoketest.py --profile tiny` is 4.5 min at 12 workers and produces every
+  structural feature of a real run: 2 cells, both channels, all 34 arms, the `_frozen` level and
+  the what-if outputs -- 136 sim DBs across 4 leaves. Two HEAD-vs-HEAD runs digest **IDENTICAL**
+  on the comparable surface (136 arms, 2,584 table digests), and `run_digest.py --self-test`
+  detects planted 1e-9 float damage, so the instrument can fail. Every neutrality claim from here
+  costs one 4.5-minute run rather than an argument. Checked the run log directly rather than
+  trusting exit 0 (memory `pool-run-swallows-dead-arms`): zero Tracebacks, zero "produced no
+  data", zero "Config stage: 0 job(s)" across 4,714 lines.
