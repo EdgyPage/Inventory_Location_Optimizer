@@ -28,23 +28,26 @@ _SELECT = re.compile(r'\bSELECT\b.*\bFROM\b', re.S | re.I)
 #: (file, enclosing function) -> why this raw SQL stays raw.  Every entry must still exist
 #: (asserted below), so a refactor that removes one retires its exemption with it.
 _ALLOWED_RAW = {
-    ('Visualization/readers/base.py', 'run_meta'):
+    ('Visualization/readers/base.py', 'SqliteSimReader.run_meta'):
         'shape-following by design: the row IS the payload (ANY_COLUMNS in REQUIRES)',
-    ('Visualization/readers/base.py', 'sku_scores'):
+    ('Visualization/readers/base.py', 'SqliteSimReader.sku_scores'):
         'shape-following: output columns are the physical columns; scope is a json_each param',
-    ('Visualization/readers/base.py', '_log_start'):
+    ('Visualization/readers/base.py', 'SqliteSimReader._log_start'):
         'MIN(batch_id) doubles as the bin_log capability probe; memo shared with the fold',
-    ('Visualization/readers/base.py', '_state_from_spans'):
+    # The four records, extracted from `base.py` into one adapter per class (ticket 15). The
+    # reasons are the ones the private methods carried; what changed is that each now names a
+    # RECORD rather than a private method of a 1,150-line class.
+    ('Visualization/readers/state_sources.py', 'SpanIndexSource.state'):
         'algorithmic per-bin anchor fold over picks; scope fragment via _int_list',
-    ('Visualization/readers/base.py', '_state_from_log'):
+    ('Visualization/readers/state_sources.py', 'LogFoldSource.state'):
         'ordered log replay (EVICT/PLACE/picks); conditional tables gated on _has',
-    ('Visualization/readers/base.py', '_apply_picks_upto_t'):
-        'the intra-batch clock; shares the callers\' scope fragment',
-    ('Visualization/readers/base.py', '_state_from_keyframes'):
+    ('Visualization/readers/state_sources.py', 'KeyframeSource.state'):
         'depletion fold between keyframes',
-    ('Visualization/readers/base.py', '_state_without_keyframes'):
+    ('Visualization/readers/state_sources.py', 'ArchiveSource.state'):
         'archive-only bin_inventory last resort; ORDER BY batch_id, id is last-write-wins',
-    ('Visualization/readers/base.py', 'sku_series'):
+    ('Visualization/readers/state_sources.py', 'StateSource._apply_picks_upto_t'):
+        'the intra-batch clock; shares the callers\' scope fragment',
+    ('Visualization/readers/base.py', 'SqliteSimReader.sku_series'):
         'cache side is shape-following SELECT *; scope is a json_each param',
     ('Visualization/db_reader.py', '_read_run_meta'):
         'tolerant identity probe over files of ANY vintage, including ones then skipped',
@@ -76,19 +79,29 @@ def _rel(path):
 
 
 def _functions_with_raw_sql(path):
-    """[(qualname, has_composed_marker)] for every function holding a raw SELECT literal."""
+    """Every function holding a raw SELECT literal, as `Class.method` or a bare name.
+
+    QUALNAMES since ticket 15: the four `state_sources` adapters all implement `state`, and a
+    name-keyed allowlist would fold them into one entry -- after which a fifth source with new
+    raw SQL is invisible. The class prefix also says WHICH record an entry is about.
+    """
     with open(path, encoding='utf-8') as fh:
         src = fh.read()
-    tree = ast.parse(src)
     out = []
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        for sub in ast.walk(node):
-            if (isinstance(sub, ast.Constant) and isinstance(sub.value, str)
-                    and _SELECT.search(sub.value)):
-                out.append(node.name)
-                break
+
+    def walk(node, prefix):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.ClassDef):
+                walk(child, f'{prefix}{child.name}.')
+            elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if any(isinstance(sub, ast.Constant) and isinstance(sub.value, str)
+                       and _SELECT.search(sub.value) for sub in ast.walk(child)):
+                    out.append(f'{prefix}{child.name}')
+                walk(child, prefix)          # nested defs keep the enclosing class prefix
+            else:
+                walk(child, prefix)
+
+    walk(ast.parse(src), '')
     return out
 
 
@@ -137,6 +150,6 @@ def test_server_contains_no_sql():
 
 
 def test_the_scan_is_not_vacuous():
-    assert ('Visualization/readers/base.py', '_state_from_log') in {
+    assert ('Visualization/readers/state_sources.py', 'LogFoldSource.state') in {
         (_rel(p), f) for p in _py_files() for f in _functions_with_raw_sql(p)}, (
         'the sweep no longer sees the log fold — its pattern rotted')

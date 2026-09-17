@@ -40,6 +40,8 @@ from Optimization.persistence.checkpoint_buffer import write_rows
 from Optimization.persistence.Warehouse_Data import init_warehouse_db, save_aisle_layout
 from Visualization.cache_schema import SPAN_SOURCE_KEYFRAME, SPAN_SOURCE_LOG
 from Visualization.db_reader import RunRef
+from Visualization.readers.state_sources import (
+    SOURCES, ArchiveSource, KeyframeSource, LogFoldSource, SpanIndexSource)
 from Visualization.precompute import build_one
 
 N_SKUS = 200
@@ -410,3 +412,158 @@ def test_without_the_log_a_keyframe_batch_is_still_exact(crippled, run):
     state = arm.reader().state_at(KEYFRAME_INTERVAL)
     assert state['exact'] is True
     assert _bins(state) == run['frames'][KEYFRAME_INTERVAL][1]
+
+
+# ── the four records, each driven DIRECTLY ────────────────────────────────────────
+#
+# Until ticket 15 only the COMPOSITE was tested, and only indirectly: `state_at` picked a record
+# by an if-chain and the tests asserted the frame, so which record answered was never named. Each
+# one is now a class with one method, and these drive them one at a time against the same real
+# run -- so "the log fold is exact" is an assertion about the log fold rather than about whatever
+# `state_at` happened to reach.
+
+def test_the_span_index_answers_only_when_the_sidecar_holds_the_batch(run):
+    """The record that made `available()` impossible to write: the index can EXIST and still not
+    answer for a batch, which is why a source's one question is `state() is None`."""
+    reader = run['arm'].reader()
+    assert reader.cache_status() != 'absent', 'the fixture has no sidecar; this proves nothing'
+    src = SpanIndexSource(reader)
+    for batch, after_reorders, _f, _m in run['frames']:
+        state = src.state(batch, None, None)
+        assert state is not None, f'the sidecar holds batch {batch} and the record declined it'
+        assert state['exact'] is True
+        assert _bins(state) == after_reorders, f'span index, batch {batch}'
+
+    # Past the end of the cached run there is no row, and the record says so rather than
+    # asserting an exact empty warehouse.
+    assert src.state(N_BATCHES + 50, None, None) is None
+
+
+def test_the_log_fold_is_exact_at_every_batch_with_no_sidecar_at_all(run):
+    """The second record, alone. `_ref(tag='absent')` gives a reader whose sidecar does not
+    exist, so `SpanIndexSource` would decline and this is what carries the frame."""
+    bare = _ref(run['root'], run['sim_db'], run['wh_db'], run['kf_db'], run['run_id'],
+                tag='absent')
+    reader = bare.reader()
+    assert SpanIndexSource(reader).state(0, None, None) is None, 'the sidecar is not absent'
+    src = LogFoldSource(reader)
+    for batch, after_reorders, _f, _m in run['frames']:
+        state = src.state(batch, None, None)
+        assert state is not None, f'the log fold declined batch {batch}'
+        assert state['exact'] is True and _bins(state) == after_reorders, f'log fold, batch {batch}'
+
+
+def test_the_keyframe_record_is_exact_AT_a_keyframe_and_says_so_between(run):
+    """The third record's whole contract: exact at a keyframe batch, depletion-exact but
+    restock-blind between -- reported in `exact` and `note` rather than hidden."""
+    reader = run['arm'].reader()
+    kfs = reader.keyframe_batches()
+    assert kfs == [0, 5], kfs
+    src = KeyframeSource(reader)
+
+    at_kf = src.state(5, None, None)
+    assert at_kf['exact'] is True and at_kf['keyframe'] == 5 and at_kf['note'] == ''
+
+    between = src.state(7, None, None)
+    assert between['exact'] is False, 'a non-keyframe batch reported itself as exact'
+    assert between['keyframe'] == 5
+    assert 'not represented' in between['note'], between['note']
+
+
+def test_the_archive_record_answers_unconditionally(run):
+    """THE CONTRACT `state_at`'s LOOP RESTS ON. The terminal source must never return None --
+    a run with no record at all gets a frame whose `note` says so, because that is renderable
+    and a None falling out of the loop is not."""
+    reader = run['arm'].reader()
+    state = ArchiveSource(reader).state(3, None, None)
+    assert state is not None
+    # This fixture carries no `bin_inventory` (it is archive-only and no longer written), so the
+    # record takes its own absent branch -- which is the branch that must not raise.
+    assert state['exact'] is False
+    assert 'no spatial record' in state['note'] or 'no keyframes' in state['note'], state['note']
+
+
+def test_state_at_returns_the_FIRST_record_that_answers(run):
+    """The ORDER is the policy, and this is the only test that can see it.
+
+    Driven directly, the sources are asked in `SOURCES` order; `state_at` must return what the
+    first non-None one returns. An if-chain made this a property of a method body.
+    """
+    reader = run['arm'].reader()
+    for batch, _a, _f, _m in run['frames']:
+        first = next(s for s in (src(reader).state(batch, None, None) for src in SOURCES)
+                     if s is not None)
+        assert _bins(reader.state_at(batch)) == _bins(first), f'batch {batch}'
+
+
+def test_the_source_order_is_pinned(run):
+    """Reordering `SOURCES` changes which record a run with more than one gets -- a behaviour
+    change, not tidying. Pinned as a literal so it is a deliberate edit with a reason."""
+    assert [s.__name__ for s in SOURCES] == [
+        'SpanIndexSource', 'LogFoldSource', 'KeyframeSource', 'ArchiveSource']
+
+
+def test_the_records_are_not_all_the_same_record(run):
+    """NON-VACUITY for everything above: if two sources returned identical frames for every
+    batch, every assertion here would hold with the seam removed."""
+    reader = run['arm'].reader()
+    spans = SpanIndexSource(reader).state(7, None, None)
+    keyfr = KeyframeSource(reader).state(7, None, None)
+    assert spans is not None and keyfr is not None
+    assert spans['exact'] != keyfr['exact'], (
+        'the span index and the keyframe record agree on exactness at a non-keyframe batch; '
+        'the fixture no longer distinguishes them')
+
+
+# ── the public reader methods that had no behavioural test ────────────────────────
+#
+# `test_viewer_protocol_conformance.py` is the only file importing `SqliteSimReader` directly
+# and it never opens a database -- reflection only. These six reached coverage indirectly or not
+# at all; they ride the fixture that is already here.
+
+def test_run_meta_returns_the_row_as_the_payload(run):
+    meta = run['arm'].reader().run_meta()
+    assert isinstance(meta, dict) and meta, 'run_meta returned nothing'
+    assert int(meta.get('run_id', run['run_id'])) == run['run_id']
+
+
+def test_batch_index_covers_the_run(run):
+    idx = run['arm'].reader().batch_index()
+    assert idx, 'batch_index is empty'
+    assert len(idx) == N_BATCHES, f'{len(idx)} entries for {N_BATCHES} batches'
+
+
+def test_aisle_geometry_describes_the_warehouse_the_frames_sit_in(run):
+    geo = run['arm'].reader().aisle_geometry()
+    assert geo, 'aisle_geometry is empty'
+    aisles = {int(a) for b in run['frames'][0][1] for a in (b[0],)}
+    known = {int(g['aisle_id']) if isinstance(g, dict) else int(g[0]) for g in geo}
+    assert aisles <= known, f'frames reference aisles the geometry does not describe: {aisles - known}'
+
+
+def test_aisle_state_is_the_scoped_frame(run):
+    """`aisle_state` is `state_at` scoped to one aisle -- the scoped and full frames must agree
+    on that aisle, which is the property a scope bug breaks silently."""
+    reader = run['arm'].reader()
+    batch, truth, _f, _m = run['frames'][-1]
+    aisle = next(iter({k[0] for k in truth}))
+    scoped = reader.aisle_state(batch, aisle)
+    full = {k: v for k, v in _bins(reader.state_at(batch)).items() if k[0] == aisle}
+    assert _bins(scoped) == full, _diff(_bins(scoped), full)
+
+
+def test_sku_scores_and_bin_scores_do_not_raise_on_a_run_without_them(run):
+    """Both are shape-following reads over tables this fixture never writes. The contract is
+    that an absent optional table is an empty answer, not `no such table` three layers up."""
+    reader = run['arm'].reader()
+    # The shapes differ (`sku_scores` is keyed, `bin_scores` is a sequence) and that is not what
+    # is under test: what matters is that an absent optional table is an EMPTY answer rather
+    # than `no such table` surfacing at a caller three layers up.
+    for got in (reader.sku_scores(0), reader.bin_scores(0)):
+        assert isinstance(got, (dict, list, tuple)), type(got)
+        # `bin_scores` answers with a structured envelope (`layout` / `map_pref` / `has_map`)
+        # and `sku_scores` with a bare mapping, so "empty" is about the PAYLOADS rather than the
+        # container: no score data, and no exception reaching the caller.
+        payloads = list(got.values()) if isinstance(got, dict) else [got]
+        assert not any(p for p in payloads if isinstance(p, (dict, list, tuple))), (
+            f'this fixture writes no scores; got {got!r}')

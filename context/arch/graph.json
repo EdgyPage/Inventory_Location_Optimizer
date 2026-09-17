@@ -16486,6 +16486,11 @@
       "src": "Visualization/readers/base.py"
     },
     {
+      "dst": "Visualization/readers/state_sources.py",
+      "kind": "imports",
+      "src": "Visualization/readers/base.py"
+    },
+    {
       "dst": "Schema/compat.py::Requires",
       "kind": "calls",
       "src": "Visualization/readers/base.py::REQUIRES"
@@ -16504,11 +16509,6 @@
       "dst": "Schema/compat.py::Requires",
       "kind": "calls",
       "src": "Visualization/readers/base.py::REQUIRES_WAREHOUSE"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_deplete",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader.cache_status",
@@ -16589,151 +16589,6 @@
       "dst": "Visualization/readers/base.py::_composed_sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader._sql"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_state",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader.keyframe_batches",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_deplete",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_int_list",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._has",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._has_col",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_state",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._log_start",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_deplete",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_int_list",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_log"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_at_or_before",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._keyframe_state",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._span_index",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_deplete",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_int_list",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_from_spans"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._pending_restocks",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_int_list",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes"
-    },
-    {
-      "dst": "Visualization/readers/base.py::_ro",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes"
     },
     {
       "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
@@ -16951,21 +16806,6 @@
       "src": "Visualization/readers/base.py::SqliteSimReader.sku_series"
     },
     {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._state_from_log",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
-    },
-    {
-      "dst": "Visualization/readers/base.py::SqliteSimReader._state_from_spans",
-      "kind": "calls",
-      "src": "Visualization/readers/base.py::SqliteSimReader.state_at"
-    },
-    {
       "dst": "Visualization/readers/base.py::SqliteSimReader._sql",
       "kind": "calls",
       "src": "Visualization/readers/base.py::SqliteSimReader.tasks"
@@ -17034,6 +16874,91 @@
       "dst": "Visualization/readers/base.py",
       "kind": "imports",
       "src": "Visualization/readers/sim_2026_07.py"
+    },
+    {
+      "dst": "Visualization/readers/base.py",
+      "kind": "imports",
+      "src": "Visualization/readers/state_sources.py"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::ArchiveSource.state"
+    },
+    {
+      "dst": "Visualization/readers/state_sources.py::StateSource._scope",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::ArchiveSource.state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::KeyframeSource.state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::KeyframeSource.state"
+    },
+    {
+      "dst": "Visualization/readers/state_sources.py::StateSource._apply_picks_upto_t",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::KeyframeSource.state"
+    },
+    {
+      "dst": "Visualization/readers/state_sources.py::StateSource._scope",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::KeyframeSource.state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::LogFoldSource.state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::LogFoldSource.state"
+    },
+    {
+      "dst": "Visualization/readers/state_sources.py::StateSource._apply_picks_upto_t",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::LogFoldSource.state"
+    },
+    {
+      "dst": "Visualization/readers/state_sources.py::StateSource._scope",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::LogFoldSource.state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::SpanIndexSource.state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_ro",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::SpanIndexSource.state"
+    },
+    {
+      "dst": "Visualization/readers/state_sources.py::StateSource._apply_picks_upto_t",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::SpanIndexSource.state"
+    },
+    {
+      "dst": "Visualization/readers/state_sources.py::StateSource._scope",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::SpanIndexSource.state"
+    },
+    {
+      "dst": "Visualization/readers/base.py::_deplete",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::StateSource._apply_picks_upto_t"
+    },
+    {
+      "dst": "Visualization/readers/state_sources.py::_int_list",
+      "kind": "calls",
+      "src": "Visualization/readers/state_sources.py::StateSource._scope"
     },
     {
       "dst": "Optimization/config/sim_config.py",
@@ -41454,14 +41379,6 @@
     },
     {
       "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "_apply_picks_upto_t",
-      "public": false
-    },
-    {
-      "file": "Visualization/readers/base.py",
       "id": "Visualization/readers/base.py::SqliteSimReader._cache_conn",
       "kind": "function",
       "module": "Visualization/readers/base.py",
@@ -41538,38 +41455,6 @@
       "kind": "function",
       "module": "Visualization/readers/base.py",
       "name": "_sql",
-      "public": false
-    },
-    {
-      "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "_state_from_keyframes",
-      "public": false
-    },
-    {
-      "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader._state_from_log",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "_state_from_log",
-      "public": false
-    },
-    {
-      "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader._state_from_spans",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "_state_from_spans",
-      "public": false
-    },
-    {
-      "file": "Visualization/readers/base.py",
-      "id": "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes",
-      "kind": "function",
-      "module": "Visualization/readers/base.py",
-      "name": "_state_without_keyframes",
       "public": false
     },
     {
@@ -42027,6 +41912,142 @@
       "module": "Visualization/readers/sim_2026_07.py",
       "name": "Sim2026_07Reader",
       "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py",
+      "kind": "module",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "Visualization.readers.state_sources",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::ArchiveSource",
+      "kind": "class",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "ArchiveSource",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::ArchiveSource.state",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "state",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::KeyframeSource",
+      "kind": "class",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "KeyframeSource",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::KeyframeSource.state",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "state",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::LogFoldSource",
+      "kind": "class",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "LogFoldSource",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::LogFoldSource.state",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "state",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::SpanIndexSource",
+      "kind": "class",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "SpanIndexSource",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::SpanIndexSource.state",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "state",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::StateSource",
+      "kind": "class",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "StateSource",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::StateSource.__init__",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::StateSource.__repr__",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "__repr__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::StateSource._apply_picks_upto_t",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "_apply_picks_upto_t",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::StateSource._scope",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "_scope",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::StateSource.state",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "state",
+      "public": true
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::__all__",
+      "kind": "const",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "__all__",
+      "public": false
+    },
+    {
+      "file": "Visualization/readers/state_sources.py",
+      "id": "Visualization/readers/state_sources.py::_int_list",
+      "kind": "function",
+      "module": "Visualization/readers/state_sources.py",
+      "name": "_int_list",
+      "public": false
     },
     {
       "file": "Visualization/server.py",

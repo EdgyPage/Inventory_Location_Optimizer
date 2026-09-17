@@ -17652,13 +17652,6 @@
       "kind": "function",
       "signature": "(self, sim_db: str, warehouse_db: str, run_id: int, keyframe_db: str='', viz_cache: str='', schema_id: str='', schema_source: str='', warehouse_schema_id: str | None=None, keyframe_schema_id: str | None=None)"
     },
-    "Visualization/readers/base.py::SqliteSimReader._apply_picks_upto_t": {
-      "decorators": [],
-      "doc": "Subtract batch `batch`'s own picks up to sim_time `t`.  No-op when `t` is None.\n\nThis is the intra-batch clock: `picks.sim_time` is the finest resolution the record has,\nand it is unaffected by the log (restocks carry no sub-batch time \u2014 `check_reorders()`\nruns entirely between two batches' simulations).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, con, bins: dict, batch: int, t, scope: str) -> None"
-    },
     "Visualization/readers/base.py::SqliteSimReader._cache_conn": {
       "decorators": [],
       "doc": "An open sidecar connection, or None when there is nothing trustworthy to read.",
@@ -17728,34 +17721,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, family: str, name: str) -> str"
-    },
-    "Visualization/readers/base.py::SqliteSimReader._state_from_keyframes": {
-      "decorators": [],
-      "doc": "The pre-log frame: nearest keyframe below, minus the picks since.\n\nExact when `batch` IS a keyframe batch.  Otherwise depletion-exact but missing the\nrestocks of the batches in between, which is reported rather than hidden.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, batch: int, aisles: list[int] | None=None, t: float | None=None) -> dict"
-    },
-    "Visualization/readers/base.py::SqliteSimReader._state_from_log": {
-      "decorators": [],
-      "doc": "The frame folded live from `bin_placement` + `bin_eviction` + `picks`.\n\nUsed when the run HAS a log but no fresh sidecar. The nearest keyframe is the base and\nthe log carries it forward, so the work is bounded by the keyframe interval. With no\nkeyframe below, an empty warehouse is the base \u2014 valid only when the log starts at batch\n0, i.e. it recorded the initial fill; a resumed run whose log starts later cannot be\nanchored and falls through.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, batch: int, aisles, t) -> dict | None"
-    },
-    "Visualization/readers/base.py::SqliteSimReader._state_from_spans": {
-      "decorators": [],
-      "doc": "The frame from the sidecar's log-built span index. None = no such index.\n\nThe span gives the bin's SKU and the qty it was filled with at `t_from`; the qty NOW is\nthat minus the picks since.  A keyframe at or below `batch` is used as the qty anchor\nwhenever one exists \u2014 not for correctness, but to bound the pick scan to one keyframe\ninterval instead of the whole run.  Without keyframes the answer is the same, read from\na longer range.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, batch: int, aisles, t) -> dict | None"
-    },
-    "Visualization/readers/base.py::SqliteSimReader._state_without_keyframes": {
-      "decorators": [],
-      "doc": "Last-resort path: an ARCHIVED run written with keyframe_interval=0.\n\nStill reachable, and not dead code: it is the only record such an arm has.  A run from\nthis build never lands here twice over \u2014 it has a log, so `_state_from_log` folds it from\nan empty warehouse exactly, and `bin_inventory` is not even in its schema.\n\n`bin_inventory` (archive-only; no longer written) holds one full snapshot at the run's\nFIRST batch \u2014 not necessarily 0 on a resumed run \u2014 and depletion-only deltas after it.\nOrdering is by `batch_id, id`: the loop is last-write-wins and a bin can receive rows\nfrom two branches in one batch, so `batch_id` alone is not a total order.\n\nThe table's ABSENCE is a normal outcome, not an error: it means the file is new enough\nto have no such record and old enough (keyframe_interval=0) to have no keyframe either.\nSay so, rather than raising `no such table` at a caller three layers up.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, batch: int, aisles, t) -> dict"
     },
     "Visualization/readers/base.py::SqliteSimReader.aisle_geometry": {
       "decorators": [],
@@ -17871,7 +17836,7 @@
     },
     "Visualization/readers/base.py::SqliteSimReader.state_at": {
       "decorators": [],
-      "doc": "Occupied bins at (batch, t).\n\nTries the three records in cost order \u2014 cached span index, live log fold, keyframe \u2014\nand returns the first that can answer.  The first two are exact at EVERY batch; the\nthird is exact only AT a keyframe and says so.",
+      "doc": "Occupied bins at (batch, t).\n\nTries the FOUR records in cost order \u2014 cached span index, live log fold, keyframe,\narchived `bin_inventory` \u2014 and returns the first that can answer.  The first two are\nexact at EVERY batch; the last two are exact only at a batch they have a snapshot for,\nand each says so in its own `note`.\n\nThis was an if-chain over four private methods of this class, with the FOURTH reached\nfrom inside the third \u2014 so \"which records can answer for this run\" was a question you\nanswered by reading a method body.  The list is `state_sources.SOURCES` now, in cost\norder, and this is a loop over it (ticket 15).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, batch: int, aisles: list[int] | None=None, t: float | None=None) -> dict"
@@ -18150,6 +18115,121 @@
       "doc": "The current vetted reader.  All behaviour is inherited; this fixes the identity.",
       "kind": "class",
       "signature": "(SqliteSimReader)"
+    },
+    "Visualization/readers/state_sources.py": {
+      "decorators": [],
+      "doc": "state_sources \u2014 the four records `state_at` tries, behind one interface.\n\n`SqliteSimReader.state_at` was a hard-coded if-chain over four private methods of a 1,150-line\nclass, each writing its own SQL against physical tables:\n\n    state = self._state_from_spans(...)                 # the sidecar's log-built span index\n    if state is None: state = self._state_from_log(...)  # the live bin_placement/eviction fold\n    if state is None: state = self._state_from_keyframes(...)\n                              (+ _state_without_keyframes, reached from INSIDE the third)\n\nFour implementations of one contract (`RECONSTRUCTION.md` section 1) selected by an if-chain, with\nthe fourth hidden inside the third -- so \"which records can answer for this run\" was a question\nyou answered by reading a method body. `SOURCES` is that list, in cost order, and `state_at` is a\nloop over it.\n\n## `available()` IS NOT PART OF THE INTERFACE, and that is deliberate\n\nTicket 15 asks for `available(reader) -> bool` beside `state(...) -> dict`. Two questions where\none suffices -- and worse, two that cannot be kept in agreement: `SpanIndexSource` has a sidecar\nindex (so it is \"available\") and still returns None when that index holds no row for THIS batch,\nwhich the original method does today and must keep doing. An `available()` that said True there\nwould be wrong; one that opened the index to find out would do the query twice.\n\nSo a source answers exactly once: a frame, or `None` meaning \"ask the next one\". The ORDER is the\npolicy, and it lives in `SOURCES` rather than in a chain of `if state is None`.\n\n## The last source must answer\n\n`ArchiveSource` never returns None -- when it has no record either, it returns a frame whose\n`note` says so, because \"this run carries no spatial record at all\" is an answer a viewer can\nrender and a `None` falling out of the loop is not. `state_at` asserts that rather than trusting\nit.\n\n## Why one module and not four\n\nTicket 15 says \"one per adapter module\". These four share a base, a helper\n(`_apply_picks_upto_t`), and an ORDERING that only means anything when they are read together --\nsplitting them puts the ordered tuple in a fifth file that imports the other four. One module\nholding an interface, its adapters and the table naming them is the shape `checkpoint_buffer.py`\nand `leaf_scope.py` already use in this codebase.",
+      "kind": "module",
+      "signature": null
+    },
+    "Visualization/readers/state_sources.py::ArchiveSource": {
+      "decorators": [],
+      "doc": "Last-resort path: an ARCHIVED run written with keyframe_interval=0.  NEVER returns None.\n\nStill reachable, and not dead code: it is the only record such an arm has.  A run from this\nbuild never lands here twice over -- it has a log, so `LogFoldSource` folds it from an empty\nwarehouse exactly, and `bin_inventory` is not even in its schema.\n\n`bin_inventory` (archive-only; no longer written) holds one full snapshot at the run's FIRST\nbatch -- not necessarily 0 on a resumed run -- and depletion-only deltas after it.  Ordering\nis by `batch_id, id`: the loop is last-write-wins and a bin can receive rows from two\nbranches in one batch, so `batch_id` alone is not a total order.\n\nThe table's ABSENCE is a normal outcome, not an error: it means the file is new enough to have\nno such record and old enough (keyframe_interval=0) to have no keyframe either.  Say so,\nrather than raising `no such table` at a caller three layers up -- which is also why this\nsource answers unconditionally and `state_at`'s loop can rely on a frame coming back.",
+      "kind": "class",
+      "signature": "(StateSource)"
+    },
+    "Visualization/readers/state_sources.py::ArchiveSource.state": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int, aisles, t) -> dict"
+    },
+    "Visualization/readers/state_sources.py::KeyframeSource": {
+      "decorators": [],
+      "doc": "The pre-log frame: nearest keyframe below, minus the picks since.\n\nExact when `batch` IS a keyframe batch.  Otherwise depletion-exact but missing the restocks\nof the batches in between, which is reported rather than hidden.",
+      "kind": "class",
+      "signature": "(StateSource)"
+    },
+    "Visualization/readers/state_sources.py::KeyframeSource.state": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int, aisles, t) -> dict | None"
+    },
+    "Visualization/readers/state_sources.py::LogFoldSource": {
+      "decorators": [],
+      "doc": "The frame folded live from `bin_placement` + `bin_eviction` + `picks`.\n\nUsed when the run HAS a log but no fresh sidecar. The nearest keyframe is the base and the\nlog carries it forward, so the work is bounded by the keyframe interval. With no keyframe\nbelow, an empty warehouse is the base -- valid only when the log starts at batch 0, i.e. it\nrecorded the initial fill; a resumed run whose log starts later cannot be anchored and falls\nthrough.",
+      "kind": "class",
+      "signature": "(StateSource)"
+    },
+    "Visualization/readers/state_sources.py::LogFoldSource.state": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int, aisles, t) -> dict | None"
+    },
+    "Visualization/readers/state_sources.py::SpanIndexSource": {
+      "decorators": [],
+      "doc": "The frame from the sidecar's log-built span index. None = no such index.\n\nThe span gives the bin's SKU and the qty it was filled with at `t_from`; the qty NOW is that\nminus the picks since.  A keyframe at or below `batch` is used as the qty anchor whenever one\nexists -- not for correctness, but to bound the pick scan to one keyframe interval instead of\nthe whole run.  Without keyframes the answer is the same, read from a longer range.",
+      "kind": "class",
+      "signature": "(StateSource)"
+    },
+    "Visualization/readers/state_sources.py::SpanIndexSource.state": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int, aisles, t) -> dict | None"
+    },
+    "Visualization/readers/state_sources.py::StateSource": {
+      "decorators": [],
+      "doc": "One way to reconstruct the occupied-bin frame at `(batch, t)`.\n\nHolds the reader rather than subclassing it: these are strategies over one file set, not\nkinds of reader, and the reader's own surface (`run_id`, `sim_db`, `_sql`, the keyframe\nhelpers) is what they read through.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Visualization/readers/state_sources.py::StateSource.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, reader) -> None"
+    },
+    "Visualization/readers/state_sources.py::StateSource.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Visualization/readers/state_sources.py::StateSource._apply_picks_upto_t": {
+      "decorators": [],
+      "doc": "Subtract batch `batch`'s own picks up to sim_time `t`.  No-op when `t` is None.\n\nThis is the intra-batch clock: `picks.sim_time` is the finest resolution the record has,\nand it is unaffected by the log (restocks carry no sub-batch time -- `check_reorders()`\nruns entirely between two batches' simulations).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, con, bins: dict, batch: int, t, scope: str) -> None"
+    },
+    "Visualization/readers/state_sources.py::StateSource._scope": {
+      "decorators": [
+        "staticmethod"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(aisles) -> str"
+    },
+    "Visualization/readers/state_sources.py::StateSource.state": {
+      "decorators": [],
+      "doc": "The frame, or None meaning \"I cannot answer; ask the next source\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, batch: int, aisles, t) -> dict | None"
+    },
+    "Visualization/readers/state_sources.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['StateSource', 'SpanIndexSource', 'LogFoldSource', 'KeyframeSource', 'ArchiveSource', 'SOURCES']"
+    },
+    "Visualization/readers/state_sources.py::_int_list": {
+      "decorators": [],
+      "doc": "`[1, 2]` -> `'1,2'` \u2014 ints only, so this cannot carry anything but numbers.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(aisles) -> str"
     },
     "Visualization/server.py": {
       "decorators": [],

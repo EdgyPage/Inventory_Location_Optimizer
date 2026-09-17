@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualization.readers.state_sources · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nVisualization_readers_state_sources_py" data-id="Visualization/readers/state_sources.py">
+<nav class="crumbs"><a href="../layers.html">visualization</a> <span class="sep">›</span> <span class="here"><code>Visualization/readers/state_sources.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Visualization.readers.state_sources</code></h1>
+<p class="meta">layer <span class="chip">visualization</span> · file <a href="../files/nVisualization_readers_state_sources_py.html"><code>Visualization/readers/state_sources.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>Visualization.readers.state_sources</code></pre>
+<section class="doc">state_sources — the four records `state_at` tries, behind one interface.
+
+`SqliteSimReader.state_at` was a hard-coded if-chain over four private methods of a 1,150-line
+class, each writing its own SQL against physical tables:
+
+    state = self._state_from_spans(...)                 # the sidecar&#x27;s log-built span index
+    if state is None: state = self._state_from_log(...)  # the live bin_placement/eviction fold
+    if state is None: state = self._state_from_keyframes(...)
+                              (+ _state_without_keyframes, reached from INSIDE the third)
+
+Four implementations of one contract (`RECONSTRUCTION.md` section 1) selected by an if-chain, with
+the fourth hidden inside the third -- so &quot;which records can answer for this run&quot; was a question
+you answered by reading a method body. `SOURCES` is that list, in cost order, and `state_at` is a
+loop over it.
+
+## `available()` IS NOT PART OF THE INTERFACE, and that is deliberate
+
+Ticket 15 asks for `available(reader) -&gt; bool` beside `state(...) -&gt; dict`. Two questions where
+one suffices -- and worse, two that cannot be kept in agreement: `SpanIndexSource` has a sidecar
+index (so it is &quot;available&quot;) and still returns None when that index holds no row for THIS batch,
+which the original method does today and must keep doing. An `available()` that said True there
+would be wrong; one that opened the index to find out would do the query twice.
+
+So a source answers exactly once: a frame, or `None` meaning &quot;ask the next one&quot;. The ORDER is the
+policy, and it lives in `SOURCES` rather than in a chain of `if state is None`.
+
+## The last source must answer
+
+`ArchiveSource` never returns None -- when it has no record either, it returns a frame whose
+`note` says so, because &quot;this run carries no spatial record at all&quot; is an answer a viewer can
+render and a `None` falling out of the loop is not. `state_at` asserts that rather than trusting
+it.
+
+## Why one module and not four
+
+Ticket 15 says &quot;one per adapter module&quot;. These four share a base, a helper
+(`_apply_picks_upto_t`), and an ORDERING that only means anything when they are read together --
+splitting them puts the ordered tuple in a fifth file that imports the other four. One module
+holding an interface, its adapters and the table naming them is the shape `checkpoint_buffer.py`
+and `leaf_scope.py` already use in this codebase.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nVisualization_readers_base_py.html"><code>Visualization.readers.base</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nVisualization_readers_base_py.html"><code>Visualization.readers.base</code></a> <span class="dim">Visualization/readers/base.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(16)</span></h2><ul><li><a href="nVisualization_readers_state_sources_py__ArchiveSource.html"><code>ArchiveSource</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__KeyframeSource.html"><code>KeyframeSource</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__LogFoldSource.html"><code>LogFoldSource</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__SpanIndexSource.html"><code>SpanIndexSource</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__StateSource.html"><code>StateSource</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py____all__.html"><code>__all__</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__StateSource___init__.html"><code>__init__</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__StateSource___repr__.html"><code>__repr__</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__StateSource__apply_picks_upto_t.html"><code>_apply_picks_upto_t</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py___int_list.html"><code>_int_list</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__StateSource__scope.html"><code>_scope</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__ArchiveSource_state.html"><code>state</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__KeyframeSource_state.html"><code>state</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__LogFoldSource_state.html"><code>state</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__SpanIndexSource_state.html"><code>state</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li><li><a href="nVisualization_readers_state_sources_py__StateSource_state.html"><code>state</code></a> <span class="dim">Visualization/readers/state_sources.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nVisualization_readers_state_sources_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Visualization/readers/state_sources.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

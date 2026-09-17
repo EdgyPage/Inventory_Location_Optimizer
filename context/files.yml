@@ -2781,6 +2781,18 @@ files:
       - {name: "test_without_the_log_the_cache_falls_back_to_keyframes", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
       - {name: "test_without_the_log_a_non_keyframe_batch_is_wrong_AND_says_so", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
       - {name: "test_without_the_log_a_keyframe_batch_is_still_exact", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_span_index_answers_only_when_the_sidecar_holds_the_batch", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_log_fold_is_exact_at_every_batch_with_no_sidecar_at_all", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_keyframe_record_is_exact_AT_a_keyframe_and_says_so_between", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_archive_record_answers_unconditionally", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_state_at_returns_the_FIRST_record_that_answers", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_source_order_is_pinned", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_the_records_are_not_all_the_same_record", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_run_meta_returns_the_row_as_the_payload", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_batch_index_covers_the_run", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_aisle_geometry_describes_the_warehouse_the_frames_sit_in", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_aisle_state_is_the_scoped_frame", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
+      - {name: "test_sku_scores_and_bin_scores_do_not_raise_on_a_run_without_them", file: "Tests/integration/test_log_reconstruction.py", kind: "function"}
     notes: ""
   "Tests/integration/test_placement_pool_audit.py":
     purpose: "every shipped restock rule, classified."
@@ -6378,6 +6390,16 @@ files:
     layer: "visualization"
     key_symbols:
       - {name: "Sim2026_07Reader", file: "Visualization/readers/sim_2026_07.py", kind: "class"}
+    notes: ""
+  "Visualization/readers/state_sources.py":
+    purpose: "The four spatial-frame records `SqliteSimReader.state_at` tries, as one adapter each behind a single `state(batch, aisles, t) -> dict | None`, with SOURCES holding the cost ORDER that used to be an if-chain over four private methods of a 1,150-line class -- the fourth reached from INSIDE the third, so which records a run has was a question you answered by reading a method body. `available()` is deliberately NOT in the interface: a span index can exist and still decline a batch, so a source answers exactly once and the terminal ArchiveSource never returns None."
+    layer: "visualization"
+    key_symbols:
+      - {name: "StateSource", file: "Visualization/readers/state_sources.py", kind: "class"}
+      - {name: "SpanIndexSource", file: "Visualization/readers/state_sources.py", kind: "class"}
+      - {name: "LogFoldSource", file: "Visualization/readers/state_sources.py", kind: "class"}
+      - {name: "KeyframeSource", file: "Visualization/readers/state_sources.py", kind: "class"}
+      - {name: "ArchiveSource", file: "Visualization/readers/state_sources.py", kind: "class"}
     notes: ""
   "Visualization/server.py":
     purpose: "DB-backed replay & compare viewer."
